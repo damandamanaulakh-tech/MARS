@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Settings — Sourceborn AM07{% endblock %}
+{% block content %}
+<div class="text-xs tracking-widest text-ink-faint uppercase mb-3">CONFIG / EDITABLE</div>
+<div class="flex items-end justify-between mb-8">
+  <div>
+    <h1 class="font-black text-5xl tracking-tight">Strategy Settings</h1>
+    <p class="text-ink-soft mt-2">Tune capital, risk, and entry thresholds. Owner role required.</p>
+  </div>
+</div>
+
+{% if saved == 'ok' %}
+<div class="mb-6 px-4 py-3 border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm">✓ Saved.{% if db_status.connected %} Persisted to MongoDB.{% else %} (In-memory only — set MONGO_URL to persist.){% endif %}</div>
+{% elif saved == 'denied' %}
+<div class="mb-6 px-4 py-3 border border-red-200 bg-red-50 text-red-800 text-sm">Owner role required to save changes.</div>
+{% elif saved == 'reset' %}
+<div class="mb-6 px-4 py-3 border border-amber-200 bg-amber-50 text-amber-900 text-sm">⟳ All AM 07 + risk params reset to factory defaults. (Mode preserved.)</div>
+{% endif %}
+
+<!-- Persistence badge -->
+<div class="mb-6 flex items-center gap-2 text-xs tracking-widest text-ink-faint uppercase">
+  <span class="inline-block w-2 h-2 rounded-full {% if db_status.connected %}bg-emerald-500{% else %}bg-slate-400{% endif %}"></span>
+  Storage:
+  {% if db_status.connected %}MongoDB ({{ db_status.db }}){% else %}JSON on disk (Mongo offline){% endif %}
+</div>
+
+<form method="post" action="/settings" class="space-y-8">
+
+  <!-- MODE SELECTOR -->
+  <div class="bg-white border border-line">
+    <div class="px-6 py-4 border-b border-line flex items-center justify-between">
+      <div>
+        <div class="font-bold">Trading Mode</div>
+        <div class="text-xs text-ink-faint">Currently: <strong>{{ current_mode | upper }}</strong> &middot; switching mode resets all stop/target/holding presets</div>
+      </div>
+    </div>
+    <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-3">
+      {% for value, label, desc in modes %}
+      <label class="flex items-start gap-3 border border-line p-4 cursor-pointer
+                    {% if current_mode == value %}border-ink/80 bg-ink/[0.02]{% endif %}
+                    hover:border-ink/40">
+        <input type="radio" name="mode" value="{{ value }}"
+               {% if current_mode == value %}checked{% endif %}
+               class="mt-1">
+        <div>
+          <div class="font-bold tracking-wide uppercase text-sm">{{ label }}</div>
+          <div class="text-xs text-ink-faint mt-1">{{ desc }}</div>
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  {% for group, items in groups.items() %}
+  <div class="bg-white border border-line">
+    <div class="px-6 py-4 border-b border-line">
+      <div class="font-bold">{{ group }}</div>
+    </div>
+    <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+      {% for item in items %}
+      <div>
+        <label class="text-[10px] tracking-widest text-ink-faint uppercase border-t border-line pt-3 block">{{ item.label }}</label>
+        <input type="{{ item.type }}" step="{{ item.step }}" name="{{ item.name }}"
+               value="{{ item.value }}"
+               class="mt-2 w-full border-b border-line focus:border-ink outline-none py-2 text-base tabular-nums">
+        <div class="text-xs text-ink-faint mt-1">{{ item.hint }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <button type="submit"
+            class="px-6 py-3 bg-ink text-white font-semibold tracking-wide hover:bg-black">
+      SAVE CHANGES &rarr;
+    </button>
+    <button type="button"
+            onclick="document.getElementById('reset-form').requestSubmit()"
+            class="px-6 py-3 border border-line text-sm font-semibold tracking-wide text-ink-soft hover:border-amber-400 hover:text-amber-700">
+      ⟳ RESET TO DEFAULTS
+    </button>
+  </div>
+</form>
+<form id="reset-form" method="post" action="/settings/reset"
+      onsubmit="return confirm('Reset all AM 07 + risk parameters to factory defaults? Your trading mode stays the same.')">
+</form>
+{% endblock %}

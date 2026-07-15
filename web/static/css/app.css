@@ -1,0 +1,24 @@
+/* Sourceborn Stocks — extra utility overrides on top of Tailwind CDN. */
+
+html, body { font-feature-settings: "ss01" on, "cv11" on; }
+
+/* Make rupee numbers monospace-feel without using actual mono font */
+.tabular-nums { font-variant-numeric: tabular-nums; }
+
+/* Sidebar active-state inner border line */
+aside nav a.active { background: rgba(15, 23, 42, 0.05); }
+
+/* Lift the heavy-weight headings */
+h1, h2 { letter-spacing: -0.02em; }
+
+/* Buttons should not look "softened" by browser defaults */
+button { font-family: inherit; }
+
+/* Alpine.js cloak — hide x-cloak elements until Alpine binds */
+[x-cloak] { display: none !important; }
+
+/* Print-friendly */
+@media print {
+  aside, header { display: none !important; }
+  main { margin: 0 !important; }
+}

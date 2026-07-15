@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Closed Trades — Sourceborn AM07{% endblock %}
+{% block content %}
+<div class="text-xs tracking-widest text-ink-faint uppercase mb-3">PORTFOLIO / CLOSED TRADES</div>
+<div class="flex items-end justify-between mb-8">
+  <div>
+    <h1 class="font-black text-5xl tracking-tight">Closed Trades</h1>
+    <p class="text-ink-soft mt-2">{{ total }} trades · Win rate {{ win_rate | round(1) }}% · Net P&L ₹{{ net_total | inr }}</p>
+  </div>
+</div>
+
+<div class="grid grid-cols-3 gap-4 mb-8">
+  <div class="bg-white border border-line p-4">
+    <div class="text-[10px] tracking-widest text-ink-faint uppercase">WINS</div>
+    <div class="mt-2 font-black text-3xl">{{ wins }}</div>
+  </div>
+  <div class="bg-white border border-line p-4">
+    <div class="text-[10px] tracking-widest text-ink-faint uppercase">TOTAL TRADES</div>
+    <div class="mt-2 font-black text-3xl">{{ total }}</div>
+  </div>
+  <div class="bg-white border border-line p-4 {% if net_total >= 0 %}border-l-4 border-l-accent{% else %}border-l-4 border-l-red-500{% endif %}">
+    <div class="text-[10px] tracking-widest text-ink-faint uppercase">NET P&L</div>
+    <div class="mt-2 font-black text-3xl tabular-nums">₹{{ net_total | inr }}</div>
+  </div>
+</div>
+
+{% if rows %}
+<div class="bg-white border border-line">
+  <table class="w-full text-sm">
+    <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+      <tr>
+        <th class="text-left px-6 py-3">Ticker</th>
+        <th class="text-left px-6 py-3">Qty</th>
+        <th class="text-left px-6 py-3">Entry</th>
+        <th class="text-left px-6 py-3">Exit</th>
+        <th class="text-left px-6 py-3">Hold</th>
+        <th class="text-left px-6 py-3">Entry ₹</th>
+        <th class="text-left px-6 py-3">Exit ₹</th>
+        <th class="text-left px-6 py-3">Net P&L</th>
+        <th class="text-left px-6 py-3">Net %</th>
+        <th class="text-left px-6 py-3">Reason</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr class="border-b border-line last:border-0">
+        <td class="px-6 py-3 font-semibold">{{ r.ticker }}</td>
+        <td class="px-6 py-3 tabular-nums">{{ r.qty }}</td>
+        <td class="px-6 py-3 text-ink-soft">{{ r.entry_date }}</td>
+        <td class="px-6 py-3 text-ink-soft">{{ r.exit_date }}</td>
+        <td class="px-6 py-3 tabular-nums">{{ r.hold_days }}d</td>
+        <td class="px-6 py-3 tabular-nums">₹{{ r.entry_price | inr(2) }}</td>
+        <td class="px-6 py-3 tabular-nums">₹{{ r.exit_price | inr(2) }}</td>
+        <td class="px-6 py-3 tabular-nums {% if r.net_pnl >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}">
+          ₹{{ r.net_pnl | inr }}
+        </td>
+        <td class="px-6 py-3 tabular-nums">{{ r.net_pct | pct }}</td>
+        <td class="px-6 py-3 text-ink-soft uppercase text-xs tracking-widest">{{ r.reason }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="bg-white border border-line p-10 text-center text-ink-faint">
+  No closed trades yet — patience 🎉
+</div>
+{% endif %}
+{% endblock %}

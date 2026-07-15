@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Strategy Weights — Sourceborn AM07{% endblock %}
+{% block content %}
+<div class="text-xs tracking-widest text-ink-faint uppercase mb-3">STRATEGY / AM 07 WEIGHTS</div>
+<div class="flex items-end justify-between mb-8">
+  <div>
+    <h1 class="font-black text-5xl tracking-tight">Strategy Weights</h1>
+    <p class="text-ink-soft mt-2">
+      Active mode: <strong>{{ current_mode|upper }}</strong> ·
+      All weights sum to 100%. Each component scores 0-100 per stock.
+    </p>
+  </div>
+</div>
+
+<div class="bg-white border border-line mb-8">
+  <table class="w-full text-sm">
+    <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+      <tr>
+        <th class="text-left px-6 py-3">Component</th>
+        <th class="text-right px-6 py-3">Weight</th>
+        <th class="text-left px-6 py-3">What it measures</th>
+        <th class="text-left px-6 py-3">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr class="border-b border-line last:border-0 hover:bg-ink/[0.02]">
+        <td class="px-6 py-4 font-semibold">{{ r.component }}</td>
+        <td class="px-6 py-4 text-right tabular-nums font-bold">{{ "%.1f%%"|format(r.weight_pct) }}</td>
+        <td class="px-6 py-4 text-ink-soft">{{ r.description }}</td>
+        <td class="px-6 py-4">
+          <span class="text-xs tracking-widest uppercase font-semibold
+                       {% if 'live' in r.status %}text-emerald-700{% else %}text-amber-700{% endif %}">
+            {{ r.status }}
+          </span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if live_boosts %}
+<div class="bg-white border border-line p-6 mb-8">
+  <div class="font-bold mb-3">🇮🇳 Active policy boosts (PIB tracker, last 30 days)</div>
+  <table class="w-full text-sm">
+    <tbody>
+      {% for sector, boost in live_boosts.items() %}
+      <tr class="border-b border-line last:border-0">
+        <td class="py-2 font-semibold">{{ sector }}</td>
+        <td class="py-2 text-right text-emerald-700 font-bold tabular-nums">+{{ "%.0f"|format(boost) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="mt-3 text-xs text-ink-faint">
+    Sectors with recent PIB announcements get a score boost on
+    <code>sector_alignment</code>, capped at +30 per sector.
+  </div>
+</div>
+{% else %}
+<div class="bg-white border border-line p-6 mb-8 text-sm text-ink-faint">
+  No active policy boosts. Either PIB feed offline, or no relevant
+  announcements in the last 30 days.
+</div>
+{% endif %}
+
+<div class="bg-slate-50 border border-line p-6">
+  <div class="font-bold mb-2">How to change weights</div>
+  <p class="text-sm text-ink-soft">
+    Weights are mode-driven and editable from
+    <a href="/settings" class="text-ink underline">Settings → Trading Mode</a>.
+    Switching mode (intraday / short / swing / positional) re-applies the
+    preset weights instantly. To customise individual weights for your
+    active mode, edit <code>trading/modes.py</code> via Git and merge to main.
+  </p>
+</div>
+{% endblock %}

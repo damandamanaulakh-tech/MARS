@@ -1,0 +1,17 @@
+gradio
+huggingface_hub
+pypdf
+python-docx
+Pillow
+yfinance
+pandas
+numpy
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+itsdangerous
+pymongo
+apscheduler
+pytz
+httpx

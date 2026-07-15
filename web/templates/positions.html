@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}Open Positions — Sourceborn AM07{% endblock %}
+{% block content %}
+<div class="text-xs tracking-widest text-ink-faint uppercase mb-3">PORTFOLIO / OPEN POSITIONS</div>
+<div class="flex items-end justify-between mb-8" x-data="{ adding: false }">
+  <div>
+    <h1 class="font-black text-5xl tracking-tight">Open Positions</h1>
+    <p class="text-ink-soft mt-2">
+      {{ rows | length }} of {{ max_positions }} max slots in use.
+    </p>
+  </div>
+  <div class="flex gap-2">
+    <form action="/positions/seed-mine" method="post">
+      <button class="px-4 py-2 border border-line text-sm font-semibold tracking-wide hover:bg-ink/[0.03]"
+              title="Adds the {{ seed_count }} June-2026 holdings (idempotent — won't duplicate)">
+        🌱 SEED MY HOLDINGS
+      </button>
+    </form>
+    <button @click="adding = !adding"
+            class="px-4 py-2 bg-ink text-white text-sm font-semibold tracking-wide hover:bg-black">
+      + ADD MANUAL
+    </button>
+  </div>
+
+  <div x-show="adding" x-cloak
+       class="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+       @click.self="adding = false">
+    <div class="bg-white border border-line p-6 w-[480px]">
+      <div class="font-bold text-lg mb-1">Add manual position</div>
+      <div class="text-xs text-ink-faint mb-4">Use this for real holdings you want to track alongside paper trades.</div>
+      <form action="/positions/new" method="post" class="space-y-3 text-sm">
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block">
+            <span class="text-[10px] tracking-widest text-ink-faint uppercase">Ticker</span>
+            <input name="ticker" required placeholder="HDFCBANK.NS"
+                   class="w-full border border-line p-2 mt-1">
+          </label>
+          <label class="block">
+            <span class="text-[10px] tracking-widest text-ink-faint uppercase">Qty</span>
+            <input name="qty" type="number" step="1" min="1" required
+                   class="w-full border border-line p-2 mt-1">
+          </label>
+          <label class="block">
+            <span class="text-[10px] tracking-widest text-ink-faint uppercase">Entry ₹</span>
+            <input name="entry_price" type="number" step="0.01" min="0.01" required
+                   class="w-full border border-line p-2 mt-1">
+          </label>
+          <label class="block">
+            <span class="text-[10px] tracking-widest text-ink-faint uppercase">Entry Date</span>
+            <input name="entry_date" type="date" required
+                   class="w-full border border-line p-2 mt-1">
+          </label>
+          <label class="block">
+            <span class="text-[10px] tracking-widest text-ink-faint uppercase">Sector</span>
+            <input name="sector" placeholder="auto-detected"
+                   class="w-full border border-line p-2 mt-1">
+          </label>
+          <label class="block">
+            <span class="text-[10px] tracking-widest text-ink-faint uppercase">Tags</span>
+            <input name="tags" placeholder="real_holding, sip"
+                   class="w-full border border-line p-2 mt-1">
+          </label>
+        </div>
+        <label class="block">
+          <span class="text-[10px] tracking-widest text-ink-faint uppercase">Notes</span>
+          <textarea name="entry_notes" rows="2" placeholder="Why I bought..."
+                    class="w-full border border-line p-2 mt-1"></textarea>
+        </label>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" @click="adding = false"
+                  class="px-4 py-2 border border-line text-xs font-semibold tracking-widest uppercase">Cancel</button>
+          <button class="px-4 py-2 bg-ink text-white text-xs font-semibold tracking-widest uppercase">Add Position</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% if seeded %}
+<div class="bg-emerald-50 border border-emerald-300 text-emerald-900 p-3 mb-4 text-sm">
+  Seeded <strong>{{ seeded }}</strong> position(s) from June-2026 holdings.
+  {% if seeded == "0" %}<span class="text-emerald-800">(All already present — nothing to add.)</span>{% endif %}
+</div>
+{% endif %}
+{% if error %}
+<div class="bg-red-50 border border-red-300 text-red-900 p-3 mb-4 text-sm">Error: <strong>{{ error }}</strong></div>
+{% endif %}
+
+{% if rows %}
+<div class="bg-white border border-line">
+  <table class="w-full text-sm">
+    <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+      <tr>
+        <th class="text-left px-6 py-3">Ticker</th>
+        <th class="text-left px-6 py-3">Qty</th>
+        <th class="text-left px-6 py-3">Entry Date</th>
+        <th class="text-left px-6 py-3">Entry ₹</th>
+        <th class="text-left px-6 py-3">Peak ₹</th>
+        <th class="text-left px-6 py-3">Sector</th>
+        <th class="text-left px-6 py-3">Score</th>
+        <th class="text-left px-6 py-3">Partial?</th>
+        <th class="text-left px-6 py-3">Why</th>
+        <th class="text-left px-6 py-3">Journal</th>
+      </tr>
+    </thead>
+    <tbody x-data="{ open: null }">
+      {% for r in rows %}
+      <tr class="border-b border-line last:border-0 hover:bg-ink/[0.02]">
+        <td class="px-6 py-4 font-semibold">{{ r.ticker }}</td>
+        <td class="px-6 py-4 tabular-nums">{{ r.qty }}</td>
+        <td class="px-6 py-4 text-ink-soft">{{ r.entry_date }}</td>
+        <td class="px-6 py-4 tabular-nums">₹{{ r.entry_price | inr(2) }}</td>
+        <td class="px-6 py-4 tabular-nums">₹{{ r.peak_price | inr(2) }}</td>
+        <td class="px-6 py-4 text-ink-soft">{{ r.sector }}</td>
+        <td class="px-6 py-4 tabular-nums">{{ r.entry_score | round(1) }}</td>
+        <td class="px-6 py-4 text-ink-soft">
+          {% if r.partial_taken %}<span class="text-accent font-semibold">Booked</span>{% else %}—{% endif %}
+        </td>
+        <td class="px-6 py-4 text-ink-soft max-w-sm truncate">{{ r.reasoning }}</td>
+        <td class="px-6 py-4">
+          <button @click="open = open === '{{ r.ticker }}' ? null : '{{ r.ticker }}'"
+                  class="text-xs tracking-widest uppercase text-ink-faint hover:text-ink">
+            {% if r.entry_notes %}📝 EDIT{% else %}+ NOTE{% endif %}
+          </button>
+        </td>
+      </tr>
+      <tr x-show="open === '{{ r.ticker }}'" x-cloak>
+        <td colspan="10" class="px-6 py-4 bg-ink/[0.02] border-t border-line">
+          <form action="/positions/{{ r.ticker }}/notes" method="post" class="space-y-3">
+            <div>
+              <label class="text-[10px] tracking-widest text-ink-faint uppercase block mb-1">Entry notes — why I entered</label>
+              <textarea name="entry_notes" rows="2" class="w-full border border-line p-2 text-sm"
+                        placeholder="e.g. 'Earnings beat + GS upgrade + breakout on volume'">{{ r.entry_notes }}</textarea>
+            </div>
+            <div>
+              <label class="text-[10px] tracking-widest text-ink-faint uppercase block mb-1">Tags (comma-separated)</label>
+              <input name="tags" type="text" class="w-full border border-line p-2 text-sm"
+                     placeholder="e.g. earnings_play, momentum, sector_leader"
+                     value="{{ r.tags | join(', ') }}">
+            </div>
+            <button class="px-4 py-2 bg-ink text-white text-xs font-semibold tracking-widest uppercase">Save</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="bg-white border border-line p-10 text-center text-ink-faint">
+  No open positions. Tap <strong>Run Scan</strong> from the Dashboard 🎯
+</div>
+{% endif %}
+{% endblock %}

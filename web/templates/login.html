@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in — Sourceborn AM07</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: {
+      fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+      colors: { accent: '#f59e0b' },
+    }}};
+  </script>
+</head>
+<body class="font-sans antialiased text-slate-900">
+<div class="min-h-screen grid lg:grid-cols-2">
+
+  <!-- LEFT: marketing -->
+  <section class="bg-slate-950 text-white p-10 lg:p-16 flex flex-col justify-between">
+    <div class="flex items-center gap-3">
+      <img src="{{ logo_url_white() }}" alt="" class="h-12 w-12 rounded">
+      <div>
+        <div class="font-black text-lg tracking-tight leading-none">SOURCEBORN</div>
+        <div class="text-[10px] tracking-[0.2em] text-slate-400 uppercase mt-1">AM07</div>
+      </div>
+    </div>
+
+    <div class="max-w-xl">
+      <div class="text-[11px] tracking-widest text-slate-400 uppercase mb-6">Paper · Live · Multi-mode · Indian markets</div>
+      <h1 class="font-black text-5xl lg:text-6xl leading-[1.05] tracking-tight">
+        Run NSE momentum<br>
+        on autopilot. <span class="text-accent">With your rules,<br>your capital, your data.</span>
+      </h1>
+      <p class="mt-8 text-slate-300 text-lg leading-relaxed max-w-md">
+        AM 07 ten-factor scoring, ATR-based stops, walk-forward backtest,
+        Upstox-ready live mode &mdash; one engine, four horizons.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-3 gap-6 max-w-md">
+      <div>
+        <div class="font-black text-3xl">10</div>
+        <div class="text-[10px] tracking-widest text-slate-400 uppercase">Score factors</div>
+      </div>
+      <div>
+        <div class="font-black text-3xl">500+</div>
+        <div class="text-[10px] tracking-widest text-slate-400 uppercase">NSE universe</div>
+      </div>
+      <div>
+        <div class="font-black text-3xl">4×</div>
+        <div class="text-[10px] tracking-widest text-slate-400 uppercase">Trade horizons</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT: form -->
+  <section class="p-10 lg:p-16 flex flex-col justify-center bg-white">
+    <div class="max-w-md w-full">
+      <div class="text-[10px] tracking-widest text-slate-500 uppercase border-t border-slate-200 pt-3 mb-1">Sign in</div>
+      <h2 class="font-black text-4xl tracking-tight">Welcome back, Owner.</h2>
+      <p class="text-slate-500 mt-2">Use a seeded account or your own.</p>
+
+      {% if error %}
+      <div class="mt-6 px-4 py-3 border border-red-200 bg-red-50 text-red-800 text-sm rounded-md">
+        Invalid email or password. Try again.
+      </div>
+      {% endif %}
+
+      <form method="post" action="/login" class="mt-8 space-y-5">
+        <div>
+          <label class="text-[10px] tracking-widest text-slate-500 uppercase border-t border-slate-200 pt-3 block">Email</label>
+          <input name="email" type="email" required autofocus
+                 value="owner@sourceborn.in"
+                 class="mt-2 w-full border-b border-slate-300 focus:border-slate-900 outline-none py-2 text-base">
+        </div>
+        <div>
+          <label class="text-[10px] tracking-widest text-slate-500 uppercase border-t border-slate-200 pt-3 block">Password</label>
+          <input name="password" type="password" required
+                 class="mt-2 w-full border-b border-slate-300 focus:border-slate-900 outline-none py-2 text-base">
+        </div>
+        <button type="submit"
+                class="w-full bg-slate-950 text-white font-bold tracking-wide py-3 hover:bg-black">
+          SIGN IN &rarr;
+        </button>
+      </form>
+
+      <div class="mt-10 border-t border-slate-200 pt-6">
+        <div class="text-[10px] tracking-widest text-slate-500 uppercase mb-3">Quick switch</div>
+        <div class="grid grid-cols-2 gap-3 text-sm">
+          <button onclick="quick('owner@sourceborn.in','sourceborn')"
+                  class="border border-slate-300 py-2 hover:bg-slate-100">Owner</button>
+          <button onclick="quick('viewer@sourceborn.in','viewer')"
+                  class="border border-slate-300 py-2 hover:bg-slate-100">Viewer</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  function quick(email, password) {
+    document.querySelector('input[name=email]').value = email;
+    document.querySelector('input[name=password]').value = password;
+    document.querySelector('form').submit();
+  }
+</script>
+</body>
+</html>

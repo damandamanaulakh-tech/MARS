@@ -1,0 +1,49 @@
+<aside class="fixed inset-y-0 left-0 w-64 border-r border-line bg-white hidden lg:flex flex-col">
+  <div class="px-6 py-6 flex items-center gap-3 border-b border-line">
+    <img src="{{ logo_url() }}" alt="Sourceborn AM07" class="h-10 w-10 rounded">
+    <div>
+      <div class="font-black text-base tracking-tight leading-none">SOURCEBORN</div>
+      <div class="text-[10px] tracking-[0.2em] text-ink-faint uppercase mt-1">AM07</div>
+    </div>
+  </div>
+
+  <nav class="flex-1 px-3 py-4 space-y-1 text-sm">
+    {% set nav = [
+      ('dashboard', '/',           '📈', 'Master Dashboard'),
+      ('positions', '/positions',  '🏢', 'Open Positions'),
+      ('scan',      '/scan',       '🎯', 'Scan / Watchlist'),
+      ('trades',    '/trades',     '🧾', 'Closed Trades'),
+      ('strategy',  '/strategy',   '☰',  'Strategy Weights'),
+      ('engine',    '/engine',     '🎚️',  'Engine Regime'),
+      ('risk',      '/risk',       '🛡️',  'Risk Dashboard'),
+      ('backtest',  '/backtest',   '📊', 'Backtest Lab'),
+      ('reports',   '/reports',    '📑', 'Reports'),
+      ('alerts',    '/alerts',     '🔔', 'Alerts'),
+      ('settings',  '/settings',   '⚙️',  'Settings'),
+    ] %}
+    {% for key, href, icon, label in nav %}
+    <a href="{{ href }}"
+       class="flex items-center gap-3 px-3 py-2.5 rounded-md
+              {% if active == key %}bg-ink/5 text-ink font-semibold border-l-2 border-ink -ml-[2px]
+              {% else %}text-ink-soft hover:bg-ink/[0.03]{% endif %}">
+      <span aria-hidden="true" class="w-5 text-center">{{ icon }}</span>
+      <span>{{ label }}</span>
+    </a>
+    {% endfor %}
+  </nav>
+
+  <div class="border-t border-line p-4">
+    <div class="flex items-center justify-between">
+      <div>
+        <div class="font-semibold text-sm">{{ user.name }}</div>
+        <div class="text-xs text-ink-faint">{{ user.email }}</div>
+      </div>
+      <span class="bg-ink text-white text-[10px] font-semibold uppercase px-2 py-1 tracking-widest">{{ user.role }}</span>
+    </div>
+    <a href="/logout"
+       class="mt-3 flex items-center justify-center gap-2 px-3 py-2 border border-line rounded-md text-sm font-semibold hover:bg-ink/[0.03]">
+      <span aria-hidden="true">⎋</span>
+      <span>SIGN OUT</span>
+    </a>
+  </div>
+</aside>

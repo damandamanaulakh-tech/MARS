@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <defs>
+    <linearGradient id="steelW" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f9fafb"/>
+      <stop offset="50%" stop-color="#cbd5e1"/>
+      <stop offset="100%" stop-color="#94a3b8"/>
+    </linearGradient>
+  </defs>
+  <circle cx="100" cy="100" r="90" fill="none"
+          stroke="url(#steelW)" stroke-width="9"/>
+  <path d="M 100 25 L 168 175 M 100 25 L 32 175"
+        stroke="url(#steelW)" stroke-width="10"
+        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M 38 170
+           C 26 145 38 122 70 122
+           C 100 122 130 132 156 122
+           C 178 114 178 90 168 70"
+        stroke="url(#steelW)" stroke-width="8"
+        stroke-linecap="round" fill="none"/>
+</svg>

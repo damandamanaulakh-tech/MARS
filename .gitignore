@@ -1,0 +1,14 @@
+# Python (existing Gradio app)
+.venv/
+__pycache__/
+*.pyc
+*.csv
+/tmp/
+sourceborn_paper/
+
+# Node (Sourceborn SB-URR)
+node_modules/
+.env
+uploads/*
+!uploads/.gitkeep
+npm-debug.log*

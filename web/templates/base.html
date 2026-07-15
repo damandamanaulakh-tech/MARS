@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Sourceborn AM07{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            ink: { DEFAULT: '#0f172a', soft: '#334155', faint: '#64748b' },
+            accent: { DEFAULT: '#f59e0b', dark: '#d97706' },
+            line: '#e5e7eb',
+            paper: '#ffffff',
+          },
+        },
+      },
+    };
+  </script>
+</head>
+<body class="bg-paper text-ink font-sans antialiased">
+  <div class="min-h-screen flex">
+    {% if user %}
+    {% include "_sidebar.html" %}
+    {% endif %}
+
+    <main class="flex-1 min-w-0 {% if user %}lg:ml-64{% endif %}">
+      {% if user %}
+      <header class="h-14 px-8 border-b border-line flex items-center justify-between text-xs tracking-widest font-semibold text-ink-faint uppercase">
+        <span>Sourceborn AM07 &middot; {{ user.role|capitalize }} View</span>
+        <span class="flex items-center gap-5">
+          {% if request.session.get('upstox_token') %}
+          <span class="flex items-center gap-2 normal-case tracking-normal text-emerald-700 font-medium">
+            <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+            Upstox: {{ request.session.get('upstox_user_name', 'connected') }}
+            <form action="/upstox/disconnect" method="post" class="inline">
+              <button class="text-ink-faint hover:text-ink ml-1" title="Disconnect">⎋</button>
+            </form>
+          </span>
+          {% else %}
+          <a href="/upstox/login"
+             class="px-3 py-1 border border-line normal-case tracking-normal text-ink hover:bg-ink/[0.03]">
+            Connect Upstox &rarr;
+          </a>
+          {% endif %}
+          <span aria-hidden="true">🔔</span>
+          <span class="text-ink">{{ today or '' }}</span>
+        </span>
+      </header>
+      {% endif %}
+
+      <div class="p-8">
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+</body>
+</html>

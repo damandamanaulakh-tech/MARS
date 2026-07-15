@@ -1,0 +1,25 @@
+# Render blueprint. Push this branch, connect repo, Render reads this file.
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: sourceborn-stocks
+    env: python
+    plan: starter             # ~$7/mo, always-on. Free tier sleeps after 15min idle.
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn web.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    envVars:
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: OWNER_PWD
+        sync: false           # set manually in Render dashboard
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      # v2 — Phase 2 additions:
+      - key: MONGO_URL          # MongoDB Atlas connection string; leave blank to use JSON fallback
+        sync: false
+      - key: MONGO_DB
+        value: sourceborn
+      - key: INTRADAY_SCHEDULER # set to "1" to enable the 5-min intraday cron
+        value: "0"

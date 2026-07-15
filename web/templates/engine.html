@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Engine Regime — Sourceborn AM07{% endblock %}
+{% block content %}
+<div class="text-xs tracking-widest text-ink-faint uppercase mb-3">DUAL-REGIME / MASTER SWITCH</div>
+<div class="flex items-end justify-between mb-8">
+  <div>
+    <h1 class="font-black text-5xl tracking-tight">Engine Status</h1>
+    <p class="text-ink-soft mt-2">
+      Which engine is live right now and why. Refreshes every 15 min automatically.
+    </p>
+  </div>
+
+</div>
+
+<!-- What is Engine Regime? -->
+<details class="bg-white border border-line p-5 mb-6">
+  <summary class="cursor-pointer font-bold text-sm select-none">ℹ️ What is "Engine Regime"?</summary>
+  <div class="mt-3 text-sm text-ink-soft space-y-2">
+    <p>
+      Markets behave very differently in trends vs corrections. A momentum strategy that prints money in a bull
+      run will get carved up in a panic. So AM07 runs <strong>two engines</strong> and a classifier decides which
+      one fires entries today.
+    </p>
+    <ul class="list-disc pl-5 space-y-1">
+      <li><strong>🏔️ Everest (momentum/breakout)</strong> — active when Nifty is above its 200-day MA and FII flows are positive. Buys breakouts in leading sectors.</li>
+      <li><strong>🌊 Ocean (deep-reversion)</strong> — active when Nifty is &gt;10% off its 52-week high. Buys quality names that have been heavily oversold (RSI &lt;30 on weekly + climax volume).</li>
+    </ul>
+    <p>The classifier reads four cheap inputs every 15 minutes:</p>
+    <ol class="list-decimal pl-5 space-y-1">
+      <li>Nifty close vs 200-day moving average</li>
+      <li>% below 52-week high</li>
+      <li>India VIX level</li>
+      <li>5-day net FII flow (₹ Cr)</li>
+    </ol>
+    <p>And lands on one of four regimes — <code class="bg-slate-100 px-1">bull_extension</code>,
+      <code class="bg-slate-100 px-1">neutral</code>, <code class="bg-slate-100 px-1">correction</code>,
+      or <code class="bg-slate-100 px-1">panic</code> — which also drives your dynamic cash reserve
+      (20% / 25% / 35% / 50% respectively).</p>
+  </div>
+</details>
+
+<div class="flex justify-end mb-6">
+  <form method="post" action="/engine/refresh">
+    <button class="px-4 py-2 border border-line text-sm font-semibold tracking-wide hover:bg-ink/[0.03]">
+      ⟳ REFRESH REGIME
+    </button>
+  </form>
+</div>
+
+{% if regime %}
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+
+  <!-- Everest -->
+  <div class="bg-white border border-line p-6 {% if regime.everest_active %}border-2 border-emerald-500{% endif %}">
+    <div class="flex items-center justify-between mb-2">
+      <div class="text-xs tracking-widest text-ink-faint uppercase">🏔️ EVEREST · Momentum / Breakout</div>
+      <span class="px-3 py-1 text-xs font-bold tracking-widest uppercase
+                   {% if regime.everest_active %}bg-emerald-500 text-white{% else %}bg-slate-200 text-slate-500{% endif %}">
+        {% if regime.everest_active %}ACTIVE{% else %}DORMANT{% endif %}
+      </span>
+    </div>
+    <div class="mt-4 font-black text-3xl tabular-nums">
+      {{ "%.0f%%"|format(regime.sizing_multiplier_everest * 100) }} size
+    </div>
+    <div class="text-sm text-ink-faint mt-2">
+      Buys momentum + breakout setups in trending markets.
+    </div>
+  </div>
+
+  <!-- Ocean -->
+  <div class="bg-white border border-line p-6 {% if regime.ocean_active %}border-2 border-blue-600{% endif %}">
+    <div class="flex items-center justify-between mb-2">
+      <div class="text-xs tracking-widest text-ink-faint uppercase">🌊 OCEAN · Deep Reversion</div>
+      <span class="px-3 py-1 text-xs font-bold tracking-widest uppercase
+                   {% if regime.ocean_active %}bg-blue-600 text-white{% else %}bg-slate-200 text-slate-500{% endif %}">
+        {% if regime.ocean_active %}ACTIVE{% else %}DORMANT{% endif %}
+      </span>
+    </div>
+    <div class="mt-4 font-black text-3xl tabular-nums">
+      {{ "%.0f%%"|format(regime.sizing_multiplier_ocean * 100) }} size
+    </div>
+    <div class="text-sm text-ink-faint mt-2">
+      Buys deep-reversion setups after panic crashes (3-tranche entry).
+    </div>
+  </div>
+</div>
+
+<!-- Reasoning -->
+<div class="bg-white border border-line p-6 mb-8">
+  <div class="text-xs tracking-widest text-ink-faint uppercase mb-3">CURRENT REGIME</div>
+  <div class="font-bold text-2xl tracking-tight mb-2">
+    {{ regime.regime|upper|replace('_', ' ') }}
+  </div>
+  <div class="text-sm text-ink-soft">{{ regime.reasoning }}</div>
+</div>
+
+<!-- Raw inputs -->
+<div class="bg-white border border-line p-6">
+  <div class="font-bold mb-4">Raw inputs (refreshed every 15 min)</div>
+  <table class="w-full text-sm">
+    <tbody class="divide-y divide-line">
+      <tr><td class="py-2 text-ink-faint w-1/2">Nifty 50 close</td>
+          <td class="py-2 text-right tabular-nums">{{ "%.0f"|format(regime.nifty_close) if regime.nifty_close else '—' }}</td></tr>
+      <tr><td class="py-2 text-ink-faint">Nifty 200-DMA</td>
+          <td class="py-2 text-right tabular-nums">{{ "%.0f"|format(regime.nifty_200dma) if regime.nifty_200dma else '—' }}</td></tr>
+      <tr><td class="py-2 text-ink-faint">% below 52-week high</td>
+          <td class="py-2 text-right tabular-nums">{{ "%+.2f%%"|format(regime.pct_below_52w_high) if regime.pct_below_52w_high is not none else '—' }}</td></tr>
+      <tr><td class="py-2 text-ink-faint">India VIX</td>
+          <td class="py-2 text-right tabular-nums">{{ "%.2f"|format(regime.vix) if regime.vix else '—' }}</td></tr>
+      <tr><td class="py-2 text-ink-faint">FII 5-day net (₹Cr)</td>
+          <td class="py-2 text-right tabular-nums">{{ "%+.0f"|format(regime.fii_5d_net) if regime.fii_5d_net is not none else 'not wired' }}</td></tr>
+    </tbody>
+  </table>
+</div>
+
+{% else %}
+<div class="bg-white border border-line p-10 text-center text-ink-faint">
+  Regime data not loaded yet. Tap <strong>Refresh Regime</strong> above.
+</div>
+{% endif %}
+
+{% endblock %}
