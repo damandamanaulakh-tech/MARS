@@ -4,6 +4,22 @@
 
 <div class="text-xs tracking-widest text-ink-faint uppercase mb-3">MASTER / OWNER VIEW</div>
 
+{% if quote_source and not quote_source.healthy %}
+<!-- FIX: login-fragility — loud banner when Upstox is down so a missed
+     morning login can never silently starve the scan. -->
+<div class="bg-red-600 text-white px-6 py-4 mb-6 flex items-center justify-between">
+  <div>
+    <div class="font-bold text-lg">⚠ Data source DEGRADED — reconnect Upstox</div>
+    <div class="text-sm text-red-100 mt-1">{{ quote_source.message }}</div>
+  </div>
+  <a href="/upstox/login" class="shrink-0 bg-white text-red-700 font-bold px-5 py-2.5 tracking-wide hover:bg-red-50">RECONNECT →</a>
+</div>
+{% elif quote_source and quote_source.hours_left is not none and quote_source.hours_left < 3 %}
+<div class="bg-amber-100 border border-amber-400 text-amber-900 px-6 py-3 mb-6 text-sm">
+  ⏳ Upstox token expires in ~{{ quote_source.hours_left }}h (03:30 IST daily). Reconnect soon to keep tomorrow's 09:20 scan on live data.
+</div>
+{% endif %}
+
 <!-- What this app does — 15-line orientation panel -->
 <details class="bg-white border border-line p-5 mb-6" {% if not last_scan %}open{% endif %}>
   <summary class="cursor-pointer font-bold text-sm select-none">
@@ -91,12 +107,217 @@
     </div>
     <div class="mt-4 font-black text-4xl tracking-tight">
       {% if kpi.fmt == 'inr_lakh' %}₹{{ kpi.big | inr_lakh }}
-      {% elif kpi.fmt == 'inr' %}₹{{ kpi.big | inr }}
+      {% elif kpi.fmt == 'inr' %}{{ '+' if kpi.big >= 0 }}₹{{ kpi.big | inr }}
       {% else %}{{ kpi.big }}{% endif %}
     </div>
     <div class="mt-1 text-sm text-ink-faint">{{ kpi.trail }}</div>
   </a>
   {% endfor %}
+</div>
+
+
+{% if rotations %}
+<!-- F6: rotation suggester -->
+<div class="border border-amber-300 bg-amber-50 mb-6">
+  <div class="px-6 py-4 border-b border-amber-200 flex items-center justify-between">
+    <div class="font-bold text-amber-900">🔄 Rotation Suggestions</div>
+    <div class="text-xs text-amber-800">Positions near target — recycling into a fresh pick may free trapped capital. Suggestion only; nothing is sold automatically.</div>
+  </div>
+  <table class="w-full text-sm">
+    <thead class="text-[10px] tracking-widest text-amber-800 uppercase border-b border-amber-200">
+      <tr><th class="text-left px-6 py-2">Near-target position</th><th class="text-right px-4 py-2">Progress</th>
+          <th class="text-right px-4 py-2">Value</th><th class="text-left px-6 py-2">Consider funding</th></tr>
+    </thead>
+    <tbody>
+      {% for s in rotations %}
+      <tr class="border-b border-amber-200 last:border-0">
+        <td class="px-6 py-2.5 font-semibold">{{ s.ticker }}</td>
+        <td class="px-4 py-2.5 tabular-nums text-right text-amber-900 font-semibold">{{ s.progress_pct }}% to ₹{{ s.target | inr(2) }}</td>
+        <td class="px-4 py-2.5 tabular-nums text-right">₹{{ s.value | inr }}</td>
+        <td class="px-6 py-2.5">{% if s.fund_ticker %}<strong>{{ s.fund_ticker }}</strong> (score {{ s.fund_score }}){% else %}<span class="text-ink-faint">no fresh pick queued</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- F17: NIFTY candle chart (self-contained canvas, no extra CDN) -->
+{% if nifty_candles and nifty_candles|length > 2 %}
+<div class="border border-line bg-white mb-6">
+  <div class="px-6 py-4 border-b border-line flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <span aria-hidden="true">🕯️</span>
+      <div>
+        <div class="font-bold">NIFTY 50 — Daily Candles</div>
+        <div class="text-xs text-ink-faint">Last {{ nifty_candles|length }} sessions · green = up, red = down · the candle engine reads these same bars</div>
+      </div>
+    </div>
+    <div class="text-xs text-ink-faint tabular-nums">Last close ₹{{ nifty_candles[-1].c | inr(2) }}</div>
+  </div>
+  <div class="p-4"><canvas id="niftyCandles" height="120"></canvas></div>
+</div>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const el = document.getElementById('niftyCandles');
+    if (!el) return;
+    const data = {{ nifty_candles | tojson }};
+    const dpr = window.devicePixelRatio || 1;
+    const W = el.clientWidth || 800, H = 240;
+    el.width = W * dpr; el.height = H * dpr;
+    const ctx = el.getContext('2d'); ctx.scale(dpr, dpr);
+    const lo = Math.min(...data.map(d => d.l)), hi = Math.max(...data.map(d => d.h));
+    const padL = 52, padR = 10, padT = 12, padB = 22;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const y = v => padT + (hi - v) / (hi - lo || 1) * plotH;
+    const n = data.length, slot = plotW / n, bw = Math.max(2, slot * 0.6);
+    ctx.strokeStyle = 'rgba(0,0,0,0.08)'; ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.font = '10px system-ui'; ctx.textAlign = 'right';
+    for (let i = 0; i <= 4; i++) {
+      const v = lo + (hi - lo) * i / 4, yy = y(v);
+      ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(W - padR, yy); ctx.stroke();
+      ctx.fillText('₹' + v.toFixed(0), padL - 6, yy + 3);
+    }
+    data.forEach((d, i) => {
+      const cx = padL + slot * i + slot / 2;
+      const up = d.c >= d.o;
+      ctx.strokeStyle = up ? '#059669' : '#dc2626';
+      ctx.fillStyle = up ? '#059669' : '#dc2626';
+      ctx.beginPath(); ctx.moveTo(cx, y(d.h)); ctx.lineTo(cx, y(d.l)); ctx.stroke();
+      const yO = y(d.o), yC = y(d.c);
+      ctx.fillRect(cx - bw / 2, Math.min(yO, yC), bw, Math.max(1, Math.abs(yC - yO)));
+    });
+    ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.textAlign = 'center';
+    [0, Math.floor(n/2), n-1].forEach(i => {
+      if (data[i]) ctx.fillText(data[i].t, padL + slot * i + slot / 2, H - 6);
+    });
+  });
+</script>
+{% endif %}
+
+<!-- Today's Picks + Watchlist -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+  <div class="border border-line bg-white">
+    <div class="px-6 py-4 border-b border-line flex items-center justify-between">
+      <div class="font-bold">🎯 Today's Picks</div>
+      <div class="text-xs text-ink-faint">Last scan: {{ last_scan or 'no scan yet' }}</div>
+    </div>
+    {% if today_picks %}
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+        <tr><th class="text-left px-3 py-2">Ticker</th><th class="text-right px-2 py-2">Score</th>
+            <th class="text-right px-2 py-2">Candle</th>
+            <th class="text-right px-2 py-2">Last ₹</th><th class="text-right px-2 py-2">Status</th>
+            {% if user and user.role == 'owner' %}<th class="text-right px-3 py-2">Buy</th>{% endif %}</tr>
+      </thead>
+      <tbody x-data="{ open: null }">
+        {% for t in today_picks %}
+        <tr class="border-b border-line last:border-0 cursor-pointer hover:bg-ink/[0.02]"
+            @click="open = open === '{{ t.ticker }}' ? null : '{{ t.ticker }}'"
+            title="Tap to see which parameters hit + the candle">
+          <td class="px-3 py-2.5 font-semibold whitespace-nowrap">{{ t.ticker | replace('.NS','') }}</td>
+          <td class="px-2 py-2.5 tabular-nums text-right">{{ t.score }}</td>
+          <td class="px-2 py-2.5 text-right text-xs {% if t.candle.startswith('✓') %}text-emerald-700 font-semibold{% else %}text-ink-faint{% endif %}">{{ t.candle }}</td>
+          <td class="px-2 py-2.5 tabular-nums text-right whitespace-nowrap">{% if t.last_close %}₹{{ t.last_close | inr(2) }}{% else %}—{% endif %}</td>
+          <td class="px-2 py-2.5 text-right">{% if t.held %}<span class="text-emerald-700 font-semibold whitespace-nowrap">HELD ✓</span>{% else %}<span class="text-ink-faint">pick</span>{% endif %}</td>
+          {% if user and user.role == 'owner' %}
+          <td class="px-3 py-2.5 text-right" @click.stop>
+            {% if not t.held %}
+            <form method="post" action="/scan/buy"
+                  onsubmit="return confirm('Open {{ t.ticker }} as a MOMENTUM paper position at the live price?');">
+              <input type="hidden" name="ticker" value="{{ t.ticker }}">
+              <button class="px-2.5 py-1 bg-emerald-700 text-white text-xs font-semibold tracking-wide hover:bg-emerald-800 whitespace-nowrap">🟢 BUY</button>
+            </form>
+            {% else %}<span class="text-ink-faint text-xs">—</span>{% endif %}
+          </td>
+          {% endif %}
+        </tr>
+        <tr x-show="open === '{{ t.ticker }}'" x-cloak>
+          <td colspan="{% if user and user.role == 'owner' %}6{% else %}5{% endif %}" class="px-2 pb-3">{% set p = t %}{% include "_pick_detail.html" %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="px-6 py-8 text-center text-ink-faint text-sm">No scan yet today — auto-scan runs 09:20 IST, or tap RUN SCAN.</div>
+    {% endif %}
+  </div>
+  <div class="border border-line bg-white">
+    <div class="px-6 py-4 border-b border-line flex items-center justify-between">
+      <div class="font-bold">👀 Watchlist</div>
+      <div class="text-xs text-ink-faint">Top scored, not yet held</div>
+    </div>
+    {% if watchlist %}
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+        <tr><th class="text-left px-3 py-2">Ticker</th><th class="text-right px-2 py-2">Score</th>
+            <th class="text-right px-2 py-2">Last ₹</th><th class="text-right px-2 py-2">Why not bought</th>
+            {% if user and user.role == 'owner' %}<th class="text-right px-3 py-2">Buy</th>{% endif %}</tr>
+      </thead>
+      <tbody>
+        {% for t in watchlist %}
+        <tr class="border-b border-line last:border-0">
+          <td class="px-3 py-2.5 font-semibold whitespace-nowrap">{{ t.ticker | replace('.NS','') }}</td>
+          <td class="px-2 py-2.5 tabular-nums text-right">{{ t.score }}</td>
+          <td class="px-2 py-2.5 tabular-nums text-right whitespace-nowrap">{% if t.last_close %}₹{{ t.last_close | inr(2) }}{% else %}—{% endif %}</td>
+          <td class="px-2 py-2.5 text-right text-xs {% if t.blocked.startswith('⛔') %}text-red-600{% else %}text-amber-700{% endif %}">{{ t.blocked or '—' }}</td>
+          {% if user and user.role == 'owner' %}
+          <td class="px-3 py-2.5 text-right">
+            <form method="post" action="/scan/buy"
+                  onsubmit="return confirm('Open {{ t.ticker }} as a MOMENTUM paper position at the live price?');">
+              <input type="hidden" name="ticker" value="{{ t.ticker }}">
+              <button class="px-2.5 py-1 bg-emerald-700 text-white text-xs font-semibold tracking-wide hover:bg-emerald-800 whitespace-nowrap">🟢 BUY</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="px-6 py-8 text-center text-ink-faint text-sm">Empty — every scored pick is already in the book, or no scan yet.</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Engine trigger-map: which parameters fired today -->
+<div class="border border-line bg-white mb-6">
+  <div class="px-6 py-4 border-b border-line flex items-center justify-between">
+    <div class="font-bold">⚡ Engine Triggers Today</div>
+    <div class="text-xs text-ink-faint">Regime: <span class="font-semibold text-ink">{{ triggers.regime }}</span>
+      {% if triggers.festival %} · <span class="text-amber-700 font-semibold">🪔 {{ triggers.festival }}</span>{% endif %}
+      {% if triggers.ifr_active %} · <span class="text-amber-700 font-semibold">IFR throttle active</span>{% endif %}</div>
+  </div>
+  <div class="px-6 py-5 grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+    <div>
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">Actions ({{ triggers.journal_today }} journal entries)</div>
+      {% if triggers.actions %}
+        {% for a, n in triggers.actions %}
+        <div class="flex justify-between border-b border-line/60 py-1"><span>{{ a }}</span><span class="tabular-nums font-semibold">{{ n }}</span></div>
+        {% endfor %}
+      {% else %}<div class="text-ink-faint">Nothing journaled yet today.</div>{% endif %}
+    </div>
+    <div>
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">Exit rules fired</div>
+      {% if triggers.exits %}
+        {% for r, n in triggers.exits %}
+        <div class="flex justify-between border-b border-line/60 py-1"><span>{{ r }}</span><span class="tabular-nums font-semibold">{{ n }}</span></div>
+        {% endfor %}
+      {% else %}<div class="text-ink-faint">No exits today.</div>{% endif %}
+    </div>
+    <div>
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">Entry blocks (last scan)</div>
+      {% if triggers.skips %}
+        {% for r, n in triggers.skips %}
+        <div class="flex justify-between border-b border-line/60 py-1"><span class="truncate pr-2">{{ r }}</span><span class="tabular-nums font-semibold">{{ n }}</span></div>
+        {% endfor %}
+      {% else %}<div class="text-ink-faint">No blocked entries recorded.</div>{% endif %}
+    </div>
+  </div>
 </div>
 
 {% if tweaks %}
@@ -177,7 +398,7 @@
   <div class="px-6 py-5 grid grid-cols-12 gap-4 items-center text-sm">
     <div class="col-span-2 font-semibold tracking-widest text-xs uppercase">Cash</div>
     <div class="col-span-2 tabular-nums">₹{{ cash | inr }}</div>
-    <div class="col-span-2 font-semibold tracking-widest text-xs uppercase">Deployed</div>
+    <div class="col-span-2 font-semibold tracking-widest text-xs uppercase" title="Current market value of holdings (not cost)">Deployed (mkt value)</div>
     <div class="col-span-2 tabular-nums">₹{{ deployed | inr }}</div>
     <div class="col-span-2 font-semibold tracking-widest text-xs uppercase">Utilisation</div>
     <div class="col-span-2">
@@ -209,9 +430,10 @@
         <th class="text-left px-6 py-3">Ticker</th>
         <th class="text-left px-6 py-3">Qty</th>
         <th class="text-left px-6 py-3">Entry</th>
+        <th class="text-left px-6 py-3">Current</th>
+        <th class="text-left px-6 py-3">P&amp;L %</th>
         <th class="text-left px-6 py-3">Sector</th>
         <th class="text-left px-6 py-3">Score</th>
-        <th class="text-left px-6 py-3">Reasoning</th>
       </tr>
     </thead>
     <tbody>
@@ -220,9 +442,12 @@
         <td class="px-6 py-3 font-semibold">{{ p.ticker }}</td>
         <td class="px-6 py-3 tabular-nums">{{ p.qty }}</td>
         <td class="px-6 py-3 tabular-nums">₹{{ p.entry_price | inr(2) }}</td>
+        {% set cur = prices.get(p.ticker, p.entry_price) %}
+        {% set chg = (cur / p.entry_price - 1) * 100 if p.entry_price else 0 %}
+        <td class="px-6 py-3 tabular-nums">₹{{ cur | inr(2) }}</td>
+        <td class="px-6 py-3 tabular-nums font-semibold {% if chg >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}">{{ '%+.2f' % chg }}%</td>
         <td class="px-6 py-3 text-ink-soft">{{ p.sector }}</td>
         <td class="px-6 py-3 tabular-nums">{{ p.entry_score | round(1) }}</td>
-        <td class="px-6 py-3 text-ink-soft truncate max-w-md">{{ p.reasoning }}</td>
       </tr>
       {% endfor %}
     </tbody>

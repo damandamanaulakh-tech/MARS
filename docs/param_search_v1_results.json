@@ -1,0 +1,308 @@
+{
+  "windows": [
+    {
+      "window": "W1_2019",
+      "opt_span": [
+        "2016-03-01",
+        "2018-12-31"
+      ],
+      "val_span": [
+        "2019-01-01",
+        "2019-12-31"
+      ],
+      "winner_cfg": {
+        "blend": 0.0,
+        "floor": 50.0,
+        "exits": "mom_default",
+        "candle": true
+      },
+      "winner_opt_stats": {
+        "ret": 28.56,
+        "sharpe": 1.565,
+        "dd": -6.78,
+        "trades": 34
+      },
+      "validation": {
+        "ret": -0.73,
+        "sharpe": -0.028,
+        "dd": -7.86,
+        "trades": 19,
+        "time_in_mkt": 100.0
+      },
+      "basket_buyhold_val": 12.16,
+      "oos_alpha": -12.89,
+      "top3_opt": [
+        {
+          "cfg": {
+            "blend": 0.0,
+            "floor": 50.0,
+            "exits": "mom_default",
+            "candle": true
+          },
+          "ret": 28.56,
+          "sharpe": 1.565,
+          "dd": -6.78,
+          "trades": 34,
+          "time_in_mkt": 67.0
+        },
+        {
+          "cfg": {
+            "blend": 0.0,
+            "floor": 50.0,
+            "exits": "trail_only",
+            "candle": true
+          },
+          "ret": 29.23,
+          "sharpe": 1.557,
+          "dd": -7.46,
+          "trades": 31,
+          "time_in_mkt": 67.0
+        },
+        {
+          "cfg": {
+            "blend": 0.35,
+            "floor": 60.0,
+            "exits": "mom_default",
+            "candle": true
+          },
+          "ret": 26.02,
+          "sharpe": 1.412,
+          "dd": -8.21,
+          "trades": 36,
+          "time_in_mkt": 67.0
+        }
+      ]
+    },
+    {
+      "window": "W2_2020",
+      "opt_span": [
+        "2016-03-01",
+        "2019-12-31"
+      ],
+      "val_span": [
+        "2020-01-01",
+        "2020-12-31"
+      ],
+      "winner_cfg": {
+        "blend": 0.0,
+        "floor": 60.0,
+        "exits": "tight_trail",
+        "candle": false
+      },
+      "winner_opt_stats": {
+        "ret": 28.73,
+        "sharpe": 1.205,
+        "dd": -7.08,
+        "trades": 55
+      },
+      "validation": {
+        "ret": 10.99,
+        "sharpe": 1.107,
+        "dd": -9.86,
+        "trades": 32,
+        "time_in_mkt": 78.6
+      },
+      "basket_buyhold_val": 24.16,
+      "oos_alpha": -13.17,
+      "top3_opt": [
+        {
+          "cfg": {
+            "blend": 0.0,
+            "floor": 60.0,
+            "exits": "tight_trail",
+            "candle": false
+          },
+          "ret": 28.73,
+          "sharpe": 1.205,
+          "dd": -7.08,
+          "trades": 55,
+          "time_in_mkt": 75.6
+        },
+        {
+          "cfg": {
+            "blend": 0.0,
+            "floor": 50.0,
+            "exits": "trail_only",
+            "candle": true
+          },
+          "ret": 29.65,
+          "sharpe": 1.169,
+          "dd": -7.73,
+          "trades": 47,
+          "time_in_mkt": 75.6
+        },
+        {
+          "cfg": {
+            "blend": 0.0,
+            "floor": 50.0,
+            "exits": "mom_default",
+            "candle": true
+          },
+          "ret": 28.91,
+          "sharpe": 1.162,
+          "dd": -7.04,
+          "trades": 51,
+          "time_in_mkt": 75.6
+        }
+      ]
+    },
+    {
+      "window": "W3_2022",
+      "opt_span": [
+        "2016-03-01",
+        "2021-12-31"
+      ],
+      "val_span": [
+        "2022-01-01",
+        "2022-12-31"
+      ],
+      "winner_cfg": {
+        "blend": 0.0,
+        "floor": 60.0,
+        "exits": "tight_trail",
+        "candle": false
+      },
+      "winner_opt_stats": {
+        "ret": 61.37,
+        "sharpe": 1.127,
+        "dd": -7.86,
+        "trades": 115
+      },
+      "validation": {
+        "ret": -4.96,
+        "sharpe": -0.503,
+        "dd": -10.48,
+        "trades": 24,
+        "time_in_mkt": 83.1
+      },
+      "basket_buyhold_val": 5.06,
+      "oos_alpha": -10.02,
+      "top3_opt": [
+        {
+          "cfg": {
+            "blend": 0.0,
+            "floor": 60.0,
+            "exits": "tight_trail",
+            "candle": false
+          },
+          "ret": 61.37,
+          "sharpe": 1.127,
+          "dd": -7.86,
+          "trades": 115,
+          "time_in_mkt": 79.0
+        },
+        {
+          "cfg": {
+            "blend": 0.35,
+            "floor": 60.0,
+            "exits": "tight_trail",
+            "candle": true
+          },
+          "ret": 45.35,
+          "sharpe": 1.059,
+          "dd": -11.25,
+          "trades": 110,
+          "time_in_mkt": 79.0
+        },
+        {
+          "cfg": {
+            "blend": 0.0,
+            "floor": 50.0,
+            "exits": "trail_only",
+            "candle": true
+          },
+          "ret": 50.21,
+          "sharpe": 1.042,
+          "dd": -13.52,
+          "trades": 80,
+          "time_in_mkt": 79.3
+        }
+      ]
+    },
+    {
+      "window": "W4_2024_25",
+      "opt_span": [
+        "2016-03-01",
+        "2023-12-31"
+      ],
+      "val_span": [
+        "2024-01-01",
+        "2026-05-31"
+      ],
+      "winner_cfg": {
+        "blend": 0.0,
+        "floor": 60.0,
+        "exits": "tight_trail",
+        "candle": false
+      },
+      "winner_opt_stats": {
+        "ret": 64.29,
+        "sharpe": 0.939,
+        "dd": -10.21,
+        "trades": 150
+      },
+      "validation": {
+        "ret": 15.02,
+        "sharpe": 0.833,
+        "dd": -8.51,
+        "trades": 53,
+        "time_in_mkt": 94.0
+      },
+      "basket_buyhold_val": 22.55,
+      "oos_alpha": -7.53,
+      "top3_opt": [
+        {
+          "cfg": {
+            "blend": 0.0,
+            "floor": 60.0,
+            "exits": "tight_trail",
+            "candle": false
+          },
+          "ret": 64.29,
+          "sharpe": 0.939,
+          "dd": -10.21,
+          "trades": 150,
+          "time_in_mkt": 82.4
+        },
+        {
+          "cfg": {
+            "blend": 0.0,
+            "floor": 60.0,
+            "exits": "mom_default",
+            "candle": false
+          },
+          "ret": 63.12,
+          "sharpe": 0.877,
+          "dd": -9.43,
+          "trades": 121,
+          "time_in_mkt": 83.9
+        },
+        {
+          "cfg": {
+            "blend": 0.0,
+            "floor": 60.0,
+            "exits": "trail_only",
+            "candle": false
+          },
+          "ret": 61.73,
+          "sharpe": 0.848,
+          "dd": -9.98,
+          "trades": 111,
+          "time_in_mkt": 83.9
+        }
+      ]
+    }
+  ],
+  "grid_size": 36,
+  "summary": {
+    "windows_run": 4,
+    "positive_oos_alpha_windows": 0,
+    "avg_oos_alpha": -10.9,
+    "runtime_min": 35.7,
+    "caveats": [
+      "self-basket benchmark (no index series in committed data)",
+      "SURVIVORSHIP-BIASED: 10 tickers that lived to 2026",
+      "10-ticker breadth \u2014 momentum's natural edge needs wider universe"
+    ]
+  }
+}

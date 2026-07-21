@@ -1,0 +1,195 @@
+{
+  "windows": [
+    {
+      "window": "W1_2004_07",
+      "winner_cfg": {
+        "look": "12",
+        "voladj": false,
+        "skip": 1,
+        "N": 20,
+        "absgate": true,
+        "regime": false
+      },
+      "winner_opt": {
+        "cagr": 16.66,
+        "sharpe": 0.653,
+        "max_dd": -55.84
+      },
+      "validation": {
+        "cagr": 49.86,
+        "sharpe": 1.257,
+        "max_dd": -35.02,
+        "total": 404.35
+      },
+      "bench_universe": {
+        "cagr": 44.0,
+        "sharpe": 1.458,
+        "max_dd": -22.57,
+        "total": 329.98
+      },
+      "bench_megacap": {
+        "cagr": 40.41,
+        "sharpe": 1.378,
+        "max_dd": -20.2,
+        "total": 288.69
+      },
+      "oos_alpha_vs_universe": 5.86,
+      "oos_alpha_vs_megacap": 9.45
+    },
+    {
+      "window": "W2_GFC",
+      "winner_cfg": {
+        "look": "6",
+        "voladj": true,
+        "skip": 1,
+        "N": 50,
+        "absgate": true,
+        "regime": false
+      },
+      "winner_opt": {
+        "cagr": 31.79,
+        "sharpe": 0.992,
+        "max_dd": -58.43
+      },
+      "validation": {
+        "cagr": 7.22,
+        "sharpe": 0.376,
+        "max_dd": -49.82,
+        "total": 23.26
+      },
+      "bench_universe": {
+        "cagr": 4.73,
+        "sharpe": 0.314,
+        "max_dd": -60.7,
+        "total": 14.88
+      },
+      "bench_megacap": {
+        "cagr": 9.29,
+        "sharpe": 0.413,
+        "max_dd": -53.95,
+        "total": 30.53
+      },
+      "oos_alpha_vs_universe": 2.49,
+      "oos_alpha_vs_megacap": -2.07
+    },
+    {
+      "window": "W3_2011_15",
+      "winner_cfg": {
+        "look": "6+12",
+        "voladj": true,
+        "skip": 1,
+        "N": 50,
+        "absgate": false,
+        "regime": true
+      },
+      "winner_opt": {
+        "cagr": 23.47,
+        "sharpe": 0.943,
+        "max_dd": -42.7
+      },
+      "validation": {
+        "cagr": 32.35,
+        "sharpe": 1.773,
+        "max_dd": -9.57,
+        "total": 306.05
+      },
+      "bench_universe": {
+        "cagr": 15.37,
+        "sharpe": 0.745,
+        "max_dd": -28.21,
+        "total": 104.39
+      },
+      "bench_megacap": {
+        "cagr": 10.33,
+        "sharpe": 0.563,
+        "max_dd": -26.97,
+        "total": 63.5
+      },
+      "oos_alpha_vs_universe": 16.98,
+      "oos_alpha_vs_megacap": 22.02
+    },
+    {
+      "window": "W4_2016_19",
+      "winner_cfg": {
+        "look": "6+12",
+        "voladj": true,
+        "skip": 1,
+        "N": 50,
+        "absgate": false,
+        "regime": true
+      },
+      "winner_opt": {
+        "cagr": 25.63,
+        "sharpe": 1.075,
+        "max_dd": -42.7
+      },
+      "validation": {
+        "cagr": 8.44,
+        "sharpe": 0.54,
+        "max_dd": -18.6,
+        "total": 38.3
+      },
+      "bench_universe": {
+        "cagr": 9.58,
+        "sharpe": 0.534,
+        "max_dd": -37.76,
+        "total": 44.2
+      },
+      "bench_megacap": {
+        "cagr": 9.19,
+        "sharpe": 0.545,
+        "max_dd": -32.34,
+        "total": 42.14
+      },
+      "oos_alpha_vs_universe": -1.14,
+      "oos_alpha_vs_megacap": -0.75
+    },
+    {
+      "window": "W5_2020_24",
+      "winner_cfg": {
+        "look": "6+12",
+        "voladj": true,
+        "skip": 0,
+        "N": 20,
+        "absgate": false,
+        "regime": true
+      },
+      "winner_opt": {
+        "cagr": 24.53,
+        "sharpe": 1.007,
+        "max_dd": -43.66
+      },
+      "validation": {
+        "cagr": 66.03,
+        "sharpe": 2.086,
+        "max_dd": -17.41,
+        "total": 879.24
+      },
+      "bench_universe": {
+        "cagr": 43.62,
+        "sharpe": 1.468,
+        "max_dd": -31.1,
+        "total": 409.95
+      },
+      "bench_megacap": {
+        "cagr": 33.16,
+        "sharpe": 1.28,
+        "max_dd": -26.91,
+        "total": 262.85
+      },
+      "oos_alpha_vs_universe": 22.41,
+      "oos_alpha_vs_megacap": 32.87
+    }
+  ],
+  "grid_size": 96,
+  "repair": {
+    "glitch_prints_repaired": 4476
+  },
+  "summary": {
+    "positive_oos_vs_universe": 4,
+    "positive_oos_vs_megacap": 3,
+    "avg_oos_alpha_vs_universe": 9.32,
+    "avg_oos_alpha_vs_megacap": 12.3,
+    "runtime_min": 0.2
+  }
+}

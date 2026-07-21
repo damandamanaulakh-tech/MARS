@@ -93,6 +93,33 @@ def write_equity_csv(portfolio: Portfolio) -> str:
     return path
 
 
+def write_journal_csv(portfolio: Portfolio) -> str:
+    """Full decision journal — every BUY / SELL / HOLD / RESET with context.
+    The compare-and-learn record: why we bought, why we sold, why we kept."""
+    path = os.path.join(_ensure_dir(portfolio), "decision_journal.csv")
+    entries = portfolio.decision_journal or []
+    cols = [
+        "ts", "action", "ticker", "qty", "price", "entry_price", "exit_price",
+        "notional", "net_pnl", "net_pct", "hold_days", "exit_reason",
+        "unrealised_pct", "current_score", "score_at_entry", "score",
+        "timing_pass", "mode", "regime", "drawdown_level",
+        "peak_price", "gave_back_from_peak_pct",
+        "why", "why_bought_was", "entry_notes", "cash_after", "detail",
+    ]
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(cols)
+        for e in entries:
+            row = []
+            for c in cols:
+                v = e.get(c, "")
+                if isinstance(v, dict):
+                    v = ";".join(f"{k}={x}" for k, x in v.items())
+                row.append(v)
+            w.writerow(row)
+    return path
+
+
 def write_skipped_csv(portfolio: Portfolio) -> str:
     """Why candidates were rejected at the entry gate — needed to diagnose
     'no positions created' moments."""

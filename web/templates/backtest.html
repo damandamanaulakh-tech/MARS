@@ -2,6 +2,23 @@
 {% block title %}Backtest Lab — Sourceborn AM07{% endblock %}
 {% block content %}
 
+{% if running %}
+<meta http-equiv="refresh" content="15">
+<div class="bg-amber-50 border border-amber-300 text-amber-900 p-4 mb-6 text-sm">
+  ⏳ Backtest running in background. Page auto-refreshes every 15s. Safe to leave this tab.
+</div>
+{% elif error == 'started' %}
+<meta http-equiv="refresh" content="15">
+<div class="bg-emerald-50 border border-emerald-300 text-emerald-900 p-4 mb-6 text-sm">
+  ✅ Backtest started. Page auto-refreshes — result appears when done (1-5 min depending on range).
+</div>
+{% elif error == 'already_running' %}
+<meta http-equiv="refresh" content="10">
+<div class="bg-amber-50 border border-amber-300 text-amber-900 p-4 mb-6 text-sm">
+  Another backtest is already running. Wait for it to finish.
+</div>
+{% endif %}
+
 <div class="text-xs tracking-widest text-ink-faint uppercase mb-3">RESEARCH / BACKTEST LAB</div>
 <div class="flex items-end justify-between mb-8">
   <div>
@@ -13,11 +30,49 @@
   </div>
 </div>
 
-{% if error %}
+{% if error and error not in ('started', 'already_running', 'download_started', 'download_running') %}
 <div class="mb-6 px-4 py-3 border border-red-200 bg-red-50 text-red-800 text-sm">
   Error: {{ error }}
 </div>
+{% elif error == 'download_started' %}
+<div class="mb-6 px-4 py-3 border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm">
+  ⬇ History download started in the background (Upstox → Mongo). Poll <a href="/backtest/download-status" class="underline">/backtest/download-status</a> for progress. Safe to leave.
+</div>
+{% elif error == 'download_running' %}
+<div class="mb-6 px-4 py-3 border border-amber-200 bg-amber-50 text-amber-900 text-sm">
+  A history download is already running. Check <a href="/backtest/download-status" class="underline">/backtest/download-status</a>.
+</div>
 {% endif %}
+
+<!-- 15-year proof unlock: bulk-download real OHLCV via the logged-in Upstox token -->
+<div class="bg-white border-2 border-ink/70 mb-8">
+  <div class="px-6 py-4 border-b border-line font-bold">📥 Download real history (the walk-forward proof unlock)</div>
+  <div class="p-6 flex flex-wrap items-end gap-4">
+    <p class="text-sm text-ink-soft max-w-xl">
+      Bulk-pulls up to ~12–15 years of daily OHLCV for the Nifty-200 universe
+      via <strong>your logged-in Upstox token</strong> and stores it durably in
+      Mongo. Run this ONCE while Upstox is connected — then backtests use real,
+      full data. Only currently-listed names (survivorship); NSE bhavcopy adds
+      delisted later.
+    </p>
+    <form method="post" action="/backtest/download-history" class="flex items-end gap-3">
+      <div>
+        <label class="text-[10px] tracking-widest text-ink-faint uppercase block">Years</label>
+        <input type="number" name="years" value="12" min="1" max="20"
+               class="mt-2 w-24 border-b border-line focus:border-ink outline-none py-2 text-base tabular-nums">
+      </div>
+      <button type="submit"
+              class="px-6 py-3 border border-ink text-ink font-semibold tracking-wide hover:bg-ink hover:text-white">
+        ⬇ DOWNLOAD HISTORY
+      </button>
+      <a href="/backtest/history-export.zip"
+         class="px-6 py-3 border border-line text-ink font-semibold tracking-wide hover:bg-ink/[0.03]"
+         title="Download everything stored by Download History as per-ticker CSVs (owner only)">
+        ⬇ EXPORT STORED (ZIP)
+      </a>
+    </form>
+  </div>
+</div>
 
 <!-- Run form -->
 <div class="bg-white border border-line mb-8">
@@ -41,8 +96,8 @@
     </div>
   </form>
   <div class="px-6 pb-5 text-xs text-ink-faint">
-    Synchronous — page will hang for 30-90 sec while it scans the universe.
-    Don't close the tab.
+    Runs in the background — this page auto-refreshes and shows the result when done.
+    A 2-year run is typically 1-3 min; longer ranges take longer.
   </div>
 </div>
 

@@ -1,0 +1,12 @@
+ticker,date,measured,factor,action,note
+BAJAJFINSV,2020-03-23,0.741379,,CRASH_DAY_LEFT_UNADJUSTED,real market move (overnight gap normal) — not a split
+BAJFINANCE,2025-06-16,0.102454,0.1,ADJUSTED,~1:9 bonus/split (snapped)
+DRREDDY,2024-10-28,0.202619,0.2,ADJUSTED,~1:4 bonus/split (snapped)
+HDFCBANK,2019-09-19,0.502754,0.5,ADJUSTED,~1:1 bonus/split (snapped)
+HDFCBANK,2025-08-26,0.498702,0.5,ADJUSTED,~1:1 bonus/split (snapped)
+INFY,2018-09-04,0.503399,0.5,ADJUSTED,~1:1 bonus/split (snapped)
+M&M,2017-12-21,0.497487,0.5,ADJUSTED,~1:1 bonus/split (snapped)
+RELIANCE,2017-09-07,0.500182,0.5,ADJUSTED,~1:1 bonus/split (snapped)
+RELIANCE,2024-10-28,0.503445,0.5,ADJUSTED,~1:1 bonus/split (snapped)
+TATASTEEL,2022-07-28,0.102251,0.1,ADJUSTED,~1:9 bonus/split (snapped)
+TCS,2018-05-31,0.493441,0.5,ADJUSTED,~1:1 bonus/split (snapped)

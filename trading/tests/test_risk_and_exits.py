@@ -18,6 +18,7 @@ from trading.risk import RiskState, can_open
 
 def _cfg(**over):
     c = Config()
+    c.disable_exits = False   # exit tests exercise the real exit logic; buy-and-hold off
     for k, v in over.items():
         setattr(c, k, v)
     return c
@@ -185,3 +186,91 @@ def test_portfolio_equity_and_persistence(tmp_path):
     assert "RELIANCE.NS" in p2.positions
     assert p2.positions["RELIANCE.NS"].qty == 10
     assert p2.cash == p.cash
+
+
+# ------------- v7: portfolio heat gate -------------
+# Heat = sum((entry-stop)*qty)/equity. With a 5% stop heat tops out ~4-5%, so
+# these tests use a wide stop to exercise the 25% cap logic directly.
+
+def test_portfolio_heat_blocks_when_over_cap():
+    cfg = _cfg(starting_capital=10_00_000, cash_reserve_pct=0.0,
+               max_position_pct=1.0, max_positions=99, max_sector_positions=99,
+               stop_loss_pct=-0.50, max_portfolio_heat_pct=0.25)
+    risk = RiskState(cfg=cfg, starting_capital=cfg.starting_capital)
+    # 5 positions * 100000 notional * 50% stop = 250000 heat = 25% of 1M (at cap).
+    positions = {f"S{i}.NS": _pos(ticker=f"S{i}.NS", entry=100, qty=1000, sector=f"X{i}")
+                 for i in range(5)}
+    ok, reason, qty = can_open(
+        risk, cash=10_00_000, current_equity=10_00_000,
+        open_positions=positions, ticker="NEW.NS", fill_price=100.0, cfg=cfg,
+    )
+    assert not ok
+    assert reason == "portfolio_heat_cap"
+
+
+def test_portfolio_heat_shrinks_qty_to_fit():
+    cfg = _cfg(starting_capital=10_00_000, cash_reserve_pct=0.0,
+               max_position_pct=1.0, max_positions=99, max_sector_positions=99,
+               stop_loss_pct=-0.50, max_portfolio_heat_pct=0.25)
+    risk = RiskState(cfg=cfg, starting_capital=cfg.starting_capital)
+    # 4 positions * 50000 heat = 200000 = 20%. Remaining 5% = 50000 heat budget.
+    # At 100 price * 50% stop = 50 heat/share -> 1000 shares fit.
+    positions = {f"S{i}.NS": _pos(ticker=f"S{i}.NS", entry=100, qty=1000, sector=f"X{i}")
+                 for i in range(4)}
+    ok, reason, qty = can_open(
+        risk, cash=10_00_000, current_equity=10_00_000,
+        open_positions=positions, ticker="NEW.NS", fill_price=100.0, cfg=cfg,
+    )
+    assert ok
+    assert qty == 1000
+
+
+def test_portfolio_heat_allows_when_room():
+    cfg = _cfg(starting_capital=10_00_000, cash_reserve_pct=0.20,
+               max_position_pct=0.10, max_positions=99, max_sector_positions=99,
+               stop_loss_pct=-0.05, max_portfolio_heat_pct=0.25)
+    risk = RiskState(cfg=cfg, starting_capital=cfg.starting_capital)
+    ok, reason, qty = can_open(
+        risk, cash=10_00_000, current_equity=10_00_000,
+        open_positions={}, ticker="NEW.NS", fill_price=100.0, cfg=cfg,
+    )
+    assert ok
+    assert qty > 0
+
+
+# ------------- per-position category + snapshotted exit levels -------------
+
+def test_exit_uses_stored_stop_target_over_cfg():
+    # Stored stop/target win over the live cfg percentages — this is what keeps
+    # a position's exit correct after the daily scan rotates cfg.mode.
+    cfg = _cfg(stop_loss_pct=-0.05, take_profit_pct=0.10,
+               trailing_stop_pct=-0.50, score_decay_exit=0.0)
+    pos = _pos(entry=100.0)
+    pos.stop_price = 90.0       # wider than cfg's -5% (=95)
+    pos.target_price = 130.0    # higher than cfg's +10% (=110)
+    # 94: cfg's -5% stop (95) would fire, but the stored stop is 90 -> hold.
+    assert not check_exit(pos, 94.0, 80.0, cfg, datetime(2026, 1, 5))[0]
+    # 112: cfg's +10% target (110) would fire, but stored target is 130 -> hold.
+    assert not check_exit(pos, 112.0, 80.0, cfg, datetime(2026, 1, 5))[0]
+    # Hit the stored stop.
+    should, reason = check_exit(pos, 90.0, 80.0, cfg, datetime(2026, 1, 5))
+    assert should and reason == "STOP_LOSS"
+    # Hit the stored target.
+    pos2 = _pos(entry=100.0)
+    pos2.stop_price, pos2.target_price = 90.0, 130.0
+    should, reason = check_exit(pos2, 130.0, 80.0, cfg, datetime(2026, 1, 5))
+    assert should and reason == "TAKE_PROFIT"
+
+
+def test_position_roundtrip_and_legacy_load():
+    pos = _pos(entry=100.0)
+    pos.mode, pos.stop_price, pos.target_price = "swing", 95.0, 110.0
+    d = pos.to_dict()
+    assert (d["mode"], d["stop_price"], d["target_price"]) == ("swing", 95.0, 110.0)
+    back = PaperPosition.from_dict(d)
+    assert back.mode == "swing" and back.target_price == 110.0
+    # A legacy record without the new keys still loads with safe defaults.
+    legacy = {k: v for k, v in d.items()
+              if k not in ("mode", "stop_price", "target_price")}
+    old = PaperPosition.from_dict(legacy)
+    assert old.mode == "" and old.stop_price == 0.0 and old.target_price == 0.0

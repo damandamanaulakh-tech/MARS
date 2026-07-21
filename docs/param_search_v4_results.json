@@ -1,0 +1,205 @@
+{
+  "episodes": [
+    {
+      "episode": "2015-06-02..2015-06-22",
+      "days": 15,
+      "CASH": 0.0,
+      "NIFTY_hold": 1.42,
+      "OCEAN": {
+        "ret": 0.0,
+        "dd": 0.0
+      },
+      "HALF_MOM": {
+        "ret": 0.0,
+        "dd": 0.0
+      },
+      "VIX_CRUSH": {
+        "ret": 0.0,
+        "dd": 0.0
+      }
+    },
+    {
+      "episode": "2015-08-20..2016-04-13",
+      "days": 159,
+      "CASH": 0.0,
+      "NIFTY_hold": -6.24,
+      "OCEAN": {
+        "ret": -0.94,
+        "dd": -22.44
+      },
+      "HALF_MOM": {
+        "ret": -9.33,
+        "dd": -13.8
+      },
+      "VIX_CRUSH": {
+        "ret": -3.63,
+        "dd": -13.58
+      }
+    },
+    {
+      "episode": "2016-12-14..2017-01-09",
+      "days": 19,
+      "CASH": 0.0,
+      "NIFTY_hold": 0.66,
+      "OCEAN": {
+        "ret": 0.39,
+        "dd": -0.15
+      },
+      "HALF_MOM": {
+        "ret": -0.66,
+        "dd": -0.99
+      },
+      "VIX_CRUSH": {
+        "ret": 0.0,
+        "dd": 0.0
+      }
+    },
+    {
+      "episode": "2018-10-04..2018-11-16",
+      "days": 30,
+      "CASH": 0.0,
+      "NIFTY_hold": 0.78,
+      "OCEAN": {
+        "ret": 4.13,
+        "dd": -4.5
+      },
+      "HALF_MOM": {
+        "ret": -2.41,
+        "dd": -3.66
+      },
+      "VIX_CRUSH": {
+        "ret": 0.0,
+        "dd": 0.0
+      }
+    },
+    {
+      "episode": "2019-07-30..2019-09-19",
+      "days": 34,
+      "CASH": 0.0,
+      "NIFTY_hold": -3.43,
+      "OCEAN": {
+        "ret": 7.02,
+        "dd": -5.0
+      },
+      "HALF_MOM": {
+        "ret": 1.51,
+        "dd": -1.66
+      },
+      "VIX_CRUSH": {
+        "ret": 0.0,
+        "dd": 0.0
+      }
+    },
+    {
+      "episode": "2020-02-26..2020-07-16",
+      "days": 95,
+      "CASH": 0.0,
+      "NIFTY_hold": -8.04,
+      "OCEAN": {
+        "ret": -18.12,
+        "dd": -41.47
+      },
+      "HALF_MOM": {
+        "ret": -2.23,
+        "dd": -17.01
+      },
+      "VIX_CRUSH": {
+        "ret": 23.99,
+        "dd": -2.67
+      }
+    },
+    {
+      "episode": "2022-04-29..2022-07-28",
+      "days": 64,
+      "CASH": 0.0,
+      "NIFTY_hold": -1.01,
+      "OCEAN": {
+        "ret": -5.26,
+        "dd": -11.54
+      },
+      "HALF_MOM": {
+        "ret": 0.29,
+        "dd": -7.28
+      },
+      "VIX_CRUSH": {
+        "ret": 7.29,
+        "dd": -0.15
+      }
+    },
+    {
+      "episode": "2023-03-10..2023-04-03",
+      "days": 16,
+      "CASH": 0.0,
+      "NIFTY_hold": -0.09,
+      "OCEAN": {
+        "ret": 0.89,
+        "dd": -1.13
+      },
+      "HALF_MOM": {
+        "ret": -0.38,
+        "dd": -2.54
+      },
+      "VIX_CRUSH": {
+        "ret": 0.0,
+        "dd": 0.0
+      }
+    },
+    {
+      "episode": "2025-01-06..2025-04-17",
+      "days": 70,
+      "CASH": 0.0,
+      "NIFTY_hold": 1.0,
+      "OCEAN": {
+        "ret": 13.36,
+        "dd": -11.31
+      },
+      "HALF_MOM": {
+        "ret": -7.48,
+        "dd": -11.11
+      },
+      "VIX_CRUSH": {
+        "ret": -6.28,
+        "dd": -6.53
+      }
+    },
+    {
+      "episode": "2026-02-27..2026-07-17",
+      "days": 93,
+      "CASH": 0.0,
+      "NIFTY_hold": -7.2,
+      "OCEAN": {
+        "ret": 2.09,
+        "dd": -10.19
+      },
+      "HALF_MOM": {
+        "ret": -3.85,
+        "dd": -7.78
+      },
+      "VIX_CRUSH": {
+        "ret": 2.0,
+        "dd": -4.99
+      }
+    }
+  ],
+  "summary": {
+    "episodes": 10,
+    "NIFTY_hold": {
+      "avg_ret": -2.21,
+      "episodes_beating_cash": "4/10"
+    },
+    "OCEAN": {
+      "avg_ret": 0.36,
+      "episodes_beating_cash": "6/10"
+    },
+    "HALF_MOM": {
+      "avg_ret": -2.45,
+      "episodes_beating_cash": "2/10"
+    },
+    "VIX_CRUSH": {
+      "avg_ret": 2.34,
+      "episodes_beating_cash": "3/10"
+    },
+    "runtime_min": 0.0,
+    "method": "preregistered fixed rules, weekly, costs 0.15%/side, liquidation at episode end; no tuning anywhere"
+  }
+}

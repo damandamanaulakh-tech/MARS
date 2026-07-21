@@ -26,7 +26,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta
 from typing import Optional
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import httpx
 
@@ -38,8 +38,21 @@ log = logging.getLogger(__name__)
 AUTH_URL    = "https://api.upstox.com/v2/login/authorization/dialog"
 TOKEN_URL   = "https://api.upstox.com/v2/login/authorization/token"
 QUOTE_URL   = "https://api.upstox.com/v2/market-quote/quotes"
+HIST_URL    = "https://api.upstox.com/v2/historical-candle"
 PROFILE_URL = "https://api.upstox.com/v2/user/profile"
 FUNDS_URL   = "https://api.upstox.com/v2/user/get-funds-and-margin"
+
+
+def assert_paper_trading() -> None:
+    """P2/D3 HARD safety lock: no code path may place a live broker order
+    unless the operator explicitly sets PAPER_ONLY=0 in the environment.
+    Any future order-placement method MUST call this first. Checked at
+    call time (not import) so the lock can't be cached away."""
+    if os.environ.get("PAPER_ONLY", "1") != "0":
+        raise RuntimeError(
+            "PAPER_ONLY lock active: live order placement is disabled. "
+            "Set PAPER_ONLY=0 in the environment to explicitly enable."
+        )
 
 
 class UpstoxConfigError(Exception):
@@ -187,6 +200,62 @@ class UpstoxClient:
             return r.json().get("data")
         except (httpx.HTTPError, UpstoxAuthError) as e:
             log.warning("Upstox get_funds failed: %s", e)
+            return None
+
+    def get_daily_candles(self, instrument_key: str, from_date: str,
+                          to_date: str) -> Optional["object"]:
+        """Daily OHLCV history from Upstox (read-only, no order scope).
+
+        Returns a pandas DataFrame (Open/High/Low/Close/Volume, float32,
+        ascending DatetimeIndex) or None on any failure. This is the
+        yfinance replacement: Yahoo 429-blocks datacenter IPs (Render),
+        Upstox does not — and the user is authenticated anyway.
+        """
+        import pandas as pd
+        try:
+            url = f"{HIST_URL}/{quote(instrument_key, safe='')}/day/{to_date}/{from_date}"
+            r = httpx.get(url, headers=self._auth_headers(), timeout=30.0)
+            r.raise_for_status()
+            candles = (r.json().get("data") or {}).get("candles") or []
+            if not candles:
+                return None
+            df = pd.DataFrame(
+                [c[:6] for c in candles],
+                columns=["ts", "Open", "High", "Low", "Close", "Volume"],
+            )
+            df["ts"] = pd.to_datetime(df["ts"], utc=True).dt.tz_convert("Asia/Kolkata").dt.tz_localize(None).dt.normalize()
+            df = df.set_index("ts").sort_index()
+            for c in df.columns:
+                df[c] = df[c].astype("float32")
+            return df
+        except (httpx.HTTPError, UpstoxAuthError, ValueError, KeyError) as e:
+            log.warning("Upstox get_daily_candles failed for %s: %s", instrument_key, e)
+            return None
+
+    def get_intraday_candles(self, instrument_key: str,
+                             interval: str = "30minute") -> Optional["object"]:
+        """Today's intraday OHLCV (1minute / 30minute) — the live candle layer.
+        Same frame shape as get_daily_candles; None on failure."""
+        import pandas as pd
+        try:
+            url = (f"https://api.upstox.com/v2/historical-candle/intraday/"
+                   f"{quote(instrument_key, safe='')}/{interval}")
+            r = httpx.get(url, headers=self._auth_headers(), timeout=15.0)
+            r.raise_for_status()
+            candles = (r.json().get("data") or {}).get("candles") or []
+            if not candles:
+                return None
+            df = pd.DataFrame(
+                [c[:6] for c in candles],
+                columns=["ts", "Open", "High", "Low", "Close", "Volume"],
+            )
+            df["ts"] = pd.to_datetime(df["ts"], utc=True).dt.tz_convert("Asia/Kolkata").dt.tz_localize(None)
+            df = df.set_index("ts").sort_index()
+            for c in df.columns:
+                df[c] = df[c].astype("float32")
+            return df
+        except (httpx.HTTPError, UpstoxAuthError, ValueError, KeyError) as e:
+            log.warning("Upstox get_intraday_candles failed for %s: %s", instrument_key, e)
             return None
 
     def get_quote(self, instrument_key: str) -> Optional[dict]:

@@ -59,9 +59,12 @@
       {% for item in items %}
       <div>
         <label class="text-[10px] tracking-widest text-ink-faint uppercase border-t border-line pt-3 block">{{ item.label }}</label>
-        <input type="{{ item.type }}" step="{{ item.step }}" name="{{ item.name }}"
-               value="{{ item.value }}"
-               class="mt-2 w-full border-b border-line focus:border-ink outline-none py-2 text-base tabular-nums">
+        <div class="mt-2 flex items-center gap-2 border-b border-line focus-within:border-ink">
+          <input type="{{ item.type }}" step="{{ item.step }}" name="{{ item.name }}"
+                 value="{{ item.value }}"
+                 class="w-full outline-none py-2 text-base tabular-nums bg-transparent">
+          {% if item.is_pct %}<span class="text-ink-faint font-semibold">%</span>{% endif %}
+        </div>
         <div class="text-xs text-ink-faint mt-1">{{ item.hint }}</div>
       </div>
       {% endfor %}

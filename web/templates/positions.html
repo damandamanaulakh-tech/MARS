@@ -82,60 +82,95 @@
   {% if seeded == "0" %}<span class="text-emerald-800">(All already present — nothing to add.)</span>{% endif %}
 </div>
 {% endif %}
+{% if removed %}
+<div class="bg-amber-50 border border-amber-300 text-amber-900 p-3 mb-4 text-sm">
+  Removed <strong>{{ removed }}</strong> from the book — cash refunded, logged in the journal.
+</div>
+{% endif %}
 {% if error %}
 <div class="bg-red-50 border border-red-300 text-red-900 p-3 mb-4 text-sm">Error: <strong>{{ error }}</strong></div>
 {% endif %}
 
+{% if rows and not quotes_live %}
+<div class="bg-amber-50 border border-amber-300 text-amber-900 p-3 mb-4 text-sm">
+  ⚠ Live quotes unavailable — showing <strong>entry prices</strong> as current.
+  Connect <strong>Upstox</strong> (Settings) for live prices; the token expires 03:30 IST daily.
+</div>
+{% endif %}
+
 {% if rows %}
-<div class="bg-white border border-line">
+<div class="bg-white border border-line overflow-x-auto">
   <table class="w-full text-sm">
     <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
       <tr>
-        <th class="text-left px-6 py-3">Ticker</th>
-        <th class="text-left px-6 py-3">Qty</th>
-        <th class="text-left px-6 py-3">Entry Date</th>
-        <th class="text-left px-6 py-3">Entry ₹</th>
-        <th class="text-left px-6 py-3">Peak ₹</th>
-        <th class="text-left px-6 py-3">Sector</th>
-        <th class="text-left px-6 py-3">Score</th>
-        <th class="text-left px-6 py-3">Partial?</th>
-        <th class="text-left px-6 py-3">Why</th>
-        <th class="text-left px-6 py-3">Journal</th>
+        <th class="text-left px-4 py-3">Ticker</th>
+        <th class="text-right px-4 py-3">Qty</th>
+        <th class="text-right px-4 py-3">Entry ₹</th>
+        <th class="text-right px-4 py-3">Current ₹</th>
+        <th class="text-right px-4 py-3">Value ₹</th>
+        <th class="text-right px-4 py-3">P&amp;L</th>
+        <th class="text-right px-4 py-3" title="Gain left if the target is reached from the current price">To Target</th>
+        <th class="text-right px-4 py-3" title="Loss if the stop-loss is hit from the current price">To Stop Loss</th>
+        <th class="text-right px-4 py-3">Actions</th>
       </tr>
     </thead>
     <tbody x-data="{ open: null }">
       {% for r in rows %}
-      <tr class="border-b border-line last:border-0 hover:bg-ink/[0.02]">
-        <td class="px-6 py-4 font-semibold">{{ r.ticker }}</td>
-        <td class="px-6 py-4 tabular-nums">{{ r.qty }}</td>
-        <td class="px-6 py-4 text-ink-soft">{{ r.entry_date }}</td>
-        <td class="px-6 py-4 tabular-nums">₹{{ r.entry_price | inr(2) }}</td>
-        <td class="px-6 py-4 tabular-nums">₹{{ r.peak_price | inr(2) }}</td>
-        <td class="px-6 py-4 text-ink-soft">{{ r.sector }}</td>
-        <td class="px-6 py-4 tabular-nums">{{ r.entry_score | round(1) }}</td>
-        <td class="px-6 py-4 text-ink-soft">
-          {% if r.partial_taken %}<span class="text-accent font-semibold">Booked</span>{% else %}—{% endif %}
+      <tr class="border-b border-line last:border-0 hover:bg-ink/[0.02] {% if r.decay_watch %}bg-amber-50{% endif %}">
+        <td class="px-4 py-4 font-semibold whitespace-nowrap">{{ r.ticker }}
+          {% if r.decay_watch %}<span class="ml-1 text-[10px] text-amber-700 font-bold" title="Score {{ r.current_score | round(0) }} near decay-exit floor {{ r.decay_floor | round(0) }} — may be sold on decay">⚠ DECAY</span>{% endif %}</td>
+        <td class="px-4 py-4 tabular-nums text-right">{{ r.qty }}</td>
+        <td class="px-4 py-4 tabular-nums text-right">₹{{ r.entry_price | inr(2) }}</td>
+        <td class="px-4 py-4 tabular-nums text-right font-semibold">₹{{ r.ltp | inr(2) }}</td>
+        <td class="px-4 py-4 tabular-nums text-right">₹{{ r.value | inr }}</td>
+        <td class="px-4 py-4 tabular-nums text-right font-semibold {% if r.pnl >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}">
+          {{ '+' if r.pnl >= 0 }}₹{{ r.pnl | inr }}<div class="text-xs font-normal">{{ '%+.2f' % r.pnl_pct }}%</div>
         </td>
-        <td class="px-6 py-4 text-ink-soft max-w-sm truncate">{{ r.reasoning }}</td>
-        <td class="px-6 py-4">
+        <td class="px-4 py-4 tabular-nums text-right text-emerald-700">
+          {% if r.to_target_pct <= 0 %}<span class="font-semibold" title="Price is already beyond the target — exit fires on the next refresh">🎯 target passed</span>
+          {% else %}{{ '%+.1f' % r.to_target_pct }}%{% endif %}<div class="text-xs text-ink-faint">₹{{ r.target_price | inr(2) }}</div>
+        </td>
+        <td class="px-4 py-4 tabular-nums text-right text-red-700">
+          {{ '%+.1f' % r.to_stop_pct }}%<div class="text-xs text-ink-faint">₹{{ r.stop_price | inr(2) }}</div>
+        </td>
+        <td class="px-4 py-4 whitespace-nowrap text-right">
           <button @click="open = open === '{{ r.ticker }}' ? null : '{{ r.ticker }}'"
                   class="text-xs tracking-widest uppercase text-ink-faint hover:text-ink">
-            {% if r.entry_notes %}📝 EDIT{% else %}+ NOTE{% endif %}
+            ▸ DETAILS
           </button>
+          <form action="/positions/{{ r.ticker }}/remove" method="post" class="inline"
+                onsubmit="return confirm('Remove {{ r.ticker }} from the book? Its cash is refunded.');">
+            <button class="text-xs tracking-widest uppercase text-red-600 hover:text-red-800 ml-3">✕</button>
+          </form>
         </td>
       </tr>
       <tr x-show="open === '{{ r.ticker }}'" x-cloak>
-        <td colspan="10" class="px-6 py-4 bg-ink/[0.02] border-t border-line">
+        <td colspan="9" class="px-6 py-4 bg-ink/[0.02] border-t border-line">
+          <div class="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm mb-4">
+            <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">Category</div>{{ r.category }}</div>
+            <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">Entry Date</div>{{ r.entry_date }}</div>
+            <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">Sector</div>{{ r.sector }}</div>
+            <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">Score at Entry</div>{{ r.entry_score | round(1) }}</div>
+            <div><div class="text-[10px] tracking-widest text-ink-faint uppercase" title="Highest price since entry — the trailing stop hangs off this">Peak ₹</div>₹{{ r.peak_price | inr(2) }}</div>
+            <div><div class="text-[10px] tracking-widest text-ink-faint uppercase" title="Engine already sold part of this position (crash-brake / partial booking)">Partial Exit</div>
+              {% if r.partial_taken %}<span class="text-accent font-semibold">Booked</span>{% else %}—{% endif %}</div>
+          </div>
+          <div class="text-sm text-ink-soft mb-4">
+            <span class="text-[10px] tracking-widest text-ink-faint uppercase block mb-1">Why the engine bought</span>
+            {{ r.reasoning }}
+          </div>
+          {% set p = r %}{% include "_pick_detail.html" %}
+          <div class="mb-4"></div>
           <form action="/positions/{{ r.ticker }}/notes" method="post" class="space-y-3">
             <div>
-              <label class="text-[10px] tracking-widest text-ink-faint uppercase block mb-1">Entry notes — why I entered</label>
+              <label class="text-[10px] tracking-widest text-ink-faint uppercase block mb-1">My notes (optional)</label>
               <textarea name="entry_notes" rows="2" class="w-full border border-line p-2 text-sm"
-                        placeholder="e.g. 'Earnings beat + GS upgrade + breakout on volume'">{{ r.entry_notes }}</textarea>
+                        placeholder="e.g. 'Earnings beat + breakout on volume'">{{ r.entry_notes }}</textarea>
             </div>
             <div>
               <label class="text-[10px] tracking-widest text-ink-faint uppercase block mb-1">Tags (comma-separated)</label>
               <input name="tags" type="text" class="w-full border border-line p-2 text-sm"
-                     placeholder="e.g. earnings_play, momentum, sector_leader"
+                     placeholder="e.g. earnings_play, momentum"
                      value="{{ r.tags | join(', ') }}">
             </div>
             <button class="px-4 py-2 bg-ink text-white text-xs font-semibold tracking-widest uppercase">Save</button>
@@ -144,6 +179,18 @@
       </tr>
       {% endfor %}
     </tbody>
+    <tfoot class="border-t-2 border-ink/20 font-semibold">
+      <tr>
+        <td class="px-4 py-4" colspan="2">TOTAL</td>
+        <td class="px-4 py-4 tabular-nums text-right text-ink-faint">₹{{ totals.invested | inr }}</td>
+        <td class="px-4 py-4"></td>
+        <td class="px-4 py-4 tabular-nums text-right">₹{{ totals.value | inr }}</td>
+        <td class="px-4 py-4 tabular-nums text-right {% if totals.pnl >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}">
+          {{ '+' if totals.pnl >= 0 }}₹{{ totals.pnl | inr }}<div class="text-xs font-normal">{{ '%+.2f' % totals.pnl_pct }}%</div>
+        </td>
+        <td class="px-4 py-4" colspan="3"></td>
+      </tr>
+    </tfoot>
   </table>
 </div>
 {% else %}

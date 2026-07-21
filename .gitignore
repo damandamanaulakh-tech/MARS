@@ -12,3 +12,14 @@ node_modules/
 uploads/*
 !uploads/.gitkeep
 npm-debug.log*
+
+# generated backtest reports (sent to user, not source)
+*.xlsx
+
+# committed datasets (data/ is durable, versioned)
+!data/*.csv
+!data/*.xlsx
+!data/history_15stock_raw/*.csv
+!data/history_15stock/*.csv
+docs/param_search_v1_progress.jsonl
+!data/universe_snapshots/*.csv

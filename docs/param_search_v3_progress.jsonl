@@ -1,0 +1,9 @@
+{"event": "loaded", "tickers": 191, "days": 2981}
+{"event": "eligibility", "avg_eligible_per_month": 150.1}
+{"event": "candle_flags", "true_rate": 0.248, "elapsed_s": 125.8}
+{"event": "grid", "size": 384}
+{"event": "window_done", "window": "W1_2019", "winner_cfg": {"look": "6+12", "voladj": true, "skip": 0, "N": 25, "absgate": true, "regime": false, "candle": false, "volx": false}, "validation": {"cagr": 22.84, "sharpe": 1.399, "max_dd": -9.94}, "bench_universe": {"cagr": 14.09, "sharpe": 1.015, "max_dd": -8.97}, "oos_alpha": 8.75}
+{"event": "window_done", "window": "W2_2020_21", "winner_cfg": {"look": "6+12", "voladj": true, "skip": 0, "N": 25, "absgate": true, "regime": false, "candle": false, "volx": false}, "validation": {"cagr": 51.15, "sharpe": 1.709, "max_dd": -23.5}, "bench_universe": {"cagr": 33.87, "sharpe": 1.186, "max_dd": -25.92}, "oos_alpha": 17.28}
+{"event": "window_done", "window": "W3_2022_23", "winner_cfg": {"look": "6+12", "voladj": true, "skip": 0, "N": 15, "absgate": true, "regime": false, "candle": false, "volx": false}, "validation": {"cagr": 42.66, "sharpe": 1.564, "max_dd": -12.34}, "bench_universe": {"cagr": 28.5, "sharpe": 1.596, "max_dd": -10.94}, "oos_alpha": 14.16}
+{"event": "window_done", "window": "W4_2024_26", "winner_cfg": {"look": "6", "voladj": true, "skip": 0, "N": 15, "absgate": true, "regime": false, "candle": true, "volx": true}, "validation": {"cagr": 4.94, "sharpe": 0.316, "max_dd": -21.72}, "bench_universe": {"cagr": 9.58, "sharpe": 0.618, "max_dd": -21.21}, "oos_alpha": -4.64}
+{"event": "done", "positive_oos_windows": 3, "avg_oos_alpha": 8.89, "runtime_min": 2.1, "caveats": ["SURVIVORSHIP: current N200 membership backfilled (PIT pending)", "liquidity floor Rs 1 Cr median daily turnover, 60d", "costs 0.15%/side on turnover", "monthly rebalance approximation of the live engine"]}

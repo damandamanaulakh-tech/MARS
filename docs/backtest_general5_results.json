@@ -1,0 +1,119 @@
+{
+ "GEN-2018-CHOP": {
+  "strategy_pct": 1.88,
+  "basket_pct": 2.29,
+  "alpha_pct": -0.41,
+  "maxDD_pct": -10.09,
+  "basketDD_pct": -16.69,
+  "win_rate": 38.1,
+  "trades": 42,
+  "time_in_mkt_pct": 100.0,
+  "sharpe": 0.27,
+  "exit_reasons": {
+   "STOP_LOSS": 13,
+   "TRAILING_STOP": 13,
+   "TAKE_PROFIT": 6,
+   "MAX_HOLD": 2,
+   "BACKTEST_END": 8
+  },
+  "per_reason_pnl": {
+   "STOP_LOSS": -292136,
+   "TRAILING_STOP": -132796,
+   "TAKE_PROFIT": 308669,
+   "MAX_HOLD": 60026,
+   "BACKTEST_END": 103305
+  }
+ },
+ "GEN-2019-H2": {
+  "strategy_pct": -0.2,
+  "basket_pct": 5.2,
+  "alpha_pct": -5.39,
+  "maxDD_pct": -5.11,
+  "basketDD_pct": -11.46,
+  "win_rate": 52.4,
+  "trades": 21,
+  "time_in_mkt_pct": 100.0,
+  "sharpe": 0.04,
+  "exit_reasons": {
+   "TRAILING_STOP": 5,
+   "STOP_LOSS": 3,
+   "MAX_HOLD": 2,
+   "BACKTEST_END": 11
+  },
+  "per_reason_pnl": {
+   "TRAILING_STOP": -87894,
+   "STOP_LOSS": -74295,
+   "MAX_HOLD": 50879,
+   "BACKTEST_END": 106345
+  }
+ },
+ "GEN-2021-H2": {
+  "strategy_pct": 3.48,
+  "basket_pct": 6.61,
+  "alpha_pct": -3.13,
+  "maxDD_pct": -7.21,
+  "basketDD_pct": -12.7,
+  "win_rate": 36.8,
+  "trades": 19,
+  "time_in_mkt_pct": 100.0,
+  "sharpe": 0.87,
+  "exit_reasons": {
+   "STOP_LOSS": 3,
+   "TAKE_PROFIT": 2,
+   "TRAILING_STOP": 6,
+   "BACKTEST_END": 8
+  },
+  "per_reason_pnl": {
+   "STOP_LOSS": -71849,
+   "TAKE_PROFIT": 100110,
+   "TRAILING_STOP": 6029,
+   "BACKTEST_END": 52632
+  }
+ },
+ "GEN-2024-H2": {
+  "strategy_pct": -1.06,
+  "basket_pct": -5.21,
+  "alpha_pct": 4.15,
+  "maxDD_pct": -8.84,
+  "basketDD_pct": -12.52,
+  "win_rate": 42.1,
+  "trades": 19,
+  "time_in_mkt_pct": 100.0,
+  "sharpe": -0.15,
+  "exit_reasons": {
+   "STOP_LOSS": 3,
+   "TRAILING_STOP": 6,
+   "BACKTEST_END": 10
+  },
+  "per_reason_pnl": {
+   "STOP_LOSS": -66607,
+   "TRAILING_STOP": -42423,
+   "BACKTEST_END": 82462
+  }
+ },
+ "GEN-2025-26-12M": {
+  "strategy_pct": -2.82,
+  "basket_pct": -1.13,
+  "alpha_pct": -1.69,
+  "maxDD_pct": -7.68,
+  "basketDD_pct": -11.73,
+  "win_rate": 29.6,
+  "trades": 27,
+  "time_in_mkt_pct": 100.0,
+  "sharpe": -0.39,
+  "exit_reasons": {
+   "TAKE_PROFIT": 1,
+   "TRAILING_STOP": 10,
+   "MAX_HOLD": 10,
+   "STOP_LOSS": 1,
+   "BACKTEST_END": 5
+  },
+  "per_reason_pnl": {
+   "TAKE_PROFIT": 49683,
+   "TRAILING_STOP": -128262,
+   "MAX_HOLD": 28998,
+   "STOP_LOSS": -22219,
+   "BACKTEST_END": 1326
+  }
+ }
+}

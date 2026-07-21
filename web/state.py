@@ -7,6 +7,7 @@ the in-progress Portfolio so the app keeps working when Mongo is down.
 
 from __future__ import annotations
 
+import logging
 import threading
 from typing import Optional
 
@@ -16,6 +17,8 @@ from trading.paper import ClosedTrade, PaperPosition, Portfolio
 
 from . import db
 
+
+log = logging.getLogger(__name__)
 
 _LOCK = threading.Lock()
 _CFG: Optional[Config] = None
@@ -37,9 +40,15 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.last_scan_picks = list(doc.get("last_scan_picks", []))
     p.last_scan_skipped = list(doc.get("last_scan_skipped", []))
     p.last_scan_opened = list(doc.get("last_scan_opened", []))
+    p.scan_matrix = dict(doc.get("scan_matrix", {}))
     p.last_regime = doc.get("last_regime")
+    p.last_ifr_fire_date = doc.get("last_ifr_fire_date")
+    p.last_ifr_ratio_fire_date = doc.get("last_ifr_ratio_fire_date")
     p.regime_history = list(doc.get("regime_history", []))
     p.scan_history = list(doc.get("scan_history", []))
+    p.decision_journal = list(doc.get("decision_journal", []))
+    p.virtual_book = dict(doc.get("virtual_book", {}))
+    p.pending_orders = list(doc.get("pending_orders", []))
     p.last_save = doc.get("last_save")
 
 
@@ -51,6 +60,12 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
     original_save = Portfolio.save
 
     def _save_with_mirror(self: Portfolio) -> None:
+        # Durable-archive the journal overflow BEFORE original_save trims RAM,
+        # so the full append-only trail survives in Mongo (journal_archive)
+        # while RAM stays bounded on the always-on process.
+        from trading.paper import JOURNAL_RAM_CAP
+        if db.is_connected() and len(self.decision_journal) > JOURNAL_RAM_CAP:
+            db.archive_journal(self.decision_journal[:-JOURNAL_RAM_CAP])
         original_save(self)
         if not db.is_connected():
             return
@@ -64,8 +79,14 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "last_scan_skipped": self.last_scan_skipped,
             "last_scan_opened": self.last_scan_opened,
             "last_regime": self.last_regime,
+            "last_ifr_fire_date": self.last_ifr_fire_date,
+            "last_ifr_ratio_fire_date": self.last_ifr_ratio_fire_date,
             "regime_history": self.regime_history[-200:],
             "scan_history": self.scan_history[-500:],
+            "decision_journal": self.decision_journal,   # full, never truncated
+            "virtual_book": self.virtual_book,
+            "scan_matrix": self.scan_matrix,
+            "pending_orders": self.pending_orders[-200:],
             "last_save": self.last_save,
         }
         db.save_portfolio(doc)
@@ -87,6 +108,9 @@ def _bootstrap() -> None:
                 pass
     # Apply mode preset (sets stops, target, etc. per chosen horizon)
     _CFG.apply_mode_preset()
+    # Policy C (user-approved 2026-07-16): exits ON — pinned here so a stale
+    # `disable_exits` in an old Mongo settings doc can never re-freeze exits.
+    _CFG.disable_exits = False
 
     # Load portfolio: prefer Mongo (survives restarts), fall back to JSON
     _PORTFOLIO = Portfolio.load_or_fresh(_CFG)
@@ -96,6 +120,16 @@ def _bootstrap() -> None:
 
     # Wire save() to mirror to Mongo from now on
     _patch_portfolio_save_to_mirror_mongo()
+
+    # Policy C migration: re-snapshot every open position's stop/target from
+    # its own mode's table (stale intraday / blank tags -> momentum preset).
+    # Journaled per position; idempotent, so later boots are no-ops.
+    try:
+        from trading.exits import retag_positions_per_mode
+        if retag_positions_per_mode(_PORTFOLIO) > 0:
+            _PORTFOLIO.save()
+    except Exception:
+        log.exception("Policy C retag failed — positions keep old stops")
 
     _ENGINE = TradingEngine(_CFG, _PORTFOLIO)
 
@@ -124,6 +158,10 @@ def _attach_broker_if_persisted() -> None:
     client.user_name = token_doc.get("user_name")
     client.connected_at = token_doc.get("connected_at")
     _ENGINE.attach_broker(client)
+    # Route ALL historical candles through Upstox too (Yahoo 429-blocks
+    # cloud IPs; scans/backtests starve on yfinance alone).
+    from trading import data as trading_data
+    trading_data.set_history_broker(client)
 
 
 def refresh_broker_attachment() -> None:
@@ -135,6 +173,69 @@ def refresh_broker_attachment() -> None:
         # If Mongo cleared the token, ensure engine forgets it too
         if db.load_upstox_token() is None:
             _ENGINE.attach_broker(None)
+            from trading import data as trading_data
+            trading_data.set_history_broker(None)
+
+
+_MARKS_CACHE: dict = {"ts": 0.0, "prices": {}}
+
+
+def marks(tickers: list[str]) -> tuple[dict, bool]:
+    """Latest prices for tickers with a 60s in-process cache.
+
+    Returns (prices, live). Upstox-first via quote_router when the broker
+    is attached; on total failure returns ({}, False) and callers fall
+    back to entry-price marks."""
+    import time
+    if not tickers:
+        return {}, False
+    now = time.time()
+    stale = (now - _MARKS_CACHE["ts"]) > 60
+    missing = [t for t in tickers if t not in _MARKS_CACHE["prices"]]
+    if stale or missing:
+        try:
+            from trading.quote_router import fetch_quotes as _rq
+            got = _rq(tickers, upstox_client=engine().broker)
+            if got:
+                _MARKS_CACHE["prices"].update(got)
+                _MARKS_CACHE["ts"] = now
+        except Exception:
+            pass
+    out = {t: _MARKS_CACHE["prices"][t] for t in tickers if t in _MARKS_CACHE["prices"]}
+    return out, bool(out)
+
+
+_CANDLE_CACHE: dict = {"ts": 0.0, "data": {}}
+
+
+def recent_candles(ticker: str = "^NSEI", bars: int = 40) -> list[dict]:
+    """F17: last `bars` daily OHLC for a candle chart. 10-min cached, Upstox-
+    first via the history router. Returns [] if no data (chart hides itself)."""
+    import time
+    now = time.time()
+    key = f"{ticker}:{bars}"
+    cached = _CANDLE_CACHE["data"].get(key)
+    if cached is not None and (now - _CANDLE_CACHE["ts"]) < 600:
+        return cached
+    out: list[dict] = []
+    try:
+        from trading import data as _data
+        hist = _data.fetch_daily([ticker], period="4mo").get(ticker)
+        if hist is not None and not hist.empty:
+            tail = hist.dropna(subset=["Close"]).tail(bars)
+            for ts, row in tail.iterrows():
+                out.append({
+                    "t": ts.strftime("%d-%b") if hasattr(ts, "strftime") else str(ts),
+                    "o": round(float(row["Open"]), 2),
+                    "h": round(float(row["High"]), 2),
+                    "l": round(float(row["Low"]), 2),
+                    "c": round(float(row["Close"]), 2),
+                })
+    except Exception:
+        pass
+    _CANDLE_CACHE["data"][key] = out
+    _CANDLE_CACHE["ts"] = now
+    return out
 
 
 def quote_source_status() -> dict:

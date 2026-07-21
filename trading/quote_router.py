@@ -71,7 +71,32 @@ def fetch_quotes(
 
 
 def status(upstox_client: Optional[UpstoxClient]) -> dict:
-    """Returns which source the router will use right now."""
+    """Returns which source the router will use right now, plus a health flag.
+
+    FIX (2026-07-12): datacenter Yahoo is 429-blocked, so 'yfinance' really
+    means 'degraded — prices may be stale/empty and scans can starve'. Surface
+    that loudly + show hours until the Upstox token expires (03:30 IST daily)."""
     if upstox_client is None or not upstox_client.is_connected():
-        return {"source": "yfinance", "reason": "no_upstox_token"}
-    return {"source": "upstox", "reason": "ok"}
+        return {
+            "source": "yfinance", "reason": "no_upstox_token", "healthy": False,
+            "hours_left": None,
+            "message": "Upstox not connected — live prices unavailable and "
+                       "scans fall back to blocked Yahoo. Reconnect Upstox.",
+        }
+    hours = None
+    try:
+        hours = upstox_client.hours_until_expiry()
+    except Exception:
+        pass
+    if hours is not None and hours <= 0:
+        return {
+            "source": "yfinance", "reason": "token_expired", "healthy": False,
+            "hours_left": 0,
+            "message": "Upstox token EXPIRED (they die 03:30 IST daily). "
+                       "Reconnect now or today's scan uses blocked Yahoo.",
+        }
+    return {
+        "source": "upstox", "reason": "ok", "healthy": True,
+        "hours_left": round(hours, 1) if hours is not None else None,
+        "message": "Upstox live" + (f" · token ~{hours:.0f}h left" if hours else ""),
+    }

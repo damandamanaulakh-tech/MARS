@@ -104,6 +104,39 @@ def fetch_latest_flows() -> Optional[list[FlowReading]]:
     return out or None
 
 
+def fetch_flows_from_csv(path: str = None) -> Optional[list[FlowReading]]:
+    """FIX (2026-07-12): committed FII/DII CSV fallback for when the live NSE
+    feed 403s from the cloud. Reads data/fii_dii_cash.csv
+    (date, fii_cash_net, dii_cash_net). Newest-first, or None if unreadable."""
+    import csv
+    import os
+    if path is None:
+        path = os.path.join(os.path.dirname(__file__), "..", "..", "data",
+                            "fii_dii_cash.csv")
+    out: list[FlowReading] = []
+    try:
+        with open(path, newline="") as f:
+            for row in csv.DictReader(f):
+                try:
+                    d = datetime.strptime(row["date"].strip(), "%Y-%m-%d").date()
+                    fii = float(row["fii_cash_net"])
+                    dii = float(row["dii_cash_net"])
+                except (ValueError, KeyError):
+                    continue
+                out.append(FlowReading(
+                    trade_date=d, fii_buy=0.0, fii_sell=0.0, fii_net=fii,
+                    dii_buy=0.0, dii_sell=0.0, dii_net=dii))
+    except OSError:
+        return None
+    out.sort(key=lambda r: r.trade_date, reverse=True)
+    return out or None
+
+
+def get_flows() -> Optional[list[FlowReading]]:
+    """Live NSE feed first (403s from cloud), committed CSV as fallback."""
+    return fetch_latest_flows() or fetch_flows_from_csv()
+
+
 def fii_net_last_n_days(flows: Optional[list[FlowReading]], n: int = 5) -> Optional[float]:
     """Sum of FII net activity over the last n trading days."""
     if not flows:

@@ -11,6 +11,14 @@ from typing import Dict, List, Optional
 
 from .config import Config
 
+# RAM caps for the always-on process (Render 512MB). The FULL journal is kept
+# durably in Mongo (journal_archive) by the web/state save wrapper; RAM holds
+# only the recent tail so these lists can't grow unbounded for days.
+JOURNAL_RAM_CAP = 5000
+SCAN_HISTORY_RAM_CAP = 500
+REGIME_HISTORY_RAM_CAP = 200
+EQUITY_HISTORY_RAM_CAP = 5000  # (ts, equity) points; appended every refresh
+
 
 @dataclass
 class PaperPosition:
@@ -24,6 +32,11 @@ class PaperPosition:
     reasoning: str
     entry_notes: str = ""       # user-editable journal note (why I entered)
     tags: List[str] = field(default_factory=list)  # free-form tags ("earnings_play")
+    mode: str = ""              # trade category at entry: intraday/short/swing/positional/nifty200_momentum
+    stop_price: float = 0.0     # hard stop price, snapshot at entry (0 = fall back to live cfg)
+    target_price: float = 0.0   # take-profit/target price, snapshot at entry (0 = fall back to live cfg)
+    orig_qty: int = 0           # F15: qty at first entry (pyramid tranche base; 0 = use qty)
+    pyramid_adds: int = 0       # F15: how many pyramid tranches added so far
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -36,6 +49,11 @@ class PaperPosition:
         d["entry_date"] = datetime.fromisoformat(d["entry_date"])
         d.setdefault("entry_notes", "")
         d.setdefault("tags", [])
+        d.setdefault("mode", "")
+        d.setdefault("stop_price", 0.0)
+        d.setdefault("target_price", 0.0)
+        d.setdefault("orig_qty", 0)
+        d.setdefault("pyramid_adds", 0)
         return cls(**d)
 
 
@@ -85,8 +103,14 @@ class Portfolio:
     last_scan_skipped: List[dict] = field(default_factory=list)
     last_scan_opened: List[str] = field(default_factory=list)
     last_regime: Optional[str] = None
+    last_ifr_fire_date: Optional[str] = None        # IFR damage cluster fire (ISO date)
+    last_ifr_ratio_fire_date: Optional[str] = None  # IFR tail-damage-ratio fire (Q2)
     regime_history: List[dict] = field(default_factory=list)  # [{ts, prev, new, reason}]
     scan_history: List[dict] = field(default_factory=list)  # archived scan summaries
+    decision_journal: List[dict] = field(default_factory=list)  # append-only: why bought/sold/held
+    virtual_book: Dict[str, dict] = field(default_factory=dict)  # F8: unbought YES picks, marked to market
+    scan_matrix: dict = field(default_factory=dict)  # 🎹 full scan hit-map (overwritten each scan)
+    pending_orders: List[dict] = field(default_factory=list)  # owner limit orders (day validity)
     last_save: Optional[str] = None
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
@@ -116,6 +140,14 @@ class Portfolio:
 
     def save(self) -> None:
         with self._lock:
+            # Bound RAM: keep only the recent tail. Overflow is archived to the
+            # durable Mongo journal_archive by the web/state save wrapper BEFORE
+            # this runs, so nothing is lost — the full trail lives in Mongo.
+            if len(self.decision_journal) > JOURNAL_RAM_CAP:
+                self.decision_journal = self.decision_journal[-JOURNAL_RAM_CAP:]
+            self.scan_history = self.scan_history[-SCAN_HISTORY_RAM_CAP:]
+            self.regime_history = self.regime_history[-REGIME_HISTORY_RAM_CAP:]
+            self.equity_history = self.equity_history[-EQUITY_HISTORY_RAM_CAP:]
             data = {
                 "cash": self.cash,
                 "positions": {k: v.to_dict() for k, v in self.positions.items()},
@@ -126,8 +158,14 @@ class Portfolio:
                 "last_scan_skipped": self.last_scan_skipped,
                 "last_scan_opened": self.last_scan_opened,
                 "last_regime": self.last_regime,
+                "last_ifr_fire_date": self.last_ifr_fire_date,
+                "last_ifr_ratio_fire_date": self.last_ifr_ratio_fire_date,
                 "regime_history": self.regime_history[-200:],  # cap
                 "scan_history": self.scan_history[-500:],      # cap
+                "decision_journal": self.decision_journal,     # recent tail (full trail in Mongo journal_archive)
+                "virtual_book": self.virtual_book,             # F8 shadow book of unbought YES picks
+                "scan_matrix": self.scan_matrix,               # 🎹 one scan's hit-map, fixed size
+                "pending_orders": self.pending_orders[-200:],  # owner limit orders, capped
                 "last_save": datetime.utcnow().isoformat(),
             }
             with open(self._state_path(), "w") as f:
@@ -153,14 +191,29 @@ class Portfolio:
             p.last_scan_skipped = list(data.get("last_scan_skipped", []))
             p.last_scan_opened = list(data.get("last_scan_opened", []))
             p.last_regime = data.get("last_regime")
+            p.last_ifr_fire_date = data.get("last_ifr_fire_date")
+            p.last_ifr_ratio_fire_date = data.get("last_ifr_ratio_fire_date")
             p.regime_history = list(data.get("regime_history", []))
             p.scan_history = list(data.get("scan_history", []))
+            p.decision_journal = list(data.get("decision_journal", []))
+            p.virtual_book = dict(data.get("virtual_book", {}))
+            p.scan_matrix = dict(data.get("scan_matrix", {}))
+            p.pending_orders = list(data.get("pending_orders", []))
             p.last_save = data.get("last_save")
             return p
         except Exception:
             return cls.fresh(cfg)
 
     def reset(self) -> None:
+        # Journal the reset itself, then clear trading state.
+        # decision_journal / regime_history / scan_history are NEVER cleared —
+        # full audit trail survives resets (user rule: nothing deleted).
+        self.decision_journal.append({
+            "ts": datetime.utcnow().isoformat(),
+            "action": "RESET",
+            "detail": f"Portfolio reset. {len(self.positions)} open positions and "
+                      f"{len(self.trades)} closed trades archived in journal before clear.",
+        })
         self.cash = self.cfg.starting_capital
         self.positions = {}
         self.trades = []
@@ -169,4 +222,5 @@ class Portfolio:
         self.last_scan_picks = []
         self.last_scan_skipped = []
         self.last_scan_opened = []
+        self.scan_matrix = {}
         self.save()

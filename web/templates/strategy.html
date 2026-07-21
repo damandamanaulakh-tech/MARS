@@ -18,6 +18,7 @@
       <tr>
         <th class="text-left px-6 py-3">Component</th>
         <th class="text-right px-6 py-3">Weight</th>
+        <th class="text-right px-6 py-3" title="How often this factor was a stock's strongest component at buy time">Top-driver hits</th>
         <th class="text-left px-6 py-3">What it measures</th>
         <th class="text-left px-6 py-3">Status</th>
       </tr>
@@ -27,6 +28,7 @@
       <tr class="border-b border-line last:border-0 hover:bg-ink/[0.02]">
         <td class="px-6 py-4 font-semibold">{{ r.component }}</td>
         <td class="px-6 py-4 text-right tabular-nums font-bold">{{ "%.1f%%"|format(r.weight_pct) }}</td>
+        <td class="px-6 py-4 text-right tabular-nums {% if r.hits %}font-semibold{% else %}text-ink-faint{% endif %}">{{ r.hits }}</td>
         <td class="px-6 py-4 text-ink-soft">{{ r.description }}</td>
         <td class="px-6 py-4">
           <span class="text-xs tracking-widest uppercase font-semibold
@@ -38,6 +40,41 @@
       {% endfor %}
     </tbody>
   </table>
+  <div class="px-6 py-3 text-xs text-ink-faint border-t border-line">F10: top-driver hits counted across {{ total_buys }} logged buys — which factor actually drove each entry.</div>
+</div>
+
+<!-- F10: sector + exit-reason hit counts from the journal -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+  <div class="bg-white border border-line">
+    <div class="px-6 py-4 border-b border-line font-bold">📊 Positions by Sector (open + closed)</div>
+    {% if sector_counts %}
+    <table class="w-full text-sm">
+      <tbody>
+        {% for sector, n in sector_counts %}
+        <tr class="border-b border-line last:border-0">
+          <td class="px-6 py-2.5 font-semibold">{{ sector }}</td>
+          <td class="px-6 py-2.5 text-right tabular-nums">{{ n }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="px-6 py-6 text-ink-faint text-sm">No trades yet.</div>{% endif %}
+  </div>
+  <div class="bg-white border border-line">
+    <div class="px-6 py-4 border-b border-line font-bold">🚪 Exits by Reason (closed trades)</div>
+    {% if exit_counts %}
+    <table class="w-full text-sm">
+      <tbody>
+        {% for reason, n in exit_counts %}
+        <tr class="border-b border-line last:border-0">
+          <td class="px-6 py-2.5 font-semibold uppercase text-xs tracking-widest">{{ reason }}</td>
+          <td class="px-6 py-2.5 text-right tabular-nums">{{ n }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="px-6 py-6 text-ink-faint text-sm">No closed trades yet.</div>{% endif %}
+  </div>
 </div>
 
 {% if live_boosts %}

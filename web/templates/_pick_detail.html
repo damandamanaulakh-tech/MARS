@@ -1,0 +1,166 @@
+{# ============================================================
+   Sourceborn — per-pick "piano" + candle + gate detail row
+   Drop-in partial. Include inside a pick's expandable row:
+       {% set p = <pick or position row> %}{% include "_pick_detail.html" %}
+   Expects `p` in scope with:
+       p.ticker, p.entry_score (or p.score),
+       p.components  -> dict {factor_name: 0..100}
+       p.timing_pass -> bool           (optional)
+       p.candles     -> list[[o,h,l,c]] last ~20 bars (optional; when absent
+                        the chart lazy-loads from /candles/<ticker>.json the
+                        first time the row is opened)
+   Nothing here computes scores — it renders what the scan already stored.
+   Light high-contrast palette to match the site (bars must be readable).
+   ============================================================ #}
+{% set comps = p.components or {} %}
+{% set total = (p.entry_score if p.entry_score is defined and p.entry_score else p.score) | float %}
+{% set safe_id = p.ticker | replace('.','_') | replace('&','_') %}
+
+<div class="mt-2 rounded-xl border border-line bg-white p-4 text-left">
+
+  <div class="grid gap-4 md:grid-cols-[1.15fr_.85fr]">
+
+    {# -------- LEFT: the piano -------- #}
+    <div>
+      <div class="mb-2 flex items-center justify-between">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-ink">
+          parameters hit — {{ p.ticker }}
+        </span>
+        <span class="text-[11px] text-ink-soft">
+          <span class="font-bold" style="color:#4338ca">{{ comps.values() | select('gt', 50) | list | length }}</span>
+          of {{ comps | length }} above midline · total
+          <span class="font-bold text-ink">{{ total | round(1) }}</span>
+        </span>
+      </div>
+
+      {# piano keys: one bar per factor, height = score, colour by band #}
+      {% if comps %}
+      <div class="flex items-end gap-[3px] h-32 rounded-lg p-2 border border-line" style="background:#f1f5f9">
+        {% for name, val in comps.items() %}
+          {% set v = val | float %}
+          {% set col = '#dc2626' if v < 40 else ('#d97706' if v < 60 else '#059669') %}
+          {% set stub = name in ['short_interest'] %}
+          <div class="group relative flex-1 flex flex-col justify-end h-full"
+               title="{{ name | replace('_',' ') }}: {{ v | round(0) }}{% if stub %} (stub — no live feed){% endif %}">
+            <div class="w-full rounded-t transition-all duration-500"
+                 style="height:{{ v }}%; background:{{ '#94a3b8' if stub else col }};
+                        {% if stub %}background-image:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(255,255,255,.45) 3px,rgba(255,255,255,.45) 6px);{% endif %}">
+            </div>
+            <div class="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap
+                        rounded bg-ink px-2 py-1 text-[10px] text-white opacity-0
+                        group-hover:opacity-100 transition z-10">
+              {{ name | replace('_',' ') }} · <b>{{ v | round(0) }}</b>{% if stub %} · stub{% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+      {# key labels #}
+      <div class="mt-1 flex gap-[3px] text-[8px] leading-tight text-ink-faint">
+        {% for name in comps.keys() %}
+          <div class="flex-1 text-center truncate" title="{{ name }}">{{ name.split('_')[0] }}</div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="flex h-32 items-center justify-center rounded-lg border border-dashed border-line text-[11px] text-ink-faint text-center px-3">
+        factor scores not recorded for this entry<br>
+        <span class="text-ink-faint/70">(engine-bought positions after the next scan carry them)</span>
+      </div>
+      {% endif %}
+
+      {# gate lights #}
+      <div class="mt-3 flex flex-wrap gap-1.5">
+        {% set gates = [('timing', p.timing_pass if p.timing_pass is defined else None)] %}
+        {% for gname, gval in gates %}
+          {% if gval is not none %}
+            <span class="rounded-full border px-2 py-0.5 text-[10px] font-semibold
+                         {{ 'border-emerald-600 text-emerald-700' if gval else 'border-red-600 text-red-700' }}">
+              {{ '✓' if gval else '✕' }} {{ gname }}
+            </span>
+          {% endif %}
+        {% endfor %}
+        {% for name, val in comps.items() if (val|float) >= 60 %}
+          <span class="rounded-full border border-emerald-600/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+            {{ name | replace('_',' ') }}
+          </span>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# -------- RIGHT: the candle -------- #}
+    <div>
+      <div class="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink">
+        last 20 sessions
+      </div>
+      <canvas id="cndl_{{ safe_id }}" height="150"
+              data-ticker="{{ p.ticker }}"
+              {% if not p.candles %}data-lazy="1"{% endif %}></canvas>
+      <div id="cndl_note_{{ safe_id }}"
+           class="hidden h-[150px] items-center justify-center rounded-lg border border-dashed
+                  border-line text-[11px] text-ink-faint text-center px-3">
+        candle data unavailable right now —<br>
+        <span class="text-ink-faint/70">connect Upstox (token expires 03:30 IST daily), then reopen</span>
+      </div>
+      <script>
+      window.sbCandleChart = window.sbCandleChart || function(el, data){
+        if(!el || !window.Chart || !data || !data.length) return false;
+        const labels = data.map((_,i)=>i+1);
+        const wick = data.map(d=>[d[2],d[1]]);      // low..high
+        const body = data.map(d=>[Math.min(d[0],d[3]),Math.max(d[0],d[3])]);
+        const up   = data.map(d=> d[3]>=d[0] ? '#059669':'#dc2626');
+        // Readability fix: hug the 20-day price range. With the default
+        // zero-based axis a ₹7,000 stock's candles collapse into dots.
+        const lo = Math.min.apply(null, data.map(d=>d[2]));
+        const hi = Math.max.apply(null, data.map(d=>d[1]));
+        const pad = (hi - lo) * 0.08 || hi * 0.01 || 1;
+        new Chart(el,{type:'bar',data:{labels,datasets:[
+          {data:wick,backgroundColor:'#94a3b8',barPercentage:0.25,categoryPercentage:0.9},
+          {data:body,backgroundColor:up,barPercentage:0.75,categoryPercentage:0.9}
+        ]},options:{responsive:true,plugins:{legend:{display:false},tooltip:{enabled:false}},
+          scales:{x:{display:false},
+                  y:{min:lo-pad,max:hi+pad,
+                     ticks:{color:'#64748b',font:{size:9},maxTicksLimit:5},
+                     grid:{color:'#eef2f7'}}}}});
+        return true;
+      };
+      window.sbLazyCandles = window.sbLazyCandles || function(canvasId, noteId, ticker){
+        const el = document.getElementById(canvasId);
+        if(!el || el.dataset.loaded) return;
+        const load = function(){
+          if(el.dataset.loaded) return;
+          el.dataset.loaded = "1";
+          fetch('/candles/' + encodeURIComponent(ticker) + '.json')
+            .then(r => r.ok ? r.json() : {candles: []})
+            .then(j => {
+              if(!window.sbCandleChart(el, j.candles)){
+                el.classList.add('hidden');
+                const note = document.getElementById(noteId);
+                if(note){ note.classList.remove('hidden'); note.classList.add('flex'); }
+              }
+            })
+            .catch(() => { el.dataset.loaded = ""; });
+        };
+        // fetch only when the row is actually opened (canvas becomes visible)
+        if('IntersectionObserver' in window){
+          const io = new IntersectionObserver(function(entries){
+            entries.forEach(function(en){ if(en.isIntersecting){ io.disconnect(); load(); } });
+          });
+          io.observe(el);
+        } else { load(); }
+      };
+      (function(){
+        const el = document.getElementById("cndl_{{ safe_id }}");
+        if(!el) return;
+        {% if p.candles %}
+          window.sbCandleChart(el, {{ p.candles | tojson }});
+        {% else %}
+          window.sbLazyCandles("cndl_{{ safe_id }}", "cndl_note_{{ safe_id }}", {{ p.ticker | tojson }});
+        {% endif %}
+      })();
+      </script>
+      <div class="mt-2 text-[11px] text-ink-soft">
+        {{ p.reasoning if p.reasoning else '' }}
+      </div>
+    </div>
+  </div>
+</div>

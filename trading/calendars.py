@@ -79,6 +79,23 @@ INDIA_STATE_ELECTION_RESULTS = [
     date(2025, 11, 14),  # Bihar (estimated)
 ]
 
+# --- NSE trading holidays (P2: crons must not run on holidays) ---
+# PARTIAL list: only nationally fixed dates are hardcoded with certainty.
+# Variable-date holidays (Holi, Eid, Diwali, etc.) MUST be refreshed yearly
+# from the NSE circular. Missing entries fail SAFE: the scan runs but the
+# stale-data guard (cfg.max_stale_days) blocks buys on old candles.
+NSE_FIXED_HOLIDAYS = [
+    date(2026, 1, 26), date(2026, 8, 15), date(2026, 10, 2), date(2026, 12, 25),
+    date(2027, 1, 26), date(2027, 8, 15), date(2027, 10, 2), date(2027, 12, 25),
+]
+
+
+def is_trading_day(today: Optional[date] = None) -> bool:
+    """True on NSE trading days: Mon-Fri and not a known holiday."""
+    today = today or date.today()
+    return today.weekday() < 5 and today not in NSE_FIXED_HOLIDAYS
+
+
 # --- F&O monthly expiry: last Thursday of every month ---
 def fno_monthly_expiry(year: int, month: int) -> date:
     """Last Thursday of the given month."""
@@ -221,10 +238,17 @@ def upcoming_events(today: Optional[date] = None, lookahead_days: int = 30) -> l
 
 
 def is_system_event_within(days: int = 5, today: Optional[date] = None) -> Optional[CalendarEvent]:
-    """Returns the nearest system-wide event (RBI/Budget) within N days, or None."""
+    """Returns the nearest macro binary event (RBI / Budget / election) within
+    N days, or None.
+
+    F&O monthly expiry is system-wide but ROUTINE — halting entries for 3 days
+    before every expiry wrongly benched the engine ~4 trading days a month, so
+    expiry is excluded here. Genuine binary events (rate decisions, Budget,
+    election results) still halt.
+    """
     upcoming = upcoming_events(today, lookahead_days=days)
     for ev in upcoming:
-        if ev.impact == "system_wide":
+        if ev.impact == "system_wide" and ev.event_type != "expiry":
             return ev
     return None
 
@@ -236,3 +260,80 @@ def is_ticker_event_within(ticker: str, days: int = 5, today: Optional[date] = N
         if ev.affected and ticker in ev.affected:
             return ev
     return None
+
+
+# F2 v1.1 (user: "more festivals, wire the rest"): major market-relevant
+# Indian festival dates. Lunar dates carry ±1 day uncertainty — immaterial
+# inside the ±5-day window. FLAG + sector hint only; no invented alpha.
+FESTIVAL_DATES = {
+    # 2026
+    "Makar Sankranti / Pongal": [date(2026, 1, 14), date(2027, 1, 14)],
+    "Holi":                     [date(2026, 3, 4), date(2027, 3, 22)],
+    "Eid-ul-Fitr":              [date(2026, 3, 20)],
+    "Akshaya Tritiya":          [date(2026, 4, 20)],   # biggest gold-buying day
+    "Eid-al-Adha":              [date(2026, 5, 27)],
+    "Onam":                     [date(2026, 8, 26)],
+    "Raksha Bandhan":           [date(2026, 8, 28)],
+    "Janmashtami":              [date(2026, 9, 4)],
+    "Ganesh Chaturthi":         [date(2026, 9, 14)],
+    "Navratri start":           [date(2026, 10, 11)],
+    "Dussehra":                 [date(2026, 10, 20)],
+    "Dhanteras":                [date(2026, 11, 6)],   # gold/auto/durables peak
+    "Diwali":                   [date(2026, 11, 8), date(2027, 10, 29)],
+    "Bhai Dooj":                [date(2026, 11, 10)],
+    "Guru Nanak Jayanti":       [date(2026, 11, 24)],
+    "Christmas / year-end":     [date(2026, 12, 25)],
+}
+
+# Which sectors historically see festival demand (HINTS for the journal —
+# not a score input until validated).
+FESTIVAL_SECTOR_HINTS = {
+    "Makar Sankranti / Pongal": "FMCG, Retail",
+    "Holi": "FMCG, Consumer",
+    "Eid-ul-Fitr": "FMCG, Retail, Apparel",
+    "Akshaya Tritiya": "Gold/Jewellery (Titan etc.), Financials-gold-loan",
+    "Eid-al-Adha": "FMCG, Retail",
+    "Onam": "Retail, Gold, Consumer Durables (Kerala demand)",
+    "Raksha Bandhan": "Retail, Sweets/FMCG, Gifting",
+    "Janmashtami": "FMCG, Dairy",
+    "Ganesh Chaturthi": "Consumer, Retail (west-India demand)",
+    "Navratri start": "Autos (delivery bookings), Consumer Durables, Retail",
+    "Dussehra": "Autos (peak delivery day), Consumer Durables",
+    "Dhanteras": "Gold/Jewellery, Autos, Consumer Durables — biggest buying day",
+    "Diwali": "Autos, Retail, FMCG, Consumer Durables, Jewellery",
+    "Bhai Dooj": "Gifting, Retail",
+    "Guru Nanak Jayanti": "Regional retail",
+    "Christmas / year-end": "Hospitality, Aviation, Retail, QSR",
+}
+
+# Wedding-season windows (gold + apparel + hospitality demand)
+WEDDING_SEASONS = [
+    (date(2026, 1, 15), date(2026, 3, 10)),
+    (date(2026, 4, 14), date(2026, 6, 30)),
+    (date(2026, 11, 15), date(2026, 12, 15)),
+]
+
+
+def festival_within(days: int = 5, today: date | None = None):
+    """Name of the nearest festival within ±`days`, else None."""
+    today = today or date.today()
+    best = None
+    for name, dates in FESTIVAL_DATES.items():
+        for d in dates:
+            gap = abs((d - today).days)
+            if gap <= days and (best is None or gap < best[0]):
+                best = (gap, name)
+    return best[1] if best else None
+
+
+def festival_context(days: int = 5, today: date | None = None) -> str | None:
+    """'Diwali (Autos, Retail, ...)' or None — for journal/dashboard."""
+    name = festival_within(days=days, today=today)
+    if not name:
+        today = today or date.today()
+        for a, b in WEDDING_SEASONS:
+            if a <= today <= b:
+                return "Wedding season (Gold/Jewellery, Apparel, Hospitality)"
+        return None
+    hint = FESTIVAL_SECTOR_HINTS.get(name, "")
+    return f"{name} ({hint})" if hint else name

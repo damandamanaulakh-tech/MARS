@@ -27,7 +27,7 @@ def _generate_all() -> Dict[str, Optional[str]]:
     try:
         from trading.reports import (
             write_equity_csv, write_picks_csv, write_skipped_csv,
-            write_positions_csv, write_trades_csv,
+            write_positions_csv, write_trades_csv, write_journal_csv,
         )
     except ImportError:
         return {}
@@ -41,6 +41,7 @@ def _generate_all() -> Dict[str, Optional[str]]:
         ("trades",      lambda: write_trades_csv(portfolio)),
         ("equity",      lambda: write_equity_csv(portfolio)),
         ("skipped",     lambda: write_skipped_csv(portfolio)),
+        ("decision_journal", lambda: write_journal_csv(portfolio)),
     ]
     for name, fn in writers:
         try:

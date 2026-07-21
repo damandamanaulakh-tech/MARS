@@ -121,6 +121,18 @@ def score_sector_alignment(
     return _clip(50 + avg * 10)
 
 
+def _analyst_revision_score(ticker: str) -> float:
+    """Live analyst consensus (TESTED 2026-07-16: RELIANCE 96.1 / CGCL 25.0).
+    Neutral 50 only when no honest number exists (backtest, no coverage,
+    Yahoo-blocked box) — the fetcher logs the reason once."""
+    try:
+        from .signals.analysts import fetch_analyst_score
+        a = fetch_analyst_score(ticker)
+        return a.score if a is not None else 50.0
+    except Exception:
+        return 50.0
+
+
 def compute_score(
     ticker: str,
     history: pd.DataFrame,
@@ -148,8 +160,8 @@ def compute_score(
         "catalyst":          catalyst_score,
         "relative_strength": score_relative_strength(close, bench_close, cfg),
         "vol_adj_upside":    score_vol_adj_upside(close, cfg),
-        "short_interest":    50.0,   # stub (no free PCR source)
-        "analyst_revision":  50.0,   # stub (yfinance recs are flaky for NSE)
+        "short_interest":    50.0,   # stub (no free PCR source; NSE 403s cloud)
+        "analyst_revision":  _analyst_revision_score(ticker),
         "breakout_quality":  score_breakout_quality(close, cfg),
         "sector_alignment":  score_sector_alignment(ticker, universe_history, cfg),
     }
