@@ -5,8 +5,17 @@ Repo `damandamanaulakh-tech/sourceborn-engine`. Work branch
 `claude/exciting-ride-v0lozu`; **live branch `claude/control-panel-ui-1`**
 (Render auto-deploys → https://sourceborn-stocks.onrender.com).
 Ship pattern: commit work branch → push → cherry-pick SHA → live → push
-(standing OK for direct push). `main` + other claude/* branches = the user's
-OTHER app (a chatbot) from parallel sessions — never touch.
+(standing OK for direct push). REPO CLEANUP 2026-07-22 on user order
+("hf n chat bot vanish permanently"): HF leftovers purged from our tree
+(DEPLOY_TO_HF.md, gradio dashboard.py, gradio/huggingface_hub/pypdf/
+docx/Pillow deps, chatbot README rewritten); user deleted the HF Spaces
+(SB-ARD, URR) themselves; PR #72 (base=main, stale) closed. **Chatbot
+branches keen-dirac, lucid-dirac + `main` (old chatbot, repo default)
+still exist — session credentials can't delete branches; USER must:
+GitHub Settings → default branch → claude/control-panel-ui-1, then
+delete those 3 branches at /branches.** Verified: main+keen-dirac =
+Node chatbot, lucid-dirac = old mixed snapshot; nothing of the trading
+app lives only there.
 
 ## What it is
 Live **paper-only** trading engine (₹25L paper capital), FastAPI + Mongo
