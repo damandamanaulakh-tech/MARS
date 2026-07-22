@@ -189,14 +189,19 @@ PRESETS: dict[str, ModePreset] = {
         bar_interval="1d",
         history_period="2y",         # need 12m history for the momentum score
         stop_loss_pct=-0.12,         # wider stop — index strategy, semi-annual rebalance
-        take_profit_pct=0.30,
-        partial_profit_pct=0.18,
+        take_profit_pct=0.12,        # user decision 2026-07-21: "+30 too much,
+                                     # keep 12% for now" (untested vs +30 — the
+                                     # 60-day window is the judge; trail -15
+                                     # remains the workhorse exit)
+        partial_profit_pct=0.07,     # scaled below the new target (was 0.18
+                                     # under +30 — would never fire above +12)
         trailing_stop_pct=-0.15,
         score_decay_exit=40.0,
         max_hold_days=200,           # semi-annual rebalance horizon
-        min_score_to_enter=55.0,     # momentum_score is sharpe-normalized; 55 ~ +0.2 sharpe
-        breakout_threshold_pct=0.05, # relaxed — momentum trend-followers
-        volume_confirm_ratio=1.0,    # don't need volume burst
+        min_score_to_enter=55.0,     # P0/B3: 50 = "no edge" — require real positive
+                                     # momentum; 50 positions is a cap, not a target
+        breakout_threshold_pct=1.0,  # timing OFF for momentum (hold leaders, don't time entries)
+        volume_confirm_ratio=0.0,    # timing OFF — no volume gate
         square_off_time=None,
         description=(
             "Nifty 200 Momentum 30 — NSE's published methodology. Universe "

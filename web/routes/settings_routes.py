@@ -24,35 +24,52 @@ MODE_CHOICES = [
 
 
 EDITABLE_FIELDS = [
-    # (field_name, label, group, input_type, step, hint)
-    ("starting_capital",        "Starting Capital (Rs)",  "Capital", "number", 1000, "Total paper capital to simulate"),
-    ("cash_reserve_pct",        "Cash Reserve %",          "Capital", "number", 0.01, "Always keep this fraction in cash"),
-    ("max_position_pct",        "Max % per Position",      "Capital", "number", 0.01, "Hard cap per single stock"),
-    ("max_positions",           "Max Open Positions",      "Capital", "number", 1,    "Total positions at once"),
-    ("max_sector_positions",    "Max Positions per Sector","Capital", "number", 1,    "Diversification cap"),
-    ("stop_loss_pct",           "Stop Loss %",             "Risk",    "number", 0.005,"Hard floor (negative number)"),
-    ("take_profit_pct",         "Take Profit %",           "Risk",    "number", 0.005,"Full exit target"),
-    ("trailing_stop_pct",       "Trailing Stop %",         "Risk",    "number", 0.005,"From peak price"),
-    ("score_decay_exit",        "Score Decay Exit",        "Risk",    "number", 1,    "Exit if score drops below this"),
-    ("max_hold_days",           "Max Hold (days)",         "Risk",    "number", 1,    "Safety cap on holding period"),
-    ("daily_loss_halt_pct",     "Daily Loss Kill Switch %","Risk",    "number", 0.005,"Halts new entries on the day"),
-    ("min_score_to_enter",      "Min Score to Enter",      "Strategy","number", 1,    "AM 07 score threshold"),
-    ("breakout_threshold_pct",  "Breakout Threshold %",    "Strategy","number", 0.005,"Within N% of 20-day high"),
-    ("volume_confirm_ratio",    "Volume Confirm Ratio",    "Strategy","number", 0.1,  "5-day vol >= this * 20-day vol"),
+    # (field_name, label, group, input_type, step, hint, is_pct)
+    # F13: is_pct=True fields are stored as fractions (0.025) but SHOWN and
+    # ENTERED as percentages (2.5) — no more "0.01 means 1%" confusion.
+    ("starting_capital",        "Starting Capital (Rs)",  "Capital", "number", 1000, "Total paper capital to simulate", False),
+    ("cash_reserve_pct",        "Cash Reserve %",          "Capital", "number", 0.5,  "Always keep this % in cash", True),
+    ("max_position_pct",        "Max % per Position",      "Capital", "number", 0.5,  "Hard cap per single stock", True),
+    ("max_positions",           "Max Open Positions",      "Capital", "number", 1,    "Total positions at once", False),
+    ("max_sector_positions",    "Max Positions per Sector","Capital", "number", 1,    "Diversification cap", False),
+    ("stop_loss_pct",           "Stop Loss %",             "Risk",    "number", 0.5,  "Hard floor (negative % e.g. -12)", True),
+    ("take_profit_pct",         "Take Profit %",           "Risk",    "number", 0.5,  "Full exit target %", True),
+    ("trailing_stop_pct",       "Trailing Stop %",         "Risk",    "number", 0.5,  "From peak price (negative %)", True),
+    ("score_decay_exit",        "Score Decay Exit",        "Risk",    "number", 1,    "Exit if score drops below this", False),
+    ("max_hold_days",           "Max Hold (days)",         "Risk",    "number", 1,    "Safety cap on holding period", False),
+    ("daily_loss_halt_pct",     "Daily Loss Kill Switch %","Risk",    "number", 0.5,  "Halts new entries on the day (negative %)", True),
+    ("min_score_to_enter",      "Min Score to Enter",      "Strategy","number", 1,    "AM 07 score threshold", False),
+    ("breakout_threshold_pct",  "Breakout Threshold %",    "Strategy","number", 0.5,  "Within N% of 20-day high", True),
+    ("volume_confirm_ratio",    "Volume Confirm Ratio",    "Strategy","number", 0.1,  "5-day vol >= this * 20-day vol", False),
+    # F15 pyramiding — opt-in add-to-winners
+    ("pyramid_enabled",         "Pyramiding On (1/0)",     "Pyramiding (F15)", "number", 1,   "1 = add to winners in tranches, 0 = off", False),
+    ("pyramid_trigger_pct",     "Pyramid Step %",          "Pyramiding (F15)", "number", 0.5, "Add a tranche each +N% above entry", True),
+    ("pyramid_add_pct",         "Pyramid Add Size %",      "Pyramiding (F15)", "number", 5,   "% of the original size per tranche", True),
+    ("max_pyramid_adds",        "Max Pyramid Adds",        "Pyramiding (F15)", "number", 1,   "Cap on number of tranches", False),
 ]
+
+# Which config fields are stored as fractions but shown as % (F13)
+_PCT_FIELDS = {name for name, *_rest, is_pct in EDITABLE_FIELDS if is_pct}
 
 
 def _grouped() -> dict[str, list[dict]]:
     cfg = state.cfg()
     groups: dict[str, list[dict]] = {}
-    for name, label, group, type_, step, hint in EDITABLE_FIELDS:
+    for name, label, group, type_, step, hint, is_pct in EDITABLE_FIELDS:
+        raw = getattr(cfg, name, None)
+        # Show percentages, not fractions
+        if is_pct and isinstance(raw, (int, float)):
+            display = round(raw * 100, 4)
+        else:
+            display = raw
         groups.setdefault(group, []).append({
             "name": name,
             "label": label,
-            "value": getattr(cfg, name, None),
+            "value": display,
             "type": type_,
             "step": step,
             "hint": hint,
+            "is_pct": is_pct,
         })
     return groups
 
@@ -144,6 +161,9 @@ async def settings_save(request: Request):
                 val = int(float(raw))
             elif isinstance(existing, float):
                 val = float(raw)
+                # F13: user enters a %, we store the fraction
+                if name in _PCT_FIELDS:
+                    val = val / 100.0
             else:
                 val = raw
             setattr(cfg, name, val)

@@ -22,12 +22,16 @@ _SCHED = None
 
 
 def start_if_enabled() -> None:
-    """Called from FastAPI startup. Idempotent."""
+    """Called from FastAPI startup. Idempotent.
+
+    Daily auto-trading is ON by default (paper-only). Set DAILY_SCHEDULER=0
+    in Render env to disable. Intraday tick remains opt-in.
+    """
     global _SCHED
     intraday = os.environ.get("INTRADAY_SCHEDULER") == "1"
-    daily = os.environ.get("DAILY_SCHEDULER") == "1"
+    daily = os.environ.get("DAILY_SCHEDULER", "1") != "0"
     if not (intraday or daily):
-        log.info("Schedulers disabled (set DAILY_SCHEDULER=1 and/or INTRADAY_SCHEDULER=1)")
+        log.info("Schedulers disabled (DAILY_SCHEDULER=0 and INTRADAY_SCHEDULER unset)")
         return
     if _SCHED is not None:
         return
@@ -47,6 +51,10 @@ def start_if_enabled() -> None:
             day_of_week="mon-fri", hour="9-15", minute="*/5",
             id="intraday_tick",
         )
+    if daily or intraday:
+        # 15:25 IST intraday square-off. Registered on the ALWAYS-ON daily
+        # track (was intraday-toggle-only, which is off on Render — one of
+        # two reasons intraday positions survived overnight).
         _SCHED.add_job(
             _square_off_pass, "cron",
             day_of_week="mon-fri", hour=15, minute=25,
@@ -54,15 +62,121 @@ def start_if_enabled() -> None:
         )
 
     if daily:
+        # 08:50 IST: refresh the NSE universe master from Upstox's public
+        # instrument file BEFORE the 09:20 scan — new listings enter the
+        # rotation same day, delisted names drop (user ask 2026-07-21).
+        _SCHED.add_job(
+            _universe_refresh_job, "cron",
+            day_of_week="mon-fri", hour=8, minute=50,
+            id="universe_refresh",
+        )
         # Daily morning scan across all modes (one pass each).
         _SCHED.add_job(
             _daily_multi_mode_scan, "cron",
             day_of_week="mon-fri", hour=9, minute=20,
             id="daily_multi_mode_scan",
         )
+        # Afternoon top-up: if deployment below 60%, scan again to fill book.
+        _SCHED.add_job(
+            _deployment_topup_scan, "cron",
+            day_of_week="mon-fri", hour=14, minute=30,
+            id="deployment_topup_scan",
+        )
+        # End-of-day refresh: mark positions + fire exit rules + journal holds.
+        _SCHED.add_job(
+            _eod_refresh, "cron",
+            day_of_week="mon-fri", hour=15, minute=35,
+            id="eod_refresh",
+        )
+
+    if daily and os.environ.get("SB_DISABLE_CATCHUP") != "1":
+        # Deploy-restart healing: if the process boots after a missed 09:20
+        # (deploys kill in-flight jobs), run the day's scan once, 2 min in.
+        from datetime import datetime as _dt, timedelta as _td
+        _SCHED.add_job(lambda: catchup_scan_if_missed("startup"), "date",
+                       run_date=_dt.now() + _td(seconds=120),
+                       id="startup_catchup")
 
     _SCHED.start()
     log.info("Schedulers started (intraday=%s, daily=%s)", intraday, daily)
+
+
+def catchup_scan_if_missed(reason: str = "catchup") -> bool:
+    """If today's multi-mode scan never completed (dead Upstox token at
+    09:20, deploy restart mid-run, crash), run it now in a background
+    thread. Fired at startup and on every Upstox connect. Trading days
+    only; no-op when today's scan already ran."""
+    import os
+    import threading
+    from datetime import datetime as _dt
+
+    from trading.calendars import is_trading_day
+
+    if (os.environ.get("DAILY_SCHEDULER", "1") == "0"
+            or os.environ.get("SB_DISABLE_CATCHUP") == "1"
+            or not is_trading_day()):
+        return False
+    from . import state
+    p = state.portfolio()
+    last = (p.last_scan or "")[:10]
+    today = _dt.utcnow().date().isoformat()
+    if last >= today:
+        return False
+    log.info("[catchup:%s] last_scan=%s < today — running missed multi-mode scan",
+             reason, last or "never")
+    p.decision_journal.append({
+        "ts": _dt.utcnow().isoformat(), "action": "SCAN_CATCHUP",
+        "why": (f"Today's 09:20 scan missing (last scan: {last or 'never'}); "
+                f"triggered by {reason}. Running it now."),
+    })
+
+    def _catchup_run():
+        # A boot after 08:50 also missed the universe refresh — do it first
+        # so the catch-up scan sees today's market, not a stale list.
+        from trading.universe_refresh import refreshed_today
+        if not refreshed_today():
+            _universe_refresh_job()
+        _daily_multi_mode_scan()
+
+    threading.Thread(target=_catchup_run, daemon=True).start()
+    return True
+
+
+def _universe_refresh_job() -> None:
+    """08:50 IST: rebuild data/upstox_nse_equities.csv from Upstox's public
+    NSE instrument master. Fail-safe: any error keeps the old file and goes
+    into the journal — a stale universe beats an empty one, and silent
+    failures are forbidden."""
+    from datetime import datetime as _dt
+
+    from trading.calendars import is_trading_day
+    if not is_trading_day():
+        return
+    from . import state
+    p = state.portfolio()
+    try:
+        from trading.universe_refresh import refresh_universe
+        s = refresh_universe()
+        entry = {
+            "ts": _dt.utcnow().isoformat(), "action": "UNIVERSE_REFRESH",
+            "why": (f"Fresh NSE list from Upstox: {s['total']} stocks "
+                    f"(+{s['added']} new, -{s['removed']} delisted/moved)."),
+            "total": s["total"], "added": s["added_names"],
+            "removed": s["removed_names"],
+        }
+        log.info("[08:50] %s", entry["why"])
+    except Exception as e:
+        entry = {
+            "ts": _dt.utcnow().isoformat(), "action": "UNIVERSE_REFRESH_FAILED",
+            "err": f"{type(e).__name__}: {str(e)[:120]}",
+            "why": "Master download/parse failed — yesterday's list stays in use.",
+        }
+        log.exception("[08:50] Universe refresh failed: %s", e)
+    try:
+        p.decision_journal.append(entry)
+        p.save()
+    except Exception:
+        pass
 
 
 def _intraday_tick() -> None:
@@ -79,28 +193,99 @@ def _intraday_tick() -> None:
         eng.scan()
     except Exception as e:
         log.exception("Intraday tick failed: %s", e)
+    _check_pending_orders("intraday-tick")
 
 
 def _square_off_pass() -> None:
-    """At 15:25 IST: force-close all intraday positions."""
+    """At 15:25 IST: force-close all INTRADAY-mode positions.
+
+    BUG FIX: previously gated on cfg.mode == "intraday" (the app's GLOBAL
+    mode) and delegated to refresh(), which honours disable_exits — so
+    intraday picks opened by the 09:20 rotation survived overnight while
+    the app ran in momentum mode. Now closes by position tag, always.
+    """
+    from trading.calendars import is_trading_day
+    if not is_trading_day():
+        return
     from . import state
-    cfg = state.cfg()
-    if cfg.mode != "intraday":
-        return
-    portfolio = state.portfolio()
-    if not portfolio.positions:
-        log.info("[15:25] Square-off: no positions to close")
-        return
-    log.info("[15:25] Square-off pass: closing %d positions", len(portfolio.positions))
     try:
-        state.engine().refresh()
+        closed = state.engine().square_off_intraday()
+        if closed:
+            log.info("[15:25] Square-off closed %d intraday positions: %s",
+                     len(closed), ", ".join(closed))
+        else:
+            log.info("[15:25] Square-off: no intraday positions")
     except Exception as e:
         log.exception("Square-off pass failed: %s", e)
+    # Day validity for owner limit orders ends here, like a real broker.
+    try:
+        from trading.orders import expire_day_orders
+        n = expire_day_orders(state.portfolio())
+        if n:
+            log.info("[15:25] Expired %d unfilled owner limit orders", n)
+    except Exception as e:
+        log.exception("Order expiry failed: %s", e)
 
 
 # Daily mode rotation. Intraday runs first (entered + squared-off same day),
 # then short, swing, positional fire scans in sequence to fill the book.
-_DAILY_MODE_ORDER = ["intraday", "short", "swing", "positional"]
+# P1/F1 fix: the primary momentum strategy was MISSING from the morning
+# rotation (book filled only via 14:30 top-up). Momentum now fills first.
+_DAILY_MODE_ORDER = ["nifty200_momentum", "intraday", "short", "swing", "positional"]
+
+DEPLOYMENT_TARGET_PCT = 60.0   # weekly target gross deployment
+
+
+def _deployment_topup_scan() -> None:
+    """14:30 IST: if deployed < target, run another scan pass to fill book."""
+    from trading.calendars import is_trading_day
+    if not is_trading_day():
+        return
+    from . import state
+    eng = state.engine()
+    p = state.portfolio()
+    cfg = state.cfg()
+    prices = {pos.ticker: pos.entry_price for pos in p.positions.values()}
+    deployed = p.deployed_value(prices)
+    deployed_pct = deployed / cfg.starting_capital * 100 if cfg.starting_capital else 0
+    if deployed_pct >= DEPLOYMENT_TARGET_PCT:
+        log.info("[14:30] Top-up skip: already %.0f%% deployed", deployed_pct)
+        return
+    log.info("[14:30] Top-up scan: %.0f%% deployed < %.0f%% target",
+             deployed_pct, DEPLOYMENT_TARGET_PCT)
+    try:
+        res = eng.scan()
+        log.info("[14:30] Top-up result: %d opened, %d skipped",
+                 len(res.opened), len(res.skipped))
+    except Exception as e:
+        log.exception("Top-up scan failed: %s", e)
+    _check_pending_orders("top-up")
+
+
+def _check_pending_orders(where: str) -> None:
+    """Owner limit orders: fill the touched ones wherever the engine
+    already looks at live prices. Never lets an order error break a scan."""
+    from . import state
+    try:
+        from trading.orders import process_open_orders
+        filled = process_open_orders(state.engine())
+        if filled:
+            log.info("[orders:%s] filled: %s", where, ", ".join(filled))
+    except Exception as e:
+        log.exception("Pending-order pass failed (%s): %s", where, e)
+
+
+def _eod_refresh() -> None:
+    """15:35 IST: mark all positions, fire exits, journal HOLD decisions."""
+    from trading.calendars import is_trading_day
+    if not is_trading_day():
+        return
+    from . import state
+    try:
+        state.engine().refresh()
+        log.info("[15:35] EOD refresh done")
+    except Exception as e:
+        log.exception("EOD refresh failed: %s", e)
 
 
 def _daily_multi_mode_scan() -> None:
@@ -115,8 +300,13 @@ def _daily_multi_mode_scan() -> None:
     eng = state.engine()
     cfg = state.cfg()
     original_mode = getattr(cfg, "mode", "swing")
+    from trading.calendars import is_trading_day
+    if not is_trading_day():
+        log.info("[09:20] NSE holiday — daily scan skipped")
+        return
     log.info("[09:20] Daily multi-mode scan starting (target 60-70%% deployed)")
     summary = []
+    import gc
     for m in _DAILY_MODE_ORDER:
         try:
             cfg.mode = m
@@ -126,7 +316,26 @@ def _daily_multi_mode_scan() -> None:
         except Exception as e:
             log.exception("Daily scan for mode=%s failed: %s", m, e)
             summary.append(f"{m}=error")
+            # Silent dead mornings are forbidden: the failure goes into the
+            # journal so the dashboard trigger card SHOWS it the same day.
+            try:
+                from datetime import datetime as _dt
+                eng.portfolio.decision_journal.append({
+                    "ts": _dt.utcnow().isoformat(), "action": "SCAN_FAILED",
+                    "mode": m,
+                    "err": f"{type(e).__name__}: {str(e)[:120]}",
+                    "why": "09:20 scan pass failed — check Upstox login/data.",
+                })
+                eng.portfolio.save()
+            except Exception:
+                pass
+        finally:
+            # 512 MB guard: drop each mode's OHLCV panels before the next
+            # mode downloads its own — otherwise five scans' worth of frames
+            # can overlap in RAM at 09:20.
+            gc.collect()
     # Restore the active mode the user selected in Settings.
     cfg.mode = original_mode
     cfg.apply_mode_preset()
+    _check_pending_orders("post-scan")
     log.info("[09:20] Daily multi-mode scan complete: %s", " · ".join(summary))

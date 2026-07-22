@@ -134,6 +134,13 @@ def callback(
     db.save_upstox_token(token_doc)
     # Hot-attach to the running engine so refresh() starts using Upstox quotes
     app_state.refresh_broker_attachment()
+    # If today's 09:20 scan never completed (token was dead / deploy restart),
+    # this login IS the unblock — run the missed scan now, in the background.
+    try:
+        from .. import scheduler as _sched
+        _sched.catchup_scan_if_missed("upstox_connect")
+    except Exception:
+        pass
     return RedirectResponse("/?upstox_connected=1", status_code=303)
 
 

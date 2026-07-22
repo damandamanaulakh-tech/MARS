@@ -36,14 +36,15 @@ AM07_WEIGHTS = {
     "relative_strength": 0.10,
     "vol_adj_upside":    0.10,
     "short_interest":    0.05,   # stubbed at 50 (no free NSE source)
-    "analyst_revision":  0.05,   # stubbed at 50 (paid data)
+    "analyst_revision":  0.05,   # LIVE 2026-07-16: yfinance consensus (50 when unfetchable)
     "breakout_quality":  0.05,
     "sector_alignment":  0.10,
 }
 
 # v4: catalyst now live via Claude API news sentiment.
-# short_interest and analyst_revision remain stubbed (no clean free source).
-STUB_COMPONENTS = {"short_interest", "analyst_revision"}
+# short_interest remains stubbed (no clean free source). analyst_revision went
+# LIVE 2026-07-16 (yfinance consensus; neutral 50 only when unfetchable).
+STUB_COMPONENTS = {"short_interest"}
 
 
 @dataclass
@@ -52,9 +53,23 @@ class Config:
     # Target: 60-70% weekly deployment across all 4 modes.
     # 12 positions * 5-7% avg = 60-84% gross — comfortably in band.
     starting_capital: float = 25_00_000.0
-    cash_reserve_pct: float = 0.25            # 25% reserve (regime-adjusted at scan)
-    max_position_pct: float = 0.07            # max 7% per single stock (was 10%)
-    max_positions: int = 12                   # was 10; allows 4 modes x ~3 fills
+    cash_reserve_pct: float = 0.0             # deploy 100% — no idle cash reserve (user setting)
+    # P3 (search v2.1, user-approved 2026-07-19): concentrate toward ~30
+    # names at ~3.3% — judgment middle between the tested 20 and 50 books.
+    max_position_pct: float = 0.033
+    max_positions: int = 30
+    # P1: momentum mode scans the FULL NSE universe via rotating buckets
+    # (engine.scan); set False to fall back to the Nifty-200-only scan.
+    full_universe_scan: bool = True
+    # User instruction 2026-07-21: names the engine must NEVER scan or buy,
+    # even though they are currently listed (distress/junk the owner bans).
+    # Held positions are exempt so exits still work if one is ever held.
+    ticker_blocklist: tuple = ("YESBANK.NS",)
+    # v4 correction playbook (user-approved 2026-07-21): momentum entries
+    # re-enable inside a correction once India VIX crushes to <=75% of its
+    # recent spike peak — the only correction tactic that beat cash in the
+    # 10-episode preregistered test (docs/PARAM_SEARCH_V4.md).
+    correction_vix_reentry: bool = True
 
     # --- Per-trade risk ---
     stop_loss_pct: float = -0.05              # -5% hard stop
@@ -62,12 +77,48 @@ class Config:
     trailing_stop_pct: float = -0.08          # -8% from peak (chandelier-style)
     score_decay_exit: float = 50.0            # exit if AM 07 score drops below this
     max_hold_days: int = 60                   # safety cap
+    # Buy-and-hold switch (user setting): when True the engine never sells —
+    # no stop-loss / target / trailing / score-decay / max-hold / kill-switch exit.
+    # Policy C (user-approved 2026-07-16): exits ON with per-mode stops/targets.
+    # Buy-and-hold (True) was the P0/B1 experiment; score-decay stayed live then.
+    disable_exits: bool = False
 
     # --- Portfolio risk ---
     daily_loss_halt_pct: float = -0.02        # -2% of equity -> kill switch
-    max_sector_positions: int = 3
+    max_sector_positions: int = 12            # loose — allow a broad 50-stock book across sectors
+    # v7 (absorbed from G07 research framework): cap total open risk-at-stop.
+    # Sum of (entry - stop) * qty across open positions must stay under this
+    # fraction of equity. Prevents many small "safe" positions from summing
+    # into one large hidden risk.
+    max_portfolio_heat_pct: float = 0.25      # 25% of equity at stop, max
+    # P2 audit fixes: sector capital cap + stale-data guard
+    max_sector_exposure_pct: float = 0.25     # max 25% of capital in one sector
+    max_stale_days: int = 7                   # skip buys when last candle older than this
 
     # --- Strategy ---
+    # C1: blend a value/quality tilt into the momentum score (0 = pure momentum,
+    # 1 = pure quality). Diversifies off high-beta leaders that crash together.
+    quality_blend_pct: float = 0.35
+    # Batch C: candle BUY-CONFIRMATION gate — a scored pick executes only when
+    # the latest candle confirms (breakout / URR retest / engulfing); otherwise
+    # it waits on the watchlist as candle_wait_*.
+    candle_confirm_enabled: bool = True
+    candle_patterns: tuple = ("breakout", "urr", "engulfing", "hammer",
+                              "morning_star", "piercing", "tweezer_bottom",
+                              "three_soldiers")   # user's reference-pic set
+    candle_breakout_lookback: int = 20
+    candle_volume_mult: float = 1.5
+    # F7 (user-approved 2026-07-11): never open dust positions — a position
+    # whose notional is below this is skipped (IDEA-12-shares problem).
+    min_position_value: float = 25000.0
+    # F15 (Chityy pyramid maps): add to a WINNING position in tranches.
+    # Default OFF — opt-in from Settings so it can't surprise the live book;
+    # add pyramid_add_pct of the ORIGINAL notional each time the position is
+    # up >= pyramid_trigger_pct * (adds_done+1) from entry, up to max adds.
+    pyramid_enabled: bool = False
+    pyramid_trigger_pct: float = 0.08      # +8% per tranche step
+    pyramid_add_pct: float = 0.5           # add 50% of the original size
+    max_pyramid_adds: int = 2
     min_score_to_enter: float = 70.0
     momentum_lookback_days: int = 21          # 1 month
     medium_lookback_days: int = 63            # 3 months

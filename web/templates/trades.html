@@ -5,22 +5,38 @@
 <div class="flex items-end justify-between mb-8">
   <div>
     <h1 class="font-black text-5xl tracking-tight">Closed Trades</h1>
-    <p class="text-ink-soft mt-2">{{ total }} trades · Win rate {{ win_rate | round(1) }}% · Net P&L ₹{{ net_total | inr }}</p>
+    <p class="text-ink-soft mt-2">{{ total }} trades · Win rate {{ win_rate | round(1) }}% · Net P&L ₹{{ net_total | inr }} ({{ '%+.2f' % net_pct_of_capital }}% of capital)</p>
   </div>
 </div>
 
-<div class="grid grid-cols-3 gap-4 mb-8">
-  <div class="bg-white border border-line p-4">
-    <div class="text-[10px] tracking-widest text-ink-faint uppercase">WINS</div>
-    <div class="mt-2 font-black text-3xl">{{ wins }}</div>
-  </div>
+<!-- F9: P&L vs win-rate at a glance -->
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
   <div class="bg-white border border-line p-4">
     <div class="text-[10px] tracking-widest text-ink-faint uppercase">TOTAL TRADES</div>
     <div class="mt-2 font-black text-3xl">{{ total }}</div>
   </div>
+  <div class="bg-white border border-line p-4">
+    <div class="text-[10px] tracking-widest text-ink-faint uppercase">WIN RATE</div>
+    <div class="mt-2 font-black text-3xl">{{ win_rate | round(1) }}%</div>
+    <div class="text-xs text-ink-faint mt-1">{{ wins }}W · {{ losses }}L</div>
+  </div>
+  <div class="bg-white border border-line p-4 border-l-4 border-l-emerald-500">
+    <div class="text-[10px] tracking-widest text-ink-faint uppercase">GROSS PROFIT</div>
+    <div class="mt-2 font-black text-2xl tabular-nums text-emerald-700">+₹{{ gross_profit | inr }}</div>
+  </div>
+  <div class="bg-white border border-line p-4 border-l-4 border-l-red-500">
+    <div class="text-[10px] tracking-widest text-ink-faint uppercase">GROSS LOSS</div>
+    <div class="mt-2 font-black text-2xl tabular-nums text-red-700">₹{{ gross_loss | inr }}</div>
+  </div>
   <div class="bg-white border border-line p-4 {% if net_total >= 0 %}border-l-4 border-l-accent{% else %}border-l-4 border-l-red-500{% endif %}">
     <div class="text-[10px] tracking-widest text-ink-faint uppercase">NET P&L</div>
-    <div class="mt-2 font-black text-3xl tabular-nums">₹{{ net_total | inr }}</div>
+    <div class="mt-2 font-black text-2xl tabular-nums">₹{{ net_total | inr }}</div>
+    <div class="text-xs text-ink-faint mt-1">{{ '%+.2f' % net_pct_of_capital }}% of capital</div>
+  </div>
+  <div class="bg-white border border-line p-4">
+    <div class="text-[10px] tracking-widest text-ink-faint uppercase">CAPITAL USED</div>
+    <div class="mt-2 font-black text-2xl tabular-nums">₹{{ total_capital_used | inr }}</div>
+    <div class="text-xs text-ink-faint mt-1">of ₹{{ starting_capital | inr }}</div>
   </div>
 </div>
 
@@ -36,6 +52,8 @@
         <th class="text-left px-6 py-3">Hold</th>
         <th class="text-left px-6 py-3">Entry ₹</th>
         <th class="text-left px-6 py-3">Exit ₹</th>
+        <th class="text-right px-6 py-3">Capital Used</th>
+        <th class="text-right px-6 py-3">% of Capital</th>
         <th class="text-left px-6 py-3">Net P&L</th>
         <th class="text-left px-6 py-3">Net %</th>
         <th class="text-left px-6 py-3">Reason</th>
@@ -51,6 +69,8 @@
         <td class="px-6 py-3 tabular-nums">{{ r.hold_days }}d</td>
         <td class="px-6 py-3 tabular-nums">₹{{ r.entry_price | inr(2) }}</td>
         <td class="px-6 py-3 tabular-nums">₹{{ r.exit_price | inr(2) }}</td>
+        <td class="px-6 py-3 tabular-nums text-right">₹{{ r.capital_used | inr }}</td>
+        <td class="px-6 py-3 tabular-nums text-right text-ink-soft">{{ '%.2f' % r.pct_of_capital }}%</td>
         <td class="px-6 py-3 tabular-nums {% if r.net_pnl >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}">
           ₹{{ r.net_pnl | inr }}
         </td>

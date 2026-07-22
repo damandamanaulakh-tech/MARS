@@ -26,11 +26,23 @@ def test_correction_when_below_200dma():
 
 
 def test_correction_when_deep_off_52w_high():
+    # >12% off the 52w high is a correction even while still above 200-DMA.
     regime, *_ = classify(
         nifty_close=22_100, nifty_200dma=22_000,
-        pct_below_52w_high=-9.0, vix=20.0, fii_5d_net=None,
+        pct_below_52w_high=-13.0, vix=20.0, fii_5d_net=None,
     )
     assert regime == "correction"
+
+
+def test_shallow_pullback_keeps_everest_on():
+    # A -7 to -10% dip is normal, not a correction: momentum engine stays on.
+    # Guards the -12% threshold against silently reverting to the old -7%.
+    regime, ev, oc, *_ = classify(
+        nifty_close=24_000, nifty_200dma=22_000,
+        pct_below_52w_high=-10.0, vix=15.0, fii_5d_net=None,
+    )
+    assert regime != "correction"
+    assert ev is True
 
 
 def test_neutral_zone_at_200dma():

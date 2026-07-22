@@ -26,6 +26,8 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
+from .data import YF_THREADS
+
 log = logging.getLogger(__name__)
 
 
@@ -74,23 +76,21 @@ def fetch_regime(fii_5d_net_override: Optional[float] = None) -> RegimeReading:
     trading.flows. If None, we proceed without it (less precise classification).
     """
     try:
-        raw = yf.download(
-            [NIFTY_50, INDIA_VIX], period="9mo", interval="1d",
-            progress=False, auto_adjust=True, group_by="ticker", threads=True,
-        )
+        from . import data as _data
+        # 200-DMA FIX (2026-07-11, user-approved): 9mo (~185 bars) could never
+        # fill a 200-bar average -> nifty_200dma was ALWAYS None and the
+        # correction/neutral split silently degraded ("insufficient data").
+        # 14mo ≈ 290 bars: real 200-DMA, real regime classification.
+        hist = _data.fetch_daily([NIFTY_50, INDIA_VIX], period="14mo")
     except Exception as e:
         log.warning("Regime fetch failed: %s", e)
         return _neutral_fallback(f"fetch_failed: {e}")
 
     def col(tic: str) -> Optional[pd.Series]:
-        try:
-            if isinstance(raw.columns, pd.MultiIndex):
-                if tic not in raw.columns.get_level_values(0):
-                    return None
-                return raw[tic]["Close"]
-            return raw["Close"]
-        except (KeyError, AttributeError):
+        df = hist.get(tic)
+        if df is None or "Close" not in df.columns:
             return None
+        return df["Close"]
 
     nifty_s = col(NIFTY_50)
     vix_s = col(INDIA_VIX)
@@ -109,13 +109,22 @@ def fetch_regime(fii_5d_net_override: Optional[float] = None) -> RegimeReading:
             if high_52w > 0 and nifty_close is not None:
                 pct_below_52w_high = (nifty_close - high_52w) / high_52w * 100
 
+    # F3: global lead-lag / risk-off cascade. A US/SGX overnight crash shows up
+    # domestically as a sharp 1-day Nifty drop + a VIX spike (the "COVID
+    # cascade" the user described). We detect that reflection from signals we
+    # reliably have (a true US/SGX feed stays DATA_NEEDED — no cloud source).
+    global_risk_off, leadlag_why = lead_lag_risk_off(nifty_s, vix_s)
+
     regime, everest_on, ocean_on, mult_e, mult_o, why = classify(
         nifty_close=nifty_close,
         nifty_200dma=nifty_200dma,
         pct_below_52w_high=pct_below_52w_high,
         vix=vix,
         fii_5d_net=fii_5d_net_override,
+        global_risk_off=global_risk_off,
     )
+    if global_risk_off:
+        why = f"{why} | ⚠ lead-lag risk-off: {leadlag_why}"
 
     return RegimeReading(
         timestamp=datetime.utcnow(),
@@ -133,15 +142,46 @@ def fetch_regime(fii_5d_net_override: Optional[float] = None) -> RegimeReading:
     )
 
 
+def lead_lag_risk_off(nifty_s, vix_s) -> tuple[bool, str]:
+    """F3: detect a global-cascade risk-off day from domestic reflections.
+
+    Fires when the Nifty just dropped hard in one session AND the VIX is
+    spiking — the shape an overnight US/SGX crash takes on the NSE tape.
+    Pure function of the two price series; returns (fired, reason)."""
+    try:
+        n = nifty_s.dropna() if nifty_s is not None else None
+        if n is None or len(n) < 2:
+            return False, ""
+        nifty_1d = float(n.iloc[-1]) / float(n.iloc[-2]) - 1
+        vix_spike = False
+        vix_txt = ""
+        if vix_s is not None:
+            v = vix_s.dropna()
+            if len(v) >= 6:
+                vix_now, vix_5d = float(v.iloc[-1]), float(v.iloc[-6])
+                if vix_5d > 0 and vix_now > vix_5d * 1.15:
+                    vix_spike = True
+                    vix_txt = f"VIX {vix_now:.1f} up {(vix_now/vix_5d-1)*100:.0f}% in 5d"
+        if nifty_1d <= -0.02 and vix_spike:
+            return True, f"Nifty {nifty_1d*100:.1f}% 1-day drop + {vix_txt}"
+        if nifty_1d <= -0.035:                     # a >3.5% single-day fall alone
+            return True, f"Nifty {nifty_1d*100:.1f}% single-day fall"
+    except (IndexError, ValueError, ZeroDivisionError):
+        pass
+    return False, ""
+
+
 def classify(
     nifty_close: Optional[float],
     nifty_200dma: Optional[float],
     pct_below_52w_high: Optional[float],
     vix: Optional[float],
     fii_5d_net: Optional[float],
+    global_risk_off: bool = False,
 ) -> tuple[str, bool, bool, float, float, str]:
     """Pure classifier — no I/O. Easy to unit-test."""
-    # PANIC: Nifty crashed AND VIX panicking
+    # PANIC: Nifty crashed AND VIX panicking — OR a correction that coincides
+    # with a fresh lead-lag risk-off cascade (F3: escalate defence early).
     if (
         pct_below_52w_high is not None and pct_below_52w_high <= -10
         and vix is not None and vix > 25
@@ -151,14 +191,26 @@ def classify(
             f"PANIC: Nifty {pct_below_52w_high:.1f}% off 52w high, VIX {vix:.1f}. "
             "Everest off; Ocean active but half-size, tighter rules."
         )
+    if (
+        global_risk_off
+        and pct_below_52w_high is not None and pct_below_52w_high <= -10
+    ):
+        return (
+            "panic", False, True, 0.0, 0.5,
+            f"PANIC (lead-lag escalation): Nifty {pct_below_52w_high:.1f}% off "
+            "high during a global risk-off cascade. Defence maxed early."
+        )
 
-    # CORRECTION: Nifty below 200-DMA OR meaningfully off 52w high
+    # CORRECTION: Nifty below 200-DMA OR deep off its 52w high.
+    # 52w-high trigger was -7%; loosened to -12% so a normal pullback
+    # (a -7 to -10% dip) keeps the Everest momentum engine on — only a
+    # genuine correction (>12% off the high) hands over to Ocean.
     nifty_below_200 = (
         nifty_close is not None and nifty_200dma is not None
         and nifty_close < nifty_200dma
     )
     deep_below_high = (
-        pct_below_52w_high is not None and pct_below_52w_high <= -7
+        pct_below_52w_high is not None and pct_below_52w_high <= -12
     )
     if nifty_below_200 or deep_below_high:
         flags = []
@@ -174,6 +226,17 @@ def classify(
             "correction", False, True, 0.0, 1.0,
             "CORRECTION: " + " | ".join(flags) +
             ". Everest off (no momentum to ride); Ocean active for reversion buys."
+        )
+
+    # F3: a fresh lead-lag risk-off cascade tilts an otherwise-calm tape
+    # defensive early (raise cash, pause new momentum) before the slow
+    # 200-DMA / 52w-high triggers would catch it.
+    if global_risk_off:
+        return (
+            "correction", False, True, 0.0, 1.0,
+            "CORRECTION (lead-lag early-warning): global risk-off cascade "
+            "detected — Everest paused, defensive reserve on, ahead of the "
+            "200-DMA trigger."
         )
 
     # NEUTRAL: Nifty very close to 200-DMA, neither extreme
@@ -215,3 +278,19 @@ def _neutral_fallback(reason: str) -> RegimeReading:
         sizing_multiplier_everest=1.0, sizing_multiplier_ocean=0.0,
         reasoning=f"NEUTRAL (fallback): {reason}",
     )
+
+
+def vix_crush_ok(vix_close, ratio: float = 0.75, window: int = 120) -> bool:
+    """v4 correction-playbook rule (preregistered, tested on 10 episodes
+    2015-2026): the fear spike is 'crushed' when VIX falls to <= 75% of
+    its recent peak — the tested signal that a correction's V-recovery
+    has begun (+24% COVID, +7.3% 2022, +2.0% current episode; harmless
+    in mild corrections where it simply never fires)."""
+    try:
+        v = vix_close.dropna()
+    except AttributeError:
+        return False
+    if len(v) < 20:
+        return False
+    peak = float(v.tail(window).max())
+    return peak > 0 and float(v.iloc[-1]) <= ratio * peak

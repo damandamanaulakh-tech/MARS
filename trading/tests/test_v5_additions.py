@@ -83,10 +83,11 @@ def test_spread_filter_passes_tight_spread():
 # -------- dynamic cash reserve --------
 
 def test_dynamic_cash_reserve_buckets():
-    assert dynamic_cash_reserve_pct("bull_extension") == 0.20
-    assert dynamic_cash_reserve_pct("neutral") == 0.25
-    assert dynamic_cash_reserve_pct("correction") == 0.35
-    assert dynamic_cash_reserve_pct("panic") == 0.50
+    # P2/B2: full deployment in bull/neutral; protective cash in stress.
+    assert dynamic_cash_reserve_pct("bull_extension") == 0.00
+    assert dynamic_cash_reserve_pct("neutral") == 0.00
+    assert dynamic_cash_reserve_pct("correction") == 0.20
+    assert dynamic_cash_reserve_pct("panic") == 0.40
 
 
 def test_dynamic_cash_reserve_unknown_uses_floor():
@@ -164,6 +165,7 @@ def test_trailing_tightens_on_score_decay():
         reasoning: str = ""
 
     cfg = Config()
+    cfg.disable_exits = False         # this test exercises the trailing-stop exit
     cfg.trailing_stop_pct = -0.08    # 8% normal trail
     cfg.stop_loss_pct = -0.20        # avoid hitting hard stop in this test
     cfg.score_decay_exit = -1.0      # avoid score-decay exit firing

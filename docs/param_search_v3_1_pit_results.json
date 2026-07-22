@@ -1,0 +1,332 @@
+{
+  "windows": [
+    {
+      "window": "W1_2019",
+      "winner_cfg": {
+        "look": "6+12",
+        "voladj": true,
+        "skip": 0,
+        "N": 25,
+        "absgate": true,
+        "regime": false,
+        "candle": false,
+        "volx": false
+      },
+      "winner_opt": {
+        "cagr": 30.04,
+        "sharpe": 1.396,
+        "max_dd": -14.04
+      },
+      "validation": {
+        "cagr": 16.03,
+        "sharpe": 1.044,
+        "max_dd": -10.01
+      },
+      "bench_universe": {
+        "cagr": 8.59,
+        "sharpe": 0.682,
+        "max_dd": -9.46
+      },
+      "oos_alpha": 7.44,
+      "top3_opt": [
+        {
+          "i": 336,
+          "cfg": {
+            "look": "6+12",
+            "voladj": true,
+            "skip": 0,
+            "N": 25,
+            "absgate": true,
+            "regime": false,
+            "candle": false,
+            "volx": false
+          },
+          "cagr": 30.04,
+          "sharpe": 1.396,
+          "max_dd": -14.04
+        },
+        {
+          "i": 320,
+          "cfg": {
+            "look": "6+12",
+            "voladj": true,
+            "skip": 0,
+            "N": 15,
+            "absgate": true,
+            "regime": false,
+            "candle": false,
+            "volx": false
+          },
+          "cagr": 29.32,
+          "sharpe": 1.357,
+          "max_dd": -16.26
+        },
+        {
+          "i": 208,
+          "cfg": {
+            "look": "12",
+            "voladj": true,
+            "skip": 0,
+            "N": 25,
+            "absgate": true,
+            "regime": false,
+            "candle": false,
+            "volx": false
+          },
+          "cagr": 28.23,
+          "sharpe": 1.355,
+          "max_dd": -13.52
+        }
+      ]
+    },
+    {
+      "window": "W2_2020_21",
+      "winner_cfg": {
+        "look": "12",
+        "voladj": true,
+        "skip": 0,
+        "N": 15,
+        "absgate": true,
+        "regime": false,
+        "candle": false,
+        "volx": false
+      },
+      "winner_opt": {
+        "cagr": 27.04,
+        "sharpe": 1.367,
+        "max_dd": -15.06
+      },
+      "validation": {
+        "cagr": 15.22,
+        "sharpe": 0.676,
+        "max_dd": -25.96
+      },
+      "bench_universe": {
+        "cagr": 27.63,
+        "sharpe": 1.022,
+        "max_dd": -25.57
+      },
+      "oos_alpha": -12.41,
+      "top3_opt": [
+        {
+          "i": 192,
+          "cfg": {
+            "look": "12",
+            "voladj": true,
+            "skip": 0,
+            "N": 15,
+            "absgate": true,
+            "regime": false,
+            "candle": false,
+            "volx": false
+          },
+          "cagr": 27.04,
+          "sharpe": 1.367,
+          "max_dd": -15.06
+        },
+        {
+          "i": 208,
+          "cfg": {
+            "look": "12",
+            "voladj": true,
+            "skip": 0,
+            "N": 25,
+            "absgate": true,
+            "regime": false,
+            "candle": false,
+            "volx": false
+          },
+          "cagr": 26.52,
+          "sharpe": 1.366,
+          "max_dd": -13.52
+        },
+        {
+          "i": 336,
+          "cfg": {
+            "look": "6+12",
+            "voladj": true,
+            "skip": 0,
+            "N": 25,
+            "absgate": true,
+            "regime": false,
+            "candle": false,
+            "volx": false
+          },
+          "cagr": 26.72,
+          "sharpe": 1.33,
+          "max_dd": -14.04
+        }
+      ]
+    },
+    {
+      "window": "W3_2022_23",
+      "winner_cfg": {
+        "look": "6+12",
+        "voladj": true,
+        "skip": 0,
+        "N": 25,
+        "absgate": true,
+        "regime": false,
+        "candle": false,
+        "volx": false
+      },
+      "winner_opt": {
+        "cagr": 25.19,
+        "sharpe": 1.18,
+        "max_dd": -25.94
+      },
+      "validation": {
+        "cagr": 25.56,
+        "sharpe": 1.296,
+        "max_dd": -11.55
+      },
+      "bench_universe": {
+        "cagr": 24.74,
+        "sharpe": 1.428,
+        "max_dd": -11.4
+      },
+      "oos_alpha": 0.82,
+      "top3_opt": [
+        {
+          "i": 336,
+          "cfg": {
+            "look": "6+12",
+            "voladj": true,
+            "skip": 0,
+            "N": 25,
+            "absgate": true,
+            "regime": false,
+            "candle": false,
+            "volx": false
+          },
+          "cagr": 25.19,
+          "sharpe": 1.18,
+          "max_dd": -25.94
+        },
+        {
+          "i": 208,
+          "cfg": {
+            "look": "12",
+            "voladj": true,
+            "skip": 0,
+            "N": 25,
+            "absgate": true,
+            "regime": false,
+            "candle": false,
+            "volx": false
+          },
+          "cagr": 24.09,
+          "sharpe": 1.162,
+          "max_dd": -25.58
+        },
+        {
+          "i": 377,
+          "cfg": {
+            "look": "6+12",
+            "voladj": true,
+            "skip": 1,
+            "N": 25,
+            "absgate": false,
+            "regime": false,
+            "candle": false,
+            "volx": true
+          },
+          "cagr": 26.03,
+          "sharpe": 1.155,
+          "max_dd": -24.92
+        }
+      ]
+    },
+    {
+      "window": "W4_2024_26",
+      "winner_cfg": {
+        "look": "12",
+        "voladj": true,
+        "skip": 0,
+        "N": 25,
+        "absgate": true,
+        "regime": false,
+        "candle": false,
+        "volx": false
+      },
+      "winner_opt": {
+        "cagr": 25.87,
+        "sharpe": 1.258,
+        "max_dd": -25.58
+      },
+      "validation": {
+        "cagr": 4.3,
+        "sharpe": 0.314,
+        "max_dd": -24.82
+      },
+      "bench_universe": {
+        "cagr": 8.83,
+        "sharpe": 0.588,
+        "max_dd": -20.57
+      },
+      "oos_alpha": -4.53,
+      "top3_opt": [
+        {
+          "i": 208,
+          "cfg": {
+            "look": "12",
+            "voladj": true,
+            "skip": 0,
+            "N": 25,
+            "absgate": true,
+            "regime": false,
+            "candle": false,
+            "volx": false
+          },
+          "cagr": 25.87,
+          "sharpe": 1.258,
+          "max_dd": -25.58
+        },
+        {
+          "i": 377,
+          "cfg": {
+            "look": "6+12",
+            "voladj": true,
+            "skip": 1,
+            "N": 25,
+            "absgate": false,
+            "regime": false,
+            "candle": false,
+            "volx": true
+          },
+          "cagr": 27.26,
+          "sharpe": 1.218,
+          "max_dd": -24.92
+        },
+        {
+          "i": 345,
+          "cfg": {
+            "look": "6+12",
+            "voladj": true,
+            "skip": 0,
+            "N": 25,
+            "absgate": false,
+            "regime": false,
+            "candle": false,
+            "volx": true
+          },
+          "cagr": 26.78,
+          "sharpe": 1.212,
+          "max_dd": -29.09
+        }
+      ]
+    }
+  ],
+  "grid_size": 384,
+  "summary": {
+    "positive_oos_windows": 2,
+    "avg_oos_alpha": -2.17,
+    "runtime_min": 2.2,
+    "caveats": [
+      "SURVIVORSHIP: current N200 membership backfilled (PIT pending)",
+      "liquidity floor Rs 1 Cr median daily turnover, 60d",
+      "costs 0.15%/side on turnover",
+      "monthly rebalance approximation of the live engine"
+    ]
+  }
+}

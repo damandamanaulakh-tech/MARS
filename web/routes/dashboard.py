@@ -22,29 +22,111 @@ def dashboard(request: Request):
     p = state.portfolio()
     cfg = state.cfg()
 
-    # No quote fetch on dashboard load — that hits yfinance on every page hit.
-    # Use entry_price as a mark estimate; live quotes happen on /scan refresh.
-    prices = {pos.ticker: pos.entry_price for pos in p.positions.values()}
+    # Live marks via the 60s-cached Upstox-first router; entry-price fallback.
+    tickers = [pos.ticker for pos in p.positions.values()]
+    live_prices, quotes_live = state.marks(tickers)
+    prices = {pos.ticker: live_prices.get(pos.ticker, pos.entry_price)
+              for pos in p.positions.values()}
     equity = p.equity(prices)
     deployed = p.deployed_value(prices)
     cash_reserve_pct = (p.cash / equity * 100) if equity else 100
-    today_pnl = 0.0       # filled by background refresh later
-    today_pnl_pct = 0.0
-    exits_due = 0          # filled by check_exit on refresh
+    invested = sum(pos.qty * pos.entry_price for pos in p.positions.values())
+    unreal_pnl = deployed - invested
+    unreal_pct = (unreal_pnl / invested * 100) if invested else 0.0
 
     kpis = [
         {"label": "TOTAL EQUITY", "big": equity, "fmt": "inr_lakh",
-         "trail": "Paper portfolio mark", "href": "/positions"},
+         "trail": "Cash + holdings, live marks" if quotes_live else "Cash + holdings (entry marks — connect Upstox)",
+         "href": "/positions"},
         {"label": "OPEN POSITIONS", "big": len(p.positions), "fmt": "int",
          "trail": f"of {cfg.max_positions} max", "href": "/positions",
          "highlight": False},
-        {"label": "TODAY'S P&L", "big": today_pnl, "fmt": "inr",
-         "trail": f"{today_pnl_pct:+.2f}% session",
+        {"label": "UNREALIZED P&L", "big": unreal_pnl, "fmt": "inr",
+         "trail": f"{unreal_pct:+.2f}% vs entry",
          "href": "/positions", "highlight": True},
-        {"label": "EXITS DUE TODAY", "big": exits_due, "fmt": "int",
-         "trail": "From rule triggers",
+        {"label": "REGIME", "big": (p.last_regime or "—").upper(), "fmt": "str",
+         "trail": "Engine market state",
          "href": "/scan"},
     ]
+
+    # ---- Today's Picks + Watchlist (top-scored picks NOT held) ----
+    held = set(p.positions.keys())
+    def _score_of(row: dict) -> float:
+        for k in ("score", "final_score", "blended_score", "total_score"):
+            if k in row:
+                try:
+                    return float(row[k])
+                except (TypeError, ValueError):
+                    pass
+        return 0.0
+    picks_raw = sorted((p.last_scan_picks or []), key=_score_of, reverse=True)
+    _CANDLE_LABELS = {
+        "breakout": "✓ Breakout", "urr": "✓ URR retest",
+        "engulfing": "✓ Engulfing", "hammer": "✓ Hammer",
+        "morning_star": "✓ Morning Star", "piercing": "✓ Piercing",
+        "tweezer_bottom": "✓ Tweezer", "three_soldiers": "✓ 3 Soldiers",
+        "no_pattern": "⏳ waiting", "insufficient_bars": "· no data",
+        "disabled": "—", "": "—",
+    }
+    today_picks = [{
+        "ticker": r.get("ticker", "?"),
+        "score": round(_score_of(r), 1),
+        "last_close": r.get("last_close"),
+        "held": r.get("ticker") in held,
+        "candle": _CANDLE_LABELS.get(r.get("candle", ""), r.get("candle", "—")),
+        # expand-row detail (_pick_detail.html): pass through what the scan stored
+        "components": r.get("components") or {},
+        "candles": r.get("candles"),
+        "timing_pass": r.get("timing_pass"),
+        "reasoning": r.get("reasoning", ""),
+    } for r in picks_raw[:6]]
+    # F5: why a watchlist pick was NOT bought (join with the scan's skips)
+    _SKIP_LABELS = {
+        "reserve": "cash reserve", "cash": "no cash", "max_positions": "slots full",
+        "sector_exposure_cap": "sector cap", "below_min_value": "too small",
+        "correlated": "correlated", "liquidity": "illiquid", "stale": "stale data",
+        "throttle_zero": "throttled", "already_held": "held",
+    }
+    def _blocked_reason(tkr: str) -> str:
+        for s in (p.last_scan_skipped or []):
+            if s.get("ticker") == tkr:
+                raw = str(s.get("reason", s.get("why", "")))
+                if raw.startswith("candle_wait"):
+                    return "⏳ waiting candle"
+                for key, lab in _SKIP_LABELS.items():
+                    if key in raw:
+                        return f"⛔ {lab}"
+                return f"⛔ {raw[:18]}"
+        return ""
+    watchlist = [{
+        "ticker": r.get("ticker", "?"),
+        "score": round(_score_of(r), 1),
+        "last_close": r.get("last_close"),
+        "blocked": _blocked_reason(r.get("ticker", "")),
+    } for r in picks_raw if r.get("ticker") not in held][:8]
+
+    # ---- Engine trigger-map: what fired today (from the decision journal) ----
+    from collections import Counter
+    today_iso = datetime.utcnow().date().isoformat()
+    tj = [e for e in (p.decision_journal or [])[-800:]
+          if str(e.get("ts", "")).startswith(today_iso)]
+    action_counts = Counter(str(e.get("action", "?")) for e in tj)
+    exit_reasons = Counter(
+        str(e.get("reason", "?")) for e in tj
+        if str(e.get("action", "")).upper() in ("SELL", "CLOSE", "EXIT"))
+    skip_reasons = Counter()
+    for srow in (p.last_scan_skipped or []):
+        skip_reasons[str(srow.get("reason", srow.get("why", "?")))[:42]] += 1
+    from trading.calendars import festival_context
+    triggers = {
+        "festival": festival_context(days=5),
+        "journal_today": len(tj),
+        "actions": action_counts.most_common(8),
+        "exits": exit_reasons.most_common(6),
+        "skips": skip_reasons.most_common(8),
+        "regime": p.last_regime or "not classified yet",
+        "ifr_active": bool(p.last_ifr_fire_date or p.last_ifr_ratio_fire_date),
+    }
 
     cash_pct = (p.cash / cfg.starting_capital * 100) if cfg.starting_capital else 0
     deployed_pct = (deployed / cfg.starting_capital * 100) if cfg.starting_capital else 0
@@ -54,6 +136,16 @@ def dashboard(request: Request):
     eq_hist = list(p.equity_history or [])[-100:]
     eq_labels = [ts[:16].replace("T", " ") for ts, _ in eq_hist]
     eq_values = [round(float(v), 2) for _, v in eq_hist]
+
+    # F17: Nifty candle chart (cached, Upstox-first)
+    nifty_candles = state.recent_candles("^NSEI", bars=40)
+
+    # F6: rotation suggestions — positions >=90% to target + a pick to fund
+    try:
+        from trading.rotation import rotation_suggestions
+        rotations = rotation_suggestions(p.positions, prices, watchlist, cfg)
+    except Exception:
+        rotations = []
 
     # Engine tweaks: surface anything the engine is overriding vs config baseline
     tweaks = []
@@ -95,5 +187,12 @@ def dashboard(request: Request):
             "eq_labels": eq_labels,
             "eq_values": eq_values,
             "tweaks": tweaks,
+            "quotes_live": quotes_live,
+            "prices": prices,
+            "today_picks": today_picks,
+            "watchlist": watchlist,
+            "triggers": triggers,
+            "nifty_candles": nifty_candles,
+            "rotations": rotations,
         },
     )

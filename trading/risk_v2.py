@@ -250,12 +250,13 @@ def passes_liquidity(
 # 5a. DYNAMIC CASH RESERVE (regime-aware)
 # ============================================================================
 
-# Bull regimes deploy more capital; correction/panic regimes hold more cash.
+# P2/B2: bull/neutral deploy fully (user: 100% in good markets); genuine
+# stress regimes force protective cash back in.
 DYNAMIC_CASH_RESERVE = {
-    "bull_extension": 0.20,
-    "neutral":        0.25,
-    "correction":     0.35,
-    "panic":          0.50,
+    "bull_extension": 0.00,
+    "neutral":        0.00,
+    "correction":     0.20,
+    "panic":          0.40,
 }
 
 

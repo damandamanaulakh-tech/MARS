@@ -74,4 +74,40 @@ def can_open(
     if same_sector >= cfg.max_sector_positions:
         return False, "sector_cap_reached", 0
 
+    # P2: sector CAPITAL cap — a count cap alone lets 12 x 2.5% = 30% pile
+    # into one sector. Shrink qty to fit the sector budget; reject if none.
+    # "Unknown" (unmapped) tickers are exempt — they aren't one real sector.
+    sector_cap_frac = getattr(cfg, "max_sector_exposure_pct", None)
+    if sector_cap_frac is not None and target_sector != "Unknown":
+        sector_notional = sum(
+            p.qty * p.entry_price for p in open_positions.values()
+            if cfg.sector_map.get(p.ticker, "Unknown") == target_sector
+        )
+        budget = cfg.starting_capital * sector_cap_frac - sector_notional
+        if budget < fill_price:
+            return False, "sector_exposure_cap", 0
+        qty = min(qty, int(budget // fill_price))
+
+    # v7: PORTFOLIO_HEAT gate (absorbed from G07 research framework).
+    # Total open risk-at-stop = sum((entry - stop_price) * qty). Block the new
+    # entry if adding it would push heat above max_portfolio_heat_pct of equity.
+    heat_cap_pct = getattr(cfg, "max_portfolio_heat_pct", None)
+    if heat_cap_pct is not None and current_equity > 0:
+        stop_frac = abs(cfg.stop_loss_pct)  # e.g. 0.05 -> 5% risk per position
+        existing_heat = sum(
+            p.qty * p.entry_price * stop_frac for p in open_positions.values()
+        )
+        new_heat = qty * fill_price * stop_frac
+        if (existing_heat + new_heat) / current_equity > heat_cap_pct:
+            # Try to shrink qty to fit remaining heat budget before rejecting.
+            remaining = heat_cap_pct * current_equity - existing_heat
+            if remaining <= 0:
+                return False, "portfolio_heat_cap", 0
+            qty = int(remaining / (fill_price * stop_frac))
+            if qty <= 0:
+                return False, "portfolio_heat_cap", 0
+
+    min_val = float(getattr(cfg, "min_position_value", 0) or 0)
+    if min_val > 0 and qty * fill_price < min_val:
+        return False, f"below_min_value_{int(min_val)}", 0
     return True, "ok", qty

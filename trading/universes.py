@@ -5,6 +5,14 @@ Refresh annually when NSE rebalances the Nifty 200 composition.
 
 We keep the list hardcoded (not fetched live) so backtests are
 deterministic and reproducible.
+
+2026-06 cleanup: removed 12 symbols Yahoo no longer serves (merged/renamed/
+delisted). 6 renamed to their current symbol, 6 dropped (successor already
+listed, or no clean Yahoo symbol):
+  ZOMATO->ETERNAL, ADANITRANS->ADANIENSOL, GMRINFRA->GMRAIRPORT,
+  L&TFH->LTF, MAHINDCIE->CIEINDIA, TATAMOTORS->TMPV (post-demerger);
+  dropped BHARATELE/IDFC (BEL/IDFCFIRSTB already listed),
+  LTIM/MINDTREE/PIRAMALENT/PEL (no working Yahoo symbol).
 """
 
 # Nifty 200 (top 200 NSE stocks by mcap, May 2026 composition).
@@ -21,12 +29,12 @@ NIFTY_200_TICKERS = [
     "BAJAJFINSV.NS", "M&M.NS", "BAJAJ-AUTO.NS", "EICHERMOT.NS",
     "HINDUNILVR.NS", "INDUSINDBK.NS", "DIVISLAB.NS", "DRREDDY.NS",
     "CIPLA.NS", "BRITANNIA.NS", "HEROMOTOCO.NS", "SHRIRAMFIN.NS",
-    "TATAMOTORS.NS", "TATACONSUM.NS", "ADANIPORTS.NS", "HDFCLIFE.NS",
+    "TMPV.NS", "TATACONSUM.NS", "ADANIPORTS.NS", "HDFCLIFE.NS",
     "BPCL.NS", "SBILIFE.NS", "APOLLOHOSP.NS", "NTPC.NS",
-    "LTIM.NS", "HINDALCO.NS",
+    "HINDALCO.NS",
 
     # Mid + Large caps (Nifty 100/200 — illiquid alpha zone per academic studies)
-    "ADANIGREEN.NS", "ADANIPOWER.NS", "ADANITRANS.NS",
+    "ADANIGREEN.NS", "ADANIPOWER.NS", "ADANIENSOL.NS",
     "AMBUJACEM.NS", "ABB.NS", "ABBOTINDIA.NS", "ACC.NS",
     "ALKEM.NS", "AUROPHARMA.NS", "BAJAJHLDNG.NS", "BANKBARODA.NS",
     "BEL.NS", "BERGEPAINT.NS", "BHEL.NS", "BIOCON.NS", "BOSCHLTD.NS",
@@ -38,7 +46,7 @@ NIFTY_200_TICKERS = [
     "IOC.NS", "IRCTC.NS", "JINDALSTEL.NS", "JUBLFOOD.NS",
     "LICI.NS", "MARICO.NS", "MOTHERSON.NS", "MPHASIS.NS",
     "MRF.NS", "MUTHOOTFIN.NS", "NAUKRI.NS", "NMDC.NS",
-    "OBEROIRLTY.NS", "OFSS.NS", "PAGEIND.NS", "PEL.NS",
+    "OBEROIRLTY.NS", "OFSS.NS", "PAGEIND.NS",
     "PERSISTENT.NS", "PFC.NS", "PIDILITIND.NS", "PIIND.NS",
     "PNB.NS", "POLYCAB.NS", "POWERINDIA.NS", "RECLTD.NS",
     "SAIL.NS", "SBICARD.NS", "SHREECEM.NS", "SIEMENS.NS",
@@ -46,34 +54,34 @@ NIFTY_200_TICKERS = [
     "TORNTPHARM.NS", "TORNTPOWER.NS", "TRENT.NS", "TVSMOTOR.NS",
     "UBL.NS", "UNITDSPR.NS", "VBL.NS", "VEDL.NS",
     "VOLTAS.NS", "WHIRLPOOL.NS", "ZYDUSLIFE.NS", "INDIANB.NS",
-    "PETRONET.NS", "GMRINFRA.NS", "BHARATFORG.NS", "BANKINDIA.NS",
+    "PETRONET.NS", "GMRAIRPORT.NS", "BHARATFORG.NS", "BANKINDIA.NS",
 
     # Midcap names where momentum alpha lives (per BacktestIndia 19yr study)
-    "ABCAPITAL.NS", "AUBANK.NS", "BANDHANBNK.NS", "BHARATELE.NS",
+    "ABCAPITAL.NS", "AUBANK.NS", "BANDHANBNK.NS",
     "BSOFT.NS", "CGCL.NS", "CHAMBLFERT.NS", "COFORGE.NS",
     "CROMPTON.NS", "CUMMINSIND.NS", "DALBHARAT.NS", "DEEPAKNTR.NS",
     "ESCORTS.NS", "EXIDEIND.NS", "FORTIS.NS", "GLAND.NS",
-    "GUJGASLTD.NS", "HONAUT.NS", "IDEA.NS", "IDFC.NS",
+    "GUJGASLTD.NS", "HONAUT.NS", "IDEA.NS",
     "IGL.NS", "IRCON.NS", "JKCEMENT.NS", "JSWENERGY.NS",
-    "KPRMILL.NS", "L&TFH.NS", "LICHSGFIN.NS", "LUPIN.NS",
-    "M&MFIN.NS", "MAHINDCIE.NS", "MANAPPURAM.NS", "MFSL.NS",
-    "MINDTREE.NS", "MOTILALOFS.NS", "MRPL.NS", "NAM-INDIA.NS",
+    "KPRMILL.NS", "LTF.NS", "LICHSGFIN.NS", "LUPIN.NS",
+    "M&MFIN.NS", "CIEINDIA.NS", "MANAPPURAM.NS", "MFSL.NS",
+    "MOTILALOFS.NS", "MRPL.NS", "NAM-INDIA.NS",
     "NATIONALUM.NS", "NHPC.NS", "NLCINDIA.NS", "OIL.NS",
-    "PAYTM.NS", "PGHH.NS", "PIRAMALENT.NS", "POLICYBZR.NS",
+    "PAYTM.NS", "PGHH.NS", "POLICYBZR.NS",
     "RAMCOCEM.NS", "RBLBANK.NS", "RVNL.NS", "SCHAEFFLER.NS",
     "SOLARINDS.NS", "STAR.NS", "SUNTV.NS", "SYNGENE.NS",
     "TATACHEM.NS", "TATAELXSI.NS", "TATACOMM.NS", "TIINDIA.NS",
     "UCOBANK.NS", "UNIONBANK.NS", "UPL.NS", "VINATIORGA.NS",
-    "WESTLIFE.NS", "ZEEL.NS", "ZOMATO.NS", "JIOFIN.NS",
+    "WESTLIFE.NS", "ZEEL.NS", "ETERNAL.NS", "JIOFIN.NS",
 ]
 
 
 # Default sectors for the expanded universe (Nifty 200 supplement).
 # Best-effort mapping — missing entries default to "Unknown" sector.
 NIFTY_200_SECTOR_MAP_EXTRAS = {
-    "BAJAJ-AUTO.NS": "Auto", "EICHERMOT.NS": "Auto", "TATAMOTORS.NS": "Auto",
+    "BAJAJ-AUTO.NS": "Auto", "EICHERMOT.NS": "Auto", "TMPV.NS": "Auto",
     "HEROMOTOCO.NS": "Auto", "TVSMOTOR.NS": "Auto", "ESCORTS.NS": "Auto",
-    "BHARATFORG.NS": "Auto", "MOTHERSON.NS": "Auto", "MAHINDCIE.NS": "Auto",
+    "BHARATFORG.NS": "Auto", "MOTHERSON.NS": "Auto", "CIEINDIA.NS": "Auto",
     "HINDUNILVR.NS": "FMCG", "BRITANNIA.NS": "FMCG", "TATACONSUM.NS": "FMCG",
     "DABUR.NS": "FMCG", "MARICO.NS": "FMCG", "COLPAL.NS": "FMCG",
     "GODREJCP.NS": "FMCG", "UBL.NS": "FMCG", "UNITDSPR.NS": "FMCG",
@@ -87,7 +95,7 @@ NIFTY_200_SECTOR_MAP_EXTRAS = {
     "AUBANK.NS": "Financial", "BANDHANBNK.NS": "Financial",
     "HDFCAMC.NS": "Financial", "CHOLAFIN.NS": "Financial",
     "MUTHOOTFIN.NS": "Financial", "MANAPPURAM.NS": "Financial",
-    "M&MFIN.NS": "Financial", "L&TFH.NS": "Financial", "PEL.NS": "Financial",
+    "M&MFIN.NS": "Financial", "LTF.NS": "Financial",
     "LICI.NS": "Financial", "LICHSGFIN.NS": "Financial",
     "SBICARD.NS": "Financial", "JIOFIN.NS": "Financial",
     "MFSL.NS": "Financial", "MOTILALOFS.NS": "Financial",
@@ -99,9 +107,9 @@ NIFTY_200_SECTOR_MAP_EXTRAS = {
     "AUROPHARMA.NS": "Pharma", "BIOCON.NS": "Pharma", "ALKEM.NS": "Pharma",
     "TORNTPHARM.NS": "Pharma", "GLAND.NS": "Pharma", "ZYDUSLIFE.NS": "Pharma",
     "LUPIN.NS": "Pharma", "SYNGENE.NS": "Pharma", "ABBOTINDIA.NS": "Pharma",
-    "PIRAMALENT.NS": "Pharma", "FORTIS.NS": "Pharma", "APOLLOHOSP.NS": "Pharma",
-    "LTIM.NS": "IT", "MPHASIS.NS": "IT", "PERSISTENT.NS": "IT",
-    "COFORGE.NS": "IT", "OFSS.NS": "IT", "MINDTREE.NS": "IT",
+    "FORTIS.NS": "Pharma", "APOLLOHOSP.NS": "Pharma",
+    "MPHASIS.NS": "IT", "PERSISTENT.NS": "IT",
+    "COFORGE.NS": "IT", "OFSS.NS": "IT",
     "BSOFT.NS": "IT", "TATAELXSI.NS": "IT", "TATACOMM.NS": "IT",
     "ASIANPAINT.NS": "Consumer", "TITAN.NS": "Consumer",
     "BERGEPAINT.NS": "Consumer", "PIDILITIND.NS": "Consumer",
@@ -110,16 +118,16 @@ NIFTY_200_SECTOR_MAP_EXTRAS = {
     "TRENT.NS": "Consumer", "DMART.NS": "Consumer", "PAGEIND.NS": "Consumer",
     "WESTLIFE.NS": "Consumer", "HONAUT.NS": "Consumer",
     "EXIDEIND.NS": "Consumer", "SUNTV.NS": "Media", "ZEEL.NS": "Media",
-    "NAUKRI.NS": "IT", "ZOMATO.NS": "Consumer",
+    "NAUKRI.NS": "IT", "ETERNAL.NS": "Consumer",
     "ULTRACEMCO.NS": "Construction", "GRASIM.NS": "Construction",
     "AMBUJACEM.NS": "Construction", "ACC.NS": "Construction",
     "SHREECEM.NS": "Construction", "DALBHARAT.NS": "Construction",
     "RAMCOCEM.NS": "Construction", "JKCEMENT.NS": "Construction",
     "DLF.NS": "Construction", "GODREJPROP.NS": "Construction",
     "OBEROIRLTY.NS": "Construction", "LT.NS": "Construction",
-    "GMRINFRA.NS": "Construction", "IRCON.NS": "Construction",
+    "GMRAIRPORT.NS": "Construction", "IRCON.NS": "Construction",
     "RVNL.NS": "Construction", "CONCOR.NS": "Construction",
-    "HAL.NS": "Defence", "BEL.NS": "Defence", "BHARATELE.NS": "Defence",
+    "HAL.NS": "Defence", "BEL.NS": "Defence",
     "BHEL.NS": "Capital Goods", "SIEMENS.NS": "Capital Goods",
     "ABB.NS": "Capital Goods", "BOSCHLTD.NS": "Capital Goods",
     "CUMMINSIND.NS": "Capital Goods", "POLYCAB.NS": "Capital Goods",
@@ -129,7 +137,7 @@ NIFTY_200_SECTOR_MAP_EXTRAS = {
     "NTPC.NS": "Utilities", "POWERGRID.NS": "Utilities",
     "TATAPOWER.NS": "Utilities", "TORNTPOWER.NS": "Utilities",
     "ADANIGREEN.NS": "Utilities", "ADANIPOWER.NS": "Utilities",
-    "ADANITRANS.NS": "Utilities", "NHPC.NS": "Utilities",
+    "ADANIENSOL.NS": "Utilities", "NHPC.NS": "Utilities",
     "NLCINDIA.NS": "Utilities", "JSWENERGY.NS": "Utilities",
     "RELIANCE.NS": "Energy", "ONGC.NS": "Energy", "BPCL.NS": "Energy",
     "IOC.NS": "Energy", "GAIL.NS": "Energy", "PETRONET.NS": "Energy",
@@ -158,6 +166,60 @@ NIFTY_200_SECTOR_MAP_EXTRAS = {
 }
 
 
+def load_universe_from_csv(path: str, ticker_col: str = "ticker",
+                           suffix: str = ".NS", limit: int | None = 200) -> list[str]:
+    """C4: refresh the tradable universe from a maintained CSV (e.g. a slice of
+    the 30k master). The SCANNED list stays small (default cap 200) so Render's
+    512 MB budget holds — the 30k master is a SOURCE, never the scan universe.
+    Returns cleaned, de-duplicated NSE tickers."""
+    import csv
+    out: list[str] = []
+    seen: set[str] = set()
+    with open(path, newline="") as f:
+        for row in csv.DictReader(f):
+            t = (row.get(ticker_col) or row.get("symbol") or row.get("Symbol") or "").strip().upper()
+            if not t:
+                continue
+            if not (t.endswith(".NS") or t.endswith(".BO")):
+                t += suffix
+            if t in seen:
+                continue
+            seen.add(t)
+            out.append(t)
+            if limit and len(out) >= limit:
+                break
+    return out
+
+
+def load_full_universe(path: str = None) -> list[str]:
+    """F8: the FULL committed NSE cash-equity universe (2,376) as a source
+    list — never scanned whole (512 MB). Feed into rotating_bucket()."""
+    import os
+    if path is None:
+        path = os.path.join(os.path.dirname(__file__), "..", "data",
+                            "upstox_nse_equities.csv")
+    try:
+        return load_universe_from_csv(path, limit=None)
+    except OSError:
+        return list(NIFTY_200_TICKERS)
+
+
+def rotating_bucket(tickers: list[str], size: int, day_index: int) -> list[str]:
+    """F8: deterministic ~`size`/day rotating slice so a big universe is fully
+    covered over ceil(len/size) days, repeating on a fixed cycle. day_index is
+    a caller-supplied integer (e.g. date.toordinal()) so it's reproducible and
+    backtestable — no Math.random / Date.now in the engine."""
+    n = len(tickers)
+    if n == 0 or size <= 0:
+        return []
+    if size >= n:
+        return list(tickers)
+    n_buckets = (n + size - 1) // size
+    b = day_index % n_buckets
+    start = b * size
+    return tickers[start:start + size]
+
+
 def get_nifty_200_universe():
     """Returns (tickers_list, sector_map) for Nifty 200 preset."""
     sector_map = dict(NIFTY_200_SECTOR_MAP_EXTRAS)
@@ -165,3 +227,13 @@ def get_nifty_200_universe():
     for t in NIFTY_200_TICKERS:
         sector_map.setdefault(t, "Unknown")
     return NIFTY_200_TICKERS, sector_map
+
+
+def apply_blocklist(universe: list[str], held, blocklist) -> list[str]:
+    """Owner's never-trade list: drop blocked names from a scan universe.
+    Held tickers are exempt so refresh/exits keep their history."""
+    blocked = set(blocklist or ())
+    if not blocked:
+        return list(universe)
+    held = set(held or ())
+    return [t for t in universe if t in held or t not in blocked]

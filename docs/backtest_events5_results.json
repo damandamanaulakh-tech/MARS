@@ -1,0 +1,123 @@
+{
+ "GENERAL-BULL-2017": {
+  "strategy_pct": 20.45,
+  "basket_pct": 29.71,
+  "alpha_pct": -9.26,
+  "maxDD_pct": -3.34,
+  "basketDD_pct": -5.03,
+  "win_rate": 74.1,
+  "trades": 27,
+  "time_in_mkt_pct": 100.0,
+  "sharpe": 3.14,
+  "exit_reasons": {
+   "STOP_LOSS": 3,
+   "TAKE_PROFIT": 7,
+   "TRAILING_STOP": 2,
+   "MAX_HOLD": 3,
+   "BACKTEST_END": 12
+  },
+  "per_reason_pnl": {
+   "STOP_LOSS": -68714,
+   "TAKE_PROFIT": 371409,
+   "TRAILING_STOP": -10190,
+   "MAX_HOLD": 20708,
+   "BACKTEST_END": 198160
+  }
+ },
+ "COVID-2020": {
+  "strategy_pct": 9.77,
+  "basket_pct": 21.23,
+  "alpha_pct": -11.46,
+  "maxDD_pct": -15.46,
+  "basketDD_pct": -35.97,
+  "win_rate": 45.2,
+  "trades": 42,
+  "time_in_mkt_pct": 74.6,
+  "sharpe": 0.86,
+  "exit_reasons": {
+   "STOP_LOSS": 17,
+   "TRAILING_STOP": 5,
+   "TAKE_PROFIT": 7,
+   "BACKTEST_END": 13
+  },
+  "per_reason_pnl": {
+   "STOP_LOSS": -387673,
+   "TRAILING_STOP": -34522,
+   "TAKE_PROFIT": 352758,
+   "BACKTEST_END": 313718
+  }
+ },
+ "WAR-UKRAINE-2022": {
+  "strategy_pct": -1.04,
+  "basket_pct": 4.53,
+  "alpha_pct": -5.56,
+  "maxDD_pct": -6.25,
+  "basketDD_pct": -16.12,
+  "win_rate": 46.2,
+  "trades": 26,
+  "time_in_mkt_pct": 100.0,
+  "sharpe": -0.05,
+  "exit_reasons": {
+   "TRAILING_STOP": 11,
+   "STOP_LOSS": 1,
+   "MAX_HOLD": 1,
+   "BACKTEST_END": 13
+  },
+  "per_reason_pnl": {
+   "TRAILING_STOP": -107853,
+   "STOP_LOSS": -20645,
+   "MAX_HOLD": 26394,
+   "BACKTEST_END": 76121
+  }
+ },
+ "GENERAL-CHOPPY-2023": {
+  "strategy_pct": 8.88,
+  "basket_pct": 12.21,
+  "alpha_pct": -3.33,
+  "maxDD_pct": -5.78,
+  "basketDD_pct": -8.79,
+  "win_rate": 69.7,
+  "trades": 33,
+  "time_in_mkt_pct": 100.0,
+  "sharpe": 1.26,
+  "exit_reasons": {
+   "STOP_LOSS": 6,
+   "TRAILING_STOP": 4,
+   "MAX_HOLD": 9,
+   "TAKE_PROFIT": 1,
+   "BACKTEST_END": 13
+  },
+  "per_reason_pnl": {
+   "STOP_LOSS": -131702,
+   "TRAILING_STOP": -43929,
+   "MAX_HOLD": 149314,
+   "TAKE_PROFIT": 50204,
+   "BACKTEST_END": 198153
+  }
+ },
+ "ELECTION-2024": {
+  "strategy_pct": 13.88,
+  "basket_pct": 11.96,
+  "alpha_pct": 1.92,
+  "maxDD_pct": -7.67,
+  "basketDD_pct": -12.52,
+  "win_rate": 51.4,
+  "trades": 37,
+  "time_in_mkt_pct": 100.0,
+  "sharpe": 1.41,
+  "exit_reasons": {
+   "STOP_LOSS": 9,
+   "TAKE_PROFIT": 7,
+   "TRAILING_STOP": 5,
+   "MAX_HOLD": 7,
+   "BACKTEST_END": 9
+  },
+  "per_reason_pnl": {
+   "STOP_LOSS": -196579,
+   "TAKE_PROFIT": 373025,
+   "TRAILING_STOP": -54105,
+   "MAX_HOLD": 195162,
+   "BACKTEST_END": 29423
+  }
+ }
+}

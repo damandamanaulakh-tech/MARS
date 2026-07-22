@@ -1,0 +1,475 @@
+{
+  "windows": [
+    {
+      "window": "W1_2004_07",
+      "opt_span": [
+        "1996-01-01",
+        "2003-12-31"
+      ],
+      "val_span": [
+        "2004-01-01",
+        "2007-12-31"
+      ],
+      "winner_cfg": {
+        "look": "12",
+        "voladj": false,
+        "skip": 1,
+        "N": 20,
+        "absgate": false,
+        "regime": true
+      },
+      "winner_opt": {
+        "cagr": 14.48,
+        "sharpe": 0.683,
+        "max_dd": -37.08
+      },
+      "validation": {
+        "cagr": 49.92,
+        "sharpe": 1.272,
+        "max_dd": -29.07,
+        "total": 405.18
+      },
+      "bench_universe": {
+        "cagr": 44.05,
+        "sharpe": 1.462,
+        "max_dd": -22.57,
+        "total": 330.64
+      },
+      "bench_megacap": {
+        "cagr": 40.42,
+        "sharpe": 1.379,
+        "max_dd": -20.2,
+        "total": 288.74
+      },
+      "oos_alpha_vs_universe": 5.87,
+      "oos_alpha_vs_megacap": 9.5,
+      "top3_opt": [
+        {
+          "i": 43,
+          "cfg": {
+            "look": "12",
+            "voladj": false,
+            "skip": 1,
+            "N": 20,
+            "absgate": false,
+            "regime": true
+          },
+          "cagr": 14.48,
+          "sharpe": 0.683,
+          "max_dd": -37.08,
+          "total": 194.95
+        },
+        {
+          "i": 40,
+          "cfg": {
+            "look": "12",
+            "voladj": false,
+            "skip": 1,
+            "N": 20,
+            "absgate": true,
+            "regime": false
+          },
+          "cagr": 17.62,
+          "sharpe": 0.679,
+          "max_dd": -55.84,
+          "total": 266.21
+        },
+        {
+          "i": 41,
+          "cfg": {
+            "look": "12",
+            "voladj": false,
+            "skip": 1,
+            "N": 20,
+            "absgate": true,
+            "regime": true
+          },
+          "cagr": 15.03,
+          "sharpe": 0.666,
+          "max_dd": -44.16,
+          "total": 206.5
+        }
+      ]
+    },
+    {
+      "window": "W2_GFC",
+      "opt_span": [
+        "1996-01-01",
+        "2007-12-31"
+      ],
+      "val_span": [
+        "2008-01-01",
+        "2010-12-31"
+      ],
+      "winner_cfg": {
+        "look": "12",
+        "voladj": true,
+        "skip": 0,
+        "N": 20,
+        "absgate": false,
+        "regime": true
+      },
+      "winner_opt": {
+        "cagr": 27.47,
+        "sharpe": 1.001,
+        "max_dd": -41.57
+      },
+      "validation": {
+        "cagr": 6.64,
+        "sharpe": 0.396,
+        "max_dd": -25.72,
+        "total": 21.26
+      },
+      "bench_universe": {
+        "cagr": 4.74,
+        "sharpe": 0.314,
+        "max_dd": -60.65,
+        "total": 14.9
+      },
+      "bench_megacap": {
+        "cagr": 9.31,
+        "sharpe": 0.413,
+        "max_dd": -53.59,
+        "total": 30.61
+      },
+      "oos_alpha_vs_universe": 1.9,
+      "oos_alpha_vs_megacap": -2.67,
+      "top3_opt": [
+        {
+          "i": 51,
+          "cfg": {
+            "look": "12",
+            "voladj": true,
+            "skip": 0,
+            "N": 20,
+            "absgate": false,
+            "regime": true
+          },
+          "cagr": 27.47,
+          "sharpe": 1.001,
+          "max_dd": -41.57,
+          "total": 1740.23
+        },
+        {
+          "i": 28,
+          "cfg": {
+            "look": "6",
+            "voladj": true,
+            "skip": 1,
+            "N": 50,
+            "absgate": true,
+            "regime": false
+          },
+          "cagr": 30.58,
+          "sharpe": 0.953,
+          "max_dd": -58.43,
+          "total": 2358.05
+        },
+        {
+          "i": 49,
+          "cfg": {
+            "look": "12",
+            "voladj": true,
+            "skip": 0,
+            "N": 20,
+            "absgate": true,
+            "regime": true
+          },
+          "cagr": 26.34,
+          "sharpe": 0.946,
+          "max_dd": -50.73,
+          "total": 1554.23
+        }
+      ]
+    },
+    {
+      "window": "W3_2011_15",
+      "opt_span": [
+        "1996-01-01",
+        "2010-12-31"
+      ],
+      "val_span": [
+        "2011-01-01",
+        "2015-12-31"
+      ],
+      "winner_cfg": {
+        "look": "6+12",
+        "voladj": true,
+        "skip": 1,
+        "N": 50,
+        "absgate": false,
+        "regime": true
+      },
+      "winner_opt": {
+        "cagr": 22.64,
+        "sharpe": 0.901,
+        "max_dd": -40.45
+      },
+      "validation": {
+        "cagr": 32.27,
+        "sharpe": 1.771,
+        "max_dd": -9.57,
+        "total": 304.79
+      },
+      "bench_universe": {
+        "cagr": 15.29,
+        "sharpe": 0.742,
+        "max_dd": -28.21,
+        "total": 103.67
+      },
+      "bench_megacap": {
+        "cagr": 10.33,
+        "sharpe": 0.563,
+        "max_dd": -26.97,
+        "total": 63.5
+      },
+      "oos_alpha_vs_universe": 16.98,
+      "oos_alpha_vs_megacap": 21.94,
+      "top3_opt": [
+        {
+          "i": 95,
+          "cfg": {
+            "look": "6+12",
+            "voladj": true,
+            "skip": 1,
+            "N": 50,
+            "absgate": false,
+            "regime": true
+          },
+          "cagr": 22.64,
+          "sharpe": 0.901,
+          "max_dd": -40.45,
+          "total": 2035.14
+        },
+        {
+          "i": 83,
+          "cfg": {
+            "look": "6+12",
+            "voladj": true,
+            "skip": 0,
+            "N": 20,
+            "absgate": false,
+            "regime": true
+          },
+          "cagr": 22.7,
+          "sharpe": 0.9,
+          "max_dd": -43.66,
+          "total": 2051.42
+        },
+        {
+          "i": 31,
+          "cfg": {
+            "look": "6",
+            "voladj": true,
+            "skip": 1,
+            "N": 50,
+            "absgate": false,
+            "regime": true
+          },
+          "cagr": 24.51,
+          "sharpe": 0.897,
+          "max_dd": -39.62,
+          "total": 2579.25
+        }
+      ]
+    },
+    {
+      "window": "W4_2016_19",
+      "opt_span": [
+        "1996-01-01",
+        "2015-12-31"
+      ],
+      "val_span": [
+        "2016-01-01",
+        "2019-12-31"
+      ],
+      "winner_cfg": {
+        "look": "6+12",
+        "voladj": true,
+        "skip": 0,
+        "N": 20,
+        "absgate": false,
+        "regime": true
+      },
+      "winner_opt": {
+        "cagr": 26.32,
+        "sharpe": 1.055,
+        "max_dd": -43.66
+      },
+      "validation": {
+        "cagr": 13.88,
+        "sharpe": 0.693,
+        "max_dd": -19.5,
+        "total": 68.2
+      },
+      "bench_universe": {
+        "cagr": 9.57,
+        "sharpe": 0.534,
+        "max_dd": -37.73,
+        "total": 44.13
+      },
+      "bench_megacap": {
+        "cagr": 9.19,
+        "sharpe": 0.545,
+        "max_dd": -32.34,
+        "total": 42.14
+      },
+      "oos_alpha_vs_universe": 4.31,
+      "oos_alpha_vs_megacap": 4.69,
+      "top3_opt": [
+        {
+          "i": 83,
+          "cfg": {
+            "look": "6+12",
+            "voladj": true,
+            "skip": 0,
+            "N": 20,
+            "absgate": false,
+            "regime": true
+          },
+          "cagr": 26.32,
+          "sharpe": 1.055,
+          "max_dd": -43.66,
+          "total": 10598.62
+        },
+        {
+          "i": 51,
+          "cfg": {
+            "look": "12",
+            "voladj": true,
+            "skip": 0,
+            "N": 20,
+            "absgate": false,
+            "regime": true
+          },
+          "cagr": 25.84,
+          "sharpe": 1.04,
+          "max_dd": -49.9,
+          "total": 9821.06
+        },
+        {
+          "i": 95,
+          "cfg": {
+            "look": "6+12",
+            "voladj": true,
+            "skip": 1,
+            "N": 50,
+            "absgate": false,
+            "regime": true
+          },
+          "cagr": 24.98,
+          "sharpe": 1.036,
+          "max_dd": -40.45,
+          "total": 8542.84
+        }
+      ]
+    },
+    {
+      "window": "W5_2020_24",
+      "opt_span": [
+        "1996-01-01",
+        "2019-12-31"
+      ],
+      "val_span": [
+        "2020-01-01",
+        "2024-07-05"
+      ],
+      "winner_cfg": {
+        "look": "6+12",
+        "voladj": true,
+        "skip": 0,
+        "N": 20,
+        "absgate": false,
+        "regime": true
+      },
+      "winner_opt": {
+        "cagr": 24.16,
+        "sharpe": 1.0,
+        "max_dd": -43.66
+      },
+      "validation": {
+        "cagr": 67.42,
+        "sharpe": 2.107,
+        "max_dd": -17.41,
+        "total": 916.64
+      },
+      "bench_universe": {
+        "cagr": 43.76,
+        "sharpe": 1.473,
+        "max_dd": -31.1,
+        "total": 412.15
+      },
+      "bench_megacap": {
+        "cagr": 33.16,
+        "sharpe": 1.28,
+        "max_dd": -26.91,
+        "total": 262.85
+      },
+      "oos_alpha_vs_universe": 23.66,
+      "oos_alpha_vs_megacap": 34.26,
+      "top3_opt": [
+        {
+          "i": 83,
+          "cfg": {
+            "look": "6+12",
+            "voladj": true,
+            "skip": 0,
+            "N": 20,
+            "absgate": false,
+            "regime": true
+          },
+          "cagr": 24.16,
+          "sharpe": 1.0,
+          "max_dd": -43.66,
+          "total": 17895.37
+        },
+        {
+          "i": 87,
+          "cfg": {
+            "look": "6+12",
+            "voladj": true,
+            "skip": 0,
+            "N": 50,
+            "absgate": false,
+            "regime": true
+          },
+          "cagr": 22.2,
+          "sharpe": 0.981,
+          "max_dd": -43.55,
+          "total": 12191.03
+        },
+        {
+          "i": 81,
+          "cfg": {
+            "look": "6+12",
+            "voladj": true,
+            "skip": 0,
+            "N": 20,
+            "absgate": true,
+            "regime": true
+          },
+          "cagr": 23.57,
+          "sharpe": 0.976,
+          "max_dd": -44.42,
+          "total": 15969.3
+        }
+      ]
+    }
+  ],
+  "grid_size": 96,
+  "summary": {
+    "windows_run": 5,
+    "positive_oos_vs_universe": 5,
+    "positive_oos_vs_megacap": 4,
+    "avg_oos_alpha_vs_universe": 10.54,
+    "avg_oos_alpha_vs_megacap": 13.54,
+    "runtime_min": 0.9,
+    "caveats": [
+      "close-only panel: momentum core only (no candle/volume legs)",
+      "no volume/mcap in panel -> no honest liquidity screen; penny filter >=20 only",
+      "SURVIVORSHIP-BIASED: panel skews to symbols alive in 2024",
+      "costs 0.15%/side on turnover (app's model)",
+      "mega-cap benchmark = 76 oldest names (crude proxy, fixed membership)"
+    ]
+  }
+}

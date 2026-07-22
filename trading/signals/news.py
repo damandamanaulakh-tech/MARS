@@ -1,4 +1,4 @@
-"""News sentiment via Claude API.
+"""News sentiment via Claude API (or OpenAI, whichever key is present).
 
 Pulls recent headlines per ticker, asks Claude (Haiku) to score each on
 a -1.0 to +1.0 sentiment scale, returns a 0-100 catalyst score for the
@@ -33,7 +33,54 @@ log = logging.getLogger(__name__)
 
 CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"   # cheapest, fast
+OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
+OPENAI_MODEL = "gpt-4o-mini"                 # cheapest, fast
 _WARNED_NO_KEY = False
+
+
+def _sentiment_prompt(ticker: str, headlines: list[str]) -> str:
+    bullet_lines = "\n".join(f"- {h}" for h in headlines)
+    return (
+        f"Score the sentiment of these recent headlines for NSE-listed stock "
+        f"{ticker} as a single number from -1.0 (very negative for the stock) "
+        f"to +1.0 (very positive). Consider Indian market context. Only the "
+        f"number, then one short reason on a new line.\n\n"
+        f"HEADLINES:\n{bullet_lines}"
+    )
+
+
+def _parse_score_text(text: str):
+    lines = text.strip().split("\n", 1)
+    try:
+        score_raw = float(lines[0].strip().split()[0].rstrip(","))
+    except (ValueError, IndexError):
+        return None
+    score = max(-1.0, min(1.0, score_raw))
+    reasoning = lines[1].strip() if len(lines) > 1 else ""
+    return score, reasoning
+
+
+def _score_with_openai(ticker: str, headlines: list[str]):
+    """OpenAI fallback — the user's Render env carries OPENAI_API_KEY."""
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key or not headlines:
+        return None
+    body = {
+        "model": OPENAI_MODEL,
+        "max_tokens": 120,
+        "messages": [{"role": "user",
+                      "content": _sentiment_prompt(ticker, headlines)}],
+    }
+    headers = {"Authorization": f"Bearer {api_key}",
+               "content-type": "application/json"}
+    try:
+        r = httpx.post(OPENAI_API_URL, json=body, headers=headers, timeout=15.0)
+        r.raise_for_status()
+        text = r.json()["choices"][0]["message"]["content"]
+    except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as e:
+        log.warning("OpenAI sentiment call failed for %s: %s", ticker, e)
+        return None
+    return _parse_score_text(text)
 
 
 @dataclass
@@ -67,28 +114,14 @@ def _get_headlines_yfinance(ticker: str, lookback_days: int = 7) -> list[str]:
 def _score_with_claude(ticker: str, headlines: list[str]) -> Optional[tuple[float, str]]:
     """Returns (compound_score_-1_to_1, reasoning) or None on failure."""
     api_key = os.environ.get("ANTHROPIC_API_KEY")
-    global _WARNED_NO_KEY
-    if not api_key:
-        if not _WARNED_NO_KEY:
-            log.info("ANTHROPIC_API_KEY not set; news sentiment will return neutral")
-            _WARNED_NO_KEY = True
+    if not api_key or not headlines:
         return None
-    if not headlines:
-        return None
-
-    bullet_lines = "\n".join(f"- {h}" for h in headlines)
-    prompt = (
-        f"Score the sentiment of these recent headlines for NSE-listed stock "
-        f"{ticker} as a single number from -1.0 (very negative for the stock) "
-        f"to +1.0 (very positive). Consider Indian market context. Only the "
-        f"number, then one short reason on a new line.\n\n"
-        f"HEADLINES:\n{bullet_lines}"
-    )
 
     body = {
         "model": CLAUDE_MODEL,
         "max_tokens": 120,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [{"role": "user",
+                      "content": _sentiment_prompt(ticker, headlines)}],
     }
     headers = {
         "x-api-key": api_key,
@@ -107,16 +140,7 @@ def _score_with_claude(ticker: str, headlines: list[str]) -> Optional[tuple[floa
         text = data["content"][0]["text"].strip()
     except (KeyError, IndexError, TypeError):
         return None
-
-    # Parse: first line should be the number, rest is reasoning
-    lines = text.split("\n", 1)
-    try:
-        score_raw = float(lines[0].strip().split()[0].rstrip(","))
-        score = max(-1.0, min(1.0, score_raw))
-    except (ValueError, IndexError):
-        return None
-    reasoning = lines[1].strip() if len(lines) > 1 else ""
-    return score, reasoning
+    return _parse_score_text(text)
 
 
 def fetch_sentiment(ticker: str, lookback_days: int = 7) -> NewsSentiment:
@@ -136,12 +160,20 @@ def fetch_sentiment(ticker: str, lookback_days: int = 7) -> NewsSentiment:
             raw_compound=0.0, reasoning="no headlines available",
         )
 
+    # Provider: Claude key first, OpenAI key second (user's Render env).
+    global _WARNED_NO_KEY
     result = _score_with_claude(ticker, headlines)
     if result is None:
+        result = _score_with_openai(ticker, headlines)
+    if result is None:
+        if not (os.environ.get("ANTHROPIC_API_KEY")
+                or os.environ.get("OPENAI_API_KEY")) and not _WARNED_NO_KEY:
+            log.info("No ANTHROPIC_API_KEY / OPENAI_API_KEY; news sentiment neutral")
+            _WARNED_NO_KEY = True
         return NewsSentiment(
             ticker=ticker, score=50.0, headlines_used=len(headlines),
             raw_compound=0.0,
-            reasoning="Claude API unavailable; defaulted to neutral",
+            reasoning="LLM API unavailable; defaulted to neutral",
         )
 
     compound, reasoning = result

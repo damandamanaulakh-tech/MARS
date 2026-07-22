@@ -59,6 +59,45 @@
 </div>
 {% endif %}
 
+{% if ifr %}
+<div class="bg-white border border-line p-6 mb-6
+            {% if ifr.active %}border-l-4 border-l-amber-500{% else %}border-l-4 border-l-emerald-500{% endif %}">
+  <div class="text-xs tracking-widest text-ink-faint uppercase mb-2">IFR OVERLAY (Q2-validated, 28Y backtest)</div>
+  <div class="font-black text-3xl tracking-tight">
+    {% if ifr.active %}<span class="text-amber-600">ACTIVE — SIZE 50%</span>
+    {% else %}<span class="text-emerald-700">DORMANT — NORMAL SIZE</span>{% endif %}
+  </div>
+  <div class="mt-3 grid grid-cols-2 gap-3 text-sm">
+    <div class="border border-line p-3">
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase">DAMAGE_CLUSTER</div>
+      {% if ifr.cluster %}
+        <div class="font-bold {% if ifr.cluster.active %}text-amber-600{% else %}text-ink-soft{% endif %}">
+          {% if ifr.cluster.active %}ACTIVE{% else %}dormant{% endif %}
+        </div>
+        <div class="text-xs text-ink-faint">Last fire: {{ ifr.cluster.last_fire }} ({{ ifr.cluster.days_since }}d ago)</div>
+      {% else %}
+        <div class="text-ink-faint">never fired</div>
+      {% endif %}
+    </div>
+    <div class="border border-line p-3">
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase">TAIL_DAMAGE_RATIO</div>
+      {% if ifr.ratio %}
+        <div class="font-bold {% if ifr.ratio.active %}text-amber-600{% else %}text-ink-soft{% endif %}">
+          {% if ifr.ratio.active %}ACTIVE{% else %}dormant{% endif %}
+        </div>
+        <div class="text-xs text-ink-faint">Last fire: {{ ifr.ratio.last_fire }} ({{ ifr.ratio.days_since }}d ago)</div>
+      {% else %}
+        <div class="text-ink-faint">never fired</div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="mt-3 text-xs text-ink-faint">
+    Active window: {{ ifr.window_days }} trading days. When either signal is active,
+    every new BUY sizes at {{ "%.0f%%"|format(ifr.sizing_multiplier * 100) }} of normal. Existing positions held.
+  </div>
+</div>
+{% endif %}
+
 <div class="bg-white border border-line p-6">
   <div class="font-bold mb-3">Active filters (always-on pre-entry gates)</div>
   <ul class="text-sm text-ink-soft space-y-2">

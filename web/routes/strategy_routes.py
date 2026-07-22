@@ -48,6 +48,26 @@ def strategy_view(request: Request):
     except Exception:
         live_boosts = {}
 
+    p = app_state.portfolio()
+    # F10: per-component "top-driver" hit counts from the BUY journal — how
+    # often each factor was a stock's strongest component at entry. Plus
+    # per-sector open counts + exit-reason counts. All from real journal data.
+    from collections import Counter
+    comp_hits: Counter = Counter()
+    sector_opens: Counter = Counter()
+    for e in (p.decision_journal or []):
+        if e.get("action") != "BUY":
+            continue
+        comps = e.get("components") or {}
+        if comps:
+            top = max(comps.items(), key=lambda kv: kv[1])[0]
+            comp_hits[top] += 1
+    for t in (p.trades or []):
+        sector_opens[t.sector or "Unknown"] += 1
+    for pos in p.positions.values():
+        sector_opens[pos.sector or "Unknown"] += 1
+    exit_reasons: Counter = Counter(t.reason for t in (p.trades or []))
+
     rows = []
     for comp, weight in active_weights.items():
         desc, status = COMPONENT_DESCRIPTIONS.get(comp, ("?", "?"))
@@ -57,6 +77,7 @@ def strategy_view(request: Request):
             "weight_pct": weight * 100,
             "description": desc,
             "status": status,
+            "hits": comp_hits.get(comp, 0),      # F10: times it was top driver
         })
     rows.sort(key=lambda r: -r["weight"])
 
@@ -68,5 +89,8 @@ def strategy_view(request: Request):
             "rows": rows,
             "current_mode": getattr(cfg, "mode", "swing"),
             "live_boosts": live_boosts,
+            "sector_counts": sorted(sector_opens.items(), key=lambda kv: -kv[1]),
+            "exit_counts": sorted(exit_reasons.items(), key=lambda kv: -kv[1]),
+            "total_buys": sum(comp_hits.values()),
         },
     )

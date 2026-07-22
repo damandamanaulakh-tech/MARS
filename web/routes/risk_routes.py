@@ -32,6 +32,39 @@ def risk_view(request: Request):
     except AttributeError:
         cl = None
 
+    # v6/v7: IFR status — DAMAGE_CLUSTER + TAIL_DAMAGE_RATIO (Q2-validated).
+    # Read from persisted fire dates; full recompute is too expensive per pageview.
+    from datetime import datetime as _dt
+    try:
+        from trading.ifr import ACTIVE_DAYS_AFTER_FIRE
+    except ImportError:
+        ACTIVE_DAYS_AFTER_FIRE = 22
+
+    def _ifr_signal(last_fire: str | None) -> dict | None:
+        if not last_fire:
+            return None
+        try:
+            prev = _dt.fromisoformat(last_fire).date()
+            days_since = (_dt.utcnow().date() - prev).days
+            return {
+                "last_fire": last_fire,
+                "days_since": days_since,
+                "active": days_since <= ACTIVE_DAYS_AFTER_FIRE,
+            }
+        except Exception:
+            return None
+
+    cluster = _ifr_signal(eng.portfolio.last_ifr_fire_date)
+    ratio   = _ifr_signal(eng.portfolio.last_ifr_ratio_fire_date)
+    any_active = bool((cluster and cluster["active"]) or (ratio and ratio["active"]))
+    ifr = {
+        "cluster": cluster,
+        "ratio":   ratio,
+        "active":  any_active,
+        "sizing_multiplier": 0.50 if any_active else 1.0,
+        "window_days": ACTIVE_DAYS_AFTER_FIRE,
+    } if (cluster or ratio) else None
+
     return templates.TemplateResponse(
         request, "risk.html",
         {
@@ -39,6 +72,7 @@ def risk_view(request: Request):
             "active": "risk",
             "dd": dd,
             "cl": cl,
+            "ifr": ifr,
             "cfg": cfg,
             "equity": equity,
         },

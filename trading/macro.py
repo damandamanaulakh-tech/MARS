@@ -30,6 +30,8 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
+from .data import YF_THREADS
+
 
 log = logging.getLogger(__name__)
 
@@ -96,23 +98,17 @@ def fetch_macro_snapshot() -> MacroSnapshot:
         TICKER_USD_INR, TICKER_BANK_NIFTY, TICKER_NIFTY,
     ]
     try:
-        raw = yf.download(
-            tickers, period="1mo", interval="1d",
-            progress=False, auto_adjust=True, group_by="ticker", threads=True,
-        )
+        from . import data as _data
+        hist = _data.fetch_daily(tickers, period="1mo")
     except Exception as e:
         log.warning("Macro snapshot fetch failed: %s", e)
         return _neutral_fallback(reason=f"fetch_failed: {e}")
 
     def col(ticker: str) -> Optional[pd.Series]:
-        try:
-            if isinstance(raw.columns, pd.MultiIndex):
-                if ticker not in raw.columns.get_level_values(0):
-                    return None
-                return raw[ticker]["Close"]
-            return raw["Close"]
-        except (KeyError, AttributeError):
+        df = hist.get(ticker)
+        if df is None or "Close" not in df.columns:
             return None
+        return df["Close"]
 
     vix_s = col(TICKER_VIX)
     gold_s = col(TICKER_GOLD)
