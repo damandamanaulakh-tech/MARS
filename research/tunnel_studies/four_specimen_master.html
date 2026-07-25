@@ -1,0 +1,127 @@
+<title>Four Specimens - Master Parameter Comparison</title>
+<style>
+:root{
+  --bg:#0b1220; --panel:#121a2b; --panel2:#0e1524; --ink:#e8edf5; --ink2:#9aa7ba;
+  --line:#243149; --accent:#7fa6c9;
+  --hit:#2f9e6e; --hit-bg:#12341f; --near:#d99a2b; --near-bg:#3a2c10;
+  --miss:#c4524a; --miss-bg:#361a18; --na:#39445a;
+}
+@media (prefers-color-scheme: light){:root{
+  --bg:#f4f6f3; --panel:#ffffff; --panel2:#eef1ec; --ink:#182335; --ink2:#5b6878;
+  --line:#d8ded2; --accent:#3f6e96;
+  --hit:#1e7d54; --hit-bg:#ddefe4; --near:#9c6d10; --near-bg:#f4e8cd;
+  --miss:#a93f38; --miss-bg:#f3dedc; --na:#c9d1c4;
+}}
+:root[data-theme="light"]{
+  --bg:#f4f6f3; --panel:#ffffff; --panel2:#eef1ec; --ink:#182335; --ink2:#5b6878;
+  --line:#d8ded2; --accent:#3f6e96;
+  --hit:#1e7d54; --hit-bg:#ddefe4; --near:#9c6d10; --near-bg:#f4e8cd;
+  --miss:#a93f38; --miss-bg:#f3dedc; --na:#c9d1c4;
+}
+:root[data-theme="dark"]{
+  --bg:#0b1220; --panel:#121a2b; --panel2:#0e1524; --ink:#e8edf5; --ink2:#9aa7ba;
+  --line:#243149; --accent:#7fa6c9;
+  --hit:#2f9e6e; --hit-bg:#12341f; --near:#d99a2b; --near-bg:#3a2c10;
+  --miss:#c4524a; --miss-bg:#361a18; --na:#39445a;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.55 "Avenir Next","Segoe UI",system-ui,sans-serif}
+.wrap{max-width:1120px;margin:0 auto;padding:28px 20px 90px}
+.eyebrow{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);font-weight:700}
+h1{font-size:clamp(30px,5vw,52px);line-height:1.02;letter-spacing:-.02em;margin:10px 0 6px;font-weight:800;text-wrap:balance}
+.sub{color:var(--ink2);max-width:70ch;margin:0 0 22px}
+h2{font-size:21px;margin:44px 0 4px;letter-spacing:-.01em}
+.note{color:var(--ink2);font-size:13.5px;margin:2px 0 12px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:20px 0}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 15px}
+.stat .k{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);font-weight:700}
+.stat .v{font:700 25px/1.15 ui-monospace,Menlo,monospace;margin-top:3px;font-variant-numeric:tabular-nums}
+.stat .v.up{color:var(--hit)} .stat .v.dn{color:var(--miss)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto}
+svg{display:block;min-width:720px;width:100%;height:auto}
+.grid{stroke:var(--line);stroke-width:1}
+.ax{fill:var(--ink2);font:10.5px ui-monospace,monospace}
+.lane{fill:var(--ink);font:12px "Avenir Next","Segoe UI",sans-serif;font-weight:600}
+.lbl{fill:var(--ink);font:600 10.5px "Segoe UI",sans-serif}
+.price{fill:none;stroke:var(--ink);stroke-width:1.8}
+.sma{fill:none;stroke:var(--accent);stroke-width:1.2;stroke-dasharray:1 3}
+.mk{stroke:var(--bg);stroke-width:1.5}
+.mk.hit{fill:var(--hit)} .mk.near{fill:var(--near)} .mk.miss{fill:var(--miss)}
+.exit12{stroke:var(--miss);stroke-width:1;stroke-dasharray:5 4}
+.exit30{stroke:var(--near);stroke-width:1;stroke-dasharray:5 4}
+.trail{stroke:var(--hit);stroke-width:1;stroke-dasharray:5 4}
+.exit12t{fill:var(--miss)} .exit30t{fill:var(--near)} .trailt{fill:var(--hit)}
+.c.hit{fill:var(--hit)} .c.near{fill:var(--near)} .c.miss{fill:var(--miss);opacity:.75} .c.na{fill:var(--na);opacity:.5}
+.kd{stroke:var(--ink2);stroke-width:1;stroke-dasharray:2 3}
+.legend{display:flex;flex-wrap:wrap;gap:16px;font-size:12.5px;color:var(--ink2);margin:10px 2px}
+.sw{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:640px}
+th{text-align:left;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink2);
+  padding:10px 12px;border-bottom:1px solid var(--line);background:var(--panel2)}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:none}
+.num{font-family:ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:999px}
+.hit-p{color:var(--hit);background:var(--hit-bg)}
+.near-p{color:var(--near);background:var(--near-bg)}
+.na-p{color:var(--ink2);background:var(--panel2)}
+.bar-row{display:grid;grid-template-columns:190px 1fr 110px;gap:12px;align-items:center;margin:7px 0}
+.bar-name{font-size:13.5px;font-weight:600}
+.bar-track{background:var(--panel2);border-radius:99px;height:14px;overflow:hidden}
+.bar-fill{background:var(--hit);height:100%;border-radius:99px}
+.bar-val{font:600 13px ui-monospace,monospace;color:var(--ink2)} .bar-val em{font-style:normal;opacity:.7}
+.foot{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);color:var(--ink2);font-size:12.5px}
+.foot a{color:var(--accent)}
+
+.pill.miss-p{color:var(--miss);background:var(--miss-bg)}
+.pos{color:var(--hit);font-weight:700}.neg{color:var(--miss);font-weight:700}
+.count-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:18px 0}
+.hitcell{text-align:center;font-weight:700}
+td.h{color:var(--hit)} td.n2{color:var(--near)} td.m{color:var(--miss)}
+.src{font-size:11px;color:var(--ink-faint)}
+</style>
+<div class="wrap">
+<div class="eyebrow">Sourceborn - Reverse-Engineering: the Cross-Specimen Master</div>
+<h1>Four stocks, one tunnel, the full parameter count</h1>
+<p class="sub">MTAR, TCS, HDFC Bank, Cochin Shipyard - old parameters and their hits at each stock's defining
+moment, the new rows each specimen earned, and the honest count of every parameter across your whole estate:
+this app, your 189-attribute workbook, the compendium, and both sibling apps.</p>
+<div class="count-strip">
+  <div class="stat"><div class="k">Live in engine</div><div class="v">48+</div></div>
+  <div class="stat"><div class="k">Computed lanes</div><div class="v">9</div></div>
+  <div class="stat"><div class="k">New-gen rows</div><div class="v">25</div></div>
+  <div class="stat"><div class="k">Workbook seats</div><div class="v">~48</div></div>
+  <div class="stat"><div class="k">Cross-asset + sibling</div><div class="v">11</div></div>
+  <div class="stat"><div class="k">Distinct total</div><div class="v up">~141</div></div>
+</div>
+<h2>The four specimens - verdict board</h2>
+<div class="panel"><table>
+<thead><tr><th></th><th>MTAR</th><th>TCS</th><th>HDFC Bank</th><th>Cochin Shipyard</th></tr></thead>
+<tbody><tr><td><strong>Arc</strong></td><td>Rs1,229 -> Rs8,374 (6.8x)</td><td>Rs4,554 -> Rs1,983 (-56%)</td><td>Rs1,013 -> Rs732 -> flat</td><td>Rs142 -> Rs2,864 (20x) -> -58%</td></tr><tr><td><strong>Tunnel's act</strong></td><td>BUY Rs1,783, +229% captured</td><td>0 buys in 28 months - refused ATH by 0.3</td><td>1 trade -11% (trail-protected)</td><td>Caught at Rs182; trailed out Rs2,411</td></tr><tr><td><strong>In the universe?</strong></td><td>NO - BE series (N1!)</td><td>yes</td><td>yes</td><td>yes</td></tr><tr><td><strong>Best near-miss</strong></td><td>abs-mom -1% with URR, Jun-25</td><td>rank 54.7/55 at the exact top</td><td>none - gaps wide</td><td>-</td></tr><tr><td><strong>News led price?</strong></td><td>order 10-Sep -> green 17-Sep</td><td>deals ignored into the fall (C2)</td><td>negative F2 (NIM low)</td><td>Vikrant Jul-22 -> green 26-Aug-22</td></tr><tr><td><strong>Today's door</strong></td><td>OPEN era (held rally)</td><td>3/7, waking, BRAKE</td><td>0/7, flat base, BRAKE</td><td>lanes passed Apr-May; BRAKE only</td></tr></tbody></table></div>
+<h2>Old parameters - the 9-lane hit matrix</h2>
+<p class="note">Left four columns: each specimen at its DEFINING moment (MTAR first green 17-Sep-25 / TCS at its
+ATH 30-Aug-24 / HDFC at its buy 21-Apr-25 / Cochin at its first buy 26-Aug-22). Right four: the same lanes TODAY
+(23-Jul-26). Every cell is a computed reading from the studies.</p>
+<div class="panel"><table>
+<thead><tr><th>Lane (bar)</th><th>MTAR @buy</th><th>TCS @ATH</th><th>HDFC @buy</th><th>Cochin @buy</th>
+<th>MTAR now</th><th>TCS now</th><th>HDFC now</th><th>Cochin now</th></tr></thead>
+<tbody><tr><td>Momentum rank (bar 55)</td><td class="hitcell h">HIT</td><td class="hitcell n2">54.7 NEAR</td><td class="hitcell h">HIT</td><td class="hitcell h">HIT</td><td class="hitcell m">6 miss</td><td class="hitcell m">9 miss</td><td class="hitcell m">9 miss</td><td class="hitcell m">28 miss</td></tr><tr><td>Own 6m return > 0</td><td class="hitcell h">HIT</td><td class="hitcell h">HIT</td><td class="hitcell h">HIT</td><td class="hitcell h">HIT</td><td class="hitcell m">miss</td><td class="hitcell m">-30 miss</td><td class="hitcell m">-20 miss</td><td class="hitcell m">-9 miss</td></tr><tr><td>1-month momentum (60)</td><td class="hitcell h">HIT</td><td class="hitcell h">HIT</td><td class="hitcell h">HIT</td><td class="hitcell h">HIT</td><td class="hitcell h">HIT</td><td class="hitcell h">100 HIT</td><td class="hitcell m">15 miss</td><td class="hitcell m">0 miss</td></tr><tr><td>Volume expansion (60)</td><td class="hitcell h">HIT</td><td class="hitcell m">miss</td><td class="hitcell h">HIT</td><td class="hitcell h">HIT</td><td class="hitcell m">miss</td><td class="hitcell m">8 miss</td><td class="hitcell m">47 miss</td><td class="hitcell m">0 miss</td></tr><tr><td>Strength vs Nifty (60)</td><td class="hitcell h">HIT</td><td class="hitcell h">98 HIT</td><td class="hitcell h">HIT</td><td class="hitcell h">HIT</td><td class="hitcell h">HIT</td><td class="hitcell m">28 miss</td><td class="hitcell n2">53 NEAR</td><td class="hitcell m">27 miss</td></tr><tr><td>Vol-adj upside (60)</td><td class="hitcell h">HIT</td><td class="hitcell n2">59 NEAR</td><td class="hitcell h">HIT</td><td class="hitcell h">HIT</td><td class="hitcell h">HIT</td><td class="hitcell h">63 HIT</td><td class="hitcell m">44 miss</td><td class="hitcell m">41 miss</td></tr><tr><td>Breakout quality (60)</td><td class="hitcell h">HIT</td><td class="hitcell h">100 HIT</td><td class="hitcell h">HIT</td><td class="hitcell h">HIT</td><td class="hitcell h">HIT</td><td class="hitcell h">77 HIT</td><td class="hitcell m">0 miss</td><td class="hitcell m">0 miss</td></tr><tr><td>Candle confirm</td><td class="hitcell h">breakout</td><td class="hitcell h">URR</td><td class="hitcell h">yes</td><td class="hitcell h">yes</td><td class="hitcell m">none</td><td class="hitcell h">URR</td><td class="hitcell m">none</td><td class="hitcell h">piercing</td></tr><tr><td>Regime gate</td><td class="hitcell h">open</td><td class="hitcell h">open</td><td class="hitcell h">open</td><td class="hitcell h">open</td><td class="hitcell h">open</td><td class="hitcell m">BRAKE</td><td class="hitcell m">BRAKE</td><td class="hitcell m">BRAKE</td></tr></tbody></table></div>
+<h2>Newly added - the merged new-generation table (25 rows)</h2>
+<p class="note">Every row carries which specimen earned it and what it needs to go live. Threshold marks and fixes
+are ready for testing; actual-family rows wait on data-feed decisions.</p>
+<div class="panel"><table>
+<thead><tr><th>#</th><th>Parameter</th><th>Family</th><th>Earned by (evidence)</th><th>Status</th></tr></thead>
+<tbody><tr><td class="num">N1</td><td><strong>Series-watch (BE/T2T shadow list)</strong></td><td>Universe/structure</td><td>MTAR was outside the room entirely</td><td><span class="pill na-p">ready - universe change only</span></td></tr><tr><td class="num">N5</td><td><strong>Abs-mom tolerance -2% when 5+ lanes + candle</strong></td><td>Threshold mark</td><td>MTAR June: blocked at -1% / TCS: any loosening of rank bought the top</td><td><span class="pill na-p">test both ways</span></td></tr><tr><td class="num">N6</td><td><strong>Rank near-band 50 when 6/7 hit</strong></td><td>Threshold mark</td><td>MTAR 45-52 May-Jun / TCS ATH 54.7 - cuts both ways</td><td><span class="pill na-p">test both ways</span></td></tr><tr><td class="num">N7</td><td><strong>Up-day-only volume expansion</strong></td><td>Existing-param FIX</td><td>HDFC crash-day scored 100 / TCS -7% day scored 84 - direction-blind</td><td><span class="pill na-p">triple-evidenced</span></td></tr><tr><td class="num">N8</td><td><strong>F1 confirmation rule (higher monthly lows)</strong></td><td>Method rule</td><td>TCS Feb false bottom -23% deeper / HDFC flat base correctly failed</td><td><span class="pill na-p">adopted</span></td></tr><tr><td class="num">N9</td><td><strong>Exit-policy ledger (target vs trail)</strong></td><td>Exit study</td><td>Cochin: +12% chain ~ +129% vs trail-only ~ +1,225% / TCS: tight bars saved -56%</td><td><span class="pill na-p">numbers on both sides</span></td></tr><tr><td class="num">A1</td><td><strong>Order-inflow intensity (new orders / book)</strong></td><td>Actual - industrial</td><td>MTAR Rs2,279 Cr = +88% of book in one day / Cochin Rs5,400 Cr ASW bid</td><td><span class="pill na-p">needs filings feed</span></td></tr><tr><td class="num">A2</td><td><strong>Order book / revenue coverage</strong></td><td>Actual - industrial</td><td>MTAR book Rs930 Cr -> Rs5,363 Cr through the rise</td><td><span class="pill na-p">needs filings feed</span></td></tr><tr><td class="num">A3</td><td><strong>Segment concentration shift</strong></td><td>Actual - industrial</td><td>MTAR clean-energy 48% of book = the re-rate story</td><td><span class="pill na-p">needs filings feed</span></td></tr><tr><td class="num">A4</td><td><strong>Execution-window clarity (phased dates)</strong></td><td>Actual - industrial</td><td>MTAR Sep-25 order: FY26/FY27 split stated</td><td><span class="pill na-p">needs filings feed</span></td></tr><tr><td class="num">A5</td><td><strong>Repeat-international-client flag</strong></td><td>Actual - industrial</td><td>Bloom Energy repeat orders</td><td><span class="pill na-p">needs filings feed</span></td></tr><tr><td class="num">A6</td><td><strong>Profit-book divergence (with DIRECTION)</strong></td><td>Actual - industrial</td><td>MTAR weak EPS + rising book / HDFC profit +5% but NIM new low</td><td><span class="pill na-p">needs results feed</span></td></tr><tr><td class="num">A7</td><td><strong>Announcement clustering >=2 in 60d</strong></td><td>Actual - industrial</td><td>MTAR Sep+Oct 2025 cluster -> tunnel opened in 5 days</td><td><span class="pill na-p">needs filings feed</span></td></tr><tr><td class="num">A8</td><td><strong>Delivery-volume / short-interest spike</strong></td><td>Shared empty seat</td><td>All four specimens lack the series - the one universal gap</td><td><span class="pill na-p">needs data source</span></td></tr><tr><td class="num">B1</td><td><strong>NIM trend QoQ</strong></td><td>Actual - bank</td><td>HDFC Jan-24 crash + Jul-26 miss both NIM stories</td><td><span class="pill na-p">needs results feed</span></td></tr><tr><td class="num">B2</td><td><strong>Loan growth vs consensus</strong></td><td>Actual - bank</td><td>HDFC post-merger growth scare</td><td><span class="pill na-p">needs results feed</span></td></tr><tr><td class="num">B3</td><td><strong>Merger-digest flag (N quarters post-close)</strong></td><td>Actual - bank</td><td>HDFC 2023-24 overhang window</td><td><span class="pill na-p">computable from dates</span></td></tr><tr><td class="num">B4</td><td><strong>CASA / liability-mix shift</strong></td><td>Actual - bank</td><td>CASA 32.3% cited in the 2026 fall</td><td><span class="pill na-p">needs results feed</span></td></tr><tr><td class="num">B5</td><td><strong>Credit-cost spike</strong></td><td>Actual - bank</td><td>risk-off trigger class</td><td><span class="pill na-p">needs results feed</span></td></tr><tr><td class="num">B6</td><td><strong>Heavyweight cascade (-5% day + index weight)</strong></td><td>Actual - flow</td><td>HDFC 17-Jan-24 -8.4% / TCS Feb-26 -7%</td><td><span class="pill na-p">computable now from prices</span></td></tr><tr><td class="num">B7</td><td><strong>Oversold + quality-intact entry</strong></td><td>Actual - franchise</td><td>HDFC 14 months late +39% / TCS repair - the door momentum cannot open</td><td><span class="pill na-p">needs quality history</span></td></tr><tr><td class="num">C1</td><td><strong>TCV / deal-win intensity</strong></td><td>Actual - IT</td><td>TCS $9.5B announced at the lows</td><td><span class="pill na-p">needs filings feed</span></td></tr><tr><td class="num">C2</td><td><strong>Deal-ignored divergence (win + 5d down)</strong></td><td>Actual - IT</td><td>TCS fall signature: strong wins, price ignored</td><td><span class="pill na-p">needs filings feed</span></td></tr><tr><td class="num">C3</td><td><strong>Constant-currency growth vs consensus</strong></td><td>Actual - IT</td><td>first annual dollar decline since listing = the fall engine</td><td><span class="pill na-p">needs results feed</span></td></tr><tr><td class="num">C7</td><td><strong>Sector multiple-compression flag</strong></td><td>Actual - narrative</td><td>IT -50% from peaks as a regime, not a stock event</td><td><span class="pill na-p">computable from prices</span></td></tr></tbody></table></div>
+<h2>The full estate - every parameter source, honestly counted</h2>
+<p class="note">Your workbook's own audit is the anchor: the "1,500 parameters" claim deduped to 189 distinct
+attributes, of which 56 are fetchable and 48 were live in code on 16-Jul. Everything below is deduplicated across
+sources - no padding, no double counting.</p>
+<div class="panel"><table>
+<thead><tr><th>Group</th><th>Count</th><th>What's in it</th><th>Source</th></tr></thead>
+<tbody><tr><td><strong>Live in the engine today</strong></td><td class="num">48+</td><td>10 scoring factors, 38 gates/thresholds/exits (workbook audit 16-Jul) + since: analyst-revision live, VIX-crush re-entry, blocklist, universe auto-refresh, order-ticket rules</td><td class="src">app code</td></tr><tr><td><strong>Computed per specimen in these studies</strong></td><td class="num">9 lanes</td><td>the tunnel: rank, abs-mom, 1m-mom, volume, RS, vol-adj, breakout, candle (8 patterns), regime</td><td class="src">4 x readings CSVs</td></tr><tr><td><strong>New-gen rows born from the 4 studies</strong></td><td class="num">25</td><td>N1-N9 marks and fixes / A1-A8 industrial / B1-B7 bank / C1-C7 IT (deduped)</td><td class="src">tunnel studies + learning docs</td></tr><tr><td><strong>Your workbook - fetchable, not yet wired</strong></td><td class="num">~48</td><td>56 FETCHABLE minus ~8 already live: promoter pledge, institutional/retail holding, ROE/ROCE/ROA, D/E, FCF yield, forward P/E, margins, index membership, listed date, beta, 10y CAGR...</td><td class="src">SOURCEBORN master xlsx (189 distinct)</td></tr><tr><td><strong>Compendium cross-asset seats</strong></td><td class="num">6</td><td>breadth %>50DMA / USD-INR / Brent / 10Y G-Sec / DII split / 9-regime cash ladder (FII 5d-20d + IFR x2 already live)</td><td class="src">engine compendium</td></tr><tr><td><strong>Sibling-app distinct gates</strong></td><td class="num">5</td><td>stuck-candle / target-potential from 252D high / Risk Governor L0-L4 ladder / proof-ledger rows / delivery-spike</td><td class="src">AshStocks + ASH08</td></tr><tr><td><strong>Workbook signals already tested (verdicts)</strong></td><td class="num">4</td><td>DBI early-warning / FII_SELL_CLUSTER_7IN10 / FII_CASH_STRESS_Q05 / FII_DII_DIVERGENCE_5D - FII per-stock class REJECTED in Q1</td><td class="src">TESTED_TONIGHT sheet + compendium</td></tr></tbody></table></div>
+<p class="foot">All specimen numbers computed with the engine's own code on real Upstox candles (readings CSVs
+delivered per study). Workbook figures from SOURCEBORN_STOCK_PARAMETER_MASTER_CLUBBED_v1_1.xlsx (your own audit,
+2026-07-16). News facts dated and sourced in each study page. Research record - live engine untouched, 60-day
+clock undisturbed.</p>
+</div>
