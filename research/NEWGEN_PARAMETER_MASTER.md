@@ -102,3 +102,38 @@ Cross-check: doc's facts verified against computed series (crash -8.4%
 existing parameters" are its OWN ruler, not this engine's; its
 BLOCK/WATCH/SELECT labels are hindsight, not preregistered. Estate after
 dedupe: ~160 distinct.
+
+## F-family — Flows/Events (sector-neutral; from the HDFCBANK deep-doc 2026-07-25)
+
+| ID | Parameter | Evidence | Status |
+|---|---|---|---|
+| F1 | PASSIVE_FLOW_TAG (rebalance calendar + volume share) | MSCI Aug/Nov-24: 8x volume days were flows, price fell after (-3.8%, -7.3%) | computable — public calendar |
+| F2 | MARKET_SHOCK_RESIDUAL (stock minus index return) | election day: HDFC -5.7% vs Nifty -5.9% = not company news -> +19% after | computable now — upgrades cascade flag |
+| F3 | RAW_SCORE_CONTRADICTION (technicals green + actuals red) | 16-Jan-24: 15/23 technicals while LDR 111%/LCR falling -> -17.6%/20d | needs results feed |
+| F4 | LATE_GATE_PENALTY (high score at mature move = chase warning) | the two HIGHEST scores (16/23, 19/23) both lost money forward | computable from price |
+| F5 | FOLLOW_THROUGH_5_20D (post-event confirmation window) | anti one-day-spike selection | computable from price |
+| F6 | RETEST_RECOVERY (breakout retest + hold + renewed demand) | 10-May-24 add point that raw scoring missed (+9.4%/20d) | computable from price |
+| F7 | FPI_HEADROOM (foreign limit minus holding) | FPI 54.83% -> MSCI FIF 0.56->0.74 = scheduled inflow catalyst | needs holdings feed |
+| F8 | CATALYST_POLARITY (event + direction + volume) | generalizes A6-direction: results day read by sign, not presence | needs results feed |
+
+## Bank-deep expansion (B-family v2, same doc; dedupe: NIM->velocity, cascade->F2)
+
+LDR level + velocity · LCR level + slope · borrowing-dependence runoff
+(21->18->17%) · CASA dilution · core-spread trend · NIM_VELOCITY (bp
+change beats absolute) · MERGER_DIGESTION composite · CORE_EARNINGS_QUALITY
+(strip one-offs — the lens that split HDFC's hollow beat from ICICI's clean
+one, Jul-2026) · ASSET_QUALITY_TURN · CAPITAL_BUFFER.
+Cross-check: doc's facts verified against computed series (crash -8.4%
+17-Jan-24 ✓, bottom Rs692 14-Feb-24 exact ✓, Rs933 Dec-24 ✓). Its "23
+existing parameters" are its OWN ruler, not this engine's; its
+BLOCK/WATCH/SELECT labels are hindsight, not preregistered. Estate after
+dedupe: ~160 distinct.
+
+## FULL-BUCKET VERDICT addendum (1,527 stocks, Jun-2020 -> Jul-2026)
+
+OLD tunnel 5.19x (maxDD -19.5%) = N5 alone (never binds at breadth) >
+full new set 4.91x (-21.8%) > Nifty 2.27x. At full-market breadth the
+live app's current entry rules WIN; N5/N6c are narrow-pool artifacts,
+do NOT wire. Surviving adoptables: N7 fix, N1 series-watch, exit choice
+(N9), filings feed. ICICI (specimen 5): today 6/7 + URR, F1 confirmed
+(lows 1200->1368), blocked by regime alone.
