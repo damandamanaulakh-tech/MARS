@@ -33,3 +33,19 @@ def test_install_helper_served_and_linked():
     assert "beforeinstallprompt" in js.text and "Add to Home Screen" in js.text
     for page in ("/login",):
         assert "install.js" in c.get(page).text
+
+
+def test_mobile_nav_present():
+    """Phone navigation: hamburger + off-canvas drawer + backdrop."""
+    from web import auth as auth_mod
+    c = TestClient(app)
+    c.post("/login", data={"email": "owner@sourceborn.in",
+                           "password": auth_mod._SEEDED_PWD})
+    html = c.get("/").text
+    assert 'x-data="{ nav: false }"' in html          # drawer state
+    assert 'aria-label="Open menu"' in html           # hamburger button
+    assert 'id="am07-nav"' in html                    # drawer target
+    assert "nav-open" in html                         # toggle class binding
+    assert "hidden lg:flex" not in html               # old desktop-only sidebar gone
+    css = c.get("/static/css/app.css").text
+    assert "#am07-nav.nav-open" in css                # slide-in rule shipped

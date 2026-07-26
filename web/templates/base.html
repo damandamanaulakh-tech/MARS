@@ -39,20 +39,31 @@
   </script>
 </head>
 <body class="bg-paper text-ink font-sans antialiased">
-  <div class="min-h-screen flex">
+  <div class="min-h-screen flex" x-data="{ nav: false }">
     {% if user %}
+    <!-- phone: tapping the backdrop closes the slide-in menu -->
+    <div x-show="nav" x-cloak @click="nav = false"
+         class="fixed inset-0 bg-black/40 z-40 lg:hidden"></div>
     {% include "_sidebar.html" %}
     {% endif %}
 
     <main class="flex-1 min-w-0 {% if user %}lg:ml-64{% endif %}">
       {% if user %}
-      <header class="h-14 px-8 border-b border-line flex items-center justify-between text-xs tracking-widest font-semibold text-ink-faint uppercase">
-        <span>Sourceborn AM07 &middot; {{ user.role|capitalize }} View</span>
-        <span class="flex items-center gap-5">
+      <header class="h-14 px-4 lg:px-8 border-b border-line flex items-center justify-between gap-3
+                     text-xs tracking-widest font-semibold text-ink-faint uppercase
+                     sticky top-0 bg-paper z-30">
+        <span class="flex items-center gap-2 min-w-0">
+          <button @click="nav = true" aria-label="Open menu"
+                  class="lg:hidden text-xl leading-none px-1 -ml-1 text-ink">☰</button>
+          <span class="lg:hidden text-ink font-black tracking-tight normal-case text-sm">AM07</span>
+          <span class="hidden lg:inline truncate">Sourceborn AM07 &middot; {{ user.role|capitalize }} View</span>
+        </span>
+        <span class="flex items-center gap-3 lg:gap-5 shrink-0">
           {% if request.session.get('upstox_token') %}
           <span class="flex items-center gap-2 normal-case tracking-normal text-emerald-700 font-medium">
             <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
-            Upstox: {{ request.session.get('upstox_user_name', 'connected') }}
+            <span class="hidden sm:inline">Upstox: {{ request.session.get('upstox_user_name', 'connected') }}</span>
+            <span class="sm:hidden">Upstox</span>
             <form action="/upstox/disconnect" method="post" class="inline">
               <button class="text-ink-faint hover:text-ink ml-1" title="Disconnect">⎋</button>
             </form>
@@ -63,13 +74,13 @@
             Connect Upstox &rarr;
           </a>
           {% endif %}
-          <span aria-hidden="true">🔔</span>
-          <span class="text-ink">{{ today or '' }}</span>
+          <span aria-hidden="true" class="hidden sm:inline">🔔</span>
+          <span class="text-ink hidden md:inline">{{ today or '' }}</span>
         </span>
       </header>
       {% endif %}
 
-      <div class="p-8">
+      <div class="p-4 lg:p-8">
         {% block content %}{% endblock %}
       </div>
     </main>
