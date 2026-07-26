@@ -59,6 +59,14 @@ def _on_startup() -> None:
     scheduler.start_if_enabled()
 
 
+@app.get("/sw.js")
+def service_worker():
+    """PWA service worker — must be served at root scope."""
+    from fastapi.responses import FileResponse
+    return FileResponse(WEB_DIR / "static" / "sw.js",
+                        media_type="application/javascript")
+
+
 @app.get("/healthz")
 def healthz() -> dict:
     """For Render's health checks. history_tickers = stored OHLCV count so
