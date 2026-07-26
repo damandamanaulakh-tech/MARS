@@ -284,6 +284,23 @@
   </div>
 </div>
 
+{% if scan_flags and (scan_flags.cascade or scan_flags.compressed_sectors or scan_flags.f1_held) %}
+<div class="border border-line bg-white mb-6">
+  <div class="px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">🚩 Structural flags — context only, never a gate</div>
+  <div class="px-6 py-4 flex flex-wrap gap-2">
+    {% for c in scan_flags.cascade %}
+    <span class="text-xs border border-red-300 text-red-700 px-3 py-1.5 tracking-wide" title="fell ≥5% today — check: company news or market-wide day?">⚠ {{ c.ticker | replace('.NS','') }} {{ c.day_pct }}% today</span>
+    {% endfor %}
+    {% for sct in scan_flags.compressed_sectors %}
+    <span class="text-xs border border-amber-300 text-amber-700 px-3 py-1.5 tracking-wide" title="{{ sct.n }} scanned names avg {{ sct.avg_off_high_pct }}% below own 252d highs">📉 {{ sct.sector }} rout {{ sct.avg_off_high_pct }}%</span>
+    {% endfor %}
+    {% for f in scan_flags.f1_held %}
+    <span class="text-xs border px-3 py-1.5 tracking-wide {% if f.confirmed %}border-emerald-300 text-emerald-700{% else %}border-line text-ink-faint{% endif %}" title="three rising monthly lows = turn confirmed">{{ '✓' if f.confirmed else '✗' }} {{ f.ticker | replace('.NS','') }} turn {{ 'confirmed' if f.confirmed else 'unconfirmed' }}</span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 <!-- Engine trigger-map: which parameters fired today -->
 <div class="border border-line bg-white mb-6">
   <div class="px-6 py-4 border-b border-line flex items-center justify-between">

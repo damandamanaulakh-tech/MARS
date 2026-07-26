@@ -606,6 +606,15 @@ class TradingEngine:
                 for r in ranked
             },
         }
+        # Structural flags (owner-approved 2026-07-26): context markers from
+        # the same history panel — display/journal only, never a gate.
+        try:
+            from .flags import compute_flags
+            self.portfolio.scan_matrix["flags"] = compute_flags(
+                {t: history[t] for t in universe if t in history},
+                list(self.portfolio.positions.keys()), cfg.sector_map)
+        except Exception:
+            pass
 
         # F8: shadow-book the YES-scored picks we did NOT buy (opportunity
         # cost of the gates), then mark the whole book to market.

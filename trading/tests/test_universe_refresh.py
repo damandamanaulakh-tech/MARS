@@ -109,3 +109,19 @@ def test_series_watch_refresh_writes_real_returns(tmp_path, monkeypatch):
     import csv as _csv
     rows = list(_csv.DictReader(open(path)))
     assert rows[0]["ticker"] == "SUSPCO.NS" and rows[0]["r126_pct"] == "42.5"
+
+
+def test_flags_compute_from_history():
+    import pandas as pd
+    from trading.flags import compute_flags
+    ix = pd.date_range("2025-01-01", periods=300, freq="B")
+    up = pd.DataFrame({"Close": [100.0 + i for i in range(300)],
+                       "Low": [99.0 + i for i in range(300)]}, index=ix)
+    crash = up.copy(); crash.loc[crash.index[-1], "Close"] = crash["Close"].iloc[-2] * 0.93
+    deep = pd.DataFrame({"Close": [200.0] * 150 + [100.0] * 150,
+                         "Low": [199.0] * 150 + [99.0] * 150}, index=ix)
+    hist = {"UP.NS": up, "CRASH.NS": crash, "D1.NS": deep, "D2.NS": deep, "D3.NS": deep}
+    f = compute_flags(hist, held=["UP.NS"], sector_map={"D1.NS": "IT", "D2.NS": "IT", "D3.NS": "IT"})
+    assert f["cascade"][0]["ticker"] == "CRASH.NS"
+    assert f["compressed_sectors"][0]["sector"] == "IT"
+    assert f["f1_held"][0] == {"ticker": "UP.NS", "confirmed": True}
