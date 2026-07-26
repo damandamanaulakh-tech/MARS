@@ -65,6 +65,7 @@ def scan_view(request: Request, error: str | None = None):
             "piano": piano,
             "pending_orders": [o for o in (p.pending_orders or [])
                                if o.get("status") == "open"],
+            "be_watch": _load_be_watch(),
         },
     )
 
@@ -504,6 +505,22 @@ def download_history_route(request: Request, years: int = 12):
 
     threading.Thread(target=_run, daemon=True).start()
     return RedirectResponse("/backtest?error=download_started", status_code=303)
+
+
+def _load_be_watch(limit: int = 15):
+    """N1 shadow list: top BE/T2T movers by real 6m return (never traded
+    by the engine; visibility only)."""
+    import csv as _csv
+    import os as _os
+    path = _os.path.join(_os.path.dirname(__file__), "..", "..", "data",
+                         "upstox_nse_be_watch.csv")
+    try:
+        with open(path, newline="") as fh:
+            rows = [r for r in _csv.DictReader(fh) if r.get("r126_pct")]
+        rows.sort(key=lambda r: -float(r["r126_pct"]))
+        return rows[:limit]
+    except (OSError, ValueError):
+        return []
 
 
 def _parse_pos_float(raw: str) -> float | None:

@@ -109,6 +109,24 @@
 {% endif %}
 {% endif %}
 
+{% if be_watch %}
+<div class="bg-white border border-line mb-6">
+  <div class="px-6 py-3 border-b border-line flex items-center justify-between">
+    <span class="text-xs tracking-widest text-ink-faint uppercase">👁 Series-watch — BE/T2T shadow list (engine never auto-buys these)</span>
+    <span class="text-[10px] text-ink-faint">MTAR-class visibility · delivery-only series · refreshed daily 08:50</span>
+  </div>
+  <div class="px-6 py-3 flex flex-wrap gap-2">
+    {% for b in be_watch %}
+    <span class="text-xs border border-line px-3 py-1.5 tracking-wide" title="{{ b.name }} · series {{ b.series }}">
+      <strong>{{ b.trading_symbol }}</strong>
+      <span class="{% if b.r126_pct|float >= 0 %}text-emerald-700{% else %}text-red-700{% endif %} font-semibold tabular-nums">{{ '%+.1f' % b.r126_pct|float }}%</span>
+      <span class="text-ink-faint">6m</span>
+    </span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 {% if piano %}
 <div class="bg-white border border-line mb-6">
   <div class="px-6 py-4 border-b border-line flex items-center justify-between flex-wrap gap-2">

@@ -91,3 +91,21 @@ def test_refreshed_today_tracks_mtime(tmp_path):
     assert refreshed_today(path) is True           # just written
     os.utime(path, (1_500_000_000, 1_500_000_000))  # 2017
     assert refreshed_today(path) is False
+
+
+def test_series_watch_parses_be_bz_only():
+    from trading.universe_refresh import parse_series_rows
+    rows = parse_series_rows(MASTER)
+    assert [r["ticker"] for r in rows] == ["SUSPCO.NS"]   # the BE fixture row
+    assert rows[0]["series"] == "BE"
+
+
+def test_series_watch_refresh_writes_real_returns(tmp_path, monkeypatch):
+    from trading import universe_refresh as ur
+    monkeypatch.setattr(ur, "fetch_master_text", lambda url=None, timeout=0: MASTER)
+    path = str(tmp_path / "be_watch.csv")
+    s = ur.refresh_series_watch(path=path, fetch_history=lambda key: 42.5)
+    assert s == {"total": 1, "scored": 1}
+    import csv as _csv
+    rows = list(_csv.DictReader(open(path)))
+    assert rows[0]["ticker"] == "SUSPCO.NS" and rows[0]["r126_pct"] == "42.5"

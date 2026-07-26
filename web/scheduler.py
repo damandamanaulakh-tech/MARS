@@ -177,6 +177,28 @@ def _universe_refresh_job() -> None:
         p.save()
     except Exception:
         pass
+    # N1 series-watch (owner-approved 2026-07-26): refresh the BE/T2T
+    # shadow list with real 6m returns. Slow (per-name fetch) — runs after
+    # the main list so a failure here never blocks the universe.
+    try:
+        from trading.universe_refresh import refresh_series_watch
+        sw = refresh_series_watch()
+        p.decision_journal.append({
+            "ts": _dt.utcnow().isoformat(), "action": "SERIES_WATCH_REFRESH",
+            "why": (f"Shadow list rebuilt: {sw['total']} BE/T2T names, "
+                    f"{sw['scored']} with live 6m returns."),
+        })
+        p.save()
+    except Exception as e:
+        try:
+            p.decision_journal.append({
+                "ts": _dt.utcnow().isoformat(), "action": "SERIES_WATCH_FAILED",
+                "err": f"{type(e).__name__}: {str(e)[:120]}",
+                "why": "Shadow list refresh failed — yesterday's stays.",
+            })
+            p.save()
+        except Exception:
+            pass
 
 
 def _intraday_tick() -> None:

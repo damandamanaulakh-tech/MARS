@@ -82,6 +82,84 @@ def parse_eq_rows(text: str) -> list[dict]:
     return out
 
 
+def parse_series_rows(text: str, series=("BE", "BZ")) -> list[dict]:
+    """N1 series-watch (owner-approved 2026-07-26): capture the T2T-series
+    names the tradeable universe deliberately excludes, so MTAR-class
+    stocks are VISIBLE on the desk (shadow list — engine never auto-buys
+    them; the owner can buy delivery manually via the ticket)."""
+    dec = json.JSONDecoder()
+    i = text.index("[") + 1
+    n = len(text)
+    out = []
+    while i < n:
+        while i < n and text[i] in ", \t\r\n":
+            i += 1
+        if i >= n or text[i] == "]":
+            break
+        obj, i = dec.raw_decode(text, i)
+        if (obj.get("segment") == "NSE_EQ"
+                and obj.get("instrument_type") in series
+                and obj.get("trading_symbol")):
+            out.append({
+                "ticker": obj["trading_symbol"] + ".NS",
+                "trading_symbol": obj["trading_symbol"],
+                "name": obj.get("name", ""),
+                "series": obj.get("instrument_type", ""),
+                "instrument_key": obj.get("instrument_key", ""),
+            })
+    out.sort(key=lambda r: r["ticker"])
+    return out
+
+
+def refresh_series_watch(path: str = None, url: str = MASTER_URL,
+                         fetch_history=None) -> dict:
+    """Build data/upstox_nse_be_watch.csv: every BE/BZ name + its real
+    6-month return (fetched per-name from Upstox public history; names
+    whose fetch fails carry r126 blank — DATA_NEEDED, never invented)."""
+    import time as _time
+    path = path or os.path.join(os.path.dirname(__file__), "..", "data",
+                                "upstox_nse_be_watch.csv")
+    rows = parse_series_rows(fetch_master_text(url))
+    if fetch_history is None:
+        fetch_history = _fetch_r126
+    scored = 0
+    for r in rows:
+        try:
+            r["r126_pct"] = fetch_history(r["instrument_key"])
+            if r["r126_pct"] is not None:
+                scored += 1
+                r["r126_pct"] = round(r["r126_pct"], 1)
+        except Exception:
+            r["r126_pct"] = None
+        _time.sleep(0.08)
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(path)),
+                               suffix=".csv.tmp")
+    with os.fdopen(fd, "w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=["ticker", "trading_symbol", "name",
+                                           "series", "instrument_key", "r126_pct"])
+        w.writeheader()
+        w.writerows(rows)
+    os.replace(tmp, path)
+    return {"total": len(rows), "scored": scored}
+
+
+def _fetch_r126(instrument_key: str):
+    """Real 6m return from Upstox public daily candles; None if unavailable."""
+    import httpx
+    from datetime import date, timedelta
+    to = date.today().isoformat()
+    frm = (date.today() - timedelta(days=200)).isoformat()
+    url = (f"https://api.upstox.com/v2/historical-candle/"
+           f"{instrument_key.replace('|', '%7C')}/day/{to}/{frm}")
+    r = httpx.get(url, timeout=20.0, headers={"Accept": "application/json"})
+    d = r.json()
+    c = (d.get("data") or {}).get("candles") or []
+    if len(c) < 100:
+        return None
+    last, old = float(c[0][4]), float(c[-1][4])
+    return (last / old - 1) * 100 if old > 0 else None
+
+
 def read_existing(path: str) -> dict[str, dict]:
     """Current file as {ticker: row}; {} if missing/unreadable."""
     try:
