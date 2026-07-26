@@ -24,3 +24,12 @@ def test_base_head_links_manifest():
     html = TestClient(app).get("/login").text
     assert "manifest.webmanifest" in html
     assert "apple-touch-icon" in html
+
+
+def test_install_helper_served_and_linked():
+    c = TestClient(app)
+    js = c.get("/static/install.js")
+    assert js.status_code == 200
+    assert "beforeinstallprompt" in js.text and "Add to Home Screen" in js.text
+    for page in ("/login",):
+        assert "install.js" in c.get(page).text
