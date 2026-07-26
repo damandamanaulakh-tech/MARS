@@ -188,7 +188,10 @@ PRESETS: dict[str, ModePreset] = {
         name="nifty200_momentum",
         bar_interval="1d",
         history_period="2y",         # need 12m history for the momentum score
-        stop_loss_pct=-0.12,         # wider stop — index strategy, semi-annual rebalance
+        stop_loss_pct=-0.05,         # user decision 2026-07-26: "stop loss 5% not
+                                     # 12" — tighter protection, owner's order;
+                                     # UNTESTED at this number (N9 grid used -12);
+                                     # 60-day window judges
         take_profit_pct=0.12,        # user decision 2026-07-21: "+30 too much,
                                      # keep 12% for now" (untested vs +30 — the
                                      # 60-day window is the judge; trail -15

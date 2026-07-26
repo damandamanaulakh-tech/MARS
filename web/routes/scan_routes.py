@@ -197,7 +197,7 @@ _PARAM_DEFS: dict[str, dict] = {
         "title": "Volume expansion",
         "what": "Is trading volume swelling vs its own recent normal? Big moves need fuel.",
         "rule": "0–100 vs 20-day baseline; 60+ = hit.",
-        "knob": "trading/scoring.py score_volume_expansion · weight: trading/modes.py WEIGHTS"},
+        "knob": "trading/scoring.py score_volume_expansion (up-days only) · weight: trading/modes.py WEIGHTS"},
     "earnings_growth": {
         "title": "Earnings growth",
         "what": "Is the company's profit actually growing (latest reported numbers)?",

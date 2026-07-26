@@ -43,9 +43,16 @@ def score_momentum_1m(close: pd.Series, cfg: Config) -> float:
     return _clip(50 + r * 10)
 
 
-def score_volume_expansion(volume: pd.Series, cfg: Config) -> float:
+def score_volume_expansion(volume: pd.Series, cfg: Config,
+                           close: pd.Series = None) -> float:
+    """N7 fix (owner-approved 2026-07-26): volume expansion is bullish only
+    on RISING days. The direction-blind version scored 100 on HDFC's -8.4%
+    crash day and 84 on TCS's -7% day — panic selling read as buy fuel.
+    A falling last bar now earns 0, whatever its volume."""
     if len(volume) < cfg.volume_long_days:
         return 50.0
+    if close is not None and len(close) >= 2 and float(close.iloc[-1]) <= float(close.iloc[-2]):
+        return 0.0
     short = float(volume.iloc[-cfg.volume_short_days:].mean())
     long_ = float(volume.iloc[-cfg.volume_long_days:].mean())
     if long_ <= 0:
@@ -155,7 +162,7 @@ def compute_score(
 
     components: Dict[str, float] = {
         "momentum_1m":       score_momentum_1m(close, cfg),
-        "volume_expansion":  score_volume_expansion(volume, cfg),
+        "volume_expansion":  score_volume_expansion(volume, cfg, close),
         "earnings_growth":   score_earnings_growth(ticker),
         "catalyst":          catalyst_score,
         "relative_strength": score_relative_strength(close, bench_close, cfg),
