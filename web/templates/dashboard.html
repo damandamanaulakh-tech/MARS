@@ -144,26 +144,43 @@
 </div>
 {% endif %}
 
-<!-- F17: NIFTY candle chart (self-contained canvas, no extra CDN) -->
-{% if nifty_candles and nifty_candles|length > 2 %}
+<!-- Share candle chart (owner ask 2026-07-26: share candles, not NIFTY) -->
+{% if share_candles and share_candles|length > 2 %}
 <div class="border border-line bg-white mb-6">
   <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
     <div class="flex items-center gap-3">
       <span aria-hidden="true">🕯️</span>
       <div>
-        <div class="font-bold">NIFTY 50 — Daily Candles</div>
-        <div class="text-xs text-ink-faint">Last {{ nifty_candles|length }} sessions · green = up, red = down · the candle engine reads these same bars</div>
+        <div class="font-bold">{{ chart_ticker | replace('.NS','') }} — Daily Candles</div>
+        <div class="text-xs text-ink-faint">Last {{ share_candles|length }} sessions · green = up, red = down · the engine reads these same bars</div>
       </div>
     </div>
-    <div class="text-xs text-ink-faint tabular-nums whitespace-nowrap">Last close ₹{{ nifty_candles[-1].c | inr(2) }}</div>
+    <div class="flex flex-wrap items-center gap-2">
+      {% for c in chart_choices[:8] %}
+      <a href="/?chart={{ c }}"
+         class="text-xs border px-2.5 py-1 tracking-wide whitespace-nowrap
+                {% if c == chart_ticker %}border-ink bg-ink text-white font-semibold{% else %}border-line hover:bg-ink/[0.03]{% endif %}">{{ c | replace('.NS','') }}</a>
+      {% endfor %}
+      <span class="text-xs text-ink-faint tabular-nums whitespace-nowrap">Last ₹{{ share_candles[-1].c | inr(2) }}</span>
+    </div>
   </div>
-  <div class="p-3 lg:p-4 overflow-x-auto"><canvas id="niftyCandles" height="120" class="w-full block h-[240px]"></canvas></div>
+  {% if share_structs %}
+  <div class="px-4 lg:px-6 py-2 border-b border-line flex flex-wrap gap-1.5">
+    {% for name, fired in share_structs.items() if fired %}
+    <span class="text-[11px] border px-2 py-0.5 tracking-wide whitespace-nowrap
+                 {% if name in ['bearish_engulfing','evening_star','dark_cloud_cover','tweezer_top','three_black_crows','shooting_star'] %}border-red-300 text-red-700{% else %}border-emerald-300 text-emerald-700{% endif %}">
+      {{ name | replace('_',' ') }}
+    </span>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div class="p-3 lg:p-4 overflow-x-auto"><canvas id="shareCandles" height="120" class="w-full block h-[240px]"></canvas></div>
 </div>
 <script>
   document.addEventListener('DOMContentLoaded', () => {
-    const el = document.getElementById('niftyCandles');
+    const el = document.getElementById('shareCandles');
     if (!el) return;
-    const data = {{ nifty_candles | tojson }};
+    const data = {{ share_candles | tojson }};
     const dpr = window.devicePixelRatio || 1;
     const W = el.clientWidth || 800, H = 240;
     el.width = W * dpr; el.height = H * dpr;

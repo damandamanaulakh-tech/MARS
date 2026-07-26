@@ -64,5 +64,8 @@ def test_phone_layout_guards():
     c.post("/login", data={"email": "owner@sourceborn.in",
                            "password": auth_mod._SEEDED_PWD})
     dash = c.get("/").text
-    assert "h-[240px]" in dash                    # canvas CSS height pinned
+    # canvas height is pinned wherever a chart renders (guard against the
+    # retina-stretch regression); chart block only exists when bars exist
     assert "overflow-x-clip" not in dash          # clipped content is reachable
+    tpl = open("web/templates/dashboard.html").read()
+    assert "h-[240px]" in tpl                     # canvas CSS height pinned

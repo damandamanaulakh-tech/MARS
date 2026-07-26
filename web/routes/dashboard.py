@@ -138,7 +138,40 @@ def dashboard(request: Request):
     eq_values = [round(float(v), 2) for _, v in eq_hist]
 
     # F17: Nifty candle chart (cached, Upstox-first)
-    nifty_candles = state.recent_candles("^NSEI", bars=40)
+    # Owner ask 2026-07-26: "why do i need CANDLE OF NIFTY, I NEED SHARE
+    # CANDLE" — big chart now shows a stock the owner holds (or today's top
+    # pick when the book is empty). ?chart=TICKER switches it.
+    # Zero extra network: the 09:20 scan already stores 20 bars per pick;
+    # only a held stock that missed the top-50 falls back to a cached fetch.
+    nifty_candles = []
+    chart_ticker = (request.query_params.get("chart") or "").upper().strip()
+    if chart_ticker and not chart_ticker.endswith((".NS", ".BO")):
+        chart_ticker += ".NS"
+    if not chart_ticker:
+        if p.positions:
+            chart_ticker = sorted(p.positions.keys())[0]
+        elif p.last_scan_picks:
+            chart_ticker = (p.last_scan_picks[0] or {}).get("ticker", "")
+    share_candles, share_structs = [], {}
+    if chart_ticker:
+        for pk in (p.last_scan_picks or []):
+            if pk.get("ticker") == chart_ticker:
+                share_structs = pk.get("structures") or {}
+                for i, bar in enumerate(pk.get("candles") or []):
+                    if len(bar) >= 4:
+                        share_candles.append({
+                            "t": "", "o": round(float(bar[0]), 2),
+                            "h": round(float(bar[1]), 2),
+                            "l": round(float(bar[2]), 2),
+                            "c": round(float(bar[3]), 2)})
+                break
+        if not share_candles and chart_ticker in p.positions:
+            try:
+                share_candles = state.recent_candles(chart_ticker, bars=40) or []
+            except Exception:
+                share_candles = []
+    chart_choices = sorted(p.positions.keys()) or [
+        (pk or {}).get("ticker") for pk in (p.last_scan_picks or [])[:8]]
 
     # F6: rotation suggestions — positions >=90% to target + a pick to fund
     try:
@@ -195,6 +228,10 @@ def dashboard(request: Request):
             "watchlist": watchlist,
             "triggers": triggers,
             "nifty_candles": nifty_candles,
+            "share_candles": share_candles,
+            "chart_ticker": chart_ticker,
+            "chart_choices": [c for c in chart_choices if c],
+            "share_structs": share_structs,
             "rotations": rotations,
         },
     )

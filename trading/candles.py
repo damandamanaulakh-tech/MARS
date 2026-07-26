@@ -145,6 +145,165 @@ def three_white_soldiers(df: pd.DataFrame) -> bool:
     return closes[0] < closes[1] < closes[2]
 
 
+# ---- Bearish / warning family (owner ask 2026-07-26: "10-12 candle
+# structures as parameters"). The 8 originals were ALL bullish, so the
+# engine could never read a top. These never trigger a buy — they are
+# read as warnings and shown on the desk. ----------------------------
+
+def doji(df: pd.DataFrame, body_max: float = 0.1) -> bool:
+    """Open and close nearly equal — indecision, trend may be pausing."""
+    if not _ok(df, 1):
+        return False
+    o, h, l, c = (float(df[k].iloc[-1]) for k in ("Open", "High", "Low", "Close"))
+    return abs(c - o) <= body_max * max(h - l, _EPS)
+
+
+def shooting_star(df: pd.DataFrame) -> bool:
+    """Long upper shadow (>=60% of range), tiny lower shadow — top reversal."""
+    if not _ok(df, 1):
+        return False
+    o, h, l, c = (float(df[k].iloc[-1]) for k in ("Open", "High", "Low", "Close"))
+    rng = max(h - l, _EPS)
+    upper = h - max(o, c)
+    lower = min(o, c) - l
+    return upper >= 0.6 * rng and lower <= 0.15 * rng
+
+
+def inverted_hammer(df: pd.DataFrame) -> bool:
+    """Shooting-star shape after a decline — potential bottom, needs follow-up."""
+    if not _ok(df, 4):
+        return False
+    if not shooting_star(df):
+        return False
+    closes = [float(df["Close"].iloc[i]) for i in (-4, -1)]
+    return closes[1] < closes[0]
+
+
+def bearish_engulfing(df: pd.DataFrame) -> bool:
+    """Green candle fully engulfed by the next red candle — top warning."""
+    if not _ok(df, 2):
+        return False
+    o1, c1 = float(df["Open"].iloc[-2]), float(df["Close"].iloc[-2])
+    o2, c2 = float(df["Open"].iloc[-1]), float(df["Close"].iloc[-1])
+    return c1 > o1 and c2 < o2 and o2 >= c1 and c2 <= o1
+
+
+def evening_star(df: pd.DataFrame) -> bool:
+    """Big green -> small-body pause -> red closing below green's midpoint."""
+    if not _ok(df, 3):
+        return False
+    o1, c1 = float(df["Open"].iloc[-3]), float(df["Close"].iloc[-3])
+    o2, c2 = float(df["Open"].iloc[-2]), float(df["Close"].iloc[-2])
+    o3, c3 = float(df["Open"].iloc[-1]), float(df["Close"].iloc[-1])
+    big_green = c1 > o1 and (c1 - o1) > 0
+    small_body = abs(c2 - o2) <= 0.5 * max(abs(c1 - o1), _EPS)
+    return big_green and small_body and c3 < o3 and c3 < (o1 + c1) / 2
+
+
+def dark_cloud_cover(df: pd.DataFrame) -> bool:
+    """Green bar, then red opening above its close and closing below midpoint."""
+    if not _ok(df, 2):
+        return False
+    o1, c1 = float(df["Open"].iloc[-2]), float(df["Close"].iloc[-2])
+    o2, c2 = float(df["Open"].iloc[-1]), float(df["Close"].iloc[-1])
+    return c1 > o1 and o2 >= c1 and c2 < (o1 + c1) / 2 and c2 > o1
+
+
+def tweezer_top(df: pd.DataFrame, tol: float = 0.0015) -> bool:
+    """Two bars topping at the same high (within tol): green then red."""
+    if not _ok(df, 2):
+        return False
+    h1, h2 = float(df["High"].iloc[-2]), float(df["High"].iloc[-1])
+    o1, c1 = float(df["Open"].iloc[-2]), float(df["Close"].iloc[-2])
+    o2, c2 = float(df["Open"].iloc[-1]), float(df["Close"].iloc[-1])
+    return c1 > o1 and c2 < o2 and h1 > 0 and abs(h2 - h1) / h1 <= tol
+
+
+def three_black_crows(df: pd.DataFrame) -> bool:
+    """Three consecutive strong red bars, each closing lower — hard warning."""
+    if not _ok(df, 3):
+        return False
+    for i in (-3, -2, -1):
+        o, h, l, c = (float(df[k].iloc[i]) for k in ("Open", "High", "Low", "Close"))
+        if c >= o or (o - c) < 0.5 * max(h - l, _EPS):
+            return False
+    closes = [float(df["Close"].iloc[i]) for i in (-3, -2, -1)]
+    return closes[0] > closes[1] > closes[2]
+
+
+def bullish_harami(df: pd.DataFrame) -> bool:
+    """Big red bar, then a small green body inside it — pressure fading."""
+    if not _ok(df, 2):
+        return False
+    o1, c1 = float(df["Open"].iloc[-2]), float(df["Close"].iloc[-2])
+    o2, c2 = float(df["Open"].iloc[-1]), float(df["Close"].iloc[-1])
+    return (c1 < o1 and c2 > o2
+            and max(o2, c2) <= o1 and min(o2, c2) >= c1
+            and abs(c2 - o2) < abs(c1 - o1))
+
+
+def marubozu(df: pd.DataFrame, shadow_max: float = 0.05) -> bool:
+    """Body fills the whole bar, almost no shadows — one side in full control."""
+    if not _ok(df, 1):
+        return False
+    o, h, l, c = (float(df[k].iloc[-1]) for k in ("Open", "High", "Low", "Close"))
+    rng = max(h - l, _EPS)
+    return (h - max(o, c)) <= shadow_max * rng and (min(o, c) - l) <= shadow_max * rng
+
+
+# Every structure the engine can read, in one place. BULLISH ones can
+# confirm an entry; BEARISH/NEUTRAL ones never buy - they warn.
+BULLISH_PATTERNS = {
+    "breakout": None,          # needs lookback+vol args, handled separately
+    "urr": None,               # same
+    "engulfing": bullish_engulfing,
+    "hammer": hammer,
+    "morning_star": morning_star,
+    "piercing": piercing_line,
+    "tweezer_bottom": tweezer_bottom,
+    "three_soldiers": three_white_soldiers,
+    "inverted_hammer": inverted_hammer,
+    "bullish_harami": bullish_harami,
+}
+BEARISH_PATTERNS = {
+    "bearish_engulfing": bearish_engulfing,
+    "evening_star": evening_star,
+    "dark_cloud_cover": dark_cloud_cover,
+    "tweezer_top": tweezer_top,
+    "three_black_crows": three_black_crows,
+    "shooting_star": shooting_star,
+}
+NEUTRAL_PATTERNS = {
+    "doji": doji,
+    "marubozu": marubozu,
+}
+
+
+def scan_all_patterns(df: pd.DataFrame, lookback: int = 20,
+                      vol_mult: float = 1.5) -> dict:
+    """Every structure's yes/no for one stock, on its latest bar.
+    Returns {name: bool} across bullish + bearish + neutral - this is what
+    makes each candle structure its own parameter instead of one lane."""
+    out = {}
+    try:
+        out["breakout"] = breakout_candle(df, lookback, vol_mult)
+    except Exception:
+        out["breakout"] = False
+    try:
+        out["urr"] = urr_confirmation(df, lookback)
+    except Exception:
+        out["urr"] = False
+    for group in (BULLISH_PATTERNS, BEARISH_PATTERNS, NEUTRAL_PATTERNS):
+        for name, fn in group.items():
+            if fn is None:
+                continue
+            try:
+                out[name] = bool(fn(df))
+            except Exception:
+                out[name] = False
+    return out
+
+
 _PATTERN_FUNCS = {
     "engulfing": bullish_engulfing,
     "hammer": hammer,

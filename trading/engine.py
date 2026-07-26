@@ -566,6 +566,21 @@ class TradingEngine:
             except Exception:
                 return ""
 
+        def _all_structures(tkr: str) -> dict:
+            # Owner ask 2026-07-26: every candle structure is its OWN
+            # parameter, not one lumped "candle confirm" lane. 18 structures
+            # (10 bullish / 6 bearish / 2 neutral) recorded per stock.
+            h = history.get(tkr)
+            if h is None:
+                return {}
+            try:
+                from .candles import scan_all_patterns
+                return scan_all_patterns(
+                    h, int(getattr(cfg, "candle_breakout_lookback", 20)),
+                    float(getattr(cfg, "candle_volume_mult", 1.5)))
+            except Exception:
+                return {}
+
         self.portfolio.last_scan_picks = [
             {
                 "ticker": r["ticker"], "score": r["score"],
@@ -574,6 +589,7 @@ class TradingEngine:
                 "components": r.get("components") or {},
                 "candles": history[r["ticker"]][["Open", "High", "Low", "Close"]].tail(20).values.tolist(),
                 "candle": _candle_label(r["ticker"]),
+                "structures": _all_structures(r["ticker"]),
                 "opened": r["ticker"] in opened,
             }
             for r in ranked[:50]
@@ -600,6 +616,7 @@ class TradingEngine:
                     "timing": bool(r["timing_pass"]),
                     "abs_mom": bool(_abs_mom_ok(r["ticker"])),
                     "candle": _candle_label(r["ticker"]),
+                    "structures": _all_structures(r["ticker"]),
                     "outcome": ("opened" if r["ticker"] in opened
                                 else skip_by_t.get(r["ticker"], "")),
                 }

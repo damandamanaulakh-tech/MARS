@@ -127,8 +127,25 @@ def test_recent_candles_cached_no_crash(monkeypatch):
     state._CANDLE_CACHE["ts"] = 0.0
     out = state.recent_candles("^NSEI", bars=40)
     assert len(out) == 40 and set(out[0]) == {"t", "o", "h", "l", "c"}
-    r = _client().get("/")
-    assert "NIFTY 50 — Daily Candles" in r.text
+
+    # Owner ask 2026-07-26: the dashboard's big chart is a SHARE, not NIFTY.
+    # It is drawn from bars the scan already stored — no fetch on page load.
+    p = state.portfolio()
+    saved = list(p.last_scan_picks or [])
+    p.last_scan_picks = [{
+        "ticker": "TESTCO.NS", "score": 77.0, "reasoning": "", "last_close": 120.0,
+        "timing_pass": True, "components": {},
+        "candles": [[100 + i, 101 + i, 99 + i, 100.5 + i] for i in range(20)],
+        "structures": {"hammer": True, "bearish_engulfing": False},
+        "candle": "hammer", "opened": False,
+    }]
+    try:
+        r = _client().get("/")
+        assert "NIFTY 50 — Daily Candles" not in r.text     # index chart gone
+        assert "TESTCO — Daily Candles" in r.text            # share chart shown
+        assert "hammer" in r.text                            # structure chips
+    finally:
+        p.last_scan_picks = saved
 
 
 # ---- F4 / F5 / F10 (2026-07-12) ----

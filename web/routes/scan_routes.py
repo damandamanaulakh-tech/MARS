@@ -75,6 +75,28 @@ def scan_view(request: Request, error: str | None = None):
 _STUB_FACTORS = {"short_interest"}   # analyst_revision went live 2026-07-16
 _CANDLE_HIT = {"breakout", "urr", "engulfing", "hammer", "morning_star",
                "piercing", "tweezer_bottom", "three_soldiers"}
+_BEARISH_NAMES = {"bearish_engulfing", "evening_star", "dark_cloud_cover",
+                  "tweezer_top", "three_black_crows", "shooting_star"}
+_STRUCT_DEFS = {
+    "breakout": "Closes above the last 20 days' high, in the upper half of the bar, on big volume. The engine's main entry trigger.",
+    "urr": "Upthrust-Result-Retest: price pokes above resistance, pulls back, then holds on the retest. Confirms the level is real.",
+    "engulfing": "A red bar completely swallowed by the next green bar. Buyers took control in one session.",
+    "hammer": "Long lower shadow, tiny upper one. Sellers pushed down all day and failed — bottom reversal.",
+    "morning_star": "Big red, then a small pause bar, then green closing above the red bar's middle. Three-day bottom turn.",
+    "piercing": "Red bar, then green opening lower but closing past its midpoint. Buyers stepped in hard.",
+    "tweezer_bottom": "Two bars bottoming at the same low — the floor held twice.",
+    "three_soldiers": "Three strong green bars each closing higher. Sustained buying.",
+    "inverted_hammer": "Long upper shadow after a fall — buyers tested higher. Needs next-day confirmation.",
+    "bullish_harami": "Big red bar, then a small green body inside it. Selling pressure fading.",
+    "bearish_engulfing": "⚠ A green bar swallowed by the next red bar. Sellers took control — top warning.",
+    "evening_star": "⚠ Big green, pause, then red closing below the green's middle. Three-day top turn.",
+    "dark_cloud_cover": "⚠ Green bar, then red opening above it and closing below its midpoint. Buyers trapped.",
+    "tweezer_top": "⚠ Two bars topping at the same high — the ceiling held twice.",
+    "three_black_crows": "⚠ Three strong red bars each closing lower. Sustained selling.",
+    "shooting_star": "⚠ Long upper shadow, tiny lower one. Rally rejected at the top.",
+    "doji": "Open and close almost equal — indecision. The trend is pausing, direction unclear.",
+    "marubozu": "Body fills the whole bar, no shadows. One side in complete control that day.",
+}
 
 
 def _factor_cell(f: str, v, t: str) -> tuple[str, str]:
@@ -156,6 +178,26 @@ def _build_piano(matrix: dict) -> dict | None:
         cls, tip = _candle_cell(rows[t].get("candle") or "", t)
         candle_cells.append({"t": t, "cls": cls, "tip": tip})
     _add("candle confirm", candle_cells, key="candle")
+
+    # Owner ask 2026-07-26: every candle structure its OWN lane, so a single
+    # structure can be tapped and its pass/fail stock list read.
+    struct_names = []
+    for r in rows.values():
+        for k in (r.get("structures") or {}):
+            if k not in struct_names:
+                struct_names.append(k)
+    for name in struct_names:
+        cells = []
+        for t in tickers:
+            fired = bool((rows[t].get("structures") or {}).get(name))
+            bearish = name in _BEARISH_NAMES
+            cls = ("blocked" if bearish else "hit") if fired else "waiting"
+            cells.append({"t": t, "cls": cls,
+                          "tip": f"{t} · {name.replace('_',' ')}: "
+                                 f"{'YES' if fired else 'no'}"
+                                 f"{' (bearish warning)' if bearish and fired else ''}"})
+        _add(("⚠ " if name in _BEARISH_NAMES else "") + name.replace("_", " "),
+             cells, key=f"struct:{name}")
 
     outcome_cells = []
     for t in tickers:
@@ -286,6 +328,32 @@ _GENERIC_DEF = {
 }
 
 
+def _structure_page(request: Request, name: str, rows: dict, matrix: dict):
+    """One candle structure: what it means + which stocks show it today."""
+    bearish = name in _BEARISH_NAMES
+    d = {"title": ("⚠ " if bearish else "") + name.replace("_", " ").title(),
+         "what": _STRUCT_DEFS.get(name, "A candlestick structure read from the daily bars."),
+         "rule": ("BEARISH — never triggers a buy; shown as a warning on the desk."
+                  if bearish else
+                  "BULLISH — can confirm an entry when the score and gates also pass."),
+         "knob": "trading/candles.py · enable per-mode: trading/config.py candle_patterns"}
+    groups = {"hit": [], "weak": [], "blocked": [], "waiting": []}
+    for t, r in rows.items():
+        fired = bool((r.get("structures") or {}).get(name))
+        bucket = ("blocked" if bearish else "hit") if fired else "waiting"
+        groups[bucket].append({"t": t, "label": "YES" if fired else "no",
+                               "score": r.get("score", 0),
+                               "outcome": r.get("outcome") or ""})
+    for g in groups.values():
+        g.sort(key=lambda c: -float(c["score"] or 0))
+    return templates.TemplateResponse(
+        request, "parameter.html",
+        {"user": auth.current_user(request), "active": "scan",
+         "key": name, "d": d, "groups": groups,
+         "mode": matrix.get("mode"), "ts": matrix.get("ts"),
+         "scanned": len(rows), "floor": float(matrix.get("score_floor", 55.0))})
+
+
 @router.get("/scan/parameter/{key}")
 def parameter_page(request: Request, key: str):
     """🎹 One piano note, in full: plain-language definition of the
@@ -295,6 +363,9 @@ def parameter_page(request: Request, key: str):
     matrix = p.scan_matrix or {}
     rows = matrix.get("rows") or {}
     floor = float(matrix.get("score_floor", 55.0))
+
+    if key.startswith("struct:"):
+        return _structure_page(request, key.split(":", 1)[1], rows, matrix)
 
     known_factors = set()
     for r in rows.values():
