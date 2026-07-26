@@ -284,6 +284,23 @@
   </div>
 </div>
 
+{% if filings %}
+<div class="border border-line bg-white mb-6">
+  <div class="px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">📰 Filings — held & watchlist (v1, BSE announcements, refreshed 09:05)</div>
+  <table class="w-full text-sm">
+    <tbody>
+      {% for f in filings %}
+      <tr class="border-b border-line/60 last:border-0">
+        <td class="px-6 py-2 font-semibold whitespace-nowrap">{{ f.ticker | replace('.NS','') }}</td>
+        <td class="px-3 py-2 text-ink-soft">{% if f.pdf %}<a class="hover:underline" href="{{ f.pdf }}" target="_blank">{{ f.headline }}</a>{% else %}{{ f.headline }}{% endif %}</td>
+        <td class="px-6 py-2 text-xs text-ink-faint whitespace-nowrap text-right">{{ f.when }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
 {% if scan_flags and (scan_flags.cascade or scan_flags.compressed_sectors or scan_flags.f1_held) %}
 <div class="border border-line bg-white mb-6">
   <div class="px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">🚩 Structural flags — context only, never a gate</div>

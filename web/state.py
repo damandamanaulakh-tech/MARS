@@ -49,6 +49,7 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.decision_journal = list(doc.get("decision_journal", []))
     p.virtual_book = dict(doc.get("virtual_book", {}))
     p.pending_orders = list(doc.get("pending_orders", []))
+    p.filings = list(doc.get("filings", []))
     p.last_save = doc.get("last_save")
 
 
@@ -87,6 +88,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "virtual_book": self.virtual_book,
             "scan_matrix": self.scan_matrix,
             "pending_orders": self.pending_orders[-200:],
+            "filings": self.filings[:100],
             "last_save": self.last_save,
         }
         db.save_portfolio(doc)

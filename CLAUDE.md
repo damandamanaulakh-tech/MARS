@@ -100,6 +100,13 @@ Regime: CORRECTION (episode since 2026-02-27, real). VIX re-entry armed.
 FEDERALBNK** — one tap each on any list row. MODE to park on N200
 MOMENTUM. **60-day live-paper verdict starts at next login.**
 docs/APP_BRIEF.md = owner's manual (updated with ticket + piano pages).
+**2026-07-26 owner decisions wired: stop −5% (was −12, UNTESTED number,
+owner order) · target stays +12% · N7 up-day-only volume · N1 BE/T2T
+series-watch card (08:50, SERIES_WATCH_*) · flags bundle (cascade/
+sector-rout/F1-confirm chips, display-only) · filings feed v1 (09:05
+BSE announcements for held+watch, FILINGS_*; BSE returns empty to cloud
+IP so far — fail-visible, tune from live). Entry thresholds UNCHANGED —
+full-bucket test proved current rules win at breadth (research/).**
 **Target question CLOSED: user chose +12% "for now" (2026-07-21) — wired;
 "actual" (order-flow etc. params) = next phase of app, their words.**
 User's 8-step plan validated this session: all 8 now built (ticket +

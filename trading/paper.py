@@ -111,6 +111,7 @@ class Portfolio:
     virtual_book: Dict[str, dict] = field(default_factory=dict)  # F8: unbought YES picks, marked to market
     scan_matrix: dict = field(default_factory=dict)  # 🎹 full scan hit-map (overwritten each scan)
     pending_orders: List[dict] = field(default_factory=list)  # owner limit orders (day validity)
+    filings: List[dict] = field(default_factory=list)  # matched exchange announcements (held+watch)
     last_save: Optional[str] = None
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
@@ -166,6 +167,7 @@ class Portfolio:
                 "virtual_book": self.virtual_book,             # F8 shadow book of unbought YES picks
                 "scan_matrix": self.scan_matrix,               # 🎹 one scan's hit-map, fixed size
                 "pending_orders": self.pending_orders[-200:],  # owner limit orders, capped
+                "filings": self.filings[:100],                 # matched announcements, capped
                 "last_save": datetime.utcnow().isoformat(),
             }
             with open(self._state_path(), "w") as f:
@@ -199,6 +201,7 @@ class Portfolio:
             p.virtual_book = dict(data.get("virtual_book", {}))
             p.scan_matrix = dict(data.get("scan_matrix", {}))
             p.pending_orders = list(data.get("pending_orders", []))
+            p.filings = list(data.get("filings", []))
             p.last_save = data.get("last_save")
             return p
         except Exception:

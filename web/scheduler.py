@@ -70,6 +70,14 @@ def start_if_enabled() -> None:
             day_of_week="mon-fri", hour=8, minute=50,
             id="universe_refresh",
         )
+        # 09:05 IST: filings feed v1 — company announcements for held +
+        # watchlist names (owner-approved 2026-07-26). Before the scan so
+        # the desk shows the morning's news next to the picks.
+        _SCHED.add_job(
+            _filings_job, "cron",
+            day_of_week="mon-fri", hour=9, minute=5,
+            id="filings_refresh",
+        )
         # Daily morning scan across all modes (one pass each).
         _SCHED.add_job(
             _daily_multi_mode_scan, "cron",
@@ -195,6 +203,47 @@ def _universe_refresh_job() -> None:
                 "ts": _dt.utcnow().isoformat(), "action": "SERIES_WATCH_FAILED",
                 "err": f"{type(e).__name__}: {str(e)[:120]}",
                 "why": "Shadow list refresh failed — yesterday's stays.",
+            })
+            p.save()
+        except Exception:
+            pass
+
+
+def _filings_job() -> None:
+    """Filings feed v1: BSE announcements matched to held + watchlist.
+    Fail-visible; an empty feed day journals 0 matches, never invents."""
+    import csv as _csv
+    import os as _os
+    from datetime import datetime as _dt
+
+    from trading.calendars import is_trading_day
+    if not is_trading_day():
+        return
+    from . import state
+    p = state.portfolio()
+    try:
+        from trading.filings import build_watch_map, refresh_filings
+        held = set(p.positions.keys())
+        picks = {pk.get("ticker") for pk in (p.last_scan_picks or [])}
+        tickers = held | {t for t in picks if t}
+        uni = _os.path.join(_os.path.dirname(__file__), "..", "data",
+                            "upstox_nse_equities.csv")
+        with open(uni, newline="") as fh:
+            rows = list(_csv.DictReader(fh))
+        wm = build_watch_map(rows, tickers)
+        s = refresh_filings(p, wm)
+        p.decision_journal.append({
+            "ts": _dt.utcnow().isoformat(), "action": "FILINGS_REFRESH",
+            "why": (f"Exchange announcements: {s['scanned']} scanned, "
+                    f"{s['matched']} matched held/watch, {s['new']} new."),
+        })
+        p.save()
+    except Exception as e:
+        try:
+            p.decision_journal.append({
+                "ts": _dt.utcnow().isoformat(), "action": "FILINGS_FAILED",
+                "err": f"{type(e).__name__}: {str(e)[:120]}",
+                "why": "Filings fetch failed — no fake news, list unchanged.",
             })
             p.save()
         except Exception:

@@ -164,6 +164,7 @@ def dashboard(request: Request):
         {
             "user": user,
             "scan_flags": (p.scan_matrix or {}).get("flags") or {},
+            "filings": (p.filings or [])[:12],
             "active": "dashboard",
             "today": datetime.utcnow().strftime("%a, %d %b"),
             "kpis": kpis,
