@@ -6,24 +6,24 @@
 </div>
 <div class="flex items-end justify-between mb-6 flex-wrap gap-3">
   <div>
-    <h1 class="font-black text-4xl tracking-tight">{{ d.title }}</h1>
-    <p class="text-ink-soft mt-2">Last scan: {{ ts or 'no scan yet' }} · mode {{ mode or '—' }} · {{ scanned }} stocks checked</p>
+    <h1 class="font-black text-3xl lg:text-4xl tracking-tight">{{ d.title }}</h1>
+    <p class="text-ink-soft mt-2 text-sm lg:text-base">Last scan: {{ ts or 'no scan yet' }} · mode {{ mode or '—' }} · {{ scanned }} stocks checked</p>
   </div>
-  <a href="/scan" class="px-4 py-2 border border-line text-sm font-semibold tracking-wide hover:bg-ink/[0.03]">← BACK TO SCAN</a>
+  <a href="/scan" class="px-4 py-2 border border-line text-sm font-semibold tracking-wide whitespace-nowrap hover:bg-ink/[0.03]">← BACK TO SCAN</a>
 </div>
 
 <div class="bg-white border border-line mb-6">
-  <div class="px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">What this parameter is</div>
-  <div class="px-6 py-4 space-y-3 text-sm">
+  <div class="px-4 lg:px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">What this parameter is</div>
+  <div class="px-4 lg:px-6 py-4 space-y-3 text-sm">
     <div><span class="text-[10px] tracking-widest text-ink-faint uppercase block mb-0.5">Meaning</span>{{ d.what }}</div>
     <div><span class="text-[10px] tracking-widest text-ink-faint uppercase block mb-0.5">Pass rule</span>{{ d.rule }}</div>
     <div><span class="text-[10px] tracking-widest text-ink-faint uppercase block mb-0.5">Where to change it in code</span>
-      <span class="font-mono text-xs">{{ d.knob }}</span></div>
+      <span class="font-mono text-xs block break-words">{{ d.knob }}</span></div>
   </div>
 </div>
 
 {% if scanned == 0 %}
-<div class="bg-white border border-line p-10 text-center text-ink-faint">
+<div class="bg-white border border-line p-6 lg:p-10 text-center text-ink-faint">
   No scan recorded yet — the stock lists appear after the next scan (09:20 auto or RUN SCAN NOW).
 </div>
 {% else %}
@@ -34,16 +34,16 @@
         ('blocked', '⛔ Failed / blocked', 'text-red-700', 'bg-red-700'),
         ('waiting', '⬜ Waiting / no data', 'text-ink-faint', 'bg-slate-400')] %}
   <div class="bg-white border border-line">
-    <div class="px-4 py-3 border-b border-line flex items-center justify-between">
+    <div class="px-4 py-3 border-b border-line flex items-center justify-between gap-2">
       <span class="text-xs font-semibold tracking-wide uppercase {{ color }}">{{ title }}</span>
-      <span class="text-xs tabular-nums text-ink-faint">{{ groups[cls] | length }}</span>
+      <span class="text-xs tabular-nums text-ink-faint whitespace-nowrap">{{ groups[cls] | length }}</span>
     </div>
-    <div class="px-4 py-3 max-h-[480px] overflow-y-auto space-y-1">
+    <div class="px-4 py-3 max-h-72 lg:max-h-[480px] overflow-y-auto space-y-1">
       {% for c in groups[cls] %}
-      <div class="flex items-center justify-between text-sm border-b border-line/50 last:border-0 py-1"
+      <div class="flex items-center justify-between gap-2 text-sm border-b border-line/50 last:border-0 py-1"
            title="{{ c.t }} · total score {{ c.score }}{% if c.outcome %} · outcome: {{ c.outcome }}{% endif %}">
-        <span class="font-semibold">{{ c.t | replace('.NS','') }}</span>
-        <span class="flex items-center gap-2">
+        <span class="font-semibold whitespace-nowrap truncate">{{ c.t | replace('.NS','') }}</span>
+        <span class="flex items-center gap-2 whitespace-nowrap">
           <span class="text-[10px] px-1.5 py-0.5 text-white rounded-sm tabular-nums {{ chipbg }}">{{ c.label }}</span>
           <span class="text-xs text-ink-faint tabular-nums" title="total score">{{ c.score }}</span>
         </span>

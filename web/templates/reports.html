@@ -2,13 +2,13 @@
 {% block title %}Reports — Sourceborn AM07{% endblock %}
 {% block content %}
 <div class="text-xs tracking-widest text-ink-faint uppercase mb-3">EXPORTS / REPORTS</div>
-<div class="flex items-end justify-between mb-8">
+<div class="flex flex-wrap items-end justify-between gap-2 mb-8">
   <div>
-    <h1 class="font-black text-5xl tracking-tight">Reports</h1>
+    <h1 class="font-black text-3xl lg:text-5xl tracking-tight">Reports</h1>
     <p class="text-ink-soft mt-2">CSV exports of picks, positions, closed trades, equity curve, and skipped reasons. Regenerated on every load.</p>
   </div>
   <form action="/reports/backup" method="post">
-    <button class="px-4 py-2 bg-ink text-white text-sm font-semibold tracking-wide hover:bg-black">💾 BACKUP NOW</button>
+    <button class="px-4 py-2 bg-ink text-white text-sm font-semibold tracking-wide hover:bg-black whitespace-nowrap">💾 BACKUP NOW</button>
   </form>
 </div>
 
@@ -25,25 +25,26 @@
 {% endif %}
 
 <div class="bg-white border border-line">
+  <div class="overflow-x-auto">
   <table class="w-full text-sm">
     <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
       <tr>
-        <th class="text-left px-6 py-3">Report</th>
-        <th class="text-right px-6 py-3">Rows</th>
-        <th class="text-right px-6 py-3">Size</th>
-        <th class="text-right px-6 py-3">Download</th>
+        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Report</th>
+        <th class="text-right px-3 lg:px-6 py-3 whitespace-nowrap">Rows</th>
+        <th class="text-right px-3 lg:px-6 py-3 whitespace-nowrap">Size</th>
+        <th class="text-right px-3 lg:px-6 py-3 whitespace-nowrap">Download</th>
       </tr>
     </thead>
     <tbody>
       {% for f in files %}
       <tr class="border-b border-line last:border-0">
-        <td class="px-6 py-4 font-semibold capitalize">{{ f.name | replace('_', ' ') }}.csv</td>
-        <td class="px-6 py-4 text-right tabular-nums {% if f.rows == 0 %}text-ink-faint{% endif %}">{{ f.rows }}</td>
-        <td class="px-6 py-4 text-right tabular-nums">{{ "%.1f"|format(f.size_kb) }} KB</td>
-        <td class="px-6 py-4 text-right">
+        <td class="px-3 lg:px-6 py-4 font-semibold capitalize whitespace-nowrap">{{ f.name | replace('_', ' ') }}.csv</td>
+        <td class="px-3 lg:px-6 py-4 text-right tabular-nums whitespace-nowrap {% if f.rows == 0 %}text-ink-faint{% endif %}">{{ f.rows }}</td>
+        <td class="px-3 lg:px-6 py-4 text-right tabular-nums whitespace-nowrap">{{ "%.1f"|format(f.size_kb) }} KB</td>
+        <td class="px-3 lg:px-6 py-4 text-right whitespace-nowrap">
           {% if f.path %}
           <a href="/reports/download/{{ f.name }}"
-             class="px-4 py-2 border border-line text-xs font-semibold tracking-widest uppercase hover:bg-ink/[0.03]">
+             class="inline-block px-4 py-2 border border-line text-xs font-semibold tracking-widest uppercase hover:bg-ink/[0.03] whitespace-nowrap">
             ⬇ DOWNLOAD
           </a>
           {% else %}
@@ -54,6 +55,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 
 <div class="mt-4 text-xs text-ink-faint">
@@ -62,33 +64,35 @@
 
 {% if scan_history %}
 <div class="bg-white border border-line mt-8">
-  <div class="px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">Scan history (most recent 50)</div>
+  <div class="px-4 lg:px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">Scan history (most recent 50)</div>
+  <div class="overflow-x-auto">
   <table class="w-full text-sm">
     <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
       <tr>
-        <th class="text-left px-6 py-3">When</th>
-        <th class="text-left px-6 py-3">Regime</th>
-        <th class="text-right px-6 py-3">Ranked</th>
-        <th class="text-right px-6 py-3">Picks</th>
-        <th class="text-right px-6 py-3">Opened</th>
-        <th class="text-right px-6 py-3">Skipped</th>
-        <th class="text-right px-6 py-3">Top Score</th>
+        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">When</th>
+        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Regime</th>
+        <th class="text-right px-3 lg:px-6 py-3 whitespace-nowrap">Ranked</th>
+        <th class="text-right px-3 lg:px-6 py-3 whitespace-nowrap">Picks</th>
+        <th class="text-right px-3 lg:px-6 py-3 whitespace-nowrap">Opened</th>
+        <th class="text-right px-3 lg:px-6 py-3 whitespace-nowrap">Skipped</th>
+        <th class="text-right px-3 lg:px-6 py-3 whitespace-nowrap">Top Score</th>
       </tr>
     </thead>
     <tbody>
       {% for s in scan_history %}
       <tr class="border-b border-line last:border-0">
-        <td class="px-6 py-3 font-mono text-xs">{{ s.ts[:19] }}</td>
-        <td class="px-6 py-3 uppercase text-xs tracking-widest text-ink-soft">{{ s.regime or '—' }}</td>
-        <td class="px-6 py-3 text-right tabular-nums">{{ s.ranked_count }}</td>
-        <td class="px-6 py-3 text-right tabular-nums">{{ s.picks_count }}</td>
-        <td class="px-6 py-3 text-right tabular-nums text-emerald-700 font-bold">{{ s.opened_count }}</td>
-        <td class="px-6 py-3 text-right tabular-nums text-ink-soft">{{ s.skipped_count }}</td>
-        <td class="px-6 py-3 text-right tabular-nums">{{ "%.1f"|format(s.top_score) }}</td>
+        <td class="px-3 lg:px-6 py-3 font-mono text-xs whitespace-nowrap">{{ s.ts[:19] }}</td>
+        <td class="px-3 lg:px-6 py-3 uppercase text-xs tracking-widest text-ink-soft whitespace-nowrap">{{ s.regime or '—' }}</td>
+        <td class="px-3 lg:px-6 py-3 text-right tabular-nums whitespace-nowrap">{{ s.ranked_count }}</td>
+        <td class="px-3 lg:px-6 py-3 text-right tabular-nums whitespace-nowrap">{{ s.picks_count }}</td>
+        <td class="px-3 lg:px-6 py-3 text-right tabular-nums text-emerald-700 font-bold whitespace-nowrap">{{ s.opened_count }}</td>
+        <td class="px-3 lg:px-6 py-3 text-right tabular-nums text-ink-soft whitespace-nowrap">{{ s.skipped_count }}</td>
+        <td class="px-3 lg:px-6 py-3 text-right tabular-nums whitespace-nowrap">{{ "%.1f"|format(s.top_score) }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 {% endif %}
 {% endblock %}

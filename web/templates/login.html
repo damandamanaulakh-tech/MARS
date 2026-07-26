@@ -22,7 +22,7 @@
 <div class="min-h-screen grid lg:grid-cols-2">
 
   <!-- LEFT: marketing -->
-  <section class="bg-slate-950 text-white p-10 lg:p-16 flex flex-col justify-between">
+  <section class="bg-slate-950 text-white p-6 lg:p-16 flex flex-col justify-between gap-8 order-2 lg:order-1">
     <div class="flex items-center gap-3">
       <img src="{{ logo_url_white() }}" alt="" class="h-12 w-12 rounded">
       <div>
@@ -32,38 +32,38 @@
     </div>
 
     <div class="max-w-xl">
-      <div class="text-[11px] tracking-widest text-slate-400 uppercase mb-6">Paper · Live · Multi-mode · Indian markets</div>
-      <h1 class="font-black text-5xl lg:text-6xl leading-[1.05] tracking-tight">
+      <div class="text-[11px] tracking-widest text-slate-400 uppercase mb-3 lg:mb-6">Paper · Live · Multi-mode · Indian markets</div>
+      <h1 class="font-black text-3xl sm:text-4xl lg:text-6xl leading-[1.1] lg:leading-[1.05] tracking-tight">
         Run NSE momentum<br>
         on autopilot. <span class="text-accent">With your rules,<br>your capital, your data.</span>
       </h1>
-      <p class="mt-8 text-slate-300 text-lg leading-relaxed max-w-md">
+      <p class="mt-4 lg:mt-8 text-slate-300 text-base lg:text-lg leading-relaxed max-w-md">
         AM 07 ten-factor scoring, ATR-based stops, walk-forward backtest,
         Upstox-ready live mode &mdash; one engine, four horizons.
       </p>
     </div>
 
-    <div class="grid grid-cols-3 gap-6 max-w-md">
+    <div class="grid grid-cols-3 gap-3 lg:gap-6 max-w-md">
       <div>
-        <div class="font-black text-3xl">10</div>
+        <div class="font-black text-2xl lg:text-3xl">10</div>
         <div class="text-[10px] tracking-widest text-slate-400 uppercase">Score factors</div>
       </div>
       <div>
-        <div class="font-black text-3xl">500+</div>
+        <div class="font-black text-2xl lg:text-3xl">500+</div>
         <div class="text-[10px] tracking-widest text-slate-400 uppercase">NSE universe</div>
       </div>
       <div>
-        <div class="font-black text-3xl">4×</div>
+        <div class="font-black text-2xl lg:text-3xl">4×</div>
         <div class="text-[10px] tracking-widest text-slate-400 uppercase">Trade horizons</div>
       </div>
     </div>
   </section>
 
   <!-- RIGHT: form -->
-  <section class="p-10 lg:p-16 flex flex-col justify-center bg-white">
+  <section class="p-6 lg:p-16 flex flex-col justify-center bg-white order-1 lg:order-2">
     <div class="max-w-md w-full">
       <div class="text-[10px] tracking-widest text-slate-500 uppercase border-t border-slate-200 pt-3 mb-1">Sign in</div>
-      <h2 class="font-black text-4xl tracking-tight">Welcome back, Owner.</h2>
+      <h2 class="font-black text-2xl lg:text-4xl tracking-tight">Welcome back, Owner.</h2>
       <p class="text-slate-500 mt-2">Use a seeded account or your own.</p>
 
       {% if error %}
@@ -72,7 +72,7 @@
       </div>
       {% endif %}
 
-      <form method="post" action="/login" class="mt-8 space-y-5">
+      <form method="post" action="/login" class="mt-6 lg:mt-8 space-y-5">
         <div>
           <label class="text-[10px] tracking-widest text-slate-500 uppercase border-t border-slate-200 pt-3 block">Email</label>
           <input name="email" type="email" required autofocus
@@ -90,7 +90,7 @@
         </button>
       </form>
 
-      <div class="mt-10 border-t border-slate-200 pt-6">
+      <div class="mt-8 lg:mt-10 border-t border-slate-200 pt-6">
         <div class="text-[10px] tracking-widest text-slate-500 uppercase mb-3">Quick switch</div>
         <div class="grid grid-cols-2 gap-3 text-sm">
           <button onclick="quick('owner@sourceborn.in','sourceborn')"

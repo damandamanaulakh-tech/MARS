@@ -20,15 +20,15 @@
 {% endif %}
 
 <div class="text-xs tracking-widest text-ink-faint uppercase mb-3">RESEARCH / WATCHLIST</div>
-<div class="flex items-end justify-between mb-8">
+<div class="flex flex-wrap items-end justify-between gap-3 mb-8">
   <div>
-    <h1 class="font-black text-5xl tracking-tight">Scan &amp; Watchlist</h1>
+    <h1 class="font-black text-3xl lg:text-5xl tracking-tight">Scan &amp; Watchlist</h1>
     <p class="text-ink-soft mt-2">Last scan: {{ last_scan or 'never' }} · {{ picks | length }} archived (cap 50).</p>
   </div>
-  <div class="flex gap-2 items-center">
-    <a href="/scan.csv" class="px-4 py-2 border border-line text-sm font-semibold tracking-wide hover:bg-ink/[0.03]">⬇ CSV</a>
+  <div class="flex flex-wrap gap-2 items-center">
+    <a href="/scan.csv" class="px-4 py-2 border border-line text-sm font-semibold tracking-wide whitespace-nowrap hover:bg-ink/[0.03]">⬇ CSV</a>
     <form action="/scan/run" method="post">
-      <button class="px-4 py-2 bg-ink text-white text-sm font-semibold tracking-wide hover:bg-black"
+      <button class="px-4 py-2 bg-ink text-white text-sm font-semibold tracking-wide whitespace-nowrap hover:bg-black"
               {% if running %}disabled{% endif %}>
         {% if running %}⏳ RUNNING…{% else %}🎯 RUN SCAN NOW{% endif %}
       </button>
@@ -39,11 +39,11 @@
 {% if user and user.role == 'owner' %}
 <!-- 🟢 Owner order ticket: qty / market-limit / stop / target. Blank = engine decides. -->
 <div class="bg-white border border-line mb-6" x-data="{ otype: 'market' }">
-  <div class="px-6 py-3 border-b border-line flex items-center justify-between">
+  <div class="px-4 lg:px-6 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
     <span class="text-xs tracking-widest text-ink-faint uppercase">🟢 Place paper order — blank fields = app decides</span>
     <span class="text-[10px] text-ink-faint">Limit orders: day validity, checked at every engine price pass, expire 15:25</span>
   </div>
-  <form method="post" action="/scan/buy" class="px-6 py-4 flex flex-wrap items-end gap-4"
+  <form method="post" action="/scan/buy" class="px-4 lg:px-6 py-4 flex flex-wrap items-end gap-3 lg:gap-4"
         onsubmit="return confirm('Place ' + this.order_type.value.toUpperCase() + ' BUY for ' + this.ticker.value.toUpperCase() + (this.qty.value ? ' × ' + this.qty.value : ' (auto qty)') + '?');">
     <label class="block">
       <span class="text-[10px] tracking-widest text-ink-faint uppercase block mb-1">Ticker</span>
@@ -72,52 +72,54 @@
       <span class="text-[10px] tracking-widest text-ink-faint uppercase block mb-1">Target % above</span>
       <input name="target_pct" placeholder="5 (preset)" inputmode="decimal" class="w-24 border-b border-line focus:border-ink outline-none py-1.5 text-sm">
     </label>
-    <button class="px-5 py-2 bg-emerald-700 text-white text-sm font-semibold tracking-wide hover:bg-emerald-800">🟢 BUY</button>
+    <button class="px-5 py-2 bg-emerald-700 text-white text-sm font-semibold tracking-wide whitespace-nowrap hover:bg-emerald-800">🟢 BUY</button>
   </form>
 </div>
 
 {% if pending_orders %}
 <div class="bg-white border border-line mb-6">
-  <div class="px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">⏳ Resting limit orders (day validity)</div>
+  <div class="px-4 lg:px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">⏳ Resting limit orders (day validity)</div>
+  <div class="overflow-x-auto">
   <table class="w-full text-sm">
     <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
-      <tr><th class="text-left px-6 py-2">Ticker</th><th class="text-right px-4 py-2">Qty</th>
-          <th class="text-right px-4 py-2">Limit ₹</th><th class="text-right px-4 py-2">Stop/Target</th>
-          <th class="text-left px-4 py-2">Placed</th><th class="text-right px-6 py-2"></th></tr>
+      <tr><th class="text-left px-4 lg:px-6 py-2 whitespace-nowrap">Ticker</th><th class="text-right px-4 py-2 whitespace-nowrap">Qty</th>
+          <th class="text-right px-4 py-2 whitespace-nowrap">Limit ₹</th><th class="text-right px-4 py-2 whitespace-nowrap">Stop/Target</th>
+          <th class="text-left px-4 py-2 whitespace-nowrap">Placed</th><th class="text-right px-4 lg:px-6 py-2"></th></tr>
     </thead>
     <tbody>
       {% for o in pending_orders %}
       <tr class="border-b border-line last:border-0">
-        <td class="px-6 py-2 font-semibold">{{ o.ticker }}</td>
-        <td class="px-4 py-2 tabular-nums text-right">{{ o.qty or 'auto' }}</td>
-        <td class="px-4 py-2 tabular-nums text-right">₹{{ o.limit_price | inr(2) }}</td>
-        <td class="px-4 py-2 tabular-nums text-right text-xs">
+        <td class="px-4 lg:px-6 py-2 font-semibold whitespace-nowrap">{{ o.ticker }}</td>
+        <td class="px-4 py-2 tabular-nums text-right whitespace-nowrap">{{ o.qty or 'auto' }}</td>
+        <td class="px-4 py-2 tabular-nums text-right whitespace-nowrap">₹{{ o.limit_price | inr(2) }}</td>
+        <td class="px-4 py-2 tabular-nums text-right text-xs whitespace-nowrap">
           {% if o.stop_pct %}−{{ o.stop_pct }}%{% else %}preset{% endif %} / {% if o.target_pct %}+{{ o.target_pct }}%{% else %}preset{% endif %}
         </td>
-        <td class="px-4 py-2 text-xs text-ink-faint">{{ o.placed[:16] | replace('T', ' ') }}</td>
-        <td class="px-6 py-2 text-right">
+        <td class="px-4 py-2 text-xs text-ink-faint whitespace-nowrap">{{ o.placed[:16] | replace('T', ' ') }}</td>
+        <td class="px-4 lg:px-6 py-2 text-right">
           <form method="post" action="/scan/order/cancel" onsubmit="return confirm('Cancel this limit order for {{ o.ticker }}?');">
             <input type="hidden" name="order_id" value="{{ o.id }}">
-            <button class="px-3 py-1 border border-red-300 text-red-700 text-xs font-semibold tracking-wide hover:bg-red-50">✕ CANCEL</button>
+            <button class="px-3 py-2 border border-red-300 text-red-700 text-xs font-semibold tracking-wide whitespace-nowrap hover:bg-red-50">✕ CANCEL</button>
           </form>
         </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 {% endif %}
 {% endif %}
 
 {% if be_watch %}
 <div class="bg-white border border-line mb-6">
-  <div class="px-6 py-3 border-b border-line flex items-center justify-between">
+  <div class="px-4 lg:px-6 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
     <span class="text-xs tracking-widest text-ink-faint uppercase">👁 Series-watch — BE/T2T shadow list (engine never auto-buys these)</span>
     <span class="text-[10px] text-ink-faint">MTAR-class visibility · delivery-only series · refreshed daily 08:50</span>
   </div>
-  <div class="px-6 py-3 flex flex-wrap gap-2">
+  <div class="px-4 lg:px-6 py-3 flex flex-wrap gap-2">
     {% for b in be_watch %}
-    <span class="text-xs border border-line px-3 py-1.5 tracking-wide" title="{{ b.name }} · series {{ b.series }}">
+    <span class="text-xs border border-line px-3 py-1.5 tracking-wide whitespace-nowrap" title="{{ b.name }} · series {{ b.series }}">
       <strong>{{ b.trading_symbol }}</strong>
       <span class="{% if b.r126_pct|float >= 0 %}text-emerald-700{% else %}text-red-700{% endif %} font-semibold tabular-nums">{{ '%+.1f' % b.r126_pct|float }}%</span>
       <span class="text-ink-faint">6m</span>
@@ -129,7 +131,7 @@
 
 {% if piano %}
 <div class="bg-white border border-line mb-6">
-  <div class="px-6 py-4 border-b border-line flex items-center justify-between flex-wrap gap-2">
+  <div class="px-4 lg:px-6 py-4 border-b border-line flex items-center justify-between flex-wrap gap-2">
     <div>
       <div class="font-bold">🎹 Parameter Piano — full scan hit-map</div>
       <div class="text-xs text-ink-faint">
@@ -138,20 +140,20 @@
       </div>
     </div>
     <div class="text-right">
-      <div class="font-black text-2xl tabular-nums">{{ piano.hits }} <span class="text-ink-faint font-normal text-base">/ {{ piano.total }}</span></div>
+      <div class="font-black text-xl lg:text-2xl tabular-nums whitespace-nowrap">{{ piano.hits }} <span class="text-ink-faint font-normal text-base">/ {{ piano.total }}</span></div>
       <div class="text-[10px] tracking-widest text-ink-faint uppercase">checks hit</div>
     </div>
   </div>
-  <div class="px-6 py-3 border-b border-line flex flex-wrap gap-4 text-xs">
+  <div class="px-4 lg:px-6 py-3 border-b border-line flex flex-wrap gap-2 lg:gap-4 text-xs">
     <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded-sm" style="background:#059669"></span> Hit</span>
     <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded-sm" style="background:#d97706"></span> Weak / waiting-pattern</span>
     <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded-sm" style="background:#dc2626"></span> Blocked / fail</span>
     <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded-sm border border-line" style="background:#e2e8f0"></span> Waiting / stub (no fake data)</span>
   </div>
-  <div class="px-6 py-4 space-y-4 max-h-[520px] overflow-y-auto">
+  <div class="px-4 lg:px-6 py-4 space-y-4 max-h-[520px] overflow-y-auto overflow-x-hidden">
     {% for s in piano.sections %}
     <div>
-      <div class="flex items-baseline justify-between mb-1.5">
+      <div class="flex flex-wrap items-baseline justify-between gap-2 mb-1.5">
         <a href="/scan/parameter/{{ s.key }}" class="text-xs font-semibold tracking-wide uppercase hover:underline"
            title="Open this parameter: definition + which stocks passed/failed">{{ s.name }} ↗</a>
         <span class="text-xs text-ink-faint tabular-nums">{{ s.hit }}/{{ s.total }}</span>
@@ -169,17 +171,17 @@
   </div>
 </div>
 {% else %}
-<div class="bg-white border border-line mb-6 px-6 py-5 text-sm text-ink-faint">
+<div class="bg-white border border-line mb-6 px-4 lg:px-6 py-5 text-sm text-ink-faint">
   🎹 Parameter Piano appears after the next scan — the hit-map is recorded at scan time (09:20 IST auto-scan or RUN SCAN NOW).
 </div>
 {% endif %}
 
 {% if sector_counts %}
 <div class="bg-white border border-line mb-6">
-  <div class="px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">Scanned picks by sector</div>
-  <div class="px-6 py-4 flex flex-wrap gap-2">
+  <div class="px-4 lg:px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">Scanned picks by sector</div>
+  <div class="px-4 lg:px-6 py-4 flex flex-wrap gap-2">
     {% for sector, n in sector_counts %}
-    <span class="text-xs border border-line px-3 py-1.5 tracking-wide"><strong>{{ sector }}</strong> · {{ n }}</span>
+    <span class="text-xs border border-line px-3 py-1.5 tracking-wide whitespace-nowrap"><strong>{{ sector }}</strong> · {{ n }}</span>
     {% endfor %}
   </div>
 </div>
@@ -187,7 +189,7 @@
 
 {% if v_summary.count %}
 <div class="bg-white border border-line mb-6">
-  <div class="px-6 py-4 border-b border-line flex items-center justify-between">
+  <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
     <div>
       <div class="font-bold">🌗 Shadow book — YES picks we did NOT buy</div>
       <div class="text-xs text-ink-faint">What the gated-out picks actually did (opportunity cost). Paper-only, tracks until target/stop.</div>
@@ -202,21 +204,21 @@
   <div class="overflow-x-auto">
   <table class="w-full text-sm">
     <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
-      <tr><th class="text-left px-6 py-2">Ticker</th><th class="text-right px-4 py-2">Score</th>
-          <th class="text-right px-4 py-2">Entry ₹</th><th class="text-right px-4 py-2">Now ₹</th>
-          <th class="text-right px-4 py-2">Virtual P&amp;L</th><th class="text-left px-4 py-2">Status</th>
-          <th class="text-left px-6 py-2">Why skipped</th></tr>
+      <tr><th class="text-left px-4 lg:px-6 py-2 whitespace-nowrap">Ticker</th><th class="text-right px-4 py-2 whitespace-nowrap">Score</th>
+          <th class="text-right px-4 py-2 whitespace-nowrap">Entry ₹</th><th class="text-right px-4 py-2 whitespace-nowrap">Now ₹</th>
+          <th class="text-right px-4 py-2 whitespace-nowrap">Virtual P&amp;L</th><th class="text-left px-4 py-2 whitespace-nowrap">Status</th>
+          <th class="text-left px-4 lg:px-6 py-2 whitespace-nowrap">Why skipped</th></tr>
     </thead>
     <tbody>
       {% for v in vbook %}
       <tr class="border-b border-line last:border-0">
-        <td class="px-6 py-2 font-semibold">{{ v.ticker }}</td>
-        <td class="px-4 py-2 tabular-nums text-right">{{ v.score }}</td>
-        <td class="px-4 py-2 tabular-nums text-right">₹{{ v.entry_px | inr(2) }}</td>
-        <td class="px-4 py-2 tabular-nums text-right">₹{{ v.last_px | inr(2) }}</td>
-        <td class="px-4 py-2 tabular-nums text-right font-semibold {% if v.pnl_pct >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}">{{ '%+.2f' % v.pnl_pct }}%</td>
-        <td class="px-4 py-2 text-xs uppercase tracking-widest {% if v.status == 'target' %}text-emerald-700{% elif v.status == 'stop' %}text-red-700{% else %}text-ink-faint{% endif %}">{{ v.status }}</td>
-        <td class="px-6 py-2 text-xs text-ink-faint">{{ v.skip_reason }}</td>
+        <td class="px-4 lg:px-6 py-2 font-semibold whitespace-nowrap">{{ v.ticker }}</td>
+        <td class="px-4 py-2 tabular-nums text-right whitespace-nowrap">{{ v.score }}</td>
+        <td class="px-4 py-2 tabular-nums text-right whitespace-nowrap">₹{{ v.entry_px | inr(2) }}</td>
+        <td class="px-4 py-2 tabular-nums text-right whitespace-nowrap">₹{{ v.last_px | inr(2) }}</td>
+        <td class="px-4 py-2 tabular-nums text-right font-semibold whitespace-nowrap {% if v.pnl_pct >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}">{{ '%+.2f' % v.pnl_pct }}%</td>
+        <td class="px-4 py-2 text-xs uppercase tracking-widest whitespace-nowrap {% if v.status == 'target' %}text-emerald-700{% elif v.status == 'stop' %}text-red-700{% else %}text-ink-faint{% endif %}">{{ v.status }}</td>
+        <td class="px-4 lg:px-6 py-2 text-xs text-ink-faint">{{ v.skip_reason }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -252,78 +254,81 @@
 {% endif %}
 
 {% if last_scan %}
-<div class="grid grid-cols-3 gap-4 mb-6">
+<div class="grid grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4 mb-6">
   <div class="bg-white border border-line p-4">
     <div class="text-[10px] tracking-widest text-ink-faint uppercase">Opened this scan</div>
-    <div class="font-black text-2xl tabular-nums text-emerald-700">{{ opened | length }}</div>
-    {% if opened %}<div class="text-xs text-ink-soft mt-1">{{ opened | join(', ') }}</div>{% endif %}
+    <div class="font-black text-xl lg:text-2xl tabular-nums text-emerald-700">{{ opened | length }}</div>
+    {% if opened %}<div class="text-xs text-ink-soft mt-1 break-words">{{ opened | join(', ') }}</div>{% endif %}
   </div>
   <div class="bg-white border border-line p-4">
     <div class="text-[10px] tracking-widest text-ink-faint uppercase">Skipped (gate-blocked)</div>
-    <div class="font-black text-2xl tabular-nums {% if skipped %}text-red-700{% else %}text-ink-faint{% endif %}">{{ skipped | length }}</div>
+    <div class="font-black text-xl lg:text-2xl tabular-nums {% if skipped %}text-red-700{% else %}text-ink-faint{% endif %}">{{ skipped | length }}</div>
   </div>
   <div class="bg-white border border-line p-4">
     <div class="text-[10px] tracking-widest text-ink-faint uppercase">Ranked</div>
-    <div class="font-black text-2xl tabular-nums">{{ picks | length }}</div>
+    <div class="font-black text-xl lg:text-2xl tabular-nums">{{ picks | length }}</div>
   </div>
 </div>
 {% endif %}
 
 {% if skipped %}
 <div class="bg-white border border-line mb-6">
-  <div class="px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">
+  <div class="px-4 lg:px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">
     Why these picks were rejected
   </div>
+  <div class="overflow-x-auto">
   <table class="w-full text-sm">
     <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
       <tr>
-        <th class="text-left px-6 py-3">Ticker</th>
-        <th class="text-left px-6 py-3">Reason</th>
+        <th class="text-left px-4 lg:px-6 py-3 whitespace-nowrap">Ticker</th>
+        <th class="text-left px-4 lg:px-6 py-3 whitespace-nowrap">Reason</th>
       </tr>
     </thead>
     <tbody>
       {% for s in skipped %}
       <tr class="border-b border-line last:border-0">
-        <td class="px-6 py-3 font-semibold">{{ s.ticker }}</td>
-        <td class="px-6 py-3 text-ink-soft font-mono text-xs">{{ s.reason }}</td>
+        <td class="px-4 lg:px-6 py-3 font-semibold whitespace-nowrap">{{ s.ticker }}</td>
+        <td class="px-4 lg:px-6 py-3 text-ink-soft font-mono text-xs">{{ s.reason }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 {% endif %}
 
 {% if picks %}
 <div class="bg-white border border-line">
+  <div class="overflow-x-auto">
   <table class="w-full text-sm">
     <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
       <tr>
-        <th class="text-left px-6 py-3">#</th>
-        <th class="text-left px-6 py-3">Ticker</th>
-        <th class="text-left px-6 py-3">Score</th>
-        <th class="text-left px-6 py-3">Last Close</th>
-        <th class="text-left px-6 py-3">Timing</th>
-        <th class="text-left px-6 py-3">Reasoning</th>
-        {% if user and user.role == 'owner' %}<th class="text-right px-6 py-3">Buy</th>{% endif %}
+        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">#</th>
+        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Ticker</th>
+        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Score</th>
+        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Last Close</th>
+        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Timing</th>
+        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Reasoning</th>
+        {% if user and user.role == 'owner' %}<th class="text-right px-3 lg:px-6 py-3 whitespace-nowrap">Buy</th>{% endif %}
       </tr>
     </thead>
     <tbody>
       {% for p in picks %}
       <tr class="border-b border-line last:border-0">
-        <td class="px-6 py-3 text-ink-faint">{{ loop.index }}</td>
-        <td class="px-6 py-3 font-semibold">{{ p.ticker }}</td>
-        <td class="px-6 py-3 tabular-nums {% if p.score >= 70 %}font-bold{% endif %}">{{ p.score | round(2) }}</td>
-        <td class="px-6 py-3 tabular-nums">₹{{ p.last_close | inr(2) }}</td>
-        <td class="px-6 py-3 uppercase text-xs tracking-widest {% if p.timing_pass %}text-emerald-700{% else %}text-ink-faint{% endif %}">
+        <td class="px-3 lg:px-6 py-3 text-ink-faint whitespace-nowrap">{{ loop.index }}</td>
+        <td class="px-3 lg:px-6 py-3 font-semibold whitespace-nowrap">{{ p.ticker }}</td>
+        <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap {% if p.score >= 70 %}font-bold{% endif %}">{{ p.score | round(2) }}</td>
+        <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap">₹{{ p.last_close | inr(2) }}</td>
+        <td class="px-3 lg:px-6 py-3 uppercase text-xs tracking-widest whitespace-nowrap {% if p.timing_pass %}text-emerald-700{% else %}text-ink-faint{% endif %}">
           {% if p.timing_pass %}YES{% else %}no{% endif %}
         </td>
-        <td class="px-6 py-3 text-ink-soft max-w-md truncate">{{ p.reasoning }}</td>
+        <td class="px-3 lg:px-6 py-3 text-ink-soft max-w-md truncate">{{ p.reasoning }}</td>
         {% if user and user.role == 'owner' %}
-        <td class="px-6 py-3 text-right">
+        <td class="px-3 lg:px-6 py-3 text-right">
           <form method="post" action="/scan/buy"
                 onsubmit="return confirm('Open {{ p.ticker }} as a MOMENTUM paper position at the live price?');">
             <input type="hidden" name="ticker" value="{{ p.ticker }}">
-            <button class="px-3 py-1.5 bg-emerald-700 text-white text-xs font-semibold tracking-wide hover:bg-emerald-800">🟢 BUY</button>
+            <button class="px-3 py-2 bg-emerald-700 text-white text-xs font-semibold tracking-wide whitespace-nowrap hover:bg-emerald-800">🟢 BUY</button>
           </form>
         </td>
         {% endif %}
@@ -331,9 +336,10 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 {% else %}
-<div class="bg-white border border-line p-10 text-center text-ink-faint">
+<div class="bg-white border border-line p-6 lg:p-10 text-center text-ink-faint">
   No scan run yet — tap <strong>Run Scan Now</strong> to pull live NSE data 🎯
 </div>
 {% endif %}

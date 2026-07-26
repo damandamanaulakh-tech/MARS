@@ -2,34 +2,34 @@
 {% block title %}Open Positions — Sourceborn AM07{% endblock %}
 {% block content %}
 <div class="text-xs tracking-widest text-ink-faint uppercase mb-3">PORTFOLIO / OPEN POSITIONS</div>
-<div class="flex items-end justify-between mb-8" x-data="{ adding: false }">
+<div class="flex flex-wrap items-end justify-between gap-4 mb-6 lg:mb-8" x-data="{ adding: false }">
   <div>
-    <h1 class="font-black text-5xl tracking-tight">Open Positions</h1>
+    <h1 class="font-black text-3xl lg:text-5xl tracking-tight">Open Positions</h1>
     <p class="text-ink-soft mt-2">
       {{ rows | length }} of {{ max_positions }} max slots in use.
     </p>
   </div>
-  <div class="flex gap-2">
+  <div class="flex flex-wrap gap-2">
     <form action="/positions/seed-mine" method="post">
-      <button class="px-4 py-2 border border-line text-sm font-semibold tracking-wide hover:bg-ink/[0.03]"
+      <button class="px-4 py-2 border border-line text-sm font-semibold tracking-wide hover:bg-ink/[0.03] whitespace-nowrap"
               title="Adds the {{ seed_count }} June-2026 holdings (idempotent — won't duplicate)">
         🌱 SEED MY HOLDINGS
       </button>
     </form>
     <button @click="adding = !adding"
-            class="px-4 py-2 bg-ink text-white text-sm font-semibold tracking-wide hover:bg-black">
+            class="px-4 py-2 bg-ink text-white text-sm font-semibold tracking-wide hover:bg-black whitespace-nowrap">
       + ADD MANUAL
     </button>
   </div>
 
   <div x-show="adding" x-cloak
-       class="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+       class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
        @click.self="adding = false">
-    <div class="bg-white border border-line p-6 w-[480px]">
+    <div class="bg-white border border-line p-4 lg:p-6 w-full max-w-[480px] max-h-[90vh] overflow-y-auto">
       <div class="font-bold text-lg mb-1">Add manual position</div>
       <div class="text-xs text-ink-faint mb-4">Use this for real holdings you want to track alongside paper trades.</div>
       <form action="/positions/new" method="post" class="space-y-3 text-sm">
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label class="block">
             <span class="text-[10px] tracking-widest text-ink-faint uppercase">Ticker</span>
             <input name="ticker" required placeholder="HDFCBANK.NS"
@@ -66,10 +66,10 @@
           <textarea name="entry_notes" rows="2" placeholder="Why I bought..."
                     class="w-full border border-line p-2 mt-1"></textarea>
         </label>
-        <div class="flex justify-end gap-2 pt-2">
+        <div class="flex flex-wrap justify-end gap-2 pt-2">
           <button type="button" @click="adding = false"
-                  class="px-4 py-2 border border-line text-xs font-semibold tracking-widest uppercase">Cancel</button>
-          <button class="px-4 py-2 bg-ink text-white text-xs font-semibold tracking-widest uppercase">Add Position</button>
+                  class="px-4 py-2 border border-line text-xs font-semibold tracking-widest uppercase whitespace-nowrap">Cancel</button>
+          <button class="px-4 py-2 bg-ink text-white text-xs font-semibold tracking-widest uppercase whitespace-nowrap">Add Position</button>
         </div>
       </form>
     </div>
@@ -103,55 +103,55 @@
   <table class="w-full text-sm">
     <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
       <tr>
-        <th class="text-left px-4 py-3">Ticker</th>
-        <th class="text-right px-4 py-3">Qty</th>
-        <th class="text-right px-4 py-3">Entry ₹</th>
-        <th class="text-right px-4 py-3">Current ₹</th>
-        <th class="text-right px-4 py-3">Value ₹</th>
-        <th class="text-right px-4 py-3">P&amp;L</th>
-        <th class="text-right px-4 py-3" title="Gain left if the target is reached from the current price">To Target</th>
-        <th class="text-right px-4 py-3" title="Loss if the stop-loss is hit from the current price">To Stop Loss</th>
-        <th class="text-right px-4 py-3">Actions</th>
+        <th class="text-left px-3 lg:px-4 py-3">Ticker</th>
+        <th class="text-right px-3 lg:px-4 py-3">Qty</th>
+        <th class="text-right px-3 lg:px-4 py-3">Entry ₹</th>
+        <th class="text-right px-3 lg:px-4 py-3">Current ₹</th>
+        <th class="text-right px-3 lg:px-4 py-3">Value ₹</th>
+        <th class="text-right px-3 lg:px-4 py-3">P&amp;L</th>
+        <th class="text-right px-3 lg:px-4 py-3" title="Gain left if the target is reached from the current price">To Target</th>
+        <th class="text-right px-3 lg:px-4 py-3" title="Loss if the stop-loss is hit from the current price">To Stop Loss</th>
+        <th class="text-right px-3 lg:px-4 py-3">Actions</th>
       </tr>
     </thead>
     <tbody x-data="{ open: null }">
       {% for r in rows %}
       <tr class="border-b border-line last:border-0 hover:bg-ink/[0.02] {% if r.decay_watch %}bg-amber-50{% endif %}">
-        <td class="px-4 py-4 font-semibold whitespace-nowrap">{{ r.ticker }}
+        <td class="px-3 lg:px-4 py-4 font-semibold whitespace-nowrap">{{ r.ticker }}
           {% if r.decay_watch %}<span class="ml-1 text-[10px] text-amber-700 font-bold" title="Score {{ r.current_score | round(0) }} near decay-exit floor {{ r.decay_floor | round(0) }} — may be sold on decay">⚠ DECAY</span>{% endif %}</td>
-        <td class="px-4 py-4 tabular-nums text-right">{{ r.qty }}</td>
-        <td class="px-4 py-4 tabular-nums text-right">₹{{ r.entry_price | inr(2) }}</td>
-        <td class="px-4 py-4 tabular-nums text-right font-semibold">₹{{ r.ltp | inr(2) }}</td>
-        <td class="px-4 py-4 tabular-nums text-right">₹{{ r.value | inr }}</td>
-        <td class="px-4 py-4 tabular-nums text-right font-semibold {% if r.pnl >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}">
+        <td class="px-3 lg:px-4 py-4 tabular-nums text-right whitespace-nowrap">{{ r.qty }}</td>
+        <td class="px-3 lg:px-4 py-4 tabular-nums text-right whitespace-nowrap">₹{{ r.entry_price | inr(2) }}</td>
+        <td class="px-3 lg:px-4 py-4 tabular-nums text-right font-semibold whitespace-nowrap">₹{{ r.ltp | inr(2) }}</td>
+        <td class="px-3 lg:px-4 py-4 tabular-nums text-right whitespace-nowrap">₹{{ r.value | inr }}</td>
+        <td class="px-3 lg:px-4 py-4 tabular-nums text-right font-semibold whitespace-nowrap {% if r.pnl >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}">
           {{ '+' if r.pnl >= 0 }}₹{{ r.pnl | inr }}<div class="text-xs font-normal">{{ '%+.2f' % r.pnl_pct }}%</div>
         </td>
-        <td class="px-4 py-4 tabular-nums text-right text-emerald-700">
+        <td class="px-3 lg:px-4 py-4 tabular-nums text-right text-emerald-700 whitespace-nowrap">
           {% if r.to_target_pct <= 0 %}<span class="font-semibold" title="Price is already beyond the target — exit fires on the next refresh">🎯 target passed</span>
           {% else %}{{ '%+.1f' % r.to_target_pct }}%{% endif %}<div class="text-xs text-ink-faint">₹{{ r.target_price | inr(2) }}</div>
         </td>
-        <td class="px-4 py-4 tabular-nums text-right text-red-700">
+        <td class="px-3 lg:px-4 py-4 tabular-nums text-right text-red-700 whitespace-nowrap">
           {{ '%+.1f' % r.to_stop_pct }}%<div class="text-xs text-ink-faint">₹{{ r.stop_price | inr(2) }}</div>
         </td>
-        <td class="px-4 py-4 whitespace-nowrap text-right">
+        <td class="px-3 lg:px-4 py-4 whitespace-nowrap text-right">
           <button @click="open = open === '{{ r.ticker }}' ? null : '{{ r.ticker }}'"
-                  class="text-xs tracking-widest uppercase text-ink-faint hover:text-ink">
+                  class="inline-block px-2 py-2 text-xs tracking-widest uppercase text-ink-faint hover:text-ink whitespace-nowrap">
             ▸ DETAILS
           </button>
           <form action="/positions/{{ r.ticker }}/remove" method="post" class="inline"
                 onsubmit="return confirm('Remove {{ r.ticker }} from the book? Its cash is refunded.');">
-            <button class="text-xs tracking-widest uppercase text-red-600 hover:text-red-800 ml-3">✕</button>
+            <button class="inline-block px-2 py-2 text-xs tracking-widest uppercase text-red-600 hover:text-red-800 ml-3 whitespace-nowrap">✕</button>
           </form>
         </td>
       </tr>
       <tr x-show="open === '{{ r.ticker }}'" x-cloak>
-        <td colspan="9" class="px-6 py-4 bg-ink/[0.02] border-t border-line">
+        <td colspan="9" class="px-4 lg:px-6 py-4 bg-ink/[0.02] border-t border-line">
           <div class="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm mb-4">
             <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">Category</div>{{ r.category }}</div>
-            <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">Entry Date</div>{{ r.entry_date }}</div>
+            <div class="whitespace-nowrap"><div class="text-[10px] tracking-widest text-ink-faint uppercase">Entry Date</div>{{ r.entry_date }}</div>
             <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">Sector</div>{{ r.sector }}</div>
-            <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">Score at Entry</div>{{ r.entry_score | round(1) }}</div>
-            <div><div class="text-[10px] tracking-widest text-ink-faint uppercase" title="Highest price since entry — the trailing stop hangs off this">Peak ₹</div>₹{{ r.peak_price | inr(2) }}</div>
+            <div class="whitespace-nowrap"><div class="text-[10px] tracking-widest text-ink-faint uppercase">Score at Entry</div>{{ r.entry_score | round(1) }}</div>
+            <div class="whitespace-nowrap"><div class="text-[10px] tracking-widest text-ink-faint uppercase" title="Highest price since entry — the trailing stop hangs off this">Peak ₹</div>₹{{ r.peak_price | inr(2) }}</div>
             <div><div class="text-[10px] tracking-widest text-ink-faint uppercase" title="Engine already sold part of this position (crash-brake / partial booking)">Partial Exit</div>
               {% if r.partial_taken %}<span class="text-accent font-semibold">Booked</span>{% else %}—{% endif %}</div>
           </div>
@@ -173,7 +173,7 @@
                      placeholder="e.g. earnings_play, momentum"
                      value="{{ r.tags | join(', ') }}">
             </div>
-            <button class="px-4 py-2 bg-ink text-white text-xs font-semibold tracking-widest uppercase">Save</button>
+            <button class="px-4 py-2 bg-ink text-white text-xs font-semibold tracking-widest uppercase whitespace-nowrap">Save</button>
           </form>
         </td>
       </tr>
@@ -181,20 +181,20 @@
     </tbody>
     <tfoot class="border-t-2 border-ink/20 font-semibold">
       <tr>
-        <td class="px-4 py-4" colspan="2">TOTAL</td>
-        <td class="px-4 py-4 tabular-nums text-right text-ink-faint">₹{{ totals.invested | inr }}</td>
-        <td class="px-4 py-4"></td>
-        <td class="px-4 py-4 tabular-nums text-right">₹{{ totals.value | inr }}</td>
-        <td class="px-4 py-4 tabular-nums text-right {% if totals.pnl >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}">
+        <td class="px-3 lg:px-4 py-4 whitespace-nowrap" colspan="2">TOTAL</td>
+        <td class="px-3 lg:px-4 py-4 tabular-nums text-right text-ink-faint whitespace-nowrap">₹{{ totals.invested | inr }}</td>
+        <td class="px-3 lg:px-4 py-4"></td>
+        <td class="px-3 lg:px-4 py-4 tabular-nums text-right whitespace-nowrap">₹{{ totals.value | inr }}</td>
+        <td class="px-3 lg:px-4 py-4 tabular-nums text-right whitespace-nowrap {% if totals.pnl >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}">
           {{ '+' if totals.pnl >= 0 }}₹{{ totals.pnl | inr }}<div class="text-xs font-normal">{{ '%+.2f' % totals.pnl_pct }}%</div>
         </td>
-        <td class="px-4 py-4" colspan="3"></td>
+        <td class="px-3 lg:px-4 py-4" colspan="3"></td>
       </tr>
     </tfoot>
   </table>
 </div>
 {% else %}
-<div class="bg-white border border-line p-10 text-center text-ink-faint">
+<div class="bg-white border border-line p-6 lg:p-10 text-center text-ink-faint">
   No open positions. Tap <strong>Run Scan</strong> from the Dashboard 🎯
 </div>
 {% endif %}

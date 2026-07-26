@@ -2,9 +2,9 @@
 {% block title %}Settings — Sourceborn AM07{% endblock %}
 {% block content %}
 <div class="text-xs tracking-widest text-ink-faint uppercase mb-3">CONFIG / EDITABLE</div>
-<div class="flex items-end justify-between mb-8">
+<div class="flex flex-wrap items-end justify-between gap-3 mb-6 lg:mb-8">
   <div>
-    <h1 class="font-black text-5xl tracking-tight">Strategy Settings</h1>
+    <h1 class="font-black text-3xl lg:text-5xl tracking-tight">Strategy Settings</h1>
     <p class="text-ink-soft mt-2">Tune capital, risk, and entry thresholds. Owner role required.</p>
   </div>
 </div>
@@ -28,13 +28,13 @@
 
   <!-- MODE SELECTOR -->
   <div class="bg-white border border-line">
-    <div class="px-6 py-4 border-b border-line flex items-center justify-between">
+    <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
       <div>
         <div class="font-bold">Trading Mode</div>
         <div class="text-xs text-ink-faint">Currently: <strong>{{ current_mode | upper }}</strong> &middot; switching mode resets all stop/target/holding presets</div>
       </div>
     </div>
-    <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-3">
+    <div class="p-4 lg:p-6 grid grid-cols-1 md:grid-cols-2 gap-3">
       {% for value, label, desc in modes %}
       <label class="flex items-start gap-3 border border-line p-4 cursor-pointer
                     {% if current_mode == value %}border-ink/80 bg-ink/[0.02]{% endif %}
@@ -52,10 +52,10 @@
   </div>
   {% for group, items in groups.items() %}
   <div class="bg-white border border-line">
-    <div class="px-6 py-4 border-b border-line">
+    <div class="px-4 lg:px-6 py-4 border-b border-line">
       <div class="font-bold">{{ group }}</div>
     </div>
-    <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="p-4 lg:p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
       {% for item in items %}
       <div>
         <label class="text-[10px] tracking-widest text-ink-faint uppercase border-t border-line pt-3 block">{{ item.label }}</label>
@@ -72,14 +72,14 @@
   </div>
   {% endfor %}
 
-  <div class="flex flex-wrap items-center justify-between gap-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
     <button type="submit"
-            class="px-6 py-3 bg-ink text-white font-semibold tracking-wide hover:bg-black">
+            class="w-full sm:w-auto px-6 py-3 bg-ink text-white font-semibold tracking-wide hover:bg-black whitespace-nowrap">
       SAVE CHANGES &rarr;
     </button>
     <button type="button"
             onclick="document.getElementById('reset-form').requestSubmit()"
-            class="px-6 py-3 border border-line text-sm font-semibold tracking-wide text-ink-soft hover:border-amber-400 hover:text-amber-700">
+            class="w-full sm:w-auto px-6 py-3 border border-line text-sm font-semibold tracking-wide text-ink-soft hover:border-amber-400 hover:text-amber-700 whitespace-nowrap">
       ⟳ RESET TO DEFAULTS
     </button>
   </div>

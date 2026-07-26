@@ -2,17 +2,17 @@
 {% block content %}
 <div class="mb-6 flex items-end justify-between flex-wrap gap-4">
   <div>
-    <h1 class="text-4xl font-black tracking-tight">Signal</h1>
+    <h1 class="text-3xl lg:text-4xl font-black tracking-tight">Signal</h1>
     <p class="text-ink-soft mt-1 text-sm">
       One string per parameter. Amplitude = live score · harmonics = weight ·
       <span class="font-semibold">flat string = no data</span>.
     </p>
   </div>
   {% if tickers %}
-  <form method="get" action="/signal" class="flex items-center gap-2">
-    <label for="tk" class="text-xs uppercase tracking-widest text-ink-faint">stock</label>
+  <form method="get" action="/signal" class="flex items-center flex-wrap gap-2">
+    <label for="tk" class="text-xs uppercase tracking-widest text-ink-faint whitespace-nowrap">stock</label>
     <select id="tk" name="ticker" onchange="this.form.submit()"
-            class="border border-line rounded-md px-3 py-2 text-sm font-semibold bg-white">
+            class="border border-line rounded-md px-3 py-2 text-sm font-semibold bg-white max-w-full">
       {% for t in tickers %}
         <option value="{{ t }}" {% if t == selected %}selected{% endif %}>{{ t }}</option>
       {% endfor %}
@@ -22,7 +22,7 @@
 </div>
 
 {% if not rows %}
-  <div class="border border-dashed border-line rounded-xl p-16 text-center">
+  <div class="border border-dashed border-line rounded-xl p-8 lg:p-16 text-center">
     <div class="text-lg font-semibold">No scored stock yet</div>
     <p class="text-ink-soft text-sm mt-2">
       Run a scan or open a position — the strings render from the live
@@ -32,9 +32,9 @@
 {% else %}
 
 <div class="rounded-xl overflow-hidden border border-line" style="background:#2b2b2b">
-  <div class="px-6 pt-5 pb-1 flex items-baseline justify-between flex-wrap gap-3">
+  <div class="px-4 lg:px-6 pt-5 pb-1 flex items-baseline justify-between flex-wrap gap-3">
     <div>
-      <div class="text-white text-2xl font-black tracking-tight" style="font-family:Georgia,serif">
+      <div class="text-white text-xl lg:text-2xl font-black tracking-tight" style="font-family:Georgia,serif">
         {{ selected }}
       </div>
       <div class="text-[12px] mt-0.5" style="color:#9aa3ad">
@@ -46,20 +46,22 @@
     {% if pick and pick.entry_score is defined %}
     <div class="text-right">
       <div class="text-[10px] uppercase tracking-widest" style="color:#9aa3ad">total</div>
-      <div class="text-white text-3xl font-black">{{ pick.entry_score | round(1) }}</div>
+      <div class="text-white text-2xl lg:text-3xl font-black">{{ pick.entry_score | round(1) }}</div>
     </div>
     {% endif %}
   </div>
 
   <div class="px-4 pb-4">
-    <svg id="strings" width="100%" viewBox="0 0 1000 520" role="img" style="display:block">
+    <div class="overflow-x-auto">
+    <svg id="strings" class="w-full min-w-[600px]" width="100%" viewBox="0 0 1000 520" role="img" style="display:block">
       <title>Standing-wave parameter view for {{ selected }}</title>
       <desc>One vertical string per scoring factor; amplitude is the factor's score,
             harmonic count is its weight. Factors with no data source are drawn flat.</desc>
     </svg>
+    </div>
   </div>
 
-  <div class="px-6 pb-5 flex gap-5 flex-wrap text-[11px]" style="color:#9aa3ad">
+  <div class="px-4 lg:px-6 pb-5 flex gap-3 lg:gap-5 flex-wrap text-[11px]" style="color:#9aa3ad">
     <span>◠ wide envelope = high score</span>
     <span>≋ more nodes = heavier weight</span>
     <span>— flat = no data source (cannot resonate, cannot fake a 50)</span>
@@ -69,15 +71,15 @@
 <div class="mt-6 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
   {% for r in rows %}
   <div class="border rounded-lg px-4 py-3 {% if r.stub %}border-dashed border-line bg-slate-50{% else %}border-line bg-white{% endif %}">
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <span class="inline-block w-2.5 h-2.5 rounded-full" style="background:{{ r.colour }}"></span>
+    <div class="flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="inline-block w-2.5 h-2.5 rounded-full shrink-0" style="background:{{ r.colour }}"></span>
         <span class="text-sm font-semibold">{{ r.label }}</span>
       </div>
       {% if r.stub %}
-        <span class="text-[10px] uppercase tracking-wider text-ink-faint">no data</span>
+        <span class="text-[10px] uppercase tracking-wider text-ink-faint whitespace-nowrap">no data</span>
       {% else %}
-        <span class="text-lg font-black">{{ r.score | round(0) | int }}</span>
+        <span class="text-lg font-black whitespace-nowrap">{{ r.score | round(0) | int }}</span>
       {% endif %}
     </div>
     <div class="text-[11px] text-ink-faint mt-1">

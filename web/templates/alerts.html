@@ -2,13 +2,13 @@
 {% block title %}Alerts — Sourceborn AM07{% endblock %}
 {% block content %}
 <div class="text-xs tracking-widest text-ink-faint uppercase mb-3">NOTIFICATIONS / ALERTS</div>
-<div class="flex items-end justify-between mb-8">
+<div class="flex flex-wrap items-end justify-between gap-3 mb-6 lg:mb-8">
   <div>
-    <h1 class="font-black text-5xl tracking-tight">Alerts</h1>
+    <h1 class="font-black text-3xl lg:text-5xl tracking-tight">Alerts</h1>
     <p class="text-ink-soft mt-2">Slack + email push for drawdown escalations, regime switches, kill switches.</p>
   </div>
   <form action="/alerts/test" method="post">
-    <button class="px-4 py-2 bg-ink text-white text-sm font-semibold tracking-wide hover:bg-black">📨 SEND TEST</button>
+    <button class="px-4 py-2 bg-ink text-white text-sm font-semibold tracking-wide hover:bg-black whitespace-nowrap">📨 SEND TEST</button>
   </form>
 </div>
 
@@ -19,7 +19,7 @@
 <div class="bg-red-50 border border-red-300 text-red-900 p-3 mb-4 text-sm">Could not send: <strong>{{ error }}</strong></div>
 {% endif %}
 
-<details class="bg-white border border-line p-5 mb-6" open>
+<details class="bg-white border border-line p-4 lg:p-5 mb-6" open>
   <summary class="cursor-pointer font-bold text-sm select-none">ℹ️ What is this page asking for?</summary>
   <div class="mt-3 text-sm text-ink-soft space-y-2">
     <p>
@@ -47,19 +47,19 @@
   </div>
 </details>
 
-<div class="grid grid-cols-2 gap-4 mb-6">
-  <div class="bg-white border border-line p-5 {% if status.slack_configured %}border-l-4 border-l-emerald-500{% else %}border-l-4 border-l-slate-300{% endif %}">
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+  <div class="bg-white border border-line p-4 lg:p-5 {% if status.slack_configured %}border-l-4 border-l-emerald-500{% else %}border-l-4 border-l-slate-300{% endif %}">
     <div class="text-[10px] tracking-widest text-ink-faint uppercase">Slack Webhook</div>
-    <div class="font-black text-2xl mt-1">
+    <div class="font-black text-xl lg:text-2xl mt-1">
       {% if status.slack_configured %}<span class="text-emerald-700">CONFIGURED</span>{% else %}<span class="text-ink-faint">NOT SET</span>{% endif %}
     </div>
     <div class="text-xs text-ink-soft mt-2">
       Set <code class="bg-slate-100 px-1">SLACK_WEBHOOK_URL</code> env var in Render.
     </div>
   </div>
-  <div class="bg-white border border-line p-5 {% if status.email_configured %}border-l-4 border-l-emerald-500{% else %}border-l-4 border-l-slate-300{% endif %}">
+  <div class="bg-white border border-line p-4 lg:p-5 {% if status.email_configured %}border-l-4 border-l-emerald-500{% else %}border-l-4 border-l-slate-300{% endif %}">
     <div class="text-[10px] tracking-widest text-ink-faint uppercase">Email (SMTP)</div>
-    <div class="font-black text-2xl mt-1">
+    <div class="font-black text-xl lg:text-2xl mt-1">
       {% if status.email_configured %}<span class="text-emerald-700">CONFIGURED</span>{% else %}<span class="text-ink-faint">NOT SET</span>{% endif %}
     </div>
     <div class="text-xs text-ink-soft mt-2">
@@ -69,8 +69,8 @@
 </div>
 
 <div class="bg-white border border-line mb-6">
-  <div class="px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">Alert triggers (auto-fired)</div>
-  <ul class="px-6 py-4 text-sm text-ink-soft space-y-2">
+  <div class="px-4 lg:px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">Alert triggers (auto-fired)</div>
+  <ul class="px-4 lg:px-6 py-4 text-sm text-ink-soft space-y-2">
     <li>• <strong>Drawdown escalation</strong> — fires when DrawdownGovernor crosses to stop_adding / cut_half / mostly_cash / full_halt</li>
     <li>• <strong>Regime switch</strong> — fires when Nifty regime classifier transitions (bull_extension / neutral / correction / panic)</li>
     <li>• <strong>Kill switch</strong> — fires when daily loss halt triggers</li>
@@ -80,43 +80,47 @@
 
 {% if regime_history %}
 <div class="bg-white border border-line mb-6">
-  <div class="px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">Recent regime switches</div>
+  <div class="px-4 lg:px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">Recent regime switches</div>
+  <div class="overflow-x-auto">
   <table class="w-full text-sm">
     <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
       <tr>
-        <th class="text-left px-6 py-3">When</th>
-        <th class="text-left px-6 py-3">From</th>
-        <th class="text-left px-6 py-3">To</th>
-        <th class="text-left px-6 py-3">Reason</th>
+        <th class="text-left px-4 lg:px-6 py-3 whitespace-nowrap">When</th>
+        <th class="text-left px-4 lg:px-6 py-3 whitespace-nowrap">From</th>
+        <th class="text-left px-4 lg:px-6 py-3 whitespace-nowrap">To</th>
+        <th class="text-left px-4 lg:px-6 py-3 whitespace-nowrap">Reason</th>
       </tr>
     </thead>
     <tbody>
       {% for r in regime_history %}
       <tr class="border-b border-line last:border-0">
-        <td class="px-6 py-3 font-mono text-xs">{{ r.ts[:19] }}</td>
-        <td class="px-6 py-3 text-ink-faint uppercase text-xs tracking-widest">{{ r.prev or '—' }}</td>
-        <td class="px-6 py-3 font-bold uppercase text-xs tracking-widest">{{ r.new }}</td>
-        <td class="px-6 py-3 text-ink-soft">{{ r.reason }}</td>
+        <td class="px-4 lg:px-6 py-3 font-mono text-xs whitespace-nowrap">{{ r.ts[:19] }}</td>
+        <td class="px-4 lg:px-6 py-3 text-ink-faint uppercase text-xs tracking-widest whitespace-nowrap">{{ r.prev or '—' }}</td>
+        <td class="px-4 lg:px-6 py-3 font-bold uppercase text-xs tracking-widest whitespace-nowrap">{{ r.new }}</td>
+        <td class="px-4 lg:px-6 py-3 text-ink-soft">{{ r.reason }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 {% endif %}
 
 {% if status.recent %}
 <div class="bg-white border border-line">
-  <div class="px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">Recent alerts (in-memory log)</div>
+  <div class="px-4 lg:px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">Recent alerts (in-memory log)</div>
+  <div class="overflow-x-auto">
   <table class="w-full text-sm">
     <tbody>
       {% for r in status.recent %}
       <tr class="border-b border-line last:border-0">
-        <td class="px-6 py-3 font-mono text-xs">{{ r.fingerprint }}</td>
-        <td class="px-6 py-3 text-right text-ink-faint">{{ r.minutes_ago }} min ago</td>
+        <td class="px-4 lg:px-6 py-3 font-mono text-xs">{{ r.fingerprint }}</td>
+        <td class="px-4 lg:px-6 py-3 text-right text-ink-faint whitespace-nowrap">{{ r.minutes_ago }} min ago</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 {% endif %}
 {% endblock %}

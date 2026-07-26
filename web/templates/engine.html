@@ -2,9 +2,9 @@
 {% block title %}Engine Regime — Sourceborn AM07{% endblock %}
 {% block content %}
 <div class="text-xs tracking-widest text-ink-faint uppercase mb-3">DUAL-REGIME / MASTER SWITCH</div>
-<div class="flex items-end justify-between mb-8">
+<div class="flex flex-wrap items-end justify-between gap-2 mb-8">
   <div>
-    <h1 class="font-black text-5xl tracking-tight">Engine Status</h1>
+    <h1 class="font-black text-3xl lg:text-5xl tracking-tight">Engine Status</h1>
     <p class="text-ink-soft mt-2">
       Which engine is live right now and why. Refreshes every 15 min automatically.
     </p>
@@ -39,9 +39,9 @@
   </div>
 </details>
 
-<div class="flex justify-end mb-6">
+<div class="flex flex-wrap justify-end gap-2 mb-6">
   <form method="post" action="/engine/refresh">
-    <button class="px-4 py-2 border border-line text-sm font-semibold tracking-wide hover:bg-ink/[0.03]">
+    <button class="px-4 py-2 border border-line text-sm font-semibold tracking-wide whitespace-nowrap hover:bg-ink/[0.03]">
       ⟳ REFRESH REGIME
     </button>
   </form>
@@ -51,15 +51,15 @@
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
 
   <!-- Everest -->
-  <div class="bg-white border border-line p-6 {% if regime.everest_active %}border-2 border-emerald-500{% endif %}">
-    <div class="flex items-center justify-between mb-2">
+  <div class="bg-white border border-line p-4 lg:p-6 {% if regime.everest_active %}border-2 border-emerald-500{% endif %}">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
       <div class="text-xs tracking-widest text-ink-faint uppercase">🏔️ EVEREST · Momentum / Breakout</div>
-      <span class="px-3 py-1 text-xs font-bold tracking-widest uppercase
+      <span class="px-3 py-1 text-xs font-bold tracking-widest uppercase whitespace-nowrap
                    {% if regime.everest_active %}bg-emerald-500 text-white{% else %}bg-slate-200 text-slate-500{% endif %}">
         {% if regime.everest_active %}ACTIVE{% else %}DORMANT{% endif %}
       </span>
     </div>
-    <div class="mt-4 font-black text-3xl tabular-nums">
+    <div class="mt-4 font-black text-2xl lg:text-3xl tabular-nums">
       {{ "%.0f%%"|format(regime.sizing_multiplier_everest * 100) }} size
     </div>
     <div class="text-sm text-ink-faint mt-2">
@@ -68,15 +68,15 @@
   </div>
 
   <!-- Ocean -->
-  <div class="bg-white border border-line p-6 {% if regime.ocean_active %}border-2 border-blue-600{% endif %}">
-    <div class="flex items-center justify-between mb-2">
+  <div class="bg-white border border-line p-4 lg:p-6 {% if regime.ocean_active %}border-2 border-blue-600{% endif %}">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
       <div class="text-xs tracking-widest text-ink-faint uppercase">🌊 OCEAN · Deep Reversion</div>
-      <span class="px-3 py-1 text-xs font-bold tracking-widest uppercase
+      <span class="px-3 py-1 text-xs font-bold tracking-widest uppercase whitespace-nowrap
                    {% if regime.ocean_active %}bg-blue-600 text-white{% else %}bg-slate-200 text-slate-500{% endif %}">
         {% if regime.ocean_active %}ACTIVE{% else %}DORMANT{% endif %}
       </span>
     </div>
-    <div class="mt-4 font-black text-3xl tabular-nums">
+    <div class="mt-4 font-black text-2xl lg:text-3xl tabular-nums">
       {{ "%.0f%%"|format(regime.sizing_multiplier_ocean * 100) }} size
     </div>
     <div class="text-sm text-ink-faint mt-2">
@@ -86,35 +86,37 @@
 </div>
 
 <!-- Reasoning -->
-<div class="bg-white border border-line p-6 mb-8">
+<div class="bg-white border border-line p-4 lg:p-6 mb-8">
   <div class="text-xs tracking-widest text-ink-faint uppercase mb-3">CURRENT REGIME</div>
-  <div class="font-bold text-2xl tracking-tight mb-2">
+  <div class="font-bold text-xl lg:text-2xl tracking-tight mb-2">
     {{ regime.regime|upper|replace('_', ' ') }}
   </div>
   <div class="text-sm text-ink-soft">{{ regime.reasoning }}</div>
 </div>
 
 <!-- Raw inputs -->
-<div class="bg-white border border-line p-6">
+<div class="bg-white border border-line p-4 lg:p-6">
   <div class="font-bold mb-4">Raw inputs (refreshed every 15 min)</div>
+  <div class="overflow-x-auto">
   <table class="w-full text-sm">
     <tbody class="divide-y divide-line">
       <tr><td class="py-2 text-ink-faint w-1/2">Nifty 50 close</td>
-          <td class="py-2 text-right tabular-nums">{{ "%.0f"|format(regime.nifty_close) if regime.nifty_close else '—' }}</td></tr>
+          <td class="py-2 text-right tabular-nums whitespace-nowrap">{{ "%.0f"|format(regime.nifty_close) if regime.nifty_close else '—' }}</td></tr>
       <tr><td class="py-2 text-ink-faint">Nifty 200-DMA</td>
-          <td class="py-2 text-right tabular-nums">{{ "%.0f"|format(regime.nifty_200dma) if regime.nifty_200dma else '—' }}</td></tr>
+          <td class="py-2 text-right tabular-nums whitespace-nowrap">{{ "%.0f"|format(regime.nifty_200dma) if regime.nifty_200dma else '—' }}</td></tr>
       <tr><td class="py-2 text-ink-faint">% below 52-week high</td>
-          <td class="py-2 text-right tabular-nums">{{ "%+.2f%%"|format(regime.pct_below_52w_high) if regime.pct_below_52w_high is not none else '—' }}</td></tr>
+          <td class="py-2 text-right tabular-nums whitespace-nowrap">{{ "%+.2f%%"|format(regime.pct_below_52w_high) if regime.pct_below_52w_high is not none else '—' }}</td></tr>
       <tr><td class="py-2 text-ink-faint">India VIX</td>
-          <td class="py-2 text-right tabular-nums">{{ "%.2f"|format(regime.vix) if regime.vix else '—' }}</td></tr>
+          <td class="py-2 text-right tabular-nums whitespace-nowrap">{{ "%.2f"|format(regime.vix) if regime.vix else '—' }}</td></tr>
       <tr><td class="py-2 text-ink-faint">FII 5-day net (₹Cr)</td>
-          <td class="py-2 text-right tabular-nums">{{ "%+.0f"|format(regime.fii_5d_net) if regime.fii_5d_net is not none else 'not wired' }}</td></tr>
+          <td class="py-2 text-right tabular-nums whitespace-nowrap">{{ "%+.0f"|format(regime.fii_5d_net) if regime.fii_5d_net is not none else 'not wired' }}</td></tr>
     </tbody>
   </table>
+  </div>
 </div>
 
 {% else %}
-<div class="bg-white border border-line p-10 text-center text-ink-faint">
+<div class="bg-white border border-line p-6 lg:p-10 text-center text-ink-faint">
   Regime data not loaded yet. Tap <strong>Refresh Regime</strong> above.
 </div>
 {% endif %}

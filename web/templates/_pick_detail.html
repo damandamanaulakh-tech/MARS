@@ -16,14 +16,14 @@
 {% set total = (p.entry_score if p.entry_score is defined and p.entry_score else p.score) | float %}
 {% set safe_id = p.ticker | replace('.','_') | replace('&','_') %}
 
-<div class="mt-2 rounded-xl border border-line bg-white p-4 text-left">
+<div class="mt-2 rounded-xl border border-line bg-white p-3 lg:p-4 text-left overflow-x-auto">
 
   <div class="grid gap-4 md:grid-cols-[1.15fr_.85fr]">
 
     {# -------- LEFT: the piano -------- #}
     <div>
-      <div class="mb-2 flex items-center justify-between">
-        <span class="text-[11px] font-bold uppercase tracking-wider text-ink">
+      <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-ink whitespace-nowrap">
           parameters hit — {{ p.ticker }}
         </span>
         <span class="text-[11px] text-ink-soft">
@@ -35,7 +35,7 @@
 
       {# piano keys: one bar per factor, height = score, colour by band #}
       {% if comps %}
-      <div class="flex items-end gap-[3px] h-32 rounded-lg p-2 border border-line" style="background:#f1f5f9">
+      <div class="flex items-end gap-[2px] sm:gap-[3px] h-28 lg:h-32 rounded-lg p-2 border border-line" style="background:#f1f5f9">
         {% for name, val in comps.items() %}
           {% set v = val | float %}
           {% set col = '#dc2626' if v < 40 else ('#d97706' if v < 60 else '#059669') %}
@@ -56,13 +56,13 @@
       </div>
 
       {# key labels #}
-      <div class="mt-1 flex gap-[3px] text-[8px] leading-tight text-ink-faint">
+      <div class="mt-1 flex gap-[2px] sm:gap-[3px] text-[8px] leading-tight text-ink-faint">
         {% for name in comps.keys() %}
           <div class="flex-1 text-center truncate" title="{{ name }}">{{ name.split('_')[0] }}</div>
         {% endfor %}
       </div>
       {% else %}
-      <div class="flex h-32 items-center justify-center rounded-lg border border-dashed border-line text-[11px] text-ink-faint text-center px-3">
+      <div class="flex h-28 lg:h-32 items-center justify-center rounded-lg border border-dashed border-line text-[11px] text-ink-faint text-center px-3">
         factor scores not recorded for this entry<br>
         <span class="text-ink-faint/70">(engine-bought positions after the next scan carry them)</span>
       </div>
@@ -92,7 +92,7 @@
       <div class="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink">
         last 20 sessions
       </div>
-      <canvas id="cndl_{{ safe_id }}" height="150"
+      <canvas id="cndl_{{ safe_id }}" height="150" class="w-full max-w-full"
               data-ticker="{{ p.ticker }}"
               {% if not p.candles %}data-lazy="1"{% endif %}></canvas>
       <div id="cndl_note_{{ safe_id }}"

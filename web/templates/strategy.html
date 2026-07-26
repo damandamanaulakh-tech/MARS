@@ -2,9 +2,9 @@
 {% block title %}Strategy Weights — Sourceborn AM07{% endblock %}
 {% block content %}
 <div class="text-xs tracking-widest text-ink-faint uppercase mb-3">STRATEGY / AM 07 WEIGHTS</div>
-<div class="flex items-end justify-between mb-8">
+<div class="flex flex-wrap items-end justify-between gap-2 mb-8">
   <div>
-    <h1 class="font-black text-5xl tracking-tight">Strategy Weights</h1>
+    <h1 class="font-black text-3xl lg:text-5xl tracking-tight">Strategy Weights</h1>
     <p class="text-ink-soft mt-2">
       Active mode: <strong>{{ current_mode|upper }}</strong> ·
       All weights sum to 100%. Each component scores 0-100 per stock.
@@ -13,25 +13,26 @@
 </div>
 
 <div class="bg-white border border-line mb-8">
+  <div class="overflow-x-auto">
   <table class="w-full text-sm">
     <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
       <tr>
-        <th class="text-left px-6 py-3">Component</th>
-        <th class="text-right px-6 py-3">Weight</th>
-        <th class="text-right px-6 py-3" title="How often this factor was a stock's strongest component at buy time">Top-driver hits</th>
-        <th class="text-left px-6 py-3">What it measures</th>
-        <th class="text-left px-6 py-3">Status</th>
+        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Component</th>
+        <th class="text-right px-3 lg:px-6 py-3 whitespace-nowrap">Weight</th>
+        <th class="text-right px-3 lg:px-6 py-3 whitespace-nowrap" title="How often this factor was a stock's strongest component at buy time">Top-driver hits</th>
+        <th class="text-left px-3 lg:px-6 py-3">What it measures</th>
+        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Status</th>
       </tr>
     </thead>
     <tbody>
       {% for r in rows %}
       <tr class="border-b border-line last:border-0 hover:bg-ink/[0.02]">
-        <td class="px-6 py-4 font-semibold">{{ r.component }}</td>
-        <td class="px-6 py-4 text-right tabular-nums font-bold">{{ "%.1f%%"|format(r.weight_pct) }}</td>
-        <td class="px-6 py-4 text-right tabular-nums {% if r.hits %}font-semibold{% else %}text-ink-faint{% endif %}">{{ r.hits }}</td>
-        <td class="px-6 py-4 text-ink-soft">{{ r.description }}</td>
-        <td class="px-6 py-4">
-          <span class="text-xs tracking-widest uppercase font-semibold
+        <td class="px-3 lg:px-6 py-4 font-semibold whitespace-nowrap">{{ r.component }}</td>
+        <td class="px-3 lg:px-6 py-4 text-right tabular-nums font-bold whitespace-nowrap">{{ "%.1f%%"|format(r.weight_pct) }}</td>
+        <td class="px-3 lg:px-6 py-4 text-right tabular-nums whitespace-nowrap {% if r.hits %}font-semibold{% else %}text-ink-faint{% endif %}">{{ r.hits }}</td>
+        <td class="px-3 lg:px-6 py-4 text-ink-soft min-w-[16rem]">{{ r.description }}</td>
+        <td class="px-3 lg:px-6 py-4">
+          <span class="text-xs tracking-widest uppercase font-semibold whitespace-nowrap
                        {% if 'live' in r.status %}text-emerald-700{% else %}text-amber-700{% endif %}">
             {{ r.status }}
           </span>
@@ -40,69 +41,76 @@
       {% endfor %}
     </tbody>
   </table>
-  <div class="px-6 py-3 text-xs text-ink-faint border-t border-line">F10: top-driver hits counted across {{ total_buys }} logged buys — which factor actually drove each entry.</div>
+  </div>
+  <div class="px-4 lg:px-6 py-3 text-xs text-ink-faint border-t border-line">F10: top-driver hits counted across {{ total_buys }} logged buys — which factor actually drove each entry.</div>
 </div>
 
 <!-- F10: sector + exit-reason hit counts from the journal -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 mb-8">
   <div class="bg-white border border-line">
-    <div class="px-6 py-4 border-b border-line font-bold">📊 Positions by Sector (open + closed)</div>
+    <div class="px-4 lg:px-6 py-4 border-b border-line font-bold">📊 Positions by Sector (open + closed)</div>
     {% if sector_counts %}
+    <div class="overflow-x-auto">
     <table class="w-full text-sm">
       <tbody>
         {% for sector, n in sector_counts %}
         <tr class="border-b border-line last:border-0">
-          <td class="px-6 py-2.5 font-semibold">{{ sector }}</td>
-          <td class="px-6 py-2.5 text-right tabular-nums">{{ n }}</td>
+          <td class="px-4 lg:px-6 py-2.5 font-semibold">{{ sector }}</td>
+          <td class="px-4 lg:px-6 py-2.5 text-right tabular-nums whitespace-nowrap">{{ n }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
-    {% else %}<div class="px-6 py-6 text-ink-faint text-sm">No trades yet.</div>{% endif %}
+    </div>
+    {% else %}<div class="px-4 lg:px-6 py-6 text-ink-faint text-sm">No trades yet.</div>{% endif %}
   </div>
   <div class="bg-white border border-line">
-    <div class="px-6 py-4 border-b border-line font-bold">🚪 Exits by Reason (closed trades)</div>
+    <div class="px-4 lg:px-6 py-4 border-b border-line font-bold">🚪 Exits by Reason (closed trades)</div>
     {% if exit_counts %}
+    <div class="overflow-x-auto">
     <table class="w-full text-sm">
       <tbody>
         {% for reason, n in exit_counts %}
         <tr class="border-b border-line last:border-0">
-          <td class="px-6 py-2.5 font-semibold uppercase text-xs tracking-widest">{{ reason }}</td>
-          <td class="px-6 py-2.5 text-right tabular-nums">{{ n }}</td>
+          <td class="px-4 lg:px-6 py-2.5 font-semibold uppercase text-xs tracking-widest">{{ reason }}</td>
+          <td class="px-4 lg:px-6 py-2.5 text-right tabular-nums whitespace-nowrap">{{ n }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
-    {% else %}<div class="px-6 py-6 text-ink-faint text-sm">No closed trades yet.</div>{% endif %}
+    </div>
+    {% else %}<div class="px-4 lg:px-6 py-6 text-ink-faint text-sm">No closed trades yet.</div>{% endif %}
   </div>
 </div>
 
 {% if live_boosts %}
-<div class="bg-white border border-line p-6 mb-8">
+<div class="bg-white border border-line p-4 lg:p-6 mb-8">
   <div class="font-bold mb-3">🇮🇳 Active policy boosts (PIB tracker, last 30 days)</div>
+  <div class="overflow-x-auto">
   <table class="w-full text-sm">
     <tbody>
       {% for sector, boost in live_boosts.items() %}
       <tr class="border-b border-line last:border-0">
-        <td class="py-2 font-semibold">{{ sector }}</td>
-        <td class="py-2 text-right text-emerald-700 font-bold tabular-nums">+{{ "%.0f"|format(boost) }}</td>
+        <td class="py-2 pr-3 font-semibold">{{ sector }}</td>
+        <td class="py-2 text-right text-emerald-700 font-bold tabular-nums whitespace-nowrap">+{{ "%.0f"|format(boost) }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
   <div class="mt-3 text-xs text-ink-faint">
     Sectors with recent PIB announcements get a score boost on
     <code>sector_alignment</code>, capped at +30 per sector.
   </div>
 </div>
 {% else %}
-<div class="bg-white border border-line p-6 mb-8 text-sm text-ink-faint">
+<div class="bg-white border border-line p-4 lg:p-6 mb-8 text-sm text-ink-faint">
   No active policy boosts. Either PIB feed offline, or no relevant
   announcements in the last 30 days.
 </div>
 {% endif %}
 
-<div class="bg-slate-50 border border-line p-6">
+<div class="bg-slate-50 border border-line p-4 lg:p-6">
   <div class="font-bold mb-2">How to change weights</div>
   <p class="text-sm text-ink-soft">
     Weights are mode-driven and editable from

@@ -49,3 +49,20 @@ def test_mobile_nav_present():
     assert "hidden lg:flex" not in html               # old desktop-only sidebar gone
     css = c.get("/static/css/app.css").text
     assert "#am07-nav.nav-open" in css                # slide-in rule shipped
+
+
+def test_phone_layout_guards():
+    """Regressions the adversarial verifier caught — keep them fixed."""
+    from web import auth as auth_mod
+    c = TestClient(app)
+
+    login = c.get("/login").text
+    assert "order-1 lg:order-2" in login          # sign-in form first on phone
+    assert "text-3xl sm:text-4xl lg:text-6xl" in login   # headline fits 390px
+    assert 'class="font-black text-5xl' not in login     # no bare display type
+
+    c.post("/login", data={"email": "owner@sourceborn.in",
+                           "password": auth_mod._SEEDED_PWD})
+    dash = c.get("/").text
+    assert "h-[240px]" in dash                    # canvas CSS height pinned
+    assert "overflow-x-clip" not in dash          # clipped content is reachable
