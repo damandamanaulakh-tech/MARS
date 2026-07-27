@@ -38,8 +38,14 @@ uploads: audit them; several contained fabricated numbers/padded catalogs).
   _FAILED, /healthz shows count+file_date. mis_allowed carried; new
   listings default 0.
 - Candle gate: daily ENTRY-TIMING only (no monthly alpha — v3). Volume-
-  expansion: not a membership rule. Ocean engine: PARKED (knife-catching
-  −41%DD in 2020; needs crash guard before any live role).
+  expansion: not a membership rule. Ocean engine: **PARKED — and since
+  2026-07-27 the park is REAL** (`cfg.ocean_enabled=False`, Settings toggle,
+  `engine._ocean_picks`). Audit found the word "parked" was doc-only: the
+  branch ran on `regime.ocean_active` alone, True in correction/panic/
+  neutral, and in a correction Everest is off — so the parked engine was the
+  ONLY thing able to buy, with picks that skip the score floor and the
+  absolute-momentum gate. Blocks now journal OCEAN_BLOCKED. Needs a crash
+  guard before the flag goes on (knife-catching −41%DD in 2020).
 - **Blocklist** `cfg.ticker_blocklist=("YESBANK.NS",)` — never scanned/bought;
   held names exempt for exits. Exits per-mode (momentum −12/+12 — **user
   set +12 on 2026-07-21**, was +30, partial 0.07, UNTESTED vs +30, 60-day
@@ -109,6 +115,69 @@ IP so far — fail-visible, tune from live). Entry thresholds UNCHANGED —
 full-bucket test proved current rules win at breadth (research/).**
 **Target question CLOSED: user chose +12% "for now" (2026-07-21) — wired;
 "actual" (order-flow etc. params) = next phase of app, their words.**
+**2026-07-27 full-repo audit (12 agents, owner asked "each corner check").
+Owner approved 2 fixes; BOTH SHIPPED, 433 tests green:**
+1. **Ocean park is now real** — see THE FINAL SET above. In the current
+   CORRECTION the engine now opens NOTHING until the owner flips
+   `ocean_enabled` or the VIX-crush re-entry turns Everest back on. That is
+   the intended behaviour, not a fault: expect an empty book and
+   OCEAN_BLOCKED journal lines.
+2. **Daily kill switch is now actually daily** — `RiskState.roll_day()` was
+   only ever called from `backtest.py`, so `day_start_equity` stayed pinned
+   at ₹25L and the "−2% daily halt" was really "−2% since inception", which
+   force-closed the WHOLE BOOK on an ordinary drift. `engine._roll_risk_day`
+   re-baselines once per day to yesterday's last mark, journals
+   RISK_DAY_ROLL, and persists (`portfolio.risk_day` /
+   `risk_day_equity`) so a mid-day Render restart can't re-baseline.
+   Bonus bug found while wiring the Settings toggle: **bool fields saved as
+   the STRING "0" (truthy) — entering 0 to switch a flag OFF switched it
+   ON.** Live for `pyramid_enabled`. Fixed in `settings_routes`.
+**2026-07-27 audit fixes 3 & 5 (owner: "there is owner only none else"),
+442 tests green:** login page's "Quick switch" Owner/Viewer buttons DELETED —
+they carried working passwords in unauthenticated markup · **viewer account
+removed entirely**, owner is the only seeded user · `sync-to-hf.yml` DELETED
+(checked all 16 runs first: every one failed on empty HF_TOKEN/HF_SPACE
+before the push line, so **nothing ever leaked**) · guard tests in
+`web/tests/test_login_no_secrets.py`, verified to fail if the old page returns.
+**STILL OPEN, owner action needed: set `OWNER_PWD` in the Render dashboard.**
+The fallback is `"sourceborn"` — which is also the brand name, so it is
+guessable and un-greppable. Until it is set, the app on a public URL has a
+one-word password.
+**2026-07-27 external-review adoptions (owner: "yes push all 3"), 449 tests:**
+1. Full NSE 2026 holiday list (16 dates incl. Holi/Diwali/election day) in
+   `calendars.NSE_FIXED_HOLIDAYS` — `is_trading_day()` was already wired into
+   every scheduler job, only the list was thin. 2027 = 4 fixed dates only,
+   refresh from NSE circular ~Dec 2026; missing dates fail safe.
+2. Nifty 200 (^CNX200) secondary backtest benchmark — the fair ruler for a
+   N200-momentum strategy. `BacktestResult.benchmark2*`, walk_forward rows,
+   /backtest page. Unfetchable ⇒ visible DATA_NEEDED warning, alpha vs N50
+   unchanged. NOTE: ^CNX200 fetch from Render UNVERIFIED (sandbox has no
+   yfinance network) — first live run tells.
+3. Truth pass on marketing copy: login page (ATR-stops/live-mode/500+ claims
+   were false → now "fixed stops, paper only, 2,300+") + dashboard "can do"
+   panel (correlation 0.7→0.85, reserve ladder 20/25/35/50→real 0/0/20/40,
+   fictional sector blacklist removed). Guarded by test_truthful_copy.py.
+**Owner decision (2026-07-27, CLOSED): cash reserve stays 0% — "go for full,
+no use to hold". Base = fully deployed. The regime-dynamic reserve
+(risk_v2: 20% correction / 40% panic, forced in by engine.scan) predates this
+and STAYS as crash protection — owner was told; strip only on their word.**
+The external review tables themselves: ~60% graded a stale spec, not the code
+(exits/caps/universe/PIT all wrong); adopted the 3 valid items above.
+**Audit findings NOT yet fixed (owner deferred, still true):** −15% trail is
+unreachable under −5%/+12% (peak must clear +11.76% but +12% closes first —
+the −5% stop decision silently killed the "workhorse exit") · `partial 0.07`
+is documented but has NO consumer · entry scores on the momentum blend and
+exits on the AM07 composite (two different rulers) · owner custom stops
+wiped on boot by `retag_positions_per_mode` · `apply_mode_preset` overwrites
+8 fields you save in Settings · drawdown governor resets to 0 every restart ·
+`broker.bid_ask()` does not exist (spread check never ran) · FII/DII CSV is
+22 months stale, no guard · owner password `sourceborn` is printed in
+login.html · `/scan/parameter/{key}` is unauthenticated ·
+`engine.scan/refresh` and all of `web/scheduler.py` have ZERO tests ·
+orphans: auto/autoswap/intraday/macro/providers (910 lines), all of
+research/tunnel_studies (dead `/home/user/sourceborn-engine/` paths),
+`data/chityy/master_extended_chityy.csv` is CORRUPT (zero line breaks) ·
+docs/WORK_LIST.md still marks A2/A4/A5 PENDING though `a185d94` shipped them.
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

@@ -1,6 +1,13 @@
-"""Session-based auth. Phase 1: seeded accounts + custom email/password.
+"""Session-based auth. Single seeded account: the owner.
 
-Roles: `owner`, `viewer`. Phase 2 swaps the seeded dict for a Mongo `users` coll.
+Role: `owner`. There is no second account — the owner is the only user
+(their words, 2026-07-27). A `viewer` account with the hardcoded password
+"viewer" used to sit here alongside a login-page button that carried both
+passwords in the markup; both are gone. Phase 2 swaps the seeded dict for a
+Mongo `users` collection.
+
+OWNER_PWD MUST be set in the Render environment. The fallback below exists so
+local dev and the test suite work; on a public URL it is a guessable password.
 """
 
 from __future__ import annotations
@@ -17,7 +24,6 @@ _SEEDED_PWD = os.environ.get("OWNER_PWD", "sourceborn")
 
 SEEDED_USERS = {
     "owner@sourceborn.in": {"role": "owner", "password": _SEEDED_PWD, "name": "Owner"},
-    "viewer@sourceborn.in": {"role": "viewer", "password": "viewer", "name": "Viewer"},
 }
 
 

@@ -85,7 +85,32 @@ INDIA_STATE_ELECTION_RESULTS = [
 # from the NSE circular. Missing entries fail SAFE: the scan runs but the
 # stale-data guard (cfg.max_stale_days) blocks buys on old candles.
 NSE_FIXED_HOLIDAYS = [
-    date(2026, 1, 26), date(2026, 8, 15), date(2026, 10, 2), date(2026, 12, 25),
+    # --- 2026: full NSE equity-segment holiday list (owner-approved adoption,
+    # 2026-07-27). Cross-checked against two published copies of the NSE
+    # circular (cleartax.in/s/nse-holidays-2026, groww.in/p/nse-holidays);
+    # each source carried one date the other missed (Jan 15 election holiday /
+    # Nov 24 Gurpurb) — this is the union. Weekend holidays are omitted:
+    # is_trading_day() already excludes Sat/Sun.
+    date(2026, 1, 15),   # Municipal Corporation Election — Maharashtra
+    date(2026, 1, 26),   # Republic Day
+    date(2026, 3, 3),    # Holi
+    date(2026, 3, 26),   # Shri Ram Navami
+    date(2026, 3, 31),   # Shri Mahavir Jayanti
+    date(2026, 4, 3),    # Good Friday
+    date(2026, 4, 14),   # Dr. Baba Saheb Ambedkar Jayanti
+    date(2026, 5, 1),    # Maharashtra Day
+    date(2026, 5, 28),   # Bakri Id
+    date(2026, 6, 26),   # Muharram
+    date(2026, 9, 14),   # Ganesh Chaturthi
+    date(2026, 10, 2),   # Mahatma Gandhi Jayanti
+    date(2026, 10, 20),  # Dussehra
+    date(2026, 11, 10),  # Diwali — Balipratipada
+    date(2026, 11, 24),  # Prakash Gurpurb Sri Guru Nanak Dev
+    date(2026, 12, 25),  # Christmas
+    # --- 2027: only the fixed national dates are known today. The lunar /
+    # festival dates move every year — refresh from the NSE circular when it
+    # is published (usually December 2026). Missing entries fail SAFE: the
+    # scan runs, finds no fresh candle, and the stale-data guard blocks buys.
     date(2027, 1, 26), date(2027, 8, 15), date(2027, 10, 2), date(2027, 12, 25),
 ]
 

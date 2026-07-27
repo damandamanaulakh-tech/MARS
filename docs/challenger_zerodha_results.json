@@ -1,0 +1,53 @@
+{
+  "preregistered": true,
+  "windows": {
+    "2019": {
+      "return_pct": -4.05,
+      "max_dd_pct": -4.19,
+      "trades": 265,
+      "win_rate_pct": 24.2,
+      "exit_mix": {
+        "STOP": 196,
+        "TARGET": 55,
+        "TIME": 2,
+        "END": 12
+      }
+    },
+    "2020-21": {
+      "return_pct": -16.97,
+      "max_dd_pct": -18.94,
+      "trades": 905,
+      "win_rate_pct": 22.2,
+      "exit_mix": {
+        "STOP": 702,
+        "TARGET": 193,
+        "TIME": 5,
+        "END": 5
+      }
+    },
+    "2022-23": {
+      "return_pct": -18.12,
+      "max_dd_pct": -21.33,
+      "trades": 844,
+      "win_rate_pct": 22.6,
+      "exit_mix": {
+        "STOP": 648,
+        "TARGET": 181,
+        "TIME": 9,
+        "END": 6
+      }
+    },
+    "2024-26H1": {
+      "return_pct": -34.55,
+      "max_dd_pct": -35.83,
+      "trades": 960,
+      "win_rate_pct": 18.5,
+      "exit_mix": {
+        "STOP": 773,
+        "TARGET": 171,
+        "TIME": 7,
+        "END": 9
+      }
+    }
+  }
+}

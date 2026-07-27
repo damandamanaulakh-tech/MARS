@@ -39,6 +39,7 @@ EDITABLE_FIELDS = [
     ("max_hold_days",           "Max Hold (days)",         "Risk",    "number", 1,    "Safety cap on holding period", False),
     ("daily_loss_halt_pct",     "Daily Loss Kill Switch %","Risk",    "number", 0.5,  "Halts new entries on the day (negative %)", True),
     ("min_score_to_enter",      "Min Score to Enter",      "Strategy","number", 1,    "AM 07 score threshold", False),
+    ("ocean_enabled",           "Ocean Engine On (1/0)",   "Strategy","number", 1,    "1 = allow mean-reversion buys in a correction, 0 = parked (default). Ocean picks skip the score floor and momentum gate", False),
     ("breakout_threshold_pct",  "Breakout Threshold %",    "Strategy","number", 0.5,  "Within N% of 20-day high", True),
     ("volume_confirm_ratio",    "Volume Confirm Ratio",    "Strategy","number", 0.1,  "5-day vol >= this * 20-day vol", False),
     # F15 pyramiding — opt-in add-to-winners
@@ -157,7 +158,12 @@ async def settings_save(request: Request):
         raw = form[name]
         existing = getattr(cfg, name)
         try:
-            if isinstance(existing, int) and not isinstance(existing, bool):
+            if isinstance(existing, bool):
+                # 1/0 toggles. MUST come before the int branch (bool subclasses
+                # int) and before the else, which would store the STRING "0" —
+                # truthy, so entering 0 to switch a flag off switched it on.
+                val = str(raw).strip().lower() in {"1", "true", "yes", "on"}
+            elif isinstance(existing, int):
                 val = int(float(raw))
             elif isinstance(existing, float):
                 val = float(raw)

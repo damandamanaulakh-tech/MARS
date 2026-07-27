@@ -37,9 +37,13 @@
         Run NSE momentum<br>
         on autopilot. <span class="text-accent">With your rules,<br>your capital, your data.</span>
       </h1>
+      {# Copy must match the code (owner-approved truth pass, 2026-07-27).
+         Stops are fixed % (-5/+12), NOT ATR-based; there is no live order
+         path — Upstox is a data feed and the PAPER_ONLY lock stays on. #}
       <p class="mt-4 lg:mt-8 text-slate-300 text-base lg:text-lg leading-relaxed max-w-md">
-        AM 07 ten-factor scoring, ATR-based stops, walk-forward backtest,
-        Upstox-ready live mode &mdash; one engine, four horizons.
+        AM 07 ten-factor scoring, hard stops and targets, walk-forward
+        backtests, Upstox market data &mdash; paper trading only, live
+        orders locked off.
       </p>
     </div>
 
@@ -49,7 +53,7 @@
         <div class="text-[10px] tracking-widest text-slate-400 uppercase">Score factors</div>
       </div>
       <div>
-        <div class="font-black text-2xl lg:text-3xl">500+</div>
+        <div class="font-black text-2xl lg:text-3xl">2,300+</div>
         <div class="text-[10px] tracking-widest text-slate-400 uppercase">NSE universe</div>
       </div>
       <div>
@@ -64,7 +68,7 @@
     <div class="max-w-md w-full">
       <div class="text-[10px] tracking-widest text-slate-500 uppercase border-t border-slate-200 pt-3 mb-1">Sign in</div>
       <h2 class="font-black text-2xl lg:text-4xl tracking-tight">Welcome back, Owner.</h2>
-      <p class="text-slate-500 mt-2">Use a seeded account or your own.</p>
+      <p class="text-slate-500 mt-2">Owner access only.</p>
 
       {% if error %}
       <div class="mt-6 px-4 py-3 border border-red-200 bg-red-50 text-red-800 text-sm rounded-md">
@@ -90,25 +94,13 @@
         </button>
       </form>
 
-      <div class="mt-8 lg:mt-10 border-t border-slate-200 pt-6">
-        <div class="text-[10px] tracking-widest text-slate-500 uppercase mb-3">Quick switch</div>
-        <div class="grid grid-cols-2 gap-3 text-sm">
-          <button onclick="quick('owner@sourceborn.in','sourceborn')"
-                  class="border border-slate-300 py-2 hover:bg-slate-100">Owner</button>
-          <button onclick="quick('viewer@sourceborn.in','viewer')"
-                  class="border border-slate-300 py-2 hover:bg-slate-100">Viewer</button>
-        </div>
-      </div>
+      {# 2026-07-27: the "Quick switch" Owner/Viewer buttons lived here. They
+         embedded working passwords in this unauthenticated page — one tap, or
+         View Source, and a stranger was signed in as the owner. Removed with
+         the viewer account itself (owner is the only user). Do not reintroduce
+         a button that carries a password in the markup. #}
     </div>
   </section>
 </div>
-
-<script>
-  function quick(email, password) {
-    document.querySelector('input[name=email]').value = email;
-    document.querySelector('input[name=password]').value = password;
-    document.querySelector('form').submit();
-  }
-</script>
 </body>
 </html>
