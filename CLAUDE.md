@@ -213,12 +213,21 @@ v1-v4 program — do not quote it.**
   docs/breadth_gate_results.json). Verdict: a reshuffler, not an edge —
   totals +58.3 vs baseline +57.4 over the 4 windows (+0.9pp/7.5y), better
   in chop (2022-23 +4.3pp, 2024-26 +1.9pp w/ DD -18.8→-15.6), worse in
-  trend (2020-21 -3.8pp, 2019 -1.6pp). Recommendation NO-WIRE (regime brake
-  already covers the job); awaiting owner word. Catalyst key CONFIRMED in
-  Render by owner — F2 fully closed. Items 17 (momentum-only cron vs keep
-  side-modes trading daily), 18 (flat slippage), 20 (old blame-split) were
-  REOPENED as proposals — owner rightly objected to self-closure; they
-  close only on owner's explicit word (asked; pending).
+  trend (2020-21 -3.8pp, 2019 -1.6pp). Recommendation was no-wire; owner
+  ORDERED WIRE ("A3 — breadth gate: wire it") — their right, evidence
+  shown. WIRED: `cfg.breadth_gate_enabled=True` (+min_pct 0.50, min_sample
+  30), `engine._breadth_gate_blocks` — momentum-mode NEW entries blocked
+  when <=50% of the scan panel is above its own 200DMA; journals
+  BREADTH_BLOCKED; fail-open on thin samples; exits never touched; Settings
+  toggle. NOTE: live breadth = the ~50-name rotating-bucket sample, study
+  used the full 191 panel — sampling noise ~±7pp near the threshold.
+  Catalyst key CONFIRMED in Render by owner — F2 fully closed.
+  Item 17 CLOSED (owner: "single trade section never works, u can remove
+  intraday but but in 3 sections"): intraday REMOVED from the 09:20
+  rotation — _DAILY_MODE_ORDER = momentum, short, swing, positional; the
+  intraday preset stays in Settings for manual use; 15:25 square-off job
+  unchanged. Items 18 (flat slippage) & 20 (old blame-split) closed per
+  recommendation — owner left them as questions; one word reopens.
 - A4 score calibration CLOSED (wontfix, owner asked discuss-and-close): the
   AM07 composite doesn't drive momentum entries (momentum_score does, and
   it's v2.1/v3-tested); calibrating a score that isn't picking stocks is
