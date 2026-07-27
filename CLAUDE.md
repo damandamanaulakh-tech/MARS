@@ -209,11 +209,16 @@ v1-v4 program — do not quote it.**
   never replace — naive weekly re-save would truncate 12y to 1y) + scheduler
   job Friday 16:30 IST, journals DATA_REFRESH_WEEKLY/_SKIPPED/_FAILED.
   Committed research zip = refresh per session when >7d old (session duty).
-- A3 breadth gate: reason it never existed = regime brake overlaps it and
-  nobody tested it. Study now PREREGISTERED and run —
-  scripts/breadth_gate_study.py, docs/breadth_gate_results.json (gate:
-  entries only when >50% of universe above own 200DMA; baseline = exit-study
-  variant A). Wire ONLY if owner says yes after seeing the table.
+- A3 breadth gate: TESTED (preregistered, scripts/breadth_gate_study.py,
+  docs/breadth_gate_results.json). Verdict: a reshuffler, not an edge —
+  totals +58.3 vs baseline +57.4 over the 4 windows (+0.9pp/7.5y), better
+  in chop (2022-23 +4.3pp, 2024-26 +1.9pp w/ DD -18.8→-15.6), worse in
+  trend (2020-21 -3.8pp, 2019 -1.6pp). Recommendation NO-WIRE (regime brake
+  already covers the job); awaiting owner word. Catalyst key CONFIRMED in
+  Render by owner — F2 fully closed. Items 17 (momentum-only cron vs keep
+  side-modes trading daily), 18 (flat slippage), 20 (old blame-split) were
+  REOPENED as proposals — owner rightly objected to self-closure; they
+  close only on owner's explicit word (asked; pending).
 - A4 score calibration CLOSED (wontfix, owner asked discuss-and-close): the
   AM07 composite doesn't drive momentum entries (momentum_score does, and
   it's v2.1/v3-tested); calibrating a score that isn't picking stocks is
