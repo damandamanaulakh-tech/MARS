@@ -90,8 +90,33 @@ def settings_view(request: Request, saved: str | None = None):
             "current_mode": getattr(cfg, "mode", "swing"),
             "saved": saved,
             "db_status": state.db_status(),
+            "push": _push_state(),
         },
     )
+
+
+def _push_state() -> dict:
+    from .. import push_ntfy
+    try:
+        return push_ntfy.get_state()
+    except Exception:
+        return {"available": False, "enabled": False, "topic": ""}
+
+
+@router.post("/settings/push/{action}")
+def settings_push_toggle(request: Request, action: str):
+    """Owner-only: enable/disable phone alerts, or send a test push."""
+    user = auth.current_user(request)
+    if not user or user.get("role") != "owner":
+        return RedirectResponse("/settings?saved=denied", status_code=303)
+    from .. import push_ntfy
+    if action == "enable":
+        push_ntfy.enable()
+    elif action == "disable":
+        push_ntfy.disable()
+    elif action == "test":
+        push_ntfy.send("AM07 test", "Phone alerts are working. 🔔")
+    return RedirectResponse("/settings", status_code=303)
 
 
 @router.post("/settings/mode")

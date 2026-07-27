@@ -24,6 +24,29 @@
   {% if db_status.connected %}MongoDB ({{ db_status.db }}){% else %}JSON on disk (Mongo offline){% endif %}
 </div>
 
+<!-- 🔔 PHONE ALERTS (ntfy.sh) -->
+<div class="mb-8 bg-white border border-line p-4 lg:p-5">
+  <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">🔔 Phone alerts</div>
+  {% if not push.available %}
+    <p class="text-sm text-ink-soft">Needs MongoDB connected (or an NTFY_TOPIC env var) so your alert channel survives restarts.</p>
+  {% elif push.enabled %}
+    <p class="text-sm text-ink-soft">ON — pushes buys, sells, scan failures, stale-data holds and the VIX re-entry signal.</p>
+    <ol class="mt-2 text-sm text-ink-soft list-decimal pl-5 space-y-1">
+      <li>Install the free <strong>ntfy</strong> app (Play Store / App Store).</li>
+      <li>In ntfy tap <strong>+ Subscribe to topic</strong> and enter exactly:</li>
+    </ol>
+    <div class="mt-2 px-3 py-2 bg-slate-100 font-mono text-sm break-all select-all">{{ push.topic }}</div>
+    <p class="mt-1 text-xs text-ink-faint">This topic name is your private channel — treat it like a password.</p>
+    <div class="mt-3 flex gap-3">
+      <form method="post" action="/settings/push/test"><button class="border border-line px-4 py-2 text-sm hover:bg-slate-50">Send test alert</button></form>
+      <form method="post" action="/settings/push/disable"><button class="border border-line px-4 py-2 text-sm text-red-700 hover:bg-red-50">Turn off</button></form>
+    </div>
+  {% else %}
+    <p class="text-sm text-ink-soft">Get a phone notification on every buy, sell, scan failure and the VIX re-entry signal.</p>
+    <form method="post" action="/settings/push/enable" class="mt-3"><button class="bg-slate-950 text-white px-4 py-2 text-sm font-bold">Enable phone alerts</button></form>
+  {% endif %}
+</div>
+
 <form method="post" action="/settings" class="space-y-8">
 
   <!-- MODE SELECTOR -->
