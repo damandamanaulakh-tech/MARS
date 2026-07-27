@@ -43,8 +43,9 @@ the ASSETS box (edit release -> drag into "Attach binaries" -> Update).
 ### Rescued from the release into the repo (2026-07-27, second pass)
 Owner re-attached 5 key zips as ASSETS (AM.07.Parameter.Files, aqu,
 Back.Test.Claude, FII.DII.Nifty, FII). Rescued into version control:
-- `research/chityy_archive/` — Chityy parameter registry (JSON+CSV, 22k
-  params), signal correlation/forward-return studies, top combo & pre-fall
+- `research/chityy_archive/` — Chityy parameter registry (JSON+CSV;
+  1,500 + 1,200 params committed — the "22k" figure from old notes counted
+  spreadsheet cells, not parameters), signal correlation/forward-return studies, top combo & pre-fall
   triggers, Q1 FII 20d stats, industry coverage, n200 live report,
   early-warning + data-format docs, and `master_30000_stock_list.csv`
   (the file KEEP_DELETE.md marked absorbed but never landed).

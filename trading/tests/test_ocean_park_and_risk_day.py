@@ -14,6 +14,7 @@ Synthetic data only, no network.
 """
 
 from datetime import datetime, timedelta
+from unittest.mock import patch
 
 from trading.config import Config
 from trading.engine import TradingEngine
@@ -237,3 +238,74 @@ def test_first_ever_roll_falls_back_to_current_equity(tmp_path):
 
     assert eng.risk.day_start_equity == 25_00_000.0
     assert eng.portfolio.risk_day_equity == 25_00_000.0
+
+
+# --------------------------------------------------------------------------
+# Recheck fixes (2026-07-27 evening review)
+# --------------------------------------------------------------------------
+
+def test_empty_book_refresh_still_rolls_the_day(tmp_path):
+    """The deadlock: a kill-switch liquidation empties the book, and the old
+    refresh() early-returned before rolling — so the tripped switch never
+    re-armed and automatic buying stayed dead until a restart."""
+    eng = _engine(tmp_path, starting_capital=25_00_000, daily_loss_halt_pct=-0.02)
+    eng.portfolio.equity_history = [("2026-07-26T15:35:00", 24_00_000.0)]
+    eng._roll_risk_day(24_00_000.0, datetime(2026, 7, 26, 15, 35))
+    assert eng.risk.check_kill_switch(23_00_000.0)          # tripped, book emptied
+    eng.portfolio.equity_history.append(("2026-07-26T15:36:00", 23_00_000.0))
+    eng.portfolio.risk_day_killed = True
+
+    assert eng.portfolio.positions == {}                     # empty book
+    with patch("trading.engine.datetime") as dt:
+        dt.utcnow.return_value = datetime(2026, 7, 27, 10, 5)
+        eng.refresh()                                        # early-return path
+    assert eng.risk.kill_switch is False                     # re-armed anyway
+    assert eng.portfolio.risk_day == "2026-07-27"
+
+
+def test_scan_time_roll_uses_yesterdays_close_not_todays_mark(tmp_path):
+    """The one-hour-halt bug: rolling first at 15:35 made the baseline
+    today's own 14:30 mark. The roll now happens at the day's first engine
+    action, before today's equity points are recorded."""
+    eng = _engine(tmp_path, starting_capital=25_00_000, daily_loss_halt_pct=-0.02)
+    eng.portfolio.equity_history = [("2026-07-26T15:35:00", 25_00_000.0)]
+
+    # 09:20 scan-time roll (the new call site)
+    eng._roll_risk_day(24_20_000.0, datetime(2026, 7, 27, 9, 20))
+    # today's marks land AFTER the roll
+    eng.portfolio.equity_history += [("2026-07-27T09:20:00", 24_20_000.0),
+                                     ("2026-07-27T14:30:00", 24_10_000.0)]
+    # 15:35 same-day roll must NOT re-baseline to the 14:30 mark
+    eng._roll_risk_day(24_10_000.0, datetime(2026, 7, 27, 15, 35))
+
+    assert eng.risk.day_start_equity == 25_00_000.0          # yesterday's close
+    assert eng.risk.check_kill_switch(24_10_000.0)           # -3.6% day = halt
+
+
+def test_tripped_flag_survives_a_mid_day_restart(tmp_path):
+    eng = _engine(tmp_path, starting_capital=25_00_000, daily_loss_halt_pct=-0.02)
+    day = datetime(2026, 7, 27, 10, 5)
+    eng.portfolio.equity_history = [("2026-07-26T15:35:00", 24_00_000.0)]
+    eng._roll_risk_day(24_00_000.0, day)
+    assert eng.risk.check_kill_switch(23_00_000.0)
+    eng.portfolio.risk_day_killed = True                     # persisted on trip
+
+    eng2 = TradingEngine(cfg=eng.cfg, portfolio=eng.portfolio)
+    assert eng2.risk.kill_switch is False                    # fresh state
+    eng2._roll_risk_day(23_00_000.0, day)                    # same-day restore
+    assert eng2.risk.kill_switch is True                     # halt remembered
+
+
+def test_ocean_block_journals_once_per_day_and_not_in_neutral(tmp_path, monkeypatch):
+    monkeypatch.setattr("trading.engines.ocean.scan", lambda *a, **k: [])
+    eng = _engine(tmp_path)
+    now = datetime(2026, 7, 27, 9, 20)
+    # neutral: Everest active -> no journal line at all
+    eng._ocean_picks(_regime("neutral", ocean=True, everest=True), {}, [], now)
+    assert eng.portfolio.decision_journal == []
+    # correction: journals once...
+    eng._ocean_picks(_regime(), {}, [], now)
+    eng._ocean_picks(_regime(), {}, [], now.replace(hour=14))   # 2nd pass same day
+    blocked = [e for e in eng.portfolio.decision_journal
+               if e.get("action") == "OCEAN_BLOCKED"]
+    assert len(blocked) == 1

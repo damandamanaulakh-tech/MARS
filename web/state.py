@@ -50,6 +50,12 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.virtual_book = dict(doc.get("virtual_book", {}))
     p.pending_orders = list(doc.get("pending_orders", []))
     p.filings = list(doc.get("filings", []))
+    # Daily kill-switch state — Mongo is the persistence that actually
+    # survives a Render restart (/tmp JSON is wiped), so these MUST ride
+    # in the mirror doc or the risk-day fix silently dies on redeploy.
+    p.risk_day = doc.get("risk_day")
+    p.risk_day_equity = float(doc.get("risk_day_equity", 0.0) or 0.0)
+    p.risk_day_killed = bool(doc.get("risk_day_killed", False))
     p.last_save = doc.get("last_save")
 
 
@@ -89,12 +95,36 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "scan_matrix": self.scan_matrix,
             "pending_orders": self.pending_orders[-200:],
             "filings": self.filings[:100],
+            "risk_day": self.risk_day,
+            "risk_day_equity": self.risk_day_equity,
+            "risk_day_killed": self.risk_day_killed,
             "last_save": self.last_save,
         }
         db.save_portfolio(doc)
 
     Portfolio.save = _save_with_mirror  # type: ignore[assignment]
     _PORTFOLIO_SAVE_PATCHED = True
+
+
+def _coerce_override(cfg, key: str, value):
+    """Heal type-poisoned Mongo overrides (recheck fix, 2026-07-27).
+
+    Before the settings bool fix, 1/0 toggles were stored as the STRING "0"
+    (truthy). Applying such a stored override raw re-poisons the config on
+    every boot, and the settings-save bool branch can't heal it because
+    isinstance(existing, bool) is False once the string is in place. Coerce
+    strings back to the Config field's real type here, at the only door
+    stored overrides enter through."""
+    expected = getattr(cfg, key, None)
+    if isinstance(expected, bool) and isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    if isinstance(expected, (int, float)) and not isinstance(expected, bool) \
+            and isinstance(value, str):
+        try:
+            return type(expected)(float(value))
+        except ValueError:
+            return value
+    return value
 
 
 def _bootstrap() -> None:
@@ -105,7 +135,7 @@ def _bootstrap() -> None:
     for key, value in overrides.items():
         if hasattr(_CFG, key):
             try:
-                setattr(_CFG, key, value)
+                setattr(_CFG, key, _coerce_override(_CFG, key, value))
             except Exception:
                 pass
     # Apply mode preset (sets stops, target, etc. per chosen horizon)

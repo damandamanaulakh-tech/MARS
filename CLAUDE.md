@@ -266,7 +266,7 @@ v1-v4 program — do not quote it.**
   for the LIVE regime is NOT fixed by this; still needs a current feed.
 - RESCUE COMPLETE (owner re-attached 5 key zips as assets; "am07 is the
   chityy" — their words: this app IS the Chityy lineage). In git now:
-  research/chityy_archive/ (parameter registry 22k params, signal studies,
+  research/chityy_archive/ (parameter registry (1,500 JSON + 1,200 CSV params committed), signal studies,
   trigger tables, master_30000_stock_list) · data/chityy/
   master_extended_chityy.csv REBUILT clean from master_extended.xlsx (was
   corrupt, zero line breaks) · data/fii_dii_daily_2014_2023.csv (2,339
@@ -283,6 +283,35 @@ v1-v4 program — do not quote it.**
   commit sourceborn_chityy code + clean master_extended_chityy.csv (repo
   copy is CORRUPT, zero line breaks) + picks CSVs into
   research/chityy_archive/. Check for the release with the GitHub tools.
+**2026-07-27 night RECHECK (owner: "review all now once") — 2 fresh-eyes
+agents over the day's full diff + self-review; 4 real bugs found IN THE
+DAY'S OWN FIXES, all fixed same night, 477 tests:**
+1. Kill switch LATCHED FOREVER once tripped: liquidation empties the book,
+   empty-book refresh() early-returned before the day-roll, so the switch
+   never re-armed. Fixed: roll happens at scan() start AND in the
+   empty-book refresh branch.
+2. "Daily" halt measured only 14:30->15:35 (roll first ran at 15:35, after
+   today's marks were recorded). Fixed by the scan-start roll: baseline =
+   yesterday's close, as intended.
+3. risk_day fields were NOT in the Mongo mirror/hydrate (web/state.py) —
+   the whole persistence died on every Render restart (JSON in /tmp is
+   wiped). Fixed both directions + risk_day_killed flag persisted so a
+   mid-day restart can't forget a halt.
+4. Bool-override poisoning was self-perpetuating: state._bootstrap applied
+   stored string "0" raw on every boot and settings-save couldn't heal it.
+   Fixed: _coerce_override at the bootstrap door.
+Also: OCEAN_BLOCKED now journals once/day and only when Everest is off
+(was ~5 spam lines/day incl. neutral) · push enable() seeds the cursor
+(first enable no longer blasts up to 300 historical events at the phone) ·
+"22k params" doc claim corrected (committed registry = 1,500 JSON + 1,200
+CSV; 22k counted cells) · .gitignore negation added for data/chityy/ ·
+docs/WORK_LIST.md A2-A5 finally marked DONE (shipped in a185d94).
+**OPEN OWNER QUESTION from the recheck (do NOT wire without their word):
+breadth gate vs VIX-crush re-entry conflict.** In a correction, breadth is
+almost always <=50%, so the wired breadth gate will block the very entries
+the v4-tested VIX-crush re-entry re-enables (the +24% COVID rebound would
+have been breadth-blocked). Recommendation: let vix_reentry BYPASS the
+breadth gate (one condition). Asked; pending owner.
 **Audit findings NOT yet fixed (owner deferred, still true):** −15% trail is
 unreachable under −5%/+12% (peak must clear +11.76% but +12% closes first —
 the −5% stop decision silently killed the "workhorse exit") · `partial 0.07`

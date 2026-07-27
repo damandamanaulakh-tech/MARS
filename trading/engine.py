@@ -158,6 +158,16 @@ class TradingEngine:
         # lines later, so this block silently NameError'd every scan (festival
         # journaling never fired). Define it up front.
         now = datetime.utcnow()
+
+        # Roll the daily loss-halt baseline at the day's FIRST engine action,
+        # BEFORE _record_equity appends today's marks. Recheck fixes
+        # (2026-07-27): rolling only inside refresh() meant (a) the 15:35 call
+        # measured "daily" loss from today's own 14:30 mark — a one-hour
+        # window — and (b) a kill-switch liquidation emptied the book, which
+        # made refresh() early-return forever, so the tripped switch never
+        # re-armed and all automatic buying stayed dead until a restart.
+        self._roll_risk_day(self.portfolio.equity({}), now)
+
         try:
             from .calendars import festival_context
             fest = festival_context(days=5)
@@ -691,7 +701,11 @@ class TradingEngine:
         """Pull latest prices, mark portfolio, fire exits."""
         cfg = self.cfg
         if not self.portfolio.positions:
+            # Empty book still rolls the risk day — otherwise a kill-switch
+            # liquidation (which empties the book) would freeze the tripped
+            # switch here forever (recheck fix, 2026-07-27).
             prices = {}
+            self._roll_risk_day(self.portfolio.equity(prices), datetime.utcnow())
             return self._summary_dict(prices)
 
         tickers = list(self.portfolio.positions.keys())
@@ -725,7 +739,9 @@ class TradingEngine:
         # an ordinary drawdown.
         current_eq = self.portfolio.equity(prices)
         self._roll_risk_day(current_eq, now)
-        self.risk.check_kill_switch(current_eq)
+        if self.risk.check_kill_switch(current_eq):
+            # Persist the trip so a mid-day restart can't forget the halt.
+            self.portfolio.risk_day_killed = True
 
         # Track which tickers already have a HOLD entry today (avoid spam on
         # multiple refreshes per day) — one why-retained line per ticker per day.
@@ -969,13 +985,25 @@ class TradingEngine:
             return []
 
         if not cfg.ocean_enabled:
-            self.portfolio.decision_journal.append({
-                "ts": now.isoformat(), "action": "OCEAN_BLOCKED",
-                "why": (f"Regime {regime.regime} would activate the Ocean "
-                        "mean-reversion engine, but it is parked "
-                        "(cfg.ocean_enabled=False). No Ocean buys. Turn it on "
-                        "in Settings only after the crash guard is tested."),
-            })
+            # Journal the block only where it MATTERS (Everest off — Ocean was
+            # the sole buyer) and once per day, not per scan pass. In neutral
+            # Everest buys anyway; 5 spam lines/day forever would just bloat
+            # the journal (recheck fix, 2026-07-27).
+            today_iso = now.date().isoformat()
+            already = any(
+                e.get("action") == "OCEAN_BLOCKED"
+                and str(e.get("ts", "")).startswith(today_iso)
+                for e in self.portfolio.decision_journal[-50:]
+            )
+            if not regime.everest_active and not already:
+                self.portfolio.decision_journal.append({
+                    "ts": now.isoformat(), "action": "OCEAN_BLOCKED",
+                    "why": (f"Regime {regime.regime} would activate the Ocean "
+                            "mean-reversion engine, but it is parked "
+                            "(cfg.ocean_enabled=False). No Ocean buys. Turn it "
+                            "on in Settings only after the crash guard is "
+                            "tested."),
+                })
             return []
 
         picks: List[dict] = []
@@ -1024,9 +1052,12 @@ class TradingEngine:
 
         if p.risk_day == today:
             # Same day, possibly after a restart: restore the stored baseline
-            # rather than letting __post_init__'s starting_capital stand.
+            # AND the tripped flag — otherwise a mid-day restart on a halted
+            # day would buy again at catch-up, re-trip at 15:35, and churn.
             if p.risk_day_equity > 0:
                 self.risk.day_start_equity = p.risk_day_equity
+            if getattr(p, "risk_day_killed", False):
+                self.risk.kill_switch = True
             return
 
         prior_eq = None
@@ -1040,6 +1071,7 @@ class TradingEngine:
         self.risk.roll_day(baseline)
         p.risk_day = today
         p.risk_day_equity = baseline
+        p.risk_day_killed = False
         p.decision_journal.append({
             "ts": now.isoformat(), "action": "RISK_DAY_ROLL",
             "why": (f"Daily loss baseline set to Rs {baseline:,.0f} for {today}. "

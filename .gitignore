@@ -26,3 +26,4 @@ docs/param_search_v1_progress.jsonl
 !research/chityy_archive/*.csv
 !data/fii_dii_daily_2014_2023.csv
 !data/india_10y_bond_yield.csv
+!data/chityy/*.csv

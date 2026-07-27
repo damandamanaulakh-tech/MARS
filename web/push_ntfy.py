@@ -73,11 +73,24 @@ def get_state() -> dict:
 
 
 def enable() -> dict:
-    """Owner pressed Enable: create the private topic if needed, switch on."""
+    """Owner pressed Enable: create the private topic if needed, switch on.
+
+    Seeds the push cursor to the newest existing journal entry so the first
+    batch contains only events AFTER enabling — without this, the first push
+    blasted up to 300 historical BUY/SELL lines at the owner's phone
+    (recheck fix, 2026-07-27)."""
     doc = _load()
     if not doc.get("topic") and not os.environ.get("NTFY_TOPIC", "").strip():
         doc["topic"] = f"am07-{secrets.token_hex(12)}"
     doc["enabled"] = True
+    if not doc.get("last_push_ts"):
+        try:
+            from . import state
+            journal = state.portfolio().decision_journal
+            if journal:
+                doc["last_push_ts"] = max(str(e.get("ts", "")) for e in journal[-300:])
+        except Exception:
+            pass
     _save(doc)
     return get_state()
 
