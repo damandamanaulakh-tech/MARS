@@ -19,8 +19,10 @@ import zipfile
 import numpy as np
 import pandas as pd
 
-ZIP = "/home/user/sourceborn-engine/data/history_upstox_export_2026-07-19.zip"
-IDX = "/home/user/sourceborn-engine/data/index_daily_15y.csv"
+from pathlib import Path as _P
+_ROOT = _P(__file__).resolve().parents[2]
+ZIP = str(_ROOT / "data/history_upstox_export_2026-07-19.zip")
+IDX = str(_ROOT / "data/index_daily_15y.csv")
 COST = 0.0015
 BOOK = 15
 

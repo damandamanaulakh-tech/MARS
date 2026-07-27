@@ -12,8 +12,10 @@ import time
 import httpx
 import pandas as pd
 
-UNI = "/home/user/sourceborn-engine/data/upstox_nse_equities.csv"
-OUT = "/tmp/claude-0/-home-user-sourceborn-engine/0cfa8919-7563-5aa0-bfc1-4dcab357369b/scratchpad/full_universe"
+from pathlib import Path as _P
+_ROOT = _P(__file__).resolve().parents[2]
+UNI = str(_ROOT / "data/upstox_nse_equities.csv")
+OUT = str(_ROOT / "research/tunnel_studies/full_universe")   # unzip data/full_universe_2392.zip here
 CHUNKS = [("2019-01-01", "2022-12-31"), ("2023-01-01", "2026-07-24")]
 
 os.makedirs(OUT, exist_ok=True)

@@ -1,27 +1,32 @@
 """TCS through the same tunnel — the falling-giant edition.
+[paths repaired 2026-07-27: repo-relative, was the retired sourceborn-engine checkout]
 Window 2024-03-01 -> today: pre-peak, the -56% fall, the 3-week-old turn.
 Same lanes, same bars, same near-miss band as the MTAR study."""
 import io
 import sys
 import zipfile
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[1]
 
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, "/home/user/sourceborn-engine")
+sys.path.insert(0, str(ROOT))
 from trading import candles as C
 from trading.config import Config
 from trading.scoring import (score_breakout_quality, score_momentum_1m,
                              score_relative_strength, score_vol_adj_upside,
                              score_volume_expansion)
 
-S = "/tmp/claude-0/-home-user-sourceborn-engine/0cfa8919-7563-5aa0-bfc1-4dcab357369b/scratchpad"
+S = str(HERE)
 cfg = Config(); cfg.mode = "nifty200_momentum"; cfg.apply_mode_preset()
 
 hdfc = pd.read_csv(f"{S}/hdfc_daily.csv", parse_dates=["Date"], index_col="Date").sort_index()
 
 closes = {}
-with zipfile.ZipFile("/home/user/sourceborn-engine/data/history_upstox_export_2026-07-19.zip") as z:
+with zipfile.ZipFile(ROOT / "data/history_upstox_export_2026-07-19.zip") as z:
     for name in z.namelist():
         if name.endswith(".csv"):
             with z.open(name) as fh:
@@ -38,7 +43,7 @@ vol126 = panel.pct_change().rolling(126).std()
 mom_rank = ((r126 / vol126).rank(axis=1, pct=True) * 0.5 +
             (r252 / vol126).rank(axis=1, pct=True) * 0.5) * 100
 
-idx = pd.read_csv("/home/user/sourceborn-engine/data/index_daily_15y.csv",
+idx = pd.read_csv(ROOT / "data/index_daily_15y.csv",
                   dayfirst=True, parse_dates=["trade_date"], index_col="trade_date").sort_index()
 nifty = idx["nifty_close"]; nifty200 = nifty.rolling(200).mean()
 sma200 = hdfc["Close"].rolling(200).mean()

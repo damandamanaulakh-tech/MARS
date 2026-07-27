@@ -5,7 +5,8 @@ import math
 import numpy as np
 import pandas as pd
 
-S = "/tmp/claude-0/-home-user-sourceborn-engine/0cfa8919-7563-5aa0-bfc1-4dcab357369b/scratchpad"
+from pathlib import Path as _P
+S = str(_P(__file__).resolve().parent)   # repaired 2026-07-27: repo-relative
 
 px = pd.read_csv(f"{S}/mtar_daily.csv", parse_dates=["Date"], index_col="Date").sort_index()
 T = pd.read_csv(f"{S}/mtar_tunnel_readings.csv", parse_dates=[0], index_col=0).sort_index()
