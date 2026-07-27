@@ -61,6 +61,85 @@ def backtest_page(request: Request, error: str | None = None):
     )
 
 
+def _preloaded_history(universe: list, benchmark: str,
+                       start_date: str, end_date: str) -> dict:
+    """Build the backtest's price panel from data the app ALREADY HAS.
+
+    Owner report (2026-07-27): the backtest button was still crashing the
+    512 MB Render box. Cause: run_backtest with no preloaded_history does a
+    yfinance bulk download of the whole universe — the in-flight responses
+    and float64 frames spike far above the app's steady ~150 MB before the
+    float32 downcast runs, and yfinance rate-limits make it fail outright.
+
+    The same OHLCV lives in two places that need NO network: the Mongo
+    history store (kept fresh by the Friday top-up) and the repo's committed
+    zip (ships with every deploy). Prefer Mongo, fill gaps from the zip,
+    benchmark from the committed index CSV. Frames are float32 and sliced to
+    the window+lookback, so peak memory stays at the measured ~170 MB.
+    Tickers found nowhere are skipped (counted in the log) — never fetched.
+    """
+    import io
+    import zipfile
+    from pathlib import Path
+
+    import pandas as pd
+
+    from trading.history_store import records_to_df
+    from .. import db
+
+    dl_start = (pd.Timestamp(start_date) - pd.Timedelta(days=420)).date().isoformat()
+    dl_end = (pd.Timestamp(end_date) + pd.Timedelta(days=5)).date().isoformat()
+    out: dict = {}
+
+    # 1. Mongo store (freshest)
+    if db.is_connected():
+        for t in universe:
+            try:
+                df = records_to_df(db.load_history_doc(t))
+                if df is not None and not df.empty:
+                    out[t] = df.loc[dl_start:dl_end]
+            except Exception:
+                continue
+
+    # 2. Repo zip fills the gaps (always present in the deploy)
+    missing = [t for t in universe if t not in out]
+    if missing:
+        zpath = Path(__file__).resolve().parents[2] / "data" / \
+            "history_upstox_export_2026-07-19.zip"
+        try:
+            with zipfile.ZipFile(zpath) as z:
+                names = set(z.namelist())
+                for t in missing:
+                    name = f"{t}.csv"
+                    if name not in names:
+                        continue
+                    df = pd.read_csv(io.BytesIO(z.read(name)),
+                                     parse_dates=["Date"], index_col="Date")
+                    for c in df.columns:
+                        df[c] = df[c].astype("float32")
+                    out[t] = df.sort_index().loc[dl_start:dl_end]
+        except Exception as e:
+            log.warning("backtest zip fallback failed: %s", e)
+
+    # 3. Benchmark from the committed index CSV (no network)
+    try:
+        ipath = Path(__file__).resolve().parents[2] / "data" / "index_daily_15y.csv"
+        idx = pd.read_csv(ipath, parse_dates=["trade_date"], dayfirst=True)
+        idx = idx.set_index("trade_date").sort_index()
+        out[benchmark] = pd.DataFrame({
+            "Open": idx["nifty_open"], "High": idx["nifty_high"],
+            "Low": idx["nifty_low"], "Close": idx["nifty_close"],
+            "Volume": 0.0,
+        }).loc[dl_start:dl_end]
+    except Exception as e:
+        log.warning("backtest benchmark load failed: %s", e)
+
+    skipped = len(universe) - sum(1 for t in universe if t in out)
+    log.info("backtest panel: %d/%d tickers from store+zip, %d skipped, "
+             "0 downloaded", len(out), len(universe) + 1, skipped)
+    return out
+
+
 @router.post("/backtest/run")
 def backtest_run(
     request: Request,
@@ -93,6 +172,8 @@ def backtest_run(
                 universe=cfg.universe,
                 benchmark=cfg.benchmark,
                 history_period="max",
+                preloaded_history=_preloaded_history(
+                    cfg.universe, cfg.benchmark, start_date, end_date),
             )
             with _LAST_RESULT_LOCK:
                 _LAST_RESULT = result.to_dict()
