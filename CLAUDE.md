@@ -132,6 +132,17 @@ Owner approved 2 fixes; BOTH SHIPPED, 433 tests green:**
    Bonus bug found while wiring the Settings toggle: **bool fields saved as
    the STRING "0" (truthy) — entering 0 to switch a flag OFF switched it
    ON.** Live for `pyramid_enabled`. Fixed in `settings_routes`.
+**2026-07-27 audit fixes 3 & 5 (owner: "there is owner only none else"),
+442 tests green:** login page's "Quick switch" Owner/Viewer buttons DELETED —
+they carried working passwords in unauthenticated markup · **viewer account
+removed entirely**, owner is the only seeded user · `sync-to-hf.yml` DELETED
+(checked all 16 runs first: every one failed on empty HF_TOKEN/HF_SPACE
+before the push line, so **nothing ever leaked**) · guard tests in
+`web/tests/test_login_no_secrets.py`, verified to fail if the old page returns.
+**STILL OPEN, owner action needed: set `OWNER_PWD` in the Render dashboard.**
+The fallback is `"sourceborn"` — which is also the brand name, so it is
+guessable and un-greppable. Until it is set, the app on a public URL has a
+one-word password.
 **Audit findings NOT yet fixed (owner deferred, still true):** −15% trail is
 unreachable under −5%/+12% (peak must clear +11.76% but +12% closes first —
 the −5% stop decision silently killed the "workhorse exit") · `partial 0.07`
@@ -141,8 +152,7 @@ wiped on boot by `retag_positions_per_mode` · `apply_mode_preset` overwrites
 8 fields you save in Settings · drawdown governor resets to 0 every restart ·
 `broker.bid_ask()` does not exist (spread check never ran) · FII/DII CSV is
 22 months stale, no guard · owner password `sourceborn` is printed in
-login.html · `/scan/parameter/{key}` is unauthenticated · `sync-to-hf.yml`
-force-pushes the whole 86MB repo to a HF Space on every push to main ·
+login.html · `/scan/parameter/{key}` is unauthenticated ·
 `engine.scan/refresh` and all of `web/scheduler.py` have ZERO tests ·
 orphans: auto/autoswap/intraday/macro/providers (910 lines), all of
 research/tunnel_studies (dead `/home/user/sourceborn-engine/` paths),
