@@ -308,6 +308,17 @@ Upstox/Zerodha framing that landed: app = brain (decides), broker =
 hands; go-live = 60-day proof + their word, then real orders small +
 kill switch.
 
+**2026-07-27 evening data decisions (owner):** full-universe OHLCV
+CLOSED — "we dont need all... its there and enough for me" (current 191-
+ticker panel + full_universe_2392.zip suffice for tests/param verification;
+never re-raise) · F6 fresh CURRENT FII/DII data incoming via new release
+ASSETS uploads — when they land: refresh data/fii_dii_cash.csv and never
+ask again · ^CNX200 fetch verification is on Claude at the first live
+backtest after deploy · monthly FII archive = 60+ months, gaps accepted ·
+data/india_10y_bond_yield.csv committed (2016->2026-06, macro research,
+not wired) · owner is moving more browser-only files into release ASSETS
+(only assets are session-readable).
+
 ## Standing user rules
 0. Merge authorization (owner, 2026-07-27, this session): Claude MAY merge
    its own PRs once CI is green — "u r also authorize for doing the merge".

@@ -61,3 +61,9 @@ the 5 asset zips contains code. Likely candidate holding it:
 browser-only). Owner can asset-attach it if the code should be preserved.
 `Back.Test.Claude.zip` = 191 tickers 2014->2026-07-17, same panel as
 `data/history_upstox_export_2026-07-19.zip` — kept in the release only.
+
+`india_10y_bond_yield.csv` — India 10-year government bond yield, daily,
+2016-01-01 -> 2026-06-08 (2,550 rows, newest first, US date format
+MM/DD/YYYY, from the owner's AM.07.Parameter.Files pack; committed verbatim
+2026-07-27, owner: "BOND u can go"). Macro-research input (rate regime vs
+equity momentum) — not wired into any live signal.
