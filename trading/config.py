@@ -70,6 +70,16 @@ class Config:
     # recent spike peak — the only correction tactic that beat cash in the
     # 10-episode preregistered test (docs/PARAM_SEARCH_V4.md).
     correction_vix_reentry: bool = True
+    # Ocean (mean-reversion / knife-catch engine, trading/engines/ocean.py).
+    # Docs have described it as PARKED since the v3 review (-41% drawdown
+    # catching 2020's falling knives), but until 2026-07-27 there was no
+    # switch in the code: engine.scan() ran it on nothing more than
+    # regime.ocean_active, which regime.classify() sets True for correction,
+    # panic AND neutral. In a correction Everest is off, so Ocean was the
+    # only engine able to open a position — and its picks skip the score
+    # floor and the absolute-momentum gate. This flag is that missing park
+    # switch. Leave False until the crash guard is designed and tested.
+    ocean_enabled: bool = False
 
     # --- Per-trade risk ---
     stop_loss_pct: float = -0.05              # -5% hard stop

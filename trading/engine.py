@@ -247,7 +247,6 @@ class TradingEngine:
 
         # Engine selection: which picks are eligible for entry today?
         everest_picks: List[dict] = []
-        ocean_picks: List[dict] = []
 
         # P0/A2 — ABSOLUTE momentum filter (dual momentum): relative rank alone
         # buys the "least-bad faller" in a weak tape. In momentum mode a pick
@@ -290,29 +289,9 @@ class TradingEngine:
                 and _abs_mom_ok(r["ticker"])
             ]
 
-        # Ocean: only fires in correction/panic. Different selection logic.
-        if regime is not None and regime.ocean_active:
-            try:
-                from .engines.ocean import scan as ocean_scan
-                hist_map = {t: history[t] for t in universe if t in history}
-                cands = ocean_scan(hist_map, cfg)
-                for c in cands:
-                    ocean_picks.append({
-                        "ticker": c.ticker,
-                        "score": 100 + c.pct_below_200dma,  # deepest = highest priority
-                        "components": {},
-                        "timing_pass": True,
-                        "timing_diag": {"ocean": True},
-                        "reasoning": (
-                            f"OCEAN: {c.pct_below_200dma:.1f}% off 200DMA, "
-                            f"weekly RSI {c.weekly_rsi:.1f}, "
-                            f"climax vol {c.climax_volume_ratio:.1f}x"
-                        ),
-                        "last_close": c.price,
-                        "ocean": True,
-                    })
-            except Exception:
-                pass   # Ocean is bonus; never block Everest path
+        # Ocean: only fires in correction/panic, and only when the owner has
+        # switched it on. See _ocean_picks().
+        ocean_picks = self._ocean_picks(regime, history, universe, now)
 
         picks = everest_picks + ocean_picks
 
@@ -732,8 +711,12 @@ class TradingEngine:
         history = fetch_daily(tickers, period="6mo")
         bench = fetch_daily([cfg.benchmark], period="6mo").get(cfg.benchmark)
 
-        # Daily kill switch check
+        # Daily kill switch check. Roll the baseline FIRST — without this the
+        # baseline stays pinned at starting_capital forever and the "-2% daily"
+        # halt becomes "-2% since inception", force-closing the whole book on
+        # an ordinary drawdown.
         current_eq = self.portfolio.equity(prices)
+        self._roll_risk_day(current_eq, now)
         self.risk.check_kill_switch(current_eq)
 
         # Track which tickers already have a HOLD entry today (avoid spam on
@@ -922,6 +905,105 @@ class TradingEngine:
             self.loss_tracker.record_close(now.date(), net_pnl)
         except AttributeError:
             pass  # backward compat if engine was built before risk_v2
+
+    def _ocean_picks(self, regime, history: dict, universe, now: datetime) -> List[dict]:
+        """Ocean (mean-reversion) candidates — empty unless the owner opted in.
+
+        Ocean has been described as PARKED in CLAUDE.md and docs/PARAM_SEARCH_V4
+        since the v3 review (-41% drawdown catching 2020's falling knives), but
+        until 2026-07-27 nothing in the code enforced that. The only condition
+        was regime.ocean_active, which regime.classify() sets True for
+        correction, panic AND neutral. In a correction Everest is switched off,
+        so Ocean was the sole engine able to open a position — and its picks are
+        handed score = 100 + pct_below_200dma and timing_pass = True, bypassing
+        both the score floor and the absolute-momentum gate.
+
+        cfg.ocean_enabled (default False) is that missing park switch. When the
+        regime would have activated Ocean and the flag is off, the block is
+        journalled as OCEAN_BLOCKED rather than passing silently.
+        """
+        cfg = self.cfg
+        if regime is None or not regime.ocean_active:
+            return []
+
+        if not cfg.ocean_enabled:
+            self.portfolio.decision_journal.append({
+                "ts": now.isoformat(), "action": "OCEAN_BLOCKED",
+                "why": (f"Regime {regime.regime} would activate the Ocean "
+                        "mean-reversion engine, but it is parked "
+                        "(cfg.ocean_enabled=False). No Ocean buys. Turn it on "
+                        "in Settings only after the crash guard is tested."),
+            })
+            return []
+
+        picks: List[dict] = []
+        try:
+            from .engines.ocean import scan as ocean_scan
+            hist_map = {t: history[t] for t in universe if t in history}
+            for c in ocean_scan(hist_map, cfg):
+                picks.append({
+                    "ticker": c.ticker,
+                    "score": 100 + c.pct_below_200dma,  # deepest = highest priority
+                    "components": {},
+                    "timing_pass": True,
+                    "timing_diag": {"ocean": True},
+                    "reasoning": (
+                        f"OCEAN: {c.pct_below_200dma:.1f}% off 200DMA, "
+                        f"weekly RSI {c.weekly_rsi:.1f}, "
+                        f"climax vol {c.climax_volume_ratio:.1f}x"
+                    ),
+                    "last_close": c.price,
+                    "ocean": True,
+                })
+        except Exception:
+            pass   # Ocean is bonus; never block Everest path
+        return picks
+
+    def _roll_risk_day(self, current_equity: float, now: datetime) -> None:
+        """Re-baseline the daily loss halt once per trading day.
+
+        RiskState.__post_init__ pins day_start_equity to starting_capital and
+        RiskState.roll_day() was only ever called from backtest.py — so in the
+        live app the "-2% daily loss halt" measured against the original ₹25L
+        forever. A -2% *cumulative* drawdown therefore tripped the kill switch
+        and force-closed every position.
+
+        The baseline for a new day is yesterday's last mark (the previous
+        equity_history point), not today's — today's move is exactly what the
+        halt is supposed to measure. Both the date and the baseline live on the
+        portfolio so a mid-day restart restores them instead of starting over.
+        """
+        p = self.portfolio
+        # `now` is UTC (refresh uses datetime.utcnow()). IST is UTC+5:30, so the
+        # two dates only diverge between 00:00 and 05:30 IST — outside market
+        # hours and outside every scheduled job (09:20 / 14:30 / 15:25 / 15:35
+        # IST all land on the same UTC date). Safe as written.
+        today = now.date().isoformat()
+
+        if p.risk_day == today:
+            # Same day, possibly after a restart: restore the stored baseline
+            # rather than letting __post_init__'s starting_capital stand.
+            if p.risk_day_equity > 0:
+                self.risk.day_start_equity = p.risk_day_equity
+            return
+
+        prior_eq = None
+        if p.equity_history:
+            try:
+                prior_eq = float(p.equity_history[-1][1])
+            except (TypeError, ValueError, IndexError):
+                prior_eq = None
+        baseline = prior_eq if prior_eq and prior_eq > 0 else current_equity
+
+        self.risk.roll_day(baseline)
+        p.risk_day = today
+        p.risk_day_equity = baseline
+        p.decision_journal.append({
+            "ts": now.isoformat(), "action": "RISK_DAY_ROLL",
+            "why": (f"Daily loss baseline set to Rs {baseline:,.0f} for {today}. "
+                    f"Kill switch re-armed at "
+                    f"{self.cfg.daily_loss_halt_pct * 100:.1f}% of that."),
+        })
 
     def _record_equity(self, prices: Dict[str, float], now: datetime) -> None:
         eq = self.portfolio.equity(prices)

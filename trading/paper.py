@@ -112,6 +112,10 @@ class Portfolio:
     scan_matrix: dict = field(default_factory=dict)  # 🎹 full scan hit-map (overwritten each scan)
     pending_orders: List[dict] = field(default_factory=list)  # owner limit orders (day validity)
     filings: List[dict] = field(default_factory=list)  # matched exchange announcements (held+watch)
+    # Daily loss-halt baseline. Persisted so a mid-day Render restart cannot
+    # silently re-baseline the kill switch (RiskState is rebuilt on every boot).
+    risk_day: Optional[str] = None            # ISO date the baseline belongs to
+    risk_day_equity: float = 0.0              # equity the -2% halt measures from
     last_save: Optional[str] = None
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
@@ -168,6 +172,8 @@ class Portfolio:
                 "scan_matrix": self.scan_matrix,               # 🎹 one scan's hit-map, fixed size
                 "pending_orders": self.pending_orders[-200:],  # owner limit orders, capped
                 "filings": self.filings[:100],                 # matched announcements, capped
+                "risk_day": self.risk_day,                     # daily kill-switch baseline date
+                "risk_day_equity": self.risk_day_equity,       # ...and the equity it measures from
                 "last_save": datetime.utcnow().isoformat(),
             }
             with open(self._state_path(), "w") as f:
@@ -202,6 +208,8 @@ class Portfolio:
             p.scan_matrix = dict(data.get("scan_matrix", {}))
             p.pending_orders = list(data.get("pending_orders", []))
             p.filings = list(data.get("filings", []))
+            p.risk_day = data.get("risk_day")
+            p.risk_day_equity = float(data.get("risk_day_equity", 0.0) or 0.0)
             p.last_save = data.get("last_save")
             return p
         except Exception:
