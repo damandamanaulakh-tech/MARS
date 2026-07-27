@@ -55,9 +55,11 @@ uploads: audit them; several contained fabricated numbers/padded catalogs).
 ## Daily machine (all automatic; failures visible)
 03:30 Upstox token dies (user must log in once daily — the ONLY manual act;
 login triggers catch-up scan) · 08:50 universe refresh · 09:20 multi-mode
-scan, momentum FIRST (order: momentum, intraday, short, swing, positional)
-· 14:30 top-up · 15:25 square-off intraday-tagged + expire owner limit
-orders · 15:35 refresh/exits · SCAN_FAILED + SCAN_CATCHUP journaled;
+scan, momentum FIRST (order since PR#9: momentum, short, swing, positional —
+intraday REMOVED from auto-rotation 2026-07-27, owner order; preset stays in
+Settings for manual use) · 14:30 top-up · 15:25 square-off intraday-tagged +
+expire owner limit orders · 15:35 refresh/exits · Friday 16:30 weekly OHLCV
+top-up (merge, never replace) · SCAN_FAILED + SCAN_CATCHUP journaled;
 catch-up (refresh+scan) fires 2 min after every boot
 (`scheduler.catchup_scan_if_missed`; SB_DISABLE_CATCHUP=1 in tests).
 Stale-data guard: refresh with no live quotes = DATA_STALE + HOLD.
@@ -247,6 +249,16 @@ v1-v4 program — do not quote it.**
   app needs nothing from it.
 - F6 FII/DII: ON HOLD per owner — they will push fresh data to git; when the
   file lands, commit it and never ask again.
+- Proof ledger truth-passed (PR #10): G001/G002 CLOSED (data + PIT exist),
+  G004 IN_PROGRESS (60-day live window is the remaining test), G003 LOCKED.
+- Chityy archive plan (owner: "let upload file in git... approx 1.5 GB"):
+  do NOT put it in the git tree (100MB/file limit, Render deploys clone the
+  repo). Owner instructed to publish a GitHub RELEASE on am07, tag
+  `chityy-archive`, with the 8 original zips as assets. WHEN THE RELEASE
+  APPEARS: index it in data/README.md + here; pull the small code zip and
+  commit sourceborn_chityy code + clean master_extended_chityy.csv (repo
+  copy is CORRUPT, zero line breaks) + picks CSVs into
+  research/chityy_archive/. Check for the release with the GitHub tools.
 **Audit findings NOT yet fixed (owner deferred, still true):** −15% trail is
 unreachable under −5%/+12% (peak must clear +11.76% but +12% closes first —
 the −5% stop decision silently killed the "workhorse exit") · `partial 0.07`
