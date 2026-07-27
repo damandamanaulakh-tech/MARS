@@ -20,7 +20,14 @@ from typing import Optional
 from fastapi import HTTPException, Request
 
 
-_SEEDED_PWD = os.environ.get("OWNER_PWD", "sourceborn")
+# Owner password. Two env names accepted: OWNER_PWD (documented in
+# render.yaml) and APP_PASSWORD (the name the owner actually used in the
+# Render dashboard, 2026-07-27 — code bends to the owner, not the reverse).
+# OWNER_PWD wins if both are set. The "sourceborn" fallback exists only for
+# local dev and tests; on a public URL it is a guessable password.
+_SEEDED_PWD = (os.environ.get("OWNER_PWD")
+               or os.environ.get("APP_PASSWORD")
+               or "sourceborn")
 
 SEEDED_USERS = {
     "owner@sourceborn.in": {"role": "owner", "password": _SEEDED_PWD, "name": "Owner"},

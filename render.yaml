@@ -14,6 +14,8 @@ services:
         generateValue: true
       - key: OWNER_PWD
         sync: false           # set manually in Render dashboard
+      - key: APP_PASSWORD     # alias for OWNER_PWD — the name the owner used
+        sync: false           # in the dashboard (2026-07-27); either works
       - key: PYTHON_VERSION
         value: 3.11.9
       # v2 — Phase 2 additions:
