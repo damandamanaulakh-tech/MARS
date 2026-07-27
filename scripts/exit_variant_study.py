@@ -144,8 +144,9 @@ def main() -> None:
             r = bt.run_backtest(cfg, ws, we, universe=tickers,
                                 preloaded_history=hist)
             reasons: dict = {}
-            for t in r.trades:
-                reasons[t.reason] = reasons.get(t.reason, 0) + 1
+            for t in r.trades:                     # list[dict], see BacktestResult
+                k = t.get("reason", "?")
+                reasons[k] = reasons.get(k, 0) + 1
             row = {
                 "variant": vname, "window": wname,
                 "return_pct": round(r.total_return_pct, 2),
