@@ -51,6 +51,14 @@ from .timing import timing_ok
 
 log = logging.getLogger(__name__)
 
+# Secondary benchmark (owner-approved adoption, 2026-07-27): the strategy IS
+# a Nifty-200 momentum strategy, so judging it only against Nifty 50 (^NSEI)
+# is the wrong ruler. ^CNX200 = Nifty 200 on Yahoo Finance. Fail-visible:
+# when the series can't be fetched the result says DATA_NEEDED instead of
+# silently dropping the comparison.
+BENCHMARK2 = "^CNX200"
+BENCHMARK2_LABEL = "Nifty 200"
+
 
 @dataclass
 class BacktestResult:
@@ -78,6 +86,13 @@ class BacktestResult:
     benchmark_total_return_pct: float
     benchmark_max_drawdown_pct: float
     alpha_pct: float
+
+    # Secondary benchmark — Nifty 200 (^CNX200), the fair ruler for a
+    # Nifty-200 momentum strategy. None when the series was unfetchable
+    # (a warning is appended so the gap is visible, never silent).
+    benchmark2: str = BENCHMARK2
+    benchmark2_total_return_pct: Optional[float] = None
+    alpha2_pct: Optional[float] = None
 
     # Raw artefacts
     trades: list = field(default_factory=list)        # list[dict]
@@ -121,7 +136,16 @@ class BacktestResult:
             "## Vs benchmark",
             f"- Nifty 50 return same window: {self.benchmark_total_return_pct:+.2f}%",
             f"- Nifty 50 max drawdown: {self.benchmark_max_drawdown_pct:.2f}%",
-            f"- **Alpha**: {self.alpha_pct:+.2f}% {sign}",
+            f"- **Alpha vs Nifty 50**: {self.alpha_pct:+.2f}% {sign}",
+        ]
+        if self.benchmark2_total_return_pct is not None:
+            lines += [
+                f"- Nifty 200 return same window: "
+                f"{self.benchmark2_total_return_pct:+.2f}%",
+                f"- **Alpha vs Nifty 200** (the fair ruler for this strategy): "
+                f"{self.alpha2_pct:+.2f}%",
+            ]
+        lines += [
             "",
             "## Honest disclosures",
         ]
@@ -237,7 +261,8 @@ def run_backtest(
     else:
         log.info("Backtest: downloading %d universe + %s benchmark [%s..%s]",
                  len(universe), benchmark, dl_start, dl_end)
-        all_hist = _bulk_download(universe + [benchmark], start=dl_start, end=dl_end)
+        all_hist = _bulk_download(universe + [benchmark, BENCHMARK2],
+                                  start=dl_start, end=dl_end)
     bench_hist = all_hist.get(benchmark)
     if bench_hist is None or bench_hist.empty:
         raise RuntimeError(f"Benchmark {benchmark} history empty")
@@ -367,6 +392,7 @@ def run_backtest(
         portfolio=portfolio,
         equity_curve=equity_curve,
         bench_hist=bench_in_window,
+        bench2_hist=all_hist.get(BENCHMARK2),
         time_in_market_days=time_in_market_days,
         total_days=len(trading_dates),
         warnings=warnings,
@@ -513,7 +539,7 @@ def _close_position(portfolio, ticker, raw_price, reason, date) -> None:
 def _compile_result(
     cfg, start_date, end_date, universe_size, benchmark, portfolio,
     equity_curve, bench_hist, time_in_market_days, total_days,
-    warnings, final_equity, universe_integrity=None,
+    warnings, final_equity, universe_integrity=None, bench2_hist=None,
 ) -> BacktestResult:
     trades = portfolio.trades
     wins = [t for t in trades if t.net_pnl > 0]
@@ -548,6 +574,23 @@ def _compile_result(
     bench_max = bench_eq.cummax()
     bench_dd = float(((bench_eq - bench_max) / bench_max).min() * 100)
 
+    # Secondary benchmark (Nifty 200) over the same window — the honest ruler
+    # for a Nifty-200 momentum strategy. None (+ a warning) when unfetchable.
+    bench2_return = None
+    if bench2_hist is not None and not bench2_hist.empty:
+        b2 = bench2_hist[
+            (bench2_hist.index >= pd.Timestamp(start_date))
+            & (bench2_hist.index <= pd.Timestamp(end_date))
+        ]
+        if len(b2) >= 2:
+            bench2_return = (float(b2["Close"].iloc[-1])
+                             / float(b2["Close"].iloc[0]) - 1) * 100
+    if bench2_return is None:
+        warnings = list(warnings) + [
+            f"{BENCHMARK2_LABEL} ({BENCHMARK2}) series unavailable for this "
+            "window — alpha shown vs Nifty 50 only (DATA_NEEDED).",
+        ]
+
     # Per-sector / per-reason buckets
     per_sector: dict[str, float] = {}
     per_reason: dict[str, float] = {}
@@ -581,6 +624,10 @@ def _compile_result(
         benchmark_total_return_pct=bench_return,
         benchmark_max_drawdown_pct=bench_dd,
         alpha_pct=total_return_pct - bench_return,
+        benchmark2=BENCHMARK2,
+        benchmark2_total_return_pct=bench2_return,
+        alpha2_pct=(total_return_pct - bench2_return
+                    if bench2_return is not None else None),
         trades=[
             {
                 "ticker": t.ticker, "qty": t.qty,
@@ -617,7 +664,8 @@ def walk_forward(
     if preloaded_history is None:
         dl_start = (pd.Timestamp(start_date) - pd.Timedelta(days=420)).date().isoformat()
         dl_end = (pd.Timestamp(end_date) + pd.Timedelta(days=5)).date().isoformat()
-        preloaded_history = _bulk_download(universe + [benchmark], start=dl_start, end=dl_end)
+        preloaded_history = _bulk_download(universe + [benchmark, BENCHMARK2],
+                                           start=dl_start, end=dl_end)
 
     windows: list[dict] = []
     w_start, end_ts = pd.Timestamp(start_date), pd.Timestamp(end_date)
@@ -630,6 +678,8 @@ def walk_forward(
                 benchmark=benchmark, preloaded_history=preloaded_history,
             )
             row.update(
+                n200_return_pct=r.benchmark2_total_return_pct,
+                alpha_vs_n200_pct=r.alpha2_pct,
                 total_return_pct=r.total_return_pct, alpha_pct=r.alpha_pct,
                 benchmark_return_pct=r.benchmark_total_return_pct,
                 num_trades=r.num_trades, win_rate_pct=r.win_rate_pct,

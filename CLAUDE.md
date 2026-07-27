@@ -143,6 +143,26 @@ before the push line, so **nothing ever leaked**) · guard tests in
 The fallback is `"sourceborn"` — which is also the brand name, so it is
 guessable and un-greppable. Until it is set, the app on a public URL has a
 one-word password.
+**2026-07-27 external-review adoptions (owner: "yes push all 3"), 449 tests:**
+1. Full NSE 2026 holiday list (16 dates incl. Holi/Diwali/election day) in
+   `calendars.NSE_FIXED_HOLIDAYS` — `is_trading_day()` was already wired into
+   every scheduler job, only the list was thin. 2027 = 4 fixed dates only,
+   refresh from NSE circular ~Dec 2026; missing dates fail safe.
+2. Nifty 200 (^CNX200) secondary backtest benchmark — the fair ruler for a
+   N200-momentum strategy. `BacktestResult.benchmark2*`, walk_forward rows,
+   /backtest page. Unfetchable ⇒ visible DATA_NEEDED warning, alpha vs N50
+   unchanged. NOTE: ^CNX200 fetch from Render UNVERIFIED (sandbox has no
+   yfinance network) — first live run tells.
+3. Truth pass on marketing copy: login page (ATR-stops/live-mode/500+ claims
+   were false → now "fixed stops, paper only, 2,300+") + dashboard "can do"
+   panel (correlation 0.7→0.85, reserve ladder 20/25/35/50→real 0/0/20/40,
+   fictional sector blacklist removed). Guarded by test_truthful_copy.py.
+**Owner decision (2026-07-27, CLOSED): cash reserve stays 0% — "go for full,
+no use to hold". Base = fully deployed. The regime-dynamic reserve
+(risk_v2: 20% correction / 40% panic, forced in by engine.scan) predates this
+and STAYS as crash protection — owner was told; strip only on their word.**
+The external review tables themselves: ~60% graded a stale spec, not the code
+(exits/caps/universe/PIT all wrong); adopted the 3 valid items above.
 **Audit findings NOT yet fixed (owner deferred, still true):** −15% trail is
 unreachable under −5%/+12% (peak must clear +11.76% but +12% closes first —
 the −5% stop decision silently killed the "workhorse exit") · `partial 0.07`

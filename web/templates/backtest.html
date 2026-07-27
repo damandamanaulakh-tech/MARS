@@ -117,6 +117,12 @@
       {{ "%+.2f"|format(result.alpha_pct) }}%
     </div>
     <div class="mt-1 text-sm text-ink-faint">Nifty: {{ "%+.2f"|format(result.benchmark_total_return_pct) }}%</div>
+    {# Nifty 200 = the fair ruler for a N200-momentum strategy. Old archived
+       results predate this field, so guard for missing/None. #}
+    {% if result.benchmark2_total_return_pct is defined and result.benchmark2_total_return_pct is not none %}
+    <div class="mt-1 text-sm text-ink-faint">Nifty 200: {{ "%+.2f"|format(result.benchmark2_total_return_pct) }}%
+      · alpha {{ "%+.2f"|format(result.alpha2_pct) }}%</div>
+    {% endif %}
   </div>
   <div class="bg-white border border-line p-4 lg:p-5">
     <div class="text-[10px] tracking-widest text-ink-faint uppercase">SHARPE</div>
