@@ -80,6 +80,17 @@ class Config:
     # floor and the absolute-momentum gate. This flag is that missing park
     # switch. Leave False until the crash guard is designed and tested.
     ocean_enabled: bool = False
+    # A3 breadth gate (owner: "wire it", 2026-07-27). New momentum entries
+    # only when >50% of the scan panel's tickers close above their own
+    # 200DMA. Preregistered evidence: docs/breadth_gate_results.json —
+    # +17.7 vs +13.4 (2022-23), +7.5 vs +5.6 with DD -18.8 -> -15.6
+    # (2024-26); costs a little in strong trends (2020-21 +37.0 vs +40.8).
+    # Fail-open: too few tickers with 200d history = no block (journaled).
+    # Momentum mode only — the other modes' history windows are too short
+    # for a 200DMA and the study only covered momentum.
+    breadth_gate_enabled: bool = True
+    breadth_min_pct: float = 0.50
+    breadth_min_sample: int = 30
 
     # --- Per-trade risk ---
     stop_loss_pct: float = -0.05              # -5% hard stop

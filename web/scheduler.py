@@ -313,7 +313,12 @@ def _square_off_pass() -> None:
 # then short, swing, positional fire scans in sequence to fill the book.
 # P1/F1 fix: the primary momentum strategy was MISSING from the morning
 # rotation (book filled only via 14:30 top-up). Momentum now fills first.
-_DAILY_MODE_ORDER = ["nifty200_momentum", "intraday", "short", "swing", "positional"]
+# Owner decision 2026-07-27 ("u can remove intraday but but in 3 sections"):
+# intraday removed from the daily auto-rotation — its ±2.5/1.5 same-day churn
+# ends; momentum + the 3 swing-family sections remain. The intraday preset
+# stays available in Settings for manual use, and the 15:25 square-off job
+# keeps running for any intraday-tagged position however it was opened.
+_DAILY_MODE_ORDER = ["nifty200_momentum", "short", "swing", "positional"]
 
 DEPLOYMENT_TARGET_PCT = 60.0   # weekly target gross deployment
 

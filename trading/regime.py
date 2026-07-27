@@ -294,3 +294,29 @@ def vix_crush_ok(vix_close, ratio: float = 0.75, window: int = 120) -> bool:
         return False
     peak = float(v.tail(window).max())
     return peak > 0 and float(v.iloc[-1]) <= ratio * peak
+
+
+def compute_breadth(history: dict, dma: int = 200) -> tuple:
+    """Fraction of tickers whose last close is above their own `dma`-day SMA.
+
+    A3 breadth gate (owner: "wire it", 2026-07-27; preregistered study in
+    docs/breadth_gate_results.json). Live breadth is measured on the scan's
+    own panel — the ~50-name rotating bucket plus held names — a daily
+    rotating sample of the full universe, whereas the study used the full
+    191-ticker panel. Returns (fraction 0..1 or None, sample_size); tickers
+    with fewer than `dma` bars are excluded from the sample.
+    """
+    above = total = 0
+    for t, df in history.items():
+        try:
+            c = df["Close"].dropna()
+            if len(c) < dma:
+                continue
+            total += 1
+            if float(c.iloc[-1]) > float(c.rolling(dma).mean().iloc[-1]):
+                above += 1
+        except Exception:
+            continue
+    if total == 0:
+        return None, 0
+    return above / total, total
