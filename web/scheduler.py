@@ -296,6 +296,7 @@ def _square_off_pass() -> None:
             log.info("[15:25] Expired %d unfilled owner limit orders", n)
     except Exception as e:
         log.exception("Order expiry failed: %s", e)
+    _push_phone_alerts("15:25")
 
 
 # Daily mode rotation. Intraday runs first (entered + squared-off same day),
@@ -330,6 +331,7 @@ def _deployment_topup_scan() -> None:
                  len(res.opened), len(res.skipped))
     except Exception as e:
         log.exception("Top-up scan failed: %s", e)
+    _push_phone_alerts("14:30")
     _check_pending_orders("top-up")
 
 
@@ -346,6 +348,21 @@ def _check_pending_orders(where: str) -> None:
         log.exception("Pending-order pass failed (%s): %s", where, e)
 
 
+def _push_phone_alerts(where: str) -> None:
+    """Batch any new push-worthy journal events to the owner's phone.
+
+    Called after every pass that can buy, sell or fail. Must never break
+    the pass itself — push_ntfy.send already swallows transport errors,
+    this guards everything else."""
+    try:
+        from . import push_ntfy
+        n = push_ntfy.push_journal_events()
+        if n:
+            log.info("[%s] pushed %d event(s) to phone", where, n)
+    except Exception as e:
+        log.warning("[%s] phone-alert push failed: %s", where, e)
+
+
 def _eod_refresh() -> None:
     """15:35 IST: mark all positions, fire exits, journal HOLD decisions."""
     from trading.calendars import is_trading_day
@@ -357,6 +374,7 @@ def _eod_refresh() -> None:
         log.info("[15:35] EOD refresh done")
     except Exception as e:
         log.exception("EOD refresh failed: %s", e)
+    _push_phone_alerts("15:35")
 
 
 def _daily_multi_mode_scan() -> None:
@@ -409,4 +427,5 @@ def _daily_multi_mode_scan() -> None:
     cfg.mode = original_mode
     cfg.apply_mode_preset()
     _check_pending_orders("post-scan")
+    _push_phone_alerts("09:20")
     log.info("[09:20] Daily multi-mode scan complete: %s", " · ".join(summary))

@@ -163,6 +163,26 @@ no use to hold". Base = fully deployed. The regime-dynamic reserve
 and STAYS as crash protection — owner was told; strip only on their word.**
 The external review tables themselves: ~60% graded a stale spec, not the code
 (exits/caps/universe/PIT all wrong); adopted the 3 valid items above.
+**2026-07-27 late-day owner decisions (their words):**
+- **Exits CLOSED by owner: "fixed at 12% or when i do manually"** — decided
+  BEFORE the exit study finished. The completed study (7 variants x 4 OOS
+  windows, docs/exit_variant_study_results.json) then showed D (+20% target,
+  trail -15 kept) beat the live +12% in ALL FOUR windows: totals +74.7 vs
+  +57.4, best-or-2nd in each, fewer trades, same worst-DD, and it revives
+  the dead trail (fires 6-41x/window vs 3-5). Owner was shown this and asked
+  once; their +12 stands unless they say change. DO NOT re-open unasked.
+- Kite/live orders: "leave it for now" (still paper-only).
+- **Phone alerts SHIPPED (owner: "ok u can make the phone alerts"):** ntfy.sh
+  (pywebpush won't build - would risk Render deploy). `web/push_ntfy.py` +
+  Settings card + scheduler wiring (09:20/14:30/15:25/15:35). Pushes
+  BUY/SELL/SCAN_FAILED/DATA_STALE/CORRECTION_VIX_REENTRY, batched, cursor in
+  Mongo settings doc_id="push", private random topic. Owner setup: install
+  ntfy app -> Settings -> Enable -> subscribe to shown topic.
+- Owner says the TCS/MTAR/HDFC studies = their "sentiment/prediction"
+  evidence and offered to share what's missing. In repo: all 5 specimens'
+  readings+daily CSVs, 3 generators, 4 visuals. MISSING: icici_tunnel.py and
+  cochin generator + all scripts carry dead sourceborn-engine paths. ASKED
+  owner to share the two missing scripts (or their Drive location).
 **Audit findings NOT yet fixed (owner deferred, still true):** −15% trail is
 unreachable under −5%/+12% (peak must clear +11.76% but +12% closes first —
 the −5% stop decision silently killed the "workhorse exit") · `partial 0.07`
