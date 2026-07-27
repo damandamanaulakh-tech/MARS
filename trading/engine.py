@@ -295,6 +295,14 @@ class TradingEngine:
 
         picks = everest_picks + ocean_picks
 
+        # A3 breadth gate (owner-ordered wire, 2026-07-27; preregistered
+        # evidence docs/breadth_gate_results.json): when half the panel is
+        # below its own 200DMA, relative rank is picking least-bad fallers —
+        # block ALL new entries this scan. Exits are never touched. Fail-open
+        # when the sample is too thin (short-history modes, sparse bucket).
+        if picks and self._breadth_gate_blocks(history, now, n_picks=len(picks)):
+            picks = []
+
         # v4: HALT NEW ENTRIES around known binary events (elections, RBI, Budget).
         binary_event = None
         try:
@@ -905,6 +913,40 @@ class TradingEngine:
             self.loss_tracker.record_close(now.date(), net_pnl)
         except AttributeError:
             pass  # backward compat if engine was built before risk_v2
+
+    def _breadth_gate_blocks(self, history: dict, now: datetime,
+                             n_picks: int = 0) -> bool:
+        """A3 breadth gate (owner-ordered wire, 2026-07-27).
+
+        When half the panel is below its own 200DMA, relative rank is picking
+        least-bad fallers — block ALL new entries this scan. Exits are never
+        touched. Preregistered evidence: docs/breadth_gate_results.json
+        (better in chop, small cost in strong trends). Momentum mode only —
+        other modes' history windows are too short for a 200DMA and the study
+        only covered momentum. Fail-open on thin samples or errors, so a data
+        hiccup can never freeze buying by accident.
+        """
+        cfg = self.cfg
+        if cfg.mode != "nifty200_momentum" or not getattr(
+                cfg, "breadth_gate_enabled", False):
+            return False
+        try:
+            from .regime import compute_breadth
+            breadth, sample = compute_breadth(history)
+            if (breadth is not None
+                    and sample >= getattr(cfg, "breadth_min_sample", 30)
+                    and breadth <= getattr(cfg, "breadth_min_pct", 0.50)):
+                self.portfolio.decision_journal.append({
+                    "ts": now.isoformat(), "action": "BREADTH_BLOCKED",
+                    "why": (f"Breadth gate: only {breadth*100:.0f}% of "
+                            f"{sample} panel tickers above their 200DMA "
+                            f"(needs >{cfg.breadth_min_pct*100:.0f}%). "
+                            f"{n_picks} pick(s) held back; exits unaffected."),
+                })
+                return True
+        except Exception as e:
+            log.warning("breadth gate failed (fail-open): %s", e)
+        return False
 
     def _ocean_picks(self, regime, history: dict, universe, now: datetime) -> List[dict]:
         """Ocean (mean-reversion) candidates — empty unless the owner opted in.
