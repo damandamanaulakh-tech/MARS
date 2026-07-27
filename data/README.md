@@ -39,3 +39,25 @@ nse_all_stock_data.csv, and 12 xlsx of NSE stock data (2011-2016 yearly,
 NSE 2017/2018/2019/2020-24, January_Equity_2022, April 2023).
 For a session to read any of these, the owner must re-attach that file in
 the ASSETS box (edit release -> drag into "Attach binaries" -> Update).
+
+### Rescued from the release into the repo (2026-07-27, second pass)
+Owner re-attached 5 key zips as ASSETS (AM.07.Parameter.Files, aqu,
+Back.Test.Claude, FII.DII.Nifty, FII). Rescued into version control:
+- `research/chityy_archive/` — Chityy parameter registry (JSON+CSV, 22k
+  params), signal correlation/forward-return studies, top combo & pre-fall
+  triggers, Q1 FII 20d stats, industry coverage, n200 live report,
+  early-warning + data-format docs, and `master_30000_stock_list.csv`
+  (the file KEEP_DELETE.md marked absorbed but never landed).
+- `data/chityy/master_extended_chityy.csv` — REBUILT clean from
+  `master_extended.xlsx` (31 rows x 59 cols); the old copy was corrupt
+  (zero line breaks).
+- `data/fii_dii_daily_2014_2023.csv` — daily FII/DII net + Nifty close,
+  2014-01 -> 2023-07 (2,339 rows), exported from the owner's historical
+  study workbook. RESEARCH data — the live-regime feed (fii_dii_cash.csv,
+  newest 2024-09) is still stale; F6 stays open for a current source.
+NOT rescued (not in any asset): the `sourceborn_chityy` .py code — none of
+the 5 asset zips contains code. Likely candidate holding it:
+`PRE RISE_FALL_TRIGGER_LAYER_CSV_CODE_v0_2.zip` (description-link,
+browser-only). Owner can asset-attach it if the code should be preserved.
+`Back.Test.Claude.zip` = 191 tickers 2014->2026-07-17, same panel as
+`data/history_upstox_export_2026-07-19.zip` — kept in the release only.

@@ -23,3 +23,5 @@ npm-debug.log*
 !data/history_15stock/*.csv
 docs/param_search_v1_progress.jsonl
 !data/universe_snapshots/*.csv
+!research/chityy_archive/*.csv
+!data/fii_dii_daily_2014_2023.csv
