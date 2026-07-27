@@ -68,3 +68,17 @@ browser-only). Owner can asset-attach it if the code should be preserved.
 MM/DD/YYYY, from the owner's AM.07.Parameter.Files pack; committed verbatim
 2026-07-27, owner: "BOND u can go"). Macro-research input (rate regime vs
 equity momentum) — not wired into any live signal.
+
+### Release update (2026-07-27 evening): 106 assets, code question CLOSED
+Owner moved nearly all description-link files into ASSETS (79 -> 106) —
+sessions can now fetch the batch-check packs, trigger miner, IFR packs,
+NSE yearly xlsx (1991-2019), the big masked FII data-loads (Jan-2022,
+Apr-2023) and more directly. PRE RISE_FALL_TRIGGER_LAYER_CSV_CODE_v0_2
+contained NO .py files — the "code" is 8 CSV design maps (trigger params
+T12W_*, score gates, clusters, pyramid insert map, paper running map,
+reverse-backtest design, proof-gap ledger v0_2, data-extraction request),
+now committed under `research/chityy_archive/trigger_layer_v0_2/`.
+CONCLUSION: the sourceborn_chityy .py code was never saved in any upload;
+the design maps are the surviving record. F6 note: still no CURRENT
+FII/DII feed data in the release (newest remains Mar 2025 monthly /
+Jul 2023 daily) — F6 stays open for a current source.
