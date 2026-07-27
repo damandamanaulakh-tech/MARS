@@ -8,3 +8,34 @@
 Usage: `trading.universes.load_universe_from_csv("data/upstox_nse_equities.csv")`
 loads a capped (default 200) scan universe from any slice of this master.
 This file is a SOURCE catalogue — never scan all 2,376 on Render 512 MB.
+
+## Chityy archive — GitHub Release `chityy-archive` (published 2026-07-27)
+
+https://github.com/damandamanaulakh-tech/AM07/releases/tag/chityy-archive
+
+Owner-uploaded archive (~1.5 GB total). Two storage areas, one important
+difference for Claude sessions:
+
+**A. Release ASSETS (74 files, 1.32 GB) — fetchable from sessions** via
+`https://github.com/damandamanaulakh-tech/AM07/releases/download/chityy-archive/<name>`.
+Monthly zips of TRANSACTION-LEVEL FII disclosure records (registrar format:
+one row per FII trade — fund id, scrip, ISIN, date, rate, quantity, value,
+buy/sell type). E.g. `2021_03.zip` -> `Mar_2021.csv`, 161k rows. This is the
+raw material for per-stock FII behaviour research (the Chityy FII
+sell-cluster family). Month coverage: 2009 (2), 2014 (4), 2017 (1),
+2018 (11), 2019 (12), 2020 (12), 2021 (6), 2022 (7), 2023 (12),
+2024 (Jan/Feb/Mar/Dec), 2025 (Jan/Feb/Mar). NOT a current feed — newest
+month is Mar 2025; `data/fii_dii_cash.csv` staleness (F6) is unchanged.
+
+**B. Release DESCRIPTION links (31 files) — browser-only** (they live on
+`github.com/user-attachments/...`, which the session proxy blocks).
+Chityy engine packs: volume/delivery/cash batch checks v0_1, UNIQUE_TRIGGER
+_MINER v0_3, IFR_Expansion_Check v0_4, IFR_FII_Cash_Stack_Test v0_6 (x2),
+PRE RISE_FALL_TRIGGER_LAYER CSV+CODE v0_2, MICRO_SPLIT_CSV_PACK v0_6,
+fii_volume_derivatives_review v0_3, volume_derivatives_review v0_3,
+FII DII Nifty.zip, FO Gold COmm.zip, BhavCopy_NSE_FO 2026-06-08, aqu.zip,
+5 years for Stocks.zip, 15 stock 10 years trades.zip, Back Test Claude.zip,
+nse_all_stock_data.csv, and 12 xlsx of NSE stock data (2011-2016 yearly,
+NSE 2017/2018/2019/2020-24, January_Equity_2022, April 2023).
+For a session to read any of these, the owner must re-attach that file in
+the ASSETS box (edit release -> drag into "Attach binaries" -> Update).

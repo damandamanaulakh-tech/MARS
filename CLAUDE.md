@@ -251,7 +251,20 @@ v1-v4 program — do not quote it.**
   file lands, commit it and never ask again.
 - Proof ledger truth-passed (PR #10): G001/G002 CLOSED (data + PIT exist),
   G004 IN_PROGRESS (60-day live window is the remaining test), G003 LOCKED.
-- Chityy archive plan (owner: "let upload file in git... approx 1.5 GB"):
+- Chityy archive ARRIVED (published 2026-07-27 13:35Z, tag `chityy-archive`).
+  74 ASSETS (1.32 GB): monthly TRANSACTION-LEVEL FII disclosure zips
+  2009->Mar 2025 (per-trade: fund/scrip/date/qty/value) — the raw material
+  for Chityy FII sell-cluster research; fetchable from sessions via the
+  repo releases/download URL. 31 more files sit as DESCRIPTION links
+  (user-attachments) which the session proxy CANNOT fetch — includes the
+  chityy code packs, FII DII Nifty.zip, nse xlsx 1991-2026, Back Test
+  Claude.zip. Full index in data/README.md. OWNER ASK (pending): re-attach
+  the small key zips (FII DII Nifty, Back Test Claude, aqu, + whichever
+  holds sourceborn_chityy code / clean master_extended_chityy.csv) in the
+  ASSETS box so a session can rescue code into research/chityy_archive/.
+  F6 note: archive newest month = Mar 2025 -> fii_dii_cash.csv staleness
+  for the LIVE regime is NOT fixed by this; still needs a current feed.
+- Original archive plan (superseded by the above; kept for context):
   do NOT put it in the git tree (100MB/file limit, Render deploys clone the
   repo). Owner instructed to publish a GitHub RELEASE on am07, tag
   `chityy-archive`, with the 8 original zips as assets. WHEN THE RELEASE
