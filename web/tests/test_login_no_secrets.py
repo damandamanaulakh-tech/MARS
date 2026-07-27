@@ -102,3 +102,35 @@ def test_hugging_face_sync_workflow_is_gone():
     assert not (wf / "sync-to-hf.yml").exists()
     for f in wf.glob("*.yml"):
         assert "huggingface" not in f.read_text().lower(), f"{f.name} still syncs to HF"
+
+
+# ---- APP_PASSWORD env alias (owner named the Render variable this) ----
+
+def test_app_password_env_var_sets_the_owner_password(monkeypatch):
+    """The owner added APP_PASSWORD in Render; the code must honor it."""
+    import importlib
+    monkeypatch.delenv("OWNER_PWD", raising=False)
+    monkeypatch.setenv("APP_PASSWORD", "test-secret-42")
+    import web.auth as auth
+    importlib.reload(auth)
+    try:
+        assert auth.verify("owner@sourceborn.in", "test-secret-42") is not None
+        assert auth.verify("owner@sourceborn.in", "sourceborn") is None
+    finally:
+        monkeypatch.delenv("APP_PASSWORD")
+        importlib.reload(auth)   # restore module state for other tests
+
+
+def test_owner_pwd_wins_when_both_env_names_are_set(monkeypatch):
+    import importlib
+    monkeypatch.setenv("OWNER_PWD", "primary-name")
+    monkeypatch.setenv("APP_PASSWORD", "secondary-name")
+    import web.auth as auth
+    importlib.reload(auth)
+    try:
+        assert auth.verify("owner@sourceborn.in", "primary-name") is not None
+        assert auth.verify("owner@sourceborn.in", "secondary-name") is None
+    finally:
+        monkeypatch.delenv("OWNER_PWD")
+        monkeypatch.delenv("APP_PASSWORD")
+        importlib.reload(auth)
