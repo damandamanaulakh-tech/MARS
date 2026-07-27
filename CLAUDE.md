@@ -188,6 +188,14 @@ The external review tables themselves: ~60% graded a stale spec, not the code
   vary after 07-17 though its surviving script would truncate there. All 8
   research scripts now run repo-relative (dead sourceborn-engine paths
   repaired). Committed readings remain the canonical record.
+**Old-review reconciliation (2026-07-27, owner asked "how much exist"):
+the early-July system review (260-tests/192-ticker/exits-off era) is a
+FOSSIL — 15 of its ~20 items since built (code comments cite its labels:
+P0/A2, P0/B3, P1/F3), 1 reversed, 4 still open: breadth gate (>50% of
+universe above 200DMA before full deployment — the one idea never built
+anywhere), score-band calibration vs forward returns, FII/DII staleness,
+flat 5-bps slippage. Its "7-yr alpha −8.5%" number is superseded by the
+v1-v4 program — do not quote it.**
 **Audit findings NOT yet fixed (owner deferred, still true):** −15% trail is
 unreachable under −5%/+12% (peak must clear +11.76% but +12% closes first —
 the −5% stop decision silently killed the "workhorse exit") · `partial 0.07`
