@@ -91,6 +91,16 @@ def start_if_enabled() -> None:
             id="deployment_topup_scan",
         )
         # End-of-day refresh: mark positions + fire exit rules + journal holds.
+        # Weekly data freshness (owner order 2026-07-27): Friday 16:30 IST,
+        # market closed, morning login token still alive. Tops up the stored
+        # OHLCV research store — merge, never replace.
+        _SCHED.add_job(
+            _weekly_history_topup,
+            "cron",
+            day_of_week="fri", hour=16, minute=30,
+            id="weekly_history_topup",
+            replace_existing=True,
+        )
         _SCHED.add_job(
             _eod_refresh, "cron",
             day_of_week="mon-fri", hour=15, minute=35,
@@ -361,6 +371,56 @@ def _push_phone_alerts(where: str) -> None:
             log.info("[%s] pushed %d event(s) to phone", where, n)
     except Exception as e:
         log.warning("[%s] phone-alert push failed: %s", where, e)
+
+
+def _weekly_history_topup() -> None:
+    """Friday 16:30 IST: merge fresh candles into the Mongo OHLCV store.
+
+    Fail-visible: no broker/token or Mongo offline journals
+    DATA_REFRESH_SKIPPED instead of silently doing nothing; a run journals
+    DATA_REFRESH_WEEKLY with the counts. Scope = tickers already in the
+    store plus anything currently held (bounded, safe on 512 MB)."""
+    from datetime import date, datetime as _dt
+    from . import db, state
+    eng = state.engine()
+
+    def _journal(action, why):
+        try:
+            eng.portfolio.decision_journal.append(
+                {"ts": _dt.utcnow().isoformat(), "action": action, "why": why})
+            eng.portfolio.save()
+        except Exception:
+            pass
+
+    broker = getattr(eng, "broker", None)
+    if broker is None or not getattr(broker, "is_connected", lambda: False)():
+        _journal("DATA_REFRESH_SKIPPED",
+                 "Weekly OHLCV top-up skipped: Upstox not connected (log in).")
+        return
+    if not db.is_connected():
+        _journal("DATA_REFRESH_SKIPPED",
+                 "Weekly OHLCV top-up skipped: Mongo offline.")
+        return
+    try:
+        from trading.brokers.upstox_instruments import to_instrument_keys
+        from trading.history_store import top_up_history
+        tickers = {m["ticker"] for m in db.list_history_meta() if m.get("ticker")}
+        tickers |= set(eng.portfolio.positions.keys())
+        keys = to_instrument_keys(sorted(tickers))
+        summ = top_up_history(
+            broker, keys,
+            load_doc=db.load_history_doc,
+            save_doc=db.save_history_doc,
+            today=date.today(),
+        )
+        _journal("DATA_REFRESH_WEEKLY",
+                 f"Weekly OHLCV top-up: {summ['ok']} refreshed, "
+                 f"{summ['skipped_fresh']} already fresh, "
+                 f"{summ['failed']} failed of {summ['total']}.")
+        log.info("[fri 16:30] weekly history top-up: %s", summ)
+    except Exception as e:
+        log.exception("weekly history top-up failed: %s", e)
+        _journal("DATA_REFRESH_FAILED", f"Weekly OHLCV top-up crashed: {e}")
 
 
 def _eod_refresh() -> None:

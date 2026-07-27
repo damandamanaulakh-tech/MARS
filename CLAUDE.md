@@ -196,6 +196,43 @@ universe above 200DMA before full deployment — the one idea never built
 anywhere), score-band calibration vs forward returns, FII/DII staleness,
 flat 5-bps slippage. Its "7-yr alpha −8.5%" number is superseded by the
 v1-v4 program — do not quote it.**
+**2026-07-27 closures round (owner walked the 4 survivors + evidence Q):**
+- F2 CLOSED: pending was only (a) short_interest stubbed 50 (5% weight, no
+  free NSE source) and (b) catalyst needs OPENAI_API_KEY/ANTHROPIC_API_KEY
+  set in Render (fallback neutral 50, fail-visible). Recommendation accepted
+  path: LEAVE the stub — the AM07 composite doesn't pick momentum entries,
+  and the weights are the owner's historic spec. Owner action if wanted:
+  check the API key exists in Render.
+- Weekly data renewal SHIPPED (owner: "must be renewed every week"): the
+  universe LIST already refreshes DAILY (better than weekly); what was
+  frozen was the OHLCV store. New: `history_store.top_up_history` (MERGE,
+  never replace — naive weekly re-save would truncate 12y to 1y) + scheduler
+  job Friday 16:30 IST, journals DATA_REFRESH_WEEKLY/_SKIPPED/_FAILED.
+  Committed research zip = refresh per session when >7d old (session duty).
+- A3 breadth gate: reason it never existed = regime brake overlaps it and
+  nobody tested it. Study now PREREGISTERED and run —
+  scripts/breadth_gate_study.py, docs/breadth_gate_results.json (gate:
+  entries only when >50% of universe above own 200DMA; baseline = exit-study
+  variant A). Wire ONLY if owner says yes after seeing the table.
+- A4 score calibration CLOSED (wontfix, owner asked discuss-and-close): the
+  AM07 composite doesn't drive momentum entries (momentum_score does, and
+  it's v2.1/v3-tested); calibrating a score that isn't picking stocks is
+  work without money impact. Revisit only if swing/positional become primary.
+- D4 flat 5-bps slippage CLOSED (accepted approximation): liquidity floor
+  (Rs 1Cr+ median turnover) keeps fills in names where 5bps is sane; no
+  order-book data exists to do better honestly; changing it re-scores every
+  backtest without changing any decision.
+- Evidence standard DEFINED (owner asked "what is required, ask and close"):
+  the missing evidence is LIVE, not more backtests. The 60-day paper window
+  (started at next login after 2026-07-21) is the test. Pass = paper return
+  within/above the walk-forward expectation band vs Nifty 200 over the same
+  window, with scans verifiably running daily (healthz + journal). Weekly
+  read-only check-ins; verdict at day 60. No engine changes mid-window
+  without owner ask.
+- Old Table-3 blame-split CLOSED: describes a config that no longer exists;
+  app needs nothing from it.
+- F6 FII/DII: ON HOLD per owner — they will push fresh data to git; when the
+  file lands, commit it and never ask again.
 **Audit findings NOT yet fixed (owner deferred, still true):** −15% trail is
 unreachable under −5%/+12% (peak must clear +11.76% but +12% closes first —
 the −5% stop decision silently killed the "workhorse exit") · `partial 0.07`
