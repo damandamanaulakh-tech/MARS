@@ -189,6 +189,8 @@ hands; go-live = 60-day proof + their word, then real orders small +
 kill switch.
 
 ## Standing user rules
+0. Merge authorization (owner, 2026-07-27, this session): Claude MAY merge
+   its own PRs once CI is green — "u r also authorize for doing the merge".
 1. Paper-only until explicit go-live. 2. No fake data — DATA_NEEDED.
 3. Journal append-only. 4. Session end: update CLAUDE.md, commit, push
 BOTH branches. 5. Propose → approve → adopt; review-only = no code.
