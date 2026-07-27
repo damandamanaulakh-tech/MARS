@@ -270,10 +270,13 @@ v1-v4 program — do not quote it.**
   trigger tables, master_30000_stock_list) · data/chityy/
   master_extended_chityy.csv REBUILT clean from master_extended.xlsx (was
   corrupt, zero line breaks) · data/fii_dii_daily_2014_2023.csv (2,339
-  daily rows for FII-tide research). NOT FOUND in any asset: the
-  sourceborn_chityy .py code — probably inside PRE RISE_FALL_TRIGGER_
-  LAYER_CSV_CODE_v0_2.zip (browser-only link); owner may asset-attach it
-  or the code stays release-only. Back.Test.Claude.zip = duplicate of the
+  daily rows for FII-tide research). Code question CLOSED
+  (2026-07-27 evening): owner asset-attached everything (106 assets now) —
+  PRE RISE_FALL_TRIGGER_LAYER_CSV_CODE_v0_2 holds NO .py, only 8 CSV design
+  maps (trigger params/score gates/clusters/pyramid map/reverse-backtest
+  design), committed to research/chityy_archive/trigger_layer_v0_2/. The
+  sourceborn_chityy .py code was never saved anywhere — design maps are the
+  surviving record. Back.Test.Claude.zip = duplicate of the
   repo's 191-ticker panel (release-only).
 - Original archive plan (superseded by the above; kept for context):
   do NOT put it in the git tree (100MB/file limit, Render deploys clone the
