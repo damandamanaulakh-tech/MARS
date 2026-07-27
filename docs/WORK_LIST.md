@@ -4,7 +4,7 @@ Owner's list, owner's words. Updated every session. This file is the board:
 open it to see what is done and what is not. Nothing here is built without
 the owner's explicit yes.
 
-Last updated: 2026-07-26
+Last updated: 2026-07-27 (A2-A5 statuses corrected — they shipped in a185d94)
 
 ---
 
@@ -13,10 +13,10 @@ Last updated: 2026-07-26
 | # | Item | Status | Note |
 |---|---|---|---|
 | A1 | 8 candle patterns in code | **DONE** | breakout · bullish engulfing · URR · hammer · morning star · piercing line · tweezer bottom · three white soldiers (`trading/candles.py`) |
-| A2 | "10-12 candle structures as parameters for stock selection" | **PENDING** | Missing to reach 12: doji · shooting star · bearish engulfing · evening star · dark cloud cover · tweezer top · three black crows · harami · inverted hammer · marubozu |
-| A3 | Bearish/exit candle family | **PENDING — GAP** | All 8 existing patterns are bullish-only. The engine cannot read a topping pattern or use candles for exits at all |
-| A4 | Each candle structure = its own tap-able parameter | **PENDING** | Today all 8 collapse into ONE piano lane "candle confirm". Owner wants each structure as a separate parameter with its own pass/fail stock list |
-| A5 | Dashboard shows NIFTY candle — owner does not want it | **PENDING** | "why do i need CANDLE OF NIFTY, I NEED SHARE CANDLE" — replace with share candles |
+| A2 | "10-12 candle structures as parameters for stock selection" | **DONE** (a185d94) | 18 structures live: original 8 + 6 bearish + 2 neutral + 2 bullish |
+| A3 | Bearish/exit candle family | **DONE** (a185d94) | 6 bearish structures added, read as warnings (never trigger buys) |
+| A4 | Each candle structure = its own tap-able parameter | **DONE** (a185d94) | Every structure = own piano lane + own page with pass/fail list |
+| A5 | Dashboard shows NIFTY candle — owner does not want it | **DONE** (a185d94) | Big chart = a held share (or top pick), one-tap switching; NIFTY fetch gone |
 | A6 | Per-stock candle in position detail | **DONE** | Works (MANAPPURAM screenshot, LAST 20 SESSIONS) |
 
 ---

@@ -116,6 +116,7 @@ class Portfolio:
     # silently re-baseline the kill switch (RiskState is rebuilt on every boot).
     risk_day: Optional[str] = None            # ISO date the baseline belongs to
     risk_day_equity: float = 0.0              # equity the -2% halt measures from
+    risk_day_killed: bool = False             # switch tripped today? (survives restart)
     last_save: Optional[str] = None
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
@@ -174,6 +175,7 @@ class Portfolio:
                 "filings": self.filings[:100],                 # matched announcements, capped
                 "risk_day": self.risk_day,                     # daily kill-switch baseline date
                 "risk_day_equity": self.risk_day_equity,       # ...and the equity it measures from
+                "risk_day_killed": self.risk_day_killed,       # tripped-today flag
                 "last_save": datetime.utcnow().isoformat(),
             }
             with open(self._state_path(), "w") as f:
@@ -210,6 +212,7 @@ class Portfolio:
             p.filings = list(data.get("filings", []))
             p.risk_day = data.get("risk_day")
             p.risk_day_equity = float(data.get("risk_day_equity", 0.0) or 0.0)
+            p.risk_day_killed = bool(data.get("risk_day_killed", False))
             p.last_save = data.get("last_save")
             return p
         except Exception:

@@ -61,6 +61,10 @@ def test_send_swallows_transport_errors(monkeypatch):
 def test_journal_push_filters_batches_and_advances_cursor(monkeypatch):
     fake = _FakeDB(); _wire(monkeypatch, fake)
     push_ntfy.enable()
+    # enable() now seeds the cursor to the newest live journal entry (so the
+    # first real push can't blast history); clear it here to exercise the
+    # filtering/batching path against this test's synthetic entries.
+    fake.doc.pop("last_push_ts", None)
     p = state.portfolio()
     saved = list(p.decision_journal)
     p.decision_journal = [
@@ -108,3 +112,21 @@ def test_settings_routes_are_owner_gated(monkeypatch):
     assert fake.doc.get("enabled") is True
     page = owner.get("/settings").text
     assert "Phone alerts" in page
+
+
+def test_enable_seeds_cursor_so_history_never_blasts(monkeypatch):
+    """First enable must not push the last 300 historical events."""
+    fake = _FakeDB(); _wire(monkeypatch, fake)
+    p = state.portfolio()
+    saved = list(p.decision_journal)
+    p.decision_journal = [
+        {"ts": "2026-07-20T09:20:00", "action": "SELL", "ticker": f"T{i}.NS",
+         "reason": "SQUARE_OFF"} for i in range(45)
+    ]
+    try:
+        push_ntfy.enable()
+        with patch("web.push_ntfy.httpx.post") as post:
+            assert push_ntfy.push_journal_events() == 0   # nothing pushed
+            post.assert_not_called()
+    finally:
+        p.decision_journal = saved
