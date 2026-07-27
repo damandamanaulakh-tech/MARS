@@ -1,4 +1,5 @@
 """MTAR reverse-engineering tunnel — user's strategy, 2026-07-24.
+[paths repaired 2026-07-27: repo-relative, was the retired sourceborn-engine checkout]
 
 Runs MTAR's real daily history through the app's EXISTING parameters,
 day by day, with the 191-stock cohort for honest cross-sectional rank.
@@ -10,18 +11,22 @@ import io
 import json
 import sys
 import zipfile
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[1]
 
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, "/home/user/sourceborn-engine")
+sys.path.insert(0, str(ROOT))
 from trading import candles as C
 from trading.config import Config
 from trading.scoring import (score_breakout_quality, score_momentum_1m,
                              score_relative_strength, score_vol_adj_upside,
                              score_volume_expansion)
 
-SCRATCH = "/tmp/claude-0/-home-user-sourceborn-engine/0cfa8919-7563-5aa0-bfc1-4dcab357369b/scratchpad"
+SCRATCH = str(HERE)
 
 cfg = Config()
 cfg.mode = "nifty200_momentum"
@@ -32,7 +37,7 @@ mtar = pd.read_csv(f"{SCRATCH}/mtar_daily.csv", parse_dates=["Date"], index_col=
 
 # ---- cohort: the 191 real tickers (2021+ overlap) ----
 closes = {}
-with zipfile.ZipFile("/home/user/sourceborn-engine/data/history_upstox_export_2026-07-19.zip") as z:
+with zipfile.ZipFile(ROOT / "data/history_upstox_export_2026-07-19.zip") as z:
     for name in z.namelist():
         if name.endswith(".csv"):
             with z.open(name) as fh:
@@ -51,7 +56,7 @@ rank12 = (r252 / vol126).rank(axis=1, pct=True)
 mom_rank = (rank6 * 0.5 + rank12 * 0.5) * 100        # 0-100 like a score
 
 # ---- Nifty benchmark for relative strength + regime ----
-idx = pd.read_csv("/home/user/sourceborn-engine/data/index_daily_15y.csv",
+idx = pd.read_csv(ROOT / "data/index_daily_15y.csv",
                   dayfirst=True, parse_dates=["trade_date"], index_col="trade_date").sort_index()
 nifty = idx["nifty_close"]
 nifty200 = nifty.rolling(200).mean()

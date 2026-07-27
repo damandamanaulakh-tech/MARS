@@ -178,11 +178,16 @@ The external review tables themselves: ~60% graded a stale spec, not the code
   BUY/SELL/SCAN_FAILED/DATA_STALE/CORRECTION_VIX_REENTRY, batched, cursor in
   Mongo settings doc_id="push", private random topic. Owner setup: install
   ntfy app -> Settings -> Enable -> subscribe to shown topic.
-- Owner says the TCS/MTAR/HDFC studies = their "sentiment/prediction"
-  evidence and offered to share what's missing. In repo: all 5 specimens'
-  readings+daily CSVs, 3 generators, 4 visuals. MISSING: icici_tunnel.py and
-  cochin generator + all scripts carry dead sourceborn-engine paths. ASKED
-  owner to share the two missing scripts (or their Drive location).
+- Tunnel-studies gap CLOSED (2026-07-27). Owner's Drive zip = byte-identical
+  to repo (nothing was lost); the 2 missing generators were never saved
+  anywhere. RECONSTRUCTED from the surviving 3 and VERIFIED by regeneration:
+  icici 776/780 rows exact, cochin 1024/1028 — the only diffs are mom_rank on
+  the last 4 days (07-18..23), because the original 07-24 runs used a cohort
+  export fresher than the committed zip (data ends 07-17); that export lived
+  only in the retired repo. Proof it's data-not-code: committed TCS readings
+  vary after 07-17 though its surviving script would truncate there. All 8
+  research scripts now run repo-relative (dead sourceborn-engine paths
+  repaired). Committed readings remain the canonical record.
 **Audit findings NOT yet fixed (owner deferred, still true):** −15% trail is
 unreachable under −5%/+12% (peak must clear +11.76% but +12% closes first —
 the −5% stop decision silently killed the "workhorse exit") · `partial 0.07`
