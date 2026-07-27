@@ -306,12 +306,11 @@ Also: OCEAN_BLOCKED now journals once/day and only when Everest is off
 "22k params" doc claim corrected (committed registry = 1,500 JSON + 1,200
 CSV; 22k counted cells) · .gitignore negation added for data/chityy/ ·
 docs/WORK_LIST.md A2-A5 finally marked DONE (shipped in a185d94).
-**OPEN OWNER QUESTION from the recheck (do NOT wire without their word):
-breadth gate vs VIX-crush re-entry conflict.** In a correction, breadth is
-almost always <=50%, so the wired breadth gate will block the very entries
-the v4-tested VIX-crush re-entry re-enables (the +24% COVID rebound would
-have been breadth-blocked). Recommendation: let vix_reentry BYPASS the
-breadth gate (one condition). Asked; pending owner.
+**Breadth-vs-VIX conflict CLOSED (owner: "yes — we cant wait for recovery,
+that is movement of entries"):** vix_reentry now BYPASSES the breadth gate
+(`engine._breadth_gate_blocks(bypass=vix_reentry)`) — fear-break entries go
+through even while breadth is still <=50%; breadth guards all normal days.
+Tested (test_vix_reentry_bypasses_the_breadth_gate). 478 tests.
 **Audit findings NOT yet fixed (owner deferred, still true):** −15% trail is
 unreachable under −5%/+12% (peak must clear +11.76% but +12% closes first —
 the −5% stop decision silently killed the "workhorse exit") · `partial 0.07`

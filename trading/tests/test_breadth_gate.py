@@ -105,3 +105,20 @@ def test_daily_rotation_is_momentum_plus_three_sections():
     from web.scheduler import _DAILY_MODE_ORDER
     assert _DAILY_MODE_ORDER == ["nifty200_momentum", "short", "swing", "positional"]
     assert "intraday" not in _DAILY_MODE_ORDER
+
+def test_vix_reentry_bypasses_the_breadth_gate():
+    """Owner decision 2026-07-27: at the turn of a crash breadth is always
+    still weak — the v4-tested VIX-crush entries must not be breadth-blocked
+    (the +24% COVID rebound would have been). bypass=True = gate stands down."""
+    from trading.engine import TradingEngine
+    from trading.paper import Portfolio
+    cfg = Config(mode="nifty200_momentum", state_dir="/tmp/breadth_gate_tests")
+    eng = TradingEngine(cfg=cfg, portfolio=Portfolio.fresh(cfg))
+    weak = _hist(10, 30)                     # 25% breadth — would normally block
+    assert eng._breadth_gate_blocks(weak, datetime(2026, 7, 27)) is True
+    assert eng._breadth_gate_blocks(weak, datetime(2026, 7, 27),
+                                    bypass=True) is False
+    # bypass leaves no BREADTH_BLOCKED line — the buys go through visibly
+    blocked = [e for e in eng.portfolio.decision_journal
+               if e.get("action") == "BREADTH_BLOCKED"]
+    assert len(blocked) == 1                 # only the non-bypassed call

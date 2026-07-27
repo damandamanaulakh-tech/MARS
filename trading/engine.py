@@ -310,7 +310,8 @@ class TradingEngine:
         # below its own 200DMA, relative rank is picking least-bad fallers —
         # block ALL new entries this scan. Exits are never touched. Fail-open
         # when the sample is too thin (short-history modes, sparse bucket).
-        if picks and self._breadth_gate_blocks(history, now, n_picks=len(picks)):
+        if picks and self._breadth_gate_blocks(history, now, n_picks=len(picks),
+                                               bypass=vix_reentry):
             picks = []
 
         # v4: HALT NEW ENTRIES around known binary events (elections, RBI, Budget).
@@ -931,7 +932,7 @@ class TradingEngine:
             pass  # backward compat if engine was built before risk_v2
 
     def _breadth_gate_blocks(self, history: dict, now: datetime,
-                             n_picks: int = 0) -> bool:
+                             n_picks: int = 0, bypass: bool = False) -> bool:
         """A3 breadth gate (owner-ordered wire, 2026-07-27).
 
         When half the panel is below its own 200DMA, relative rank is picking
@@ -943,6 +944,14 @@ class TradingEngine:
         hiccup can never freeze buying by accident.
         """
         cfg = self.cfg
+        # Owner decision 2026-07-27 ("yes — we cant wait for recovery, that
+        # is movement of entries"): when the VIX-crush re-entry fires, its
+        # entries BYPASS the breadth gate. At the exact turn of a crash,
+        # breadth is always still <=50% — stacking the two gates would have
+        # blocked the v4-tested +24% COVID rebound entirely. Breadth still
+        # guards every normal bull/neutral day.
+        if bypass:
+            return False
         if cfg.mode != "nifty200_momentum" or not getattr(
                 cfg, "breadth_gate_enabled", False):
             return False
