@@ -264,6 +264,17 @@ v1-v4 program — do not quote it.**
   ASSETS box so a session can rescue code into research/chityy_archive/.
   F6 note: archive newest month = Mar 2025 -> fii_dii_cash.csv staleness
   for the LIVE regime is NOT fixed by this; still needs a current feed.
+- RESCUE COMPLETE (owner re-attached 5 key zips as assets; "am07 is the
+  chityy" — their words: this app IS the Chityy lineage). In git now:
+  research/chityy_archive/ (parameter registry 22k params, signal studies,
+  trigger tables, master_30000_stock_list) · data/chityy/
+  master_extended_chityy.csv REBUILT clean from master_extended.xlsx (was
+  corrupt, zero line breaks) · data/fii_dii_daily_2014_2023.csv (2,339
+  daily rows for FII-tide research). NOT FOUND in any asset: the
+  sourceborn_chityy .py code — probably inside PRE RISE_FALL_TRIGGER_
+  LAYER_CSV_CODE_v0_2.zip (browser-only link); owner may asset-attach it
+  or the code stays release-only. Back.Test.Claude.zip = duplicate of the
+  repo's 191-ticker panel (release-only).
 - Original archive plan (superseded by the above; kept for context):
   do NOT put it in the git tree (100MB/file limit, Render deploys clone the
   repo). Owner instructed to publish a GitHub RELEASE on am07, tag
