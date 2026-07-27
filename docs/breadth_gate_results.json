@@ -1,0 +1,30 @@
+{
+  "preregistered": true,
+  "gate": "breadth > 0.5",
+  "windows": {
+    "2019": {
+      "return_pct": -3.96,
+      "max_dd_pct": -11.22,
+      "trades": 219,
+      "win_rate_pct": 34.7
+    },
+    "2020-21": {
+      "return_pct": 37.01,
+      "max_dd_pct": -12.23,
+      "trades": 577,
+      "win_rate_pct": 44.0
+    },
+    "2022-23": {
+      "return_pct": 17.74,
+      "max_dd_pct": -18.4,
+      "trades": 453,
+      "win_rate_pct": 42.2
+    },
+    "2024-26H1": {
+      "return_pct": 7.52,
+      "max_dd_pct": -15.63,
+      "trades": 495,
+      "win_rate_pct": 35.6
+    }
+  }
+}
