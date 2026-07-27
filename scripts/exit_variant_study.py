@@ -133,12 +133,30 @@ def main() -> None:
 
     results: dict = {"generated": datetime.utcnow().isoformat(),
                      "variants": {}, "windows": [w[0] for w in WINDOWS]}
+
+    # Resume: a container restart kills the run but the progress jsonl
+    # survives — reuse finished (variant, window) rows instead of re-running
+    # them (each 2y window costs minutes).
+    done: dict = {}
+    try:
+        with open(OUT_JSONL) as f:
+            for line in f:
+                row = json.loads(line)
+                done[(row["variant"], row["window"])] = row
+    except FileNotFoundError:
+        pass
+    if done:
+        print(f"resuming: {len(done)} windows already done, skipping them")
+
     prog = open(OUT_JSONL, "a")
 
     for vname, (stop, target, trail, be) in VARIANTS.items():
         bt.check_exit = breakeven_wrapper(be) if be else real_check_exit
         vres = []
         for wname, ws, we in WINDOWS:
+            if (vname, wname) in done:
+                vres.append(done[(vname, wname)])
+                continue
             t0 = time.time()
             cfg = make_cfg(tickers, stop, target, trail)
             r = bt.run_backtest(cfg, ws, we, universe=tickers,
