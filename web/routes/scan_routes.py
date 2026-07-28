@@ -73,10 +73,12 @@ def scan_view(request: Request, error: str | None = None):
 # 🎹 Parameter Piano — turn the scan_matrix into grid sections. Every cell is
 # a REAL computed check for one ticker; nothing is padded or invented.
 _STUB_FACTORS = {"short_interest"}   # analyst_revision went live 2026-07-16
-_CANDLE_HIT = {"breakout", "urr", "engulfing", "hammer", "morning_star",
-               "piercing", "tweezer_bottom", "three_soldiers"}
-_BEARISH_NAMES = {"bearish_engulfing", "evening_star", "dark_cloud_cover",
-                  "tweezer_top", "three_black_crows", "shooting_star"}
+# Derived from trading/candles.py so a new structure can never be mis-styled
+# here: gate-capable names colour the confirm lane, bearish names get the ⚠.
+from trading import candles as _candles  # noqa: E402
+
+_CANDLE_HIT = {"breakout", "urr"} | set(_candles._PATTERN_FUNCS)
+_BEARISH_NAMES = set(_candles.BEARISH_PATTERNS)
 _STRUCT_DEFS = {
     "breakout": "Closes above the last 20 days' high, in the upper half of the bar, on big volume. The engine's main entry trigger.",
     "urr": "Upthrust-Result-Retest: price pokes above resistance, pulls back, then holds on the retest. Confirms the level is real.",
@@ -96,6 +98,22 @@ _STRUCT_DEFS = {
     "shooting_star": "⚠ Long upper shadow, tiny lower one. Rally rejected at the top.",
     "doji": "Open and close almost equal — indecision. The trend is pausing, direction unclear.",
     "marubozu": "Body fills the whole bar, no shadows. One side in complete control that day.",
+    "three_inside_up": "Harami (small green inside a big red) plus a third green closing above the red bar's open. Confirmed bottom turn.",
+    "three_outside_up": "Bullish engulfing plus a third green bar closing higher still. The reversal followed through.",
+    "three_line_strike": "Three falling red bars, then one green bar that takes back the whole decline in a day.",
+    "abandoned_baby_bull": "Red bar, a doji gapping below it, then a green bar gapping back up. Sellers abandoned overnight — rare and strong.",
+    "kicker_bull": "Red bar, then a green bar that opens ABOVE the red bar's open and never trades back into it. Sharpest one-bar turn.",
+    "dragonfly_doji": "Doji with a long lower tail after a fall — sellers pushed all day and were fully rejected. Needs next-day confirmation.",
+    "morning_doji_star": "Morning star whose pause bar is a true doji — even stronger indecision before the up-turn.",
+    "three_inside_down": "⚠ Harami (small red inside a big green) plus a third red closing below the green bar's open. Confirmed top turn.",
+    "three_outside_down": "⚠ Bearish engulfing plus a third red bar closing lower still. The breakdown followed through.",
+    "abandoned_baby_bear": "⚠ Green bar, a doji gapping above it, then a red bar gapping back down. Buyers abandoned overnight.",
+    "kicker_bear": "⚠ Green bar, then a red bar opening BELOW its open and never looking back. Sharpest one-bar top.",
+    "gravestone_doji": "⚠ Doji with a long upper tail — the whole rally was sold back by the close.",
+    "hanging_man": "⚠ Hammer shape after a RISE — the first crack in an uptrend.",
+    "evening_doji_star": "⚠ Evening star whose pause bar is a true doji — stronger top signal.",
+    "bearish_harami": "⚠ Big green bar, then a small red body inside it. Buying pressure fading.",
+    "spinning_top": "Small body, long shadows both sides — a genuine coin-flip day. Neither side won.",
 }
 
 

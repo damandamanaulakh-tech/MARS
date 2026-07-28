@@ -309,6 +309,21 @@ Also: OCEAN_BLOCKED now journals once/day and only when Everest is off
 "22k params" doc claim corrected (committed registry = 1,500 JSON + 1,200
 CSV; 22k counted cells) · .gitignore negation added for data/chityy/ ·
 docs/WORK_LIST.md A2-A5 finally marked DONE (shipped in a185d94).
+**2026-07-28 candle library 18→34 (owner: "i knw u have few but i want
+more" + 3 reference-chart screenshots):** 16 new structures in
+`trading/candles.py` — bullish: three_inside_up, three_outside_up,
+three_line_strike, abandoned_baby_bull, kicker_bull, dragonfly_doji,
+morning_doji_star · bearish (warn-only, never buy): three_inside_down,
+three_outside_down, abandoned_baby_bear, kicker_bear, gravestone_doji,
+hanging_man, evening_doji_star, bearish_harami · neutral: spinning_top.
+The 6 strong multi-bar bullish reversals joined `cfg.candle_patterns`
+(entry-confirmation gate — a scored pick can execute sooner; scores/
+stops/targets untouched); single-bar needs-follow-up shapes
+(dragonfly_doji, inverted_hammer, bullish_harami) stay lanes-only.
+Piano styling now DERIVES from the registries (`scan_routes._BEARISH_NAMES
+= set(BEARISH_PATTERNS)`, `_CANDLE_HIT` from `_PATTERN_FUNCS`) so new
+structures can never be mis-styled; all 34 have plain-language
+`_STRUCT_DEFS` tap pages. 491 tests.
 **Breadth-vs-VIX conflict CLOSED (owner: "yes — we cant wait for recovery,
 that is movement of entries"):** vix_reentry now BYPASSES the breadth gate
 (`engine._breadth_gate_blocks(bypass=vix_reentry)`) — fear-break entries go
