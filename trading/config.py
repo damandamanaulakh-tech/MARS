@@ -124,9 +124,15 @@ class Config:
     # the latest candle confirms (breakout / URR retest / engulfing); otherwise
     # it waits on the watchlist as candle_wait_*.
     candle_confirm_enabled: bool = True
+    # user's reference-pic set + the 6 strong reversals from the owner's
+    # 2026-07-28 chart ("i want more"). Only completed multi-bar reversals
+    # confirm; single-bar shapes stay display-only lanes.
     candle_patterns: tuple = ("breakout", "urr", "engulfing", "hammer",
                               "morning_star", "piercing", "tweezer_bottom",
-                              "three_soldiers")   # user's reference-pic set
+                              "three_soldiers", "three_inside_up",
+                              "three_outside_up", "three_line_strike",
+                              "abandoned_baby_bull", "kicker_bull",
+                              "morning_doji_star")
     candle_breakout_lookback: int = 20
     candle_volume_mult: float = 1.5
     # F7 (user-approved 2026-07-11): never open dust positions — a position
