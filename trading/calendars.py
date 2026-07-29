@@ -65,7 +65,8 @@ INDIA_GENERAL_ELECTION_RESULTS = [
     date(2014, 5, 16),
     date(2019, 5, 23),
     date(2024, 6, 4),
-    date(2029, 5, 31),   # placeholder — refresh when announced
+    # 2029: add the real results date when the Election Commission announces
+    # the schedule (~early 2029). No guessed dates in production.
 ]
 
 # --- Key State Election results (high market impact only) ---
