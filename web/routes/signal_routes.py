@@ -58,9 +58,42 @@ def _weights() -> dict:
     return w
 
 
+def _live_signal(ticker: str) -> dict | None:
+    """On-demand momentum+quality for ANY universe ticker (owner order
+    2026-07-29: "signal window need to link with universe, it must pick
+    stock from there not the fixed"). Computed from STORED daily history
+    (Mongo/zip — zero network) with the exact live-mode functions the
+    09:20 scan uses. None = no stored history -> DATA_NEEDED, never fake."""
+    from ..candle_chart import load_ohlcv
+    try:
+        from trading.quality import blend_scores, quality_score
+        from trading.strategies.nifty200_momentum import momentum_score
+        df = load_ohlcv(ticker, tail=420)      # momentum needs >=252 bars
+        if df is None or df.empty:
+            return None
+        ms = momentum_score(df["Close"])
+        if ms is None:                          # < 1y of history
+            return None
+        q = quality_score(df["Close"],
+                          df["Volume"] if "Volume" in df.columns else None)
+        b = float(getattr(state.cfg(), "quality_blend_pct", 0.35))
+        asof = df.dropna(subset=["Close"]).index[-1]
+        return {
+            "ticker": ticker,
+            "components": {"momentum": round(ms, 1), "quality": round(q, 1)},
+            "entry_score": blend_scores(ms, q, b),
+            "on_demand": True,
+            "asof": asof.strftime("%d %b %Y") if hasattr(asof, "strftime") else str(asof),
+        }
+    except Exception:
+        return None
+
+
 def _rows_for(ticker: str | None):
     """Pool = open positions (components from their BUY journal entry) +
-    last scan picks. Renders only what the engine actually stored."""
+    last scan picks + today's FULL scan matrix (~50 scanned names). A
+    universe ticker outside the pool is computed live from stored history.
+    Renders only real engine output or a live computation labeled as such."""
     p = state.portfolio()
 
     buy_components: dict[str, dict] = {}
@@ -83,11 +116,21 @@ def _rows_for(ticker: str | None):
             if pk.get("score") is not None:
                 row["entry_score"] = pk["score"]
             pool.append(row)
+    # today's whole scanned bucket, not just the top-50 picks
+    seen = {c["ticker"] for c in pool}
+    for t, r in ((p.scan_matrix or {}).get("rows") or {}).items():
+        if t not in seen and r.get("c"):
+            pool.append({"ticker": t, "components": r["c"],
+                         "entry_score": r.get("score")})
 
     tickers = sorted({c["ticker"] for c in pool})
     chosen = None
     if ticker:
         chosen = next((c for c in pool if c["ticker"] == ticker), None)
+        if chosen is None:                      # universe pick outside the pool
+            chosen = _live_signal(ticker)
+            if chosen is None:
+                return {"ticker": ticker, "no_data": True}, tickers, []
     if chosen is None and pool:
         chosen = pool[0]
     if chosen is None:
@@ -119,14 +162,29 @@ def _rows_for(ticker: str | None):
     return chosen, tickers, rows
 
 
+def _universe() -> list[str]:
+    """The full auto-refreshed NSE universe for the search box (source of
+    truth: data/upstox_nse_equities.csv, refreshed daily at 08:50)."""
+    try:
+        from trading.universes import load_full_universe
+        return load_full_universe()
+    except Exception:
+        return []
+
+
 @router.get("/signal", response_class=HTMLResponse)
 def signal_page(request: Request, ticker: str | None = None):
     user = auth.current_user(request)
     if not user:
         return RedirectResponse("/login", status_code=303)
-    pick, tickers, rows = _rows_for(ticker)
+    if ticker:
+        ticker = ticker.upper().strip()
+        if ticker and not ticker.endswith((".NS", ".BO")):
+            ticker += ".NS"
+    pick, tickers, rows = _rows_for(ticker or None)
     return templates.TemplateResponse(
         request, "signal.html",
         {"user": user, "active": "signal", "pick": pick, "tickers": tickers,
-         "rows": rows, "selected": pick["ticker"] if pick else None},
+         "rows": rows, "selected": pick["ticker"] if pick else None,
+         "universe": _universe()},
     )

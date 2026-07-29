@@ -19,13 +19,15 @@ def _client() -> TestClient:
 def test_signal_empty_state_renders():
     p = state.portfolio()
     saved_pos, saved_picks = dict(p.positions), list(p.last_scan_picks or [])
-    p.positions, p.last_scan_picks = {}, []
+    saved_matrix = p.scan_matrix          # matrix rows join the pool now
+    p.positions, p.last_scan_picks, p.scan_matrix = {}, [], {}
     try:
         r = _client().get("/signal")
         assert r.status_code == 200
         assert "No scored stock yet" in r.text
     finally:
         p.positions, p.last_scan_picks = saved_pos, saved_picks
+        p.scan_matrix = saved_matrix
 
 
 def test_signal_renders_strings_from_scan_pick():
@@ -69,3 +71,60 @@ def test_signal_position_uses_buy_journal_components():
         assert "77.0" in r.text          # total from entry_score
     finally:
         p.positions.pop("SIGPOS.NS", None)
+
+
+# ---- 2026-07-29 owner order: "signal window need to link with universe,
+# it must pick stock from there not the fixed" ----
+
+def test_signal_search_box_lists_the_full_universe():
+    r = _client().get("/signal")
+    assert r.status_code == 200
+    assert 'list="universe-list"' in r.text          # search box wired
+    assert r.text.count("<option") > 2000            # full universe, not the pool
+
+
+def test_signal_computes_any_universe_stock_on_demand():
+    """RELIANCE not held/picked -> computed live from stored history with
+    the exact live-mode functions, labeled as computed-now."""
+    from unittest.mock import patch
+    p = state.portfolio()
+    saved_pos, saved_picks = dict(p.positions), list(p.last_scan_picks or [])
+    saved_matrix = p.scan_matrix
+    p.positions, p.last_scan_picks, p.scan_matrix = {}, [], {}
+    try:
+        with patch("web.db.is_connected", return_value=False):   # zip path
+            r = _client().get("/signal?ticker=RELIANCE")
+        assert r.status_code == 200
+        assert "RELIANCE.NS" in r.text
+        assert "computed now from stored history" in r.text
+        assert "momentum" in r.text and "quality" in r.text
+    finally:
+        p.positions, p.last_scan_picks = saved_pos, saved_picks
+        p.scan_matrix = saved_matrix
+
+
+def test_signal_unknown_stock_says_data_needed():
+    from unittest.mock import patch
+    with patch("web.db.is_connected", return_value=False):
+        r = _client().get("/signal?ticker=NOSUCHSTOCK")
+    assert r.status_code == 200
+    assert "DATA_NEEDED" in r.text
+    assert "signal-data" not in r.text               # no strings faked
+
+
+def test_signal_pool_includes_scan_matrix_rows():
+    """The whole scanned bucket is selectable, not only the top-50 picks."""
+    p = state.portfolio()
+    saved_matrix = p.scan_matrix
+    p.scan_matrix = {"ts": "2026-07-29T09:20:00", "mode": "nifty200_momentum",
+                     "rows": {"MATRIXONLY.NS": {
+                         "c": {"momentum": 61.0, "quality": 55.0},
+                         "score": 58.9}}}
+    try:
+        r = _client().get("/signal?ticker=MATRIXONLY.NS")
+        assert r.status_code == 200
+        assert "MATRIXONLY.NS" in r.text
+        assert "58.9" in r.text                      # stored score, no recompute
+        assert "computed now" not in r.text
+    finally:
+        p.scan_matrix = saved_matrix

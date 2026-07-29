@@ -8,18 +8,42 @@
       <span class="font-semibold">flat string = no data</span>.
     </p>
   </div>
-  {% if tickers %}
-  <form method="get" action="/signal" class="flex items-center flex-wrap gap-2">
-    <label for="tk" class="text-xs uppercase tracking-widest text-ink-faint whitespace-nowrap">stock</label>
-    <select id="tk" name="ticker" onchange="this.form.submit()"
-            class="border border-line rounded-md px-3 py-2 text-sm font-semibold bg-white max-w-full">
-      {% for t in tickers %}
-        <option value="{{ t }}" {% if t == selected %}selected{% endif %}>{{ t }}</option>
-      {% endfor %}
-    </select>
-  </form>
-  {% endif %}
+  <div class="flex items-center flex-wrap gap-2">
+    {% if tickers %}
+    <form method="get" action="/signal" class="flex items-center gap-2">
+      <label for="tk" class="text-xs uppercase tracking-widest text-ink-faint whitespace-nowrap">scored today</label>
+      <select id="tk" name="ticker" onchange="this.form.submit()"
+              class="border border-line rounded-md px-3 py-2 text-sm font-semibold bg-white max-w-full">
+        {% if selected and selected not in tickers %}<option value="{{ selected }}" selected>{{ selected }}</option>{% endif %}
+        {% for t in tickers %}
+          <option value="{{ t }}" {% if t == selected %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    {% endif %}
+    <form method="get" action="/signal" class="flex items-center gap-2">
+      <label for="anytk" class="text-xs uppercase tracking-widest text-ink-faint whitespace-nowrap">any stock</label>
+      <input id="anytk" name="ticker" list="universe-list" placeholder="type any NSE name…"
+             autocomplete="off" required
+             class="border border-line rounded-md px-3 py-2 text-sm font-semibold bg-white w-44">
+      <datalist id="universe-list">
+        {% for t in universe %}<option value="{{ t | replace('.NS','') }}">{% endfor %}
+      </datalist>
+      <button class="px-3 py-2 border border-line rounded-md text-sm font-semibold hover:bg-ink/[0.03]">GO</button>
+    </form>
+  </div>
 </div>
+
+{% if pick and pick.no_data %}
+<div class="border border-dashed border-line rounded-xl p-8 lg:p-16 text-center">
+  <div class="text-lg font-semibold">DATA_NEEDED — {{ pick.ticker | replace('.NS','') }}</div>
+  <p class="text-ink-soft text-sm mt-2">
+    No stored daily history for this stock yet (needs ≥1 year for the momentum
+    string). History arrives when its rotating bucket is scanned or via the
+    Friday top-up — the strings are never drawn from guessed numbers.
+  </p>
+</div>
+{% else %}
 
 {% if not rows %}
   <div class="border border-dashed border-line rounded-xl p-8 lg:p-16 text-center">
@@ -41,6 +65,9 @@
         {% set live = rows | rejectattr('stub') | list %}
         {{ live | length }} of {{ rows | length }} strings carry data ·
         {{ rows | selectattr('stub') | list | length }} silent
+        {% if pick and pick.on_demand %}
+        · <span style="color:#f0c24b">computed now from stored history (to {{ pick.asof }}) — not a stored scan result</span>
+        {% endif %}
       </div>
     </div>
     {% if pick and pick.entry_score is defined %}
@@ -151,5 +178,6 @@
   });
 })();
 </script>
+{% endif %}
 {% endif %}
 {% endblock %}

@@ -35,16 +35,18 @@ _INK_FAINT = "rgba(0,0,0,0.45)"
 _GRID = "rgba(0,0,0,0.08)"
 
 
-def load_ohlcv(ticker: str) -> pd.DataFrame | None:
+def load_ohlcv(ticker: str, tail: int = _PATTERN_TAIL) -> pd.DataFrame | None:
     """Daily OHLCV for one ticker: Mongo store first (freshest, Friday
-    top-up), repo zip second (ships with every deploy). None = DATA_NEEDED."""
+    top-up), repo zip second (ships with every deploy). None = DATA_NEEDED.
+    `tail` bounds RAM (512 MB box); /signal passes a longer one because
+    momentum_score needs >=252 bars."""
     try:
         from trading.history_store import records_to_df
         from . import db
         if db.is_connected():
             df = records_to_df(db.load_history_doc(ticker))
             if df is not None and not df.empty:
-                return df.tail(_PATTERN_TAIL)
+                return df.tail(tail)
     except Exception as e:
         log.warning("chart: mongo load failed for %s: %s", ticker, e)
     try:
@@ -55,7 +57,7 @@ def load_ohlcv(ticker: str) -> pd.DataFrame | None:
             if name in set(z.namelist()):
                 df = pd.read_csv(io.BytesIO(z.read(name)),
                                  parse_dates=["Date"], index_col="Date")
-                return df.sort_index().tail(_PATTERN_TAIL)
+                return df.sort_index().tail(tail)
     except Exception as e:
         log.warning("chart: zip load failed for %s: %s", ticker, e)
     return None
