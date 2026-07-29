@@ -154,7 +154,10 @@ one-word password.
    N200-momentum strategy. `BacktestResult.benchmark2*`, walk_forward rows,
    /backtest page. Unfetchable ⇒ visible DATA_NEEDED warning, alpha vs N50
    unchanged. NOTE: ^CNX200 fetch from Render UNVERIFIED (sandbox has no
-   yfinance network) — first live run tells.
+   yfinance network) — first live run tells. **Backtest button itself
+   CONFIRMED WORKING by owner 2026-07-29 post PR#18 memory fix**; still
+   awaiting owner word on whether the N200 line rendered or showed
+   DATA_NEEDED.
 3. Truth pass on marketing copy: login page (ATR-stops/live-mode/500+ claims
    were false → now "fixed stops, paper only, 2,300+") + dashboard "can do"
    panel (correlation 0.7→0.85, reserve ladder 20/25/35/50→real 0/0/20/40,
