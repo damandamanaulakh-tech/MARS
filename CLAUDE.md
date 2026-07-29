@@ -354,6 +354,17 @@ financialdata.net marketing email assessed on owner ask — REJECTED (India
 data paywalled at $29/mo Standard, duplicates free Upstox; US-only depth;
 none of our real gaps: FII/DII, NSE short interest, Indian news). Owner
 approved skip.
+**2026-07-29 signal↔universe link (owner: "signal window need to link with
+universe, it must pick stock from there not the fixed"):** /signal now has
+an any-stock search box over the FULL auto-refreshed universe (datalist,
+2,393 names) next to the scored-today dropdown. Component priority: BUY
+journal/positions → last picks → **whole scan_matrix bucket (~50/day, was
+missing)** → **on-demand compute** (`signal_routes._live_signal`: stored
+history via `candle_chart.load_ohlcv(tail=420)`, exact live-mode
+momentum_score+quality_score+blend, labeled "computed now from stored
+history (to DATE) — not a stored scan result" in amber) → DATA_NEEDED page
+(<1y history or none; strings never faked). Zero network; scan/entries
+untouched — viewer only. 505 tests.
 **Breadth-vs-VIX conflict CLOSED (owner: "yes — we cant wait for recovery,
 that is movement of entries"):** vix_reentry now BYPASSES the breadth gate
 (`engine._breadth_gate_blocks(bypass=vix_reentry)`) — fear-break entries go
