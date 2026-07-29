@@ -93,3 +93,24 @@ def test_fetch_latest_flows_parses_nse_payload():
     assert out[0].trade_date == date(2026, 5, 30)
     assert out[0].fii_net == 4000.0
     assert out[0].dii_net == 4000.0
+
+
+def test_committed_csv_extends_to_march_2025_with_blank_dii():
+    """F6 refresh (owner 2026-07-29: the monthly release zips ARE FII/DII).
+    Rows after 2024-12 derive from the SEBI FII disclosure archive via
+    scripts/build_fii_cash_from_disclosures.py — FII only, DII left blank
+    (read as 0.0), never invented. The old 2024 rows are untouched."""
+    from trading.signals.flows import fetch_flows_from_csv
+    flows = fetch_flows_from_csv()
+    assert flows is not None
+    newest = flows[0]
+    assert newest.trade_date >= date(2025, 3, 1)      # was stuck at 2024-09-06
+    assert newest.dii_net == 0.0                       # blank parses, row kept
+    # the record Jan-2025 FPI exodus must be visible in the data
+    jan = [f.fii_net for f in flows
+           if f.trade_date.year == 2025 and f.trade_date.month == 1]
+    assert len(jan) >= 20 and sum(jan) < -70_000
+    # original hand-fed rows survive the merge untouched
+    sep6 = [f for f in flows if f.trade_date == date(2024, 9, 6)]
+    assert sep6 and abs(sep6[0].fii_net - (-772.94)) < 0.01
+    assert abs(sep6[0].dii_net - (-90.28)) < 0.01

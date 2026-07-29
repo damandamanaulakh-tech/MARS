@@ -107,7 +107,12 @@ def fetch_latest_flows() -> Optional[list[FlowReading]]:
 def fetch_flows_from_csv(path: str = None) -> Optional[list[FlowReading]]:
     """FIX (2026-07-12): committed FII/DII CSV fallback for when the live NSE
     feed 403s from the cloud. Reads data/fii_dii_cash.csv
-    (date, fii_cash_net, dii_cash_net). Newest-first, or None if unreadable."""
+    (date, fii_cash_net, dii_cash_net). Newest-first, or None if unreadable.
+
+    Rows from 2024-12 on derive from the SEBI FII disclosure archive
+    (scripts/build_fii_cash_from_disclosures.py) which has NO DII data —
+    their dii_cash_net is EMPTY, read as 0.0. Nothing that touches money
+    consumes DII (only fii_flow_score feeds scoring/regime)."""
     import csv
     import os
     if path is None:
@@ -120,7 +125,7 @@ def fetch_flows_from_csv(path: str = None) -> Optional[list[FlowReading]]:
                 try:
                     d = datetime.strptime(row["date"].strip(), "%Y-%m-%d").date()
                     fii = float(row["fii_cash_net"])
-                    dii = float(row["dii_cash_net"])
+                    dii = float(row["dii_cash_net"] or 0.0)
                 except (ValueError, KeyError):
                     continue
                 out.append(FlowReading(
