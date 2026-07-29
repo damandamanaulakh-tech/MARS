@@ -167,10 +167,11 @@
   {% if share_structs %}
   <div class="px-4 lg:px-6 py-2 border-b border-line flex flex-wrap gap-1.5">
     {% for name, fired in share_structs.items() if fired %}
-    <span class="text-[11px] border px-2 py-0.5 tracking-wide whitespace-nowrap
-                 {% if name in ['bearish_engulfing','evening_star','dark_cloud_cover','tweezer_top','three_black_crows','shooting_star'] %}border-red-300 text-red-700{% else %}border-emerald-300 text-emerald-700{% endif %}">
-      {{ name | replace('_',' ') }}
-    </span>
+    <a href="/scan/parameter/struct:{{ name }}"
+       class="text-[11px] border px-2 py-0.5 tracking-wide whitespace-nowrap hover:bg-ink/[0.03]
+              {% if name in bearish_names %}border-red-300 text-red-700{% else %}border-emerald-300 text-emerald-700{% endif %}">
+      {% if name in bearish_names %}⚠ {% endif %}{{ name | replace('_',' ') }}
+    </a>
     {% endfor %}
   </div>
   {% endif %}
@@ -237,7 +238,8 @@
         <tr class="border-b border-line last:border-0 cursor-pointer hover:bg-ink/[0.02]"
             @click="open = open === '{{ t.ticker }}' ? null : '{{ t.ticker }}'"
             title="Tap to see which parameters hit + the candle">
-          <td class="px-3 py-2.5 font-semibold whitespace-nowrap">{{ t.ticker | replace('.NS','') }}</td>
+          <td class="px-3 py-2.5 font-semibold whitespace-nowrap">{{ t.ticker | replace('.NS','') }}
+            <a href="/chart/{{ t.ticker }}" title="candle chart" class="ml-1 no-underline" @click.stop>📈</a></td>
           <td class="px-2 py-2.5 tabular-nums text-right">{{ t.score }}</td>
           <td class="px-2 py-2.5 text-right text-xs whitespace-nowrap {% if t.candle.startswith('✓') %}text-emerald-700 font-semibold{% else %}text-ink-faint{% endif %}">{{ t.candle }}</td>
           <td class="px-2 py-2.5 tabular-nums text-right whitespace-nowrap">{% if t.last_close %}₹{{ t.last_close | inr(2) }}{% else %}—{% endif %}</td>
@@ -281,7 +283,8 @@
       <tbody>
         {% for t in watchlist %}
         <tr class="border-b border-line last:border-0">
-          <td class="px-3 py-2.5 font-semibold whitespace-nowrap">{{ t.ticker | replace('.NS','') }}</td>
+          <td class="px-3 py-2.5 font-semibold whitespace-nowrap">{{ t.ticker | replace('.NS','') }}
+            <a href="/chart/{{ t.ticker }}" title="candle chart" class="ml-1 no-underline">📈</a></td>
           <td class="px-2 py-2.5 tabular-nums text-right">{{ t.score }}</td>
           <td class="px-2 py-2.5 tabular-nums text-right whitespace-nowrap">{% if t.last_close %}₹{{ t.last_close | inr(2) }}{% else %}—{% endif %}</td>
           <td class="px-2 py-2.5 text-right text-xs {% if t.blocked.startswith('⛔') %}text-red-600{% else %}text-amber-700{% endif %}">{{ t.blocked or '—' }}</td>
@@ -497,7 +500,8 @@
     <tbody>
       {% for p in positions %}
       <tr class="border-b border-line last:border-0">
-        <td class="px-3 lg:px-6 py-3 font-semibold whitespace-nowrap">{{ p.ticker }}</td>
+        <td class="px-3 lg:px-6 py-3 font-semibold whitespace-nowrap">{{ p.ticker }}
+          <a href="/chart/{{ p.ticker }}" title="candle chart with your stop/target lines" class="ml-1 no-underline">📈</a></td>
         <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap">{{ p.qty }}</td>
         <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap">₹{{ p.entry_price | inr(2) }}</td>
         {% set cur = prices.get(p.ticker, p.entry_price) %}

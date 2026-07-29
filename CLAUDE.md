@@ -324,6 +324,21 @@ Piano styling now DERIVES from the registries (`scan_routes._BEARISH_NAMES
 = set(BEARISH_PATTERNS)`, `_CANDLE_HIT` from `_PATTERN_FUNCS`) so new
 structures can never be mis-styled; all 34 have plain-language
 `_STRUCT_DEFS` tap pages. 491 tests.
+**2026-07-29 (owner: "a & c" then "go"):** guessed 2029 election date
+DELETED from calendars.py (PR#20) · **visual candle chart SHIPPED (PR#21)**:
+`/chart/{ticker}` — server-side SVG (zero deps, 512MB-safe), last 90 daily
+candles + volume, ▲/▼ markers on the exact bars each of the 34 structures
+fired (`web/candle_chart.py per_bar_structures`), entry/stop/target dashed
+lines for held positions, hover tooltips, structure chips link to piano tap
+pages, DATA_NEEDED when no stored history (never fake). 📈 links on scan
+picks, dashboard picks/watchlist/positions, positions page. BONUS BUG FIXED:
+dashboard share-candle chips hardcoded the OLD 6 bearish names — the 8 new
+bearish structures showed GREEN; now derives from BEARISH_PATTERNS
+(`dashboard._bearish_names`), guard test. 500 tests. Also 2026-07-29:
+financialdata.net marketing email assessed on owner ask — REJECTED (India
+data paywalled at $29/mo Standard, duplicates free Upstox; US-only depth;
+none of our real gaps: FII/DII, NSE short interest, Indian news). Owner
+approved skip.
 **Breadth-vs-VIX conflict CLOSED (owner: "yes — we cant wait for recovery,
 that is movement of entries"):** vix_reentry now BYPASSES the breadth gate
 (`engine._breadth_gate_blocks(bypass=vix_reentry)`) — fear-break entries go
