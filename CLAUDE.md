@@ -247,8 +247,20 @@ v1-v4 program — do not quote it.**
   without owner ask.
 - Old Table-3 blame-split CLOSED: describes a config that no longer exists;
   app needs nothing from it.
-- F6 FII/DII: ON HOLD per owner — they will push fresh data to git; when the
-  file lands, commit it and never ask again.
+- F6 FII/DII: REFRESHED 2026-07-29 (owner confirmed the monthly release
+  zips ARE FII/DII: "all zip excel which name Mar 2025, april 2023 kind of
+  are FII DII Only"). data/fii_dii_cash.csv extended 2024-09-06 →
+  2025-03-29 (85 rows) from the SEBI FII disclosure xlsx in Dec_2024/
+  Jan_2025/Feb_2025/Mar_2025.zip via NEW
+  scripts/build_fii_cash_from_disclosures.py (TR_TYPE 01=buy 04=sell,
+  equity only, verified: Jan-2025 −76k Cr = the record FPI exodus,
+  Mar-2025 sell-early/buy-late = published story). DII does NOT exist in
+  those files — new rows carry EMPTY dii (flows.py reads blank as 0.0;
+  no engine path consumes DII). Gaps: 2024-09-09→2024-11-29 (no
+  Sep–Nov 2024 assets) and after 2025-03-29 (archive ends; SEBI publishes
+  months late — a LIVE current feed still doesn't exist; staleness guard
+  remains owner-deferred). Old hand-fed rows untouched, guard test in
+  test_flows.py. Never ask again.
 - Proof ledger truth-passed (PR #10): G001/G002 CLOSED (data + PIT exist),
   G004 IN_PROGRESS (60-day live window is the remaining test), G003 LOCKED.
 - Chityy archive ARRIVED (published 2026-07-27 13:35Z, tag `chityy-archive`).
