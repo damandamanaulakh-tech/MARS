@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{{ ticker | replace('.NS','') }} — Candle Chart — Sourceborn AM07{% endblock %}
+{% block content %}
+<div class="text-xs tracking-widest text-ink-faint uppercase mb-3">
+  <a href="/scan" class="hover:underline">SCAN</a> / 📈 {{ ticker | replace('.NS','') }}
+</div>
+<div class="flex items-end justify-between mb-6 flex-wrap gap-3">
+  <div>
+    <h1 class="font-black text-3xl lg:text-4xl tracking-tight">{{ ticker | replace('.NS','') }} — Daily Candles</h1>
+    <p class="text-ink-soft mt-2 text-sm lg:text-base">
+      Last {{ bars }} sessions{% if last_bar %} · data to {{ last_bar }}{% endif %} ·
+      ▲ bullish structure fired · <span class="text-red-700">▼ bearish warning</span> ·
+      hover any bar for its numbers — the engine reads these same bars
+    </p>
+  </div>
+  <a href="/scan" class="px-4 py-2 border border-line text-sm font-semibold tracking-wide whitespace-nowrap hover:bg-ink/[0.03]">← BACK TO SCAN</a>
+</div>
+
+{% if svg %}
+<div class="bg-white border border-line mb-6">
+  {% if levels %}
+  <div class="px-4 lg:px-6 py-2 border-b border-line flex flex-wrap gap-4 text-xs">
+    {% for label, price, color in levels %}
+    <span class="whitespace-nowrap" style="color: {{ color }}">— {{ label }} ₹{{ price | inr(2) }}</span>
+    {% endfor %}
+    <span class="text-ink-faint">held position — dashed lines are your live exit levels</span>
+  </div>
+  {% endif %}
+  <div class="p-3 lg:p-4 overflow-x-auto">
+    <div class="min-w-[720px]">{{ svg | safe }}</div>
+  </div>
+</div>
+
+<div class="bg-white border border-line">
+  <div class="px-4 lg:px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">
+    Structures fired in this window (newest first — tap a name for its meaning)
+  </div>
+  <div class="px-4 lg:px-6 py-3 space-y-2">
+    {% for r in recent %}
+    <div class="flex items-start gap-3 text-sm border-b border-line/50 last:border-0 pb-2">
+      <span class="text-ink-faint tabular-nums whitespace-nowrap w-14">{{ r.date }}</span>
+      <span class="flex flex-wrap gap-1.5">
+        {% for s in r.names %}
+        <a href="/scan/parameter/struct:{{ s.key }}"
+           class="text-[11px] border px-2 py-0.5 tracking-wide whitespace-nowrap hover:bg-ink/[0.03]
+                  {% if s.bear %}border-red-300 text-red-700{% else %}border-emerald-300 text-emerald-700{% endif %}">
+          {% if s.bear %}⚠ {% endif %}{{ s.name }}
+        </a>
+        {% endfor %}
+      </span>
+    </div>
+    {% else %}
+    <div class="text-sm text-ink-faint py-2">No structure fired in the last {{ bars }} sessions — plain trend bars only.</div>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<div class="bg-white border border-line p-6 lg:p-10 text-center">
+  <div class="font-bold text-lg mb-2">DATA_NEEDED</div>
+  <div class="text-ink-soft text-sm">No stored daily history for {{ ticker }} — the chart is never drawn from
+    guessed numbers. History arrives via the daily scans and the Friday top-up once the stock is scanned or held.</div>
+</div>
+{% endif %}
+{% endblock %}

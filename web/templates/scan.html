@@ -316,7 +316,8 @@
       {% for p in picks %}
       <tr class="border-b border-line last:border-0">
         <td class="px-3 lg:px-6 py-3 text-ink-faint whitespace-nowrap">{{ loop.index }}</td>
-        <td class="px-3 lg:px-6 py-3 font-semibold whitespace-nowrap">{{ p.ticker }}</td>
+        <td class="px-3 lg:px-6 py-3 font-semibold whitespace-nowrap">{{ p.ticker }}
+          <a href="/chart/{{ p.ticker }}" title="candle chart" class="ml-1 no-underline">📈</a></td>
         <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap {% if p.score >= 70 %}font-bold{% endif %}">{{ p.score | round(2) }}</td>
         <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap">₹{{ p.last_close | inr(2) }}</td>
         <td class="px-3 lg:px-6 py-3 uppercase text-xs tracking-widest whitespace-nowrap {% if p.timing_pass %}text-emerald-700{% else %}text-ink-faint{% endif %}">

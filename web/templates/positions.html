@@ -118,6 +118,7 @@
       {% for r in rows %}
       <tr class="border-b border-line last:border-0 hover:bg-ink/[0.02] {% if r.decay_watch %}bg-amber-50{% endif %}">
         <td class="px-3 lg:px-4 py-4 font-semibold whitespace-nowrap">{{ r.ticker }}
+          <a href="/chart/{{ r.ticker }}" title="candle chart with your stop/target lines" class="ml-1 no-underline">📈</a>
           {% if r.decay_watch %}<span class="ml-1 text-[10px] text-amber-700 font-bold" title="Score {{ r.current_score | round(0) }} near decay-exit floor {{ r.decay_floor | round(0) }} — may be sold on decay">⚠ DECAY</span>{% endif %}</td>
         <td class="px-3 lg:px-4 py-4 tabular-nums text-right whitespace-nowrap">{{ r.qty }}</td>
         <td class="px-3 lg:px-4 py-4 tabular-nums text-right whitespace-nowrap">₹{{ r.entry_price | inr(2) }}</td>

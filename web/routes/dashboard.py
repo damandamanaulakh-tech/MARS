@@ -14,6 +14,11 @@ from ..templating import templates
 router = APIRouter()
 
 
+def _bearish_names() -> set:
+    from trading.candles import BEARISH_PATTERNS
+    return set(BEARISH_PATTERNS)
+
+
 @router.get("/", response_class=HTMLResponse)
 def dashboard(request: Request):
     if not auth.current_user(request):
@@ -232,6 +237,9 @@ def dashboard(request: Request):
             "chart_ticker": chart_ticker,
             "chart_choices": [c for c in chart_choices if c],
             "share_structs": share_structs,
+            # derived from the registry so a new bearish structure can never
+            # show as a green chip here (the 18->34 expansion caught this)
+            "bearish_names": _bearish_names(),
             "rotations": rotations,
         },
     )
