@@ -41,8 +41,14 @@ def can_open(
     ticker: str,
     fill_price: float,
     cfg: Config,
+    notional_override: float | None = None,
 ) -> tuple[bool, str, int]:
-    """Decide whether a new position can open. Returns (ok, reason, qty)."""
+    """Decide whether a new position can open. Returns (ok, reason, qty).
+
+    `notional_override` is the per-stock rupee size the caller computed (½-Kelly,
+    owner order 2026-07-30). It replaces the flat per-trade size but is still
+    subject to EVERY gate below — cash, reserve, sector count, sector capital,
+    portfolio heat, min position value. Sizing got smarter; nothing got looser."""
     if risk.kill_switch:
         return False, "kill_switch_active", 0
 
@@ -55,8 +61,14 @@ def can_open(
     if deployed >= deploy_cap:
         return False, "reserve_breached", 0
 
-    # Per-trade size: owner's fixed Rs value (2026-07-30), pct fallback.
-    per_stock_cap = cfg.position_notional()
+    # Per-trade size: caller-computed (½-Kelly) if supplied, else the owner's
+    # fixed Rs value, else the pct fallback.
+    if notional_override is not None:
+        if notional_override <= 0:
+            return False, "no_estimated_edge", 0
+        per_stock_cap = float(notional_override)
+    else:
+        per_stock_cap = cfg.position_notional()
     headroom = min(per_stock_cap, deploy_cap - deployed, cash)
     if headroom <= 0:
         return False, "no_headroom", 0

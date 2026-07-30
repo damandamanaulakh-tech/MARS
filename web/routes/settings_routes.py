@@ -29,7 +29,11 @@ EDITABLE_FIELDS = [
     # ENTERED as percentages (2.5) — no more "0.01 means 1%" confusion.
     ("starting_capital",        "Starting Capital (Rs)",  "Capital", "number", 1000, "Total paper capital to simulate", False),
     ("cash_reserve_pct",        "Cash Reserve %",          "Capital", "number", 0.5,  "Always keep this % in cash", True),
-    ("position_size_value",     "Position Size (Rs)",      "Capital", "number", 1000, "Fixed Rs per new trade (0 = use Max % per Position)", False),
+    ("position_size_value",     "Position Size (Rs)",      "Capital", "number", 1000, "Fixed Rs per new trade — used when Sizing Mode is 'fixed'", False),
+    ("sizing_mode",             "Sizing Mode",             "Capital", "text",   None, "half_kelly = size by edge (owner order 2026-07-30) · fixed = flat Position Size", False),
+    ("kelly_fraction",          "Kelly Fraction",          "Capital", "number", 0.05, "0.5 = half-Kelly (75% of max growth, 12.5% halving risk). NEVER above 1.0", False),
+    ("kelly_ic",                "Kelly IC (assumed edge)", "Capital", "number", 0.01, "Assumed information coefficient. Higher = bigger bets. 0.05 is realistic", False),
+    ("kelly_max_pct",           "Kelly Max % per Position","Capital", "number", 0.5,  "Hard ceiling per name under Kelly sizing", True),
     ("max_position_pct",        "Max % per Position",      "Capital", "number", 0.5,  "Fallback sizing when Position Size (Rs) is 0", True),
     ("max_positions",           "Max Open Positions",      "Capital", "number", 1,    "Total positions at once", False),
     ("max_sector_positions",    "Max Positions per Sector","Capital", "number", 1,    "Diversification cap", False),
@@ -206,6 +210,17 @@ async def settings_save(request: Request):
             overrides[name] = val
         except (TypeError, ValueError):
             continue
+
+    # Guard the sizing knobs: a typo in Sizing Mode must not silently fall back
+    # to a size the owner did not choose, and Kelly above 1x is never valid
+    # (1.5x earns the same growth as 0.5x with 6x the ruin risk — see
+    # docs/ALGO_V1_V2.md section 9).
+    if str(getattr(cfg, "sizing_mode", "")).lower() not in ("fixed", "kelly", "half_kelly"):
+        cfg.sizing_mode = "half_kelly"
+        overrides["sizing_mode"] = "half_kelly"
+    if float(getattr(cfg, "kelly_fraction", 0.5)) > 1.0:
+        cfg.kelly_fraction = 1.0
+        overrides["kelly_fraction"] = 1.0
 
     # Re-apply mode preset (overwrites stops/targets per the chosen mode)
     cfg.apply_mode_preset()

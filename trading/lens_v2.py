@@ -34,9 +34,17 @@ from typing import Optional
 
 import pandas as pd
 
+# The Kelly maths is SHARED with the live engine (trading/sizing.py) so the
+# lens can never drift from the sizing that actually trades. It lives there
+# and not here because the engine is forbidden by test from importing this
+# module — v2 stays a viewer.
+from .sizing import annual_vol, edge_estimate, kelly_fraction  # noqa: F401
+
 # ---- assumptions, named so they can be argued with -----------------------
 DEFAULT_IC = 0.05          # cross-sectional information coefficient (assumed)
-KELLY_FRACTION = 0.25      # quarter-Kelly: the standard fragility discount
+KELLY_FRACTION = 0.25      # quarter-Kelly for the DISPLAY lens (the live
+                           # engine runs cfg.kelly_fraction — ½ since the
+                           # owner's 2026-07-30 order)
 IMPACT_Y = 0.75            # square-root-law coefficient (literature ~0.5-1)
 TRADING_DAYS = 252
 _EPS = 1e-12
@@ -49,44 +57,8 @@ def _closes(df: pd.DataFrame) -> Optional[pd.Series]:
     return c if len(c) >= 60 else None
 
 
-# ---- 1. edge: turn a rank into an expected return ------------------------
-
-def annual_vol(close: pd.Series, days: int = 63) -> float:
-    """Realised annualised volatility from daily returns."""
-    r = close.pct_change().dropna().tail(days)
-    if len(r) < 20:
-        return 0.0
-    return float(r.std() * math.sqrt(TRADING_DAYS))
-
-
-def edge_estimate(score: float, close: pd.Series, ic: float = DEFAULT_IC,
-                  floor: float = 55.0) -> tuple[float, float]:
-    """(mu, sigma) — expected annual excess return and annual vol.
-
-    Grinold: alpha = IC * sigma * z. We convert the engine's 0-100 score to a
-    z-score around the entry floor (score 55 -> z 0, score 100 -> z ~1.5),
-    then scale by the stock's own volatility. This is the step that turns a
-    RANKING into something Kelly can size — v1 never needs it because v1's
-    size is fixed."""
-    sig = annual_vol(close)
-    if sig <= 0:
-        return 0.0, 0.0
-    z = (float(score) - floor) / 30.0        # ~1.5 sigma at score 100
-    return float(ic * sig * z), sig
-
-
-def kelly_fraction(mu: float, sigma: float,
-                   fraction: float = KELLY_FRACTION,
-                   cap: float = 0.25) -> float:
-    """Fractional Kelly weight f = fraction * mu / sigma^2, capped.
-
-    Full Kelly (fraction=1.0) maximises growth AND maximises the chance of a
-    brutal drawdown; past full Kelly the growth rate turns NEGATIVE and ruin
-    becomes almost sure. The cap is what separates 'aggressive' from 'dead'."""
-    if sigma <= 0 or mu <= 0:
-        return 0.0
-    return float(min(cap, fraction * mu / (sigma * sigma)))
-
+# ---- 1. edge + Kelly: imported from trading/sizing.py (shared with the
+#         live engine so the lens and the book can never disagree)
 
 # ---- 2. convexity: is the payoff asymmetric? ----------------------------
 
@@ -202,7 +174,8 @@ def momentum_halflife(close: pd.Series, max_lag: int = 60) -> Optional[int]:
 
 def v2_view(ticker: str, df: pd.DataFrame, v1_score: float,
             equity: float, ic: float = DEFAULT_IC,
-            stop_pct: float = 0.05, floor: float = 55.0) -> Optional[dict]:
+            stop_pct: float = 0.05, floor: float = 62.0,
+            fraction: float = 0.5, cap: float = 0.05) -> Optional[dict]:
     """The full growth-first read on one stock. None when history is too thin
     (DATA_NEEDED — never a guessed number).
 
@@ -213,7 +186,7 @@ def v2_view(ticker: str, df: pd.DataFrame, v1_score: float,
     if c is None:
         return None
     mu, sigma = edge_estimate(v1_score, c, ic=ic, floor=floor)
-    f = kelly_fraction(mu, sigma)
+    f = kelly_fraction(mu, sigma, fraction=fraction, cap=cap)
     cx = convexity(df, stop_pct=stop_pct)
     kelly_rupees = f * equity
     cap_rupees = capacity_notional(df)

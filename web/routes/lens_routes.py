@@ -57,6 +57,7 @@ def lens_page(request: Request, ticker: str | None = None):
 
     from trading.lens_v2 import (DEFAULT_IC, KELLY_FRACTION, is_trap, rank_v2,
                                  v2_view)
+    from trading.sizing import position_notional_for
     from ..candle_chart import load_ohlcv
 
     p = state.portfolio()
@@ -76,15 +77,26 @@ def lens_page(request: Request, ticker: str | None = None):
     rows, no_data = [], []
     for r in v1[:MAX_ROWS]:
         df = load_ohlcv(r["ticker"], tail=420)
+        # v2's display mirrors what the engine would ACTUALLY size, so the two
+        # columns are comparable: same IC, same Kelly fraction, same cap, same
+        # floor as the live config.
         view = v2_view(r["ticker"], df, r["score"], equity,
+                       ic=float(getattr(cfg, "kelly_ic", 0.05)),
                        stop_pct=abs(cfg.stop_loss_pct),
-                       floor=float(cfg.min_score_to_enter)) if df is not None else None
+                       floor=float(cfg.min_score_to_enter),
+                       fraction=float(getattr(cfg, "kelly_fraction", 0.5)),
+                       cap=float(getattr(cfg, "kelly_max_pct", 0.05))) \
+            if df is not None else None
         if view is None:
             no_data.append(r["ticker"])
             continue
         view["held"] = r["held"]
         view["off_scan"] = bool(r.get("off_scan"))
-        view["v1_size_rupees"] = cfg.position_notional()
+        # what the LIVE engine would actually size this at (½-Kelly since the
+        # owner's 2026-07-30 order, or the flat value if reverted to "fixed")
+        v1_rs, _diag = position_notional_for(
+            cfg, equity, score=r["score"], close=df["Close"].dropna())
+        view["v1_size_rupees"] = v1_rs
         view["v1_eligible"] = r["score"] >= float(cfg.min_score_to_enter)
         view["trap"] = is_trap(view["flags"])
         rows.append(view)
@@ -108,8 +120,9 @@ def lens_page(request: Request, ticker: str | None = None):
         "capacity_binds": sum(1 for r in rows if r["capacity_binds"]),
         "traps": sum(1 for r in rows if r["trap"]),
         "equity": equity,
-        "ic": DEFAULT_IC,
-        "kelly_fraction": KELLY_FRACTION,
+        "ic": float(getattr(cfg, "kelly_ic", DEFAULT_IC)),
+        "kelly_fraction": float(getattr(cfg, "kelly_fraction", KELLY_FRACTION)),
+        "sizing_mode": str(getattr(cfg, "sizing_mode", "fixed")),
         "stop_pct": abs(cfg.stop_loss_pct) * 100,
         "floor": cfg.min_score_to_enter,
         "no_data": no_data[:12],

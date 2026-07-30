@@ -47,25 +47,36 @@ def test_edge_estimate_is_grinold_ic_sigma_z():
     """alpha = IC * sigma * z, with z measured off the entry floor."""
     c = _series(300, daily=0.0, vol=0.01)
     sig = L.annual_vol(c)
-    mu, sigma = L.edge_estimate(85.0, c, ic=0.05, floor=55.0)
+    mu, sigma = L.edge_estimate(85.0, c, ic=0.05, floor=62.0)
     assert sigma == pytest.approx(sig)
-    assert mu == pytest.approx(0.05 * sig * (85.0 - 55.0) / 30.0)
+    assert mu == pytest.approx(0.05 * sig * (85.0 - 62.0) / 30.0)
     # a score AT the floor carries no edge; below it, negative
-    assert L.edge_estimate(55.0, c)[0] == pytest.approx(0.0)
-    assert L.edge_estimate(40.0, c)[0] < 0
+    assert L.edge_estimate(62.0, c, floor=62.0)[0] == pytest.approx(0.0)
+    assert L.edge_estimate(40.0, c, floor=62.0)[0] < 0
 
 
 def test_kelly_is_mu_over_variance_fractional_and_capped():
-    f_full = 1.0 * 0.10 / (0.20 ** 2)                   # = 2.5 -> way over cap
-    assert f_full > 1
-    f = L.kelly_fraction(0.10, 0.20)                    # quarter-Kelly, capped
-    assert f == pytest.approx(0.25)                     # hits the 25% cap
+    """f = fraction * mu / sigma^2, hard-capped as a share of equity."""
     # un-capped region: exactly fraction * mu / sigma^2
-    f2 = L.kelly_fraction(0.02, 0.40, cap=1.0)
-    assert f2 == pytest.approx(0.25 * 0.02 / 0.16)
+    assert L.kelly_fraction(0.02, 0.40, fraction=0.25, cap=1.0) == \
+        pytest.approx(0.25 * 0.02 / 0.16)
+    assert L.kelly_fraction(0.02, 0.40, fraction=0.5, cap=1.0) == \
+        pytest.approx(0.5 * 0.02 / 0.16)
+    # a big edge is clamped by the cap, not left to run
+    assert L.kelly_fraction(0.10, 0.20, fraction=0.5, cap=0.05) == \
+        pytest.approx(0.05)
     # no edge or no vol = no bet
     assert L.kelly_fraction(-0.05, 0.2) == 0.0
     assert L.kelly_fraction(0.05, 0.0) == 0.0
+
+
+def test_shared_defaults_are_the_live_engines():
+    """lens_v2 re-exports the ENGINE's maths (trading/sizing.py), so the
+    displayed lens can never drift from the sizing that actually trades."""
+    from trading import sizing
+    assert L.annual_vol is sizing.annual_vol
+    assert L.edge_estimate is sizing.edge_estimate
+    assert L.kelly_fraction is sizing.kelly_fraction
 
 
 def test_convexity_payoff_and_breakeven_hit_rate():

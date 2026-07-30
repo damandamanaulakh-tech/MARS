@@ -35,6 +35,28 @@ uploads: audit them; several contained fabricated numbers/padded catalogs).
   0.025` is the fallback when the fixed value is 0. Boot migration v2
   (marker capital_order_2026_07_30_v2) supersedes same-day v1 which had
   read the size as 1.25%. Supersedes 25L/30/3.3%.
+- **SIZING SUPERSEDED SAME DAY — ½-KELLY IS LIVE.** Owner picked "Switch to
+  ½-Kelly sizing" after reading docs/ALGO_V1_V2.md (I had asked because "ok
+  with kelly" was ambiguous). `cfg.sizing_mode="half_kelly"`,
+  `kelly_fraction=0.5`, `kelly_ic=0.05` (ASSUMED), `kelly_max_pct=0.05`
+  (₹2.5L hard ceiling/name). Size = `0.5·µ/σ²·equity` where
+  `µ = IC·σ·z`, `z=(score−62)/30` — so **low-vol stocks get bigger bets** and
+  a score AT the floor gets ZERO (the "above 62" order is enforced twice).
+  **Maths lives in NEW `trading/sizing.py`** (`position_notional_for` is the
+  one entry point) because engine may not import lens_v2; lens_v2 now
+  re-exports from sizing so lens and book can never diverge. `risk.can_open`
+  gained `notional_override=` — every gate still applies (cash, reserve,
+  sector count+capital, heat, min_position_value, kill switch).
+  **Removed a double-count I found**: the old strength ladder (0.5/0.7/1.0×
+  by score) is skipped under Kelly since µ is already score-derived; the IFR
+  throttle stays. Sizing inputs journaled per BUY under `"sizing"`.
+  Settings exposes sizing_mode/kelly_fraction/kelly_ic/kelly_max_pct with
+  validation (bad mode → half_kelly, fraction >1 → clamped to 1).
+  MEASURED ladder at σ=20%: score 63 → ₹20.8k (below the ₹25k min, skipped) ·
+  65 → ₹62.5k · 68.8 → ₹1.42L · 72 → ₹2.08L · 80+ → ₹2.5L capped. Real
+  stocks: TATASTEEL 68.8 → ₹1,36,711 · SUNPHARMA 72.9 → ₹2,07,099 ·
+  RELIANCE/TCS/BHARTIARTL/MARUTI all skip (score < 62). **Expect fewer but
+  larger, conviction-weighted trades.** UNTESTED live — 60-day window judges.
   Applied via one-time boot migration over stale overrides (marker in
   settings doc_id="migrations") + `Portfolio.sync_capital`: Starting-
   Capital changes now MOVE CASH by the delta (journaled CAPITAL_ADJUST,

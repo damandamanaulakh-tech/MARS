@@ -516,10 +516,27 @@ class TradingEngine:
                     continue
             fill = slippage_price(pick["last_close"], "BUY", cfg)
             current_eq = self.portfolio.equity(prices)
+            # Owner order 2026-07-30: size by ½-Kelly off this stock's own
+            # estimated edge and volatility instead of a flat rupee amount.
+            # Falls back to the fixed size when history is missing, and every
+            # risk gate inside can_open still applies to the result.
+            from .sizing import position_notional_for
+            cand_close = history.get(pick["ticker"], {}).get("Close") \
+                if isinstance(history.get(pick["ticker"]), dict) else None
+            if cand_close is None:
+                try:
+                    cand_close = history[pick["ticker"]]["Close"].dropna()
+                except Exception:
+                    cand_close = None
+            kelly_notional_rs, size_diag = position_notional_for(
+                cfg, current_eq, score=pick.get("score"), close=cand_close)
             ok, reason, qty = can_open(
                 self.risk, self.portfolio.cash, current_eq,
                 self.portfolio.positions, pick["ticker"], fill, cfg,
+                notional_override=(kelly_notional_rs
+                                   if size_diag.get("mode") != "fixed" else None),
             )
+            pick["size_diag"] = size_diag
             # v7: size throttle = MIN of (strength, IFR) instead of product.
             # Previously we multiplied them, which compounded to 0.25-0.35x
             # and zeroed qty on expensive stocks. The throttles are designed
@@ -527,7 +544,14 @@ class TradingEngine:
             # whichever is more restrictive at any one time.
             if ok:
                 s = pick.get("score", 0)
-                strength_mult = 1.0 if s >= 75 else 0.7 if s >= 60 else 0.5
+                # Under Kelly the score ALREADY sets the size (mu is derived
+                # from it), so applying the strength ladder too would count the
+                # score twice and shrink good picks for no reason. The IFR
+                # throttle stays either way — it is a damage-cluster defence,
+                # not a score judgement.
+                kelly_sized = size_diag.get("mode") != "fixed"
+                strength_mult = 1.0 if kelly_sized else (
+                    1.0 if s >= 75 else 0.7 if s >= 60 else 0.5)
                 ifr_mult = ifr_snapshot.sizing_multiplier if ifr_snapshot else 1.0
                 throttle = min(strength_mult, ifr_mult)
                 qty = int(qty * throttle)
@@ -863,12 +887,19 @@ class TradingEngine:
             "ifr_last_fire": self.portfolio.last_ifr_fire_date,
             "why": pick.get("reasoning", ""),
             "cash_after": round(self.portfolio.cash, 2),
+            # Owner order 2026-07-30: how this size was decided (½-Kelly inputs
+            # or "fixed"), so any trade's size can be re-derived later.
+            "sizing": pick.get("size_diag") or {"mode": "fixed"},
             # P2: config snapshot so every decision stays reproducible after
             # settings change later.
             "config_snapshot": {
                 "stop_loss_pct": self.cfg.stop_loss_pct,
                 "take_profit_pct": self.cfg.take_profit_pct,
                 "cash_reserve_pct": self.cfg.cash_reserve_pct,
+                "sizing_mode": getattr(self.cfg, "sizing_mode", "fixed"),
+                "kelly_fraction": getattr(self.cfg, "kelly_fraction", 0.0),
+                "kelly_ic": getattr(self.cfg, "kelly_ic", 0.0),
+                "kelly_max_pct": getattr(self.cfg, "kelly_max_pct", 0.0),
                 "position_size_value": getattr(self.cfg, "position_size_value", 0.0),
                 "max_position_pct": self.cfg.max_position_pct,
                 "max_positions": self.cfg.max_positions,
