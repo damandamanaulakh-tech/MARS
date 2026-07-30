@@ -154,6 +154,12 @@ class Config:
     pyramid_trigger_pct: float = 0.08      # +8% per tranche step
     pyramid_add_pct: float = 0.5           # add 50% of the original size
     max_pyramid_adds: int = 2
+    # WARNING — this default is DEAD for every real mode. apply_mode_preset()
+    # runs at every boot and overwrites it from trading/modes.py PRESETS, so the
+    # LIVE floor is the mode's: momentum 62 (owner order 2026-07-30 "it will buy
+    # above 62"), intraday 72, short 70, swing 60, positional 68. Reading this
+    # line as "the engine buys at 70+" is wrong, and cost a doc error on
+    # 2026-07-30. Change the PRESET, not this.
     min_score_to_enter: float = 70.0
     momentum_lookback_days: int = 21          # 1 month
     medium_lookback_days: int = 63            # 3 months

@@ -40,7 +40,7 @@ they cross.
 | 3 | Liquidity floor | ≥ ₹1 Cr median daily turnover | drops illiquid |
 | 4 | Blocklist | `ticker_blocklist` never scanned or bought | drops banned |
 | 5 | Score | 6m+12m volatility-adjusted momentum, rank-blended, **35% quality blend** | ranks |
-| 6 | Score floor | `score ≥ 55` to be eligible | drops weak |
+| 6 | Score floor | `score ≥ 62` to be eligible | drops weak |
 | 7 | Absolute-momentum gate | own 6-month return must be **positive** | drops "least-bad faller" |
 | 8 | Regime brake | correction (Nifty < 200DMA) blocks new buys… | can drop **all** |
 | 9 | VIX re-entry | …unless India VIX ≤ 75% of its 120-day spike peak | re-opens in fear |
@@ -75,7 +75,7 @@ for day in trading_days:
         ranked.append((t, blend(mom, qual, 0.35)))
 
     for t, score in sorted(ranked, key=lambda r: -r[1]):
-        if score < 55:                     continue      # live momentum floor
+        if score < 62:                     continue      # live momentum floor
         if not six_month_return_positive(t):  continue   # absolute gate
         if not candle_confirms(t):         journal("candle_wait"); continue
         ok, why, qty = can_open(risk, cash, equity, positions, t, price[t], cfg)
@@ -102,7 +102,7 @@ its strength and its fatal fragility.
 | # | Stage | Rule | Why a compounder needs it |
 |---|---|---|---|
 | 1 | Same universe | reuse v1's scan | — |
-| 2 | **Edge estimate** | `µ = IC × σ × z` (Grinold) where `z = (score − 55)/30` | turns a *rank* into an expected return — the step v1 skips |
+| 2 | **Edge estimate** | `µ = IC × σ × z` (Grinold) where `z = (score − floor)/30`, floor = the LIVE entry floor (62) | turns a *rank* into an expected return — the step v1 skips |
 | 3 | **Volatility** | `σ` = realised annualised, 63-day | Kelly's denominator |
 | 4 | **Kelly size** | `f* = µ/σ²`, taken at **¼** and capped 25% | maximises `E[log W]` |
 | 5 | **Convexity** | ATR room-to-high; `R = room / stop`; breakeven win rate `1/(1+R)` | log-wealth rewards positive skew |
@@ -124,7 +124,7 @@ def v2_candidate(t, df, v1_score, equity):
     if len(close) < 60:  return None                  # DATA_NEEDED, never a guess
 
     sigma = close.pct_change().tail(63).std() * sqrt(252)
-    z     = (v1_score - 55) / 30                      # floor-relative rank
+    z     = (v1_score - cfg.min_score_to_enter) / 30  # anchored on the LIVE floor
     mu    = IC * sigma * z                            # Grinold: alpha = IC*sigma*z
 
     f     = min(0.25, KELLY_FRAC * mu / sigma**2) if mu > 0 else 0
@@ -157,7 +157,7 @@ book = sorted(candidates, key=lambda c: -c["g"])[:12]  # concentrate
 | Position size | **₹1,25,000 fixed** | `¼·µ/σ²·equity`, capped 25% | v2's size swings with its own estimate |
 | Names held | up to **80** (~40 funded) | ~**12**, concentrated | v2 gets less diversification benefit |
 | Leverage | **none** | the multiplier it wants most | the single fastest route to ruin |
-| Score floor | **55** (live momentum preset) | none — low scores just get small size | v2 never refuses on rank alone |
+| Score floor | **62** (live momentum preset) | none — low scores just get small size | v2 never refuses on rank alone |
 | Stop | **−5%** hard | volatility-scaled (1.5×ATR) | gaps defeat both |
 | Target | **+12%** | none — ride to the half-life | v2 turns over faster |
 | Liquidity | ₹1 Cr/day floor | explicit impact budget (25 bps) | v2 knows its own capacity |
@@ -178,10 +178,10 @@ Run against the committed store, data to 2026-07-17.
 | Momentum score | 59.6 | `momentum_score` — 6m+12m / vol |
 | Quality score | 85.9 | `quality_score` — low-vol + liquidity |
 | **v1 score** | **68.8** | 65/35 blend |
-| v1 verdict | **PASSES the floor** (68.8 ≥ 55) — then still needs the absolute-momentum gate, a candle confirmation, and the regime/breadth brake to be off | `min_score_to_enter` |
+| v1 verdict | **PASSES the floor** (68.8 ≥ 62) — then still needs the absolute-momentum gate, a candle confirmation, and the regime/breadth brake to be off | `min_score_to_enter` |
 | v1 size | ₹1,25,000 | fixed, regardless of any of the below |
 | σ (annual) | 20.7% | realised, 63d |
-| z | (68.8 − 55)/30 = 0.46 | floor-relative |
+| z | (68.8 − 62)/30 = 0.227 | floor-relative |
 | **µ (est.)** | **+0.48%/yr** | `0.05 × 0.207 × 0.46` |
 | ¼-Kelly weight | **2.78%** | `0.25 × 0.0048 / 0.207²` |
 | **v2 size** | **₹1,38,825** | 2.78% of ₹50L |

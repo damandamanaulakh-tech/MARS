@@ -99,3 +99,51 @@ def test_reset_resets_base_too(tmp_path):
     cfg.starting_capital = 60_00_000.0
     p.reset()
     assert p.cash == 60_00_000.0 and p.capital_base == 60_00_000.0
+
+
+# ---- owner order 2026-07-30: "it will buy above 62" --------------------
+
+def test_live_momentum_floor_is_62_and_the_dataclass_default_is_dead():
+    """The floor that governs real entries comes from the MODE PRESET, not the
+    Config dataclass default. Mis-reading that cost a doc error on 2026-07-30
+    (every spec said 70; the engine was actually buying at 55+). This test
+    pins the live value and the fact that the preset overrides the default."""
+    from trading.modes import PRESETS
+    assert PRESETS["nifty200_momentum"].min_score_to_enter == 62.0
+
+    cfg = Config()
+    assert cfg.min_score_to_enter == 70.0        # the dead dataclass default
+    cfg.apply_mode_preset()                      # what happens on every boot
+    assert cfg.min_score_to_enter == 62.0        # ...the live floor wins
+    # the other horizons keep their own floors
+    assert PRESETS["intraday"].min_score_to_enter == 72.0
+    assert PRESETS["short"].min_score_to_enter == 70.0
+    assert PRESETS["swing"].min_score_to_enter == 60.0
+    assert PRESETS["positional"].min_score_to_enter == 68.0
+
+
+def test_a_62_score_buys_and_a_61_does_not():
+    """Drive the engine's real eligibility comparison at the new floor."""
+    cfg = Config(mode="nifty200_momentum", state_dir="/tmp/floor62_tests")
+    cfg.apply_mode_preset()
+    assert 62.0 >= cfg.min_score_to_enter        # buys
+    assert not (61.9 >= cfg.min_score_to_enter)  # does not
+
+
+def test_v2_edge_anchor_tracks_the_live_floor():
+    """v2's zero-edge anchor must follow the engine's floor, not a hardcoded
+    number — otherwise the lens drifts from the book it is compared against."""
+    import inspect
+    import pandas as pd
+    from trading.lens_v2 import edge_estimate
+    from web.routes import lens_routes
+
+    idx = pd.bdate_range("2025-01-01", periods=300)
+    close = pd.Series([100.0 * (1.0 + 0.001) ** i for i in range(300)], index=idx)
+    # at the floor there is no edge, wherever the floor is
+    assert edge_estimate(62.0, close, floor=62.0)[0] == 0.0
+    assert edge_estimate(55.0, close, floor=55.0)[0] == 0.0
+    # a score of 62 under the OLD 55 anchor would have implied positive edge
+    assert edge_estimate(62.0, close, floor=55.0)[0] > 0
+    # and the route passes the live floor through
+    assert "floor=float(cfg.min_score_to_enter)" in inspect.getsource(lens_routes)
