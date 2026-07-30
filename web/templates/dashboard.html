@@ -20,6 +20,37 @@
 </div>
 {% endif %}
 
+<!-- Index strip (owner ask 2026-07-30, from the reference dashboards).
+     Committed 15-year index history — labelled with its own as-of date
+     rather than pretending to be a live tick. -->
+{% if index_strip %}
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+  {% for ix in index_strip %}
+  {% set good = (not ix.up) if ix.invert else ix.up %}
+  <div class="bg-white border border-line px-4 py-3">
+    <div class="flex items-start justify-between gap-2">
+      <div class="min-w-0">
+        <div class="text-[10px] tracking-widest text-ink-faint uppercase whitespace-nowrap">{{ ix.label }}</div>
+        <div class="text-xl lg:text-2xl font-black tabular-nums mt-0.5">{{ ix.last | inr(2) }}</div>
+        <div class="text-xs font-semibold tabular-nums mt-0.5 {% if good %}text-emerald-700{% else %}text-red-700{% endif %}">
+          {{ '%+.2f' % ix.chg }} ({{ '%+.2f' % ix.pct }}%)
+        </div>
+      </div>
+      <svg viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"
+           class="w-20 h-8 shrink-0 mt-1">
+        <polyline points="{{ ix.points }}" fill="none" stroke-width="1.6"
+                  stroke="{% if good %}#047857{% else %}#b91c1c{% endif %}"
+                  vector-effect="non-scaling-stroke"/>
+      </svg>
+    </div>
+    <div class="text-[10px] text-ink-faint mt-1.5 tabular-nums" title="stored index history — not a live tick">
+      60-session range {{ ix.low | inr(0) }}–{{ ix.high | inr(0) }} · stored to {{ ix.asof }}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
 <!-- What this app does — 15-line orientation panel -->
 <details class="bg-white border border-line p-5 mb-6" {% if not last_scan %}open{% endif %}>
   <summary class="cursor-pointer font-bold text-sm select-none">
@@ -343,6 +374,188 @@
   </div>
 </div>
 {% endif %}
+
+<!-- Market breadth + What's coming (owner ask 2026-07-30, reference mockups).
+     Breadth is the engine's OWN scan panel — the same number the A3 gate
+     uses to allow or block new buys. -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+  {% if breadth %}
+  <div class="border border-line bg-white">
+    <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
+      <div class="font-bold">🌡️ Market Breadth</div>
+      <div class="text-xs text-ink-faint">{{ breadth.scanned }} scanned{% if breadth.ts %} · {{ breadth.ts[:16] | replace('T',' ') }}{% endif %}</div>
+    </div>
+    <div class="px-4 lg:px-6 py-4">
+      <div class="grid grid-cols-4 gap-2 text-center mb-4">
+        <div><div class="text-lg font-black tabular-nums text-emerald-700">{{ breadth.strong }}</div>
+          <div class="text-[9px] uppercase tracking-widest text-ink-faint">strong 70+</div></div>
+        <div><div class="text-lg font-black tabular-nums text-emerald-600">{{ breadth.healthy }}</div>
+          <div class="text-[9px] uppercase tracking-widest text-ink-faint">healthy 55+</div></div>
+        <div><div class="text-lg font-black tabular-nums text-amber-600">{{ breadth.neutral }}</div>
+          <div class="text-[9px] uppercase tracking-widest text-ink-faint">neutral 40+</div></div>
+        <div><div class="text-lg font-black tabular-nums text-red-700">{{ breadth.weak }}</div>
+          <div class="text-[9px] uppercase tracking-widest text-ink-faint">weak</div></div>
+      </div>
+      <div class="space-y-2.5 text-sm">
+        {% for lab, val, tip in [
+              ('Passing the score floor (' ~ (breadth.floor | round(0) | int) ~ ')', breadth.pass_pct, 'share of scanned names eligible to buy'),
+              ('Own 6-month return positive', breadth.abs_mom_pct, 'absolute-momentum gate'),
+              ('Entry timing confirmed', breadth.timing_pct, 'daily entry-timing check')] %}
+        <div title="{{ tip }}">
+          <div class="flex items-baseline justify-between gap-2">
+            <span class="text-ink-soft text-xs">{{ lab }}</span>
+            <span class="tabular-nums font-semibold">{{ val }}%</span>
+          </div>
+          <div class="h-1.5 bg-line mt-1"><div class="h-1.5 bg-ink" style="width: {{ val }}%"></div></div>
+        </div>
+        {% endfor %}
+      </div>
+      {% if breadth.sectors %}
+      <div class="mt-4 pt-3 border-t border-line">
+        <div class="text-[10px] uppercase tracking-widest text-ink-faint mb-2">Sector strength (avg score of scanned names)</div>
+        <div class="flex flex-wrap gap-1.5">
+          {% for s in breadth.sectors %}
+          <span class="text-[11px] border px-2 py-1 tracking-wide whitespace-nowrap
+                       {% if s.avg >= 60 %}border-emerald-300 text-emerald-700{% elif s.avg >= 45 %}border-line text-ink-soft{% else %}border-red-300 text-red-700{% endif %}"
+                title="{{ s.n }} scanned names">{{ s.name }} {{ s.avg }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      <div class="mt-3 text-xs text-ink-faint">
+        {% if breadth.gate_on %}Breadth gate ON — new momentum buys need &gt;{{ breadth.gate_min_pct }}% of the panel above its own 200-day line.
+        {% else %}Breadth gate OFF.{% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if events %}
+  <div class="border border-line bg-white">
+    <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
+      <div class="font-bold">📅 What's Coming</div>
+      <div class="text-xs text-ink-faint">next 45 days · curated calendars</div>
+    </div>
+    <div class="px-4 lg:px-6 py-2">
+      {% for e in events %}
+      <div class="flex items-center gap-3 py-2.5 border-b border-line/50 last:border-0">
+        <div class="text-center shrink-0 w-12">
+          <div class="text-sm font-black tabular-nums">{{ e.date.split(' ')[0] }}</div>
+          <div class="text-[9px] uppercase tracking-widest text-ink-faint">{{ e.date.split(' ')[1] }}</div>
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="text-sm font-semibold truncate">{{ e.desc }}</div>
+          <div class="text-[10px] uppercase tracking-widest text-ink-faint mt-0.5">{{ e.type }}</div>
+        </div>
+        <span class="text-xs tabular-nums whitespace-nowrap shrink-0
+                     {% if e.days <= 2 %}text-red-700 font-bold{% elif e.days <= 5 %}text-amber-700 font-semibold{% else %}text-ink-faint{% endif %}">
+          {% if e.days == 0 %}today{% elif e.days == 1 %}tomorrow{% else %}in {{ e.days }}d{% endif %}
+        </span>
+      </div>
+      {% endfor %}
+      <div class="text-xs text-ink-faint py-2.5">The engine already halts new entries in the days before system-wide events.</div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- 4 Horizons + Walk-forward evidence + ATR context -->
+{% if horizons %}
+<div class="border border-line bg-white mb-6">
+  <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
+    <div class="font-bold">🎚️ Trade Horizons — real exit presets</div>
+    <div class="text-xs text-ink-faint">highlighted = live right now</div>
+  </div>
+  <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 p-4 lg:p-5">
+    {% for h in horizons %}
+    <div class="border p-3 {% if h.active %}border-ink bg-ink/[0.03]{% else %}border-line{% endif %}">
+      <div class="flex items-center justify-between gap-1">
+        <div class="font-bold text-sm">{{ h.name }}</div>
+        {% if h.active %}<span class="text-[9px] uppercase tracking-widest bg-ink text-white px-1.5 py-0.5">live</span>{% endif %}
+      </div>
+      <div class="text-[10px] text-ink-faint mt-0.5 leading-snug">{{ h.blurb }}</div>
+      <div class="mt-2 text-xs tabular-nums space-y-0.5">
+        <div class="flex justify-between"><span class="text-ink-faint">stop</span><span class="font-semibold text-red-700">{{ h.stop }}%</span></div>
+        <div class="flex justify-between"><span class="text-ink-faint">target</span><span class="font-semibold text-emerald-700">+{{ h.target }}%</span></div>
+        <div class="flex justify-between"><span class="text-ink-faint">trail</span><span>{{ h.trail }}%</span></div>
+        <div class="flex justify-between"><span class="text-ink-faint">max hold</span><span>{{ h.hold }}d</span></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+  {% if evidence %}
+  <div class="border border-line bg-white">
+    <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
+      <div class="font-bold">🔬 Walk-Forward Evidence</div>
+      <div class="text-xs text-ink-faint">{{ evidence.wins }}/{{ evidence.windows }} windows beat the benchmark</div>
+    </div>
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+        <tr><th class="text-left px-4 py-2 whitespace-nowrap">Out-of-sample window</th>
+            <th class="text-right px-2 py-2 whitespace-nowrap">Engine</th>
+            <th class="text-right px-2 py-2 whitespace-nowrap">Benchmark</th>
+            <th class="text-right px-2 py-2 whitespace-nowrap">Alpha</th>
+            <th class="text-right px-4 py-2 whitespace-nowrap">Worst DD</th></tr>
+      </thead>
+      <tbody>
+        {% for r in evidence.rows %}
+        <tr class="border-b border-line last:border-0">
+          <td class="px-4 py-2 font-semibold whitespace-nowrap">{{ r.window }}</td>
+          <td class="px-2 py-2 text-right tabular-nums">{{ r.cagr }}%</td>
+          <td class="px-2 py-2 text-right tabular-nums text-ink-soft">{{ r.bench }}%</td>
+          <td class="px-2 py-2 text-right tabular-nums font-bold {% if r.alpha > 0 %}text-emerald-700{% else %}text-red-700{% endif %}">{{ '%+.2f' % r.alpha }}</td>
+          <td class="px-4 py-2 text-right tabular-nums text-red-700">{{ r.dd }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <div class="px-4 lg:px-6 py-3 text-xs text-ink-faint border-t border-line">
+      Preregistered search over {{ evidence.grid }} configs, 191 real tickers, chosen on PAST data only.
+      Average out-of-sample alpha <strong>{{ '%+.2f' % evidence.avg_alpha }}pp/yr</strong> — the honest band is −2 to +9.
+      The 2024–26 miss is the flat stretch you lived through.
+    </div>
+  </div>
+  {% endif %}
+
+  {% if atr_rows %}
+  <div class="border border-line bg-white">
+    <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
+      <div class="font-bold">📐 Volatility vs your fixed stop</div>
+      <div class="text-xs text-ink-faint">display only — engine uses the fixed stop</div>
+    </div>
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+        <tr><th class="text-left px-4 py-2 whitespace-nowrap">Stock</th>
+            <th class="text-right px-2 py-2 whitespace-nowrap">ATR(14)</th>
+            <th class="text-right px-2 py-2 whitespace-nowrap">Your stop</th>
+            <th class="text-right px-4 py-2 whitespace-nowrap">1.5×ATR stop</th></tr>
+      </thead>
+      <tbody>
+        {% for r in atr_rows %}
+        <tr class="border-b border-line last:border-0">
+          <td class="px-4 py-2 font-semibold whitespace-nowrap">{{ r.ticker | replace('.NS','') }}
+            <span class="text-ink-faint text-xs tabular-nums">₹{{ r.last | inr(2) }}</span></td>
+          <td class="px-2 py-2 text-right tabular-nums">₹{{ r.atr | inr(2) }} <span class="text-ink-faint text-xs">({{ r.atr_pct }}%)</span></td>
+          <td class="px-2 py-2 text-right tabular-nums">₹{{ r.fixed_stop | inr(2) }} <span class="text-ink-faint text-xs">(−{{ r.fixed_stop_pct }}%)</span></td>
+          <td class="px-4 py-2 text-right tabular-nums {% if r.tighter %}text-amber-700 font-semibold{% endif %}">₹{{ r.atr_stop | inr(2) }} <span class="text-xs">(−{{ r.atr_stop_pct }}%)</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <div class="px-4 lg:px-6 py-3 text-xs text-ink-faint border-t border-line">
+      Where the ATR stop is <span class="text-amber-700 font-semibold">tighter</span>, your −5% gives the stock more rope than its own volatility needs; where it is wider, −5% may be inside the daily noise.
+    </div>
+  </div>
+  {% endif %}
+</div>
 
 <!-- Engine trigger-map: which parameters fired today -->
 <div class="border border-line bg-white mb-6">
