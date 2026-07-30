@@ -157,6 +157,9 @@ async def settings_reset_to_defaults(request: Request):
     cfg.apply_mode_preset()
     # Push the new defaults into Mongo (so persistence reflects the reset)
     db.save_settings({**cleared, "mode": getattr(cfg, "mode", "swing")})
+    p = state.portfolio()
+    if p.sync_capital(cfg):
+        p.save()
     state.reload_config()
     return RedirectResponse("/settings?saved=reset", status_code=303)
 
@@ -208,6 +211,12 @@ async def settings_save(request: Request):
 
     # Mirror to Mongo if connected; falls back to in-memory only when offline
     db.save_settings(overrides)
+
+    # Owner order 2026-07-30: a Starting Capital change really moves the
+    # book's cash (delta, journaled CAPITAL_ADJUST) — no more silent no-op.
+    p = state.portfolio()
+    if p.sync_capital(cfg):
+        p.save()
 
     # Rebuild engine with the new config
     state.reload_config()

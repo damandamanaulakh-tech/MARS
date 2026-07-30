@@ -56,6 +56,8 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.risk_day = doc.get("risk_day")
     p.risk_day_equity = float(doc.get("risk_day_equity", 0.0) or 0.0)
     p.risk_day_killed = bool(doc.get("risk_day_killed", False))
+    # Legacy mirror docs predate capital_base; the live book started at 25L.
+    p.capital_base = float(doc.get("capital_base", 25_00_000.0) or 25_00_000.0)
     p.last_save = doc.get("last_save")
 
 
@@ -98,6 +100,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "risk_day": self.risk_day,
             "risk_day_equity": self.risk_day_equity,
             "risk_day_killed": self.risk_day_killed,
+            "capital_base": self.capital_base,
             "last_save": self.last_save,
         }
         db.save_portfolio(doc)
@@ -138,6 +141,19 @@ def _bootstrap() -> None:
                 setattr(_CFG, key, _coerce_override(_CFG, key, value))
             except Exception:
                 pass
+    # Owner order 2026-07-30 ("change the capital to 50 lack, 80 stocks,
+    # roughly 1-1.25 for each trade — change it now"): applied ONCE over any
+    # stale saved overrides, marker in the separate `migrations` settings doc
+    # (the Settings form replaces the `default` doc, so a marker there would
+    # not survive the next save). Future Settings edits stay fully free.
+    if not db.load_settings(doc_id="migrations").get("capital_order_2026_07_30"):
+        _CFG.starting_capital = 50_00_000.0
+        _CFG.max_positions = 80
+        _CFG.max_position_pct = 0.0125
+        db.save_settings({**overrides, "starting_capital": 50_00_000.0,
+                          "max_positions": 80, "max_position_pct": 0.0125})
+        db.save_settings({"capital_order_2026_07_30": True}, doc_id="migrations")
+
     # Apply mode preset (sets stops, target, etc. per chosen horizon)
     _CFG.apply_mode_preset()
     # Policy C (user-approved 2026-07-16): exits ON — pinned here so a stale
@@ -152,6 +168,10 @@ def _bootstrap() -> None:
 
     # Wire save() to mirror to Mongo from now on
     _patch_portfolio_save_to_mirror_mongo()
+
+    # Owner order 2026-07-30: cash follows starting_capital (delta, journaled).
+    if _PORTFOLIO.sync_capital(_CFG):
+        _PORTFOLIO.save()
 
     # Policy C migration: re-snapshot every open position's stop/target from
     # its own mode's table (stale intraday / blank tags -> momentum preset).

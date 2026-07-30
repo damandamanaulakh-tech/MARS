@@ -25,7 +25,15 @@ uploads: audit them; several contained fabricated numbers/padded catalogs).
 ## THE FINAL SET (evidence-earned; user approved; LIVE as of 2026-07-21)
 - Signal: **6m+12m vol-adjusted momentum, rank-blended**
   (`strategies/nifty200_momentum.py`) + quality blend 35%.
-- Book: `max_positions 30`, `max_position_pct 3.3%` (research favored ~25).
+- Book (owner order 2026-07-30 "change the capital to 50 lack, 80 stocks,
+  roughly 1-1.25 for each trade — change it now"): **₹50L capital,
+  `max_positions 80`, `max_position_pct 1.25%`** (~₹62.5k/slot, fully
+  deployable; heat-at-stop 5% vs 25% cap). Supersedes 25L/30/3.3%.
+  Applied via one-time boot migration over stale overrides (marker in
+  settings doc_id="migrations") + `Portfolio.sync_capital`: Starting-
+  Capital changes now MOVE CASH by the delta (journaled CAPITAL_ADJUST,
+  P&L history kept; CAPITAL_ADJUST_BLOCKED if cash would go negative).
+  capital_base persisted JSON+Mongo; legacy books default base 25L.
 - **Absolute-momentum gate ON** (own 6m return > 0) — earned 4/4 in v3.
 - **Regime brake ON**: correction (Nifty < 200DMA) blocks new buys…
 - **…until VIX-crush re-entry** (v4): India VIX ≤ 75% of 120d spike peak →

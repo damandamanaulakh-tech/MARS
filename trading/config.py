@@ -52,12 +52,15 @@ class Config:
     # --- Capital & sizing ---
     # Target: 60-70% weekly deployment across all 4 modes.
     # 12 positions * 5-7% avg = 60-84% gross — comfortably in band.
-    starting_capital: float = 25_00_000.0
+    # Owner order 2026-07-30 ("change the capital to 50 lack, 80 stocks,
+    # roughly 1-1.25 for each trade"): Rs 50L paper capital across 80 names
+    # at 1.25% each (~Rs 62.5k/trade, fully deployable). Supersedes the
+    # 25L/30/3.3% book of 2026-07-19. Guardrails checked: heat at stop
+    # 80*1.25%*5% = 5% vs 25% cap; sector caps unaffected.
+    starting_capital: float = 50_00_000.0
     cash_reserve_pct: float = 0.0             # deploy 100% — no idle cash reserve (user setting)
-    # P3 (search v2.1, user-approved 2026-07-19): concentrate toward ~30
-    # names at ~3.3% — judgment middle between the tested 20 and 50 books.
-    max_position_pct: float = 0.033
-    max_positions: int = 30
+    max_position_pct: float = 0.0125
+    max_positions: int = 80
     # P1: momentum mode scans the FULL NSE universe via rotating buckets
     # (engine.scan); set False to fall back to the Nifty-200-only scan.
     full_universe_scan: bool = True
