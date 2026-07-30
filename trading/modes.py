@@ -201,8 +201,15 @@ PRESETS: dict[str, ModePreset] = {
         trailing_stop_pct=-0.15,
         score_decay_exit=40.0,
         max_hold_days=200,           # semi-annual rebalance horizon
-        min_score_to_enter=55.0,     # P0/B3: 50 = "no edge" — require real positive
-                                     # momentum; 50 positions is a cap, not a target
+        min_score_to_enter=62.0,     # owner order 2026-07-30: "it will buy above
+                                     # 62". Raised from 55 after the ALGO_V1_V2
+                                     # write-up revealed the live floor was 55 and
+                                     # not the 70 every doc had claimed. Buys at
+                                     # 62.0 and above. UNTESTED at this number —
+                                     # the 60-day paper window judges it.
+                                     # (History: P0/B3 set 55 because 50 = "no
+                                     # edge"; the dataclass default 70 has always
+                                     # been dead — apply_mode_preset overwrites it.)
         breakout_threshold_pct=1.0,  # timing OFF for momentum (hold leaders, don't time entries)
         volume_confirm_ratio=0.0,    # timing OFF — no volume gate
         square_off_time=None,

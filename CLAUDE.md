@@ -439,11 +439,23 @@ is and why it fails on arithmetic first.
    Kelly = 100% for 50% · 1.5× = same 75% growth as ½ but 6× the risk · 2× = 0%
    growth, certain ruin. (An earlier draft of mine wrongly claimed ¼-Kelly keeps
    97% of max growth — the correct figure is 43.8%; g(m) ∝ m − m²/2.)
-**DOC-vs-CODE ERROR CAUGHT while writing it: the live score floor is 55, not
+**DOC-vs-CODE ERROR CAUGHT while writing it: the live score floor was 55, not
 70.** `Config.min_score_to_enter=70.0` is the dataclass default but
-`apply_mode_preset()` overwrites it with the nifty200_momentum preset's **55**
-at every boot. Any doc/spec quoting 70 as the live floor is wrong (per-mode
-floors: intraday 72, short 70, swing 60, positional 68, momentum 55).
+`apply_mode_preset()` overwrites it from `modes.PRESETS` at every boot — so the
+dataclass line is DEAD for every real mode. Change the PRESET, never the default.
+**Owner then ordered the floor RAISED: "it will buy above 62" (2026-07-30) —
+`PRESETS["nifty200_momentum"].min_score_to_enter = 62.0`, shipped.** Live
+per-mode floors now: momentum **62**, intraday 72, short 70, swing 60,
+positional 68. UNTESTED at 62 (was 55 from P0/B3) — the 60-day window judges.
+Guard tests in `test_capital_sync.py` pin the preset value AND the
+default-is-overwritten behaviour so this can never silently drift again.
+`lens_v2.v2_view(floor=...)` now takes the LIVE floor from
+`cfg.min_score_to_enter` (was hardcoded 55) so v2's zero-edge anchor tracks the
+engine. Owner also confirmed on the same message: **Kelly finding accepted
+("ok with kelly")** — READ AS ACKNOWLEDGEMENT of the ₹1.25L-vs-₹1,38,825
+finding, NOT as an order to switch sizing to Kelly; asked to confirm, fixed
+₹1.25L stays until owner says otherwise. **½-Kelly-not-full guidance
+acknowledged ("ok")** — no change made.
 **Workflow lesson: the 13-agent design run FAILED** (all 6 design agents hit the
 StructuredOutput retry cap, ~889k tokens, zero output) because the schema was
 over-nested. Doc was then written directly from the shipped code, which was both

@@ -77,7 +77,8 @@ def lens_page(request: Request, ticker: str | None = None):
     for r in v1[:MAX_ROWS]:
         df = load_ohlcv(r["ticker"], tail=420)
         view = v2_view(r["ticker"], df, r["score"], equity,
-                       stop_pct=abs(cfg.stop_loss_pct)) if df is not None else None
+                       stop_pct=abs(cfg.stop_loss_pct),
+                       floor=float(cfg.min_score_to_enter)) if df is not None else None
         if view is None:
             no_data.append(r["ticker"])
             continue

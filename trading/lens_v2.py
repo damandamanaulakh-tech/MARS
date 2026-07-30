@@ -202,13 +202,17 @@ def momentum_halflife(close: pd.Series, max_lag: int = 60) -> Optional[int]:
 
 def v2_view(ticker: str, df: pd.DataFrame, v1_score: float,
             equity: float, ic: float = DEFAULT_IC,
-            stop_pct: float = 0.05) -> Optional[dict]:
+            stop_pct: float = 0.05, floor: float = 55.0) -> Optional[dict]:
     """The full growth-first read on one stock. None when history is too thin
-    (DATA_NEEDED — never a guessed number)."""
+    (DATA_NEEDED — never a guessed number).
+
+    `floor` is the zero-edge anchor for the z-score — callers pass the LIVE
+    entry floor (cfg.min_score_to_enter) so v2's edge estimate moves with the
+    engine instead of drifting from a hardcoded number."""
     c = _closes(df)
     if c is None:
         return None
-    mu, sigma = edge_estimate(v1_score, c, ic=ic)
+    mu, sigma = edge_estimate(v1_score, c, ic=ic, floor=floor)
     f = kelly_fraction(mu, sigma)
     cx = convexity(df, stop_pct=stop_pct)
     kelly_rupees = f * equity
