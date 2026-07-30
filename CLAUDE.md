@@ -418,6 +418,37 @@ option u can adopt some of each kind" + 5 reference-mockup screenshots):**
   test) · Trade Horizons (real per-mode presets, live one marked) · ATR vs
   your fixed −5% stop (display only). `_panel()` wrapper: a broken panel
   hides, never takes the page down (tested). 513 → 545 tests.
+**2026-07-30 `docs/ALGO_V1_V2.md` — the full v1-vs-v2 algorithm** (owner: "i
+want the full logics behind agent say / build a proper algo"). Every figure
+COMPUTED from committed code+data on 2026-07-30 and re-verified by script; no
+illustrative-invented numbers. Contents: both objective functions (v1 = return
+s.t. survival; v2 = max E[log W]) · v1's 14 stages + pseudocode · v2's 10 stages
++ pseudocode · parameter table · worked example (TATASTEEL, real) · the scaling
+wall · the ruin law · the trap detector · honest limits · where the illegal line
+is and why it fails on arithmetic first.
+**THREE REAL FINDINGS worth remembering:**
+1. **Kelly independently recommends ₹1,38,825 on a ₹50L book at IC=0.05; owner
+   chose ₹1,25,000 by instinct — 11% apart.** v1's fixed size is not a
+   compromise, it is near the growth-optimal number for an honest edge.
+2. **Capacity wall MEASURED**: 7 large caps absorb ~₹182 Cr at 25bps; a 25-name
+   book ≈ **₹650 Cr is where this strategy stops scaling**. Impact on TATASTEEL:
+   0.5bps at ₹1.25L → 42.5bps at ₹100Cr → 134bps at ₹1,000Cr (more than the
+   whole estimated annual edge). The "scale to data centres" plan dies here.
+3. **Growth-vs-ruin, corrected**: ¼-Kelly = 43.8% of max growth for 0.78%
+   halving risk · ½-Kelly = **75% for 12.5%** (the honest sweet spot) · full
+   Kelly = 100% for 50% · 1.5× = same 75% growth as ½ but 6× the risk · 2× = 0%
+   growth, certain ruin. (An earlier draft of mine wrongly claimed ¼-Kelly keeps
+   97% of max growth — the correct figure is 43.8%; g(m) ∝ m − m²/2.)
+**DOC-vs-CODE ERROR CAUGHT while writing it: the live score floor is 55, not
+70.** `Config.min_score_to_enter=70.0` is the dataclass default but
+`apply_mode_preset()` overwrites it with the nifty200_momentum preset's **55**
+at every boot. Any doc/spec quoting 70 as the live floor is wrong (per-mode
+floors: intraday 72, short 70, swing 60, positional 68, momentum 55).
+**Workflow lesson: the 13-agent design run FAILED** (all 6 design agents hit the
+StructuredOutput retry cap, ~889k tokens, zero output) because the schema was
+over-nested. Doc was then written directly from the shipped code, which was both
+cheaper and more accurate — the algorithm already existed in `trading/lens_v2.py`.
+Keep workflow schemas FLAT.
 **Breadth-vs-VIX conflict CLOSED (owner: "yes — we cant wait for recovery,
 that is movement of entries"):** vix_reentry now BYPASSES the breadth gate
 (`engine._breadth_gate_blocks(bypass=vix_reentry)`) — fear-break entries go
