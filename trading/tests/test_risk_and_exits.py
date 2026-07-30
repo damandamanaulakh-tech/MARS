@@ -35,7 +35,8 @@ def _pos(ticker="RELIANCE.NS", entry=100.0, qty=100, sector="Energy"):
 
 def test_reserve_20pct_respected():
     cfg = _cfg(starting_capital=10_00_000, cash_reserve_pct=0.20,
-               max_position_pct=0.10, max_positions=10, max_sector_positions=99)
+               max_position_pct=0.10, max_positions=10, max_sector_positions=99,
+               position_size_value=0)   # this test exercises PCT sizing
     risk = RiskState(cfg=cfg, starting_capital=cfg.starting_capital)
     positions = {f"S{i}.NS": _pos(ticker=f"S{i}.NS", entry=100, qty=800)
                  for i in range(8)}  # 8 positions * 800 * 100 = 6,40,000 deployed
@@ -66,7 +67,8 @@ def test_reserve_blocks_when_full():
 
 def test_10pct_per_stock_cap():
     cfg = _cfg(starting_capital=10_00_000, cash_reserve_pct=0.20,
-               max_position_pct=0.10)
+               max_position_pct=0.10,
+               position_size_value=0)   # this test exercises PCT sizing
     risk = RiskState(cfg=cfg, starting_capital=cfg.starting_capital)
     ok, _, qty = can_open(
         risk, cash=cfg.starting_capital, current_equity=cfg.starting_capital,

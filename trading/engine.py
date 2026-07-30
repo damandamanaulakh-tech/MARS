@@ -869,6 +869,7 @@ class TradingEngine:
                 "stop_loss_pct": self.cfg.stop_loss_pct,
                 "take_profit_pct": self.cfg.take_profit_pct,
                 "cash_reserve_pct": self.cfg.cash_reserve_pct,
+                "position_size_value": getattr(self.cfg, "position_size_value", 0.0),
                 "max_position_pct": self.cfg.max_position_pct,
                 "max_positions": self.cfg.max_positions,
                 "min_score_to_enter": self.cfg.min_score_to_enter,

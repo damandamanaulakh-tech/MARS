@@ -11,13 +11,33 @@ def _p(tmp_path, capital=50_00_000.0):
     return cfg, Portfolio.fresh(cfg)
 
 
-def test_new_book_spec_is_50l_80_at_1_25pct():
+def test_new_book_spec_is_50l_80_at_fixed_1_25_lakh():
+    """Owner 2026-07-30, corrected same day: '1.25 lac, 125000, not
+    percentage' — a FIXED rupee size per trade."""
     cfg = Config()
     assert cfg.starting_capital == 50_00_000.0
     assert cfg.max_positions == 80
-    assert abs(cfg.max_position_pct - 0.0125) < 1e-12
-    # guardrail sanity: full book's risk-at-stop stays far under the heat cap
-    assert 80 * 0.0125 * abs(cfg.stop_loss_pct) < cfg.max_portfolio_heat_pct
+    assert cfg.position_size_value == 125_000.0
+    assert cfg.position_notional() == 125_000.0          # fixed value wins
+    assert cfg.position_notional(base=99_00_000.0) == 125_000.0
+    # 0 falls back to pct sizing
+    cfg.position_size_value = 0.0
+    assert abs(cfg.position_notional() - 50_00_000.0 * 0.025) < 1e-6
+    # guardrail sanity: cash funds ~40 concurrent 1.25L trades; even the
+    # full 80-slot ceiling at 1.25L keeps risk-at-stop under the heat cap
+    assert 80 * 125_000.0 * 0.05 / 50_00_000.0 < Config().max_portfolio_heat_pct
+
+
+def test_sizing_sites_use_the_fixed_value():
+    from trading.risk import RiskState, can_open
+    cfg = Config(state_dir="/tmp/capsync_tests")
+    ok, reason, qty = can_open(RiskState(cfg=cfg,
+                                         starting_capital=50_00_000.0),
+                               cash=50_00_000.0, current_equity=50_00_000.0,
+                               open_positions={}, ticker="TCS.NS",
+                               fill_price=500.0, cfg=cfg)
+    assert ok, reason
+    assert qty == int(125_000.0 // 500.0)               # 250 shares, not pct
 
 
 def test_fresh_book_carries_capital_base(tmp_path):

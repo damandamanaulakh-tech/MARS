@@ -29,7 +29,8 @@ EDITABLE_FIELDS = [
     # ENTERED as percentages (2.5) — no more "0.01 means 1%" confusion.
     ("starting_capital",        "Starting Capital (Rs)",  "Capital", "number", 1000, "Total paper capital to simulate", False),
     ("cash_reserve_pct",        "Cash Reserve %",          "Capital", "number", 0.5,  "Always keep this % in cash", True),
-    ("max_position_pct",        "Max % per Position",      "Capital", "number", 0.5,  "Hard cap per single stock", True),
+    ("position_size_value",     "Position Size (Rs)",      "Capital", "number", 1000, "Fixed Rs per new trade (0 = use Max % per Position)", False),
+    ("max_position_pct",        "Max % per Position",      "Capital", "number", 0.5,  "Fallback sizing when Position Size (Rs) is 0", True),
     ("max_positions",           "Max Open Positions",      "Capital", "number", 1,    "Total positions at once", False),
     ("max_sector_positions",    "Max Positions per Sector","Capital", "number", 1,    "Diversification cap", False),
     ("stop_loss_pct",           "Stop Loss %",             "Risk",    "number", 0.5,  "Hard floor (negative % e.g. -12)", True),

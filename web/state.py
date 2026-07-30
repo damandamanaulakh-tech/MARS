@@ -142,17 +142,23 @@ def _bootstrap() -> None:
             except Exception:
                 pass
     # Owner order 2026-07-30 ("change the capital to 50 lack, 80 stocks,
-    # roughly 1-1.25 for each trade — change it now"): applied ONCE over any
-    # stale saved overrides, marker in the separate `migrations` settings doc
-    # (the Settings form replaces the `default` doc, so a marker there would
-    # not survive the next save). Future Settings edits stay fully free.
-    if not db.load_settings(doc_id="migrations").get("capital_order_2026_07_30"):
+    # roughly 1-1.25 for each trade — change it now"; corrected same day:
+    # "1.25 lac, 125000, not percentage"): applied ONCE over any stale saved
+    # overrides, marker in the separate `migrations` settings doc (the
+    # Settings form replaces the `default` doc, so a marker there would not
+    # survive the next save). v2 supersedes the same-day v1 (which read the
+    # size as 1.25%). Future Settings edits stay fully free.
+    if not db.load_settings(doc_id="migrations").get("capital_order_2026_07_30_v2"):
         _CFG.starting_capital = 50_00_000.0
         _CFG.max_positions = 80
-        _CFG.max_position_pct = 0.0125
+        _CFG.position_size_value = 125_000.0
+        _CFG.max_position_pct = 0.025
         db.save_settings({**overrides, "starting_capital": 50_00_000.0,
-                          "max_positions": 80, "max_position_pct": 0.0125})
-        db.save_settings({"capital_order_2026_07_30": True}, doc_id="migrations")
+                          "max_positions": 80, "position_size_value": 125_000.0,
+                          "max_position_pct": 0.025})
+        db.save_settings({"capital_order_2026_07_30": True,
+                          "capital_order_2026_07_30_v2": True},
+                         doc_id="migrations")
 
     # Apply mode preset (sets stops, target, etc. per chosen horizon)
     _CFG.apply_mode_preset()

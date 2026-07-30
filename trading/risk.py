@@ -55,8 +55,8 @@ def can_open(
     if deployed >= deploy_cap:
         return False, "reserve_breached", 0
 
-    # 10% per stock: position notional <= 10% of starting capital.
-    per_stock_cap = cfg.starting_capital * cfg.max_position_pct
+    # Per-trade size: owner's fixed Rs value (2026-07-30), pct fallback.
+    per_stock_cap = cfg.position_notional()
     headroom = min(per_stock_cap, deploy_cap - deployed, cash)
     if headroom <= 0:
         return False, "no_headroom", 0

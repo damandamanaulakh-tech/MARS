@@ -683,7 +683,7 @@ def owner_buy(request: Request, ticker: str = Form(...),
         cfg.apply_mode_preset()
         marks = {pos.ticker: pos.entry_price for pos in p.positions.values()}
         equity = p.equity(marks)
-        auto_qty = int((cfg.max_position_pct * equity) // float(price))
+        auto_qty = int(cfg.position_notional(equity) // float(price))
         use_qty = want_qty or auto_qty
         if use_qty < 1 or use_qty * float(price) > p.cash:
             return RedirectResponse("/scan?error=insufficient_cash", status_code=303)
