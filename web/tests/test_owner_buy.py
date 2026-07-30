@@ -34,6 +34,9 @@ def test_opens_momentum_position_at_live_price(monkeypatch):
                         lambda tickers, upstox_client=None:
                         {t: 500.0 for t in tickers})
     p = state.portfolio()
+    # a killed earlier run can leave the position on disk (state JSON survives
+    # between runs) — start clean so this test only measures ITS OWN buy
+    p.positions.pop("TORNTPHARM.NS", None)
     cash_before = p.cash
     try:
         r = _owner().post("/scan/buy", data={"ticker": "torntpharm"},
@@ -53,3 +56,4 @@ def test_opens_momentum_position_at_live_price(monkeypatch):
         pos = p.positions.pop("TORNTPHARM.NS", None)
         if pos is not None:
             p.cash += pos.qty * pos.entry_price
+        p.save()          # scrub the on-disk copy too, not just memory

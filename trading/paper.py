@@ -117,13 +117,50 @@ class Portfolio:
     risk_day: Optional[str] = None            # ISO date the baseline belongs to
     risk_day_equity: float = 0.0              # equity the -2% halt measures from
     risk_day_killed: bool = False             # switch tripped today? (survives restart)
+    # Owner order 2026-07-30: the starting_capital this book's cash has been
+    # synced to. Changing Starting Capital in Settings now really adds/removes
+    # cash (journaled CAPITAL_ADJUST) instead of doing nothing to a live book.
+    capital_base: float = 0.0
     last_save: Optional[str] = None
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     @classmethod
     def fresh(cls, cfg: Config) -> "Portfolio":
-        p = cls(cfg=cfg, cash=cfg.starting_capital)
+        p = cls(cfg=cfg, cash=cfg.starting_capital,
+                capital_base=cfg.starting_capital)
         return p
+
+    def sync_capital(self, cfg: Config) -> Optional[str]:
+        """Make the book's cash follow cfg.starting_capital (owner order
+        2026-07-30). Adds/removes the DELTA so the P&L history stays real —
+        never a reset. Journaled CAPITAL_ADJUST; a withdrawal that would
+        push cash below zero is refused and journaled CAPITAL_ADJUST_BLOCKED.
+        Idempotent via capital_base. Returns a note when something changed."""
+        target = float(cfg.starting_capital)
+        delta = target - float(self.capital_base or 0.0)
+        if abs(delta) < 0.5:
+            return None
+        if self.cash + delta < 0:
+            self.decision_journal.append({
+                "ts": datetime.utcnow().isoformat(),
+                "action": "CAPITAL_ADJUST_BLOCKED",
+                "detail": (f"Capital {self.capital_base:,.0f} -> {target:,.0f} "
+                           f"needs {-delta:,.0f} out but free cash is only "
+                           f"{self.cash:,.0f}. Sell first, then retry."),
+            })
+            return None
+        self.cash += delta
+        old = self.capital_base
+        self.capital_base = target
+        note = (f"Paper capital {old:,.0f} -> {target:,.0f} "
+                f"({'+' if delta >= 0 else ''}{delta:,.0f} cash). ")
+        self.decision_journal.append({
+            "ts": datetime.utcnow().isoformat(),
+            "action": "CAPITAL_ADJUST",
+            "detail": note + f"Cash now {self.cash:,.0f}.",
+            "cash_after": round(self.cash, 2),
+        })
+        return note
 
     def equity(self, prices: Dict[str, float]) -> float:
         eq = self.cash
@@ -176,6 +213,7 @@ class Portfolio:
                 "risk_day": self.risk_day,                     # daily kill-switch baseline date
                 "risk_day_equity": self.risk_day_equity,       # ...and the equity it measures from
                 "risk_day_killed": self.risk_day_killed,       # tripped-today flag
+                "capital_base": self.capital_base,             # starting_capital the cash is synced to
                 "last_save": datetime.utcnow().isoformat(),
             }
             with open(self._state_path(), "w") as f:
@@ -213,6 +251,9 @@ class Portfolio:
             p.risk_day = data.get("risk_day")
             p.risk_day_equity = float(data.get("risk_day_equity", 0.0) or 0.0)
             p.risk_day_killed = bool(data.get("risk_day_killed", False))
+            # Legacy books predate capital_base; every live book started at
+            # the 2026 spec's 25L, so that is the honest baseline to sync from.
+            p.capital_base = float(data.get("capital_base", 25_00_000.0) or 25_00_000.0)
             p.last_save = data.get("last_save")
             return p
         except Exception:
@@ -229,6 +270,7 @@ class Portfolio:
                       f"{len(self.trades)} closed trades archived in journal before clear.",
         })
         self.cash = self.cfg.starting_capital
+        self.capital_base = self.cfg.starting_capital
         self.positions = {}
         self.trades = []
         self.equity_history = []
