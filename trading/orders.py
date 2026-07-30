@@ -102,7 +102,7 @@ def _fill(engine, o: dict, price: float, now: datetime) -> None:
         qty = o["qty"]
         if not qty:
             marks = {pos.ticker: pos.entry_price for pos in p.positions.values()}
-            qty = int((cfg.max_position_pct * p.equity(marks)) // price)
+            qty = int(cfg.position_notional(p.equity(marks)) // price)
         if qty < 1 or qty * price > p.cash:
             o["status"] = "cancelled"
             o["note"] = "insufficient cash when limit touched"

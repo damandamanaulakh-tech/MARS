@@ -53,13 +53,18 @@ class Config:
     # Target: 60-70% weekly deployment across all 4 modes.
     # 12 positions * 5-7% avg = 60-84% gross — comfortably in band.
     # Owner order 2026-07-30 ("change the capital to 50 lack, 80 stocks,
-    # roughly 1-1.25 for each trade"): Rs 50L paper capital across 80 names
-    # at 1.25% each (~Rs 62.5k/trade, fully deployable). Supersedes the
-    # 25L/30/3.3% book of 2026-07-19. Guardrails checked: heat at stop
-    # 80*1.25%*5% = 5% vs 25% cap; sector caps unaffected.
+    # roughly 1-1.25 for each trade" — then corrected: "1.25 lac, 125000,
+    # not percentage"): Rs 50L paper capital, FIXED Rs 1.25L per new trade,
+    # 80 positions as the ceiling. At 50L the cash funds ~40 concurrent
+    # 1.25L trades; the remaining slots open as capital grows. Supersedes
+    # the 25L/30/3.3% book of 2026-07-19.
     starting_capital: float = 50_00_000.0
     cash_reserve_pct: float = 0.0             # deploy 100% — no idle cash reserve (user setting)
-    max_position_pct: float = 0.0125
+    # Fixed rupee size per new trade (owner's number). 0 = fall back to
+    # max_position_pct sizing. All sizing sites go through
+    # position_notional() so the two knobs can never disagree.
+    position_size_value: float = 125_000.0
+    max_position_pct: float = 0.025           # fallback: 2.5% of 50L = 1.25L
     max_positions: int = 80
     # P1: momentum mode scans the FULL NSE universe via rotating buckets
     # (engine.scan); set False to fall back to the Nifty-200-only scan.
@@ -195,6 +200,17 @@ class Config:
     # "intraday" | "short" | "swing" | "positional" | "nifty200_momentum"
     # Default: NSE Nifty 200 Momentum 30 methodology (published 5y CAGR ~29.7%).
     mode: str = "nifty200_momentum"
+
+    def position_notional(self, base: float | None = None) -> float:
+        """Per-trade rupee target (owner order 2026-07-30: '1.25 lac,
+        125000, not percentage'). A positive position_size_value wins;
+        0 falls back to max_position_pct of `base` (default: starting
+        capital). Every sizing site uses this one function."""
+        v = float(getattr(self, "position_size_value", 0.0) or 0.0)
+        if v > 0:
+            return v
+        b = float(base) if base is not None else float(self.starting_capital)
+        return b * float(self.max_position_pct)
 
     def apply_mode_preset(self) -> None:
         """Mutate this config in place using the active mode preset.

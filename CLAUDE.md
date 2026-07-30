@@ -26,9 +26,15 @@ uploads: audit them; several contained fabricated numbers/padded catalogs).
 - Signal: **6m+12m vol-adjusted momentum, rank-blended**
   (`strategies/nifty200_momentum.py`) + quality blend 35%.
 - Book (owner order 2026-07-30 "change the capital to 50 lack, 80 stocks,
-  roughly 1-1.25 for each trade — change it now"): **₹50L capital,
-  `max_positions 80`, `max_position_pct 1.25%`** (~₹62.5k/slot, fully
-  deployable; heat-at-stop 5% vs 25% cap). Supersedes 25L/30/3.3%.
+  roughly 1-1.25 for each trade — change it now"; corrected same day
+  "1.25 lac, 125000, not percentage"): **₹50L capital, FIXED ₹1.25L per
+  new trade (`cfg.position_size_value=125000`), `max_positions 80` as
+  ceiling** — cash funds ~40 concurrent trades, rest of the slots open as
+  capital grows. All sizing sites (risk.can_open, orders limit-fill,
+  owner_buy) go through `cfg.position_notional()`; `max_position_pct
+  0.025` is the fallback when the fixed value is 0. Boot migration v2
+  (marker capital_order_2026_07_30_v2) supersedes same-day v1 which had
+  read the size as 1.25%. Supersedes 25L/30/3.3%.
   Applied via one-time boot migration over stale overrides (marker in
   settings doc_id="migrations") + `Portfolio.sync_capital`: Starting-
   Capital changes now MOVE CASH by the delta (journaled CAPITAL_ADJUST,
