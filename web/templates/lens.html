@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Universe Lens v1/v2 — Sourceborn AM07{% endblock %}
+{% block content %}
+<div class="text-xs tracking-widest text-ink-faint uppercase mb-3">RESEARCH / TWO LENSES ON THE SAME UNIVERSE</div>
+<div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+  <div>
+    <h1 class="font-black text-3xl lg:text-5xl tracking-tight">Universe Lens</h1>
+    <p class="text-ink-soft mt-2 max-w-2xl">
+      The same stocks, scored two ways. <strong>v1</strong> is the live engine — survival first,
+      fixed ₹{{ summary.v1_each | inr }} per trade. <strong>v2</strong> is the growth-first lens —
+      Kelly-sized off estimated edge, asymmetry-hunting, capacity-aware.
+      <span class="text-ink-faint">Read-only: v2 never places an order.</span>
+    </p>
+  </div>
+  <form method="get" action="/lens" class="flex items-center gap-2">
+    <label for="tk" class="text-xs uppercase tracking-widest text-ink-faint whitespace-nowrap">any stock</label>
+    <input id="tk" name="ticker" list="lens-universe" placeholder="type any NSE name…"
+           autocomplete="off" value="{{ selected or '' }}"
+           class="border border-line rounded-md px-3 py-2 text-sm font-semibold bg-white w-44">
+    <datalist id="lens-universe">
+      {% for t in universe %}<option value="{{ t | replace('.NS','') }}">{% endfor %}
+    </datalist>
+    <button class="px-3 py-2 border border-line rounded-md text-sm font-semibold hover:bg-ink/[0.03]">GO</button>
+  </form>
+</div>
+
+<!-- the two books side by side -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+  <div class="bg-white border-2 border-emerald-700/30 p-4 lg:p-5">
+    <div class="flex items-baseline justify-between gap-3 mb-3">
+      <div>
+        <div class="text-[10px] tracking-widest text-emerald-800 uppercase font-bold">v1 · live engine</div>
+        <div class="font-black text-xl mt-1">Survival first</div>
+      </div>
+      <span class="text-[10px] tracking-widest uppercase bg-emerald-700 text-white px-2 py-1">running</span>
+    </div>
+    <div class="grid grid-cols-3 gap-3 text-center">
+      <div><div class="text-2xl font-black tabular-nums">{{ summary.v1_count }}</div>
+        <div class="text-[10px] uppercase tracking-widest text-ink-faint mt-0.5">eligible</div></div>
+      <div><div class="text-2xl font-black tabular-nums">₹{{ (summary.v1_each / 100000) | round(2) }}L</div>
+        <div class="text-[10px] uppercase tracking-widest text-ink-faint mt-0.5">each · fixed</div></div>
+      <div><div class="text-2xl font-black tabular-nums">₹{{ (summary.v1_total / 100000) | round(1) }}L</div>
+        <div class="text-[10px] uppercase tracking-widest text-ink-faint mt-0.5">deployed</div></div>
+    </div>
+    <p class="text-xs text-ink-soft mt-3 leading-relaxed">
+      Every name gets the same rupees. Score ≥ {{ summary.floor | round(0) | int }} to qualify.
+      Risk is capped per stock, per sector, per day.
+    </p>
+  </div>
+
+  <div class="bg-white border-2 border-amber-600/40 p-4 lg:p-5">
+    <div class="flex items-baseline justify-between gap-3 mb-3">
+      <div>
+        <div class="text-[10px] tracking-widest text-amber-800 uppercase font-bold">v2 · growth lens</div>
+        <div class="font-black text-xl mt-1">Compounding first</div>
+      </div>
+      <span class="text-[10px] tracking-widest uppercase border border-amber-600 text-amber-800 px-2 py-1">view only</span>
+    </div>
+    <div class="grid grid-cols-3 gap-3 text-center">
+      <div><div class="text-2xl font-black tabular-nums">{{ summary.v2_count }}</div>
+        <div class="text-[10px] uppercase tracking-widest text-ink-faint mt-0.5">it would hold</div></div>
+      <div><div class="text-2xl font-black tabular-nums">{{ summary.v2_top_weight_pct }}%</div>
+        <div class="text-[10px] uppercase tracking-widest text-ink-faint mt-0.5">top-name weight</div></div>
+      <div><div class="text-2xl font-black tabular-nums">₹{{ (summary.v2_total / 100000) | round(1) }}L</div>
+        <div class="text-[10px] uppercase tracking-widest text-ink-faint mt-0.5">deployed</div></div>
+    </div>
+    <p class="text-xs text-ink-soft mt-3 leading-relaxed">
+      Concentrates into whatever compounds fastest. Size = ¼-Kelly (edge ÷ variance),
+      then cut to what the stock's liquidity can actually absorb.
+    </p>
+  </div>
+</div>
+
+<!-- honesty strip -->
+<div class="bg-amber-50 border border-amber-300 p-3 lg:p-4 mb-6 text-xs text-amber-900 leading-relaxed">
+  <strong>What is assumed, stated plainly:</strong>
+  expected return uses IC = {{ summary.ic }} (an assumption, not a measurement) via α = IC × σ × z ·
+  size is <strong>{{ (summary.kelly_fraction * 100) | round(0) | int }}% of full Kelly</strong> because Kelly is fragile to that estimate ·
+  payoff and impact are <strong>proxies from daily bars</strong> — this app has no options chain and no order-book depth ·
+  stop distance {{ summary.stop_pct | round(0) | int }}% ·
+  {{ summary.capacity_binds }} name(s) where liquidity, not edge, caps the size ·
+  {{ summary.traps }} name(s) v2 refuses on manipulation-risk flags.
+  {% if summary.no_data %}<br><strong>DATA_NEEDED</strong> (under 60 bars stored, skipped rather than guessed):
+    {{ summary.no_data | map('replace', '.NS', '') | join(', ') }}.{% endif %}
+</div>
+
+{% if rows %}
+<div class="bg-white border border-line mb-6">
+  <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
+    <div class="font-bold">Ranked by v2 — expected compound growth, not score</div>
+    <div class="text-xs text-ink-faint">{{ summary.scanned }} names with enough history · ★ = v2 would buy it</div>
+  </div>
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+      <tr>
+        <th class="text-left px-3 lg:px-4 py-3 whitespace-nowrap">Stock</th>
+        <th class="text-right px-2 py-3 whitespace-nowrap" title="the live engine's 0-100 score">v1 score</th>
+        <th class="text-right px-2 py-3 whitespace-nowrap" title="fixed rupees per trade">v1 size</th>
+        <th class="text-right px-2 py-3 whitespace-nowrap" title="estimated annual excess return">µ est.</th>
+        <th class="text-right px-2 py-3 whitespace-nowrap" title="annualised volatility">σ</th>
+        <th class="text-right px-2 py-3 whitespace-nowrap" title="quarter-Kelly weight of equity">¼-Kelly</th>
+        <th class="text-right px-2 py-3 whitespace-nowrap" title="Kelly size cut to what liquidity absorbs">v2 size</th>
+        <th class="text-right px-2 py-3 whitespace-nowrap" title="upside room ÷ stop distance">payoff R</th>
+        <th class="text-right px-2 py-3 whitespace-nowrap" title="win rate this bet needs to break even">needs</th>
+        <th class="text-right px-2 py-3 whitespace-nowrap" title="expected log-growth contribution">growth</th>
+        <th class="text-left px-3 py-3 whitespace-nowrap">flags</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr class="border-b border-line last:border-0 {% if r.trap %}bg-red-50{% elif r.ticker in v2_book %}bg-amber-50/60{% endif %}">
+        <td class="px-3 lg:px-4 py-3 font-semibold whitespace-nowrap">
+          {% if r.ticker in v2_book %}<span class="text-amber-700" title="v2 would buy this">★</span> {% endif %}
+          {{ r.ticker | replace('.NS','') }}
+          <a href="/chart/{{ r.ticker }}" title="candle chart" class="ml-1 no-underline">📈</a>
+          {% if r.held %}<span class="ml-1 text-[9px] uppercase tracking-widest text-emerald-700 font-bold">held</span>{% endif %}
+          {% if r.off_scan %}<span class="ml-1 text-[9px] uppercase tracking-widest text-ink-faint">off-scan</span>{% endif %}
+        </td>
+        <td class="px-2 py-3 text-right tabular-nums {% if r.v1_eligible %}font-bold text-emerald-700{% else %}text-ink-faint{% endif %}">{{ r.v1_score }}</td>
+        <td class="px-2 py-3 text-right tabular-nums text-ink-faint">{% if r.v1_eligible %}₹{{ (r.v1_size_rupees / 100000) | round(2) }}L{% else %}—{% endif %}</td>
+        <td class="px-2 py-3 text-right tabular-nums {% if r.mu_pct > 0 %}text-emerald-700{% else %}text-ink-faint{% endif %}">{{ r.mu_pct }}%</td>
+        <td class="px-2 py-3 text-right tabular-nums text-ink-soft">{{ r.sigma_pct }}%</td>
+        <td class="px-2 py-3 text-right tabular-nums font-semibold">{{ r.kelly_pct }}%</td>
+        <td class="px-2 py-3 text-right tabular-nums font-semibold {% if r.capacity_binds %}text-amber-700{% endif %}"
+            {% if r.capacity_binds %}title="liquidity capped this — Kelly wanted ₹{{ (r.kelly_rupees/100000)|round(2) }}L"{% endif %}>
+          {% if r.v2_size_rupees > 0 %}₹{{ (r.v2_size_rupees / 100000) | round(2) }}L{% if r.capacity_binds %} ⚠{% endif %}{% else %}—{% endif %}
+        </td>
+        <td class="px-2 py-3 text-right tabular-nums">{{ r.payoff_R }}</td>
+        <td class="px-2 py-3 text-right tabular-nums text-ink-soft">{{ (r.breakeven_hit * 100) | round(0) | int }}%</td>
+        <td class="px-2 py-3 text-right tabular-nums font-bold {% if r.growth_rate_pct > 0 %}text-emerald-700{% else %}text-red-700{% endif %}">{{ r.growth_rate_pct }}%</td>
+        <td class="px-3 py-3 text-xs whitespace-nowrap">
+          {% if r.trap %}<span class="text-red-700 font-bold" title="two or more manipulation-risk flags — v2 refuses">⛔ TRAP</span>{% endif %}
+          {% for f in r.flags %}<span class="ml-1 text-amber-700" title="manipulation-risk flag">⚠ {{ f | replace('_',' ') }}</span>{% endfor %}
+          {% if not r.flags %}<span class="text-ink-faint">clean</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  <div class="bg-white border border-line p-4 lg:p-5">
+    <div class="font-bold mb-2">Why v2 is not simply better</div>
+    <p class="text-sm text-ink-soft leading-relaxed">
+      v2 maximises the growth <em>rate</em>. Growth rate and ruin risk climb together:
+      concentration plus leverage plus full-Kelly drives the chance of a devastating drawdown
+      toward certainty over enough bets — the account reaches zero and compounding ends.
+      v1 accepts a lower ceiling to keep the floor above zero. That is the entire trade,
+      and it is why the live engine is v1.
+    </p>
+  </div>
+  <div class="bg-white border border-line p-4 lg:p-5">
+    <div class="font-bold mb-2">The trap detector, and why it lives here</div>
+    <p class="text-sm text-ink-soft leading-relaxed">
+      v2's hunting ground — thin, under-covered, fast-moving names — is exactly where engineered
+      pumps look for buyers. The flags above read that signature from public daily bars
+      (parabolic move with no volume, ramps in stocks under ₹1 Cr/day turnover, volume
+      spikes with price stalling, repeated near-limit-up days, no down days).
+      Two flags and v2 refuses the name. Same knowledge, pointed at not being the exit liquidity.
+    </p>
+  </div>
+</div>
+{% else %}
+<div class="bg-white border border-line p-6 lg:p-10 text-center text-ink-faint">
+  Nothing scored yet with enough stored history — run a scan, or search any stock above.
+</div>
+{% endif %}
+{% endblock %}

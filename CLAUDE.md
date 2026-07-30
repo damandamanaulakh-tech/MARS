@@ -379,6 +379,45 @@ momentum_score+quality_score+blend, labeled "computed now from stored
 history (to DATE) — not a stored scan result" in amber) → DATA_NEEDED page
 (<1y history or none; strings never faked). Zero network; scan/entries
 untouched — viewer only. 505 tests.
+**2026-07-30 LENS V1/V2 + dashboard panels (owner: "in Universe too u should
+focus on same · ship it · make some changes in the dashboard, adding few
+option u can adopt some of each kind" + 5 reference-mockup screenshots):**
+- **`trading/lens_v2.py` — the growth-first lens, READ-ONLY.** v1 (live
+  engine) maximises return subject to not blowing up; v2 maximises E[log W]
+  (compound growth). Pure functions: `edge_estimate` (Grinold α=IC·σ·z, turns
+  a RANK into a µ — the step v1 never needs because its size is fixed) ·
+  `kelly_fraction` (¼-Kelly, capped 25%) · `convexity` (ATR room-to-high,
+  payoff R, breakeven hit-rate, skew) · `impact_bps`/`capacity_notional`
+  (square-root law, Y=0.75 — 4× size = 2× impact, the wall that stops
+  scaling) · `momentum_halflife` · `v2_view`/`rank_v2` (ranks by expected
+  log-growth, not score). **Assumptions on screen, not buried**: IC=0.05 is
+  an ASSUMPTION; convexity+impact are PROXIES from daily bars (no options
+  chain / order book / live short interest exist here); <60 bars = None =
+  DATA_NEEDED, never a guess.
+- **DEFENSIVE `manipulation_risk_flags`** (owner asked for the illegal side;
+  refused the playbook, built the victim-side detector instead): reads the
+  outside signature of an engineered move from public daily OHLCV —
+  parabolic_without_volume · thin_book_ramp (<₹1Cr/day) ·
+  volume_spike_price_stall · repeated_limit_up · no_down_days. 2+ flags =
+  `is_trap` = v2 refuses the name. Rationale: v2's small-cap/illiquidity
+  hunting ground is exactly where pumps fish for exit liquidity.
+- **HARD BOUNDARY, tested**: `engine.py`/`risk.py`/`orders.py` must never
+  import lens_v2, and lens_v2 must contain no order/config-mutation/network
+  call (`test_lens_v2.py` asserts both by source inspection).
+- **`/lens` page** (`web/routes/lens_routes.py` + `lens.html`, sidebar 🔭):
+  v1 vs v2 books side by side over the scanned universe + any-stock search;
+  per-row µ/σ/¼-Kelly/v2-size/payoff-R/breakeven/growth/flags; ⚠ marks where
+  LIQUIDITY not edge capped the size; ⛔ TRAP rows. Bounded to 40 rows/request.
+- **Dashboard `web/market_panels.py`** — 6 panels adopted from the mockups,
+  all real data: index strip w/ SVG sparklines (committed index_daily_15y.csv,
+  labelled "stored to DATE", VIX inverted so up=red) · Market Breadth (the
+  engine's OWN scan panel — the same number the A3 gate uses; score bands,
+  pass/abs-mom/timing %, sector strength chips) · What's Coming (curated
+  calendars, next 45d) · Walk-Forward Evidence (docs/param_search_v3_results
+  .json passed through UNTOUCHED — the −4.64 losing window must show, guard
+  test) · Trade Horizons (real per-mode presets, live one marked) · ATR vs
+  your fixed −5% stop (display only). `_panel()` wrapper: a broken panel
+  hides, never takes the page down (tested). 513 → 545 tests.
 **Breadth-vs-VIX conflict CLOSED (owner: "yes — we cant wait for recovery,
 that is movement of entries"):** vix_reentry now BYPASSES the breadth gate
 (`engine._breadth_gate_blocks(bypass=vix_reentry)`) — fear-break entries go

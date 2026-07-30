@@ -7,7 +7,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from .. import auth, state
+from .. import auth, market_panels as mp, state
 from ..templating import templates
 
 
@@ -17,6 +17,16 @@ router = APIRouter()
 def _bearish_names() -> set:
     from trading.candles import BEARISH_PATTERNS
     return set(BEARISH_PATTERNS)
+
+
+def _panel(fn, *args):
+    """A broken panel must never take the whole dashboard down with it."""
+    try:
+        return fn(*args)
+    except Exception:                       # pragma: no cover - safety net
+        import logging
+        logging.getLogger(__name__).warning("panel %s failed", getattr(fn, "__name__", fn))
+        return None
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -240,6 +250,15 @@ def dashboard(request: Request):
             # derived from the registry so a new bearish structure can never
             # show as a green chip here (the 18->34 expansion caught this)
             "bearish_names": _bearish_names(),
+            # Owner ask 2026-07-30 (5 reference mockups): index strip, market
+            # breadth, event calendar, walk-forward evidence, the 4 horizons
+            # and ATR stop context. All real data — see web/market_panels.py.
+            "index_strip": _panel(mp.index_strip),
+            "breadth": _panel(mp.breadth_panel),
+            "events": _panel(mp.events_panel),
+            "evidence": _panel(mp.evidence_panel),
+            "horizons": _panel(mp.horizons_panel),
+            "atr_rows": _panel(mp.atr_panel, sorted(p.positions.keys())),
             "rotations": rotations,
         },
     )
