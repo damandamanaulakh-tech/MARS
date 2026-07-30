@@ -6,9 +6,10 @@
   <div>
     <h1 class="font-black text-3xl lg:text-5xl tracking-tight">Universe Lens</h1>
     <p class="text-ink-soft mt-2 max-w-2xl">
-      The same stocks, scored two ways. <strong>v1</strong> is the live engine — survival first,
-      fixed ₹{{ summary.v1_each | inr }} per trade. <strong>v2</strong> is the growth-first lens —
-      Kelly-sized off estimated edge, asymmetry-hunting, capacity-aware.
+      The same stocks, scored two ways. <strong>v1</strong> is the live engine — every gate on.
+      <strong>v2</strong> is the growth-first lens — no score floor, no regime brake, concentrated.
+      {% if summary.sizing_mode != 'fixed' %}Since your 2026-07-30 order both size the same way:
+      <strong>{{ (summary.kelly_fraction * 100) | round(0) | int }}% of full Kelly</strong>.{% endif %}
       <span class="text-ink-faint">Read-only: v2 never places an order.</span>
     </p>
   </div>
@@ -37,14 +38,14 @@
     <div class="grid grid-cols-3 gap-3 text-center">
       <div><div class="text-2xl font-black tabular-nums">{{ summary.v1_count }}</div>
         <div class="text-[10px] uppercase tracking-widest text-ink-faint mt-0.5">eligible</div></div>
-      <div><div class="text-2xl font-black tabular-nums">₹{{ (summary.v1_each / 100000) | round(2) }}L</div>
-        <div class="text-[10px] uppercase tracking-widest text-ink-faint mt-0.5">each · fixed</div></div>
+      <div><div class="text-2xl font-black tabular-nums">{% if summary.sizing_mode == "fixed" %}₹{{ (summary.v1_each / 100000) | round(2) }}L{% else %}½-Kelly{% endif %}</div>
+        <div class="text-[10px] uppercase tracking-widest text-ink-faint mt-0.5">{% if summary.sizing_mode == "fixed" %}each · fixed{% else %}sized by edge{% endif %}</div></div>
       <div><div class="text-2xl font-black tabular-nums">₹{{ (summary.v1_total / 100000) | round(1) }}L</div>
         <div class="text-[10px] uppercase tracking-widest text-ink-faint mt-0.5">deployed</div></div>
     </div>
     <p class="text-xs text-ink-soft mt-3 leading-relaxed">
-      Every name gets the same rupees. Score ≥ {{ summary.floor | round(0) | int }} to qualify.
-      Risk is capped per stock, per sector, per day.
+      Score ≥ {{ summary.floor | round(0) | int }} to qualify, then sized by its own edge and
+      volatility. Risk still capped per stock, per sector, per day, plus the −2% kill switch.
     </p>
   </div>
 
@@ -65,8 +66,8 @@
         <div class="text-[10px] uppercase tracking-widest text-ink-faint mt-0.5">deployed</div></div>
     </div>
     <p class="text-xs text-ink-soft mt-3 leading-relaxed">
-      Concentrates into whatever compounds fastest. Size = ¼-Kelly (edge ÷ variance),
-      then cut to what the stock's liquidity can actually absorb.
+      Same Kelly sizing as v1, but it ignores the score floor, the regime brake and the
+      breadth gate, and concentrates into whatever compounds fastest.
     </p>
   </div>
 </div>
@@ -96,10 +97,10 @@
       <tr>
         <th class="text-left px-3 lg:px-4 py-3 whitespace-nowrap">Stock</th>
         <th class="text-right px-2 py-3 whitespace-nowrap" title="the live engine's 0-100 score">v1 score</th>
-        <th class="text-right px-2 py-3 whitespace-nowrap" title="fixed rupees per trade">v1 size</th>
+        <th class="text-right px-2 py-3 whitespace-nowrap" title="what the live engine would size this at">v1 size</th>
         <th class="text-right px-2 py-3 whitespace-nowrap" title="estimated annual excess return">µ est.</th>
         <th class="text-right px-2 py-3 whitespace-nowrap" title="annualised volatility">σ</th>
-        <th class="text-right px-2 py-3 whitespace-nowrap" title="quarter-Kelly weight of equity">¼-Kelly</th>
+        <th class="text-right px-2 py-3 whitespace-nowrap" title="Kelly weight of equity at your chosen fraction">Kelly %</th>
         <th class="text-right px-2 py-3 whitespace-nowrap" title="Kelly size cut to what liquidity absorbs">v2 size</th>
         <th class="text-right px-2 py-3 whitespace-nowrap" title="upside room ÷ stop distance">payoff R</th>
         <th class="text-right px-2 py-3 whitespace-nowrap" title="win rate this bet needs to break even">needs</th>

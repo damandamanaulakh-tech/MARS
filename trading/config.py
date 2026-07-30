@@ -66,6 +66,15 @@ class Config:
     position_size_value: float = 125_000.0
     max_position_pct: float = 0.025           # fallback: 2.5% of 50L = 1.25L
     max_positions: int = 80
+    # Owner order 2026-07-30, after reading docs/ALGO_V1_V2.md: size by
+    # **½-Kelly** instead of a flat rupee amount. ½-Kelly earns 75% of the
+    # maximum compound growth rate for a 12.5% chance of ever halving the book
+    # (¼ = 43.8%/0.78%, full = 100%/50%, 2x = 0%/certain ruin). Set
+    # sizing_mode="fixed" to revert instantly to the flat position_size_value.
+    sizing_mode: str = "half_kelly"           # "half_kelly" | "fixed"
+    kelly_fraction: float = 0.5               # NEVER above 1.0 — see the doc
+    kelly_ic: float = 0.05                    # ASSUMED information coefficient
+    kelly_max_pct: float = 0.05               # hard ceiling: 5% of equity/name
     # P1: momentum mode scans the FULL NSE universe via rotating buckets
     # (engine.scan); set False to fall back to the Nifty-200-only scan.
     full_universe_scan: bool = True
