@@ -123,13 +123,35 @@ def test_atr_panel_skips_tickers_with_no_stored_history():
 
 # ---- the page itself ----------------------------------------------------
 
-def test_dashboard_renders_the_new_panels():
+def test_dashboard_renders_the_always_available_panels():
+    """These three need no scan — they come from committed files and presets,
+    so they must render on a brand-new book (CI starts with an empty one)."""
     with patch("web.db.is_connected", return_value=False):
         page = _owner().get("/").text
     for needle in ("NIFTY 50", "INDIA VIX", "stored to",      # index strip
-                   "Market Breadth", "s Coming",              # What's Coming
+                   "s Coming",                                 # What's Coming
                    "Trade Horizons", "Walk-Forward Evidence"):
         assert needle in page, needle
+
+
+def test_dashboard_breadth_panel_appears_once_a_scan_exists():
+    """Breadth is scan-derived: hidden on a fresh book (never faked with
+    zeros), shown after a scan. Seeded here so the test does not depend on
+    leftover state from other tests."""
+    p = state.portfolio()
+    saved = p.scan_matrix
+    p.scan_matrix = {
+        "ts": "2026-07-30T09:20:00", "score_floor": 55.0,
+        "rows": {"A.NS": {"score": 82.0, "timing": True, "abs_mom": True},
+                 "B.NS": {"score": 30.0, "timing": False, "abs_mom": False}},
+    }
+    try:
+        with patch("web.db.is_connected", return_value=False):
+            page = _owner().get("/").text
+        assert "Market Breadth" in page
+        assert "Breadth gate ON" in page          # the live A3 gate state
+    finally:
+        p.scan_matrix = saved
 
 
 def test_a_broken_panel_cannot_take_the_dashboard_down():
@@ -137,6 +159,7 @@ def test_a_broken_panel_cannot_take_the_dashboard_down():
     with patch("web.market_panels.index_strip", side_effect=RuntimeError("boom")), \
          patch("web.db.is_connected", return_value=False):
         r = _owner().get("/")
-    assert r.status_code == 200          # page survives, panel just hides
-    assert "NIFTY 50" not in r.text or "Market Breadth" in r.text
+    assert r.status_code == 200                  # page survives
+    assert "NIFTY 50" not in r.text              # the broken panel is gone...
+    assert "Trade Horizons" in r.text            # ...the others still render
     assert dash._panel(lambda: 1 / 0) is None
