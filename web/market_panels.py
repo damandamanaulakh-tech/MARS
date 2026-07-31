@@ -308,13 +308,19 @@ def atr_panel(tickers: list[str], limit: int = 4) -> list[dict]:
             continue
         a = _atr(df)
         try:
-            last = float(df["Close"].dropna().iloc[-1])
+            closes = df["Close"].dropna()
+            last = float(closes.iloc[-1])
+            bar_date = closes.index[-1]
         except Exception:
             continue
         if a <= 0 or last <= 0:
             continue
         out.append({
             "ticker": t,
+            # This is the last STORED close, not a live tick. It is dated on
+            # screen — the 2026-07-31 index-strip lesson: an undated price
+            # beside live-looking levels reads as current.
+            "asof": bar_date.strftime("%d %b") if hasattr(bar_date, "strftime") else "",
             "last": round(last, 2),
             "atr": round(a, 2),
             "atr_pct": round(a / last * 100, 2),

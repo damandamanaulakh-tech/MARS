@@ -537,7 +537,7 @@
   <div class="border border-line bg-white">
     <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
       <div class="font-bold">📐 Volatility vs your fixed stop</div>
-      <div class="text-xs text-ink-faint">display only — engine uses the fixed stop</div>
+      <div class="text-xs text-ink-faint">stored closes, not live ticks · display only</div>
     </div>
     <div class="overflow-x-auto">
     <table class="w-full text-sm">
@@ -551,7 +551,7 @@
         {% for r in atr_rows %}
         <tr class="border-b border-line last:border-0">
           <td class="px-4 py-2 font-semibold whitespace-nowrap">{{ r.ticker | replace('.NS','') }}
-            <span class="text-ink-faint text-xs tabular-nums">₹{{ r.last | inr(2) }}</span></td>
+            <span class="text-ink-faint text-xs tabular-nums" title="last stored close — not a live price">₹{{ r.last | inr(2) }}{% if r.asof %} <span class="text-[10px]">({{ r.asof }})</span>{% endif %}</span></td>
           <td class="px-2 py-2 text-right tabular-nums">₹{{ r.atr | inr(2) }} <span class="text-ink-faint text-xs">({{ r.atr_pct }}%)</span></td>
           <td class="px-2 py-2 text-right tabular-nums">₹{{ r.fixed_stop | inr(2) }} <span class="text-ink-faint text-xs">(−{{ r.fixed_stop_pct }}%)</span></td>
           <td class="px-4 py-2 text-right tabular-nums {% if r.tighter %}text-amber-700 font-semibold{% endif %}">₹{{ r.atr_stop | inr(2) }} <span class="text-xs">(−{{ r.atr_stop_pct }}%)</span></td>

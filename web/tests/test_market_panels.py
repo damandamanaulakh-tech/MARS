@@ -209,3 +209,26 @@ def test_a_broken_panel_cannot_take_the_dashboard_down():
     assert "NIFTY 50" not in r.text              # the broken panel is gone...
     assert "Trade Horizons" in r.text            # ...the others still render
     assert dash._panel(lambda: 1 / 0) is None
+
+
+# ---- the 2026-07-31 lesson, applied everywhere ------------------------
+
+def test_every_stored_price_on_the_page_is_dated():
+    """Owner 2026-07-31: an undated stored number beside live-looking data
+    reads as current. Any surface showing a stored close must date it."""
+    with patch("web.db.is_connected", return_value=False):
+        rows = mp.atr_panel(["RELIANCE.NS"])
+    assert rows and rows[0]["asof"], "ATR panel must date its stored close"
+
+
+def test_lens_dates_the_history_its_numbers_come_from():
+    from unittest.mock import patch as _p
+    from web import auth as _a
+    from fastapi.testclient import TestClient
+    from web.main import app
+    c = TestClient(app)
+    c.post("/login", data={"email": "owner@sourceborn.in",
+                           "password": _a._SEEDED_PWD})
+    with _p("web.db.is_connected", return_value=False):
+        page = c.get("/lens?ticker=RELIANCE").text
+    assert "stored daily bars to" in page, "lens must date its stored inputs"

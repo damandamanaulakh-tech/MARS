@@ -75,6 +75,8 @@
 <!-- honesty strip -->
 <div class="bg-amber-50 border border-amber-300 p-3 lg:p-4 mb-6 text-xs text-amber-900 leading-relaxed">
   <strong>What is assumed, stated plainly:</strong>
+  {% if summary.data_asof %}every µ, σ and size below is computed from <strong>stored daily bars to
+  {{ summary.data_asof }}</strong>, not live ticks ·{% endif %}
   expected return uses IC = {{ summary.ic }} (an assumption, not a measurement) via α = IC × σ × z ·
   size is <strong>{{ (summary.kelly_fraction * 100) | round(0) | int }}% of full Kelly</strong> because Kelly is fragile to that estimate ·
   payoff and impact are <strong>proxies from daily bars</strong> — this app has no options chain and no order-book depth ·

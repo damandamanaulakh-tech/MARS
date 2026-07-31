@@ -75,8 +75,16 @@ def lens_page(request: Request, ticker: str | None = None):
                           "held": ticker in p.positions, "off_scan": True})
 
     rows, no_data = [], []
+    data_asof = None                     # newest stored bar behind these numbers
     for r in v1[:MAX_ROWS]:
         df = load_ohlcv(r["ticker"], tail=420)
+        if df is not None and not df.empty:
+            try:
+                d = df["Close"].dropna().index[-1]
+                if data_asof is None or d > data_asof:
+                    data_asof = d
+            except Exception:
+                pass
         # v2's display mirrors what the engine would ACTUALLY size, so the two
         # columns are comparable: same IC, same Kelly fraction, same cap, same
         # floor as the live config.
@@ -124,6 +132,11 @@ def lens_page(request: Request, ticker: str | None = None):
         "kelly_fraction": float(getattr(cfg, "kelly_fraction", KELLY_FRACTION)),
         "sizing_mode": str(getattr(cfg, "sizing_mode", "fixed")),
         "stop_pct": abs(cfg.stop_loss_pct) * 100,
+        # Every mu/sigma/size here comes from STORED bars, not live ticks.
+        # Dated on screen after the 2026-07-31 stale-index lesson.
+        "data_asof": (data_asof.strftime("%d %b %Y")
+                      if data_asof is not None and hasattr(data_asof, "strftime")
+                      else None),
         "floor": cfg.min_score_to_enter,
         "no_data": no_data[:12],
     }
