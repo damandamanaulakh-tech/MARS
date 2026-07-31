@@ -188,3 +188,62 @@ def status(request: Request):
         "connected_at": client.connected_at,
         "hours_until_expiry": client.hours_until_expiry(),
     })
+
+
+@router.get("/upstox/price-check")
+def price_check(request: Request, tickers: str = "VSSL,ULTRACEMCO,TCS,RELIANCE"):
+    """Owner-facing proof of what the LIVE feed actually returns, right now.
+
+    Built 2026-07-31 after the owner found the app showing prices that were not
+    the market. Rather than asking them to trust a claim, this shows the whole
+    chain per ticker: did the symbol resolve to an Upstox instrument key, did
+    the batched LTP call return a price, and what price. Compare it against
+    your broker — if a number here is wrong, the feed is wrong, and that is a
+    bug worth reporting.
+
+    /upstox/price-check?tickers=VSSL,ULTRACEMCO
+    """
+    if not auth.current_user(request):
+        return JSONResponse({"error": "not_logged_in"}, status_code=401)
+
+    from datetime import datetime
+    from trading.brokers.upstox_instruments import to_instrument_keys
+
+    syms = [s.strip().upper() for s in (tickers or "").split(",") if s.strip()]
+    syms = [s if s.startswith("^") or s.endswith((".NS", ".BO")) else f"{s}.NS"
+            for s in syms][:25]
+
+    client = _client_from_session(request)
+    keymap = to_instrument_keys(syms)
+    prices: dict = {}
+    err = None
+    if client is not None and syms:
+        try:
+            prices = client.get_ltp([keymap[s] for s in syms if s in keymap]) or {}
+        except Exception as e:                                  # noqa: BLE001
+            err = str(e)[:200]
+
+    rows = []
+    for s in syms:
+        key = keymap.get(s)
+        px = prices.get(key) if key else None
+        rows.append({
+            "ticker": s,
+            "instrument_key": key or "NOT FOUND in Upstox instrument master",
+            "live_price": px,
+            "status": ("live" if px else
+                       "symbol not in instrument master" if not key else
+                       "no price returned by Upstox"),
+        })
+    return JSONResponse({
+        "checked_at": datetime.utcnow().isoformat() + "Z",
+        "upstox_connected": client is not None,
+        "endpoint": "GET /v2/market-quote/ltp?instrument_key=...",
+        "batched_calls": 1 if rows else 0,
+        "error": err,
+        "results": rows,
+        "note": ("Compare these against your broker. A wrong number here means "
+                 "the feed is wrong — report it. A null means no live price was "
+                 "returned, and the app will show a dash or an ENTRY tag rather "
+                 "than inventing one."),
+    })

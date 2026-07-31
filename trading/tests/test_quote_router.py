@@ -29,17 +29,18 @@ def test_router_uses_yfinance_when_broker_disconnected():
 
 
 def test_router_uses_upstox_when_connected_and_instrument_known():
+    """Now BATCHED: one get_ltp call for all resolved tickers (2026-07-31)."""
     client = UpstoxClient(api_key="K", api_secret="S", redirect_uri="https://x/")
     client.access_token = "T"
 
     with patch(
         "trading.quote_router.to_instrument_keys",
         return_value={"RELIANCE.NS": "NSE_EQ|INE002A01018"},
-    ), patch.object(client, "get_quote") as mock_get:
-        mock_get.return_value = {"last_price": 2475.5}
+    ), patch.object(client, "get_ltp") as mock_ltp:
+        mock_ltp.return_value = {"NSE_EQ|INE002A01018": 2475.5}
         out = fetch_quotes(["RELIANCE.NS"], upstox_client=client)
     assert out["RELIANCE.NS"] == 2475.5
-    mock_get.assert_called_once_with("NSE_EQ|INE002A01018")
+    mock_ltp.assert_called_once_with(["NSE_EQ|INE002A01018"])
 
 
 def test_router_falls_back_to_yfinance_for_unknown_instrument():
@@ -63,13 +64,11 @@ def test_router_falls_back_for_individual_failure():
     with patch(
         "trading.quote_router.to_instrument_keys",
         return_value={"RELIANCE.NS": "NSE_EQ|INE002A01018", "TCS.NS": "NSE_EQ|INE467B01029"},
-    ), patch.object(client, "get_quote") as mock_get, patch(
+    ), patch.object(client, "get_ltp") as mock_ltp, patch(
         "trading.quote_router.fetch_quotes_yf"
     ) as mock_yf:
-        # Reliance returns a quote, TCS returns None -> falls back
-        def side_effect(key):
-            return {"last_price": 2475.5} if "INE002A01018" in key else None
-        mock_get.side_effect = side_effect
+        # the batch resolves Reliance only -> TCS goes to the fallback
+        mock_ltp.return_value = {"NSE_EQ|INE002A01018": 2475.5}
         mock_yf.return_value = {"TCS.NS": 3300.0}
         out = fetch_quotes(["RELIANCE.NS", "TCS.NS"], upstox_client=client)
 
@@ -78,17 +77,23 @@ def test_router_falls_back_for_individual_failure():
     mock_yf.assert_called_once_with(["TCS.NS"])
 
 
-def test_router_reads_ohlc_close_when_last_price_missing():
+def test_no_last_price_is_not_substituted_with_a_previous_close():
+    """DELIBERATE CHANGE 2026-07-31. The old full-quote path filled a missing
+    last_price with ohlc.close — i.e. it showed YESTERDAY'S CLOSE as the live
+    price. That silent substitution is exactly the fault the owner caught, so
+    the LTP path does not do it: no last price means no price, and the UI shows
+    a dash or an ENTRY tag instead of a number that looks current."""
     client = UpstoxClient(api_key="K", api_secret="S", redirect_uri="https://x/")
     client.access_token = "T"
 
     with patch(
         "trading.quote_router.to_instrument_keys",
         return_value={"RELIANCE.NS": "NSE_EQ|INE002A01018"},
-    ), patch.object(client, "get_quote") as mock_get:
-        mock_get.return_value = {"ohlc": {"close": 2440.0}}
+    ), patch.object(client, "get_ltp", return_value={}), patch(
+        "trading.quote_router.fetch_quotes_yf", return_value={}
+    ):
         out = fetch_quotes(["RELIANCE.NS"], upstox_client=client)
-    assert out["RELIANCE.NS"] == 2440.0
+    assert out == {}, "a stale close was substituted for a live price"
 
 
 def test_router_empty_input_returns_empty():
@@ -104,7 +109,7 @@ def test_router_handles_upstox_exception_per_ticker():
     with patch(
         "trading.quote_router.to_instrument_keys",
         return_value={"RELIANCE.NS": "NSE_EQ|INE002A01018"},
-    ), patch.object(client, "get_quote", side_effect=RuntimeError("network")), patch(
+    ), patch.object(client, "get_ltp", side_effect=RuntimeError("network")), patch(
         "trading.quote_router.fetch_quotes_yf"
     ) as mock_yf:
         mock_yf.return_value = {"RELIANCE.NS": 2440.0}
