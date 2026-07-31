@@ -191,7 +191,7 @@ def status(request: Request):
 
 
 @router.get("/upstox/price-check")
-def price_check(request: Request, tickers: str = "VSSL,ULTRACEMCO,TCS,RELIANCE"):
+def price_check(request: Request, tickers: str = ""):
     """Owner-facing proof of what the LIVE feed actually returns, right now.
 
     Built 2026-07-31 after the owner found the app showing prices that were not
@@ -209,9 +209,17 @@ def price_check(request: Request, tickers: str = "VSSL,ULTRACEMCO,TCS,RELIANCE")
     from datetime import datetime
     from trading.brokers.upstox_instruments import to_instrument_keys
 
-    syms = [s.strip().upper() for s in (tickers or "").split(",") if s.strip()]
+    # DEFAULT = the owner's whole book plus the four indices, so this proves
+    # EVERY held stock is priced, not a hand-picked sample (owner 2026-07-31:
+    # "hope not only 3 are updated, rest all stocks have real prices").
+    if tickers.strip():
+        syms = [s.strip().upper() for s in tickers.split(",") if s.strip()]
+    else:
+        from .. import state as _state
+        syms = sorted(_state.portfolio().positions.keys())
+        syms += ["^NSEI", "^BSESN", "^NSEBANK", "^INDIAVIX"]
     syms = [s if s.startswith("^") or s.endswith((".NS", ".BO")) else f"{s}.NS"
-            for s in syms][:25]
+            for s in syms][:120]
 
     client = _client_from_session(request)
     keymap = to_instrument_keys(syms)
@@ -235,8 +243,13 @@ def price_check(request: Request, tickers: str = "VSSL,ULTRACEMCO,TCS,RELIANCE")
                        "symbol not in instrument master" if not key else
                        "no price returned by Upstox"),
         })
+    n_live = sum(1 for r in rows if r["live_price"])
     return JSONResponse({
         "checked_at": datetime.utcnow().isoformat() + "Z",
+        "summary": (f"{n_live} of {len(rows)} symbols returned a LIVE price"
+                    if rows else "no symbols checked"),
+        "live": n_live,
+        "not_live": [r["ticker"] for r in rows if not r["live_price"]],
         "upstox_connected": client is not None,
         "endpoint": "GET /v2/market-quote/ltp?instrument_key=...",
         "batched_calls": 1 if rows else 0,
