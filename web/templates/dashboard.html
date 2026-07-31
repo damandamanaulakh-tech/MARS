@@ -27,24 +27,34 @@
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
   {% for ix in index_strip %}
   {% set good = (not ix.up) if ix.invert else ix.up %}
-  <div class="bg-white border border-line px-4 py-3">
+  <div class="bg-white border px-4 py-3 {% if ix.live %}border-line{% else %}border-amber-400 bg-amber-50/40{% endif %}">
     <div class="flex items-start justify-between gap-2">
       <div class="min-w-0">
         <div class="text-[10px] tracking-widest text-ink-faint uppercase whitespace-nowrap">{{ ix.label }}</div>
+        {% if ix.live %}
         <div class="text-xl lg:text-2xl font-black tabular-nums mt-0.5">{{ ix.last | inr(2) }}</div>
+        {% if ix.chg is not none %}
         <div class="text-xs font-semibold tabular-nums mt-0.5 {% if good %}text-emerald-700{% else %}text-red-700{% endif %}">
           {{ '%+.2f' % ix.chg }} ({{ '%+.2f' % ix.pct }}%)
         </div>
+        {% endif %}
+        {% else %}
+        <div class="text-xl lg:text-2xl font-black tabular-nums mt-0.5 text-ink-faint">—</div>
+        <div class="text-[11px] text-amber-800 font-semibold mt-0.5">no live quote</div>
+        {% endif %}
       </div>
+      {% if ix.points %}
       <svg viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"
-           class="w-20 h-8 shrink-0 mt-1">
+           class="w-20 h-8 shrink-0 mt-1 {% if not ix.live %}opacity-40{% endif %}">
         <polyline points="{{ ix.points }}" fill="none" stroke-width="1.6"
-                  stroke="{% if good %}#047857{% else %}#b91c1c{% endif %}"
+                  stroke="{% if ix.live %}{% if good %}#047857{% else %}#b91c1c{% endif %}{% else %}#9aa3ad{% endif %}"
                   vector-effect="non-scaling-stroke"/>
       </svg>
+      {% endif %}
     </div>
-    <div class="text-[10px] text-ink-faint mt-1.5 tabular-nums" title="stored index history — not a live tick">
-      60-session range {{ ix.low | inr(0) }}–{{ ix.high | inr(0) }} · stored to {{ ix.asof }}
+    <div class="text-[10px] mt-1.5 tabular-nums {% if ix.live %}text-ink-faint{% else %}text-amber-800{% endif %}">
+      {% if ix.live %}live · Upstox{% if ix.hist_asof %} · grey line = stored shape to {{ ix.hist_asof }}{% endif %}
+      {% else %}<a href="/upstox/login" class="underline font-semibold">Reconnect Upstox</a> for the live level{% endif %}
     </div>
   </div>
   {% endfor %}
