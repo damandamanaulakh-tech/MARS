@@ -38,6 +38,8 @@ log = logging.getLogger(__name__)
 AUTH_URL    = "https://api.upstox.com/v2/login/authorization/dialog"
 TOKEN_URL   = "https://api.upstox.com/v2/login/authorization/token"
 QUOTE_URL   = "https://api.upstox.com/v2/market-quote/quotes"
+LTP_URL     = "https://api.upstox.com/v2/market-quote/ltp"
+LTP_BATCH   = 250          # API allows up to 500 per call; stay well inside
 HIST_URL    = "https://api.upstox.com/v2/historical-candle"
 PROFILE_URL = "https://api.upstox.com/v2/user/profile"
 FUNDS_URL   = "https://api.upstox.com/v2/user/get-funds-and-margin"
@@ -259,27 +261,79 @@ class UpstoxClient:
             return None
 
     def get_quote(self, instrument_key: str) -> Optional[dict]:
-        """Real-time quote for one instrument.
+        """Full real-time quote for one instrument.
 
-        instrument_key format: 'NSE_EQ|INE002A01018' (segment|ISIN). For NSE
-        stocks the segment is always NSE_EQ. We resolve symbol -> ISIN via
-        the instrument master file (Phase 4 will cache this).
+        instrument_key format: 'NSE_EQ|INE002A01018' (segment|ISIN), or
+        'NSE_INDEX|Nifty 50' for indices.
 
-        For Phase 3 we accept the instrument key as-is.
+        FIXED 2026-07-31 — this sent params={"symbol": ...}. The Upstox v2
+        market-quote endpoints take **instrument_key**, so every request was
+        malformed and every quote silently failed, falling back to a yfinance
+        path that Render blocks. That is why the app never showed a live price.
         """
         try:
             r = httpx.get(
                 QUOTE_URL,
                 headers=self._auth_headers(),
-                params={"symbol": instrument_key},
+                params={"instrument_key": instrument_key},
                 timeout=10.0,
             )
             r.raise_for_status()
             data = r.json().get("data", {})
-            # Upstox returns {'NSE_EQ:RELIANCE': {...}}; flatten if single entry
+            # Response is keyed 'NSE_EQ:RELIANCE'; flatten a single entry.
             if isinstance(data, dict) and len(data) == 1:
                 return next(iter(data.values()))
             return data
         except (httpx.HTTPError, UpstoxAuthError) as e:
             log.warning("Upstox get_quote(%s) failed: %s", instrument_key, e)
             return None
+
+    def get_ltp(self, instrument_keys: list[str]) -> dict[str, float]:
+        """BATCHED last-traded prices: {instrument_key: price}.
+
+        One HTTP call per 250 instruments instead of one per stock — a 43-name
+        book was making 43 sequential requests, which is slow enough to time
+        out and look like "no live prices".
+
+        Results are mapped back by the response's `instrument_token` (which
+        echoes the key we sent) rather than by the response dict key, because
+        that key is 'SEGMENT:TRADINGSYMBOL' and does not match the input.
+        Partial success is honest success: whatever resolved is returned.
+        """
+        out: dict[str, float] = {}
+        keys = [k for k in (instrument_keys or []) if k]
+        for i in range(0, len(keys), LTP_BATCH):
+            chunk = keys[i:i + LTP_BATCH]
+            try:
+                r = httpx.get(
+                    LTP_URL,
+                    headers=self._auth_headers(),
+                    params={"instrument_key": ",".join(chunk)},
+                    timeout=15.0,
+                )
+                r.raise_for_status()
+                data = r.json().get("data") or {}
+            except (httpx.HTTPError, UpstoxAuthError, ValueError) as e:
+                log.warning("Upstox get_ltp batch of %d failed: %s", len(chunk), e)
+                continue
+            if not isinstance(data, dict):
+                continue
+            wanted = set(chunk)
+            for resp_key, row in data.items():
+                if not isinstance(row, dict):
+                    continue
+                px = row.get("last_price")
+                if px is None:
+                    continue
+                token = row.get("instrument_token")
+                if token in wanted:
+                    out[token] = float(px)
+                else:
+                    # Fall back to matching on the trading symbol in the
+                    # response key, e.g. 'NSE_EQ:RELIANCE'.
+                    sym = str(resp_key).split(":")[-1].strip().upper()
+                    for k in wanted:
+                        if k.split("|")[-1].strip().upper() == sym:
+                            out[k] = float(px)
+                            break
+        return out

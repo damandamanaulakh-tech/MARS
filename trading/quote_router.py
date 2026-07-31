@@ -35,31 +35,29 @@ def fetch_quotes(
     if upstox_client is None or not upstox_client.is_connected():
         return fetch_quotes_yf(tickers)
 
-    # Try Upstox first; collect any tickers it couldn't handle for yfinance fallback
+    # BATCHED (2026-07-31): one HTTP call per 250 instruments instead of one
+    # per stock. A 43-name book previously fired 43 sequential requests, slow
+    # enough to time out and look like "no live prices".
     keymap = to_instrument_keys(tickers)
     out: Dict[str, float] = {}
-    missing: list[str] = []
+    missing: list[str] = [t for t in tickers if t not in keymap]
+
+    keys = [keymap[t] for t in tickers if t in keymap]
+    prices_by_key: Dict[str, float] = {}
+    if keys:
+        try:
+            prices_by_key = upstox_client.get_ltp(keys) or {}
+        except Exception as e:  # noqa: BLE001
+            log.warning("Upstox batch LTP failed (%d keys): %s", len(keys), e)
 
     for ticker in tickers:
         ikey = keymap.get(ticker)
         if not ikey:
-            missing.append(ticker)
             continue
-        try:
-            q = upstox_client.get_quote(ikey)
-            if q is None:
-                missing.append(ticker)
-                continue
-            # Upstox payload commonly has 'last_price' or nested 'ohlc.close'
-            price = q.get("last_price")
-            if price is None and isinstance(q.get("ohlc"), dict):
-                price = q["ohlc"].get("close")
-            if price is None:
-                missing.append(ticker)
-                continue
-            out[ticker] = float(price)
-        except Exception as e:  # noqa: BLE001
-            log.warning("Upstox quote failed for %s: %s", ticker, e)
+        px = prices_by_key.get(ikey)
+        if px and px > 0:
+            out[ticker] = float(px)
+        else:
             missing.append(ticker)
 
     # Fallback for anything Upstox couldn't supply
