@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Form, Request
@@ -12,6 +13,7 @@ from ..templating import templates
 from trading.paper import PaperPosition
 
 
+log = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -28,7 +30,8 @@ _MODE_LABEL = {
 @router.get("/positions", response_class=HTMLResponse)
 def positions_view(
     request: Request, error: str | None = None, seeded: str | None = None,
-    removed: str | None = None,
+    removed: str | None = None, closed_all: str | None = None,
+    no_price: str | None = None,
 ):
     if not auth.current_user(request):
         return RedirectResponse("/login", status_code=303)
@@ -69,7 +72,12 @@ def positions_view(
             stop_price = pos.entry_price * (1 + cfg.stop_loss_pct)
         if target_price <= 0:
             target_price = pos.entry_price * (1 + cfg.take_profit_pct)
-        ltp = prices.get(pos.ticker) or pos.entry_price
+        # Per-row honesty (owner 2026-07-31): say whether THIS price is a live
+        # quote or the entry-price fallback. A page-level "quotes live" flag hid
+        # the fact that individual names could be showing their entry price.
+        _live_px = prices.get(pos.ticker)
+        ltp_is_live = bool(_live_px and _live_px > 0)
+        ltp = _live_px if ltp_is_live else pos.entry_price
         invested = pos.qty * pos.entry_price
         value = pos.qty * ltp
         pnl = value - invested
@@ -85,6 +93,7 @@ def positions_view(
             "entry_date": pos.entry_date.strftime("%Y-%m-%d"),
             "entry_price": pos.entry_price,
             "ltp": ltp,
+            "ltp_live": ltp_is_live,
             "value": value,
             "pnl": pnl,
             "pnl_pct": pnl_pct,
@@ -124,6 +133,9 @@ def positions_view(
             "error": error,
             "seeded": seeded,
             "removed": removed,
+            "closed_all": closed_all,
+            "no_price": no_price,
+            "quotes_age": state.marks_age(tickers),
             "seed_count": len(_SEED_JUNE_2026),
         },
     )
@@ -234,6 +246,116 @@ def remove_position(request: Request, ticker: str):
     })
     p.save()
     return RedirectResponse(f"/positions?removed={ticker}", status_code=303)
+
+
+@router.post("/positions/close-all")
+def close_all_positions(request: Request):
+    """Owner order 2026-07-31: "close all positions right away / put in the
+    closed trade".
+
+    Every position is SOLD at its LIVE price and lands in Closed Trades with
+    real P&L, costs and slippage — the engine's own exit path, so nothing is
+    special-cased. If a live price is missing for a name it is NOT closed at a
+    stale mark; it stays open and is reported. Closing at an invented price
+    would be exactly the fault the owner is angry about.
+    """
+    user = auth.current_user(request)
+    if not user or user.get("role") != "owner":
+        return RedirectResponse("/positions?error=owner_only", status_code=303)
+
+    p = state.portfolio()
+    eng = state.engine()
+    tickers = sorted(p.positions.keys())
+    if not tickers:
+        return RedirectResponse("/positions?error=nothing_to_close", status_code=303)
+
+    prices, live = state.marks(tickers)
+    closed, no_price = [], []
+    now = datetime.utcnow()
+    for t in tickers:
+        px = prices.get(t)
+        if not px or px <= 0:
+            no_price.append(t)          # never close at a stale/guessed price
+            continue
+        eng._close(t, float(px), "OWNER_CLOSE_ALL", now)
+        closed.append(t)
+
+    p.decision_journal.append({
+        "ts": now.isoformat(),
+        "action": "CLOSE_ALL",
+        "closed": len(closed),
+        "skipped_no_live_price": no_price,
+        "why": ("Owner order 2026-07-31: close all positions. Exits taken at "
+                "live prices; names without a live quote were left open "
+                "rather than closed at a stale mark."),
+        "cash_after": round(p.cash, 2),
+    })
+    p.save()
+    if no_price:
+        return RedirectResponse(
+            f"/positions?closed_all={len(closed)}&no_price={len(no_price)}",
+            status_code=303)
+    return RedirectResponse(f"/positions?closed_all={len(closed)}", status_code=303)
+
+
+@router.post("/positions/purge-universe")
+def purge_universe(request: Request):
+    """Owner order 2026-07-31: "remove all the old universe right away".
+
+    Drops every cached/stale universe artefact so nothing old can be scanned
+    or displayed again: the scan matrix, last picks/skips/opened, the virtual
+    shadow book, and the on-disk Upstox instrument cache. Then pulls a FRESH
+    universe from Upstox's public instrument file. Journaled, append-only —
+    trade history is untouched.
+    """
+    user = auth.current_user(request)
+    if not user or user.get("role") != "owner":
+        return RedirectResponse("/settings?saved=denied", status_code=303)
+
+    p = state.portfolio()
+    before = {
+        "scan_matrix_rows": len((p.scan_matrix or {}).get("rows") or {}),
+        "last_picks": len(p.last_scan_picks or []),
+        "virtual_book": len(p.virtual_book or {}),
+    }
+    p.scan_matrix = {}
+    p.last_scan_picks = []
+    p.last_scan_skipped = []
+    p.last_scan_opened = []
+    p.virtual_book = {}
+    p.last_scan = None
+
+    # blow away the cached instrument master so the refresh is genuinely fresh
+    refreshed: dict = {}
+    try:
+        from trading.brokers.upstox_instruments import CACHE_FILE, get_lookup
+        try:
+            CACHE_FILE.unlink()
+        except (OSError, FileNotFoundError):
+            pass
+        get_lookup(force_refresh=True)
+    except Exception as e:
+        log.warning("instrument cache purge failed: %s", e)
+    try:
+        from trading.universe_refresh import refresh_universe
+        refreshed = refresh_universe() or {}
+    except Exception as e:
+        log.warning("universe refresh after purge failed: %s", e)
+        refreshed = {"error": str(e)[:120]}
+
+    p.decision_journal.append({
+        "ts": datetime.utcnow().isoformat(),
+        "action": "UNIVERSE_PURGE",
+        "cleared": before,
+        "refreshed": {k: refreshed.get(k) for k in ("count", "file_date", "error")
+                      if k in refreshed},
+        "why": "Owner order 2026-07-31: remove all the old universe.",
+    })
+    p.save()
+    state.reload_config()
+    return RedirectResponse(
+        f"/settings?saved=universe_purged&n={refreshed.get('count', 0)}",
+        status_code=303)
 
 
 # Manual sector hints for tickers not in cfg.sector_map yet
