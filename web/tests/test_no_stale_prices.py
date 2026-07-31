@@ -181,3 +181,27 @@ def test_purge_universe_clears_every_cached_artefact():
 def test_purge_universe_is_owner_only():
     r = TestClient(app).post("/positions/purge-universe", follow_redirects=False)
     assert r.status_code == 303 and "denied" in r.headers["location"]
+
+
+def test_price_check_covers_the_whole_book_not_a_sample():
+    """Owner 2026-07-31: "hope not only 3 are updated, rest all stocks have
+    real prices". With no ?tickers= given it checks EVERY held position plus
+    the four indices, and summarises how many came back live."""
+    p = state.portfolio()
+    saved = dict(p.positions)
+    p.positions.clear()
+    for t in ("VSSL.NS", "ULTRACEMCO.NS", "TCS.NS"):
+        p.positions[t] = PaperPosition(
+            ticker=t, qty=1, entry_price=100.0, entry_date=datetime(2026, 7, 1),
+            sector="X", peak_price=100.0, entry_score=70.0, reasoning="t")
+    try:
+        d = _owner().get("/upstox/price-check").json()
+        checked = [r["ticker"] for r in d["results"]]
+        for t in ("VSSL.NS", "ULTRACEMCO.NS", "TCS.NS"):
+            assert t in checked, f"{t} not checked"
+        for ix in ("^NSEI", "^BSESN", "^NSEBANK", "^INDIAVIX"):
+            assert ix in checked, f"{ix} not checked"
+        assert "of 7 symbols" in d["summary"]
+        assert "not_live" in d and isinstance(d["not_live"], list)
+    finally:
+        p.positions = saved
