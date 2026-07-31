@@ -149,10 +149,27 @@ def to_instrument_key(yf_ticker: str) -> Optional[str]:
     return lookup.get(yf_ticker)
 
 
+# Indices are NOT in the NSE_EQ instrument file, so they never resolved and
+# every index quote silently fell through to the (Render-blocked) Yahoo path.
+# That is why the dashboard was showing stored history instead of live index
+# levels (owner caught it 2026-07-31). These keys are Upstox constants.
+INDEX_KEYS: dict[str, str] = {
+    "^NSEI": "NSE_INDEX|Nifty 50",
+    "^NSEBANK": "NSE_INDEX|Nifty Bank",
+    "^CNX200": "NSE_INDEX|Nifty 200",
+    "^INDIAVIX": "NSE_INDEX|India VIX",
+    "^BSESN": "BSE_INDEX|SENSEX",
+}
+
+
 def to_instrument_keys(yf_tickers: list[str]) -> dict[str, str]:
     """Batch convert. Returns {yf_ticker: instrument_key} for known tickers only."""
     lookup = get_lookup()
-    return {t: lookup[t] for t in yf_tickers if t in lookup}
+    out = {t: lookup[t] for t in yf_tickers if t in lookup}
+    for t in yf_tickers:                      # indices come from the constants
+        if t not in out and t in INDEX_KEYS:
+            out[t] = INDEX_KEYS[t]
+    return out
 
 
 def status() -> dict:

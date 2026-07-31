@@ -25,52 +25,105 @@ _DATA = Path(__file__).resolve().parents[1] / "data"
 _DOCS = Path(__file__).resolve().parents[1] / "docs"
 _INDEX_CSV = _DATA / "index_daily_15y.csv"
 
-# (label, close column, is_vix) — the strip every reference dashboard opens with
+# (label, stored close column, is_vix, live symbol)
 _INDICES = [
-    ("NIFTY 50", "nifty_close", False),
-    ("SENSEX", "sensex_close", False),
-    ("NIFTY BANK", "bank_nifty_close", False),
-    ("INDIA VIX", "india_vix_close", True),
+    ("NIFTY 50", "nifty_close", False, "^NSEI"),
+    ("SENSEX", "sensex_close", False, "^BSESN"),
+    ("NIFTY BANK", "bank_nifty_close", False, "^NSEBANK"),
+    ("INDIA VIX", "india_vix_close", True, "^INDIAVIX"),
 ]
 
 
 def index_strip(bars: int = 60) -> list[dict]:
-    """Index cards with sparkline + change, from the committed 15-year index
-    CSV. Zero network — so it is honest about being stored data, labelled with
-    its own as-of date rather than pretending to be live."""
+    """LIVE index cards (Upstox), with the stored series only as a background
+    sparkline.
+
+    Owner caught this on 2026-07-31: the strip was printing the committed
+    CSV's last close — 05 Jun 2026 — as though it were today's market
+    (Sensex 74,243 on screen while the real number was 78,196). A small
+    "stored to" caption does not undo a big wrong number at the top of a
+    live dashboard.
+
+    So the rule now: the headline number is LIVE or it is not shown. When
+    the live quote is missing the card renders `live=False` and the template
+    prints "—" plus a reconnect prompt. Stale closes are never dressed up as
+    current prices.
+    """
+    live: dict[str, float] = {}
+    prev_close: dict[str, float] = {}
+    try:
+        from trading.quote_router import fetch_quotes
+        from . import state
+        eng = state.engine()
+        broker = getattr(eng, "broker", None)
+        symbols = [sym for _l, _c, _v, sym in _INDICES]
+        if broker is not None and broker.is_connected():
+            from trading.brokers.upstox_instruments import INDEX_KEYS
+            for sym in symbols:
+                key = INDEX_KEYS.get(sym)
+                if not key:
+                    continue
+                q = broker.get_quote(key)
+                if not isinstance(q, dict):
+                    continue
+                lp = q.get("last_price")
+                ohlc = q.get("ohlc") if isinstance(q.get("ohlc"), dict) else {}
+                pc = ohlc.get("close")
+                if lp:
+                    live[sym] = float(lp)
+                if pc:
+                    prev_close[sym] = float(pc)
+        else:
+            live = {k: v for k, v in fetch_quotes(symbols).items() if v}
+    except Exception as e:                     # never take the page down
+        log.warning("index_strip live fetch failed: %s", e)
+
+    hist = {}
+    asof = None
     try:
         import pandas as pd
-        cols = ["trade_date"] + [c for _, c, _ in _INDICES]
+        cols = ["trade_date"] + [c for _l, c, _v, _s in _INDICES]
         df = pd.read_csv(_INDEX_CSV, usecols=cols, parse_dates=["trade_date"],
                          dayfirst=True).dropna(subset=["trade_date"])
         df = df.sort_values("trade_date").tail(bars + 1)
+        if not df.empty:
+            asof = df["trade_date"].iloc[-1]
+            hist = {c: df[c].dropna() for _l, c, _v, _s in _INDICES}
     except Exception as e:
-        log.warning("index_strip unavailable: %s", e)
-        return []
-    if df.empty:
-        return []
-    asof = df["trade_date"].iloc[-1]
+        log.warning("index_strip history unavailable: %s", e)
+
     out = []
-    for label, col, is_vix in _INDICES:
-        s = df[col].dropna()
-        if len(s) < 2:
-            continue
-        last, prev = float(s.iloc[-1]), float(s.iloc[-2])
-        chg = last - prev
-        pct = (chg / prev * 100) if prev else 0.0
-        vals = [round(float(v), 2) for v in s.tail(bars)]
-        lo, hi = min(vals), max(vals)
-        rng = (hi - lo) or 1.0
-        # sparkline as a normalised polyline (0..100 x, 0..30 y, y flipped)
-        n = len(vals)
-        pts = " ".join(
-            f"{i / max(n - 1, 1) * 100:.1f},{30 - (v - lo) / rng * 30:.1f}"
-            for i, v in enumerate(vals))
+    for label, col, is_vix, sym in _INDICES:
+        s = hist.get(col)
+        last = live.get(sym)
+        is_live = last is not None
+        # The day change is shown ONLY against a real previous close from the
+        # live feed. Differencing a live price against a two-month-old stored
+        # close produces a nonsense "day move" (+4.4% etc.) — the same class of
+        # error the owner caught. No true previous close => no change shown.
+        prev = prev_close.get(sym)
+        chg = (last - prev) if (is_live and prev) else None
+        pct = (chg / prev * 100) if (chg is not None and prev) else None
+
+        pts, lo, hi = "", None, None
+        if s is not None and len(s) >= 2:
+            vals = [round(float(v), 2) for v in s.tail(bars)]
+            lo, hi = min(vals), max(vals)
+            rng = (hi - lo) or 1.0
+            n = len(vals)
+            pts = " ".join(
+                f"{i / max(n - 1, 1) * 100:.1f},{30 - (v - lo) / rng * 30:.1f}"
+                for i, v in enumerate(vals))
+
         out.append({
-            "label": label, "last": last, "chg": chg, "pct": round(pct, 2),
-            "up": chg >= 0, "invert": is_vix,       # VIX up = risk up = red
+            "label": label,
+            "live": is_live,
+            "last": last,                       # None => template shows "—"
+            "chg": chg, "pct": round(pct, 2) if pct is not None else None,
+            "up": bool(chg is not None and chg >= 0),
+            "invert": is_vix,                   # VIX up = risk up = red
             "points": pts, "high": hi, "low": lo,
-            "asof": asof.strftime("%d %b %Y"),
+            "hist_asof": asof.strftime("%d %b %Y") if asof is not None else None,
         })
     return out
 
@@ -255,13 +308,19 @@ def atr_panel(tickers: list[str], limit: int = 4) -> list[dict]:
             continue
         a = _atr(df)
         try:
-            last = float(df["Close"].dropna().iloc[-1])
+            closes = df["Close"].dropna()
+            last = float(closes.iloc[-1])
+            bar_date = closes.index[-1]
         except Exception:
             continue
         if a <= 0 or last <= 0:
             continue
         out.append({
             "ticker": t,
+            # This is the last STORED close, not a live tick. It is dated on
+            # screen — the 2026-07-31 index-strip lesson: an undated price
+            # beside live-looking levels reads as current.
+            "asof": bar_date.strftime("%d %b") if hasattr(bar_date, "strftime") else "",
             "last": round(last, 2),
             "atr": round(a, 2),
             "atr_pct": round(a / last * 100, 2),

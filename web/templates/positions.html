@@ -93,9 +93,28 @@
 
 {% if rows and not quotes_live %}
 <div class="bg-amber-50 border border-amber-300 text-amber-900 p-3 mb-4 text-sm">
-  ⚠ Live quotes unavailable — showing <strong>entry prices</strong> as current.
+  ⚠ Live quotes unavailable — prices marked <strong>ENTRY</strong> below are entry prices, not the market.
   Connect <strong>Upstox</strong> (Settings) for live prices; the token expires 03:30 IST daily.
 </div>
+{% endif %}
+{% if closed_all %}
+<div class="bg-emerald-50 border border-emerald-300 text-emerald-900 p-3 mb-4 text-sm">
+  ✅ Closed <strong>{{ closed_all }}</strong> position(s) at live prices — they are now in
+  <a href="/trades" class="underline font-semibold">Closed Trades</a> with real P&amp;L.
+  {% if no_price %}<br>⚠ <strong>{{ no_price }}</strong> left OPEN because no live quote was
+  available — they were not closed at a stale price. Reconnect Upstox and run it again.{% endif %}
+</div>
+{% endif %}
+
+{% if rows and user and user.role == 'owner' %}
+<form method="post" action="/positions/close-all" class="mb-4"
+      onsubmit="return confirm('Close ALL {{ rows | length }} positions at live prices and move them to Closed Trades? This cannot be undone.');">
+  <button class="px-4 py-2.5 bg-red-700 text-white text-sm font-bold tracking-wide hover:bg-red-800">
+    ⏹ CLOSE ALL POSITIONS (live prices)
+  </button>
+  <span class="ml-3 text-xs text-ink-faint">Sells every holding at its live price into Closed Trades.
+    Any name without a live quote is left open rather than closed at a stale mark.</span>
+</form>
 {% endif %}
 
 {% if rows %}
@@ -122,7 +141,10 @@
           {% if r.decay_watch %}<span class="ml-1 text-[10px] text-amber-700 font-bold" title="Score {{ r.current_score | round(0) }} near decay-exit floor {{ r.decay_floor | round(0) }} — may be sold on decay">⚠ DECAY</span>{% endif %}</td>
         <td class="px-3 lg:px-4 py-4 tabular-nums text-right whitespace-nowrap">{{ r.qty }}</td>
         <td class="px-3 lg:px-4 py-4 tabular-nums text-right whitespace-nowrap">₹{{ r.entry_price | inr(2) }}</td>
-        <td class="px-3 lg:px-4 py-4 tabular-nums text-right font-semibold whitespace-nowrap">₹{{ r.ltp | inr(2) }}</td>
+        <td class="px-3 lg:px-4 py-4 tabular-nums text-right font-semibold whitespace-nowrap">
+          {% if r.ltp_live %}₹{{ r.ltp | inr(2) }}
+          {% else %}<span class="text-amber-700" title="no live quote for this stock — this is its ENTRY price, not the market">₹{{ r.ltp | inr(2) }} <span class="text-[10px] uppercase tracking-wide">entry</span></span>{% endif %}
+        </td>
         <td class="px-3 lg:px-4 py-4 tabular-nums text-right whitespace-nowrap">₹{{ r.value | inr }}</td>
         <td class="px-3 lg:px-4 py-4 tabular-nums text-right font-semibold whitespace-nowrap {% if r.pnl >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}">
           {{ '+' if r.pnl >= 0 }}₹{{ r.pnl | inr }}<div class="text-xs font-normal">{{ '%+.2f' % r.pnl_pct }}%</div>

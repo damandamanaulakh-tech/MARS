@@ -21,17 +21,63 @@ def _owner() -> TestClient:
 
 # ---- index strip ---------------------------------------------------------
 
-def test_index_strip_reads_the_committed_index_history():
-    strip = mp.index_strip(bars=40)
-    labels = [r["label"] for r in strip]
-    assert labels == ["NIFTY 50", "SENSEX", "NIFTY BANK", "INDIA VIX"]
+def test_index_strip_never_shows_a_stale_price_as_live():
+    """Owner caught this 2026-07-31: the strip printed the committed CSV's
+    05-Jun close as if it were today's market (Sensex 74,243 on screen while
+    the real level was 78,196). A "stored to" caption does not undo a wrong
+    big number. Rule now: the headline is LIVE or it is a dash."""
+    with patch("trading.quote_router.fetch_quotes", return_value={}):
+        strip = mp.index_strip()
+    assert [r["label"] for r in strip] == \
+        ["NIFTY 50", "SENSEX", "NIFTY BANK", "INDIA VIX"]
     for r in strip:
-        assert r["last"] > 0
-        assert len(r["points"].split()) == 40        # one sparkline point/bar
-        assert r["low"] <= r["last"] <= r["high"]
-        assert r["asof"]                              # dated, never "live"
-    # VIX is the one card where UP is BAD — must be flagged for the template
-    assert [r["invert"] for r in strip] == [False, False, False, True]
+        assert r["live"] is False
+        assert r["last"] is None, "a stale close leaked into the headline"
+        assert r["chg"] is None
+
+
+def test_index_strip_shows_live_levels_when_the_feed_works():
+    real = {"^NSEI": 24400.0, "^BSESN": 78196.0,
+            "^NSEBANK": 57000.0, "^INDIAVIX": 12.4}
+    with patch("trading.quote_router.fetch_quotes", return_value=real), \
+         patch("web.state.engine", return_value=type("E", (), {"broker": None})()):
+        strip = mp.index_strip()
+    got = {r["label"]: r["last"] for r in strip}
+    assert got["SENSEX"] == 78196.0 and got["NIFTY 50"] == 24400.0
+    assert all(r["live"] for r in strip)
+
+
+def test_day_change_is_never_computed_against_a_stored_close():
+    """A live price minus a two-month-old close is not a day move. Without a
+    real previous close from the feed, no change is shown at all."""
+    real = {"^NSEI": 24400.0}
+    with patch("trading.quote_router.fetch_quotes", return_value=real), \
+         patch("web.state.engine", return_value=type("E", (), {"broker": None})()):
+        strip = mp.index_strip()
+    nifty = next(r for r in strip if r["label"] == "NIFTY 50")
+    assert nifty["live"] is True and nifty["last"] == 24400.0
+    assert nifty["chg"] is None and nifty["pct"] is None
+
+
+def test_index_symbols_resolve_to_upstox_instrument_keys():
+    """The root cause: indices are not in the NSE_EQ instrument file, so they
+    never resolved and every index quote fell through to the Render-blocked
+    Yahoo path."""
+    from trading.brokers.upstox_instruments import INDEX_KEYS, to_instrument_keys
+    for sym in ("^NSEI", "^BSESN", "^NSEBANK", "^INDIAVIX", "^CNX200"):
+        assert sym in INDEX_KEYS
+    keys = to_instrument_keys(["^NSEI", "^BSESN"])
+    assert keys["^NSEI"] == "NSE_INDEX|Nifty 50"
+    assert keys["^BSESN"] == "BSE_INDEX|SENSEX"
+
+
+def test_dashboard_prints_a_dash_and_a_reconnect_link_when_offline():
+    with patch("trading.quote_router.fetch_quotes", return_value={}), \
+         patch("web.db.is_connected", return_value=False):
+        page = _owner().get("/").text
+    assert "no live quote" in page
+    assert "Reconnect Upstox" in page
+    assert "74,243" not in page and "23,366" not in page   # the stale levels
 
 
 # ---- breadth -------------------------------------------------------------
@@ -128,7 +174,7 @@ def test_dashboard_renders_the_always_available_panels():
     so they must render on a brand-new book (CI starts with an empty one)."""
     with patch("web.db.is_connected", return_value=False):
         page = _owner().get("/").text
-    for needle in ("NIFTY 50", "INDIA VIX", "stored to",      # index strip
+    for needle in ("NIFTY 50", "INDIA VIX",                    # index strip
                    "s Coming",                                 # What's Coming
                    "Trade Horizons", "Walk-Forward Evidence"):
         assert needle in page, needle
@@ -163,3 +209,26 @@ def test_a_broken_panel_cannot_take_the_dashboard_down():
     assert "NIFTY 50" not in r.text              # the broken panel is gone...
     assert "Trade Horizons" in r.text            # ...the others still render
     assert dash._panel(lambda: 1 / 0) is None
+
+
+# ---- the 2026-07-31 lesson, applied everywhere ------------------------
+
+def test_every_stored_price_on_the_page_is_dated():
+    """Owner 2026-07-31: an undated stored number beside live-looking data
+    reads as current. Any surface showing a stored close must date it."""
+    with patch("web.db.is_connected", return_value=False):
+        rows = mp.atr_panel(["RELIANCE.NS"])
+    assert rows and rows[0]["asof"], "ATR panel must date its stored close"
+
+
+def test_lens_dates_the_history_its_numbers_come_from():
+    from unittest.mock import patch as _p
+    from web import auth as _a
+    from fastapi.testclient import TestClient
+    from web.main import app
+    c = TestClient(app)
+    c.post("/login", data={"email": "owner@sourceborn.in",
+                           "password": _a._SEEDED_PWD})
+    with _p("web.db.is_connected", return_value=False):
+        page = c.get("/lens?ticker=RELIANCE").text
+    assert "stored daily bars to" in page, "lens must date its stored inputs"

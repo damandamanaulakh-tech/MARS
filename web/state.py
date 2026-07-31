@@ -235,46 +235,84 @@ def refresh_broker_attachment() -> None:
             trading_data.set_history_broker(None)
 
 
-_MARKS_CACHE: dict = {"ts": 0.0, "prices": {}}
+# {ticker: (price, fetched_at_epoch)} — per-ticker timestamps, because a
+# single cache-wide timestamp let dead prices masquerade as live (see below).
+_MARKS_CACHE: dict = {"prices": {}}
+MARKS_MAX_AGE_SEC = 120.0        # older than this is NOT a live price
 
 
-def marks(tickers: list[str]) -> tuple[dict, bool]:
-    """Latest prices for tickers with a 60s in-process cache.
+def marks(tickers: list[str], max_age: float = MARKS_MAX_AGE_SEC
+          ) -> tuple[dict, bool]:
+    """Latest prices for tickers. Returns (prices, live).
 
-    Returns (prices, live). Upstox-first via quote_router when the broker
-    is attached; on total failure returns ({}, False) and callers fall
-    back to entry-price marks."""
+    FIXED 2026-07-31 — the owner caught the app showing TCS at a price that
+    was not the market. The old cache kept one shared timestamp and, when a
+    quote fetch FAILED, still returned every previously-cached price and
+    reported live=True. A quote pulled hours (or a session) earlier was
+    therefore displayed as real-time. That is how a wrong price reached the
+    screen while the header claimed "Upstox real-time".
+
+    Now: every price carries its own fetch time, anything older than
+    `max_age` is DISCARDED rather than served, and `live` is True only for
+    prices actually fresh. Callers fall back to entry marks — clearly
+    labelled — instead of trusting a corpse.
+    """
     import time
     if not tickers:
         return {}, False
     now = time.time()
-    stale = (now - _MARKS_CACHE["ts"]) > 60
-    missing = [t for t in tickers if t not in _MARKS_CACHE["prices"]]
-    if stale or missing:
+    cache: dict = _MARKS_CACHE["prices"]
+
+    # Drop anything past its age, everywhere — a stale entry must never be
+    # reachable, not even for a ticker we are not asking about right now.
+    for t in [k for k, (_p, ts) in cache.items() if now - ts > max_age]:
+        cache.pop(t, None)
+
+    need = [t for t in tickers if t not in cache]
+    if need:
         try:
             from trading.quote_router import fetch_quotes as _rq
-            got = _rq(tickers, upstox_client=engine().broker)
-            if got:
-                _MARKS_CACHE["prices"].update(got)
-                _MARKS_CACHE["ts"] = now
+            got = _rq(need, upstox_client=engine().broker)
+            for t, px in (got or {}).items():
+                if px and px > 0:
+                    cache[t] = (float(px), now)
         except Exception:
             pass
-    out = {t: _MARKS_CACHE["prices"][t] for t in tickers if t in _MARKS_CACHE["prices"]}
+
+    out = {t: cache[t][0] for t in tickers if t in cache}
     return out, bool(out)
 
 
-_CANDLE_CACHE: dict = {"ts": 0.0, "data": {}}
+def marks_age(tickers: list[str]) -> float | None:
+    """Seconds since the OLDEST live price among `tickers` was fetched.
+    None when nothing live is cached. Lets the UI state the age instead of
+    implying freshness."""
+    import time
+    cache = _MARKS_CACHE["prices"]
+    ages = [time.time() - ts for t, (_p, ts) in cache.items() if t in set(tickers)]
+    return max(ages) if ages else None
+
+
+# {key: (rows, fetched_at)} — per-key timestamps. A single shared timestamp
+# had the same defect as the old marks cache: any later fetch refreshed the
+# clock for EVERY entry, so old candles kept looking fresh indefinitely.
+_CANDLE_CACHE: dict = {"data": {}}
+_CANDLE_TTL = 600.0
 
 
 def recent_candles(ticker: str = "^NSEI", bars: int = 40) -> list[dict]:
     """F17: last `bars` daily OHLC for a candle chart. 10-min cached, Upstox-
-    first via the history router. Returns [] if no data (chart hides itself)."""
+    first via the history router. Returns [] if no data (chart hides itself).
+
+    A FAILED fetch is never cached (2026-07-31): caching the empty result
+    blanked the chart for the full TTL after one transient error, and made a
+    failure indistinguishable from "this stock genuinely has no data"."""
     import time
     now = time.time()
     key = f"{ticker}:{bars}"
-    cached = _CANDLE_CACHE["data"].get(key)
-    if cached is not None and (now - _CANDLE_CACHE["ts"]) < 600:
-        return cached
+    hit = _CANDLE_CACHE["data"].get(key)
+    if hit is not None and (now - hit[1]) < _CANDLE_TTL:
+        return hit[0]
     out: list[dict] = []
     try:
         from trading import data as _data
@@ -291,8 +329,8 @@ def recent_candles(ticker: str = "^NSEI", bars: int = 40) -> list[dict]:
                 })
     except Exception:
         pass
-    _CANDLE_CACHE["data"][key] = out
-    _CANDLE_CACHE["ts"] = now
+    if out:                     # only cache a real result, never a failure
+        _CANDLE_CACHE["data"][key] = (out, now)
     return out
 
 
