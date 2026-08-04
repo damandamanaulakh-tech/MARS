@@ -31,7 +31,7 @@ _MODE_LABEL = {
 def positions_view(
     request: Request, error: str | None = None, seeded: str | None = None,
     removed: str | None = None, closed_all: str | None = None,
-    no_price: str | None = None,
+    no_price: str | None = None, sold: str | None = None,
 ):
     if not auth.current_user(request):
         return RedirectResponse("/login", status_code=303)
@@ -133,6 +133,7 @@ def positions_view(
             "error": error,
             "seeded": seeded,
             "removed": removed,
+            "sold": sold,
             "closed_all": closed_all,
             "no_price": no_price,
             "quotes_age": state.marks_age(tickers),
@@ -221,31 +222,76 @@ def update_notes(
     return RedirectResponse("/positions", status_code=303)
 
 
-@router.post("/positions/{ticker}/remove")
-def remove_position(request: Request, ticker: str):
-    """Owner-only: drop a position from the book and refund its entry cash.
-    The removal is journaled (append-only) — history is never deleted."""
+@router.post("/positions/{ticker}/sell")
+async def sell_position(request: Request, ticker: str):
+    """Owner-only: SELL this position. It lands in Closed Trades with real P&L.
+
+    Replaces the old ✕ (owner 2026-08-04: "i just did exist from divilabs, it
+    just vanished, why not going to closed trade, or instead of coss give sell
+    option so it go to closed trade"). ✕ called remove_position(), which POPPED
+    the position and refunded its ENTRY cash — no closed trade, no P&L, no exit
+    price. The trade disappeared from the owner's record entirely. That was
+    data loss dressed up as a button.
+
+    Price: the live quote if we have one, else whatever price the owner types.
+    An exit is NEVER blocked for want of a quote — the owner can always name
+    their own fill. Which of the two was used is journaled, so the record says
+    where the number came from.
+    """
     user = auth.current_user(request)
     if not user or user.get("role") != "owner":
         return RedirectResponse("/positions?error=owner_only", status_code=303)
     p = state.portfolio()
-    pos = p.positions.pop(ticker, None)
-    if pos is None:
+    if ticker not in p.positions:
         return RedirectResponse("/positions?error=not_found", status_code=303)
-    refund = pos.qty * pos.entry_price
-    p.cash += refund
+
+    form = await request.form()
+    typed = (form.get("price") or "").strip()
+    price, source = None, ""
+    if typed:
+        try:
+            price = float(typed)
+            source = "owner_typed"
+        except ValueError:
+            return RedirectResponse(f"/positions?error=bad_price&t={ticker}",
+                                    status_code=303)
+    if price is None:
+        prices, live = state.marks([ticker])
+        px = prices.get(ticker)
+        if px and px > 0 and live:
+            price, source = float(px), "live_quote"
+    if not price or price <= 0:
+        # Not a refusal — the owner just has to name the fill, because no live
+        # quote exists and this app does not invent one.
+        return RedirectResponse(f"/positions?error=need_price&t={ticker}",
+                                status_code=303)
+
+    now = datetime.utcnow()
+    eng = state.engine()
+    eng._close(ticker, float(price), "OWNER_SELL", now)
     p.decision_journal.append({
-        "ts": datetime.utcnow().isoformat(),
-        "action": "REMOVE",
+        "ts": now.isoformat(),
+        "action": "OWNER_SELL",
         "ticker": ticker,
-        "qty": pos.qty,
-        "entry_price": round(pos.entry_price, 2),
-        "refunded": round(refund, 2),
-        "why": "Manually removed from book by owner.",
+        "price": round(float(price), 2),
+        "price_source": source,
+        "why": (f"Owner sold {ticker} at ₹{price:,.2f} "
+                f"({'live quote' if source == 'live_quote' else 'price entered by owner'})."
+                " Booked to Closed Trades with real P&L."),
         "cash_after": round(p.cash, 2),
     })
     p.save()
-    return RedirectResponse(f"/positions?removed={ticker}", status_code=303)
+    return RedirectResponse(f"/positions?sold={ticker}", status_code=303)
+
+
+@router.post("/positions/{ticker}/remove")
+def remove_position(request: Request, ticker: str):
+    """LEGACY, no longer reachable from the UI — kept only so an old bookmarked
+    form cannot 404. It now redirects to the sell flow instead of silently
+    deleting a trade: dropping a position without booking it destroyed the
+    owner's record (DIVISLAB, 2026-08-04)."""
+    return RedirectResponse(f"/positions?error=use_sell&t={ticker}",
+                            status_code=303)
 
 
 @router.post("/positions/close-all")

@@ -208,7 +208,20 @@ def rotating_bucket(tickers: list[str], size: int, day_index: int) -> list[str]:
     """F8: deterministic ~`size`/day rotating slice so a big universe is fully
     covered over ceil(len/size) days, repeating on a fixed cycle. day_index is
     a caller-supplied integer (e.g. date.toordinal()) so it's reproducible and
-    backtestable — no Math.random / Date.now in the engine."""
+    backtestable — no Math.random / Date.now in the engine.
+
+    FIXED 2026-08-04 (owner: "ur new universe is alphbet wise"). This used to
+    take a CONTIGUOUS slice `tickers[start:start+size]` of a list that
+    universe_refresh sorts ALPHABETICALLY. So every single day's scan was one
+    alphabet block — day 1 was 20MICRONS..ASHOKLEY, and the Z names waited
+    ~48 days. Worse, alphabet blocks cluster by group name (all the ADANI /
+    BAJAJ / TATA names land together), so a day's candidates were accidentally
+    concentrated instead of spread across the market.
+
+    A STRIDE fixes it with no loss of the properties that matter: `tickers[b::k]`
+    is still deterministic, still reproducible from day_index alone, and still
+    covers the whole universe over the same cycle — but each day's sample is
+    spread across the entire alphabet, so every scan sees the real market."""
     n = len(tickers)
     if n == 0 or size <= 0:
         return []
@@ -216,8 +229,7 @@ def rotating_bucket(tickers: list[str], size: int, day_index: int) -> list[str]:
         return list(tickers)
     n_buckets = (n + size - 1) // size
     b = day_index % n_buckets
-    start = b * size
-    return tickers[start:start + size]
+    return tickers[b::n_buckets]
 
 
 def get_nifty_200_universe():

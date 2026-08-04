@@ -27,6 +27,7 @@ def _close(n=300, daily=0.0, vol=0.01):
 
 
 def _cfg(**kw):
+    kw.setdefault("sizing_mode", "half_kelly")   # the maths under test
     c = Config(state_dir="/tmp/kelly_tests", **kw)
     c.apply_mode_preset()
     return c
@@ -34,13 +35,24 @@ def _cfg(**kw):
 
 # ---- the config the owner chose ----------------------------------------
 
-def test_live_config_is_half_kelly():
+def test_live_config_is_fixed_at_the_owners_number():
+    """REVERTED 2026-08-04 (owner: "still u r making 30000 positions"). Kelly
+    sizes Rs 20k-60k just above the 62 floor; the owner had ordered a FIXED
+    Rs 1.25 lakh per trade and their number wins. Kelly stays selectable and
+    its maths stays tested below."""
+    cfg = _cfg(sizing_mode=Config.sizing_mode)     # the real shipped default
+    assert cfg.sizing_mode == "fixed"
+    assert cfg.position_size_value == 125_000.0
+    n, diag = position_notional_for(cfg, 50_00_000.0, score=65.0, close=_close())
+    assert n == 125_000.0                     # not Kelly's Rs 62k
+    assert diag["mode"] == "fixed"
+
+
+def test_the_kelly_knobs_keep_their_owner_approved_values():
     cfg = _cfg()
-    assert cfg.sizing_mode == "half_kelly"
     assert cfg.kelly_fraction == 0.5          # 75% of max growth, 12.5% ruin
     assert cfg.kelly_ic == 0.05               # the assumption, named
     assert cfg.kelly_max_pct == 0.05          # hard ceiling per name
-    assert cfg.position_size_value == 125_000.0   # kept for the fixed fallback
 
 
 # ---- the maths ---------------------------------------------------------

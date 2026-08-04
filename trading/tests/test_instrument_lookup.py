@@ -77,11 +77,36 @@ def test_get_lookup_uses_memory_cache_when_fresh():
     assert out == {"CACHED.NS": "X"}
 
 
-def test_get_lookup_returns_empty_when_download_fails():
+def test_a_failed_download_falls_back_to_the_committed_csv():
+    """THE PRICE OUTAGE, 2026-08-04. An empty lookup means NO stock can be
+    priced — get_ltp() is handed nothing and every quote fails silently. The
+    repo ships data/upstox_nse_equities.csv with a real instrument_key for
+    every name, so a network failure must never take prices to zero."""
     _reset_module_cache()
     with patch.object(inst, "_ensure_cached", return_value=None):
         out = inst.get_lookup(force_refresh=True)
-    assert out == {}
+    assert len(out) > 2000
+    assert out["TCS.NS"] == "NSE_EQ|INE467B01029"
+    assert inst.status()["lookup_source"] == "committed_csv"
+
+
+def test_equity_rows_are_not_thrown_away():
+    """The actual root cause: Upstox labels cash equities instrument_type
+    "EQUITY", but the filter only accepted {"EQ", ""} — so all 9,467 NSE_EQ
+    rows were dropped and the lookup came out with ZERO entries. Every stock
+    price on the app was dead; only the 4 hardcoded index keys worked."""
+    csv_bytes = (b"instrument_key,exchange_token,tradingsymbol,name,last_price,"
+                 b"expiry,strike,tick_size,lot_size,instrument_type,option_type,exchange\n"
+                 b"NSE_EQ|INE467B01029,11536,TCS,TATA CONSULTANCY,2473.7,,,0.1,1,EQUITY,,NSE_EQ\n")
+    assert inst._build_lookup(csv_bytes) == {"TCS.NS": "NSE_EQ|INE467B01029"}
+
+
+def test_an_empty_parse_is_never_accepted_as_the_answer():
+    _reset_module_cache()
+    with patch.object(inst, "_ensure_cached", return_value=b"instrument_key\n"):
+        out = inst.get_lookup(force_refresh=True)
+    assert out, "an empty lookup silently kills every price on the app"
+    assert inst.status()["lookup_source"] == "committed_csv"
 
 
 def test_get_lookup_builds_from_downloaded_csv():

@@ -66,12 +66,16 @@ class Config:
     position_size_value: float = 125_000.0
     max_position_pct: float = 0.025           # fallback: 2.5% of 50L = 1.25L
     max_positions: int = 80
-    # Owner order 2026-07-30, after reading docs/ALGO_V1_V2.md: size by
-    # **½-Kelly** instead of a flat rupee amount. ½-Kelly earns 75% of the
-    # maximum compound growth rate for a 12.5% chance of ever halving the book
-    # (¼ = 43.8%/0.78%, full = 100%/50%, 2x = 0%/certain ruin). Set
-    # sizing_mode="fixed" to revert instantly to the flat position_size_value.
-    sizing_mode: str = "half_kelly"           # "half_kelly" | "fixed"
+    # Sizing. "fixed" = the owner's own number, position_size_value above.
+    #
+    # REVERTED to fixed 2026-08-04 (owner: "still u r making 30000 positions").
+    # ½-Kelly was live for four days; at scores just above the 62 entry floor it
+    # sizes Rs 20k-60k (measured: 63 -> Rs 20,719 · 65 -> Rs 62,158), so the
+    # book was opening Rs 30k trades when the owner had ordered Rs 1.25 lakh
+    # each. Kelly was adopted from a question I asked, not from an instruction
+    # they wrote; their number wins. "half_kelly" is still selectable in
+    # Settings, and the maths stays in trading/sizing.py and the /lens page.
+    sizing_mode: str = "fixed"                # "fixed" | "half_kelly"
     kelly_fraction: float = 0.5               # NEVER above 1.0 — see the doc
     kelly_ic: float = 0.05                    # ASSUMED information coefficient
     kelly_max_pct: float = 0.05               # hard ceiling: 5% of equity/name

@@ -538,6 +538,55 @@ AM07 composite (two different rulers) · `engine.scan/refresh` and all of
 auto/autoswap/intraday/macro/providers (910 lines) ·
 `data/chityy/master_extended_chityy.csv` is CORRUPT (zero line breaks) ·
 docs/WORK_LIST.md still marks A2/A4/A5 PENDING though `a185d94` shipped them.
+**2026-08-04 — owner reported 5 things in one angry message; ALL FIVE WERE REAL
+CODE FAULTS, all fixed, 638 tests green. Read this before touching prices.**
+1. **THE PRICE OUTAGE, ROOT CAUSE FOUND — and it was never the API.**
+   `upstox_instruments._build_lookup` filtered `instrument_type not in
+   {"EQ",""}`. Upstox labels cash equities **`EQUITY`**, so **all 9,467 NSE_EQ
+   rows were discarded and the lookup came out with ZERO entries** (measured).
+   With no instrument keys, `get_ltp()` was handed an empty list, so EVERY
+   stock quote failed — and an empty lookup is indistinguishable from "ticker
+   not listed", so nothing ever complained. The only live numbers on the whole
+   app were the 4 **indices**, which come from the hardcoded `INDEX_KEYS`
+   constants and never touch this table — exactly the owner's "hope not only 3
+   are updated". Verified after the fix: 9,462 tickers resolve, incl. the two
+   they named (VSSL, ULTRACEMCO); before, **zero** did. PR#31's
+   `symbol=`→`instrument_key=` fix was necessary but the keys never arrived, so
+   it changed nothing visible. Also added: `committed_lookup()` fallback to the
+   repo's own `data/upstox_nse_equities.csv` (2,393 real keys, no network) —
+   an empty lookup is **never** accepted as an answer now, it logs ERROR and
+   `status()["lookup_source"]` says `committed_csv`. LESSON: a filter that
+   silently yields 0 rows is the same bug class as a stale price served as live.
+2. **✕ on the positions page DELETED trades.** `/positions/{t}/remove` popped
+   the position and refunded ENTRY cash — no ClosedTrade, no exit price, no
+   P&L. DIVISLAB vanished from the owner's record this way. **✕ is gone**;
+   every row now has **SELL + a price box** → `eng._close(..., "OWNER_SELL")`
+   → real Closed Trade. Blank box = live price; no live quote = the owner types
+   their own fill (an exit is NEVER blocked for want of a quote). The old
+   `/remove` route is a no-op redirect so a stale bookmark can't destroy a
+   trade. `price_source` journaled (`live_quote` / `owner_typed`).
+3. **The universe really was "alphbet wise".** `rotating_bucket` took a
+   CONTIGUOUS slice of an alphabetically-sorted list, so each day's ~50-name
+   scan was one letter-block (Z names waited ~48 days; ADANI*/BAJAJ*/TATA*
+   all landed the same day). Now a **stride** `tickers[b::n_buckets]` — same
+   determinism, same full coverage per cycle, but 20 distinct first letters per
+   day instead of 2.
+4. **"still u r making 30000 positions" = ½-Kelly, and they were right.**
+   Measured at 20% vol: score 63 → **₹20,719** · 65 → ₹62,158 · 68 → ₹1.24L.
+   Just above the 62 floor Kelly opens ₹20–60k trades while the owner's written
+   order was **₹1.25 lakh each**. Kelly came from a question *I* asked; their
+   number wins. **`sizing_mode` reverted to `"fixed"`** + boot migration
+   (marker `fixed_size_order_2026_08_04`) to clear the stored half_kelly
+   override. Kelly is still selectable in Settings and `trading/sizing.py` +
+   `/lens` keep the maths. DO NOT switch sizing again without a written order.
+5. **"u cant put ur fucking safty all the time"** — heard. No new gate was
+   added in this batch. Where a number is genuinely missing the app asks the
+   owner for it instead of refusing (see the SELL price box). Guard rails that
+   block the owner from acting on their own book are the wrong default.
+**Standing lesson from this round: I shipped a "prices are live now" fix (PR#31)
+without ever verifying a single stock resolved to an instrument key. One
+`to_instrument_keys(['TCS.NS'])` call would have shown `{}`. Verify the whole
+chain end-to-end before telling the owner it works.**
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
