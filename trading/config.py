@@ -216,6 +216,27 @@ class Config:
     # Default: NSE Nifty 200 Momentum 30 methodology (published 5y CAGR ~29.7%).
     mode: str = "nifty200_momentum"
 
+    def trail_is_reachable(self) -> tuple[bool, float]:
+        """(is the trailing stop practically live?, peak % it would need).
+
+        Surfaced 2026-07-31 because the app advertises a trailing stop that,
+        at the owner's -5%/+12% bracket, CANNOT fire: the peak must first
+        clear +11.76% for a -15% trail to sit above the -5% stop, but the +12%
+        target closes the trade first. The exits themselves are the owner's
+        closed decision and are NOT changed here — this only stops the UI
+        claiming a protection that never triggers."""
+        stop = float(self.stop_loss_pct)
+        trail = float(self.trailing_stop_pct)
+        target = float(self.take_profit_pct)
+        if trail >= 0 or trail <= -1:
+            return False, 0.0
+        need_peak = (1.0 + stop) / (1.0 + trail) - 1.0
+        # The window is [need_peak, target): below need_peak the trail sits
+        # under the hard stop (so the stop fires first); at target the trade
+        # closes. A window under 1 percentage point is dead in practice.
+        window = target - need_peak
+        return (window > 0.01), need_peak
+
     def position_notional(self, base: float | None = None) -> float:
         """Per-trade rupee target (owner order 2026-07-30: '1.25 lac,
         125000, not percentage'). A positive position_size_value wins;

@@ -75,9 +75,11 @@ def apply_custom_levels(pos, stop_pct: float = None,
     notes = []
     if stop_pct:
         pos.stop_price = round(pos.entry_price * (1 - abs(stop_pct) / 100), 2)
+        pos.custom_levels = True
         notes.append(f"stop −{abs(stop_pct):g}% (₹{pos.stop_price})")
     if target_pct:
         pos.target_price = round(pos.entry_price * (1 + abs(target_pct) / 100), 2)
+        pos.custom_levels = True
         notes.append(f"target +{abs(target_pct):g}% (₹{pos.target_price})")
     return ", ".join(notes)
 

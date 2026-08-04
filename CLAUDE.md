@@ -488,19 +488,54 @@ that is movement of entries"):** vix_reentry now BYPASSES the breadth gate
 (`engine._breadth_gate_blocks(bypass=vix_reentry)`) — fear-break entries go
 through even while breadth is still <=50%; breadth guards all normal days.
 Tested (test_vix_reentry_bypasses_the_breadth_gate). 478 tests.
-**Audit findings NOT yet fixed (owner deferred, still true):** −15% trail is
-unreachable under −5%/+12% (peak must clear +11.76% but +12% closes first —
-the −5% stop decision silently killed the "workhorse exit") · `partial 0.07`
-is documented but has NO consumer · entry scores on the momentum blend and
-exits on the AM07 composite (two different rulers) · owner custom stops
-wiped on boot by `retag_positions_per_mode` · `apply_mode_preset` overwrites
-8 fields you save in Settings · drawdown governor resets to 0 every restart ·
-`broker.bid_ask()` does not exist (spread check never ran) · FII/DII CSV is
-22 months stale, no guard · owner password `sourceborn` is printed in
-login.html · `/scan/parameter/{key}` is unauthenticated ·
-`engine.scan/refresh` and all of `web/scheduler.py` have ZERO tests ·
-orphans: auto/autoswap/intraday/macro/providers (910 lines), all of
-research/tunnel_studies (dead `/home/user/sourceborn-engine/` paths),
+**2026-07-31 "do check and fix all" — the deferred-flaw list WORKED THROUGH.
+627 tests green from a clean state dir. Seven fixed:**
+1. **`broker.bid_ask()` never existed.** `engine.scan` had called it for months
+   inside a try/except, so it raised AttributeError every time, was swallowed,
+   `spread_pct` stayed None and **the spread half of the liquidity gate never
+   ran once**. Implemented on `UpstoxClient` (reads `depth.buy[0].price` /
+   `depth.sell[0].price`, accepts a ticker or a raw instrument key, returns
+   `(None, None)` when depth is absent so the caller skips the test instead of
+   believing a fabricated spread).
+2. **FII/DII parser was reading keys that do not exist.** The live NSE feed
+   WORKS; the parser looked for `fiibyVal`/`diibyVal` while the endpoint
+   returns ONE ROW PER CATEGORY — `{"category":"FII/FPI"|"DII","date":
+   "03-Aug-2026","buyValue":"12621.89","sellValue":"11699.63"}`. Every lookup
+   missed, every value defaulted to 0, and the function returned **all-zero
+   readings dated TODAY** — fresh-looking, so they passed every check and
+   scored a fabricated 40 (mildly bearish) every single day. Rewritten: groups
+   by date, splits FII/FPI vs DII, strips comma separators, **rejects all-zero
+   rows** (a parse miss is not a flat market). Real value now: +₹922 Cr → 73.8.
+3. **Flow staleness guard.** `MAX_FLOW_AGE_DAYS = 45`; `get_flows()` returns
+   None past that (callers already treat None as neutral 50), `max_age_days=0`
+   opts research out. Also `fii_flow_score(net, days=)` — the live endpoint
+   returns ONE day and the thresholds are calibrated on a 5-day sum, so a
+   record buy day used to read as an ordinary week; engine passes the real day
+   count.
+4. **Drawdown governor no longer forgets.** `Portfolio.dd_peak_equity`
+   persisted in JSON **and** the Mongo mirror (both directions — Render wipes
+   /tmp, so JSON alone was useless); `engine.refresh` restores the peak before
+   `update()` and saves it after. Before this, every restart measured 0%
+   drawdown and disabled every throttle the governor controls.
+5. **Owner custom stops survive boot.** `PaperPosition.custom_levels` set by
+   `orders.apply_custom_levels`; `retag_positions_per_mode` skips those
+   positions. A hand-set stop used to be overwritten by the mode preset.
+6. **`/scan/parameter/{key}` auth-gated** — it was reachable with no login and
+   exposed the whole scan (every ticker, score, gate outcome).
+7. **Settings now tells the truth twice.** `Config.trail_is_reachable()` +
+   an amber banner: at −5%/+12% a −15% trail needs the peak above **+11.76%**
+   and +12% closes first — a 0.24pp window, dead. **Exits NOT changed** (owner's
+   closed decision) — the page just stops implying a protection that cannot
+   fire. And `PRESET_OWNED_FIELDS` names the 8 fields `apply_mode_preset()`
+   re-applies on every restart, with a test asserting the list can never drift
+   from what that method really writes.
+Stale entries removed from the old list while checking: the owner password is
+NOT printed in login.html any more (fixed 2026-07-27).
+**Audit findings still NOT fixed (owner deferred / low value):** `partial 0.07`
+documented with NO consumer · entry scores on the momentum blend, exits on the
+AM07 composite (two different rulers) · `engine.scan/refresh` and all of
+`web/scheduler.py` have ZERO direct tests · orphans:
+auto/autoswap/intraday/macro/providers (910 lines) ·
 `data/chityy/master_extended_chityy.csv` is CORRUPT (zero line breaks) ·
 docs/WORK_LIST.md still marks A2/A4/A5 PENDING though `a185d94` shipped them.
 User's 8-step plan validated this session: all 8 now built (ticket +

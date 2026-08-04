@@ -206,9 +206,12 @@ class TradingEngine:
             from .signals.flows import (
                 get_flows, fii_flow_score, fii_net_last_n_days,
             )
-            flows = get_flows()   # live NSE -> committed CSV fallback
+            flows = get_flows()   # live NSE -> committed CSV, staleness-guarded
             fii_5d = fii_net_last_n_days(flows, n=5)
-            fii_score = fii_flow_score(fii_5d)
+            # pass how many days the sum really covers — the live endpoint
+            # returns ONE day, so an un-normalised 5-day threshold would read a
+            # strong single day as a weak week (fixed 2026-07-31)
+            fii_score = fii_flow_score(fii_5d, days=min(len(flows or []), 5) or 5)
         except Exception as e:
             log.debug("FII scoring context skipped: %s", e)
 
@@ -377,7 +380,15 @@ class TradingEngine:
         # v5: Update drawdown governor with current equity
         current_equity = self.portfolio.equity(prices)
         prev_dd_level = self.drawdown_gov.active_level
+        # FIXED 2026-07-31: the governor is rebuilt on every boot with
+        # peak_equity=0, so after any Render restart the measured drawdown was
+        # 0 and every throttle/halt it controls was disabled until a new peak
+        # formed. Restore the persisted peak before updating, and save it after.
+        saved_peak = float(getattr(self.portfolio, "dd_peak_equity", 0.0) or 0.0)
+        if saved_peak > self.drawdown_gov.peak_equity:
+            self.drawdown_gov.peak_equity = saved_peak
         self.drawdown_gov.update(current_equity)
+        self.portfolio.dd_peak_equity = float(self.drawdown_gov.peak_equity)
         # v5: notify on drawdown level escalation
         if self.drawdown_gov.active_level != prev_dd_level:
             try:

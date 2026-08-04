@@ -24,6 +24,23 @@
 </div>
 {% endif %}
 
+{% if trail_warn %}
+<div class="mb-6 px-4 py-3 border border-amber-300 bg-amber-50 text-amber-900 text-sm">
+  ⚠ <strong>Your trailing stop cannot fire.</strong> At stop {{ trail_warn.stop }}% and target
+  +{{ trail_warn.target }}%, a {{ trail_warn.trail }}% trail only triggers if the peak lands between
+  +{{ trail_warn.need }}% and +{{ trail_warn.target }}% — a {{ trail_warn.window }}-point window.
+  The target closes the trade first. Nothing was changed (exits are your decision) — this is just
+  no longer implied to be protecting you.
+</div>
+{% endif %}
+{% if preset_fields %}
+<div class="mb-6 px-4 py-3 border border-line bg-white text-xs text-ink-soft">
+  <strong>Note:</strong> these fields are set by the <strong>mode preset</strong> and are
+  re-applied on every restart, so editing them here does not stick:
+  <span class="font-mono">{{ preset_fields | join(' · ') }}</span>.
+  To change them for real, change the preset in <span class="font-mono">trading/modes.py</span>.
+</div>
+{% endif %}
 {% if user and user.role == 'owner' %}
 <div class="mb-6 border border-red-200 bg-red-50/60 p-4">
   <div class="font-bold text-sm text-red-900">🧹 Remove all the old universe</div>
