@@ -33,10 +33,26 @@ def test_rotating_bucket_covers_universe():
     for day in range(3):                           # 120/50 -> 3 buckets
         seen |= set(rotating_bucket(uni, 50, day))
     assert seen == set(uni)                        # full coverage in one cycle
-    assert rotating_bucket(uni, 50, 0) == uni[:50]
-    assert rotating_bucket(uni, 50, 3) == uni[:50]  # cycle repeats
+    assert rotating_bucket(uni, 50, 0) == uni[0::3]   # a STRIDE, not a block
+    assert rotating_bucket(uni, 50, 3) == uni[0::3]    # cycle repeats
     assert rotating_bucket([], 50, 0) == []
     assert rotating_bucket(uni, 999, 0) == uni      # size>=n returns all
+
+
+def test_the_daily_bucket_is_not_one_alphabet_block():
+    """Owner 2026-08-04: "ur new universe is alphbet wise". universe_refresh
+    sorts the list alphabetically, and a contiguous slice therefore made every
+    day's scan a single letter-block — the Z names waited ~48 days, and the
+    group names (ADANI*, BAJAJ*, TATA*) all landed on the same day."""
+    uni = sorted(f"{chr(65 + i // 40)}{i}.NS" for i in range(1000))
+    day = rotating_bucket(uni, 50, 0)
+    first_letters = {t[0] for t in day}
+    assert len(first_letters) >= 10, (
+        f"a day's scan only sees {sorted(first_letters)} — still alphabet-blocked")
+    # and the whole universe is still covered exactly once per cycle
+    n_buckets = (len(uni) + 49) // 50
+    seen = [t for d in range(n_buckets) for t in rotating_bucket(uni, 50, d)]
+    assert sorted(seen) == sorted(uni)
 
 
 def test_virtual_book_marks_and_freezes():

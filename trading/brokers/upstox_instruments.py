@@ -103,10 +103,21 @@ def _build_lookup(csv_bytes: bytes) -> dict[str, str]:
             instrument_key = row.get("instrument_key") or ""
             tradingsymbol = row.get("tradingsymbol") or ""
             instrument_type = (row.get("instrument_type") or "").upper()
-            # Only NSE equities in cash segment
+            # Only NSE equities in cash segment.
+            #
+            # THE PRICE BUG, root cause (owner 2026-08-04: "prices are not live
+            # at all"). This filter used to accept only {"EQ", ""}. Upstox
+            # labels cash equities **EQUITY** in this file — all 9,467 NSE_EQ
+            # rows were thrown away and the lookup came out EMPTY (measured: 0
+            # entries). With no instrument keys, get_ltp() was handed an empty
+            # list, so EVERY stock quote failed — silently, because an empty
+            # lookup is indistinguishable from "ticker not listed". The only
+            # live numbers on the whole app were the 4 indices, which come from
+            # the hardcoded INDEX_KEYS constants and never touch this table.
+            # That is exactly the "only 3 are updated" the owner reported.
             if not instrument_key.startswith("NSE_EQ"):
                 continue
-            if instrument_type not in {"EQ", ""}:
+            if instrument_type not in {"EQ", "EQUITY", ""}:
                 continue
             if not tradingsymbol:
                 continue
@@ -116,28 +127,75 @@ def _build_lookup(csv_bytes: bytes) -> dict[str, str]:
     return lookup
 
 
+def committed_lookup() -> dict[str, str]:
+    """{ticker -> instrument_key} from the repo's own universe CSV.
+
+    data/upstox_nse_equities.csv already carries a real instrument_key for
+    every one of its ~2,393 names. It ships with the app, so it works with no
+    network at all. Nothing used it, which is why one failed download could
+    take live prices to zero for the whole book (owner 2026-08-04).
+    """
+    import csv
+    path = os.path.join(os.path.dirname(__file__), "..", "..",
+                        "data", "upstox_nse_equities.csv")
+    out: dict[str, str] = {}
+    try:
+        with open(path, newline="") as f:
+            for row in csv.DictReader(f):
+                tkr = (row.get("ticker") or "").strip()
+                key = (row.get("instrument_key") or "").strip()
+                if tkr and key:
+                    out[tkr] = key
+    except (OSError, csv.Error) as e:
+        log.warning("Committed instrument fallback unreadable: %s", e)
+    return out
+
+
+# Set when the live master could not be used and the shipped CSV is standing
+# in. Surfaced on /healthz so a silent degradation is impossible.
+_LOOKUP_SOURCE: str = "none"
+
+
 def get_lookup(force_refresh: bool = False) -> dict[str, str]:
-    """Returns the {yfinance_ticker -> instrument_key} lookup. Caches in memory."""
-    global _LOOKUP, _LOOKUP_BUILT_AT
+    """Returns the {yfinance_ticker -> instrument_key} lookup. Caches in memory.
+
+    An EMPTY lookup means no stock can be priced, so it is never accepted as an
+    answer: the shipped CSV takes over and the degradation is logged loudly.
+    """
+    global _LOOKUP, _LOOKUP_BUILT_AT, _LOOKUP_SOURCE
 
     now = time.time()
     if (
-        _LOOKUP is not None
+        _LOOKUP
         and not force_refresh
         and (now - _LOOKUP_BUILT_AT) < CACHE_TTL_SECONDS
     ):
         return _LOOKUP
 
     csv_bytes = _ensure_cached(force=force_refresh)
-    if csv_bytes is None:
-        # Don't return None - return whatever we last had (or empty dict)
-        if _LOOKUP is None:
-            _LOOKUP = {}
+    built = _build_lookup(csv_bytes) if csv_bytes else {}
+    if built:
+        _LOOKUP, _LOOKUP_SOURCE = built, "upstox_master"
+        _LOOKUP_BUILT_AT = now
+        log.info("Upstox instrument lookup built: %d NSE equities", len(_LOOKUP))
         return _LOOKUP
 
-    _LOOKUP = _build_lookup(csv_bytes)
-    _LOOKUP_BUILT_AT = now
-    log.info("Upstox instrument lookup built: %d NSE equities", len(_LOOKUP))
+    fallback = committed_lookup()
+    if fallback:
+        log.error("Upstox instrument master unusable (%s) — falling back to the "
+                  "committed CSV: %d tickers. LIVE PRICES ARE DEGRADED TO THE "
+                  "SHIPPED UNIVERSE.",
+                  "download failed" if not csv_bytes else "0 rows parsed",
+                  len(fallback))
+        _LOOKUP, _LOOKUP_SOURCE = fallback, "committed_csv"
+        _LOOKUP_BUILT_AT = now
+        return _LOOKUP
+
+    log.error("NO instrument keys available at all — every stock quote will "
+              "fail. Prices will show as unavailable, never as stale.")
+    if _LOOKUP is None:
+        _LOOKUP = {}
+    _LOOKUP_SOURCE = "none"
     return _LOOKUP
 
 
@@ -175,6 +233,7 @@ def to_instrument_keys(yf_tickers: list[str]) -> dict[str, str]:
 def status() -> dict:
     return {
         "lookup_size": len(_LOOKUP) if _LOOKUP is not None else 0,
+        "lookup_source": _LOOKUP_SOURCE,
         "lookup_built_at": _LOOKUP_BUILT_AT,
         "cache_file_exists": CACHE_FILE.exists(),
         "cache_age_sec": (

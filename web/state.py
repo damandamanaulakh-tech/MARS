@@ -162,6 +162,21 @@ def _bootstrap() -> None:
                           "capital_order_2026_07_30_v2": True},
                          doc_id="migrations")
 
+    # Owner order 2026-08-04 ("still u r making 30000 positions"): back to the
+    # FIXED Rs 1.25 lakh per trade they actually asked for on 2026-07-30
+    # ("1.25 lac, 125000, not percentage"). Half-Kelly was adopted from MY
+    # question, and at scores just over the 62 floor it sizes Rs 20k-60k
+    # (measured: score 63 -> Rs 20,719 · 65 -> Rs 62,158) — which is the
+    # "30000 positions" they are seeing. Their written number wins over my
+    # maths. Kelly stays available in Settings (sizing_mode=half_kelly).
+    if not db.load_settings(doc_id="migrations").get("fixed_size_order_2026_08_04"):
+        _CFG.sizing_mode = "fixed"
+        _CFG.position_size_value = 125_000.0
+        db.save_settings({**db.load_settings(), "sizing_mode": "fixed",
+                          "position_size_value": 125_000.0})
+        db.save_settings({"fixed_size_order_2026_08_04": True},
+                         doc_id="migrations")
+
     # Apply mode preset (sets stops, target, etc. per chosen horizon)
     _CFG.apply_mode_preset()
     # Policy C (user-approved 2026-07-16): exits ON — pinned here so a stale
