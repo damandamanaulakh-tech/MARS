@@ -58,6 +58,7 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.risk_day_killed = bool(doc.get("risk_day_killed", False))
     # Legacy mirror docs predate capital_base; the live book started at 25L.
     p.capital_base = float(doc.get("capital_base", 25_00_000.0) or 25_00_000.0)
+    p.dd_peak_equity = float(doc.get("dd_peak_equity", 0.0) or 0.0)
     p.last_save = doc.get("last_save")
 
 
@@ -101,6 +102,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "risk_day_equity": self.risk_day_equity,
             "risk_day_killed": self.risk_day_killed,
             "capital_base": self.capital_base,
+            "dd_peak_equity": self.dd_peak_equity,
             "last_save": self.last_save,
         }
         db.save_portfolio(doc)

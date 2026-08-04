@@ -35,6 +35,9 @@ class PaperPosition:
     mode: str = ""              # trade category at entry: intraday/short/swing/positional/nifty200_momentum
     stop_price: float = 0.0     # hard stop price, snapshot at entry (0 = fall back to live cfg)
     target_price: float = 0.0   # take-profit/target price, snapshot at entry (0 = fall back to live cfg)
+    custom_levels: bool = False  # owner set stop/target by hand (order ticket).
+                                 # retag_positions_per_mode must NOT overwrite
+                                 # these on boot (fixed 2026-07-31).
     orig_qty: int = 0           # F15: qty at first entry (pyramid tranche base; 0 = use qty)
     pyramid_adds: int = 0       # F15: how many pyramid tranches added so far
 
@@ -52,6 +55,7 @@ class PaperPosition:
         d.setdefault("mode", "")
         d.setdefault("stop_price", 0.0)
         d.setdefault("target_price", 0.0)
+        d.setdefault("custom_levels", False)
         d.setdefault("orig_qty", 0)
         d.setdefault("pyramid_adds", 0)
         return cls(**d)
@@ -121,6 +125,11 @@ class Portfolio:
     # synced to. Changing Starting Capital in Settings now really adds/removes
     # cash (journaled CAPITAL_ADJUST) instead of doing nothing to a live book.
     capital_base: float = 0.0
+    # Drawdown governor peak (2026-07-31). DrawdownGovernor was rebuilt on
+    # every boot with peak_equity=0, so after any Render restart the measured
+    # drawdown was 0 and the governor's throttles/halts were disabled until a
+    # new peak formed. Persisting the peak makes the governor survive restarts.
+    dd_peak_equity: float = 0.0
     last_save: Optional[str] = None
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
@@ -213,7 +222,8 @@ class Portfolio:
                 "risk_day": self.risk_day,                     # daily kill-switch baseline date
                 "risk_day_equity": self.risk_day_equity,       # ...and the equity it measures from
                 "risk_day_killed": self.risk_day_killed,       # tripped-today flag
-                "capital_base": self.capital_base,             # starting_capital the cash is synced to
+                "capital_base": self.capital_base,   # capital the cash is synced to
+                "dd_peak_equity": self.dd_peak_equity,  # drawdown-governor peak
                 "last_save": datetime.utcnow().isoformat(),
             }
             with open(self._state_path(), "w") as f:
@@ -254,6 +264,7 @@ class Portfolio:
             # Legacy books predate capital_base; every live book started at
             # the 2026 spec's 25L, so that is the honest baseline to sync from.
             p.capital_base = float(data.get("capital_base", 25_00_000.0) or 25_00_000.0)
+            p.dd_peak_equity = float(data.get("dd_peak_equity", 0.0) or 0.0)
             p.last_save = data.get("last_save")
             return p
         except Exception:

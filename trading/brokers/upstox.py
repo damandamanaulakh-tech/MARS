@@ -288,6 +288,46 @@ class UpstoxClient:
             log.warning("Upstox get_quote(%s) failed: %s", instrument_key, e)
             return None
 
+    def bid_ask(self, ticker_or_key: str) -> tuple[Optional[float], Optional[float]]:
+        """(best_bid, best_ask) from the full quote's order-book depth.
+
+        FIXED 2026-07-31 — engine.scan() has always called self.broker.bid_ask()
+        inside a try/except to compute a spread and reject wide-spread names.
+        The method DID NOT EXIST, so it raised AttributeError every time, was
+        swallowed, spread_pct stayed None, and the spread half of the liquidity
+        gate never ran once. A risk check that silently does nothing is worse
+        than no check, because the code reads as if it is protecting you.
+
+        Accepts a yfinance ticker ("TCS.NS") or a raw instrument key.
+        Returns (None, None) when depth is unavailable — the caller then skips
+        the spread test explicitly rather than believing a fabricated spread.
+        """
+        key = ticker_or_key
+        if "|" not in key:
+            try:
+                from .upstox_instruments import to_instrument_keys
+                key = to_instrument_keys([ticker_or_key]).get(ticker_or_key) or ""
+            except Exception:
+                key = ""
+        if not key:
+            return None, None
+        q = self.get_quote(key)
+        if not isinstance(q, dict):
+            return None, None
+        depth = q.get("depth")
+        if not isinstance(depth, dict):
+            return None, None
+        try:
+            buys = depth.get("buy") or []
+            sells = depth.get("sell") or []
+            bid = float(buys[0]["price"]) if buys else None
+            ask = float(sells[0]["price"]) if sells else None
+        except (KeyError, IndexError, TypeError, ValueError):
+            return None, None
+        if not bid or not ask or bid <= 0 or ask <= 0:
+            return None, None
+        return bid, ask
+
     def get_ltp(self, instrument_keys: list[str]) -> dict[str, float]:
         """BATCHED last-traded prices: {instrument_key: price}.
 

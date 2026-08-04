@@ -78,28 +78,54 @@ def fetch_latest_flows() -> Optional[list[FlowReading]]:
         log.warning("NSE FII/DII fetch failed: %s", e)
         return None
 
-    out: list[FlowReading] = []
+    # FIXED 2026-07-31. The parser looked for keys fiibyVal/fiisellVal/
+    # diibyVal/diisellVal. The endpoint ACTUALLY returns one row PER CATEGORY:
+    #   {"category": "FII/FPI"|"DII", "date": "03-Aug-2026",
+    #    "buyValue": "12621.89", "sellValue": "11699.63", "netValue": "922.26"}
+    # So every key lookup missed, every value defaulted to 0, and the function
+    # returned all-zero readings DATED TODAY. Those passed every freshness
+    # check and scored as a mildly bearish tide (40) every single day — a
+    # fabricated signal from a feed that was working the whole time.
     items = raw if isinstance(raw, list) else raw.get("data", [])
+    by_date: dict = {}
     for row in items:
-        try:
-            trade_dt = datetime.strptime(
-                row.get("date", row.get("trade_date", "")),
-                "%d-%b-%Y",
-            ).date()
-            fii_buy = float(row.get("fiibyVal") or row.get("fii_buy", 0))
-            fii_sell = float(row.get("fiisellVal") or row.get("fii_sell", 0))
-            dii_buy = float(row.get("diibyVal") or row.get("dii_buy", 0))
-            dii_sell = float(row.get("diisellVal") or row.get("dii_sell", 0))
-            out.append(FlowReading(
-                trade_date=trade_dt,
-                fii_buy=fii_buy, fii_sell=fii_sell,
-                fii_net=fii_buy - fii_sell,
-                dii_buy=dii_buy, dii_sell=dii_sell,
-                dii_net=dii_buy - dii_sell,
-            ))
-        except (ValueError, TypeError, KeyError) as e:
-            log.debug("Skipping malformed FII/DII row: %s", e)
+        if not isinstance(row, dict):
             continue
+        try:
+            trade_dt = datetime.strptime(str(row.get("date", "")).strip(),
+                                         "%d-%b-%Y").date()
+        except (ValueError, TypeError):
+            log.debug("Skipping FII/DII row with unparseable date: %r",
+                      row.get("date"))
+            continue
+        cat = str(row.get("category", "")).upper()
+        try:
+            buy = float(str(row.get("buyValue", "")).replace(",", ""))
+            sell = float(str(row.get("sellValue", "")).replace(",", ""))
+        except (TypeError, ValueError):
+            log.debug("Skipping FII/DII row with unparseable values: %r", row)
+            continue
+        if buy == 0.0 and sell == 0.0:
+            # Not data — a parse miss or an empty pre-publication row. Emitting
+            # it as a zero net flow would invent a bearish signal.
+            continue
+        slot = by_date.setdefault(trade_dt, {})
+        if "FII" in cat or "FPI" in cat:
+            slot["fii"] = (buy, sell)
+        elif "DII" in cat:
+            slot["dii"] = (buy, sell)
+
+    out: list[FlowReading] = []
+    for d, slot in by_date.items():
+        fb, fs = slot.get("fii", (0.0, 0.0))
+        db_, ds = slot.get("dii", (0.0, 0.0))
+        if not slot.get("fii") and not slot.get("dii"):
+            continue
+        out.append(FlowReading(
+            trade_date=d,
+            fii_buy=fb, fii_sell=fs, fii_net=fb - fs,
+            dii_buy=db_, dii_sell=ds, dii_net=db_ - ds,
+        ))
     out.sort(key=lambda r: r.trade_date, reverse=True)
     return out or None
 
@@ -137,9 +163,37 @@ def fetch_flows_from_csv(path: str = None) -> Optional[list[FlowReading]]:
     return out or None
 
 
-def get_flows() -> Optional[list[FlowReading]]:
-    """Live NSE feed first (403s from cloud), committed CSV as fallback."""
-    return fetch_latest_flows() or fetch_flows_from_csv()
+# A flow reading older than this is NOT a current signal. The committed CSV
+# ends 2025-03-29 (SEBI publishes months late and no live feed exists), so
+# without this guard the engine scored today's market on flows well over a
+# year old and reported it as a live factor.
+MAX_FLOW_AGE_DAYS = 45
+
+
+def flows_age_days(flows: Optional[list[FlowReading]]) -> Optional[int]:
+    """How old the newest flow reading is, in days. None when no data."""
+    if not flows:
+        return None
+    return (date.today() - max(f.trade_date for f in flows)).days
+
+
+def get_flows(max_age_days: int = MAX_FLOW_AGE_DAYS) -> Optional[list[FlowReading]]:
+    """Live NSE feed first (403s from cloud), committed CSV as fallback.
+
+    STALENESS GUARD added 2026-07-31. Returns None when the newest reading is
+    older than `max_age_days` — a stale flow tide is not a signal, and feeding
+    one into the score dressed as current is the same fault as showing a stale
+    price. Callers already treat None as neutral 50, so the factor goes quiet
+    instead of lying. Pass max_age_days=0 to disable (research/backtests)."""
+    flows = fetch_latest_flows() or fetch_flows_from_csv()
+    if not flows or not max_age_days:
+        return flows
+    age = flows_age_days(flows)
+    if age is not None and age > max_age_days:
+        log.warning("FII/DII data is %d days old (> %d) — treating as NO SIGNAL",
+                    age, max_age_days)
+        return None
+    return flows
 
 
 def fii_net_last_n_days(flows: Optional[list[FlowReading]], n: int = 5) -> Optional[float]:
@@ -155,15 +209,21 @@ def dii_net_last_n_days(flows: Optional[list[FlowReading]], n: int = 5) -> Optio
     return float(sum(f.dii_net for f in flows[:n]))
 
 
-def fii_flow_score(fii_5d_net: Optional[float]) -> float:
-    """Score the 5-day FII net flow:
+def fii_flow_score(fii_5d_net: Optional[float], days: int = 5) -> float:
+    """Score the FII net flow, calibrated on a 5-day sum:
        > +5000 Cr = very bullish (90)
        0 to +5000 Cr = mildly bullish (60-75)
        -5000 to 0 = mildly bearish (30-50)
        < -5000 Cr = very bearish (10)
-    """
+
+    `days` = how many days the sum actually covers (2026-07-31). The live NSE
+    endpoint returns ONE day, the archive can give five; scaling to a 5-day
+    equivalent keeps the thresholds meaningful either way instead of reading a
+    single strong day as a weak week."""
     if fii_5d_net is None:
         return 50.0
+    if days and days > 0 and days != 5:
+        fii_5d_net = fii_5d_net * (5.0 / days)
     if fii_5d_net > 5000:
         return 90.0
     if fii_5d_net > 0:

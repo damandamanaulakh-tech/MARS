@@ -20,6 +20,11 @@ def retag_positions_per_mode(portfolio, now: datetime | None = None) -> int:
     now = now or datetime.utcnow()
     changed = 0
     for pos in portfolio.positions.values():
+        # FIXED 2026-07-31: an owner who set a stop/target by hand on the order
+        # ticket had it silently overwritten by the mode preset on the next
+        # boot. Their number wins.
+        if getattr(pos, "custom_levels", False):
+            continue
         tag = (getattr(pos, "mode", "") or "").strip()
         stale_intraday = (tag == "intraday"
                           and pos.entry_date.date() < now.date())

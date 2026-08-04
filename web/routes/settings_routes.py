@@ -59,6 +59,33 @@ EDITABLE_FIELDS = [
 _PCT_FIELDS = {name for name, *_rest, is_pct in EDITABLE_FIELDS if is_pct}
 
 
+# Fields apply_mode_preset() overwrites on every boot — editing them in
+# Settings looks like it works and then silently reverts (surfaced 2026-07-31).
+PRESET_OWNED_FIELDS = [
+    "stop_loss_pct", "take_profit_pct", "trailing_stop_pct", "score_decay_exit",
+    "max_hold_days", "min_score_to_enter", "breakout_threshold_pct",
+    "volume_confirm_ratio",
+]
+
+
+def _trail_warning() -> dict | None:
+    """None when the trailing stop can actually fire; otherwise the numbers."""
+    cfg = state.cfg()
+    try:
+        live, need = cfg.trail_is_reachable()
+    except Exception:
+        return None
+    if live:
+        return None
+    return {
+        "stop": round(cfg.stop_loss_pct * 100, 1),
+        "target": round(cfg.take_profit_pct * 100, 1),
+        "trail": round(cfg.trailing_stop_pct * 100, 1),
+        "need": round(need * 100, 2),
+        "window": round((cfg.take_profit_pct - need) * 100, 2),
+    }
+
+
 def _grouped() -> dict[str, list[dict]]:
     cfg = state.cfg()
     groups: dict[str, list[dict]] = {}
@@ -92,6 +119,8 @@ def settings_view(request: Request, saved: str | None = None):
             "user": auth.current_user(request),
             "active": "settings",
             "groups": _grouped(),
+            "trail_warn": _trail_warning(),
+            "preset_fields": PRESET_OWNED_FIELDS,
             "modes": MODE_CHOICES,
             "current_mode": getattr(cfg, "mode", "swing"),
             "saved": saved,

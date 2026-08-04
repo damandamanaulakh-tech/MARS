@@ -376,7 +376,12 @@ def _structure_page(request: Request, name: str, rows: dict, matrix: dict):
 def parameter_page(request: Request, key: str):
     """🎹 One piano note, in full: plain-language definition of the
     parameter + every stock it passed/weakened/blocked in the last scan,
-    with values. The user's tap-a-parameter view."""
+    with values. The user's tap-a-parameter view.
+
+    Auth added 2026-07-31: this page was reachable WITHOUT logging in and
+    exposed the whole scan — every ticker, score and gate outcome."""
+    if not auth.current_user(request):
+        return RedirectResponse("/login", status_code=303)
     p = state.portfolio()
     matrix = p.scan_matrix or {}
     rows = matrix.get("rows") or {}
