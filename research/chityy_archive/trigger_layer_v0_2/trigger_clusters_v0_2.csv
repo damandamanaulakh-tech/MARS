@@ -1,0 +1,9 @@
+cluster_id,cluster_name,side,trigger_mix,reason_it_can_lead_1_2W,minimum_data,paper_weight
+CL_RISE_01,Squeeze + quiet accumulation,RISE,Bollinger/ATR compression + OBV/CLV accumulation + volume dry-up,Pressure builds before expansion; often visible before price breakout,OHLCV,1.35
+CL_RISE_02,Failed breakdown reclaim,REVERSAL_UP,Support sweep + reclaim + lower wick + volume confirmation,Seller trap can trigger reversal within days,OHLCV,1.3
+CL_RISE_03,RS lead + base hold,RISE,Stock/sector RS lead + price base hold + volume wake-up,Strong stocks often lead before absolute price confirms,OHLCV + sector/peer,1.2
+CL_FALL_01,Distribution near high,FALL,New high weak close + upper wick cluster + high volume no progress,Supply appears before breakdown,OHLCV,1.4
+CL_FALL_02,Failed breakout trap,FALL,Breakout fails within 5D + gap up rejection + down volume ratio spike,Trapped buyers can produce fast fall,OHLCV,1.45
+CL_COLLAPSE_01,Support break risk stack,COLLAPSE,Liquidity fade + support test overload + vol spike support break,Repeated support tests weaken floor before collapse,OHLCV,1.5
+CL_COLLAPSE_02,Contagion overlay,COLLAPSE,Peer breakdown count + index risk + target support weakness,Industry/index weakness can hit target after lag,OHLCV + peer/index,1.25
+CL_EVENT_01,External catalyst alignment,RISE/FALL,News/event/OI/governance flag + technical trigger cluster,Event can accelerate an already-built technical setup,External + OHLCV,1.1

@@ -1,0 +1,9 @@
+step_id,stage,input,method,output,proof_metric,halt_if_missing
+BT01,Event label creation,15Y daily/weekly OHLCV,"future_return_10D/20D labels: rise, fall, collapse, reversal",event_label table,label coverage %,OHLCV missing
+BT02,Backward window extraction,event_label table,"pull features from t-3, t-5, t-10 trading days",pre_event_feature table,feature availability %,date gaps
+BT03,Trigger hit matrix,new trigger parameters,calculate hit=1/0 before each event,trigger_event_matrix,hit rate by event type,formula not computable
+BT04,Baseline comparison,non-event windows,compare trigger hit rate vs random windows,lift table,lift = event_hit_rate / baseline_hit_rate,baseline too small
+BT05,False positive audit,trigger hits without event,track hits where no rise/fall after 10/20D,false_positive ledger,false positive rate,future labels missing
+BT06,Cluster score test,trigger clusters,combine triggers into rise/fall/collapse scores,score backtest table,"precision, recall, lift",cluster not enough hits
+BT07,Paper trade replay,historical candles + scores,simulate entry/exit only on past data,paper journal,"expectancy, max drawdown, win/loss",no transaction model
+BT08,Proof ladder,all backtest outputs,tag Source Supported / Verified / Not Enough Evidence,proof ledger,proof status,sample not 15Y

@@ -1,0 +1,4 @@
+layer_id,layer_name,insert_before,insert_after,purpose,input,output
+L04A,Pre 1-2 Week Trigger Layer,L05 Pattern Families,L04 Reverse Event Labels,Detect short lead-time setups before scoring,OHLCV + optional peer/external,trigger_hit_matrix
+L04B,Trigger Cluster Layer,L05 Pattern Families,L04A Pre 1-2 Week Trigger Layer,Combine individual triggers into meaningful families,trigger_hit_matrix,rise/fall/collapse cluster scores
+L07A,Trigger Weighted Score Gate,L08 Paper Trading / Proof,L07 Scoring Pyramid Engine,Control watch/entry/avoid/exit gates,cluster scores + risk filters,paper action permission
