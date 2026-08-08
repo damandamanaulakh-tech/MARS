@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}⚡ Trigger Layer — Sourceborn AM07{% endblock %}
+{% block content %}
+<div class="text-xs tracking-widest text-ink-faint uppercase mb-3">YOUR DESIGN / trigger_layer_v0_2 · DISPLAY + WATCHLIST ONLY</div>
+<div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+  <div>
+    <h1 class="font-black text-3xl lg:text-5xl tracking-tight">⚡ Trigger Layer</h1>
+    <p class="text-ink-soft mt-2 max-w-3xl">
+      Your {{ n_triggers }} pre-rise/fall triggers, exactly as your sheets define them:
+      <strong>{{ n_computable }} computed daily</strong> from stored OHLCV ·
+      <strong>{{ n_external }} DATA_NEEDED</strong> (need delivery %, sector panels, F&amp;O OI, news flags — never guessed).
+      This page and the watchlist <strong>touch no entry and no exit</strong> — your own rule:
+      every trigger REQUIRES_15Y_BACKTEST before it earns the money path.
+    </p>
+  </div>
+  {% if user and user.role == 'owner' and not detail %}
+  <form method="post" action="/triggers/run">
+    <button class="px-4 py-2 bg-ink text-white text-xs font-bold tracking-widest uppercase hover:bg-black">
+      ⚡ Run trigger pass now
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+<!-- any-stock search over the full universe -->
+<form method="get" class="mb-6 flex items-center gap-2" onsubmit="if(this.t.value){this.action='/triggers/'+this.t.value.toUpperCase();this.t.name=''}; return true;">
+  <input name="t" list="uni" placeholder="Any stock — e.g. TCS or VSSL.NS"
+         class="w-64 border-b border-line bg-transparent outline-none focus:border-ink py-2 text-sm">
+  <datalist id="uni">{% for u in universe %}<option value="{{ u }}">{% endfor %}</datalist>
+  <button class="px-4 py-2 border border-line text-xs font-bold tracking-widest uppercase hover:bg-slate-50">Check</button>
+</form>
+
+{% if detail %}
+<!-- ============ ONE STOCK, ALL 112 ============ -->
+<div class="mb-4">
+  <a href="/triggers" class="text-xs text-ink-faint hover:text-ink">&larr; back to today's table</a>
+  <h2 class="font-black text-2xl mt-1">{{ detail.ticker }}
+    <a href="/chart/{{ detail.ticker }}" class="text-base no-underline ml-1">📈</a>
+    <a href="/signal?ticker={{ detail.ticker }}" class="text-base no-underline">🎵</a>
+  </h2>
+  <div class="text-xs text-amber-700 mt-1">
+    Computed now from stored history to <strong>{{ detail.view.asof or '?' }}</strong> ({{ detail.bars }} bars) — not a live quote.
+  </div>
+</div>
+
+<div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+  {% for side, sc in detail.view.scores.items() %}
+  <div class="bg-white border border-line p-3">
+    <div class="text-[10px] tracking-widest text-ink-faint uppercase">{{ side }} score</div>
+    <div class="text-2xl font-black tabular-nums {% if side in ('FALL','COLLAPSE') and sc >= 40 %}text-red-700{% elif side == 'RISE' and sc >= 40 %}text-emerald-700{% endif %}">{{ sc }}</div>
+  </div>
+  {% endfor %}
+  <div class="bg-white border border-line p-3">
+    <div class="text-[10px] tracking-widest text-ink-faint uppercase">Data quality</div>
+    <div class="text-2xl font-black tabular-nums">{{ detail.view.data_quality }}%</div>
+    <div class="text-[10px] text-ink-faint">{{ detail.view.computable }}/{{ detail.view.total_computable }} computable</div>
+  </div>
+</div>
+<div class="text-[10px] text-ink-faint mb-6">Score formula: {{ score_note }}. Gate thresholds are yours.</div>
+
+<!-- the 8 gates -->
+<div class="bg-white border border-line mb-8">
+  <div class="px-4 py-3 border-b border-line font-bold">Your 8 gates (L07A) — verdicts shown, never executed</div>
+  <table class="w-full text-sm">
+    <tbody>
+    {% for g in detail.view.gates %}
+      <tr class="border-b border-line/60">
+        <td class="px-4 py-2 font-mono text-xs whitespace-nowrap">{{ g.id }}</td>
+        <td class="px-4 py-2">{{ g.name }}<div class="text-[10px] text-ink-faint font-mono">{{ g.logic }}</div></td>
+        <td class="px-4 py-2 text-right">
+          {% if g.status == 'PASS' %}<span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-bold">PASS</span>
+          {% elif g.status == 'DATA_NEEDED' %}<span class="px-2 py-0.5 bg-amber-100 text-amber-800 text-xs font-bold">DATA_NEEDED</span>
+          {% else %}<span class="px-2 py-0.5 bg-slate-100 text-ink-faint text-xs">no</span>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- every family, every trigger -->
+{% for family, items in detail.by_family.items() %}
+<div class="bg-white border border-line mb-6">
+  <div class="px-4 py-3 border-b border-line flex items-center justify-between">
+    <div class="font-bold">{{ family }}</div>
+    <div class="text-xs text-ink-faint">{{ items | selectattr('status', 'equalto', 'FIRED') | list | length }} fired / {{ items | length }}</div>
+  </div>
+  <table class="w-full text-sm">
+    <tbody>
+    {% for t in items %}
+      <tr class="border-b border-line/60 {% if t.status == 'FIRED' %}bg-emerald-50/40{% endif %}">
+        <td class="px-4 py-2 font-mono text-[10px] whitespace-nowrap align-top">{{ t.id }}</td>
+        <td class="px-4 py-2">
+          <span class="font-semibold">{{ t.name }}</span>
+          <span class="text-[10px] text-ink-faint ml-1">{{ t.side }} · w{{ t.weight }}</span>
+          <div class="text-xs text-ink-soft">{{ t.definition }}</div>
+          <div class="text-[10px] text-ink-faint font-mono mt-0.5">{{ t.formula }}</div>
+          {% if t.status == 'DATA_NEEDED' %}<div class="text-[10px] text-amber-700 mt-0.5">needs: {{ t.needs }}</div>{% endif %}
+        </td>
+        <td class="px-4 py-2 text-right align-top">
+          {% if t.status == 'FIRED' %}<span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-bold">FIRED</span>
+          {% elif t.status == 'DATA_NEEDED' %}<span class="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold">DATA_NEEDED</span>
+          {% elif t.status == 'n/a' %}<span class="text-[10px] text-ink-faint" title="not enough stored history for this trigger's lookback">n/a</span>
+          {% else %}<span class="text-xs text-ink-faint">quiet</span>{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+
+{% elif detail_ticker is defined and detail_ticker %}
+<div class="bg-amber-50 border border-amber-300 text-amber-900 p-4 mb-8 text-sm">
+  <strong>DATA_NEEDED</strong> — no stored daily history for <strong>{{ detail_ticker }}</strong>,
+  so no trigger can be computed honestly. History arrives via the Friday top-up
+  or the Backtest Lab download; nothing is guessed in the meantime.
+</div>
+{% else %}
+<!-- ============ TODAY'S TABLE ============ -->
+
+{% if watchlist %}
+<div class="bg-emerald-50 border border-emerald-300 text-emerald-900 p-4 mb-6 text-sm">
+  🎯 <strong>Pre-rise watchlist (your GATE_RISE_WATCH_01):</strong>
+  {% for t in watchlist %}<a href="/triggers/{{ t }}" class="font-bold underline mr-2">{{ t }}</a>{% endfor %}
+  <span class="text-xs">— watchlist only, no orders placed.</span>
+</div>
+{% endif %}
+
+{% if tw.ts %}
+<div class="text-xs text-ink-faint mb-3">Last pass: {{ tw.ts[:16] | replace('T', ' ') }} UTC ·
+  {{ tw.scanned }} stocks scored{% if no_history %} · {{ no_history | length }} skipped (no stored history){% endif %}</div>
+{% endif %}
+
+{% if rows %}
+<div class="bg-white border border-line overflow-x-auto mb-8">
+  <table class="w-full text-sm whitespace-nowrap">
+    <thead>
+      <tr class="border-b border-line text-[10px] tracking-widest text-ink-faint uppercase text-left">
+        <th class="px-3 py-3">Stock</th>
+        <th class="px-3 py-3 text-right" title="Compression / Base Before Move">Compr</th>
+        <th class="px-3 py-3 text-right" title="Stealth Accumulation / Absorption">Accum</th>
+        <th class="px-3 py-3 text-right" title="Distribution / Pre-Fall">Distr</th>
+        <th class="px-3 py-3 text-right" title="Failed Breakdown / Reclaim">Reclaim</th>
+        <th class="px-3 py-3 text-right">Rise</th>
+        <th class="px-3 py-3 text-right">Fall</th>
+        <th class="px-3 py-3 text-right">Collapse</th>
+        <th class="px-3 py-3 text-right">DQ%</th>
+        <th class="px-3 py-3">Gates passed</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+      <tr class="border-b border-line/60 hover:bg-ink/[0.02] {% if r.watch %}bg-emerald-50/50{% endif %}">
+        <td class="px-3 py-2 font-semibold"><a href="/triggers/{{ r.ticker }}" class="hover:underline">{{ r.ticker | replace('.NS','') }}</a>
+          {% if r.watch %}<span class="ml-1 text-[10px] text-emerald-700 font-bold">WATCH</span>{% endif %}
+          <span class="text-[10px] text-ink-faint ml-1">{{ r.asof }}</span></td>
+        <td class="px-3 py-2 text-right tabular-nums">{{ r.family_counts.get('Compression / Base Before Move', 0) }}</td>
+        <td class="px-3 py-2 text-right tabular-nums">{{ r.family_counts.get('Stealth Accumulation / Absorption', 0) }}</td>
+        <td class="px-3 py-2 text-right tabular-nums {% if r.family_counts.get('Distribution / Pre-Fall', 0) >= 3 %}text-red-700 font-bold{% endif %}">{{ r.family_counts.get('Distribution / Pre-Fall', 0) }}</td>
+        <td class="px-3 py-2 text-right tabular-nums">{{ r.family_counts.get('Failed Breakdown / Reclaim', 0) }}</td>
+        <td class="px-3 py-2 text-right tabular-nums">{{ r.scores.get('RISE', 0) }}</td>
+        <td class="px-3 py-2 text-right tabular-nums {% if r.scores.get('FALL', 0) >= 55 %}text-red-700 font-bold{% endif %}">{{ r.scores.get('FALL', 0) }}</td>
+        <td class="px-3 py-2 text-right tabular-nums {% if r.scores.get('COLLAPSE', 0) >= 60 %}text-red-700 font-bold{% endif %}">{{ r.scores.get('COLLAPSE', 0) }}</td>
+        <td class="px-3 py-2 text-right tabular-nums">{{ r.data_quality }}</td>
+        <td class="px-3 py-2 text-[10px]">{% for g in r.gates_passed %}<span class="px-1.5 py-0.5 mr-1 {% if 'FALL' in g or 'COLLAPSE' in g or 'EXIT' in g %}bg-red-100 text-red-800{% else %}bg-emerald-100 text-emerald-800{% endif %} font-mono">{{ g | replace('GATE_','') | replace('_01','') }}</span>{% endfor %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="bg-white border border-line p-6 mb-8 text-sm text-ink-soft">
+  No trigger pass has run yet today. It runs automatically after the 09:20 scan
+  {% if user and user.role == 'owner' %}— or press <strong>Run trigger pass now</strong> above{% endif %}.
+</div>
+{% endif %}
+
+<!-- the 8 gates, reference -->
+<div class="bg-white border border-line mb-8">
+  <div class="px-4 py-3 border-b border-line font-bold">Your 8 gates — the exact logic this page runs</div>
+  <table class="w-full text-sm">
+    <tbody>
+    {% for gid, gname, glogic in gate_rows %}
+      <tr class="border-b border-line/60">
+        <td class="px-4 py-2 font-mono text-xs whitespace-nowrap">{{ gid }}</td>
+        <td class="px-4 py-2">{{ gname}}<div class="text-[10px] text-ink-faint font-mono">{{ glogic }}</div></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div class="px-4 py-3 text-[10px] text-ink-faint border-t border-line">
+    Side scores: {{ score_note }}. GATE_RISE_ENTRY_01 is displayed, never traded —
+    your sheets mark every trigger REQUIRES_15Y_BACKTEST first; that calibration run is the next step when you order it.
+  </div>
+</div>
+{% endif %}
+{% endblock %}

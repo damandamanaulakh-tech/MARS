@@ -114,6 +114,7 @@ class Portfolio:
     decision_journal: List[dict] = field(default_factory=list)  # append-only: why bought/sold/held
     virtual_book: Dict[str, dict] = field(default_factory=dict)  # F8: unbought YES picks, marked to market
     scan_matrix: dict = field(default_factory=dict)  # 🎹 full scan hit-map (overwritten each scan)
+    trigger_watch: dict = field(default_factory=dict)  # ⚡ owner's trigger-layer daily result (display+watchlist only)
     pending_orders: List[dict] = field(default_factory=list)  # owner limit orders (day validity)
     filings: List[dict] = field(default_factory=list)  # matched exchange announcements (held+watch)
     # Daily loss-halt baseline. Persisted so a mid-day Render restart cannot
@@ -217,6 +218,7 @@ class Portfolio:
                 "decision_journal": self.decision_journal,     # recent tail (full trail in Mongo journal_archive)
                 "virtual_book": self.virtual_book,             # F8 shadow book of unbought YES picks
                 "scan_matrix": self.scan_matrix,               # 🎹 one scan's hit-map, fixed size
+                "trigger_watch": self.trigger_watch,           # ⚡ trigger-layer daily result
                 "pending_orders": self.pending_orders[-200:],  # owner limit orders, capped
                 "filings": self.filings[:100],                 # matched announcements, capped
                 "risk_day": self.risk_day,                     # daily kill-switch baseline date
@@ -256,6 +258,7 @@ class Portfolio:
             p.decision_journal = list(data.get("decision_journal", []))
             p.virtual_book = dict(data.get("virtual_book", {}))
             p.scan_matrix = dict(data.get("scan_matrix", {}))
+            p.trigger_watch = dict(data.get("trigger_watch", {}))
             p.pending_orders = list(data.get("pending_orders", []))
             p.filings = list(data.get("filings", []))
             p.risk_day = data.get("risk_day")
