@@ -1,0 +1,5 @@
+gap_id,gap_type,gap_detail,impact,next_loop,status
+GAP_TRIG_001,Evidence Halt,1-2 week triggers cannot be proven without historical data,No trigger can be called common/proven yet,UPSTOX_15Y_DATA_INTAKE_LOOP,OPEN
+GAP_TRIG_002,Data Quality Halt,"N200/current batch is snapshot, not 15Y time series","Can test schema only, not lead-time behavior",HISTORICAL_PANEL_BUILD_LOOP,OPEN
+GAP_TRIG_003,External Data Halt,"Delivery, OI, news, governance and sector breadth need separate sources",External triggers remain DATA_NEEDED,EXTERNAL_TRIGGER_DATA_LOOP,OPEN
+GAP_TRIG_004,False Positive Risk,Short-window triggers can fire often without event,Need baseline/random-window comparison,FALSE_POSITIVE_AUDIT_LOOP,OPEN

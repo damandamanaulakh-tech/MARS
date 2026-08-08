@@ -587,6 +587,49 @@ CODE FAULTS, all fixed, 638 tests green. Read this before touching prices.**
 without ever verifying a single stock resolved to an instrument key. One
 `to_instrument_keys(['TCS.NS'])` call would have shown `{}`. Verify the whole
 chain end-to-end before telling the owner it works.**
+**2026-08-04 late — THE TRUST TALK + THE OWNER'S OWN SYSTEM FINALLY WIRED.**
+Owner: "how many filtration i was looking for but u are not even close…
+i built wrong thing… u are able to execute only 30%". Counted instead of
+arguing: their trigger_layer_v0_2 design (112 triggers / 8 gates / 8 clusters
+/ pyramid map, in research/chityy_archive/ since the rescue) had **0 wired**.
+The live engine is MY momentum design; THEIR system sat in a folder. Also
+called out: Kelly (my idea) shipped same-day while their sheets waited —
+asymmetry conceded. Billing complaint → pointed to claude.ai Settings→Usage +
+support.claude.com (I can't see or fix billing). Then owner ordered **"wire
+it"** → SHIPPED same session, 666 tests green:
+- **`trading/triggers.py`** — registry PARSED FROM their CSV at import (code
+  can never drift from the sheet; guard test re-reads the CSV and cross-checks
+  all 112 ids/families/sides/weights). **79 OHLCV-ready triggers implemented**
+  (compression 16, accumulation 16, reclaim 11 of 12, liquidity 10 of 12,
+  distribution 19 of 20, collapse 7 of 14); **33 external-data triggers =
+  DATA_NEEDED** (sector/RS panels, delivery %, F&O OI, news/governance flags)
+  — listed with what unlocks them, never guessed. Their 8 gates run with THEIR
+  exact logic strings (watch = compression>=2 & accumulation>=2 &
+  distribution==0; entry = rise>=65 & fall<35 & dq>=80; fall-avoid =
+  dist>=3 | fall>=55; collapse-block = score>=60 | T12W_0089; sector-confirm
+  and event-overlay = DATA_NEEDED per their own sheet). Side scores =
+  weighted-%-fired, **ASSUMED formula, labelled on-page** (their sheets define
+  gates, not the score formula — calibration = their BT06). All unnumbered
+  constants collected in `ASSUMED_CONSTANTS`. Insufficient lookback → None,
+  lowers data_quality_score — thin data visible, never silently bearish.
+- **Scope = DISPLAY + WATCHLIST ONLY, their own REQUIRES_15Y_BACKTEST rule.**
+  GATE_RISE_ENTRY_01's verdict is SHOWN, never traded. Boundary test:
+  engine/risk/orders may not import triggers. `scheduler.run_trigger_layer`
+  runs post-09:20-scan (+ owner button), over scanned+held+picked (cap 80),
+  stores `portfolio.trigger_watch` (persisted JSON+Mongo both directions),
+  journals TRIGGER_WATCHLIST (once/name) and TRIGGER_LAYER_FAILED — a crash
+  can't break the scan.
+- **`/triggers` page** (⚡ sidebar): today's table (family counts, side
+  scores, DQ%, gates-passed chips, WATCH highlight), any-stock search over
+  the full universe, per-stock page = all 112 with formulas + fired/quiet/
+  n-a/DATA_NEEDED per trigger and all 8 gate verdicts.
+- **NEXT STEP WHEN ORDERED: the 15Y calibration backtest** — their
+  reverse_backtest_design_v0_2.csv (BT01-BT08: event labels → hit matrix →
+  lift vs baseline → false-positive audit → cluster scores → paper replay →
+  proof ladder) against the repo's 191×12y panel. That run earns/denies each
+  trigger a place in the money path and fixes the ASSUMED score formula.
+**STANDING ORDER FROM THE TRUST TALK: no more self-initiated features. Build
+only what the owner lists, their items first, exactly as specified.**
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

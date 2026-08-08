@@ -1,0 +1,9 @@
+gate_id,gate_name,side,window,logic,action,status
+GATE_RISE_WATCH_01,Pre-rise watchlist gate,RISE,last 5-10 trading days,compression_count>=2 AND accumulation_count>=2 AND distribution_count=0,Add to paper watchlist only,ACTIVE_TEST
+GATE_RISE_ENTRY_01,Paper entry permission gate,RISE,last 5-10 trading days,rise_trigger_score>=65 AND fall_warning_score<35 AND data_quality_score>=80,Paper entry allowed; no real order,PAPER_ONLY
+GATE_REVERSAL_01,Failed breakdown reversal gate,REVERSAL_UP,last 3-7 trading days,reclaim_count>=2 AND panic_exhaustion_or_support_sweep=True,Paper reversal candidate,PAPER_ONLY
+GATE_FALL_AVOID_01,Pre-fall avoid gate,FALL,last 5-10 trading days,distribution_count>=3 OR fall_warning_score>=55,Avoid new paper long / tighten journal review,ACTIVE_TEST
+GATE_EXIT_WARN_01,Paper exit warning gate,FALL,last 3-7 trading days,failed_breakout=True OR high_volume_no_progress=True OR weak_rs=True,Paper exit review,PAPER_ONLY
+GATE_COLLAPSE_BLOCK_01,Collapse hard block,COLLAPSE,last 3-10 trading days,collapse_score>=60 OR support_break_with_vol_spike=True,Block paper long / mark risk event,ACTIVE_TEST
+GATE_SECTOR_CONFIRM_01,Sector confirmation gate,RISE/FALL,last 10 trading days,peer_confirmation_count>=3 OR sector_breadth_change passes side condition,Confirm only; never standalone signal,DATA_NEEDED
+GATE_EVENT_OVERLAY_01,News/event overlay gate,RISE/FALL,last 10 trading days,external event flag aligns with technical trigger cluster,Context overlay only until source verified,DATA_NEEDED

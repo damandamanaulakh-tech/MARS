@@ -492,5 +492,98 @@ def _daily_multi_mode_scan() -> None:
     cfg.mode = original_mode
     cfg.apply_mode_preset()
     _check_pending_orders("post-scan")
+    run_trigger_layer("09:20")
     _push_phone_alerts("09:20")
     log.info("[09:20] Daily multi-mode scan complete: %s", " · ".join(summary))
+
+
+TRIGGER_LAYER_MAX_TICKERS = 80    # bounded work on the 512 MB box
+
+
+def run_trigger_layer(where: str = "manual") -> dict:
+    """⚡ The owner's Pre-Rise/Fall trigger layer (wired on their order,
+    2026-08-04: "wire it"). Runs AFTER the scan, over the day's scanned bucket
+    + held + picked names, from STORED history — display and watchlist only.
+    Touches no entry, no exit, no engine state beyond `portfolio.trigger_watch`
+    and the journal. A crash here can never break the scan that preceded it.
+    """
+    from datetime import datetime as _dt
+    from . import state
+    p = state.portfolio()
+    try:
+        from trading.triggers import stock_view
+        from .candle_chart import load_ohlcv
+        tickers: list[str] = []
+        seen: set[str] = set()
+        for t in list(p.positions.keys()) \
+                + [pk.get("ticker") for pk in (p.last_scan_picks or [])] \
+                + list(((p.scan_matrix or {}).get("rows") or {}).keys()):
+            if t and t not in seen:
+                seen.add(t)
+                tickers.append(t)
+        tickers = tickers[:TRIGGER_LAYER_MAX_TICKERS]
+
+        prev_watch = set((p.trigger_watch or {}).get("watchlist") or [])
+        rows: dict[str, dict] = {}
+        watchlist: list[str] = []
+        no_history: list[str] = []
+        for t in tickers:
+            df = load_ohlcv(t, tail=420)
+            if df is None or df.empty:
+                no_history.append(t)          # DATA_NEEDED — never guessed
+                continue
+            asof = ""
+            try:
+                asof = str(df.index[-1].date() if hasattr(df.index[-1], "date")
+                           else df.iloc[-1].get("date", ""))[:10]
+            except Exception:
+                pass
+            view = stock_view(df, asof=asof)
+            rows[t] = {
+                "asof": view["asof"],
+                "family_counts": view["family_counts"],
+                "scores": view["scores"],
+                "data_quality": view["data_quality"],
+                "gates_passed": [g["id"] for g in view["gates"]
+                                 if g["status"] == "PASS"],
+                "fired": [f["id"] for f in view["fired"]],
+                "watch": view["watch"],
+            }
+            if view["watch"]:
+                watchlist.append(t)
+
+        p.trigger_watch = {
+            "ts": _dt.utcnow().isoformat(),
+            "rows": rows,
+            "watchlist": watchlist,
+            "no_history": no_history,
+            "scanned": len(rows),
+        }
+        for t in watchlist:
+            if t not in prev_watch:            # journal each name once
+                p.decision_journal.append({
+                    "ts": _dt.utcnow().isoformat(),
+                    "action": "TRIGGER_WATCHLIST",
+                    "ticker": t,
+                    "gates": rows[t]["gates_passed"],
+                    "why": ("Owner's trigger layer: GATE_RISE_WATCH_01 passed "
+                            "(compression>=2, accumulation>=2, distribution=0)."
+                            " Watchlist only — no order placed."),
+                })
+        p.save()
+        log.info("[triggers:%s] %d scored, %d on watchlist, %d no-history",
+                 where, len(rows), len(watchlist), len(no_history))
+        return p.trigger_watch
+    except Exception as e:
+        log.exception("Trigger layer pass failed: %s", e)
+        try:
+            p.decision_journal.append({
+                "ts": _dt.utcnow().isoformat(),
+                "action": "TRIGGER_LAYER_FAILED",
+                "err": f"{type(e).__name__}: {str(e)[:120]}",
+                "why": "Trigger-layer pass crashed — scan itself unaffected.",
+            })
+            p.save()
+        except Exception:
+            pass
+        return {}

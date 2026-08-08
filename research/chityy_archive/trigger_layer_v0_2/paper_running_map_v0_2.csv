@@ -1,0 +1,9 @@
+run_step,sourceborn_stage,action,input,output,status
+RUN01,Point Zero,Lock user ask: generic parameters are insufficient,User request,Pre-rise/fall trigger add-on loop opened,PASS
+RUN02,Source Point,Select v0.6 + pyramid v0.1 as base,v0.6/v0.1 files,Trigger layer v0.2 patch,PASS
+RUN03,Source,Classify new parameters by data need,Trigger parameter definitions,OHLCV-ready vs DATA_NEEDED,PASS
+RUN04,Sequence,Insert before scoring layer,L04 event labels + L07 score engine,L04_Pre_1_2W_Trigger added,PASS
+RUN05,Pattern,Build common pre-event clusters,112 trigger params,8 cluster families,PASS
+RUN06,Evidence,Demand 15Y reverse test,Upstox schema,DATA_NEEDED halt remains,HOLD
+RUN07,Test/Review,Run after data extraction,15Y candles,hit-rate/lift/false-positive proof,WAITING_FOR_DATA
+RUN08,Point Zero with Product,Return patch to original ask,v0.2 package,Ready to merge into master,REVIEW

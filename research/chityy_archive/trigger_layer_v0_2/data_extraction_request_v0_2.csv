@@ -1,0 +1,10 @@
+data_group,required_fields,needed_for,status
+Upstox OHLCV 15Y,"instrument_key,symbol,exchange,date,open,high,low,close,volume,interval",All OHLCV-ready triggers and reverse event labels,DATA_NEEDED
+Weekly aggregate,"week_start,week_end,weekly_high,weekly_low,weekly_close,weekly_volume",Weekly reversal/fall/rise windows,CAN_CALCULATE_FROM_DAILY
+Sector/Industry map,"symbol,sector,industry,peer_group,index_symbol","RS lead, peer confirmation, contagion",PARTIAL_AVAILABLE
+Sector/index OHLCV,"index_symbol,date,open,high,low,close,volume",RS and sector breadth triggers,DATA_NEEDED
+Peer OHLCV,"peer_symbol,date,open,high,low,close,volume",Industry peer confirmation,DATA_NEEDED
+Delivery data,"symbol,date,delivery_volume,delivery_percent",Delivery spike pre-move,DATA_NEEDED
+F&O/OI data,"symbol,date,open_interest,change_oi,put_call_ratio,options_skew","OI short build, long unwinding, options skew",DATA_NEEDED
+News/NLP data,"symbol,date,event_type,sentiment_score,source_url",Event/news overlay,DATA_NEEDED
+Governance/bulk/block,"symbol,date,flag_type,value,source_url","Governance risk, bulk deal triggers",DATA_NEEDED
