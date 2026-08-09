@@ -57,12 +57,23 @@ def test_is_system_event_returns_none_when_clear():
         assert ev.impact == "system_wide"
 
 
-def test_is_ticker_event_returns_usfda():
-    # 2 days before SUNPHARMA USFDA decision
-    ev = is_ticker_event_within("SUNPHARMA.NS", days=5, today=date(2026, 7, 12))
-    assert ev is not None
-    assert ev.event_type == "usfda"
-    assert "SUNPHARMA.NS" in ev.affected
+def test_usfda_calendar_ships_empty_and_the_gate_still_works():
+    """AUDIT FIX A5 (2026-08-09): the shipped USFDA entries were labelled
+    "Examples" — invented decisions that BLOCKED real entries (DRREDDY was
+    blackout-blocked on a made-up Aug-22 event). The calendar now ships
+    EMPTY (DATA_NEEDED) and the gate fires only when a real date is fed."""
+    from trading import calendars as cal
+    assert cal.USFDA_DECISIONS_2026 == {}
+    assert is_ticker_event_within("DRREDDY.NS", days=5,
+                                  today=date(2026, 8, 20)) is None
+    # the mechanism itself still works the day a verified date is added
+    cal.USFDA_DECISIONS_2026["SUNPHARMA.NS"] = [(date(2026, 9, 10), "real ANDA")]
+    try:
+        ev = is_ticker_event_within("SUNPHARMA.NS", days=5,
+                                    today=date(2026, 9, 8))
+        assert ev is not None and ev.event_type == "usfda"
+    finally:
+        cal.USFDA_DECISIONS_2026.clear()
 
 
 def test_is_ticker_event_returns_none_for_unaffected():

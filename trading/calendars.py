@@ -138,51 +138,57 @@ def fno_monthly_expiry(year: int, month: int) -> date:
 
 # --- Earnings calendar (NSE quarterly results) ---
 # Source: NSE quarterly results calendar (manually curated).
-# Format: ticker (NSE) -> [date(quarter_end_date)]
-# Update every quarter from https://www.nseindia.com/companies-listing/corporate-filings-financial-results
+# Format: ticker (NSE) -> [date(...)]
+#
+# AUDIT FIX A5 (2026-08-09): trimmed to the Q1-FY27 (Jul-Aug 2026) dates only,
+# all now in the past. The Oct-2026..May-2027 dates previously here were
+# GUESSES — companies announce result dates only ~2-4 weeks ahead, so those
+# entries both blocked entries on invented dates and implied protection on
+# the real (unknown) ones. DATA_NEEDED: future quarters go in only from the
+# NSE results calendar once companies announce; with no future dates the
+# earnings blackout simply never fires.
 #
 # Rule: skip new entries during the 3-day window BEFORE earnings (volatility
 # spike + binary risk). Existing positions are not force-exited.
-#
-# Indian Q1 results typically late Jul / Q2 late Oct / Q3 late Jan / Q4 late Apr-May.
 INDIA_EARNINGS_DATES_2026 = {
     # Q1 FY27 (Jul 2026): banks and IT report first
-    "TCS.NS":       [date(2026, 7, 11), date(2026, 10, 10), date(2027, 1, 13), date(2027, 4, 13)],
-    "INFY.NS":      [date(2026, 7, 17), date(2026, 10, 16), date(2027, 1, 14), date(2027, 4, 18)],
-    "WIPRO.NS":     [date(2026, 7, 18), date(2026, 10, 16), date(2027, 1, 16), date(2027, 4, 19)],
-    "HCLTECH.NS":   [date(2026, 7, 14), date(2026, 10, 13), date(2027, 1, 14), date(2027, 4, 15)],
-    "TECHM.NS":     [date(2026, 7, 25), date(2026, 10, 24), date(2027, 1, 24), date(2027, 4, 25)],
-    "LTIM.NS":      [date(2026, 7, 19), date(2026, 10, 17), date(2027, 1, 17), date(2027, 4, 18)],
-    "HDFCBANK.NS":  [date(2026, 7, 19), date(2026, 10, 18), date(2027, 1, 17), date(2027, 4, 19)],
-    "ICICIBANK.NS": [date(2026, 7, 25), date(2026, 10, 25), date(2027, 1, 24), date(2027, 4, 26)],
-    "SBIN.NS":      [date(2026, 8, 2),  date(2026, 11, 8),  date(2027, 2, 7),  date(2027, 5, 16)],
-    "AXISBANK.NS":  [date(2026, 7, 23), date(2026, 10, 22), date(2027, 1, 22), date(2027, 4, 23)],
-    "KOTAKBANK.NS": [date(2026, 7, 26), date(2026, 10, 25), date(2027, 1, 25), date(2027, 4, 27)],
-    "INDUSINDBK.NS":[date(2026, 7, 23), date(2026, 10, 22), date(2027, 1, 22), date(2027, 4, 23)],
-    "BAJFINANCE.NS":[date(2026, 7, 26), date(2026, 10, 25), date(2027, 1, 25), date(2027, 4, 27)],
-    "RELIANCE.NS":  [date(2026, 7, 19), date(2026, 10, 18), date(2027, 1, 17), date(2027, 4, 19)],
-    "MARUTI.NS":    [date(2026, 7, 31), date(2026, 10, 30), date(2027, 1, 30), date(2027, 4, 30)],
-    "M&M.NS":       [date(2026, 8, 8),  date(2026, 11, 7),  date(2027, 2, 6),  date(2027, 5, 8)],
-    "TATAMOTORS.NS":[date(2026, 7, 31), date(2026, 10, 31), date(2027, 1, 31), date(2027, 4, 30)],
-    "BHARTIARTL.NS":[date(2026, 8, 7),  date(2026, 11, 7),  date(2027, 2, 6),  date(2027, 5, 14)],
-    "ITC.NS":       [date(2026, 8, 1),  date(2026, 10, 31), date(2027, 1, 31), date(2027, 5, 16)],
-    "LT.NS":        [date(2026, 7, 25), date(2026, 10, 25), date(2027, 1, 24), date(2027, 5, 8)],
-    "SUNPHARMA.NS": [date(2026, 8, 2),  date(2026, 11, 1),  date(2027, 1, 31), date(2027, 5, 16)],
-    "DRREDDY.NS":   [date(2026, 7, 26), date(2026, 10, 25), date(2027, 1, 25), date(2027, 5, 7)],
-    "CIPLA.NS":     [date(2026, 8, 1),  date(2026, 10, 31), date(2027, 1, 31), date(2027, 5, 9)],
+    "TCS.NS":       [date(2026, 7, 11)],
+    "INFY.NS":      [date(2026, 7, 17)],
+    "WIPRO.NS":     [date(2026, 7, 18)],
+    "HCLTECH.NS":   [date(2026, 7, 14)],
+    "TECHM.NS":     [date(2026, 7, 25)],
+    "LTIM.NS":      [date(2026, 7, 19)],
+    "HDFCBANK.NS":  [date(2026, 7, 19)],
+    "ICICIBANK.NS": [date(2026, 7, 25)],
+    "SBIN.NS":      [date(2026, 8, 2)],
+    "AXISBANK.NS":  [date(2026, 7, 23)],
+    "KOTAKBANK.NS": [date(2026, 7, 26)],
+    "INDUSINDBK.NS":[date(2026, 7, 23)],
+    "BAJFINANCE.NS":[date(2026, 7, 26)],
+    "RELIANCE.NS":  [date(2026, 7, 19)],
+    "MARUTI.NS":    [date(2026, 7, 31)],
+    "M&M.NS":       [date(2026, 8, 8)],
+    "TATAMOTORS.NS":[date(2026, 7, 31)],
+    "BHARTIARTL.NS":[date(2026, 8, 7)],
+    "ITC.NS":       [date(2026, 8, 1)],
+    "LT.NS":        [date(2026, 7, 25)],
+    "SUNPHARMA.NS": [date(2026, 8, 2)],
+    "DRREDDY.NS":   [date(2026, 7, 26)],
+    "CIPLA.NS":     [date(2026, 8, 1)],
 }
 
 
-# --- USFDA decision calendar (manually curated for known PDUFA dates) ---
-# Source: drugs.fda.gov + industry trackers. Update quarterly.
+# --- USFDA decision calendar ---
+# AUDIT FIX A5 (2026-08-09): EMPTIED. The previous entries were labelled
+# "Examples; user should refresh from industry sources" — invented events
+# ("Generic XYZ ANDA", a made-up DRREDDY "Rituximab biosimilar" on Aug 22)
+# that the engine treated as real and used to BLOCK entries via
+# is_ticker_event_within(). Fake data in the money path is the one thing
+# this app must never do. DATA_NEEDED: fill this only from a verified
+# source (drugs.fda.gov / company filings); an empty dict simply means the
+# USFDA blackout never fires until real dates are fed.
 # Format: ticker (NSE) -> [(date, drug_name)]
-USFDA_DECISIONS_2026 = {
-    # Examples; user should refresh from industry sources
-    "SUNPHARMA.NS": [(date(2026, 7, 15), "Generic XYZ ANDA")],
-    "CIPLA.NS": [(date(2026, 9, 30), "Inhaler resubmission")],
-    "LUPIN.NS": [(date(2026, 11, 18), "Albuterol generic")],
-    "DRREDDY.NS": [(date(2026, 8, 22), "Rituximab biosimilar")],
-}
+USFDA_DECISIONS_2026: dict = {}
 
 
 def upcoming_events(today: Optional[date] = None, lookahead_days: int = 30) -> list[CalendarEvent]:
