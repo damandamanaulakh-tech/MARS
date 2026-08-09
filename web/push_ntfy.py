@@ -45,6 +45,13 @@ PUSH_ACTIONS = {
     "SCAN_FAILED": "⚠️",
     "DATA_STALE": "⚠️",
     "CORRECTION_VIX_REENTRY": "🚀",
+    # AUDIT FIX B5 (2026-08-09): the -2% halt used to fire SILENTLY — the
+    # alerts page promised a kill-switch alert whose notifier had zero
+    # callers. The halt and the crash-brake now reach the phone.
+    "KILL_SWITCH_SCAN": "🛑",
+    "KILL_SWITCH": "🛑",
+    "DRAWDOWN_LADDER": "🛑",
+    "EXIT_HELD_NO_QUOTE": "⚠️",
 }
 
 

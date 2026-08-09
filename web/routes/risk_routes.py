@@ -19,11 +19,12 @@ def risk_view(request: Request):
     eng = app_state.engine()
     cfg = app_state.cfg()
 
-    # Refresh drawdown read with current equity
-    prices = {p.ticker: p.entry_price for p in eng.portfolio.positions.values()}
-    equity = eng.portfolio.equity(prices)
+    # AUDIT FIX B3 (2026-08-09): this page used to re-run the governor
+    # with ENTRY-price marks on every page view — mutating live risk state
+    # with stale data and showing the result unlabeled. It is read-only now:
+    # the governor is updated only by the engine's own scan/refresh passes on
+    # live quotes, and the page says which reading it is showing.
     try:
-        eng.drawdown_gov.update(equity)
         dd = eng.drawdown_gov.snapshot()
     except AttributeError:
         dd = None

@@ -27,12 +27,21 @@ YF_THREADS: int | bool = int(os.environ.get("YF_THREADS", "4"))
 
 _HISTORY_BROKER = None  # UpstoxClient or None; set by web/state on attach
 
-# NSE index keys Upstox understands (yfinance symbols -> instrument keys)
-_INDEX_KEYS = {
-    "^NSEI": "NSE_INDEX|Nifty 50",
-    "^NSEBANK": "NSE_INDEX|Nifty Bank",
-    "^INDIAVIX": "NSE_INDEX|India VIX",
-}
+# AUDIT FIX B12 (2026-08-09): this module kept its own PRIVATE copy of the
+# index-key map and it had already drifted — ^CNX200 and ^BSESN were missing,
+# which is the structural reason the Nifty-200 backtest benchmark could never
+# load ("did the N200 line render?" — it never could). One source of truth
+# now: the brokers module's constant.
+try:
+    from .brokers.upstox_instruments import INDEX_KEYS as _INDEX_KEYS
+except ImportError:                                    # pragma: no cover
+    _INDEX_KEYS = {
+        "^NSEI": "NSE_INDEX|Nifty 50",
+        "^NSEBANK": "NSE_INDEX|Nifty Bank",
+        "^INDIAVIX": "NSE_INDEX|India VIX",
+        "^CNX200": "NSE_INDEX|Nifty 200",
+        "^BSESN": "BSE_INDEX|SENSEX",
+    }
 _IK_MAP: Dict[str, str] | None = None
 
 
@@ -180,14 +189,18 @@ def fetch_quote(ticker: str) -> float | None:
 
 
 def fetch_quotes(tickers: list[str]) -> Dict[str, float]:
-    """Latest available close for many tickers in one call."""
+    """Latest available close for many tickers in one call.
+
+    AUDIT FIX B6 (2026-08-09): the Upstox daily-candle branch is GONE. It
+    returned Close.iloc[-1] of a 7-day candle fetch — intraday that is
+    YESTERDAY'S close, up to 7 days old across holidays — in the same dict as
+    real LTPs, indistinguishable to every caller, and the marks cache then
+    stamped it fresh. A missing quote must be ABSENT, not stale-dressed-as-
+    live: the router's callers already handle absence honestly (entry-mark
+    labels, EXIT_HELD_NO_QUOTE). The yfinance path below stays for local dev;
+    from Render it is blocked and returns nothing, which is the truth.
+    """
     out0: Dict[str, float] = {}
-    if _HISTORY_BROKER is not None:
-        for t, df in _fetch_daily_upstox(tickers, "7d").items():
-            out0[t] = float(df["Close"].iloc[-1])
-        tickers = [t for t in tickers if t not in out0]
-        if not tickers:
-            return out0
     try:
         raw = yf.download(
             tickers, period="2d", interval="1d",

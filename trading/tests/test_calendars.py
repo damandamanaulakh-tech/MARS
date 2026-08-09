@@ -9,17 +9,17 @@ from trading.calendars import (
 )
 
 
-def test_fno_expiry_is_last_thursday():
-    # Feb 2026: last Thursday should be 2026-02-26
+def test_fno_expiry_is_last_tuesday():
+    """AUDIT FIX B10: NSE F&O expiry moved to TUESDAY (SEBI expiry-day
+    standardization, ~Sep 2025). Feb 2026's last Tuesday is 2026-02-24."""
     d = fno_monthly_expiry(2026, 2)
-    assert d.weekday() == 3
-    assert d == date(2026, 2, 26)
+    assert d.weekday() == 1
+    assert d == date(2026, 2, 24)
 
 
 def test_fno_expiry_december_rollover():
-    # Dec 2026 last Thursday
     d = fno_monthly_expiry(2026, 12)
-    assert d.weekday() == 3
+    assert d.weekday() == 1
     assert d.month == 12
 
 

@@ -25,7 +25,10 @@ from .data import fetch_earnings_growth
 
 def _clip(x: float, lo: float = 0.0, hi: float = 100.0) -> float:
     if x != x:  # NaN
-        return 0.0
+        # AUDIT FIX B9 (2026-08-09): NaN used to clip to 0 — MAXIMUM BEARISH.
+        # A data hole scored as a strong sell signal is the opposite of the
+        # DATA_NEEDED rule; missing input = neutral, visibly mid-scale.
+        return 50.0
     return float(max(lo, min(hi, x)))
 
 
@@ -254,10 +257,18 @@ def compute_hot_sectors(
 
 
 def reasoning_text(components: Dict[str, float], total: float) -> str:
-    """One-line explainability for a pick."""
+    """One-line explainability for a pick.
+
+    AUDIT FIX B9: components sitting exactly at neutral 50 are excluded from
+    "Top drivers" — a factor whose feed fell back to its neutral default
+    (catalyst without a key, analyst unfetchable) must not be presented as a
+    reason the stock was picked. A neutral factor drives nothing anyway."""
     top = sorted(
-        [(k, v * AM07_WEIGHTS[k]) for k, v in components.items() if k not in STUB_COMPONENTS],
+        [(k, v * AM07_WEIGHTS[k]) for k, v in components.items()
+         if k not in STUB_COMPONENTS and v != 50.0],
         key=lambda x: -x[1],
     )[:3]
     drivers = ", ".join(f"{k}={components[k]:.0f}" for k, _ in top)
+    if not drivers:
+        return f"Score {total:.1f}/100. All factors at/near neutral."
     return f"Score {total:.1f}/100. Top drivers: {drivers}."

@@ -654,7 +654,15 @@ backtest mode thread-local (web backtest can't poison the 09:20 scan) ·
 deploy/sector caps on CURRENT EQUITY not frozen 50L · scan entries fill at
 LIVE quotes when broker answers (fill_source journaled; prev_close fallback)
 · owner BUY/limit auto-size through sizing.position_notional_for (manual =
-fixed ₹1.25L under every mode). REMAINING HEADLINE FINDINGS AWAITING OWNER
+fixed ₹1.25L under every mode). **B1-B12 (lying screens) FIXED same day (owner: "fix B batch too"), 711
+tests:** header regime label · Engine page PARKED truth + real ladder
+0/0/20/40 + as-of stamp · Risk page truth pass + read-only governor ·
+positions.csv live marks + price_source · kill-switch pushes to phone,
+email honesty · daily-close-as-quote branch DELETED · IFR badge 22d window
+· CAGR claim removed + dynamic ticket placeholders · zero-flow=50,
+NaN=neutral, honest Top-drivers · expiry Tuesday (SEBI 2025) · benchmark
+truncation disclosed · index-key map unified, N200 benchmark now possible
+(first live backtest verifies). REMAINING HEADLINE FINDINGS AWAITING OWNER
 DECISIONS: Mongo
 connects once, never retries (boot during blip = phantom fresh book, day's
 trades vanish) · scan mutates shared cfg.mode while requests run · ^CNX200

@@ -63,7 +63,8 @@
       {% if status.email_configured %}<span class="text-emerald-700">CONFIGURED</span>{% else %}<span class="text-ink-faint">NOT SET</span>{% endif %}
     </div>
     <div class="text-xs text-ink-soft mt-2">
-      Set <code class="bg-slate-100 px-1">ALERT_EMAIL_TO</code>, <code class="bg-slate-100 px-1">SMTP_HOST</code>, <code class="bg-slate-100 px-1">SMTP_USER</code>, <code class="bg-slate-100 px-1">SMTP_PASS</code>.
+      Env vars are read for this card only — <strong>no code sends email yet</strong>; alerts go to
+      your phone (ntfy) and optionally Slack.
     </div>
   </div>
 </div>
@@ -71,10 +72,13 @@
 <div class="bg-white border border-line mb-6">
   <div class="px-4 lg:px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">Alert triggers (auto-fired)</div>
   <ul class="px-4 lg:px-6 py-4 text-sm text-ink-soft space-y-2">
-    <li>• <strong>Drawdown escalation</strong> — fires when DrawdownGovernor crosses to stop_adding / cut_half / mostly_cash / full_halt</li>
-    <li>• <strong>Regime switch</strong> — fires when Nifty regime classifier transitions (bull_extension / neutral / correction / panic)</li>
-    <li>• <strong>Kill switch</strong> — fires when daily loss halt triggers</li>
-    <li>• Same-fingerprint dedupe window: 60 min (don't shout the same alert twice)</li>
+    <li>• <strong>📱 Phone (ntfy) — the channel that actually reaches you:</strong> every BUY / SELL /
+        scan failure / stale-data hold / VIX re-entry, and since 2026-08-09 the
+        <strong>kill switch</strong> (🛑 daily −2% halt) and the drawdown crash-brake. Enable in Settings.</li>
+    <li>• <strong>Slack (optional)</strong> — drawdown escalation + regime switches, only if
+        <code class="bg-slate-100 px-1">SLACK_WEBHOOK_URL</code> is set. 60-min same-alert dedupe.</li>
+    <li>• <strong>Email — NOT WIRED.</strong> The SMTP variables are read for the status card below, but no
+        code path sends an email today. Honest status, not a promise.</li>
   </ul>
 </div>
 

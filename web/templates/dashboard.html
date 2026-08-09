@@ -77,11 +77,11 @@
     <li>FII flow tide + sector-rotation top-3 boosts wired into scoring.</li>
     <li>Score-decay trailing tighten: locks gains earlier when entry score has fallen 15+ points.</li>
     <li>News-sentiment catalyst via Claude API (graceful fallback when no key).</li>
-    <li>Walk-forward backtester with lookahead-bias guards, 5-year default range, every run archived in Mongo.</li>
+    <li>Walk-forward backtester with lookahead-bias guards, 2-year default range, every run archived in Mongo.</li>
     <li>Always-downloadable CSV reports: picks, positions, trades, equity curve, skipped reasons.</li>
     <li>Per-trade journal: notes + tags on each open position; carried through CSVs.</li>
     <li>Alerts on drawdown escalation and regime switch (webhook-based; configure in env).</li>
-    <li>Live Upstox quote routing when connected; falls back to yfinance (~15-min delayed) otherwise. <strong>Paper-only — no live order placement yet.</strong></li>
+    <li>Live Upstox quote routing when connected; with no live quote a price shows as ABSENT or entry-marked — never a stale number dressed as live. <strong>Paper-only — no live order placement yet.</strong></li>
   </ol>
 </details>
 
@@ -89,7 +89,7 @@
 <div class="mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs tracking-widest text-ink-faint uppercase">
   <span class="flex items-center gap-2">
     <span class="inline-block w-2 h-2 rounded-full {% if quote_source.source == 'upstox' %}bg-emerald-500{% else %}bg-slate-400{% endif %}"></span>
-    Quotes: {% if quote_source.source == 'upstox' %}<span class="text-emerald-700 normal-case tracking-normal font-semibold">Upstox real-time</span>{% else %}<span class="normal-case tracking-normal">yfinance (~15 min delay)</span>{% endif %}
+    Quotes: {% if quote_source.source == 'upstox' %}<span class="text-emerald-700 normal-case tracking-normal font-semibold">Upstox real-time</span>{% else %}<span class="normal-case tracking-normal text-amber-700">degraded — reconnect Upstox (no fallback feed from Render)</span>{% endif %}
   </span>
   <span class="flex items-center gap-2">
     <span class="inline-block w-2 h-2 rounded-full {% if db_status.connected %}bg-emerald-500{% else %}bg-slate-400{% endif %}"></span>
@@ -119,7 +119,7 @@
     <p class="text-ink-soft mt-2 text-sm lg:text-base">
       {{ kpis[0].big | inr_lakh }} equity &middot;
       {{ kpis[1].big }} open positions &middot;
-      {{ kpis[3].big }} exits due
+      {{ kpis[3].big }} regime
     </p>
   </div>
   <div class="flex flex-wrap gap-2 lg:gap-3">

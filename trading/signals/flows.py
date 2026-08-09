@@ -154,6 +154,12 @@ def fetch_flows_from_csv(path: str = None) -> Optional[list[FlowReading]]:
                     dii = float(row["dii_cash_net"] or 0.0)
                 except (ValueError, KeyError):
                     continue
+                # AUDIT FIX B9: an all-zero row is a data hole, not a flat
+                # market — the live parser already rejects these; the CSV
+                # fallback must too, or a padded row re-fabricates the
+                # "zero scored bearish" signal via the back door.
+                if fii == 0.0 and dii == 0.0:
+                    continue
                 out.append(FlowReading(
                     trade_date=d, fii_buy=0.0, fii_sell=0.0, fii_net=fii,
                     dii_buy=0.0, dii_sell=0.0, dii_net=dii))
@@ -224,6 +230,11 @@ def fii_flow_score(fii_5d_net: Optional[float], days: int = 5) -> float:
         return 50.0
     if days and days > 0 and days != 5:
         fii_5d_net = fii_5d_net * (5.0 / days)
+    if fii_5d_net == 0:
+        # AUDIT FIX B9 (2026-08-09): a genuine 0.0 net flow used to score 40
+        # (mildly bearish) — the exact zero-reads-as-bearish pattern the FII
+        # parser bug burned the owner with. Zero flow is NEUTRAL.
+        return 50.0
     if fii_5d_net > 5000:
         return 90.0
     if fii_5d_net > 0:

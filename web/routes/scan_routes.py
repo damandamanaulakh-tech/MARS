@@ -20,6 +20,11 @@ _SCAN_RUNNING = False
 _LAST_SCAN_ERROR: str | None = None
 
 
+def _momentum_preset():
+    from trading.modes import get_preset
+    return get_preset("nifty200_momentum")
+
+
 @router.get("/scan", response_class=HTMLResponse)
 def scan_view(request: Request, error: str | None = None):
     if not auth.current_user(request):
@@ -53,6 +58,11 @@ def scan_view(request: Request, error: str | None = None):
         {
             "user": auth.current_user(request),
             "active": "scan",
+            # AUDIT FIX B8: ticket placeholders derive from the real momentum
+            # preset instead of a hardcoded number that rots (it said "5"
+            # while the live target was +12).
+            "preset_stop": round(abs(_momentum_preset().stop_loss_pct) * 100, 1),
+            "preset_target": round(_momentum_preset().take_profit_pct * 100, 1),
             "picks": picks,
             "skipped": p.last_scan_skipped or [],
             "opened": p.last_scan_opened or [],
