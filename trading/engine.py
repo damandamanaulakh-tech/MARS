@@ -467,9 +467,11 @@ class TradingEngine:
                 pass
 
         # v5: Build correlation-gate state (returns of each open position)
+        # AUDIT E (2026-08-09): vol_adjusted_qty was imported here and never
+        # called — dead code that read as a live control. Deleted with the
+        # rest of the never-wired vol-tier scheme.
         from .risk_v2 import (
-            correlation_gate_blocks, daily_returns,
-            passes_liquidity, vol_adjusted_qty,
+            correlation_gate_blocks, daily_returns, passes_liquidity,
         )
         open_returns = {}
         for held in self.portfolio.positions:
@@ -653,7 +655,13 @@ class TradingEngine:
                 # throttle stays: it is a damage-cluster defence, not a
                 # score judgement.
                 ifr_mult = ifr_snapshot.sizing_multiplier if ifr_snapshot else 1.0
-                throttle = ifr_mult
+                # AUDIT E (2026-08-09): the drawdown governor's documented
+                # "watchful → size 75%" tier was set in update() and consumed
+                # by NOTHING — the risk page described a control that never
+                # ran. It throttles for real now (most restrictive wins).
+                dd_mult = float(getattr(self.drawdown_gov,
+                                        "sizing_multiplier", 1.0) or 1.0)
+                throttle = min(ifr_mult, dd_mult)
                 qty = int(qty * throttle)
                 min_val = float(getattr(cfg, "min_position_value", 0) or 0)
                 if qty > 0 and min_val > 0 and qty * fill < min_val:

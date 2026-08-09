@@ -82,11 +82,6 @@
   {% if seeded == "0" %}<span class="text-emerald-800">(All already present — nothing to add.)</span>{% endif %}
 </div>
 {% endif %}
-{% if removed %}
-<div class="bg-amber-50 border border-amber-300 text-amber-900 p-3 mb-4 text-sm">
-  Removed <strong>{{ removed }}</strong> from the book — cash refunded, logged in the journal.
-</div>
-{% endif %}
 {% if sold %}
 <div class="bg-emerald-50 border border-emerald-300 text-emerald-900 p-3 mb-4 text-sm">
   ✅ Sold <strong>{{ sold }}</strong> — it is now in
@@ -191,7 +186,7 @@
           </button>
           <form action="/positions/{{ r.ticker }}/sell" method="post" class="inline-flex items-center gap-1 ml-3"
                 onsubmit="return confirm('Sell {{ r.ticker }}? It goes to Closed Trades with real P&L.');">
-            <input type="number" step="0.05" name="price" placeholder="{{ '%.2f' % r.ltp if r.ltp_live else 'price' }}"
+            <input type="number" step="0.01" name="price" placeholder="{{ '%.2f' % r.ltp if r.ltp_live else 'price' }}"
                    title="{% if r.ltp_live %}Blank = sell at the live price ₹{{ '%.2f' % r.ltp }}{% else %}No live quote for this stock — type the price you sold at{% endif %}"
                    class="w-20 text-xs text-right border-b border-line bg-transparent outline-none focus:border-ink py-1">
             <button class="inline-block px-2 py-2 text-xs font-bold tracking-widest uppercase text-red-600 hover:text-red-800 whitespace-nowrap">SELL</button>
@@ -206,8 +201,6 @@
             <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">Sector</div>{{ r.sector }}</div>
             <div class="whitespace-nowrap"><div class="text-[10px] tracking-widest text-ink-faint uppercase">Score at Entry</div>{{ r.entry_score | round(1) }}</div>
             <div class="whitespace-nowrap"><div class="text-[10px] tracking-widest text-ink-faint uppercase" title="Highest price since entry — the trailing stop hangs off this">Peak ₹</div>₹{{ r.peak_price | inr(2) }}</div>
-            <div><div class="text-[10px] tracking-widest text-ink-faint uppercase" title="Engine already sold part of this position (crash-brake / partial booking)">Partial Exit</div>
-              {% if r.partial_taken %}<span class="text-accent font-semibold">Booked</span>{% else %}—{% endif %}</div>
           </div>
           <div class="text-sm text-ink-soft mb-4">
             <span class="text-[10px] tracking-widest text-ink-faint uppercase block mb-1">Why the engine bought</span>

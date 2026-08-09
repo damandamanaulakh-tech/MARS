@@ -368,12 +368,24 @@ def _t0031(x):  # hidden demand delta proxy
     return np.sum(cv[-5:]) > np.sum(cv[-10:-5]) and abs(x.ret(10)) <= 0.03
 
 
+def _cluster_fired(x, fam: list) -> int:
+    """AUDIT E (2026-08-09): cluster triggers used to call member functions
+    directly, bypassing each member's own _MIN_BARS guard — a thin history
+    could silently count members the standalone evaluation reports as n/a."""
+    n = 0
+    for t in fam:
+        if x.n < _MIN_BARS.get(t, _MIN_BARS_DEFAULT):
+            continue
+        if _FNS[t](x) is True:
+            n += 1
+    return n
+
+
 def _t0032(x):  # accumulation cluster count (ASSUMED: >=4 of the family today)
     fam = ["T12W_0017", "T12W_0018", "T12W_0019", "T12W_0020", "T12W_0021",
            "T12W_0022", "T12W_0023", "T12W_0024", "T12W_0025", "T12W_0026",
            "T12W_0027", "T12W_0028", "T12W_0029", "T12W_0030", "T12W_0031"]
-    fired = sum(1 for t in fam if _FNS[t](x) is True)
-    return fired >= ASSUMED_CONSTANTS["cluster_count_threshold"]
+    return _cluster_fired(x, fam) >= ASSUMED_CONSTANTS["cluster_count_threshold"]
 
 
 def _support20(x):
@@ -589,8 +601,7 @@ def _t0081(x):  # distribution cluster count (ASSUMED: >=4 of the family today)
            "T12W_0074", "T12W_0075", "T12W_0076", "T12W_0077", "T12W_0078",
            "T12W_0079", "T12W_0080", "T12W_0082", "T12W_0083", "T12W_0084",
            "T12W_0085", "T12W_0086", "T12W_0087", "T12W_0088"]
-    fired = sum(1 for t in fam if _FNS[t](x) is True)
-    return fired >= ASSUMED_CONSTANTS["cluster_count_threshold"]
+    return _cluster_fired(x, fam) >= ASSUMED_CONSTANTS["cluster_count_threshold"]
 
 
 def _t0082(x):  # bearish OBV divergence near high
@@ -830,7 +841,9 @@ GATE_ROWS = [
     ("GATE_FALL_AVOID_01", "Pre-fall avoid gate",
      "distribution_count>=3 OR fall_warning_score>=55"),
     ("GATE_EXIT_WARN_01", "Paper exit warning gate",
-     "failed_breakout=True OR high_volume_no_progress=True OR weak_rs=True"),
+     "failed_breakout=True OR high_volume_no_progress=True OR weak_rs=True "
+     "(weak_rs leg = DATA_NEEDED: needs the sector RS panel — verdict runs "
+     "on the two computable legs)"),
     ("GATE_COLLAPSE_BLOCK_01", "Collapse hard block",
      "collapse_score>=60 OR support_break_with_vol_spike=True"),
     ("GATE_SECTOR_CONFIRM_01", "Sector confirmation gate",

@@ -23,7 +23,7 @@
 </div>
 
 <!-- any-stock search over the full universe -->
-<form method="get" class="mb-6 flex items-center gap-2" onsubmit="if(this.t.value){this.action='/triggers/'+this.t.value.toUpperCase();this.t.name=''}; return true;">
+<form method="get" class="mb-6 flex items-center gap-2" onsubmit="if(this.t.value){this.action='/triggers/'+encodeURIComponent(this.t.value.toUpperCase());this.t.name=''}; return true;">
   <input name="t" list="uni" placeholder="Any stock — e.g. TCS or VSSL.NS"
          class="w-64 border-b border-line bg-transparent outline-none focus:border-ink py-2 text-sm">
   <datalist id="uni">{% for u in universe %}<option value="{{ u }}">{% endfor %}</datalist>

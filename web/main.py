@@ -12,7 +12,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from . import scheduler
 from .routes import (
     auth, dashboard, positions, scan_routes, settings_routes,
-    stubs, upstox, backtest_routes, regime_routes,
+    upstox, backtest_routes, regime_routes,
     strategy_routes, reports_routes, risk_routes, alerts_routes,
     signal_routes, chart_routes, lens_routes, trigger_routes,
 )
@@ -32,7 +32,13 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=os.environ.get("SESSION_SECRET", "dev-only-change-me-in-render-env"),
     same_site="lax",
-    https_only=False,  # set True when behind Render's HTTPS proxy
+    # AUDIT E: Secure cookies on Render (it sets RENDER=true and terminates
+    # HTTPS for us). Plain HTTP — local dev and the test client — would never
+    # receive a Secure cookie, so the flag must follow the deployment, not be
+    # hardcoded. SESSION_SECURE=1 forces it on anywhere else.
+    https_only=bool(
+        os.environ.get("RENDER") or os.environ.get("SESSION_SECURE") == "1"
+    ),
     max_age=30 * 24 * 60 * 60,  # keep the owner logged in for 30 days
 )
 
@@ -44,7 +50,6 @@ app.include_router(signal_routes.router)
 app.include_router(positions.router)
 app.include_router(scan_routes.router)
 app.include_router(settings_routes.router)
-app.include_router(stubs.router)
 app.include_router(upstox.router)
 app.include_router(backtest_routes.router)
 app.include_router(regime_routes.router)

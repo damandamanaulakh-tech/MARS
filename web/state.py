@@ -341,6 +341,7 @@ def refresh_broker_attachment() -> None:
 
 # {ticker: (price, fetched_at_epoch)} — per-ticker timestamps, because a
 # single cache-wide timestamp let dead prices masquerade as live (see below).
+_MARKS_LOCK = threading.Lock()   # AUDIT E: the cache was mutated lock-free across scheduler+request threads
 _MARKS_CACHE: dict = {"prices": {}}
 MARKS_MAX_AGE_SEC = 120.0        # older than this is NOT a live price
 
@@ -367,23 +368,28 @@ def marks(tickers: list[str], max_age: float = MARKS_MAX_AGE_SEC
     now = time.time()
     cache: dict = _MARKS_CACHE["prices"]
 
-    # Drop anything past its age, everywhere — a stale entry must never be
-    # reachable, not even for a ticker we are not asking about right now.
-    for t in [k for k, (_p, ts) in cache.items() if now - ts > max_age]:
-        cache.pop(t, None)
+    # AUDIT E (2026-08-09): all cache reads/writes are under _MARKS_LOCK now —
+    # the old lock-free dict was mutated by scheduler threads while a request
+    # iterated it, which could 500 the positions page with "dict changed size
+    # during iteration".
+    with _MARKS_LOCK:
+        for t in [k for k, (_p, ts) in list(cache.items()) if now - ts > max_age]:
+            cache.pop(t, None)
+        need = [t for t in tickers if t not in cache]
 
-    need = [t for t in tickers if t not in cache]
     if need:
         try:
             from trading.quote_router import fetch_quotes as _rq
             got = _rq(need, upstox_client=engine().broker)
+        except Exception:
+            got = {}
+        with _MARKS_LOCK:
             for t, px in (got or {}).items():
                 if px and px > 0:
                     cache[t] = (float(px), now)
-        except Exception:
-            pass
 
-    out = {t: cache[t][0] for t in tickers if t in cache}
+    with _MARKS_LOCK:
+        out = {t: cache[t][0] for t in tickers if t in cache}
     return out, bool(out)
 
 

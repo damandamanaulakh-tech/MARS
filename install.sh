@@ -11,7 +11,7 @@ VENV_DIR="${VENV_DIR:-.venv}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
-    echo "Error: $PYTHON_BIN not found. Install Python 3.9+ and retry." >&2
+    echo "Error: $PYTHON_BIN not found. Install Python 3.11 (matches CI + Render) and retry." >&2
     exit 1
 fi
 
@@ -19,7 +19,7 @@ PY_VERSION="$("$PYTHON_BIN" -c 'import sys; print("{}.{}".format(sys.version_inf
 PY_MAJOR="${PY_VERSION%%.*}"
 PY_MINOR="${PY_VERSION##*.}"
 if [ "$PY_MAJOR" -lt 3 ] || { [ "$PY_MAJOR" -eq 3 ] && [ "$PY_MINOR" -lt 9 ]; }; then
-    echo "Error: Python 3.9+ required (found $PY_VERSION)." >&2
+    echo "Error: Python 3.11 (matches CI + Render) required (found $PY_VERSION)." >&2
     exit 1
 fi
 
@@ -39,7 +39,7 @@ cat <<EOF
 Done. To run the app:
 
     source $VENV_DIR/bin/activate
-    python app.py
+    uvicorn web.main:app --port ${PORT:-8000}
 
-The Gradio server listens on \$PORT (default 7860).
+The FastAPI server listens on \$PORT (default 7860).
 EOF

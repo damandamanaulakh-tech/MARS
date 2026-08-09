@@ -24,7 +24,7 @@ COMPONENT_DESCRIPTIONS = {
     "relative_strength": ("3M + 6M return vs Nifty 50 benchmark blend", "live"),
     "vol_adj_upside":    ("Sharpe + Sortino-style return-to-vol blend", "live"),
     "short_interest":    ("Put-Call Ratio proxy — no free NSE source", "stubbed @ 50"),
-    "analyst_revision":  ("yfinance recommendations — flaky for NSE", "stubbed @ 50"),
+    "analyst_revision":  ("yfinance consensus — LIVE since 2026-07-16, neutral 50 only when unfetchable", "live"),
     "breakout_quality":  ("Distance from 20-day + 50-day high blend", "live"),
     "sector_alignment":  ("Sector-peer avg momentum + PIB policy boost", "live"),
 }

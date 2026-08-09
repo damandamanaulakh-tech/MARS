@@ -251,44 +251,44 @@ _PARAM_DEFS: dict[str, dict] = {
         "what": ("Price strength over the last 6 and 12 months, divided by how "
                  "shaky the ride was, then ranked against every scanned stock. "
                  "The core buying signal of the momentum mode."),
-        "rule": "6m and 12m return ÷ volatility, percentile-ranked, blended 50/50. 60+ = hit.",
+        "rule": "6m and 12m return ÷ volatility, percentile-ranked, blended 50/50. 62+ = pass (the live floor).",
         "knob": "trading/strategies/nifty200_momentum.py (lookbacks) · blend vs quality: trading/config.py quality_blend_pct"},
     "quality": {
         "title": "Quality",
         "what": ("Business health — profitability, debt, earnings stability. "
                  "Blended into the momentum score so junk rallies rank lower."),
-        "rule": "0–100 quality score, blended 35% with momentum. 60+ = hit.",
+        "rule": "0–100 quality score, blended 35% with momentum. 62+ = pass (the live floor).",
         "knob": "trading/quality.py · blend weight: trading/config.py quality_blend_pct"},
     "momentum_1m": {
         "title": "1-month momentum",
         "what": "Short-term price push over ~21 trading days.",
-        "rule": "0–100; 60+ = hit, under 40 = blocked.",
+        "rule": "0–100; 62+ = pass (the live floor), under 40 = blocked.",
         "knob": "trading/scoring.py score_momentum_1m · weight: trading/modes.py WEIGHTS"},
     "volume_expansion": {
         "title": "Volume expansion",
         "what": "Is trading volume swelling vs its own recent normal? Big moves need fuel.",
-        "rule": "0–100 vs 20-day baseline; 60+ = hit.",
+        "rule": "0–100 vs 20-day baseline; 62+ = pass (the live floor).",
         "knob": "trading/scoring.py score_volume_expansion (up-days only) · weight: trading/modes.py WEIGHTS"},
     "earnings_growth": {
         "title": "Earnings growth",
         "what": "Is the company's profit actually growing (latest reported numbers)?",
-        "rule": "0–100 from reported growth; 60+ = hit.",
+        "rule": "0–100 from reported growth; 62+ = pass (the live floor).",
         "knob": "trading/scoring.py score_earnings_growth · weight: trading/modes.py WEIGHTS"},
     "catalyst": {
         "title": "Catalyst (news)",
         "what": ("Live news sentiment for the stock, plus the FII money-flow "
                  "tide. Neutral 50 when no news feed key is set."),
-        "rule": "0–100; 60+ = hit.",
+        "rule": "0–100; 62+ = pass (the live floor).",
         "knob": "trading/signals/news.py + flows.py · weight: trading/modes.py WEIGHTS"},
     "relative_strength": {
         "title": "Relative strength vs Nifty",
         "what": "Is this stock beating the index itself? Leaders outrun the market.",
-        "rule": "0–100 vs benchmark; 60+ = hit.",
+        "rule": "0–100 vs benchmark; 62+ = pass (the live floor).",
         "knob": "trading/scoring.py score_relative_strength · weight: trading/modes.py WEIGHTS"},
     "vol_adj_upside": {
         "title": "Volatility-adjusted upside",
         "what": "Recent gains per unit of wobble — smooth risers over wild swingers.",
-        "rule": "0–100; 60+ = hit.",
+        "rule": "0–100; 62+ = pass (the live floor).",
         "knob": "trading/scoring.py score_vol_adj_upside · weight: trading/modes.py WEIGHTS"},
     "short_interest": {
         "title": "Short interest (STUB — waiting)",
@@ -300,18 +300,18 @@ _PARAM_DEFS: dict[str, dict] = {
     "analyst_revision": {
         "title": "Analyst revisions",
         "what": "Are analysts raising or cutting their estimates for this stock?",
-        "rule": "0–100; 60+ = hit.",
+        "rule": "0–100; 62+ = pass (the live floor).",
         "knob": "trading/scoring.py _analyst_revision_score · weight: trading/modes.py WEIGHTS"},
     "breakout_quality": {
         "title": "Breakout quality",
         "what": "How clean is the price breakout — new high on real volume vs a messy poke.",
-        "rule": "0–100; 60+ = hit.",
+        "rule": "0–100; 62+ = pass (the live floor).",
         "knob": "trading/scoring.py score_breakout_quality · weight: trading/modes.py WEIGHTS"},
     "sector_alignment": {
         "title": "Sector alignment",
         "what": ("Is the stock's whole sector in favour? Includes the policy "
                  "boost (govt push) and hot-sector rotation bonus."),
-        "rule": "0–100; 60+ = hit.",
+        "rule": "0–100; 62+ = pass (the live floor).",
         "knob": "trading/scoring.py score_sector_alignment · weight: trading/modes.py WEIGHTS"},
     "score": {
         "title": "Total score vs floor",
@@ -351,7 +351,7 @@ _PARAM_DEFS: dict[str, dict] = {
 _GENERIC_DEF = {
     "title": "",
     "what": "A 0–100 scored check computed at scan time for every stock.",
-    "rule": "60+ = hit, 40–59 = weak, under 40 = blocked.",
+    "rule": "62+ = pass (the live floor), 40–59 = weak, under 40 = blocked.",
     "knob": "trading/scoring.py · weight: trading/modes.py WEIGHTS",
 }
 

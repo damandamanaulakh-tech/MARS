@@ -80,7 +80,7 @@ def test_evaluate_passes_when_all_conditions_met():
     assert cand.pct_below_200dma <= -30
     assert cand.climax_volume_ratio >= 3.0
     assert cand.survival_passed is True
-    assert len(cand.tranche_plan) == 3
+    assert not hasattr(cand, "tranche_plan")  # AUDIT E: the placeholder staged-entry plan (zero consumers) is gone
 
 
 def test_evaluate_skipped_when_survival_fails():

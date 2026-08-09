@@ -108,7 +108,6 @@ class ModePreset:
     history_period: str          # yfinance period
     stop_loss_pct: float
     take_profit_pct: float
-    partial_profit_pct: float
     trailing_stop_pct: float
     score_decay_exit: float
     max_hold_days: int
@@ -126,7 +125,6 @@ PRESETS: dict[str, ModePreset] = {
         history_period="5d",
         stop_loss_pct=-0.015,
         take_profit_pct=0.025,
-        partial_profit_pct=0.012,
         trailing_stop_pct=-0.01,
         score_decay_exit=40.0,
         max_hold_days=1,
@@ -145,7 +143,6 @@ PRESETS: dict[str, ModePreset] = {
         history_period="3mo",
         stop_loss_pct=-0.03,
         take_profit_pct=0.06,
-        partial_profit_pct=0.04,
         trailing_stop_pct=-0.04,
         score_decay_exit=45.0,
         max_hold_days=7,
@@ -164,7 +161,6 @@ PRESETS: dict[str, ModePreset] = {
         history_period="6mo",
         stop_loss_pct=-0.05,
         take_profit_pct=0.10,
-        partial_profit_pct=0.06,
         trailing_stop_pct=-0.08,
         score_decay_exit=45.0,        # loosened from 50 to match lower entry bar
         max_hold_days=60,
@@ -180,7 +176,6 @@ PRESETS: dict[str, ModePreset] = {
         history_period="2y",
         stop_loss_pct=-0.10,
         take_profit_pct=0.25,
-        partial_profit_pct=0.15,
         trailing_stop_pct=-0.12,
         score_decay_exit=45.0,
         max_hold_days=180,
@@ -205,8 +200,6 @@ PRESETS: dict[str, ModePreset] = {
                                      # keep 12% for now" (untested vs +30 — the
                                      # 60-day window is the judge; trail -15
                                      # remains the workhorse exit)
-        partial_profit_pct=0.07,     # scaled below the new target (was 0.18
-                                     # under +30 — would never fire above +12)
         trailing_stop_pct=-0.15,
         score_decay_exit=40.0,
         max_hold_days=200,           # semi-annual rebalance horizon

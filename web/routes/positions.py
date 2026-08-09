@@ -107,7 +107,6 @@ def positions_view(
             "peak_price": getattr(pos, "peak_price", pos.entry_price),
             "sector": pos.sector,
             "entry_score": pos.entry_score,
-            "partial_taken": getattr(pos, "partial_profit_taken", False),
             "components": buy_components.get(pos.ticker) or {},
             "reasoning": pos.reasoning,
             "entry_notes": getattr(pos, "entry_notes", "") or "",
