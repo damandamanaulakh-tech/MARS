@@ -784,6 +784,37 @@ documented, live engine still reads NSE API first. Remaining holes:
 2024-09-09→2024-11-29 (SEBI era) and DII after 2025-03. TRI = the ONLY
 still-unfetched item anywhere (niftyindices WAF; home machine or Colab
 retry with hardened session).**
+**SELECTION REGISTER v4 WIRED same day (owner uploaded
+Selection_Register_v4_279_OwnBuild.xlsx — an ASH08-lineage register of 279
+items — then ordered "focus rest from 279 … discuss and wire the rest").
+732 tests green. What shipped:**
+- Register committed: research/external/ (xlsx + extracted CSV). All 112
+  TRG formulas verified VERBATIM vs our trigger_params CSV (zero drift).
+  ~151 of 279 already lived in AM07 (mapped in register_v4.AM07_HAVE);
+  the "numbers replaced formulas" worry checked out clean — only 4 loose
+  rows, listed on-page.
+- **trading/register_v4.py — DISPLAY/RESEARCH ONLY** (same boundary as
+  triggers: engine/risk/orders never import it, test-enforced; registry
+  parsed from the committed CSV at import so code can't drift from sheet).
+  Computes ~90 of the 128 missing items from committed data: E-tags,
+  B-07/H/W/X per-stock analytics (fundamentals via curated CSV +
+  statements zip, shares-outstanding ASSUMED NI/EPS where needed,
+  labelled), PX panic signatures (panel breadth/dispersion/tails;
+  **dbi never defined in their files → PX-01/05 DATA_NEEDED**, tail cut
+  -3% ASSUMED on-page), FII-01..07 stack LIVE off the new fii_dii_cash +
+  PWOI panels (FII-04 index-fut net, FII-05 short-share q80, FII-07
+  PCR-OI shock), VIX-02 spike freeze flag, S-12/13/14 coverage/effective-
+  score telemetry. ~38 stay DATA_NEEDED with what unlocks each
+  (shareholding, analyst, news, USDINR, options chain, etc.).
+  **FII-08/09 wait on an OWNER PICK: their own sheet records TWO damage
+  thresholds (static 0.213 vs rolling q90) — "pick one and hash it".**
+- /register page (📇 sidebar): market view + any-stock search, U/S rows
+  shown as their-build-vs-AM07 verdicts, every assumption on-page.
+- BONUS BUG: /triggers search datalist held the CHARACTERS of
+  "20MICRONS.NS" (load_full_universe()[0]) — fixed to the real 2,428
+  names.
+- TCS sanity: ROE 45.9%, Altman 10.5, Piotroski 5/9, 3Y CAGR -11.8%,
+  RS 6M -27pp — all match the known story.
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

@@ -29,7 +29,10 @@ def _universe_names() -> list[str]:
     """Full auto-refreshed universe for the search box datalist."""
     try:
         from trading.universes import load_full_universe
-        return sorted(load_full_universe()[0])
+        # FIXED 2026-08-09: load_full_universe returns a flat list; the old
+        # [0] indexed the FIRST TICKER STRING, so the search datalist held
+        # the characters of "20MICRONS.NS" instead of 2,400+ names.
+        return sorted(load_full_universe())
     except Exception:
         return []
 

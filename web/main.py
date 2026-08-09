@@ -15,6 +15,7 @@ from .routes import (
     upstox, backtest_routes, regime_routes,
     strategy_routes, reports_routes, risk_routes, alerts_routes,
     signal_routes, chart_routes, lens_routes, trigger_routes,
+    register_routes,
 )
 
 
@@ -60,6 +61,7 @@ app.include_router(alerts_routes.router)
 app.include_router(chart_routes.router)
 app.include_router(lens_routes.router)
 app.include_router(trigger_routes.router)
+app.include_router(register_routes.router)
 
 
 @app.on_event("startup")
