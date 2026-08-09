@@ -194,10 +194,16 @@ def test_pwoi_items_from_real_committed_panel():
     assert out["FII-07"].state in ("FIRED", "QUIET")
 
 
-def test_damage_stack_items_wait_for_owner_pick():
-    out = rv.market_view({})
-    assert out["FII-08"].state == "DATA_NEEDED"
-    assert "pick one" in out["FII-08"].note
+def test_damage_stack_computes_both_owner_variants():
+    # owner 2026-08-09: "why not both 0.213 and rolling q90" — both shown
+    idx = _frame(n=300, seed=99)["Close"]
+    out = rv.market_view(_panel(), index_close=idx, flows=_flows())
+    assert out["FII-08"].state in ("FIRED", "QUIET")
+    assert "static 0.213" in out["FII-08"].note
+    assert "rolling q90" in out["FII-08"].note
+    assert out["FII-09"].state == "NA"      # PWOI legs absent in this call
+    no_panel = rv.market_view({})
+    assert no_panel["FII-08"].state == "NA"
 
 
 def test_market_inputs_load_from_committed_files():

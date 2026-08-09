@@ -995,12 +995,46 @@ def market_view(panel: dict[str, pd.DataFrame],
     else:
         for rid in ("FII-04", "FII-05", "FII-06", "FII-07"):
             out[rid] = _dn(rid, "PWOI panel missing")
-    out["FII-08"] = _dn("FII-08", "DAMAGE_CLUSTER_5IN10 has two threshold "
-                                  "versions on record (static 0.213 vs "
-                                  "rolling q90) — register says pick one; "
-                                  "owner decision needed")
-    out["FII-09"] = _dn("FII-09", "same DAMAGE leg undefined + needs FII-04/05"
-                                  " (those now compute)")
+    # FII-08/09: owner ruled 2026-08-09 "why not both 0.213 and rolling q90"
+    # — BOTH damage variants computed, side by side. Damage day per
+    # trading/ifr.py: market tail_down3_5d (share of members with a <=-3%
+    # 3-day move inside the last 5 days) above threshold; cluster = >=5 such
+    # days in the last 10. Static variant: > 21.3% (IFR v0.4). Rolling
+    # variant: > q90 of the loaded window (~250d page panel, not the
+    # engine's full history — labelled).
+    dmg_static = dmg_q90 = None
+    if prices is not None and len(prices) >= 40:
+        tail = (prices.pct_change(3).rolling(5).min() <= -0.03).mean(axis=1) * 100
+        tail = tail.dropna()
+        if len(tail) >= 60:
+            q90 = float(np.percentile(tail, 90))
+            dmg_static = int((tail.tail(10) > 21.3).sum()) >= 5
+            dmg_q90 = int((tail.tail(10) > q90).sum()) >= 5
+    if dmg_static is None:
+        out["FII-08"] = _na("FII-08", "panel too small for the damage series")
+        out["FII-09"] = _na("FII-09", "panel too small for the damage series")
+    else:
+        both = (f"damage[static 0.213]: {'YES' if dmg_static else 'no'} · "
+                f"damage[rolling q90]: {'YES' if dmg_q90 else 'no'} "
+                "(owner: both variants shown)")
+        f01 = out.get("FII-01")
+        if f01 is not None and f01.state in ("FIRED", "QUIET"):
+            s8 = (dmg_static or dmg_q90) and f01.state == "FIRED"
+            out["FII-08"] = Reading("FII-08", "FIRED" if s8 else "QUIET",
+                                    None, both + " AND FII-01="
+                                    + f01.state)
+        else:
+            out["FII-08"] = _na("FII-08", both + "; FII-01 unavailable")
+        f04, f05 = out.get("FII-04"), out.get("FII-05")
+        if f04 is not None and f05 is not None and \
+                f04.state in ("FIRED", "QUIET") and f05.state in ("FIRED", "QUIET"):
+            s9 = ((dmg_static or dmg_q90) and f04.state == "FIRED"
+                  and f05.state == "FIRED")
+            out["FII-09"] = Reading("FII-09", "FIRED" if s9 else "QUIET",
+                                    None, both + f" AND FII-04={f04.state}"
+                                    f" AND FII-05={f05.state}")
+        else:
+            out["FII-09"] = _na("FII-09", both + "; PWOI legs unavailable")
 
     for rid, why in _MARKET_DATA_NEEDED.items():
         out.setdefault(rid, _dn(rid, why))
