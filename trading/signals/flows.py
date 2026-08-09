@@ -242,3 +242,26 @@ def fii_flow_score(fii_5d_net: Optional[float], days: int = 5) -> float:
     if fii_5d_net > -5000:
         return 40.0 + max(-10.0, fii_5d_net / 5000 * 10.0)
     return 10.0
+
+
+def flow_status(max_age_days: int = MAX_FLOW_AGE_DAYS) -> dict:
+    """What the desk should SAY about FII/DII (owner 2026-07-26: "FII 5-day
+    net — why its not wired yet?"). It IS wired; the source is dead. The
+    Engine Regime page prints this instead of the literal words 'not wired',
+    so a data gap never reads as a build gap."""
+    raw = fetch_latest_flows() or fetch_flows_from_csv()
+    if not raw:
+        return {"state": "DATA_NEEDED", "why": "No FII/DII source reachable.",
+                "newest": None, "age_days": None, "fii_5d_net": None}
+    age = flows_age_days(raw)
+    newest = max(f.trade_date for f in raw).isoformat()
+    if age is not None and age > max_age_days:
+        return {"state": "STALE",
+                "why": (f"Newest FII/DII row is {age} days old ({newest}). "
+                        "NSE blocks cloud servers and SEBI publishes months "
+                        "late, so the committed CSV ends there. Not used for "
+                        "decisions."),
+                "newest": newest, "age_days": age, "fii_5d_net": None}
+    return {"state": "LIVE", "why": "Fresh FII/DII flow in use.",
+            "newest": newest, "age_days": age,
+            "fii_5d_net": round(fii_net_last_n_days(raw, 5) or 0.0, 1)}

@@ -49,8 +49,21 @@ def engine_view(request: Request):
             "regime": _LAST_REGIME,
             "regime_at": _LAST_REGIME_AT,
             "ocean_enabled": bool(getattr(cfg, "ocean_enabled", False)),
+            "flow_status": _flow_status(),
         },
     )
+
+
+def _flow_status() -> dict:
+    """Owner 2026-07-26: "FII 5-day net — why its not wired yet?" It IS wired;
+    the SOURCE is dead (NSE blocks cloud IPs, committed CSV ends Sep-2024).
+    Show that plainly instead of the old literal 'not wired'."""
+    try:
+        from trading.signals.flows import flow_status
+        return flow_status()
+    except Exception as e:
+        return {"state": "DATA_NEEDED", "why": f"flow check failed: {e}",
+                "newest": None, "age_days": None, "fii_5d_net": None}
 
 
 @router.post("/engine/refresh")
