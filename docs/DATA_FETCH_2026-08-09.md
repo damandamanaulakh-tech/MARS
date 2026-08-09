@@ -42,6 +42,39 @@ fundamentals fetcher). Two claims corrected: niftytrader is a rolling
 fundamentals cap in "universe order" is an alphabetical-bias sample — the
 kit version uses the actual N200 list.
 
+## Owner's Colab run — intake verdicts (same day, later)
+The owner ran the Colab script from their own Colab; its network reaches
+nsearchives where this cloud IP cannot. Uploaded results, audited piece by
+piece:
+- **PWOI (participant-wise F&O OI): REAL, NEW, COMMITTED** — 641 files
+  2024-01-01 -> 2026-08-07 combined into
+  `data/fo_participant_oi_2024_2026.csv` (3,205 rows). All files verified
+  (totals balance within NSE's own +/-1-contract arithmetic; election-day
+  2024-06-04 FII short positioning matches the public record).
+- **Fundamentals (yfinance from Colab): REAL, COMMITTED as superset** —
+  `data/fundamentals_yf_statements_2026-08-09.zip`, 200/200 coverage.
+  yfinance works from Colab's network (it returns empty from this cloud
+  sandbox). RELIANCE quarterly net income identical to our direct-endpoint
+  CSV — two independent paths agree.
+- **Corporate actions: DUPLICATE, skipped** — 34,736 rows vs our committed
+  34,792 (same API, ours slightly fuller); nothing new.
+- **fii_dii_cash_2023_2026.csv: NOT history — 2 rows, one day** — the
+  niftytrader primary failed in Colab too, so the script fell back to
+  NSE's single-day snapshot, and its fallback writes BOTH categories into
+  the fii columns (row 2 "fii_net 235.56" is actually DII). Values match
+  our committed 2026-08-07 exactly (480.24 FII / 235.56 DII). The
+  2025-04 -> 2026-06 FII/DII history hole is STILL OPEN (NSE monthly
+  reports, manual).
+- **Delivery % (sec_bhavdata_full): IN OWNER'S DRIVE, NOT YET DELIVERED**
+  — the intake manifest lists 1,778 files 2019-08-23 -> 2026-08-07
+  (~370MB; 80 are holiday echoes where NSE serves the prior day's file —
+  dedupe by hash at intake). Too big for the git tree: attach as a
+  release asset (zip the delivery/ folder), same as the OHLCV archive.
+- Still missing after this run: TRI series — no nifty200_tri.csv /
+  nifty50_tri.csv in the run's own manifest, so every TRI chunk failed
+  in Colab (cause not captured; the same WAF that blocks this sandbox is
+  the likely one). Owner home machine via the kit remains the path.
+
 ## Money-path impact
 None. No engine, sizing, or exit change. Data, tools and records only.
 Nothing here is wired into scanning until the owner orders it.
