@@ -34,13 +34,13 @@ def test_all_zero_live_rows_are_dropped(monkeypatch):
 
 
 def test_stale_flows_are_data_needed(monkeypatch):
-    old = date.today() - timedelta(days=700)
+    old = date.today() - timedelta(days=400)
     monkeypatch.setattr(fl, "fetch_latest_flows", lambda: None)
     monkeypatch.setattr(fl, "fetch_flows_from_csv", lambda path=None: [_row(old, fii=-500)])
     assert fl.get_flows() is None                # never used for decisions
     st = fl.flow_status()
     assert st["state"] == "STALE" and st["fii_5d_net"] is None
-    assert st["age_days"] >= 699
+    assert st["age_days"] >= 399
 
 
 def test_fresh_flows_are_used(monkeypatch):
