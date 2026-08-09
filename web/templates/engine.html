@@ -6,7 +6,9 @@
   <div>
     <h1 class="font-black text-3xl lg:text-5xl tracking-tight">Engine Status</h1>
     <p class="text-ink-soft mt-2">
-      Which engine is live right now and why. Refreshes every 15 min automatically.
+      Which engine is live right now and why.
+      {% if regime_at %}Reading as of <strong>{{ regime_at.strftime('%Y-%m-%d %H:%M') }} UTC</strong> —{% endif %}
+      cached up to 15 min, refreshed when you open this page or tap Refresh.
     </p>
   </div>
 
@@ -22,10 +24,10 @@
       one fires entries today.
     </p>
     <ul class="list-disc pl-5 space-y-1">
-      <li><strong>🏔️ Everest (momentum/breakout)</strong> — active when Nifty is above its 200-day MA and FII flows are positive. Buys breakouts in leading sectors.</li>
-      <li><strong>🌊 Ocean (deep-reversion)</strong> — active when Nifty is &gt;10% off its 52-week high. Buys quality names that have been heavily oversold (RSI &lt;30 on weekly + climax volume).</li>
+      <li><strong>🏔️ Everest (momentum/breakout)</strong> — active when Nifty is above its 200-day MA (FII flow is shown for context, it does not gate). Buys breakouts in leading sectors.</li>
+      <li><strong>🌊 Ocean (deep-reversion)</strong> — the regime marks it eligible in a correction (Nifty below its 200-DMA or ≥12% off the 52-week high), panic (≥10% off + VIX&gt;25), or neutral — but it only ever buys if your <strong>Ocean switch</strong> in Settings is ON. It is currently {% if ocean_enabled %}ON{% else %}<strong>PARKED (off)</strong>, so in a correction the app deliberately buys nothing until the VIX re-entry fires{% endif %}.</li>
     </ul>
-    <p>The classifier reads four cheap inputs every 15 minutes:</p>
+    <p>The classifier reads four cheap inputs on each refresh:</p>
     <ol class="list-decimal pl-5 space-y-1">
       <li>Nifty close vs 200-day moving average</li>
       <li>% below 52-week high</li>
@@ -35,7 +37,8 @@
     <p>And lands on one of four regimes — <code class="bg-slate-100 px-1">bull_extension</code>,
       <code class="bg-slate-100 px-1">neutral</code>, <code class="bg-slate-100 px-1">correction</code>,
       or <code class="bg-slate-100 px-1">panic</code> — which also drives your dynamic cash reserve
-      (20% / 25% / 35% / 50% respectively).</p>
+      (0% / 0% / 20% / 40% respectively — fully deployed in bull/neutral, protective cash forced in
+      during correction/panic).</p>
   </div>
 </details>
 
@@ -72,15 +75,21 @@
     <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
       <div class="text-xs tracking-widest text-ink-faint uppercase">🌊 OCEAN · Deep Reversion</div>
       <span class="px-3 py-1 text-xs font-bold tracking-widest uppercase whitespace-nowrap
-                   {% if regime.ocean_active %}bg-blue-600 text-white{% else %}bg-slate-200 text-slate-500{% endif %}">
-        {% if regime.ocean_active %}ACTIVE{% else %}DORMANT{% endif %}
+                   {% if not ocean_enabled %}bg-amber-200 text-amber-900
+                   {% elif regime.ocean_active %}bg-blue-600 text-white
+                   {% else %}bg-slate-200 text-slate-500{% endif %}">
+        {% if not ocean_enabled %}PARKED (switch off)
+        {% elif regime.ocean_active %}ACTIVE
+        {% else %}DORMANT{% endif %}
       </span>
     </div>
     <div class="mt-4 font-black text-2xl lg:text-3xl tabular-nums">
-      {{ "%.0f%%"|format(regime.sizing_multiplier_ocean * 100) }} size
+      {% if ocean_enabled %}{{ "%.0f%%"|format(regime.sizing_multiplier_ocean * 100) }} size{% else %}0% size{% endif %}
     </div>
     <div class="text-sm text-ink-faint mt-2">
-      Buys deep-reversion setups after panic crashes (3-tranche entry).
+      {% if ocean_enabled %}Buys deep-reversion setups after panic crashes.{% else %}
+      Parked by your switch — it buys nothing, journals OCEAN_BLOCKED, and needs a
+      crash guard before it goes on (it caught a −41% knife in the 2020 replay).{% endif %}
     </div>
   </div>
 </div>
@@ -96,7 +105,7 @@
 
 <!-- Raw inputs -->
 <div class="bg-white border border-line p-4 lg:p-6">
-  <div class="font-bold mb-4">Raw inputs (refreshed every 15 min)</div>
+  <div class="font-bold mb-4">Raw inputs{% if regime_at %} (as of {{ regime_at.strftime('%Y-%m-%d %H:%M') }} UTC){% endif %}</div>
   <div class="overflow-x-auto">
   <table class="w-full text-sm">
     <tbody class="divide-y divide-line">

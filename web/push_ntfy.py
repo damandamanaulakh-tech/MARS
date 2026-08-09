@@ -45,6 +45,24 @@ PUSH_ACTIONS = {
     "SCAN_FAILED": "⚠️",
     "DATA_STALE": "⚠️",
     "CORRECTION_VIX_REENTRY": "🚀",
+    # AUDIT FIX B5 (2026-08-09): the -2% halt used to fire SILENTLY — the
+    # alerts page promised a kill-switch alert whose notifier had zero
+    # callers. The halt and the crash-brake now reach the phone.
+    "KILL_SWITCH_SCAN": "🛑",
+    "EXIT_HELD_NO_QUOTE": "⚠️",
+    "SQUARE_OFF_HELD_NO_QUOTE": "⚠️",
+    # AUDIT FIX C9 (2026-08-09): five FAILED job actions were journal-only —
+    # a universe refresh failing every day for a week was invisible unless
+    # the owner read the journal. "Is the machine alive" events buzz now.
+    "UNIVERSE_REFRESH_FAILED": "⚠️",
+    "FILINGS_FAILED": "⚠️",
+    "DATA_REFRESH_FAILED": "⚠️",
+    "TRIGGER_LAYER_FAILED": "⚠️",
+    "SERIES_WATCH_FAILED": "⚠️",
+    "MONGO_OFFLINE_HALT": "🛑",
+    "MONGO_RECOVERED": "✅",
+    "MONGO_RECOVERED_CONFLICT": "🛑",
+    "CORRUPT_STATE_RESET": "🛑",
 }
 
 
@@ -150,9 +168,16 @@ def push_journal_events() -> int:
     lines = []
     for e in fresh[:12]:
         icon = PUSH_ACTIONS[e["action"]]
+        label = e["action"]
         tic = e.get("ticker", "")
+        # Codex review on PR#40: kill-switch and crash-brake force-closes are
+        # journaled as SELL with the cause in exit_reason — an action-name
+        # match alone pushed an unexplained SELL. Name the brake.
+        if label == "SELL" and e.get("exit_reason") in (
+                "KILL_SWITCH", "DRAWDOWN_LADDER", "SQUARE_OFF"):
+            icon, label = "🛑", f"SELL ({e['exit_reason']})"
         extra = e.get("reason") or e.get("why") or ""
-        lines.append(f"{icon} {e['action']} {tic} {str(extra)[:60]}".strip())
+        lines.append(f"{icon} {label} {tic} {str(extra)[:60]}".strip())
     if len(fresh) > 12:
         lines.append(f"…and {len(fresh) - 12} more (see journal)")
 

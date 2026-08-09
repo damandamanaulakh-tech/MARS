@@ -1,12 +1,22 @@
-yfinance
-pandas
-numpy
-fastapi
-uvicorn[standard]
-jinja2
-python-multipart
-itsdangerous
-pymongo
-apscheduler
-pytz
-httpx
+# AUDIT FIX C4 (2026-08-09): every dependency is PINNED. Unpinned lines meant
+# CI tested whatever resolved on CI day and Render installed whatever resolved
+# on deploy day — a future incompatible APScheduler release would have killed
+# the entire daily machine (scan/square-off/exits) while the deploy stayed
+# green, because scheduler.py swallows the import failure with a warning.
+# Upgrade deliberately: bump a pin, run the suite, deploy.
+yfinance==1.5.2
+pandas==3.0.5
+numpy==2.4.6
+fastapi==0.140.0
+uvicorn[standard]==0.51.0
+jinja2==3.1.6
+python-multipart==0.0.32
+itsdangerous==2.2.0
+pymongo==4.17.0
+apscheduler==3.11.3
+pytz==2026.3.post1
+httpx==0.28.1
+# AUDIT FIX C5 (2026-08-09): imported by trading/signals/policy.py since the
+# v4 policy tracker shipped, but never listed — the PIB sector boost has
+# NEVER run in production. Now it can.
+feedparser==6.0.14

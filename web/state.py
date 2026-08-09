@@ -59,6 +59,8 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     # Legacy mirror docs predate capital_base; the live book started at 25L.
     p.capital_base = float(doc.get("capital_base", 25_00_000.0) or 25_00_000.0)
     p.dd_peak_equity = float(doc.get("dd_peak_equity", 0.0) or 0.0)
+    p.loss_day = doc.get("loss_day")
+    p.loss_count = int(doc.get("loss_count", 0) or 0)
     p.trigger_watch = dict(doc.get("trigger_watch", {}) or {})
     p.last_save = doc.get("last_save")
 
@@ -75,8 +77,14 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
         # so the full append-only trail survives in Mongo (journal_archive)
         # while RAM stays bounded on the always-on process.
         from trading.paper import JOURNAL_RAM_CAP
-        if db.is_connected() and len(self.decision_journal) > JOURNAL_RAM_CAP:
-            db.archive_journal(self.decision_journal[:-JOURNAL_RAM_CAP])
+        if len(self.decision_journal) > JOURNAL_RAM_CAP:
+            overflow = self.decision_journal[:-JOURNAL_RAM_CAP]
+            # AUDIT FIX C2 (2026-08-09): if Mongo dies mid-session the archive
+            # used to fail with a log line while original_save trimmed the RAM
+            # copy — append-only journal entries were PERMANENTLY lost. Failed
+            # archives now spill to a local JSONL and replay on reconnect.
+            if not db.archive_journal(overflow):
+                _spill_journal_overflow(self, overflow)
         original_save(self)
         if not db.is_connected():
             return
@@ -104,6 +112,8 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "risk_day_killed": self.risk_day_killed,
             "capital_base": self.capital_base,
             "dd_peak_equity": self.dd_peak_equity,
+            "loss_day": self.loss_day,
+            "loss_count": self.loss_count,
             "trigger_watch": self.trigger_watch,
             "last_save": self.last_save,
         }
@@ -111,6 +121,81 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
 
     Portfolio.save = _save_with_mirror  # type: ignore[assignment]
     _PORTFOLIO_SAVE_PATCHED = True
+
+
+def _overflow_path(p: Portfolio) -> str:
+    import os
+    return os.path.join(p.cfg.state_dir, "journal_overflow.jsonl")
+
+
+def _spill_journal_overflow(p: Portfolio, entries: list) -> None:
+    """Durable-ish local backup for journal entries the Mongo archive missed."""
+    import json as _json
+    try:
+        with open(_overflow_path(p), "a") as f:
+            for e in entries:
+                f.write(_json.dumps(e, default=str) + "\n")
+        log.warning("journal overflow spilled to disk (%d entries) — will "
+                    "replay to Mongo on reconnect", len(entries))
+    except OSError as e:
+        log.error("journal overflow spill FAILED (%d entries at risk): %s",
+                  len(entries), e)
+
+
+def mongo_degraded() -> bool:
+    """The owner configured Mongo and it is currently unreachable."""
+    return db.mongo_expected() and not db.is_connected()
+
+
+def heal_after_reconnect() -> None:
+    """AUDIT FIX C1/C2 (2026-08-09): one-shot repair after Mongo comes back.
+
+    (1) Replays any spilled journal overflow into the durable archive.
+    (2) If the BOOT happened during the outage (phantom fresh book) and the
+        local book is still virgin — no positions, no trades — hydrate the
+        real book from Mongo instead of overwriting it at the next save.
+        A local book that already has activity is NEVER clobbered; the
+        conflict is journaled for the owner instead.
+    """
+    if not db.recovered_pending():
+        return
+    db.claim_recovery()
+    p = portfolio()
+    import json as _json
+    import os
+    path = _overflow_path(p)
+    if os.path.exists(path):
+        try:
+            with open(path) as f:
+                entries = [_json.loads(line) for line in f if line.strip()]
+            if not entries or db.archive_journal(entries):
+                os.remove(path)
+                log.info("replayed %d spilled journal entries to Mongo",
+                         len(entries))
+        except (OSError, ValueError) as e:
+            log.error("overflow replay failed (kept on disk): %s", e)
+
+    from datetime import datetime as _dt
+    if db.boot_was_degraded():
+        virgin = not p.positions and not p.trades
+        persisted = db.load_portfolio()
+        if virgin and persisted:
+            _hydrate_portfolio_from_mongo(p, persisted)
+            p.decision_journal.append({
+                "ts": _dt.utcnow().isoformat(), "action": "MONGO_RECOVERED",
+                "why": ("Boot happened during a Mongo outage; the real book "
+                        "has been restored from Mongo (local book was empty)."),
+            })
+        elif persisted:
+            p.decision_journal.append({
+                "ts": _dt.utcnow().isoformat(),
+                "action": "MONGO_RECOVERED_CONFLICT",
+                "why": ("Mongo is back but this session already traded on a "
+                        "fresh book started during the outage. NOTHING was "
+                        "overwritten — owner must reconcile (the Mongo book "
+                        "is untouched until the next save)."),
+            })
+    p.save()
 
 
 def _coerce_override(cfg, key: str, value):
@@ -300,6 +385,17 @@ def marks(tickers: list[str], max_age: float = MARKS_MAX_AGE_SEC
 
     out = {t: cache[t][0] for t in tickers if t in cache}
     return out, bool(out)
+
+
+def marks_sources(tickers) -> dict:
+    """{ticker: 'upstox'|'yf_close'} for the tickers we have prices for —
+    Codex review on PR#40: an export must know whether a mark was a real
+    live tick or a delayed daily close."""
+    try:
+        from trading.quote_router import LAST_SOURCES
+        return {t: LAST_SOURCES.get(t) for t in tickers if t in LAST_SOURCES}
+    except ImportError:
+        return {}
 
 
 def marks_age(tickers: list[str]) -> float | None:

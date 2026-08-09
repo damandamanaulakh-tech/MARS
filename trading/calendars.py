@@ -122,16 +122,27 @@ def is_trading_day(today: Optional[date] = None) -> bool:
     return today.weekday() < 5 and today not in NSE_FIXED_HOLIDAYS
 
 
-# --- F&O monthly expiry: last Thursday of every month ---
+# --- F&O monthly expiry ---
 def fno_monthly_expiry(year: int, month: int) -> date:
-    """Last Thursday of the given month."""
+    """Last TUESDAY of the given month (display only — expiry never halts).
+
+    AUDIT FIX B10 (2026-08-09): this computed last THURSDAY, but NSE moved
+    its F&O expiries to Tuesday under SEBI's 2025 expiry-day standardization
+    (effective ~Sep 2025), so every What's-Coming expiry date was a few days
+    late. Note: dates computed for months before Sep 2025 will be wrong by
+    this rule — this helper is only used forward-looking."""
     if month == 12:
         first_next = date(year + 1, 1, 1)
     else:
         first_next = date(year, month + 1, 1)
     last_day = first_next - timedelta(days=1)
-    # Thursday = weekday 3
-    while last_day.weekday() != 3:
+    # Tuesday = weekday 1
+    while last_day.weekday() != 1:
+        last_day -= timedelta(days=1)
+    # Codex review on PR#40: when the last Tuesday is an NSE holiday
+    # (e.g. 2026-11-24 Gurpurb, 2027-01-26 Republic Day), expiry moves to
+    # the PRECEDING trading day.
+    while not is_trading_day(last_day):
         last_day -= timedelta(days=1)
     return last_day
 

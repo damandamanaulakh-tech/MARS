@@ -368,12 +368,11 @@ class UpstoxClient:
                 token = row.get("instrument_token")
                 if token in wanted:
                     out[token] = float(px)
-                else:
-                    # Fall back to matching on the trading symbol in the
-                    # response key, e.g. 'NSE_EQ:RELIANCE'.
-                    sym = str(resp_key).split(":")[-1].strip().upper()
-                    for k in wanted:
-                        if k.split("|")[-1].strip().upper() == sym:
-                            out[k] = float(px)
-                            break
+                # AUDIT FIX C10 (2026-08-09): the old "fallback" matched the
+                # response key's trading symbol (NSE_EQ:RELIANCE) against
+                # k.split("|")[-1] — which for NSE_EQ|INE002A01018 is the
+                # ISIN, never the symbol. Dead code that READ as protection.
+                # Deleted: instrument_token echoing the request is the API
+                # contract; a row without it means that ticker is absent,
+                # which callers now surface honestly instead of papering over.
         return out

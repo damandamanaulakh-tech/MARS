@@ -16,6 +16,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import threading
+
+# AUDIT FIX C3 (2026-08-09): the 09:20 rotation mutates the ONE shared live
+# Config's mode through 4 presets while web requests execute — an owner
+# action mid-scan could run under the wrong mode's stops/floor. This lock is
+# held by the rotation for each mode's pass and best-effort acquired by the
+# owner buy paths, so a manual buy no longer interleaves a preset swap.
+MODE_LOCK = threading.RLock()
+
 
 # Top-level AM 07 weight presets per mode. All sum to 1.0.
 WEIGHTS = {

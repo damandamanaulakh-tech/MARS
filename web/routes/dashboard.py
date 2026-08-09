@@ -29,6 +29,27 @@ def _panel(fn, *args):
         return None
 
 
+def _ifr_window_active(p) -> bool:
+    """AUDIT FIX B7 (2026-08-09): the dashboard's "IFR throttle active" badge
+    used to latch forever after one fire. Same 22-day window the risk page
+    applies."""
+    from datetime import date as _date
+    try:
+        from trading.ifr import ACTIVE_DAYS_AFTER_FIRE
+    except ImportError:
+        return False
+    for d in (p.last_ifr_fire_date, p.last_ifr_ratio_fire_date):
+        if not d:
+            continue
+        try:
+            days = (_date.today() - _date.fromisoformat(str(d)[:10])).days
+            if 0 <= days <= ACTIVE_DAYS_AFTER_FIRE:
+                return True
+        except ValueError:
+            continue
+    return False
+
+
 @router.get("/", response_class=HTMLResponse)
 def dashboard(request: Request):
     if not auth.current_user(request):
@@ -140,7 +161,9 @@ def dashboard(request: Request):
         "exits": exit_reasons.most_common(6),
         "skips": skip_reasons.most_common(8),
         "regime": p.last_regime or "not classified yet",
-        "ifr_active": bool(p.last_ifr_fire_date or p.last_ifr_ratio_fire_date),
+        # AUDIT FIX B7 (2026-08-09): "IFR throttle active" used to latch
+        # forever after one fire. Same 22-day window the risk page uses.
+        "ifr_active": _ifr_window_active(p),
     }
 
     cash_pct = (p.cash / cfg.starting_capital * 100) if cfg.starting_capital else 0

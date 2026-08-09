@@ -32,12 +32,26 @@ def _generate_all() -> Dict[str, Optional[str]]:
     except ImportError:
         return {}
     portfolio = app_state.portfolio()
-    prices = {pos.ticker: pos.entry_price for pos in portfolio.positions.values()}
+    # AUDIT FIX B4 (2026-08-09): this export used to pass ENTRY prices as
+    # "current_price", so unrealised P&L was always 0.00 — fabricated flat
+    # marks in the owner's own download. Live marks now; a name without a
+    # live quote falls back to entry and the row SAYS so (price_source).
+    tickers = [pos.ticker for pos in portfolio.positions.values()]
+    live, _ = app_state.marks(tickers)
+    prices = {pos.ticker: live.get(pos.ticker, pos.entry_price)
+              for pos in portfolio.positions.values()}
+    srcs = app_state.marks_sources(tickers)
+    price_source = {
+        pos.ticker: ("live" if srcs.get(pos.ticker) == "upstox"
+                     else "delayed_close" if pos.ticker in live
+                     else "entry")
+        for pos in portfolio.positions.values()}
 
     paths: Dict[str, Optional[str]] = {}
     writers = [
         ("today_picks", lambda: write_picks_csv(portfolio)),
-        ("positions",   lambda: write_positions_csv(portfolio, prices)),
+        ("positions",   lambda: write_positions_csv(portfolio, prices,
+                                                     price_source=price_source)),
         ("trades",      lambda: write_trades_csv(portfolio)),
         ("equity",      lambda: write_equity_csv(portfolio)),
         ("skipped",     lambda: write_skipped_csv(portfolio)),

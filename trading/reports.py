@@ -31,23 +31,26 @@ def write_picks_csv(portfolio: Portfolio) -> str:
     return path
 
 
-def write_positions_csv(portfolio: Portfolio, prices: dict) -> str:
+def write_positions_csv(portfolio: Portfolio, prices: dict,
+                        price_source: dict | None = None) -> str:
     path = os.path.join(_ensure_dir(portfolio), "positions.csv")
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow([
             "ticker", "qty", "entry_date", "entry_price", "current_price",
-            "unrealised_pnl", "unrealised_pct", "peak_price", "sector",
+            "unrealised_pnl", "unrealised_pct", "price_source",
+            "peak_price", "sector",
             "entry_score", "reasoning", "entry_notes", "tags",
         ])
         for p in portfolio.positions.values():
             mark = prices.get(p.ticker, p.entry_price)
             upnl = (mark - p.entry_price) * p.qty
             upct = (mark / p.entry_price - 1) * 100 if p.entry_price else 0
+            src = (price_source or {}).get(p.ticker, "entry")
             w.writerow([
                 p.ticker, p.qty, p.entry_date.isoformat(),
                 f"{p.entry_price:.2f}", f"{mark:.2f}",
-                f"{upnl:.2f}", f"{upct:.2f}",
+                f"{upnl:.2f}", f"{upct:.2f}", src,
                 f"{p.peak_price:.2f}", p.sector,
                 f"{p.entry_score:.2f}", p.reasoning,
                 getattr(p, "entry_notes", "") or "",

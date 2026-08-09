@@ -35,7 +35,8 @@ uploads: audit them; several contained fabricated numbers/padded catalogs).
   0.025` is the fallback when the fixed value is 0. Boot migration v2
   (marker capital_order_2026_07_30_v2) supersedes same-day v1 which had
   read the size as 1.25%. Supersedes 25L/30/3.3%.
-- **SIZING SUPERSEDED SAME DAY — ½-KELLY IS LIVE.** Owner picked "Switch to
+- **[SUPERSEDED 2026-08-04 → sizing_mode="fixed"; kept as history] SIZING
+  SUPERSEDED SAME DAY — ½-Kelly was live 4 days.** Owner picked "Switch to
   ½-Kelly sizing" after reading docs/ALGO_V1_V2.md (I had asked because "ok
   with kelly" was ambiguous). `cfg.sizing_mode="half_kelly"`,
   `kelly_fraction=0.5`, `kelly_ic=0.05` (ASSUMED), `kelly_max_pct=0.05`
@@ -83,9 +84,10 @@ uploads: audit them; several contained fabricated numbers/padded catalogs).
   absolute-momentum gate. Blocks now journal OCEAN_BLOCKED. Needs a crash
   guard before the flag goes on (knife-catching −41%DD in 2020).
 - **Blocklist** `cfg.ticker_blocklist=("YESBANK.NS",)` — never scanned/bought;
-  held names exempt for exits. Exits per-mode (momentum −12/+12 — **user
-  set +12 on 2026-07-21**, was +30, partial 0.07, UNTESTED vs +30, 60-day
-  window judges; trail −15, decay, 200d max-hold); intraday ±2.5/1.5
+  held names exempt for exits. Exits per-mode (momentum **−5/+12** — stop
+  −5 owner order 2026-07-26, +12 set 2026-07-21; partial 0.07 has NO
+  consumer; trail −15 unreachable at this bracket; decay — never on
+  owner_pick positions; 200d max-hold); intraday ±2.5/1.5
   squared off 15:25 ALWAYS by tag.
 
 ## Daily machine (all automatic; failures visible)
@@ -408,7 +410,7 @@ option u can adopt some of each kind" + 5 reference-mockup screenshots):**
   engine) maximises return subject to not blowing up; v2 maximises E[log W]
   (compound growth). Pure functions: `edge_estimate` (Grinold α=IC·σ·z, turns
   a RANK into a µ — the step v1 never needs because its size is fixed) ·
-  `kelly_fraction` (¼-Kelly, capped 25%) · `convexity` (ATR room-to-high,
+  `kelly_fraction` (runs at cfg 0.5 capped 5% since 2026-07-30; the ¼/25% were the launch defaults) · `convexity` (ATR room-to-high,
   payoff R, breakeven hit-rate, skew) · `impact_bps`/`capacity_notional`
   (square-root law, Y=0.75 — 4× size = 2× impact, the wall that stops
   scaling) · `momentum_halflife` · `v2_view`/`rank_v2` (ranks by expected
@@ -536,7 +538,7 @@ documented with NO consumer · entry scores on the momentum blend, exits on the
 AM07 composite (two different rulers) · `engine.scan/refresh` and all of
 `web/scheduler.py` have ZERO direct tests · orphans:
 auto/autoswap/intraday/macro/providers (910 lines) ·
-`data/chityy/master_extended_chityy.csv` is CORRUPT (zero line breaks) ·
+~~chityy master CSV corrupt~~ (WRONG — verified CLEAN 31×59, 2026-08-09) ·
 docs/WORK_LIST.md still marks A2/A4/A5 PENDING though `a185d94` shipped them.
 **2026-08-04 — owner reported 5 things in one angry message; ALL FIVE WERE REAL
 CODE FAULTS, all fixed, 638 tests green. Read this before touching prices.**
@@ -601,7 +603,7 @@ it"** → SHIPPED same session, 666 tests green:
   can never drift from the sheet; guard test re-reads the CSV and cross-checks
   all 112 ids/families/sides/weights). **79 OHLCV-ready triggers implemented**
   (compression 16, accumulation 16, reclaim 11 of 12, liquidity 10 of 12,
-  distribution 19 of 20, collapse 7 of 14); **33 external-data triggers =
+  distribution 20 of 20, collapse 6 of 14); **33 external-data triggers =
   DATA_NEEDED** (sector/RS panels, delivery %, F&O OI, news/governance flags)
   — listed with what unlocks them, never guessed. Their 8 gates run with THEIR
   exact logic strings (watch = compression>=2 & accumulation>=2 &
@@ -654,8 +656,27 @@ backtest mode thread-local (web backtest can't poison the 09:20 scan) ·
 deploy/sector caps on CURRENT EQUITY not frozen 50L · scan entries fill at
 LIVE quotes when broker answers (fill_source journaled; prev_close fallback)
 · owner BUY/limit auto-size through sizing.position_notional_for (manual =
-fixed ₹1.25L under every mode). REMAINING HEADLINE FINDINGS AWAITING OWNER
-DECISIONS: Mongo
+fixed ₹1.25L under every mode). **B1-B12 (lying screens) FIXED same day (owner: "fix B batch too"), 711
+tests:** header regime label · Engine page PARKED truth + real ladder
+0/0/20/40 + as-of stamp · Risk page truth pass + read-only governor ·
+positions.csv live marks + price_source · kill-switch pushes to phone,
+email honesty · daily-close-as-quote branch DELETED · IFR badge 22d window
+· CAGR claim removed + dynamic ticket placeholders · zero-flow=50,
+NaN=neutral, honest Top-drivers · expiry Tuesday (SEBI 2025) · benchmark
+truncation disclosed · index-key map unified, N200 benchmark now possible
+(first live backtest verifies). **C1-C12 + D1-D5 FIXED same day (owner: "fix C and D too"), 749 tests —
+full detail in docs/AUDIT_2026-08-09.md status notes. Highlights: Mongo
+retries + degraded-boot entry halt + reconnect heal · journal overflow
+spills/replays (append-only survives outages) · rotation lock + MODE_LOCK ·
+requirements PINNED + feedparser shipped (policy boost live first time) ·
+regime feed failure keeps the brake (sticky, not fail-open) · corrupt state
+quarantined · loss-halt persisted · APP_BRIEF/ALGO/boards truth-passed with
+guard tests pinning docs to config · studies era-pinned (floor 55) so
+committed evidence regenerates · Codex caught my /risk 500 in the B3 first
+cut → fixed + render test; crash-brake SELLs named on phone; holiday-aware
+expiries; N200 benchmark window-clipped; per-ticker quote provenance in the
+export. A PARALLEL SESSION (01EuCaxUby…) pushed flow_status()/engine-page FII
+display to main mid-day — merged in, kept both. FORMERLY-LISTED, NOW FIXED: Mongo
 connects once, never retries (boot during blip = phantom fresh book, day's
 trades vanish) · scan mutates shared cfg.mode while requests run · ^CNX200
 benchmark structurally can't load (duplicate _INDEX_KEYS in data.py) ·

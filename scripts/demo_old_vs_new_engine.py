@@ -127,6 +127,6 @@ ax.set_ylabel("Growth of ₹1")
 ax.legend(loc="upper left")
 ax.grid(alpha=0.25)
 fig.tight_layout()
-out = "/tmp/claude-0/-home-user-sourceborn-engine/0cfa8919-7563-5aa0-bfc1-4dcab357369b/scratchpad/old_vs_new_engine.png"
+out = "docs/old_vs_new_engine.png"  # AUDIT FIX D5: was a dead absolute path from the retired sourceborn-engine session
 fig.savefig(out, dpi=110)
 print("chart:", out)

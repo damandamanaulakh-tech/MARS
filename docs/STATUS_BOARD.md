@@ -1,5 +1,8 @@
 # STATUS BOARD — everything asked/suggested, wired or pending (2026-07-11)
 
+> **FOSSIL (2026-08-09 audit):** dated 2026-07-11 and heavily superseded — cap is 80 not 50, full exit stack is live (not buy-and-hold), the remove button was replaced by SELL, floor is 62 not 55, stop is −5% not −12%. Kept as history only.
+
+
 Legend: ✅ wired+live · ⏳ pending (reason given) · ❌ closed by your decision
 Asked-by: U = you asked · C = Claude suggested, you approved
 

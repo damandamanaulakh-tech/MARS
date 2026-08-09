@@ -134,6 +134,23 @@ def _preloaded_history(universe: list, benchmark: str,
     except Exception as e:
         log.warning("backtest benchmark load failed: %s", e)
 
+    # AUDIT FIX B12 (2026-08-09): the preloaded panel never asked for the
+    # Nifty-200 second benchmark, and run_backtest only downloads when there
+    # is NO preloaded panel — so the N200 line was structurally impossible
+    # from the web button. Try Upstox (the index-key map now carries ^CNX200);
+    # failure stays a visible DATA_NEEDED on the page, never a crash.
+    try:
+        from trading.backtest import BENCHMARK2
+        from trading.data import fetch_daily_range
+        b2 = fetch_daily_range([BENCHMARK2], dl_start, dl_end).get(BENCHMARK2)
+        if b2 is not None and not b2.empty:
+            out[BENCHMARK2] = b2
+        else:
+            log.warning("N200 benchmark unavailable (no broker/network) — "
+                        "the page will show DATA_NEEDED for benchmark2")
+    except Exception as e:
+        log.warning("N200 benchmark fetch failed: %s", e)
+
     skipped = len(universe) - sum(1 for t in universe if t in out)
     log.info("backtest panel: %d/%d tickers from store+zip, %d skipped, "
              "0 downloaded", len(out), len(universe) + 1, skipped)

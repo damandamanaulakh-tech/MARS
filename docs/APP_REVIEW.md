@@ -1,5 +1,8 @@
 # SOURCEBORN AM07 — FULL APP REVIEW (2026-07-12)
 
+> **SUPERSEDED (2026-08-09 audit):** the −8.5%/7yr alpha figure in this review is ruled superseded by the v1–v4 evidence program (do not quote it), and its config description (50 positions, buy-and-hold, universe off) no longer matches the app.
+
+
 Honest end-to-end audit. Verified against code, not narrative. 311 tests pass,
 ~13,800 lines Python, 29 engine modules, 14 web routes, 15 pages.
 

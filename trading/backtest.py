@@ -392,13 +392,43 @@ def run_backtest(
         portfolio=portfolio,
         equity_curve=equity_curve,
         bench_hist=bench_in_window,
-        bench2_hist=all_hist.get(BENCHMARK2),
+        # Codex review on PR#40: the N200 series could extend past the
+        # simulated window's real end (the Nifty CSV truncates the replay),
+        # producing an alpha2 that compares different periods. Clip it to
+        # the days the strategy actually traded.
+        bench2_hist=(all_hist.get(BENCHMARK2).loc[:trading_dates[-1]]
+                     if all_hist.get(BENCHMARK2) is not None and len(trading_dates)
+                     else all_hist.get(BENCHMARK2)),
         time_in_market_days=time_in_market_days,
         total_days=len(trading_dates),
-        warnings=warnings,
+        warnings=warnings + _benchmark_staleness_warnings(
+            bench_in_window, end_date),
         final_equity=final_equity,
         universe_integrity=sorted(universe_tags) or ["UNKNOWN"],
     )
+
+
+def _benchmark_staleness_warnings(bench_hist, end_date: str) -> list[str]:
+    """AUDIT FIX B11 (2026-08-09): the committed index CSV that feeds the web
+    backtest's Nifty benchmark ends 2026-06-05 and nothing refreshes it — any
+    window past that computed 'alpha' against a benchmark frozen mid-window
+    with NO disclosure. Now the truncation is printed on the result."""
+    out: list[str] = []
+    try:
+        if bench_hist is None or bench_hist.empty:
+            return ["Benchmark series missing — alpha not computable."]
+        last = bench_hist.index[-1].date()
+        import pandas as _pd
+        end = _pd.Timestamp(end_date).date()
+        gap = (end - last).days
+        if gap > 7:
+            out.append(
+                f"BENCHMARK TRUNCATED: Nifty data ends {last.isoformat()} — "
+                f"the final {gap} days of this window have no benchmark, so "
+                "alpha for that stretch is not measured.")
+    except Exception:
+        pass
+    return out
 
 
 def _bulk_download(tickers: list[str], start: str, end: str) -> dict[str, pd.DataFrame]:

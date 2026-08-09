@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 from dataclasses import asdict, dataclass, field
@@ -10,6 +11,8 @@ from datetime import datetime, date
 from typing import Dict, List, Optional
 
 from .config import Config
+
+log = logging.getLogger(__name__)
 
 # RAM caps for the always-on process (Render 512MB). The FULL journal is kept
 # durably in Mongo (journal_archive) by the web/state save wrapper; RAM holds
@@ -126,6 +129,10 @@ class Portfolio:
     # synced to. Changing Starting Capital in Settings now really adds/removes
     # cash (journaled CAPITAL_ADJUST) instead of doing nothing to a live book.
     capital_base: float = 0.0
+    # AUDIT FIX C11 (2026-08-09): the 2-losses-in-a-day halt was memory-only —
+    # a mid-day Render restart forgot it on exactly the day it exists for.
+    loss_day: Optional[str] = None
+    loss_count: int = 0
     # Drawdown governor peak (2026-07-31). DrawdownGovernor was rebuilt on
     # every boot with peak_equity=0, so after any Render restart the measured
     # drawdown was 0 and the governor's throttles/halts were disabled until a
@@ -226,6 +233,8 @@ class Portfolio:
                 "risk_day_killed": self.risk_day_killed,       # tripped-today flag
                 "capital_base": self.capital_base,   # capital the cash is synced to
                 "dd_peak_equity": self.dd_peak_equity,  # drawdown-governor peak
+                "loss_day": self.loss_day,               # 2-loss halt state
+                "loss_count": self.loss_count,
                 "last_save": datetime.utcnow().isoformat(),
             }
             with open(self._state_path(), "w") as f:
@@ -268,10 +277,35 @@ class Portfolio:
             # the 2026 spec's 25L, so that is the honest baseline to sync from.
             p.capital_base = float(data.get("capital_base", 25_00_000.0) or 25_00_000.0)
             p.dd_peak_equity = float(data.get("dd_peak_equity", 0.0) or 0.0)
+            p.loss_day = data.get("loss_day")
+            p.loss_count = int(data.get("loss_count", 0) or 0)
             p.last_save = data.get("last_save")
             return p
-        except Exception:
-            return cls.fresh(cfg)
+        except Exception as e:
+            # AUDIT FIX C12 (2026-08-09): a corrupt/unparseable state file
+            # used to SILENTLY return a fresh book — positions and trades
+            # gone at the JSON layer with no log, no journal, no evidence.
+            # Now: the corrupt file is quarantined next to the new one, the
+            # reset is journaled (and pushed — CORRUPT_STATE_RESET is a push
+            # action), and Mongo hydration can still repair the book after.
+            log.error("portfolio state file corrupt (%s) — quarantining and "
+                      "starting fresh; Mongo hydrate may still restore", e)
+            try:
+                from datetime import datetime as _dt
+                stamp = _dt.utcnow().strftime("%Y%m%dT%H%M%S")
+                os.replace(path, path + f".corrupt-{stamp}")
+            except OSError:
+                pass
+            fresh = cls.fresh(cfg)
+            fresh.decision_journal.append({
+                "ts": datetime.utcnow().isoformat(),
+                "action": "CORRUPT_STATE_RESET",
+                "err": f"{type(e).__name__}: {str(e)[:120]}",
+                "why": ("portfolio.json was unreadable — quarantined as "
+                        ".corrupt-*, fresh book started. If Mongo is "
+                        "connected the real book hydrates over this."),
+            })
+            return fresh
 
     def reset(self) -> None:
         # Journal the reset itself, then clear trading state.

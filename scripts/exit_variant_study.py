@@ -105,7 +105,13 @@ def load_history() -> dict:
 def make_cfg(tickers, stop, target, trail) -> Config:
     cfg = Config(mode="nifty200_momentum", universe=tickers,
                  state_dir="/tmp/exit_variant_study")
-    cfg.apply_mode_preset()          # then override ONLY the exit knobs:
+    cfg.apply_mode_preset()
+    # ERA PIN (AUDIT FIX D3, 2026-08-09): the committed results in docs/ were
+    # generated 2026-07-27 at entry floor 55; the live preset later moved to
+    # 62, which silently changed what a "re-run" computes. Pinning the era
+    # keeps the committed evidence regenerable; delete the pin (and the
+    # committed *_progress.jsonl cache!) to study the CURRENT rules instead.
+    cfg.min_score_to_enter = 55.0          # then override ONLY the exit knobs:
     cfg.stop_loss_pct = stop
     cfg.take_profit_pct = target
     cfg.trailing_stop_pct = trail

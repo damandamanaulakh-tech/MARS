@@ -19,7 +19,7 @@ MODE_CHOICES = [
     ("short",             "Short-term",        "1-7 day holds. Tight stops, daily bars."),
     ("swing",             "Swing",             "1-8 week holds (default). Daily bars."),
     ("positional",        "Positional",        "1-6 month holds. Weekly bars, fundamentals."),
-    ("nifty200_momentum", "Nifty 200 Momentum 30", "NSE methodology. Top 30 of Nifty 200 by 6m+12m momentum. 5y CAGR ~29.7%."),
+    ("nifty200_momentum", "Nifty 200 Momentum 30", "NSE methodology: 6m+12m vol-adjusted momentum, quality-blended. Evidence: docs/ folder."),
 ]
 
 

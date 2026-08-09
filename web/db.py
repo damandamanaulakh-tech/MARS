@@ -55,8 +55,59 @@ def _try_connect() -> None:
 
 _try_connect()
 
+# AUDIT FIX C1 (2026-08-09): the connection used to be attempted exactly ONCE,
+# at import — a boot during a 30-second Atlas blip left the process on JSON-
+# only persistence for its whole life, silently trading a fresh phantom book
+# whose trades vanished at the next restart. Now every is_connected() check
+# retries a dead connection at most once per minute, and the moment it
+# recovers, web/state.heal_after_reconnect() replays what Mongo missed.
+_RETRY_COOLDOWN_SEC = 60.0
+_LAST_ATTEMPT = 0.0
+_BOOT_DEGRADED = bool(os.environ.get("MONGO_URL")) and not _CONNECTED
+_RECOVERED_PENDING = False
+
+
+def mongo_expected() -> bool:
+    """The owner configured Mongo — running without it is a DEGRADED state."""
+    return bool(os.environ.get("MONGO_URL"))
+
+
+def boot_was_degraded() -> bool:
+    return _BOOT_DEGRADED
+
+
+def recovered_pending() -> bool:
+    """True once, after a dead->alive transition, until claimed by heal."""
+    return _RECOVERED_PENDING
+
+
+def claim_recovery() -> None:
+    global _RECOVERED_PENDING
+    _RECOVERED_PENDING = False
+
+
+def ensure_connected() -> bool:
+    """Reconnect a dead Mongo link, at most once per cooldown window."""
+    global _LAST_ATTEMPT, _RECOVERED_PENDING
+    if _CONNECTED:
+        return True
+    if not mongo_expected():
+        return False
+    import time as _time
+    now = _time.time()
+    if now - _LAST_ATTEMPT < _RETRY_COOLDOWN_SEC:
+        return False
+    _LAST_ATTEMPT = now
+    _try_connect()
+    if _CONNECTED:
+        log.warning("MongoDB RECONNECTED after outage — heal pass pending")
+        _RECOVERED_PENDING = True
+    return _CONNECTED
+
 
 def is_connected() -> bool:
+    if not _CONNECTED:
+        ensure_connected()
     return _CONNECTED
 
 
@@ -65,6 +116,8 @@ def status() -> dict:
         "connected": _CONNECTED,
         "db": os.environ.get("MONGO_DB", "sourceborn") if _CONNECTED else None,
         "url_set": bool(os.environ.get("MONGO_URL")),
+        "degraded": mongo_expected() and not _CONNECTED,
+        "boot_degraded": _BOOT_DEGRADED,
     }
 
 
@@ -173,16 +226,20 @@ def list_history_meta() -> list:
 
 # ---------- decision-journal archive (append-only, unbounded) ----------
 
-def archive_journal(entries: list) -> None:
+def archive_journal(entries: list) -> bool:
     """Append journal entries leaving the in-RAM cap to a durable, unbounded
     collection. The FULL audit trail lives here; RAM keeps only the recent
     tail — this is what stops the always-on process creeping past 512 MB."""
-    if not _CONNECTED or _DB is None or not entries:
-        return
+    if not entries:
+        return True
+    if not _CONNECTED or _DB is None:
+        return False
     try:
         _DB.journal_archive.insert_many([dict(e) for e in entries], ordered=False)
+        return True
     except Exception as e:
         log.warning("Mongo archive_journal failed: %s", e)
+        return False
 
 
 def list_journal_archive(limit: int = 2000) -> list:

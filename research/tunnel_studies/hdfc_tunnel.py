@@ -1,4 +1,4 @@
-"""TCS through the same tunnel — the falling-giant edition.
+"""HDFCBANK through the tunnel (AUDIT FIX D5 2026-08-09: this docstring was a verbatim TCS copy-paste — the code below computes HDFCBANK).
 [paths repaired 2026-07-27: repo-relative, was the retired sourceborn-engine checkout]
 Window 2024-03-01 -> today: pre-peak, the -56% fall, the 3-week-old turn.
 Same lanes, same bars, same near-miss band as the MTAR study."""

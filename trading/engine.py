@@ -56,6 +56,16 @@ class TradingEngine:
         from .risk_v2 import ConsecutiveLossTracker, DrawdownGovernor
         self.drawdown_gov = DrawdownGovernor()
         self.loss_tracker = ConsecutiveLossTracker()
+        # AUDIT FIX C11: hydrate the 2-loss daily halt from the portfolio —
+        # it was memory-only, so a mid-day restart forgot the halt on
+        # exactly the kind of day it exists for.
+        try:
+            from datetime import date as _date
+            if getattr(portfolio, "loss_day", None):
+                self.loss_tracker.today = _date.fromisoformat(portfolio.loss_day)
+                self.loss_tracker.losses_today = int(portfolio.loss_count or 0)
+        except (ValueError, TypeError, AttributeError):
+            pass
 
     def attach_broker(self, broker_client) -> None:
         """Plug in a broker client (e.g. UpstoxClient) for real-time quotes.
@@ -131,7 +141,33 @@ class TradingEngine:
                 log.debug("FII flow fetch failed: %s", e)
             regime = fetch_regime(fii_5d_net_override=fii_5d)
         except Exception as e:
-            log.warning("Regime classification failed, proceeding neutral: %s", e)
+            log.warning("Regime classification failed: %s", e)
+            # AUDIT FIX C7 (2026-08-09): regime=None used to FAIL OPEN — the
+            # `regime is None or everest_active` gate re-enabled full-size
+            # buying with the correction brake silently gone, exactly when a
+            # broken feed is most likely (a panic). The last KNOWN regime is
+            # sticky instead: if we were in correction/panic yesterday, the
+            # brake stays on until the feed answers again; journaled once/day.
+            last_known = (self.portfolio.last_regime or "").lower()
+            if last_known in ("correction", "panic"):
+                today_key = datetime.utcnow().date().isoformat()
+                already = any(
+                    e2.get("action") == "REGIME_FEED_DOWN"
+                    and str(e2.get("ts", "")).startswith(today_key)
+                    for e2 in self.portfolio.decision_journal[-100:])
+                if not already:
+                    self.portfolio.decision_journal.append({
+                        "ts": datetime.utcnow().isoformat(),
+                        "action": "REGIME_FEED_DOWN",
+                        "why": (f"Regime feed failed and the last known regime "
+                                f"was {last_known.upper()} — the correction "
+                                "brake STAYS ON until the feed answers."),
+                    })
+                regime_feed_down_brake = True
+            else:
+                regime_feed_down_brake = False
+        else:
+            regime_feed_down_brake = False
 
         # v5: detect regime switch + persist + notify
         if regime is not None and regime.regime != self.portfolio.last_regime:
@@ -320,7 +356,11 @@ class TradingEngine:
 
         # Everest: usual momentum + timing rules. Active in bull/neutral —
         # and in correction once the VIX-crush re-entry signal fires.
-        if regime is None or regime.everest_active or vix_reentry:
+        # AUDIT FIX C7: with the feed down, the last known correction/panic
+        # keeps the brake on (regime_feed_down_brake) instead of failing open.
+        everest_ok = (regime.everest_active if regime is not None
+                      else not regime_feed_down_brake)
+        if everest_ok or vix_reentry:
             everest_picks = [
                 r for r in ranked
                 if r["score"] >= cfg.min_score_to_enter and r["timing_pass"]
@@ -945,7 +985,14 @@ class TradingEngine:
         # executed anywhere — wire it: sell the worst positions until the cut
         # fraction is met. Runs EVEN in hold mode (buy-and-hold still needs a
         # crash exit; -10% peak-to-trough = cut half, -15% = 80%, -20% = all).
+        # AUDIT FIX C11 (2026-08-09): the persisted drawdown peak was
+        # restored only in scan() — a post-restart refresh() measured 0%
+        # drawdown until the next scan. Restore before, save after, here too.
+        _saved_peak = float(getattr(self.portfolio, "dd_peak_equity", 0.0) or 0.0)
+        if _saved_peak > self.drawdown_gov.peak_equity:
+            self.drawdown_gov.peak_equity = _saved_peak
         self.drawdown_gov.update(self.portfolio.equity(prices))
+        self.portfolio.dd_peak_equity = float(self.drawdown_gov.peak_equity)
         cut = self.drawdown_gov.forced_cut
         if cut > 0 and self.portfolio.positions:
             # AUDIT FIX A2: rank and cut only names with a real quote — an
@@ -1066,6 +1113,10 @@ class TradingEngine:
         # v5: feed the consecutive-loss tracker
         try:
             self.loss_tracker.record_close(now.date(), net_pnl)
+            # AUDIT FIX C11: persist so a restart can't forget the halt
+            self.portfolio.loss_day = (self.loss_tracker.today.isoformat()
+                                       if self.loss_tracker.today else None)
+            self.portfolio.loss_count = int(self.loss_tracker.losses_today)
         except AttributeError:
             pass  # backward compat if engine was built before risk_v2
 

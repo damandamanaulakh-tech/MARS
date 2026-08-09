@@ -37,6 +37,10 @@ def engine_view(request: Request):
         except Exception as e:
             _LAST_REGIME = None
 
+    # AUDIT FIX B2 (2026-08-09): the page showed "OCEAN ACTIVE" from
+    # regime.ocean_active alone while the owner's park switch had Ocean off —
+    # mis-explaining the empty book. The template needs the real switch.
+    cfg = app_state.cfg()
     return templates.TemplateResponse(
         request, "engine.html",
         {
@@ -44,6 +48,7 @@ def engine_view(request: Request):
             "active": "engine",
             "regime": _LAST_REGIME,
             "regime_at": _LAST_REGIME_AT,
+            "ocean_enabled": bool(getattr(cfg, "ocean_enabled", False)),
             "flow_status": _flow_status(),
         },
     )

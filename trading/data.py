@@ -6,10 +6,13 @@ added once OAuth handshake is implemented.
 
 from __future__ import annotations
 
+import logging
 import os
 import threading
 from functools import lru_cache
 from typing import Dict
+
+log = logging.getLogger(__name__)
 
 import pandas as pd
 import yfinance as yf
@@ -27,12 +30,21 @@ YF_THREADS: int | bool = int(os.environ.get("YF_THREADS", "4"))
 
 _HISTORY_BROKER = None  # UpstoxClient or None; set by web/state on attach
 
-# NSE index keys Upstox understands (yfinance symbols -> instrument keys)
-_INDEX_KEYS = {
-    "^NSEI": "NSE_INDEX|Nifty 50",
-    "^NSEBANK": "NSE_INDEX|Nifty Bank",
-    "^INDIAVIX": "NSE_INDEX|India VIX",
-}
+# AUDIT FIX B12 (2026-08-09): this module kept its own PRIVATE copy of the
+# index-key map and it had already drifted — ^CNX200 and ^BSESN were missing,
+# which is the structural reason the Nifty-200 backtest benchmark could never
+# load ("did the N200 line render?" — it never could). One source of truth
+# now: the brokers module's constant.
+try:
+    from .brokers.upstox_instruments import INDEX_KEYS as _INDEX_KEYS
+except ImportError:                                    # pragma: no cover
+    _INDEX_KEYS = {
+        "^NSEI": "NSE_INDEX|Nifty 50",
+        "^NSEBANK": "NSE_INDEX|Nifty Bank",
+        "^INDIAVIX": "NSE_INDEX|India VIX",
+        "^CNX200": "NSE_INDEX|Nifty 200",
+        "^BSESN": "BSE_INDEX|SENSEX",
+    }
 _IK_MAP: Dict[str, str] | None = None
 
 
@@ -43,9 +55,21 @@ def set_history_broker(client) -> None:
 
 
 def _instrument_key(ticker: str) -> str | None:
-    global _IK_MAP
+    """AUDIT FIX C10 (2026-08-09): this loaded the committed CSV once per
+    boot, swallowed OSError into a permanently-EMPTY map (all history routing
+    dead, indistinguishable from "not listed"), and never learned new
+    listings. It now rides the shared brokers lookup — daily-refreshed, loud
+    ERROR + committed-CSV fallback when empty — the same table quotes use."""
     if ticker in _INDEX_KEYS:
         return _INDEX_KEYS[ticker]
+    try:
+        from .brokers.upstox_instruments import get_lookup
+        key = get_lookup().get(ticker)
+        if key:
+            return key
+    except Exception as e:
+        log.warning("shared instrument lookup unavailable: %s", e)
+    global _IK_MAP
     if _IK_MAP is None:
         import csv
         path = os.path.join(os.path.dirname(__file__), "..", "data",
@@ -55,9 +79,12 @@ def _instrument_key(ticker: str) -> str | None:
             with open(path, newline="") as f:
                 for row in csv.DictReader(f):
                     m[row["ticker"]] = row["instrument_key"]
-        except OSError:
-            pass
+        except OSError as e:
+            log.error("instrument CSV unreadable — history routing dead: %s", e)
         _IK_MAP = m
+        if not m:
+            log.error("instrument map EMPTY — every Upstox history fetch "
+                      "will fail visibly, not silently")
     return _IK_MAP.get(ticker)
 
 
@@ -180,14 +207,18 @@ def fetch_quote(ticker: str) -> float | None:
 
 
 def fetch_quotes(tickers: list[str]) -> Dict[str, float]:
-    """Latest available close for many tickers in one call."""
+    """Latest available close for many tickers in one call.
+
+    AUDIT FIX B6 (2026-08-09): the Upstox daily-candle branch is GONE. It
+    returned Close.iloc[-1] of a 7-day candle fetch — intraday that is
+    YESTERDAY'S close, up to 7 days old across holidays — in the same dict as
+    real LTPs, indistinguishable to every caller, and the marks cache then
+    stamped it fresh. A missing quote must be ABSENT, not stale-dressed-as-
+    live: the router's callers already handle absence honestly (entry-mark
+    labels, EXIT_HELD_NO_QUOTE). The yfinance path below stays for local dev;
+    from Render it is blocked and returns nothing, which is the truth.
+    """
     out0: Dict[str, float] = {}
-    if _HISTORY_BROKER is not None:
-        for t, df in _fetch_daily_upstox(tickers, "7d").items():
-            out0[t] = float(df["Close"].iloc[-1])
-        tickers = [t for t in tickers if t not in out0]
-        if not tickers:
-            return out0
     try:
         raw = yf.download(
             tickers, period="2d", interval="1d",

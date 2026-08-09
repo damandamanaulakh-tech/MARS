@@ -24,6 +24,7 @@
         {{ "%+.2f%%"|format(dd.drawdown_pct) }}
       </div>
       <div class="text-xs text-ink-faint whitespace-nowrap">from peak ₹{{ dd.peak | inr }}</div>
+      <div class="text-[10px] text-amber-700 whitespace-nowrap" title="This page never re-marks the book; the governor is updated by the engine's own scan/refresh passes on live quotes.">as of the engine's last live pass</div>
     </div>
   </div>
   <div class="text-sm text-ink-soft">{{ dd.reason }}</div>
@@ -102,12 +103,12 @@
   <div class="font-bold mb-3">Active filters (always-on pre-entry gates)</div>
   <ul class="text-sm text-ink-soft space-y-2">
     <li>• Liquidity: ADV ≥ 200,000 shares AND ₹5+ Cr daily rupee volume (5d avg)</li>
-    <li>• Spread: skip stuck-at-circuit stocks</li>
-    <li>• Correlation: reject candidates with > 70% return correlation to any open position</li>
-    <li>• Vol-tier sizing: low-vol 18%, mid 12%, high 6% of capital</li>
-    <li>• Calendar: 3-day halt before elections / RBI MPC / Budget</li>
-    <li>• Sector blacklist: Metal (toggle in Settings)</li>
-    <li>• Drawdown ladder: -5% reduce / -8% no-add / -10% cut half / -15% mostly cash / -20% halt</li>
+    <li>• Spread: skip stuck-at-circuit stocks and wide bid-ask spreads</li>
+    <li>• Correlation: reject candidates with &gt; 85% return correlation to any open position</li>
+    <li>• Daily kill switch: −2% day loss halts all new entries (checked at scan time and 15:35)</li>
+    <li>• Calendar: 3-day halt before elections / RBI MPC / Budget (real dates only — no guessed events)</li>
+    <li>• Sector caps: max {{ cfg.max_sector_positions }} names AND max {{ (cfg.max_sector_exposure_pct * 100) | round(0) | int }}% of equity per sector</li>
+    <li>• Drawdown ladder: -8% no-add / -10% cut half / -15% mostly cash / -20% halt</li>
   </ul>
 </div>
 {% endblock %}
