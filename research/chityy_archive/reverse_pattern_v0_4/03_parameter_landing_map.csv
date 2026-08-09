@@ -1,0 +1,21 @@
+Source File,Adopted Element,Group No.,Parameter Family,Lands In Sheet,Use In Reverse Engine,Status/Lock
+Am07 Stock App.docx,Market regime filter,G11,Relative Strength & Market Regime,04_ADOPTED_GOOD_PARAMETERS / 10_SCORING_RISK_ENGINE,Context before any rise/fall pattern is trusted,ADOPT
+Am07 Stock App.docx,Sector alignment score,G12,Industry / Sector / Theme Map,08_INDUSTRY_PATTERN_ENGINE,Checks if a stock move is isolated or industry-backed,ADOPT
+Am07 Stock App.docx,10-factor weighted score >=70,G06-G12,Trend/Momentum/Volume/Breakout/Sector,10_SCORING_RISK_ENGINE,Turns strings into ranked watch/reject states,ADOPT
+Am07 Stock App.docx,Pre-entry risk gate,G15,Risk Governor & Position Sizing,10_SCORING_RISK_ENGINE,Stops high-score but unsafe candidates,ADOPT
+table (1).csv,Graduated drawdown governor -5/-8/-10/-15/-20,G15/G21,Drawdown/Halt,10_SCORING_RISK_ENGINE,Protects against pattern collapse,ADOPT P0
+table (1).csv,Correlation gate >0.7 reject,G11/G15,Correlation & concentration,10_SCORING_RISK_ENGINE,Stops 5 stocks becoming one hidden sector bet,ADOPT P0
+table (1).csv,ATR-based position sizing tiers,G09/G15,Volatility & Position Sizing,10_SCORING_RISK_ENGINE,"Sizes rises/falls by risk, not excitement",ADOPT P1
+ME_ONLY_Paper_Trading_App_Review.docx,Manual technical scoring 100 points,G17/G19,Paper/Human Gate,10_SCORING_RISK_ENGINE,Compares app pattern vs human decision,ADOPT
+ME_ONLY_Paper_Trading_App_Review.docx,Emotion score/rule break/lesson,G19,Trust Emotion / Human Gate,04_ADOPTED_GOOD_PARAMETERS,Tracks user behavior separately from market behavior,ADOPT
+Zerodha_Stock_Trading_App_Action_Plan_META_RGL.docx,NIFTY 200/500 universe and hard filters,G01/G08/G09/G11,Universe and hard filters,04_ADOPTED_GOOD_PARAMETERS,Clean universe before reverse pattern mining,ADOPT
+Zerodha_Stock_Trading_App_Action_Plan_META_RGL.docx,RSV-Momentum Top-5 score model,G06-G10,Trend/RS/Volume/Volatility/RR,10_SCORING_RISK_ENGINE,Creates 5-stock candidate logic after filters,ADOPT
+Zerodha_Stock_Trading_App_Action_Plan_META_RGL.docx,Semi-auto approval flow,G16/G17,Execution / Paper,10_SCORING_RISK_ENGINE,Keeps execution human-approved at first,ADOPT
+Stock App.txt,Reality/suitability gate for extreme target,G15/G20/G21,Risk/Claims Control,04_ADOPTED_GOOD_PARAMETERS,Prevents return target from overpowering risk,ADOPT
+Stock App Gemini.docx,Slippage watchdog and gap-risk warning,G16/G18,Execution/Fall Pattern,09_PATTERN_LIBRARY_REVERSE,Flags pattern failure when price jumps past stops,ADOPT WITH SYNTHETIC LOCK
+chityy_paper_proto.py,30-day logger / trade CSV outputs,G17/G21,Paper Journal / Backtest Outcome,04_ADOPTED_GOOD_PARAMETERS,Turns hypothesis into evidence rows,ADOPT
+Chityy_Paper_Trading_Guide.md,30-day forward log protocol and limitations,G17/G21,Paper Evidence,11_DATA_GAP_REQUESTS_NEXT,Defines what evidence must be collected next,ADOPT
+SYNTHETIC_GURU_technical_comparison.xlsx,Synthetic/GURU weight comparisons,G18/G20,Pattern/Synthetic Lock,09_PATTERN_LIBRARY_REVERSE,Can propose patterns but cannot promote without real cases,LOCKED
+ARD_3.0_Review.xlsx,Flaw/Fix/Outcome review columns,G03/G18/G21,Review and Validation,11_DATA_GAP_REQUESTS_NEXT,Every accepted parameter must state flaw/fix/outcome,ADOPT
+Chityy_all_filled_REVIEW_FIXED_v0_3.xlsx,Current raw + derived data batch,G02/G06-G12,Data under parameters,06_DATA_UNDER_PARAMETERS,Only current batch; not full 15Y,PARTIAL DATA
+Chityy_all_filled_REVIEW_FIXED_v0_3.xlsx,1200 parameter bank,G01-G21,Master Parameter Bank,05_PARAMETER_BANK_1200_LOCKED,Base control layer for future 15Y mining,KEEP LOCKED

@@ -1,0 +1,8 @@
+Chityy Reverse Pattern Parameter Engine v0.4,,
+Purpose,Run the collected files in reverse: source file -> adopted parameter -> current data column -> rise/fall/industry pattern output.,
+Primary base,Chityy_all_filled_REVIEW_FIXED_v0_3.xlsx,Used as master because it has the fixed/generated sheets.
+What changed,"This workbook does not just list parameters. It maps every source file, de-duplicates repeated files, keeps the 1200 parameter bank, puts current available market rows under parameter groups, and generates reverse rise/fall + industry patterns.",
+15-year data status,"Not present in uploaded files as full 15-year history. The uploaded master has 186 current/sample rows. I built the 15-year slots and coverage flags so when Upstox 15Y data is added, the engine can run historical pattern counts.",
+Live trading status,Paper/review only. No buy/sell advice. No live execution promotion.,
+How to use next,"Paste/export full Upstox 15-year OHLCV into the same raw schema, then re-run the reverse engine to populate matched cases, failed cases, industry cycle patterns and confidence.",
+Key sheets,"01_FILE_SOURCE_AUDIT, 03_PARAMETER_LANDING_MAP, 05_PARAMETER_BANK_1200_LOCKED, 06_DATA_UNDER_PARAMETERS, 07_REVERSE_RISE_FALL_EVENTS, 08_INDUSTRY_PATTERN_ENGINE, 11_DATA_GAP_REQUESTS_NEXT",

@@ -1,0 +1,16 @@
+Pattern_ID,Pattern_Name,Rise/Fall Direction,Detection String,Key Parameters,Industry Use,Risk/Failure Condition,Source Basis,Status
+RP001,Leader Continuation / Rise String,Rise,"Daily return >0, ROC20>0, close above 2+ MAs, volume ratio >=1","Daily_Return, ROC20, SMA stack, Vol_Ratio",Find leaders inside rising sectors,Reject if ATR% >5 or RSI>75,AM07 + Zerodha + current engine,ADOPT
+RP002,Weak Counter-trend Bounce,Rise but weak,Daily >0 while ROC20<0 and RSI<50,"Daily_Return, ROC20, RSI",Find temporary bounce in falling sector,Do not promote without follow-through,Reverse engine generated,ADOPT
+RP003,Gap Up Rejected / Distribution Risk,Fall after rise,Gap%>1 and Body%<0 or upper wick high,"Gap%, Body%, Upper_Wick",Detect industry exhaustion days,Risk if repeated across sector,Gemini gap-risk + raw string,ADOPT
+RP004,Gap Down Recovery / Absorption,Fall-to-rise,Gap%<-1 and Body%>0 / lower wick high,"Gap%, Body%, Lower_Wick",Identify absorption in weak sectors,Needs next-day confirmation,Reverse engine generated,ADOPT
+RP005,Structural Breakdown / Fall String,Fall,"Daily<0, ROC20<0, close below key MAs","Daily_Return, ROC20, SMA stack",Find sector pressure,Reject long candidates unless strategy is short/cash,AM07 risk gate + v0.3 data,ADOPT
+RP006,Volume Shock Move,Either,Vol_Ratio>2 and abs(Daily_Return)>2,"Vol_Ratio, Daily_Return",Detect event/flow days,Requires slippage/gap-risk checks,Stock App Gemini + AM07,LOCKED UNTIL 15Y CASES
+RP007,Volatility Shock Risk,Risk,ATR%>5 or range%>5,"ATR%, Range%",Lower allocation in volatile sectors,Position sizing reduced or no-trade,AM07 + table fixes,ADOPT
+RP008,Sector Rotation Rise,Industry rise,"Sector avg daily>0, avg ROC20>0, up_count>down_count",Industry aggregate,Find industry leaders not isolated movers,Needs benchmark relative strength,AM07 sector alignment,ADOPT
+RP009,Sector Fall / Pressure,Industry fall,"Sector avg daily<0, avg ROC20<0, down_count>up_count",Industry aggregate,Detect industry-wide weakness,Avoid concentration in same falling group,Current industry engine,ADOPT
+RP010,Fake Breakout Risk,Failed rise,Breakout_20D near 0 but close red/body negative,"Breakout_20D, Body%, Vol_Ratio",Separate breakout from rejection,Needs next candles and 15Y cases,ME ONLY + reverse string,ADOPT
+RP011,High Score Blocked by Risk,Risk,Technical score high but risk score/halt/correlation rejects,"Score, Risk_Gate",Stops attractive but unsafe setups,Paper review only,AM07 risk governor,ADOPT
+RP012,Human Rule Break Pattern,Human,Trade taken despite score<70 or RR<2,"Score, RR, Rule Followed, Emotion",Separates user mistake from market failure,Manual entry needed,ME ONLY,ADOPT
+RP013,Synthetic Claim Lock,Synthetic,Pattern comes from AI/synthetic doc but has no real cases,"Promotion_Status, Match_Count",Stops hallucinated parameters entering core,No live use,Gemini/SYNTHETIC_GURU,LOCKED
+RP014,Correlation Cluster Failure,Portfolio fall,Multiple picks in same sector/theme or corr>0.7,"Sector count, correlation",Avoids 5 stocks = one hidden bet,Needs correlation data across 15Y,table fixes + AM07,ADOPT
+RP015,Drawdown Ladder Collapse,Portfolio fall,Monthly drawdown hits -5/-8/-10/-15/-20,"P&L, peak value, drawdown",Halts bad pattern cycles,Requires paper/backtest P&L,AM07 + table fixes,ADOPT

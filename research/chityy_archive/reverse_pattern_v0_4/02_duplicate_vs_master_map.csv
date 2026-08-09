@@ -1,0 +1,8 @@
+Item A,Item B / Related,Duplicate Type,Finding,Decision
+Chityy_master_extended.xlsx,Chityy_master_extended (1).xlsx,Exact duplicate,Same MD5 hash; no content difference found,Use only one; do not count twice
+Chityy_all_filled_REVIEW_FIXED_v0_3.xlsx,Chityy_all_filled.xlsx,Version duplicate / v0.3 supersedes,"Same base sheets; v0.3 adds generated score, gap engine, pattern output, dashboard, fix log",Use v0.3 as master
+Chityy_all_filled.xlsx,Chityy_Stock_Master_Parameter_Workbook_v0_2_1200.xlsx,Base structure overlap,Both hold 1200-bank and scale sheets; all_filled has market sample rows,Keep all_filled/v0.3 for current work
+Chityy_Stock_Master_Parameter_Workbook_v0_1.xlsx,v0.2/v0.3 workbooks,Superseded starter,v0.1 has 158-parameter starter; v0.2/v0.3 has 1200 bank,Archive v0.1; use only lineage ideas
+Stock App Gemini.docx,Stock App.txt / Zerodha plan,Architecture overlap,"All discuss risk gates, execution, high-return target warnings; Gemini has more synthetic language","Adopt practical gates, lock synthetic claims"
+table(1).csv,Chityy_master_one_table_comparison.xlsx,Functional overlap,"Both compare systems/proposals, risk classes and fit",Use both as evidence; avoid repeated rows
+chityy_paper_proto.py,Am07 Stock App.docx,Paper engine overlap,"Both are paper engines; AM07 has stronger risk gates, proto has simpler logger","Use AM07 for gate design, proto for logging flow"

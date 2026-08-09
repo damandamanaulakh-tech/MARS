@@ -688,6 +688,44 @@ feedparser missing = policy boost never ran · requirements unpinned ·
 exit/breadth study results not regenerable at floor 62 · APP_BRIEF has 6
 wrong money facts · ALGO_V1_V2 ¼-Kelly numbers irreproducible (lens runs ½)
 · chityy master CSV is actually CLEAN (old "corrupt" note wrong).**
+**E batch FIXED same day (owner: "fix E too"), 704 tests green (204 web +
+500 trading):** orphans deleted (auto/autoswap/intraday/providers/macro/
+stubs/supertrend/tranche_plan/partial_profit_pct/vol_adjusted_qty import)
+· dd-governor 75% tier actually throttles (min(ifr,dd)) · brokerage knob
+charges (×2 per round trip) · OCEAN_ERROR journaled (was except:pass) ·
+backtest enforces the ticker blocklist + honest LIVE-GATE-GAP warning +
+survivorship warning now conditional on PIT · trigger clusters honor
+per-member _MIN_BARS; GATE_EXIT_WARN names its missing weak_rs leg ·
+login throttled (1s/try, 5s at 10 fails; SB_LOGIN_DELAY_SEC=0 in tests) ·
+session cookie Secure via env (RENDER/SESSION_SECURE) · boot SECURITY log
+while OWNER_PWD unset · marks() lock-guarded · scheduler misfire grace
+300s + coalesce · weekly top-up checks is_trading_day · SELL box 1-paise
+step · M&M URL-encoded · scan bolds at real floor. E broke the suite
+twice, both MY errors caught before push: hardcoded https_only=True
+killed every TestClient login (85 failures — Secure cookie never returns
+over http), and the 4×→5× copy sed also hit "text-4xl" CSS (phone-layout
+guard caught it). Lesson: after sweeping edits, full suite from a clean
+state dir BEFORE claiming done. Honest leftovers: page-level "live" badge
+still means "any ticker live" (per-row price_source is the truth source);
+ntfy topic still an open-publish credential; OWNER_PWD still owner's todo.
+**Uploads review 2026-08-09 (owner: "review and get Data extraction", 10
+files/2 batches) — docs/UPLOADS_REVIEW_2026-08-09.md = verdict table.
+EXTRACTED: Chityy REVERSE_PATTERN_PARAMETER_ENGINE v0.4 complete (14 CSVs
+→ research/chityy_archive/reverse_pattern_v0_4/; sample data VERIFIED
+exact vs committed panel — TCS 2241.7/2446.9 on 2026-06-03 real) · NSE
+MWPL June-2026, 211 syms → data/fo_mwpl_2026-06.csv (REAL) · top-25 F&O
+OI snapshot → data/fo_oi_top_contracts_2026-06-08.csv · ASHSTOCKS flaw
+register (external build's honest self-audit) → research/external/.
+REJECTED: FPI category positions SYNTHETIC (arithmetic-proved 30/20/10%
+of MWPL — matches their own flaw F-003) · uploaded VIX csv real but a
+subset of index_daily_15y.csv (verified ±0.01, fed nothing twice) · 3
+backtest workbooks = narrative not evidence: IFR+FII alpha lives ENTIRELY
+in the 2007-10 block (negative 2 of last 3 blocks — a DD-reduction
+overlay, not a return edge), the VIX-ladder run has no trade ledger, and
+the "DII cushion" conclusion CONTRADICTS its own table (+3.27% when DII
+NOT buying vs +1.23% buying). NOTHING wired — data + records only.
+Next-batch asks: FII derivatives-OI daily panel, full F&O bhavcopy,
+VIX-run trade ledger.**
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

@@ -82,3 +82,23 @@ CONCLUSION: the sourceborn_chityy .py code was never saved in any upload;
 the design maps are the surviving record. F6 note: still no CURRENT
 FII/DII feed data in the release (newest remains Mar 2025 monthly /
 Jul 2023 daily) — F6 stays open for a current source.
+
+### Uploads batch 2026-08-09 (10 files, session review — full verdicts in docs/UPLOADS_REVIEW_2026-08-09.md)
+- `data/fo_mwpl_2026-06.csv` — NSE Market-Wide Position Limits, June 2026,
+  211 F&O symbols (symbol, MWPL contracts). REAL published limits,
+  extracted from the owner's AM07_FO_OI_Signals_Report upload.
+- `data/fo_oi_top_contracts_2026-06-08.csv` — top-25 stock-futures
+  contracts by open interest for bhavcopy date 2026-06-08 (OI, change,
+  volume, buildup/unwinding label). One-day slice, reference only.
+- `research/chityy_archive/reverse_pattern_v0_4/` — the owner's Chityy
+  Reverse Pattern Parameter Engine v0.4, all 14 sheets as CSV (1,200-param
+  locked bank, 42 adopted params, 16-pattern reverse library, scoring
+  rules, source-hash audit, P0 data gaps). Sample-data sheet verified
+  against the committed Upstox panel (TCS/RELIANCE exact match).
+- `research/external/ASHSTOCKS_Flaw_Register_2026-08-09.csv` — 15-flaw
+  self-audit of the separate ASH-STOCKS build; kept because its F-003/
+  F-005 flags settled two files in this same batch.
+- REJECTED from the same batch: FPI category positions (synthetic —
+  mechanically 30/20/10% of MWPL, confirmed by arithmetic); India-VIX
+  history CSV (real but a subset of index_daily_15y.csv); three backtest
+  workbooks recorded as narrative, not evidence (no ledgers/panels).
