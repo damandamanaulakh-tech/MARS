@@ -763,9 +763,12 @@ matches record — the REAL version of the synthetic FPI upload) ·
 fundamentals statements zip committed (superset; RELIANCE Q1 identical to
 our direct fetch — two paths agree) · corporate actions duplicate skipped ·
 fii_dii csv was 1 day not history (niftytrader failed in Colab too; row 2
-mislabeled DII) · DELIVERY % 2019→2026 (1,778 files ~370MB) sits in
-owner's Drive AWAITING upload as a release asset (80 holiday echo dups —
-dedupe by hash) · TRI failed in Colab too (absent from its own manifest) —
+mislabeled DII) · DELIVERY % COMMITTED
+(data/delivery_daily_2019_2026.csv.gz — 1,698 days 2019-06→2026-08-07,
+3.48M EQ/BE/BZ rows, 52MB gz, biggest file in the tree; built from the
+owner's release-asset zip, all 1,778 files hash-verified, keyed by
+INTERNAL date which dropped 80 holiday echoes AND recovered 6 mislabeled
+sessions incl. 3 Muhurats; raw zip stays release-only) · TRI failed in Colab too (absent from its own manifest) —
 home machine via kit remains the path. Verdicts in
 docs/DATA_FETCH_2026-08-09.md.**
 User's 8-step plan validated this session: all 8 now built (ticket +

@@ -139,6 +139,20 @@ docs/DATA_FETCH_2026-08-09.md.
   fundamentals_n200_2026-08-09.csv (RELIANCE Q1-FY27 net income identical
   to the rupee via two independent fetch paths). Superset with full line
   items; the curated CSV remains the primary file.
+- `data/delivery_daily_2019_2026.csv.gz` — daily delivery panel, EQ/BE/BZ
+  series, **1,698 trading days 2019-06-27 -> 2026-08-07, 3,477,095 rows**
+  (date, symbol, series, traded qty, delivered qty, delivery %). Built
+  from the owner's Colab run (1,778 sec_bhavdata_full files, release
+  asset `delivery-20260809T141445Z-1-001.zip` on `chityy-archive`), all
+  files hash-verified against the run's own manifest (0 mismatches).
+  Keyed by the date INSIDE each file, not the filename — that dropped 80
+  holiday echoes AND recovered 5 Muhurat/special-Saturday sessions plus a
+  stray real day (2019-06-27) the filename loop mislabeled. One file
+  (08-Aug-2022) arrived as xlsx from NSE and was converted. BE/BZ rows
+  carry NSE's own '-' for delivery (T2T = all delivery by definition);
+  a handful of NSE's published DELIV_PER values differ slightly from
+  their own qty ratio — kept verbatim, never repaired. Fills the S8 gap;
+  feeds T12W_0060 and the L1.5 layer WHEN the owner orders wiring.
 - FULL-UNIVERSE OHLCV (2,715 instruments + 5 indices, 2000 -> 2026-08-07,
   ~103MB gz): fetched, cleaned, auditor hard gates PASSED (0 invalid, 0
   dup) — intake report + quarantined rows committed under
