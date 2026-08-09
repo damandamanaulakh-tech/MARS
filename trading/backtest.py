@@ -234,9 +234,16 @@ def run_backtest(
     from .universes_pit import PITUniverse
     pit = PITUniverse.from_dir(static_fallback=universe)
     universe_tags: set = set()
-    warnings: list[str] = [
+    _SURVIVORSHIP_WARNING = (
         "Survivorship bias: tests today's universe composition (delisted "
-        "stocks missing). Estimated 2-4% CAGR inflation.",
+        "stocks missing). Estimated 2-4% CAGR inflation.")
+    warnings: list[str] = [
+        # AUDIT E (2026-08-09): this warning used to be unconditional — a
+        # PIT-gated run simultaneously claimed it was and wasn't
+        # survivorship-biased. Appended later only when PIT did NOT run.
+        "LIVE-GATE GAP: this replay does not model the breadth gate, the "
+        "VIX-crush re-entry, the spread gate or the IFR throttle — it tests "
+        "the core recipe, not the full live rulebook.",
         "Fundamental components (earnings_growth, catalyst, analyst_revision) "
         "forced to neutral 50 in backtest — yfinance has no historical "
         "fundamentals snapshot.",
@@ -401,8 +408,10 @@ def run_backtest(
                      else all_hist.get(BENCHMARK2)),
         time_in_market_days=time_in_market_days,
         total_days=len(trading_dates),
-        warnings=warnings + _benchmark_staleness_warnings(
-            bench_in_window, end_date),
+        warnings=(warnings
+                  + ([] if "POINT-IN-TIME" in universe_tags
+                     else [_SURVIVORSHIP_WARNING])
+                  + _benchmark_staleness_warnings(bench_in_window, end_date)),
         final_equity=final_equity,
         universe_integrity=sorted(universe_tags) or ["UNKNOWN"],
     )
@@ -466,10 +475,17 @@ def _try_open_positions(
         pass
 
     blacklist = set(getattr(cfg, "blacklisted_sectors", []) or [])
+    # AUDIT E (2026-08-09): the owner's ticker blocklist (never-buy names,
+    # e.g. YESBANK) filtered live scans but NOT the backtest — a replay could
+    # buy a banned name and the evidence diverged from the rules it claims
+    # to test.
+    blocked = set(getattr(cfg, "ticker_blocklist", ()) or ())
 
     ranked: list[dict] = []
     for ticker, hist in history_as_of.items():
         if ticker in portfolio.positions:
+            continue
+        if ticker in blocked:
             continue
         # Sector blacklist
         if cfg.sector_map.get(ticker, "Unknown") in blacklist:

@@ -12,7 +12,11 @@ def trade_costs(qty: int, buy_price: float, sell_price: float, cfg: Config) -> f
     buy_turnover = qty * buy_price
     sell_turnover = qty * sell_price
 
-    brokerage = 0.0  # CNC delivery: zero on Upstox/Zerodha
+    # AUDIT E (2026-08-09): this was hardcoded 0.0 while Config carried a
+    # brokerage_per_order "knob" whose only consumer was a report CAPTION —
+    # changing it changed the label, never the charge. It charges now.
+    # A closed trade = TWO orders (buy + sell); default 0.0 = unchanged CNC.
+    brokerage = 2.0 * float(getattr(cfg, "brokerage_per_order", 0.0) or 0.0)
     stt = buy_turnover * cfg.stt_buy_pct + sell_turnover * cfg.stt_sell_pct
     exchange = (buy_turnover + sell_turnover) * cfg.exchange_pct
     sebi = (buy_turnover + sell_turnover) * cfg.sebi_per_cr / 1e7

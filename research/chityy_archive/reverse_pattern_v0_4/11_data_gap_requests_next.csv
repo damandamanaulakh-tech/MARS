@@ -1,0 +1,10 @@
+Priority,Missing Data / Action,Needed For,Why It Matters,Current Status,Where It Lands,Owner
+P0,Full 15-year Upstox OHLCV by symbol/date/timeframe,G02/G06-G12/G18/G21,"Without it, rise/fall patterns are only current-batch observations, not validated history",Current file has 186 rows for one date/sample batch,06_DATA_UNDER_PARAMETERS; 07_REVERSE_RISE_FALL_EVENTS,User / Upstox
+P0,Adjusted OHLCV and corporate action flags,G04,"Avoid false signals from splits, bonuses, dividends",Only adjusted flag placeholder present,05_PARAMETER_BANK_1200_LOCKED,User / Upstox
+P0,Nifty 50/Nifty 200 benchmark history,G11/G21,Needed for relative strength and market regime validation,Not uploaded,10_SCORING_RISK_ENGINE,User / Upstox
+P0,Sector/industry master for 150 industries,G12,Current sector map is broad; industry-level patterns need clean 150-map,Placeholder industry map exists,08_INDUSTRY_PATTERN_ENGINE,User
+P1,"Delivery %, trades count, bid-ask/spread, VWAP",G08/G16,Improves liquidity and slippage risk checks,Some columns present but mostly blank,06_DATA_UNDER_PARAMETERS,User / broker export
+P1,Paper trade outcomes for 30 days,G17/G19/G21,Needed to prove whether patterns survive user execution,Only template/sample rows now,Paper Trade Guru sheet later,User
+P1,News/catalyst/event data,G14/G20,"Can explain big moves, but must be locked until verified",Synthetic/review only now,Synthetic review sheet later,Later
+P2,Correlation matrix of candidates,G11/G15,Prevents 5-stock hidden-bet portfolios,Requires multi-day returns,10_SCORING_RISK_ENGINE,Engine after 15Y import
+P2,Live execution/orderbook logs,G16,Needed only after paper/semi-auto acceptance,No live execution allowed now,Execution sheet later,Later

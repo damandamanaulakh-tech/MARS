@@ -1,0 +1,13 @@
+Metric,Value,Meaning
+Workbook built from files,21,Number of provided/source files audited
+Exact duplicate groups found,1,Only exact duplicate by MD5 counted
+Primary master used,Chityy_all_filled_REVIEW_FIXED_v0_3.xlsx,v0.3 is the best current base
+Current market rows detected,186,"Rows under current available batch, not full 15Y"
+Current symbols detected,186,Distinct symbols available for reverse scan
+Current sectors detected,20,Broad sector groups present in current universe
+1200 parameter bank rows kept,1200,Base bank copied into locked sheet
+Adopted source-backed core parameters,41,"Only strongest practical parameters, plus full 1200 bank kept"
+Reverse event rows generated,186,One row per symbol from current batch
+Industry pattern rows generated,20,One row per sector from current batch
+15-year data status,NOT PRESENT IN UPLOADED FILES,"Workbook is ready to receive it, but current data is sample/current batch"
+Live trading status,BLOCKED / PAPER ONLY,No buy/sell advice or live execution logic promoted

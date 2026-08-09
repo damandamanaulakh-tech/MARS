@@ -1,0 +1,16 @@
+Rule_ID,Engine Area,Rule / Parameter,Formula / Logic,Source Basis,Current Workbook Status,Decision
+SR001,Universe,Use NIFTY 200 first; later NIFTY 500/30k universe,Reject low liquidity / unlisted / penny-like rows,Zerodha plan,Universe sheet has 198 mapped rows; 30k pending,KEEP
+SR002,Hard Filter,"Price >=100, turnover/liquidity threshold, no circuit / event-risk block","Needs current price, turnover, circuit/event flags",Zerodha + table fixes,Price/turnover partial; circuit/event missing,PARTIAL
+SR003,Trend Score,"Close > 200DMA, >50DMA, 20DMA>50DMA, near 52W high",Trend structure scored before candidate list,Zerodha + v0.3,SMA fields present; 52W high missing,PARTIAL
+SR004,Relative Strength,1M/3M/6M vs Nifty,Stock returns minus Nifty returns,Zerodha + AM07,Nifty benchmark not uploaded,PENDING
+SR005,Volume Score,Volume >1.5x 20D average and breakout volume,Vol_Ratio_20D,AM07 + proto + v0.3,Vol_Ratio present,ACTIVE
+SR006,Volatility Score,"ATR 1.5-3 best, 3-5 cautious, >8 reject",ATR% by close,Zerodha + AM07,ATR present,ACTIVE
+SR007,Risk Reward,RR >=2 before any paper entry,(Target-entry)/(entry-stop),ME ONLY + Zerodha,Paper trades not enough yet,PENDING
+SR008,Score Gate,Score >=70 for candidate; <70 no trade/cash allowed,Composite score threshold,AM07 + ME ONLY,Threshold exists; 15Y validation pending,ACTIVE
+SR009,Position Sizing,Risk amount / stop distance; adjust by ATR tier,Capital x risk% / (Entry-SL),Zerodha + table fixes,Formula can run after entries/stops added,READY
+SR010,Daily Kill Switch,Stop after 2% daily loss or 2 losing trades,Daily P&L and loss count,AM07 + ME ONLY,Needs paper/live P&L rows,READY
+SR011,Drawdown Ladder,"-5 reduce, -8 stop adding, -10 cut 50%, -15 mostly cash, -20 full halt",Peak-to-current drawdown,AM07 + table fixes,Rules adopted; outcome data pending,READY
+SR012,Sector Cap,Max 2 stocks from same sector/theme,Count open positions by sector,AM07 + ME ONLY,Sector map present; open trades pending,READY
+SR013,Correlation Gate,Reject if correlation >0.7 with existing holdings,Rolling daily returns correlation,table fixes + AM07,15Y/multi-day return data required,PENDING
+SR014,Slippage Watchdog,"If gap/slippage invalidates stop, flag fail pattern",Open vs stop / gap movement,Gemini + Zerodha,No live order data yet,PENDING
+SR015,Synthetic Lock,Synthetic/Gemini/GURU parameters cannot promote without matched real cases,Match_Count>=30 and failure rate controlled,Synthetic workbook + ARD,Lock adopted,ACTIVE

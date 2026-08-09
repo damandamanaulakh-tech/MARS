@@ -10,6 +10,13 @@ This lets the same module power both live scoring AND the backtester
 with zero risk of lookahead.
 """
 
+# AUDIT E (2026-08-09): honest status — the only PRODUCTION consumer of this
+# module is adx() (engine nifty-chop gate + backtest). Every other scorer here
+# is a maintained LIBRARY awaiting an owner order to wire; none feeds a live
+# score today. The fake "supertrend" (it had no band ratcheting and returned
+# "up" almost always) is deleted rather than left reading as capability.
+
+
 from __future__ import annotations
 
 from typing import Optional
@@ -244,44 +251,6 @@ def obv_trend_score(close: pd.Series, volume: pd.Series, lookback: int = 20) -> 
 
 
 # ---------------- Supertrend (basic) ----------------
-
-def supertrend_direction(history: pd.DataFrame, period: int = 10, multiplier: float = 3.0) -> Optional[str]:
-    """Returns 'up' or 'down' based on Supertrend's most recent flip."""
-    if history is None or len(history) < period + 5:
-        return None
-    hl2 = (history["High"] + history["Low"]) / 2.0
-    prev_close = history["Close"].shift(1)
-    tr = pd.concat([
-        (history["High"] - history["Low"]).abs(),
-        (history["High"] - prev_close).abs(),
-        (history["Low"] - prev_close).abs(),
-    ], axis=1).max(axis=1)
-    atr_s = tr.ewm(alpha=1 / period, adjust=False).mean()
-    upper = hl2 + multiplier * atr_s
-    lower = hl2 - multiplier * atr_s
-    # Direction is set by which side the close is on
-    last_close = float(history["Close"].iloc[-1])
-    last_upper = float(upper.iloc[-1])
-    last_lower = float(lower.iloc[-1])
-    if last_close > last_upper:
-        return "up"
-    if last_close < last_lower:
-        return "down"
-    # Inside the band — fall back to the previous direction
-    prev_close_val = float(history["Close"].iloc[-2])
-    return "up" if prev_close_val > float(lower.iloc[-2]) else "down"
-
-
-def supertrend_score(history: pd.DataFrame) -> float:
-    d = supertrend_direction(history)
-    if d == "up":
-        return 80.0
-    if d == "down":
-        return 20.0
-    return 50.0
-
-
-# ---------------- 52-week high proximity ----------------
 
 def pct_off_52w_high(close: pd.Series) -> Optional[float]:
     """Returns negative % (e.g., -3.5 = 3.5% off the 52w high)."""

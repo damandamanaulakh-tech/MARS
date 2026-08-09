@@ -44,7 +44,12 @@ def start_if_enabled() -> None:
         return
 
     ist = timezone("Asia/Kolkata")
-    _SCHED = BackgroundScheduler(timezone=ist)
+    # AUDIT E (2026-08-09): APScheduler's default misfire grace is ~1s — a GC
+    # pause on the 512MB box at 15:25 could silently DISCARD the square-off
+    # job. 5-minute grace + coalesce, so a late wake still runs once.
+    _SCHED = BackgroundScheduler(
+        timezone=ist,
+        job_defaults={"misfire_grace_time": 300, "coalesce": True})
 
     if intraday:
         _SCHED.add_job(
@@ -391,6 +396,10 @@ def _weekly_history_topup() -> None:
     DATA_REFRESH_WEEKLY with the counts. Scope = tickers already in the
     store plus anything currently held (bounded, safe on 512 MB)."""
     from datetime import date, datetime as _dt
+
+    from trading.calendars import is_trading_day
+    if not is_trading_day():
+        return          # AUDIT E: every other job checks; this one didn't
     from . import db, state
     eng = state.engine()
 

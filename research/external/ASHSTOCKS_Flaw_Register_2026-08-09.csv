@@ -1,0 +1,16 @@
+ID,Domain,Severity,Type,Flaw / Gap,Current Logic or Formula,Why It Fails,Proposed Fix,Source Tag
+ASH-STOCKS-F-001,Validation,Critical,Missing evidence,No post-2022 holdout,EDGE_CONFIRMED remains false,Edge cannot be claimed,Acquire post-2022 data + chronological re-run,ASH-STOCKS
+ASH-STOCKS-F-002,Validation,Critical,Missing evidence,No costed 200-stock execution test,Promotion gates require it,Edge cannot be claimed,Run costed walk-forward ≥200 stocks,ASH-STOCKS
+ASH-STOCKS-F-003,Data,High,Synthetic,FPI Category % (30/20/10 of MWPL),Mechanically generated ratios,Not real FPI data,Annotation only; never rank,ASH-STOCKS
+ASH-STOCKS-F-004,Data,High,Formula-less,OI labels,"External labels, no formula",Cannot be treated as evidence,Document formula or drop from ranking,ASH-STOCKS
+ASH-STOCKS-F-005,Validation,High,Non-reproducible,VIX backtest,No trade ledger / no side-by-side,Multipliers unproven,Rebuild with dated ledger + with/without overlay,ASH-STOCKS
+ASH-STOCKS-F-006,Risk,High,Sign reversal,Damage signals,"Positive in holdout, negative in train",Cannot be used as entry edge,Reactive risk throttle only,ASH-STOCKS
+ASH-STOCKS-F-007,Universe,Medium-High,Bias,Survivorship bias,Explicit in selection parameters,Overstates performance,Point-in-time universe rebuild,ASH-STOCKS
+ASH-STOCKS-F-008,Tracking,Medium,Zero counters,All ledger hit/block counts = 0,PARAMETER_LEDGER.csv,No live evidence accumulation,Wire hit/block counters,ASH-STOCKS
+ASH-STOCKS-F-009,Risk,Medium,Unverified,Stop-loss engine,Marked not_verified,Exit logic unproven,Implement + prove,ASH-STOCKS
+ASH-STOCKS-F-010,Risk,Medium,Placeholder,Boredom-guard,No settled numeric rule,Incomplete,Define concrete rule or remove,ASH-STOCKS
+ASH-STOCKS-F-011,Catalogue,Medium,Inflation,175 catalogue vs runtime surface,Many DEFINED / EXTERNAL_FEED,Visual completeness overstates capability,Separate EXECUTABLE vs DEFINED in UI,ASH-STOCKS
+ASH-STOCKS-F-012,Entry points,Low-Medium,Stub,Python app.py / main.py,30-byte stubs,No real entry,Implement or delete,ASH-STOCKS
+ASH-STOCKS-F-013,Capital,Medium,Governance,Max position raised 2.5% → 10%,User approval only,Statistical gates not re-locked,Keep 10% paper-only,ASH-STOCKS
+ASH-STOCKS-F-014,Persistence,Medium,Fallback,Mongo → Render file fallback,Still possible,State durability incomplete,"Prove live Mongo, remove fallback",ASH-STOCKS
+ASH-STOCKS-F-015,Data,Critical,Missing,15-year point-in-time OHLCV + yearly walk-forward,Still open,Core research incomplete,Ingest true PIT data + yearly WF,ASH-STOCKS

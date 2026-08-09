@@ -12,7 +12,6 @@ from trading.signals.technicals import (
     obv, obv_trend_score,
     pct_off_52w_high, proximity_to_52w_high_score,
     rsi, rsi_score, sma,
-    supertrend_direction, supertrend_score,
 )
 
 
@@ -173,24 +172,6 @@ def test_obv_returns_none_for_empty():
 
 
 # ---- Supertrend ----
-
-def test_supertrend_up_for_uptrend():
-    closes = list(np.linspace(100, 200, 100))
-    df = _ohlcv_df(closes)
-    assert supertrend_direction(df) == "up"
-    assert supertrend_score(df) == 80.0
-
-
-def test_supertrend_returns_direction_for_downtrend():
-    """Supertrend should produce a direction (synthetic data is too smooth
-    to always trigger a "down" flip; just assert it returns one)."""
-    closes = list(np.linspace(200, 100, 100))
-    df = _ohlcv_df(closes)
-    d = supertrend_direction(df)
-    assert d in ("up", "down")
-
-
-# ---- 52-week high ----
 
 def test_pct_off_52w_high_at_high():
     closes = list(range(1, 252)) + [251]

@@ -25,6 +25,13 @@ from fastapi import HTTPException, Request
 # Render dashboard, 2026-07-27 — code bends to the owner, not the reverse).
 # OWNER_PWD wins if both are set. The "sourceborn" fallback exists only for
 # local dev and tests; on a public URL it is a guessable password.
+# AUDIT E (2026-08-09): if the owner never set OWNER_PWD, the app runs on a
+# guessable brand-word password ON A PUBLIC URL. Impossible to miss now.
+import logging as _logging
+_log = _logging.getLogger(__name__)
+if not (os.environ.get("OWNER_PWD") or os.environ.get("APP_PASSWORD")):
+    _log.error("SECURITY: OWNER_PWD is not set — the login password is the "
+               "guessable fallback. Set OWNER_PWD in the Render dashboard.")
 _SEEDED_PWD = (os.environ.get("OWNER_PWD")
                or os.environ.get("APP_PASSWORD")
                or "sourceborn")

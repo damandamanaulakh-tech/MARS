@@ -9,6 +9,10 @@ import pytest
 # run — it would launch a real multi-mode network scan mid-suite.
 os.environ.setdefault("SB_DISABLE_CATCHUP", "1")
 
+# The login brute-force throttle (1s per attempt) would add minutes to the
+# suite — hundreds of tests log in. Off under tests, on in production.
+os.environ.setdefault("SB_LOGIN_DELAY_SEC", "0")
+
 
 @pytest.fixture(autouse=True)
 def _no_network_quotes(monkeypatch):

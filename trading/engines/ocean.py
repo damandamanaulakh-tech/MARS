@@ -53,7 +53,6 @@ class OceanCandidate:
     climax_volume_ratio: float    # max(vol[-5:]) / vol_20d_mean
     survival_passed: bool
     reasons: list[str]
-    tranche_plan: list[dict]      # [{'pct': 0.30, 'trigger': 'climax'}, ...]
 
 
 # ---------------- Technical filters (pure functions of OHLCV) -----------------
@@ -175,11 +174,6 @@ def evaluate(ticker: str, history: pd.DataFrame, cfg: Config) -> Optional[OceanC
         f"Climax volume {cvr:.1f}x average",
         *surv_reasons,
     ]
-    tranche_plan = [
-        {"pct": 0.30, "trigger": "climax_day_close"},
-        {"pct": 0.30, "trigger": "first_higher_low"},
-        {"pct": 0.40, "trigger": "reclaim_20d_ema"},
-    ]
 
     return OceanCandidate(
         ticker=ticker, price=last_price,
@@ -188,7 +182,6 @@ def evaluate(ticker: str, history: pd.DataFrame, cfg: Config) -> Optional[OceanC
         climax_volume_ratio=cvr,
         survival_passed=True,
         reasons=reasons,
-        tranche_plan=tranche_plan,
     )
 
 
