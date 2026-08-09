@@ -1,10 +1,10 @@
 # SOURCEBORN AM07 — The Owner's Brief (simple language)
 
-*Read this one page and you know your app. Updated 2026-07-21, session close.*
+*Read this one page and you know your app. Updated 2026-08-09 (audit truth pass — six money facts had gone stale).*
 
 ## What this app is
 
-A robot stock-picker that trades **paper money only** (₹25L practice capital —
+A robot stock-picker that trades **paper money only** (₹50L practice capital —
 a hard lock in the code means it can never place a real order without your
 explicit approval and a rebuild). It watches the whole NSE market, buys the
 strongest stocks by a tested recipe, sells them by fixed rules, and writes
@@ -16,7 +16,8 @@ down every single decision it makes — nothing is ever hidden or deleted.
 |---|---|
 | 03:30 | Upstox kills yesterday's token (their rule, not ours) |
 | **your login** | The ONE thing only you can do. Any time of day — the moment you connect, a missed morning scan runs itself |
-| 09:20 | Scans the market: momentum first (a fresh ~50-stock slice of all 2,376 NSE stocks daily, plus everything held), then intraday, short, swing, positional |
+| 08:50 | Refreshes the full NSE list from Upstox (auto — ~2,400+ stocks, new listings enter same day) |
+| 09:20 | Scans the market: momentum first (a fresh ~50-stock slice of the whole NSE list daily, spread across the alphabet, plus everything held), then short, swing, positional (intraday removed from auto-rotation on your order; its preset stays for manual use) |
 | 14:30 | Top-up scan if the book is under-invested |
 | 15:25 | Force-sells every intraday position — no exceptions, ever |
 | 15:35 | Marks all positions at live prices and fires the exit rules |
@@ -28,13 +29,16 @@ are impossible now.
 ## The strategy, in plain words (the "final set" — earned by testing, not opinion)
 
 1. **Buy strength:** rank stocks by how strongly they've risen over 6 and 12
-   months, adjusted for how wildly they swing. Buy the top ~25-30, about 3.3%
-   of capital each. Each stock must also be rising on its own (not just
-   "least bad").
-2. **Sell by rails, not feelings:** every position carries −12% stop / +12%
-   target from day one (your call, 2026-07-21 — partial profit books at
-   +7%), a trailing stop that locks in gains, and a score-decay exit that
-   dumps dead leaders.
+   months, adjusted for how wildly they swing, and buy above score 62 (your
+   floor, 2026-07-30). Each new trade is a FIXED **₹1.25 lakh** (your order:
+   "1.25 lac, 125000, not percentage"), up to 80 slots as the book grows.
+   Each stock must also be rising on its own (not just "least bad").
+2. **Sell by rails, not feelings:** every position carries **−5% stop /
+   +12% target** from day one (your calls: stop 2026-07-26, target
+   2026-07-21), a score-decay exit that dumps dead leaders (never your own
+   manual picks — those only you sell, or the stop/target does), and a
+   200-day maximum hold. (A −15% trailing stop exists in the rules but at
+   −5%/+12% the target always closes first — Settings says this plainly.)
 3. **Bad weather = brake:** when Nifty is below its 200-day average
    (a "correction" — the app decides this itself from live data), it stops
    buying and holds cash. This one rule cut crash losses from −61% to −26%
@@ -90,9 +94,9 @@ are impossible now.
 
 ## Where everything lives (feed nothing twice)
 
-Repo `damandamanaulakh-tech/sourceborn-engine` — work branch
-`claude/exciting-ride-v0lozu`, live branch `claude/control-panel-ui-1`
-(Render auto-deploys it). All data is committed: 12y of your Upstox candles,
+Repo `damandamanaulakh-tech/am07` — **branch `main` is live** (Render
+auto-deploys it). The old sourceborn-engine repo is retired; nothing lives
+only there. All data is committed: 12y of your Upstox candles,
 15y of Nifty/VIX/Sensex/BankNifty, the 1991-2024 close panel, the 10y clean
 set + its rebuild script, the 5 point-in-time membership lists, every search
 script and result. `CLAUDE.md` is the machine's memory — any future session

@@ -1,5 +1,8 @@
 # AM07 WORK LIST — pending / done
 
+> **FROZEN BOARD (2026-08-09 audit):** this list stopped being updated on 2026-07-27 and six shipping sessions are missing. B3 (weekly universe/data renewal) SHIPPED 2026-07-27. For live status read CLAUDE.md and docs/AUDIT_2026-08-09.md — not this file.
+
+
 Owner's list, owner's words. Updated every session. This file is the board:
 open it to see what is done and what is not. Nothing here is built without
 the owner's explicit yes.

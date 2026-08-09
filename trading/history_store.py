@@ -36,8 +36,18 @@ def download_ticker_history(broker, instrument_key: str, years: int,
     end = today
     for _ in range(years):
         start = end - timedelta(days=366)
-        df = broker.get_daily_candles(
-            instrument_key, start.isoformat(), end.isoformat())
+        # AUDIT FIX C8 (2026-08-09): a transient network failure used to be
+        # indistinguishable from "ran past the listing's start" — one failed
+        # window silently truncated the saved history, or (if the FIRST
+        # window failed) returned older data missing the latest year, served
+        # as complete. One retry; a second failure RAISES so the caller
+        # counts this ticker as failed instead of saving a hole.
+        try:
+            df = broker.get_daily_candles(
+                instrument_key, start.isoformat(), end.isoformat())
+        except Exception:
+            df = broker.get_daily_candles(
+                instrument_key, start.isoformat(), end.isoformat())
         if df is not None and not df.empty:
             frames.append(df)
         elif frames:

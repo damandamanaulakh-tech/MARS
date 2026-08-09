@@ -392,7 +392,13 @@ def run_backtest(
         portfolio=portfolio,
         equity_curve=equity_curve,
         bench_hist=bench_in_window,
-        bench2_hist=all_hist.get(BENCHMARK2),
+        # Codex review on PR#40: the N200 series could extend past the
+        # simulated window's real end (the Nifty CSV truncates the replay),
+        # producing an alpha2 that compares different periods. Clip it to
+        # the days the strategy actually traded.
+        bench2_hist=(all_hist.get(BENCHMARK2).loc[:trading_dates[-1]]
+                     if all_hist.get(BENCHMARK2) is not None and len(trading_dates)
+                     else all_hist.get(BENCHMARK2)),
         time_in_market_days=time_in_market_days,
         total_days=len(trading_dates),
         warnings=warnings + _benchmark_staleness_warnings(

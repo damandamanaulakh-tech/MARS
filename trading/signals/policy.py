@@ -61,8 +61,21 @@ class PolicyEvent:
     sector_boost: float               # +0..+20 score boost for stocks in this sector
 
 
+# AUDIT FIX C5 (2026-08-09): active_sector_boosts() is called inside
+# compute_score, PER STOCK PER SCAN — that was one RSS fetch per stock (or,
+# before feedparser was in requirements, one warning log per stock and a
+# feature that never ran). 15-minute TTL cache: one fetch per scan pass.
+_FEED_CACHE: dict = {"at": 0.0, "entries": None}
+_FEED_TTL_SEC = 15 * 60
+
+
 def _fetch_pib_feed() -> list[dict]:
     """Returns list of {title, summary, published_parsed, link} dicts."""
+    import time as _time
+    now = _time.time()
+    if (_FEED_CACHE["entries"] is not None
+            and now - _FEED_CACHE["at"] < _FEED_TTL_SEC):
+        return _FEED_CACHE["entries"]
     try:
         import feedparser
     except ImportError:
@@ -73,8 +86,9 @@ def _fetch_pib_feed() -> list[dict]:
     except Exception as e:
         log.warning("PIB feed fetch failed: %s", e)
         return []
-    entries = getattr(feed, "entries", [])[:40]   # cap
-    return [dict(e) for e in entries]
+    entries = [dict(e) for e in getattr(feed, "entries", [])[:40]]   # cap
+    _FEED_CACHE["at"], _FEED_CACHE["entries"] = _time.time(), entries
+    return entries
 
 
 def _keyword_match_sectors(text: str) -> list[str]:
@@ -115,8 +129,12 @@ def scan_recent_policy_events(lookback_hours: int = 48) -> list[PolicyEvent]:
         if not sectors:
             continue
 
-        # For each matched sector, emit one PolicyEvent
-        relevance = 0.7 if "PLI" in combined.upper() else 0.5
+        # For each matched sector, emit one PolicyEvent.
+        # AUDIT FIX C5 (2026-08-09): the old check was a raw substring —
+        # "PLI" matched comPLIance, supPLIes, apPLIcation and doubled the
+        # boost on noise. Word-boundary match only.
+        import re as _re
+        relevance = 0.7 if _re.search(r"\bPLI\b", combined.upper()) else 0.5
         boost = 20.0 if relevance >= 0.7 else 10.0
         for sector in sectors:
             out.append(PolicyEvent(

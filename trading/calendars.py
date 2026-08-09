@@ -139,6 +139,11 @@ def fno_monthly_expiry(year: int, month: int) -> date:
     # Tuesday = weekday 1
     while last_day.weekday() != 1:
         last_day -= timedelta(days=1)
+    # Codex review on PR#40: when the last Tuesday is an NSE holiday
+    # (e.g. 2026-11-24 Gurpurb, 2027-01-26 Republic Day), expiry moves to
+    # the PRECEDING trading day.
+    while not is_trading_day(last_day):
+        last_day -= timedelta(days=1)
     return last_day
 
 

@@ -1,5 +1,8 @@
 # 5 GENERAL-year backtests (non-event) — real NSE data (2026-07-10)
 
+> **NOTE (2026-08-09 audit):** the −8.5pp figure referenced here is superseded by the v1–v4 program — do not quote it.
+
+
 Companion to BACKTEST_EVENTS_5.md. Same engine/config (momentum mode,
 exits ON, 15-name real dataset, equal-weight self-basket benchmark).
 Windows chosen to avoid COVID/wars/elections.

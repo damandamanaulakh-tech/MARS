@@ -41,8 +41,19 @@ def fetch_announcements(day_from: date, day_to: date, max_pages: int = 8) -> lis
             url = _API.format(page=page, frm=day_from.strftime("%Y%m%d"),
                               to=day_to.strftime("%Y%m%d"))
             r = client.get(url)
+            # AUDIT FIX C9 (2026-08-09): a 403/blocked response used to fall
+            # through to an empty Table and journal "0 scanned" as SUCCESS —
+            # a cloud-blocked feed was indistinguishable from a quiet news
+            # day. Non-200 now raises → the scheduler journals+pushes
+            # FILINGS_FAILED. An empty FIRST page on a 200 is also suspicious
+            # (BSE serves empty JSON to blocked cloud IPs) and raises too.
+            r.raise_for_status()
             rows = (r.json() or {}).get("Table") or []
             if not rows:
+                if page == 1:
+                    raise RuntimeError(
+                        "BSE returned an empty first page — feed blocked for "
+                        "this IP or format changed; not a quiet news day")
                 break
             out.extend(rows)
     return out

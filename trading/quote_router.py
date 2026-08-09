@@ -24,6 +24,12 @@ from .data import fetch_quotes as fetch_quotes_yf
 log = logging.getLogger(__name__)
 
 
+# Codex review on PR#40: per-ticker provenance so an export can never label
+# a yfinance daily close as "live". Updated on every fetch; read-only for
+# callers.
+LAST_SOURCES: dict = {}
+
+
 def fetch_quotes(
     tickers: list[str],
     upstox_client: Optional[UpstoxClient] = None,
@@ -57,6 +63,7 @@ def fetch_quotes(
         px = prices_by_key.get(ikey)
         if px and px > 0:
             out[ticker] = float(px)
+            LAST_SOURCES[ticker] = "upstox"
         else:
             missing.append(ticker)
 
@@ -64,6 +71,8 @@ def fetch_quotes(
     if missing:
         yf_fallback = fetch_quotes_yf(missing)
         out.update(yf_fallback)
+        for t in yf_fallback:
+            LAST_SOURCES[t] = "yf_close"     # daily close, NOT a live tick
 
     return out
 

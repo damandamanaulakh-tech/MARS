@@ -40,8 +40,12 @@ def _generate_all() -> Dict[str, Optional[str]]:
     live, _ = app_state.marks(tickers)
     prices = {pos.ticker: live.get(pos.ticker, pos.entry_price)
               for pos in portfolio.positions.values()}
-    price_source = {pos.ticker: ("live" if pos.ticker in live else "entry")
-                    for pos in portfolio.positions.values()}
+    srcs = app_state.marks_sources(tickers)
+    price_source = {
+        pos.ticker: ("live" if srcs.get(pos.ticker) == "upstox"
+                     else "delayed_close" if pos.ticker in live
+                     else "entry")
+        for pos in portfolio.positions.values()}
 
     paths: Dict[str, Optional[str]] = {}
     writers = [

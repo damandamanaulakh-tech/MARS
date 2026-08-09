@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from datetime import datetime
 
 log = logging.getLogger(__name__)
@@ -193,6 +194,7 @@ def _universe_refresh_job() -> None:
     try:
         p.decision_journal.append(entry)
         p.save()
+        _push_phone_alerts("08:50")
     except Exception:
         pass
     # N1 series-watch (owner-approved 2026-07-26): refresh the BE/T2T
@@ -258,6 +260,7 @@ def _filings_job() -> None:
             p.save()
         except Exception:
             pass
+    _push_phone_alerts("09:05")
 
 
 def _intraday_tick() -> None:
@@ -329,6 +332,8 @@ def _deployment_topup_scan() -> None:
     if not is_trading_day():
         return
     from . import state
+    if _degraded_halt("14:30"):
+        return
     eng = state.engine()
     p = state.portfolio()
     cfg = state.cfg()
@@ -442,6 +447,36 @@ def _eod_refresh() -> None:
     _push_phone_alerts("15:35")
 
 
+_ROTATION_LOCK = threading.Lock()
+
+
+def _degraded_halt(where: str) -> bool:
+    """AUDIT FIX C1: a boot during a Mongo outage used to trade a phantom
+    fresh book all day, and those trades vanished at the next restart. While
+    Mongo is expected-but-down, scans do NOT open positions; the halt is
+    journaled once per day and pushed to the phone."""
+    from datetime import datetime as _dt
+
+    from . import state
+    state.heal_after_reconnect()
+    if not state.mongo_degraded():
+        return False
+    p = state.portfolio()
+    today = _dt.utcnow().date().isoformat()
+    if not any(e.get("action") == "MONGO_OFFLINE_HALT"
+               and str(e.get("ts", "")).startswith(today)
+               for e in p.decision_journal[-100:]):
+        p.decision_journal.append({
+            "ts": _dt.utcnow().isoformat(), "action": "MONGO_OFFLINE_HALT",
+            "why": (f"[{where}] MongoDB is configured but unreachable — new "
+                    "entries halted so a phantom book can't trade trades that "
+                    "vanish at the next restart. Exits still run."),
+        })
+        p.save()
+    log.error("[%s] Mongo expected but down — scan entries halted", where)
+    return True
+
+
 def _daily_multi_mode_scan() -> None:
     """Once a day at 09:20 IST: scan in each mode and open whatever passes.
 
@@ -458,39 +493,54 @@ def _daily_multi_mode_scan() -> None:
     if not is_trading_day():
         log.info("[09:20] NSE holiday — daily scan skipped")
         return
+    if _degraded_halt("09:20"):
+        return
+    # AUDIT FIX C3: the startup/login catch-up thread and the 09:20 cron
+    # could run this concurrently — two loops fighting over cfg.mode,
+    # double entries, double journals. One at a time, second one skips.
+    if not _ROTATION_LOCK.acquire(blocking=False):
+        log.warning("[09:20] another multi-mode scan is already running — skipped")
+        return
     log.info("[09:20] Daily multi-mode scan starting (target 60-70%% deployed)")
     summary = []
     import gc
-    for m in _DAILY_MODE_ORDER:
-        try:
-            cfg.mode = m
-            cfg.apply_mode_preset()
-            res = eng.scan()
-            summary.append(f"{m}={len(res.opened)} opened/{len(res.skipped)} skipped")
-        except Exception as e:
-            log.exception("Daily scan for mode=%s failed: %s", m, e)
-            summary.append(f"{m}=error")
-            # Silent dead mornings are forbidden: the failure goes into the
-            # journal so the dashboard trigger card SHOWS it the same day.
+    from trading.modes import MODE_LOCK
+    try:
+        for m in _DAILY_MODE_ORDER:
             try:
-                from datetime import datetime as _dt
-                eng.portfolio.decision_journal.append({
-                    "ts": _dt.utcnow().isoformat(), "action": "SCAN_FAILED",
-                    "mode": m,
-                    "err": f"{type(e).__name__}: {str(e)[:120]}",
-                    "why": "09:20 scan pass failed — check Upstox login/data.",
-                })
-                eng.portfolio.save()
-            except Exception:
-                pass
-        finally:
-            # 512 MB guard: drop each mode's OHLCV panels before the next
-            # mode downloads its own — otherwise five scans' worth of frames
-            # can overlap in RAM at 09:20.
-            gc.collect()
-    # Restore the active mode the user selected in Settings.
-    cfg.mode = original_mode
-    cfg.apply_mode_preset()
+                with MODE_LOCK:
+                    cfg.mode = m
+                    cfg.apply_mode_preset()
+                    res = eng.scan()
+                summary.append(f"{m}={len(res.opened)} opened/{len(res.skipped)} skipped")
+            except Exception as e:
+                log.exception("Daily scan for mode=%s failed: %s", m, e)
+                summary.append(f"{m}=error")
+                # Silent dead mornings are forbidden: the failure goes into the
+                # journal so the dashboard trigger card SHOWS it the same day.
+                try:
+                    from datetime import datetime as _dt
+                    eng.portfolio.decision_journal.append({
+                        "ts": _dt.utcnow().isoformat(), "action": "SCAN_FAILED",
+                        "mode": m,
+                        "err": f"{type(e).__name__}: {str(e)[:120]}",
+                        "why": "09:20 scan pass failed — check Upstox login/data.",
+                    })
+                    eng.portfolio.save()
+                except Exception:
+                    pass
+            finally:
+                # 512 MB guard: drop each mode's OHLCV panels before the next
+                # mode downloads its own — otherwise five scans' worth of frames
+                # can overlap in RAM at 09:20.
+                gc.collect()
+    finally:
+        # AUDIT FIX C3: the restore is in a finally now — an escape mid-loop
+        # used to leave cfg.mode stuck on whatever mode the loop died in.
+        with MODE_LOCK:
+            cfg.mode = original_mode
+            cfg.apply_mode_preset()
+        _ROTATION_LOCK.release()
     _check_pending_orders("post-scan")
     run_trigger_layer("09:20")
     _push_phone_alerts("09:20")

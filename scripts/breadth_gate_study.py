@@ -97,6 +97,12 @@ def main() -> None:
             cfg = Config(mode="nifty200_momentum", universe=tickers,
                          state_dir="/tmp/breadth_gate_study")
             cfg.apply_mode_preset()
+    # ERA PIN (AUDIT FIX D3, 2026-08-09): the committed results in docs/ were
+    # generated 2026-07-27 at entry floor 55; the live preset later moved to
+    # 62, which silently changed what a "re-run" computes. Pinning the era
+    # keeps the committed evidence regenerable; delete the pin (and the
+    # committed *_progress.jsonl cache!) to study the CURRENT rules instead.
+    cfg.min_score_to_enter = 55.0
             r = bt.run_backtest(cfg, ws, we, universe=tickers,
                                 preloaded_history=hist)
             results[name] = {

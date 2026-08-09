@@ -6,10 +6,13 @@ added once OAuth handshake is implemented.
 
 from __future__ import annotations
 
+import logging
 import os
 import threading
 from functools import lru_cache
 from typing import Dict
+
+log = logging.getLogger(__name__)
 
 import pandas as pd
 import yfinance as yf
@@ -52,9 +55,21 @@ def set_history_broker(client) -> None:
 
 
 def _instrument_key(ticker: str) -> str | None:
-    global _IK_MAP
+    """AUDIT FIX C10 (2026-08-09): this loaded the committed CSV once per
+    boot, swallowed OSError into a permanently-EMPTY map (all history routing
+    dead, indistinguishable from "not listed"), and never learned new
+    listings. It now rides the shared brokers lookup — daily-refreshed, loud
+    ERROR + committed-CSV fallback when empty — the same table quotes use."""
     if ticker in _INDEX_KEYS:
         return _INDEX_KEYS[ticker]
+    try:
+        from .brokers.upstox_instruments import get_lookup
+        key = get_lookup().get(ticker)
+        if key:
+            return key
+    except Exception as e:
+        log.warning("shared instrument lookup unavailable: %s", e)
+    global _IK_MAP
     if _IK_MAP is None:
         import csv
         path = os.path.join(os.path.dirname(__file__), "..", "data",
@@ -64,9 +79,12 @@ def _instrument_key(ticker: str) -> str | None:
             with open(path, newline="") as f:
                 for row in csv.DictReader(f):
                     m[row["ticker"]] = row["instrument_key"]
-        except OSError:
-            pass
+        except OSError as e:
+            log.error("instrument CSV unreadable — history routing dead: %s", e)
         _IK_MAP = m
+        if not m:
+            log.error("instrument map EMPTY — every Upstox history fetch "
+                      "will fail visibly, not silently")
     return _IK_MAP.get(ticker)
 
 

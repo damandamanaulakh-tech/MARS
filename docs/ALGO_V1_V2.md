@@ -1,5 +1,18 @@
 # AM07 — v1 vs v2: the full algorithm
 
+> **SUPERSESSION NOTE (2026-08-09 audit):** this document's figures were
+> computed at the 2026-07-30 defaults. Three things moved after it was
+> written: (1) the v2 lens now runs **½-Kelly capped at 5%/name** via
+> Settings (`kelly_fraction=0.5`, `kelly_max_pct=0.05`) — the ¼-Kelly/25%
+> pseudocode and the ₹1,38,825 worked example below reflect the OLD defaults
+> and will not reproduce on `/lens` today (the same TATASTEEL inputs now cap
+> at ₹2,50,000); (2) live sizing REVERTED to the owner's fixed ₹1.25L on
+> 2026-08-04 — Kelly is display/optional; (3) `broker.bid_ask()` WAS built
+> (2026-07-31), so section 12's "the spread check has never run" is fixed.
+> v1's live liquidity floor is ₹5 Cr 5-day turnover + 200k shares ADV (the
+> ₹1 Cr median figure below is the research screen). The maths itself is
+> unchanged and correct.
+
 Owner ask 2026-07-30: *"i want the full logics behind agent say / build a proper
 algo behind agent's say / how that will work"* — **v1** = what runs your money
 today, **v2** = the growth-first ("unbounded") agent from the hypothetical.
