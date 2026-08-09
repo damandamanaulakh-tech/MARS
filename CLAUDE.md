@@ -784,6 +784,53 @@ documented, live engine still reads NSE API first. Remaining holes:
 2024-09-09→2024-11-29 (SEBI era) and DII after 2025-03. TRI = the ONLY
 still-unfetched item anywhere (niftyindices WAF; home machine or Colab
 retry with hardened session).**
+**SELECTION REGISTER v4 WIRED same day (owner uploaded
+Selection_Register_v4_279_OwnBuild.xlsx — an ASH08-lineage register of 279
+items — then ordered "focus rest from 279 … discuss and wire the rest").
+732 tests green. What shipped:**
+- Register committed: research/external/ (xlsx + extracted CSV). All 112
+  TRG formulas verified VERBATIM vs our trigger_params CSV (zero drift).
+  ~151 of 279 already lived in AM07 (mapped in register_v4.AM07_HAVE);
+  the "numbers replaced formulas" worry checked out clean — only 4 loose
+  rows, listed on-page.
+- **trading/register_v4.py — DISPLAY/RESEARCH ONLY** (same boundary as
+  triggers: engine/risk/orders never import it, test-enforced; registry
+  parsed from the committed CSV at import so code can't drift from sheet).
+  Computes ~90 of the 128 missing items from committed data: E-tags,
+  B-07/H/W/X per-stock analytics (fundamentals via curated CSV +
+  statements zip, shares-outstanding ASSUMED NI/EPS where needed,
+  labelled), PX panic signatures (panel breadth/dispersion/tails;
+  **dbi never defined in their files → PX-01/05 DATA_NEEDED**, tail cut
+  -3% ASSUMED on-page), FII-01..07 stack LIVE off the new fii_dii_cash +
+  PWOI panels (FII-04 index-fut net, FII-05 short-share q80, FII-07
+  PCR-OI shock), VIX-02 spike freeze flag, S-12/13/14 coverage/effective-
+  score telemetry. ~38 stay DATA_NEEDED with what unlocks each
+  (shareholding, analyst, news, USDINR, options chain, etc.).
+  **FII-08/09 wait on an OWNER PICK: their own sheet records TWO damage
+  thresholds (static 0.213 vs rolling q90) — "pick one and hash it".**
+- /register page (📇 sidebar): market view + any-stock search, U/S rows
+  shown as their-build-vs-AM07 verdicts, every assumption on-page.
+- BONUS BUG: /triggers search datalist held the CHARACTERS of
+  "20MICRONS.NS" (load_full_universe()[0]) — fixed to the real 2,428
+  names.
+- TCS sanity: ROE 45.9%, Altman 10.5, Piotroski 5/9, 3Y CAGR -11.8%,
+  RS 6M -27pp — all match the known story.
+**CORRECTION BRAKE OFF (owner order 2026-08-09: "i want to take risk on
+200 DMA" → picked "Brake fully OFF" from an explicit options card AFTER
+being shown the v4 evidence that blind correction dip-buying tested
+−2.2pp).** `cfg.correction_brake_enabled=False` (default) — CORRECTION
+(Nifty < 200DMA) alone no longer blocks momentum entries; engine journals
+CORRECTION_BRAKE_OFF when the override path opens picks. UNCHANGED: panic
+still blocks, dead regime feed still brakes (C7 stays fail-safe), score
+floor 62, abs-momentum gate, breadth gate (can still block in weak
+breadth!), −5% stop, kill switch, regime reserve ladder 20/40. Settings
+toggle restores the brake (1). VIX-crush re-entry machinery kept (harmless
+alongside). Tests: trading/tests/test_correction_brake.py pins default,
+panic, dead-feed, restore, and that engine.py wires the exact predicate.
+UNTESTED live — 60-day window judges. FII-08/09 same message: owner ruled
+"why not both" → BOTH damage thresholds (static 0.213 + rolling q90)
+computed side by side on /register; current reading: static YES,
+q90 no, stacks QUIET (FII legs quiet). Assumptions review: "not now".
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Selection Register v4{% endblock %}
+{% block content %}
+
+<div class="mb-6">
+  <h1 class="text-2xl font-black tracking-tight">📇 Selection Register v4 — {{ n_registry }} items</h1>
+  <p class="text-sm text-ink-soft mt-1">
+    Your register, wired read-only. <strong>{{ counts.have }}</strong> items already live inside AM07
+    (listed at the bottom with where); the rest compute here from committed data or say
+    <span class="font-mono text-xs">DATA_NEEDED</span> with exactly what unlocks them.
+    Nothing on this page opens, closes, sizes or blocks a trade — your own
+    REQUIRES_15Y_BACKTEST rule stands until you order otherwise.
+  </p>
+</div>
+
+<!-- any-stock search -->
+<form method="get" action="/register" class="bg-white border border-line p-4 mb-6 flex items-end gap-3 flex-wrap">
+  <div>
+    <label class="text-[10px] uppercase tracking-widest text-ink-faint block mb-1">Per-stock view — any name in the universe</label>
+    <input name="ticker" value="{{ ticker }}" list="reg-universe" placeholder="e.g. TCS"
+           class="border border-line px-3 py-2 text-sm w-64 font-mono">
+    <datalist id="reg-universe">
+      {% for n in universe_names %}<option value="{{ n }}">{% endfor %}
+    </datalist>
+  </div>
+  <button class="px-4 py-2 bg-ink text-white text-sm font-bold">Evaluate</button>
+  {% if ticker %}<a href="/register" class="text-xs text-ink-faint underline">clear</a>{% endif %}
+</form>
+
+{% if stock_err %}
+<div class="bg-amber-50 border border-amber-300 text-amber-900 p-4 mb-6 text-sm">{{ stock_err }}</div>
+{% endif %}
+
+{% macro state_chip(s) -%}
+  {% if s == 'FIRED' %}<span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-bold">FIRED</span>
+  {% elif s == 'VALUE' %}<span class="px-2 py-0.5 bg-sky-100 text-sky-800 text-xs font-bold">VALUE</span>
+  {% elif s == 'PARTIAL' %}<span class="px-2 py-0.5 bg-violet-100 text-violet-800 text-[10px] font-bold" title="computed with a disclosed missing leg">PARTIAL</span>
+  {% elif s == 'DATA_NEEDED' %}<span class="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold">DATA_NEEDED</span>
+  {% elif s == 'NA' %}<span class="text-[10px] text-ink-faint" title="not enough stored history">n/a</span>
+  {% else %}<span class="text-xs text-ink-faint">quiet</span>{% endif %}
+{%- endmacro %}
+
+{% macro rows_table(rows, title) -%}
+<div class="bg-white border border-line mb-8">
+  <div class="px-4 py-3 border-b border-line font-bold">{{ title }}</div>
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm">
+    <tbody>
+    {% for r in rows %}
+      <tr class="border-b border-line/60 {% if r.state == 'FIRED' %}bg-emerald-50/40{% endif %}">
+        <td class="px-4 py-2 font-mono text-[10px] whitespace-nowrap align-top">{{ r.id }}</td>
+        <td class="px-4 py-2">
+          <span class="font-semibold">{{ r.param }}</span>
+          <span class="text-[10px] text-ink-faint ml-1">{{ r.group }}</span>
+          {% if r.note %}<div class="text-[11px] text-ink-soft mt-0.5">{{ r.note }}</div>{% endif %}
+        </td>
+        <td class="px-4 py-2 text-right align-top font-mono text-xs whitespace-nowrap">
+          {% if r.value is not none %}{{ r.value }}{% endif %}
+        </td>
+        <td class="px-4 py-2 text-right align-top">{{ state_chip(r.state) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{%- endmacro %}
+
+{% if ticker and stock_rows %}
+  {{ rows_table(stock_rows, "Per-stock items — " ~ ticker ~ " (from stored history + committed fundamentals)") }}
+{% endif %}
+
+{{ rows_table(market_rows, "Market-level items — PX panic signatures · FII/derivatives stack · VIX · breadth (committed data, as-of latest stored bar)") }}
+
+<!-- the U/S audit rows: their build vs this build -->
+<div class="bg-white border border-line mb-8">
+  <div class="px-4 py-3 border-b border-line font-bold">U-01..07 / S-01..14 — the register audits your OTHER build; AM07's answer per row</div>
+  <table class="w-full text-sm">
+    <tbody>
+    {% for rid, note in us_map %}
+      <tr class="border-b border-line/60">
+        <td class="px-4 py-2 font-mono text-[10px] whitespace-nowrap align-top">{{ rid }}</td>
+        <td class="px-4 py-2 text-xs text-ink-soft">{{ note }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- assumptions, on screen not buried -->
+<div class="bg-white border border-line mb-8">
+  <div class="px-4 py-3 border-b border-line font-bold">Assumptions this page makes (the register leaves these undefined)</div>
+  <table class="w-full text-sm">
+    <tbody>
+    {% for k, v in assumed %}
+      <tr class="border-b border-line/60">
+        <td class="px-4 py-2 font-mono text-[10px] whitespace-nowrap align-top">{{ k }}</td>
+        <td class="px-4 py-2 text-xs text-ink-soft">{{ v }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- what AM07 already had -->
+<details class="bg-white border border-line mb-8">
+  <summary class="px-4 py-3 font-bold cursor-pointer">{{ counts.have }} items AM07 already has — where each lives</summary>
+  <table class="w-full text-sm">
+    <tbody>
+    {% for rid, where in have %}
+      <tr class="border-b border-line/60">
+        <td class="px-4 py-2 font-mono text-[10px] whitespace-nowrap">{{ rid }}</td>
+        <td class="px-4 py-2 text-xs text-ink-soft">{{ where }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</details>
+
+{% endblock %}
