@@ -109,7 +109,22 @@
       <tr><td class="py-2 text-ink-faint">India VIX</td>
           <td class="py-2 text-right tabular-nums whitespace-nowrap">{{ "%.2f"|format(regime.vix) if regime.vix else '—' }}</td></tr>
       <tr><td class="py-2 text-ink-faint">FII 5-day net (₹Cr)</td>
-          <td class="py-2 text-right tabular-nums whitespace-nowrap">{{ "%+.0f"|format(regime.fii_5d_net) if regime.fii_5d_net is not none else 'not wired' }}</td></tr>
+          <td class="py-2 text-right tabular-nums whitespace-nowrap">
+            {%- if regime.fii_5d_net is not none -%}
+              {{ "%+.0f"|format(regime.fii_5d_net) }}
+            {%- elif flow_status and flow_status.state == 'STALE' -%}
+              <span class="text-amber-700 font-semibold">DATA_NEEDED</span>
+            {%- else -%}
+              <span class="text-red-700 font-semibold">DATA_NEEDED</span>
+            {%- endif -%}
+          </td></tr>
+      {% if flow_status and flow_status.state != 'LIVE' %}
+      <tr><td colspan="2" class="py-2 text-xs text-ink-faint">
+        ⚠ {{ flow_status.why }}
+        {% if flow_status.newest %}Newest row: {{ flow_status.newest }} ({{ flow_status.age_days }} days old).{% endif %}
+        The engine runs without it — FII never silently reads as 0.
+      </td></tr>
+      {% endif %}
     </tbody>
   </table>
   </div>
