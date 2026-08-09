@@ -444,6 +444,21 @@ class TradingEngine:
         except ImportError:
             is_ticker_event_within = None
 
+        # AUDIT FIX A10 (2026-08-09): entries used to fill at YESTERDAY'S
+        # close +5bps even with a live broker attached — every paper fill
+        # ignored the overnight gap, so the 60-day verdict was measured on
+        # fills nobody could get. One batched quote call for today's picks;
+        # a pick with no live quote falls back to the prior close and the
+        # BUY journal says which one was used (fill_source).
+        live_fill_px: dict = {}
+        if picks:
+            try:
+                live_fill_px = routed_fetch_quotes(
+                    [pk["ticker"] for pk in picks], upstox_client=self.broker,
+                ) or {}
+            except Exception as e:
+                log.warning("live fill quotes unavailable — prior close: %s", e)
+
         for pick in picks:
             if binary_event is not None:
                 skipped.append({
@@ -550,7 +565,12 @@ class TradingEngine:
                         "reason": f"candle_wait_{candle_why}",
                     })
                     continue
-            fill = slippage_price(pick["last_close"], "BUY", cfg)
+            live_px = live_fill_px.get(pick["ticker"])
+            if live_px and live_px > 0:
+                raw_fill, pick["fill_source"] = float(live_px), "live_quote"
+            else:
+                raw_fill, pick["fill_source"] = pick["last_close"], "prev_close"
+            fill = slippage_price(raw_fill, "BUY", cfg)
             current_eq = self.portfolio.equity(prices)
             # Owner order 2026-07-30: size by ½-Kelly off this stock's own
             # estimated edge and volatility instead of a flat rupee amount.
@@ -970,6 +990,9 @@ class TradingEngine:
             "ifr_last_fire": self.portfolio.last_ifr_fire_date,
             "why": pick.get("reasoning", ""),
             "cash_after": round(self.portfolio.cash, 2),
+            # AUDIT FIX A10: where the fill price came from — live_quote when
+            # the broker answered, prev_close when it didn't. Never hidden.
+            "fill_source": pick.get("fill_source", "prev_close"),
             # Owner order 2026-07-30: how this size was decided (½-Kelly inputs
             # or "fixed"), so any trade's size can be re-derived later.
             "sizing": pick.get("size_diag") or {"mode": "fixed"},

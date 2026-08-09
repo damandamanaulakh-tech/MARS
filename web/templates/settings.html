@@ -35,10 +35,11 @@
 {% endif %}
 {% if preset_fields %}
 <div class="mb-6 px-4 py-3 border border-line bg-white text-xs text-ink-soft">
-  <strong>Note:</strong> these fields are set by the <strong>mode preset</strong> and are
-  re-applied on every restart, so editing them here does not stick:
+  <strong>Note:</strong> these fields default from the <strong>mode preset</strong>:
   <span class="font-mono">{{ preset_fields | join(' · ') }}</span>.
-  To change them for real, change the preset in <span class="font-mono">trading/modes.py</span>.
+  Editing one here saves it as <strong>your override for the current mode</strong> —
+  it sticks across restarts and the daily rotation. Entering the preset's own
+  value (or ⟳ RESET) removes the override and the preset governs again.
 </div>
 {% endif %}
 {% if user and user.role == 'owner' %}

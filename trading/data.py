@@ -7,6 +7,7 @@ added once OAuth handshake is implemented.
 from __future__ import annotations
 
 import os
+import threading
 from functools import lru_cache
 from typing import Dict
 
@@ -210,22 +211,29 @@ def fetch_quotes(tickers: list[str]) -> Dict[str, float]:
     return out
 
 
-_BACKTEST_MODE = False
+# AUDIT FIX A8 (2026-08-09): this flag was a process-wide global. The web
+# /backtest button runs run_backtest in a background thread of the SAME
+# process as the APScheduler jobs, so a backtest running through the 09:20
+# scan flipped every live snapshot feeder to None/neutral mid-scan — the
+# morning's picks were scored by a silently different strategy with no
+# journal trace. threading.local() scopes the flag to the backtest's own
+# thread; live scans in other threads are untouched. (Scripts are
+# single-threaded, so their behavior is identical.)
+_BT_LOCAL = threading.local()
 
 
 def set_backtest_mode(enabled: bool) -> None:
-    """Toggle backtest mode.
+    """Toggle backtest mode FOR THE CALLING THREAD ONLY.
 
     When True, all snapshot-based feeders (earnings, news, analyst
     revisions) return neutral / None so they cannot leak future data
     into historical replay. The backtester sets this around run_backtest.
     """
-    global _BACKTEST_MODE
-    _BACKTEST_MODE = bool(enabled)
+    _BT_LOCAL.on = bool(enabled)
 
 
 def is_backtest_mode() -> bool:
-    return _BACKTEST_MODE
+    return bool(getattr(_BT_LOCAL, "on", False))
 
 
 @lru_cache(maxsize=512)
@@ -235,7 +243,7 @@ def fetch_market_cap_cr(ticker: str) -> float | None:
     yfinance reports mcap in INR for .NS tickers, so we just divide by 1e7.
     Returns None in backtest mode (no historical snapshot — leak risk).
     """
-    if _BACKTEST_MODE:
+    if is_backtest_mode():
         return None
     try:
         info = yf.Ticker(ticker).info
@@ -251,7 +259,7 @@ def fetch_earnings_growth(ticker: str) -> float | None:
     In backtest mode returns None — yfinance.info has no historical
     snapshot, so using it during replay would leak future data.
     """
-    if _BACKTEST_MODE:
+    if is_backtest_mode():
         return None
     try:
         info = yf.Ticker(ticker).info

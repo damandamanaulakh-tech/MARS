@@ -688,7 +688,14 @@ def owner_buy(request: Request, ticker: str = Form(...),
         cfg.apply_mode_preset()
         marks = {pos.ticker: pos.entry_price for pos in p.positions.values()}
         equity = p.equity(marks)
-        auto_qty = int(cfg.position_notional(equity) // float(price))
+        # AUDIT FIX A11 (2026-08-09): size through the ONE shared entry point
+        # so manual buys can never silently diverge from engine sizing. With
+        # no score/history passed it resolves to the owner's fixed rupee
+        # amount under every sizing mode — a manual buy is the owner's own
+        # number by design, and now by a single code path.
+        from trading.sizing import position_notional_for
+        notional, _diag = position_notional_for(cfg, equity)
+        auto_qty = int(notional // float(price))
         use_qty = want_qty or auto_qty
         if use_qty < 1 or use_qty * float(price) > p.cash:
             return RedirectResponse("/scan?error=insufficient_cash", status_code=303)

@@ -104,7 +104,13 @@ def _fill(engine, o: dict, price: float, now: datetime) -> None:
         qty = o["qty"]
         if not qty:
             marks = {pos.ticker: pos.entry_price for pos in p.positions.values()}
-            qty = int(cfg.position_notional(p.equity(marks)) // price)
+            # AUDIT FIX A11 (2026-08-09): the one shared sizing entry point —
+            # with no score/history it resolves to the owner's fixed rupee
+            # amount under every sizing mode (a manual order is the owner's
+            # own number), and manual fills can never drift from engine sizing.
+            from .sizing import position_notional_for
+            notional, _diag = position_notional_for(cfg, p.equity(marks))
+            qty = int(notional // price)
         if qty < 1 or qty * price > p.cash:
             o["status"] = "cancelled"
             o["note"] = "insufficient cash when limit touched"

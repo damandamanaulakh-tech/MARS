@@ -220,6 +220,13 @@ class Config:
     # Default: NSE Nifty 200 Momentum 30 methodology (published 5y CAGR ~29.7%).
     mode: str = "nifty200_momentum"
 
+    # AUDIT FIX A7 (2026-08-09): per-mode owner overrides for the 8 fields
+    # apply_mode_preset() writes — {mode: {field: value}}. Populated by the
+    # Settings save when the owner submits a value different from the mode's
+    # preset; persisted in the Mongo settings doc; re-applied at the end of
+    # every apply_mode_preset() so a Settings edit finally sticks.
+    preset_overrides: dict = field(default_factory=dict)
+
     def trail_is_reachable(self) -> tuple[bool, float]:
         """(is the trailing stop practically live?, peak % it would need).
 
@@ -272,3 +279,17 @@ class Config:
         self.min_score_to_enter = p.min_score_to_enter
         self.breakout_threshold_pct = p.breakout_threshold_pct
         self.volume_confirm_ratio = p.volume_confirm_ratio
+        # AUDIT FIX A7 (2026-08-09): the owner's Settings edits to these
+        # preset-owned fields used to be a silent no-op — saved to Mongo,
+        # then overwritten right here on the very next preset application,
+        # while the page said "Saved." Owner edits are now stored PER MODE
+        # in preset_overrides and re-applied after the preset, so an edit
+        # sticks for the mode it was made in, survives restarts and the
+        # daily mode rotation, and a mode's own preset still governs every
+        # field the owner never touched.
+        for k, v in dict((self.preset_overrides or {}).get(self.mode) or {}).items():
+            if hasattr(self, k):
+                try:
+                    setattr(self, k, v)
+                except Exception:
+                    pass

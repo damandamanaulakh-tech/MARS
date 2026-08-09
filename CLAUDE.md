@@ -647,9 +647,15 @@ evaluates the -2% halt on live held marks (KILL_SWITCH_SCAN) · owner
 BUY/limit positions tagged owner_pick = decay never auto-sells them
 (stop/target/trail/max-hold still protect; limit fills carry the real scan
 score) · fabricated USFDA calendar EMPTIED + guessed future earnings dates
-removed (DATA_NEEDED; blackout fires only on real fed dates). REMAINING
-HEADLINE FINDINGS AWAITING OWNER DECISIONS:
-sizing-typo fallback re-enables half_kelly · Mongo
+removed (DATA_NEEDED; blackout fires only on real fed dates). **A6-A11 ALSO FIXED same day (owner: "fix A6 to A11 too"), 691 tests:**
+typo→fixed not kelly · preset-owned Settings edits STICK per-mode
+(cfg.preset_overrides, re-applied in apply_mode_preset, RESET clears) ·
+backtest mode thread-local (web backtest can't poison the 09:20 scan) ·
+deploy/sector caps on CURRENT EQUITY not frozen 50L · scan entries fill at
+LIVE quotes when broker answers (fill_source journaled; prev_close fallback)
+· owner BUY/limit auto-size through sizing.position_notional_for (manual =
+fixed ₹1.25L under every mode). REMAINING HEADLINE FINDINGS AWAITING OWNER
+DECISIONS: Mongo
 connects once, never retries (boot during blip = phantom fresh book, day's
 trades vanish) · scan mutates shared cfg.mode while requests run · ^CNX200
 benchmark structurally can't load (duplicate _INDEX_KEYS in data.py) ·
