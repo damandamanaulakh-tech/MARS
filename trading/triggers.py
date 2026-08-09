@@ -86,10 +86,28 @@ ASSUMED_CONSTANTS = {
 # Per-stock context: every shared series computed once, triggers read from it
 # --------------------------------------------------------------------------
 
+def _normalize_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
+    """Accept either column case. FIXED 2026-08-09: the production loaders
+    (history_store / the repo zip via candle_chart.load_ohlcv) return
+    capitalized columns — Open/High/Low/Close/Volume — while this module was
+    written against lowercase. Every real run raised KeyError('open'), the
+    daily pass journaled TRIGGER_LAYER_FAILED, and the layer never produced a
+    single row against real data. The tests passed because their fixtures were
+    hand-built lowercase. Normalizing at the boundary makes both shapes work
+    and the guard tests now use production-shaped frames."""
+    cols = {c.lower(): c for c in df.columns}
+    need = ("open", "high", "low", "close", "volume")
+    missing = [n for n in need if n not in cols]
+    if missing:
+        raise KeyError(f"OHLCV columns missing: {missing} (have {list(df.columns)})")
+    return df.rename(columns={cols[n]: n for n in need})
+
+
 class _Ctx:
     """Precomputed arrays for one stock's daily OHLCV (oldest → newest)."""
 
     def __init__(self, df: pd.DataFrame):
+        df = _normalize_ohlcv(df)
         self.n = len(df)
         self.o = df["open"].to_numpy(dtype=float)
         self.h = df["high"].to_numpy(dtype=float)

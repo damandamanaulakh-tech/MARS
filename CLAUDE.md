@@ -630,6 +630,33 @@ it"** → SHIPPED same session, 666 tests green:
   trigger a place in the money path and fixes the ASSUMED score formula.
 **STANDING ORDER FROM THE TRUST TALK: no more self-initiated features. Build
 only what the owner lists, their items first, exactly as specified.**
+**2026-08-09 FULL-CORNER AUDIT (owner: "re run everything at each corner…
+each file on git must be read without skipping a word"). Ten readers, 100%
+line coverage of all non-test code/templates/docs/scripts, data verified
+structurally, every HIGH finding re-verified by hand. FULL REPORT:
+docs/AUDIT_2026-08-09.md — read it before touching anything. ONE fix shipped
+(it broke the owner's ordered feature): the trigger layer had NEVER run on
+real data — production columns are Open/High/Low/Close, the layer read
+lowercase → KeyError on the first stock, TRIGGER_LAYER_FAILED daily, tests
+passed on lowercase fixtures. Normalized at the boundary + production-shaped
+fixtures + a real-loader end-to-end test. 669 tests. THE HEADLINE FINDINGS
+AWAITING OWNER DECISIONS: strength ladder still cuts fixed ₹1.25L to ₹87.5k
+for scores 62-74.9 (engine.py:563) · one missing quote fakes exits at entry
+price (engine.py:793) · kill switch never checked in scan (14:30 can buy on
+a crash day) · owner limit fills carry score=0 → decay auto-sells their pick ·
+fabricated USFDA/earnings calendar blocks real entries (DRREDDY ~Aug 19-22
+on an invented event) · sizing-typo fallback re-enables half_kelly · Mongo
+connects once, never retries (boot during blip = phantom fresh book, day's
+trades vanish) · scan mutates shared cfg.mode while requests run · ^CNX200
+benchmark structurally can't load (duplicate _INDEX_KEYS in data.py) ·
+positions.csv exports entry price as current (P&L always 0) · engine page
+says OCEAN ACTIVE while parked · risk page never truth-passed (corr 70/85,
+fictional Metal blacklist, dead vol-tiers) · dashboard header prints regime
+as "exits due" · index_daily_15y.csv 65d stale feeds backtest benchmark ·
+feedparser missing = policy boost never ran · requirements unpinned ·
+exit/breadth study results not regenerable at floor 62 · APP_BRIEF has 6
+wrong money facts · ALGO_V1_V2 ¼-Kelly numbers irreproducible (lens runs ½)
+· chityy master CSV is actually CLEAN (old "corrupt" note wrong).**
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

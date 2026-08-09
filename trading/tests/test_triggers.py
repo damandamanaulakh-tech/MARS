@@ -71,13 +71,17 @@ def test_trigger_module_places_no_orders():
 # ------------------------------------------------------------------- fixtures
 
 def _df(c, h=None, l=None, o=None, v=None):
+    """PRODUCTION-SHAPED frame: capitalized columns, exactly what
+    history_store/candle_chart.load_ohlcv return. The 2026-08-09 audit found
+    the whole layer crashed on real data (KeyError 'open') while these tests
+    passed on hand-built lowercase frames — fixtures must match production."""
     c = np.asarray(c, dtype=float)
     n = len(c)
     h = np.asarray(h, dtype=float) if h is not None else c * 1.01
     l = np.asarray(l, dtype=float) if l is not None else c * 0.99
     o = np.asarray(o, dtype=float) if o is not None else (h + l) / 2
     v = np.asarray(v, dtype=float) if v is not None else np.full(n, 100_000.0)
-    return pd.DataFrame({"open": o, "high": h, "low": l, "close": c, "volume": v})
+    return pd.DataFrame({"Open": o, "High": h, "Low": l, "Close": c, "Volume": v})
 
 
 def _base(n=300, seed=7, vol=0.012, drift=0.0003):
@@ -240,3 +244,30 @@ def test_stock_view_watch_flag_matches_the_gate():
     view = T.stock_view(_df(c, h, l, o, v))
     gate = next(g for g in view["gates"] if g["id"] == "GATE_RISE_WATCH_01")
     assert view["watch"] == (gate["status"] == "PASS")
+
+
+# ------------------------------------------------- production-shape guards
+
+def test_both_column_cases_evaluate_identically():
+    c, h, l, o, v = _base()
+    cap = _df(c, h, l, o, v)
+    low = cap.rename(columns=str.lower)
+    assert T.evaluate(cap) == T.evaluate(low)
+
+
+def test_the_real_loader_output_feeds_the_trigger_layer():
+    """END-TO-END: the exact chain the daily pass runs — candle_chart.
+    load_ohlcv (repo zip, no network) into stock_view. This is the test whose
+    absence let a KeyError ship: the layer had never touched real data."""
+    from web.candle_chart import load_ohlcv
+    df = load_ohlcv("TCS.NS", tail=420)
+    assert df is not None and len(df) > 250, "repo zip must supply TCS history"
+    view = T.stock_view(df, asof="test")
+    assert view["computable"] == view["total_computable"] == 79
+    assert set(view["scores"]) >= {"RISE", "FALL"}
+    assert len(view["gates"]) == 8
+
+
+def test_a_frame_missing_columns_raises_loudly():
+    with pytest.raises(KeyError):
+        T._Ctx(pd.DataFrame({"Close": [1.0] * 30}))
