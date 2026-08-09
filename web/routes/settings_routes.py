@@ -187,6 +187,10 @@ async def settings_reset_to_defaults(request: Request):
             val = getattr(defaults, name)
             setattr(cfg, name, val)
             cleared[name] = val
+    # AUDIT FIX A7: factory reset also clears the per-mode overrides, so the
+    # presets govern again exactly as shipped.
+    cfg.preset_overrides = {}
+    cleared["preset_overrides"] = {}
     # Re-apply mode preset (mode stays — only AM07 / risk params reset)
     cfg.apply_mode_preset()
     # Push the new defaults into Mongo (so persistence reflects the reset)
@@ -215,6 +219,7 @@ async def settings_save(request: Request):
         overrides["mode"] = new_mode
 
     # Editable scalar fields
+    preset_submitted: dict = {}
     for name, *_ in EDITABLE_FIELDS:
         if name not in form or name not in cfg_fields:
             continue
@@ -237,16 +242,49 @@ async def settings_save(request: Request):
                 val = raw
             setattr(cfg, name, val)
             overrides[name] = val
+            if name in PRESET_OWNED_FIELDS:
+                preset_submitted[name] = val
         except (TypeError, ValueError):
             continue
+
+    # AUDIT FIX A7 (2026-08-09): a submitted preset-owned value that differs
+    # from the mode's PRESET becomes a per-mode override (applied at the end
+    # of every apply_mode_preset, persisted below) — "Saved." finally means
+    # saved. Submitting the preset's own value clears the override, so a
+    # future preset change ordered in code is never shadowed by a stale one.
+    try:
+        from trading.modes import get_preset
+        preset = get_preset(getattr(cfg, "mode", "swing"))
+        mode_over = dict((cfg.preset_overrides or {}).get(cfg.mode) or {})
+        for k, v in preset_submitted.items():
+            base = getattr(preset, k, None)
+            same = (abs(v - base) < 1e-9 if isinstance(base, float)
+                    and isinstance(v, (int, float)) else v == base)
+            if same:
+                mode_over.pop(k, None)
+            else:
+                mode_over[k] = v
+        po = dict(cfg.preset_overrides or {})
+        if mode_over:
+            po[cfg.mode] = mode_over
+        else:
+            po.pop(cfg.mode, None)
+        cfg.preset_overrides = po
+        overrides["preset_overrides"] = po
+    except Exception:
+        pass
 
     # Guard the sizing knobs: a typo in Sizing Mode must not silently fall back
     # to a size the owner did not choose, and Kelly above 1x is never valid
     # (1.5x earns the same growth as 0.5x with 6x the ruin risk — see
     # docs/ALGO_V1_V2.md section 9).
+    # AUDIT FIX A6 (2026-08-09): the fallback used to be "half_kelly" — a
+    # fat-finger would silently re-enable edge-based sizing AGAINST the
+    # owner's written 2026-08-04 order ("fixed Rs 1.25L each"). A typo now
+    # lands on the owner's standing choice, never on mine.
     if str(getattr(cfg, "sizing_mode", "")).lower() not in ("fixed", "kelly", "half_kelly"):
-        cfg.sizing_mode = "half_kelly"
-        overrides["sizing_mode"] = "half_kelly"
+        cfg.sizing_mode = "fixed"
+        overrides["sizing_mode"] = "fixed"
     if float(getattr(cfg, "kelly_fraction", 0.5)) > 1.0:
         cfg.kelly_fraction = 1.0
         overrides["kelly_fraction"] = 1.0

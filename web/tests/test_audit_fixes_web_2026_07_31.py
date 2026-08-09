@@ -78,11 +78,13 @@ def test_no_trail_warning_when_the_trail_can_actually_fire():
         cfg.stop_loss_pct, cfg.take_profit_pct = -0.05, 0.12
 
 
-def test_settings_names_the_fields_the_mode_preset_overwrites():
+def test_settings_names_the_preset_fields_and_explains_overrides():
+    """AUDIT FIX A7: edits to preset-owned fields now STICK (per-mode
+    overrides) — the banner must say so instead of warning they revert."""
     html = _client().get("/settings").text
-    assert "re-applied on every restart" in html
+    assert "your override for the current mode" in html
     for field in PRESET_OWNED_FIELDS:
-        assert field in html, f"{field} is silently reverted but not disclosed"
+        assert field in html, f"{field} not disclosed as preset-owned"
 
 
 def test_the_disclosed_list_matches_what_apply_mode_preset_really_sets():

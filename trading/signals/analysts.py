@@ -46,8 +46,8 @@ def fetch_analyst_score(ticker: str) -> Optional[AnalystScore]:
     global _FAIL_STREAK, _BREAKER_UNTIL, _WARNED
 
     try:
-        from trading import data as _data
-        if getattr(_data, "_BACKTEST_MODE", False):
+        from trading.data import is_backtest_mode
+        if is_backtest_mode():
             return None
     except ImportError:
         pass

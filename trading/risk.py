@@ -55,9 +55,15 @@ def can_open(
     if len(open_positions) >= cfg.max_positions:
         return False, "max_positions_reached", 0
 
-    # 20% reserve: deployed capital cap = 80% of starting capital.
+    # Reserve cap on deployed capital. AUDIT FIX A9 (2026-08-09): measured
+    # against CURRENT EQUITY, not the frozen starting_capital — the old base
+    # froze the book at Rs 50L forever (couldn't deploy growth) and, worse,
+    # did NOT shrink the correction/panic reserve after losses. Falls back to
+    # starting_capital only when the caller passes no equity.
+    base_capital = current_equity if current_equity and current_equity > 0 \
+        else cfg.starting_capital
     deployed = sum(p.qty * p.entry_price for p in open_positions.values())
-    deploy_cap = cfg.starting_capital * (1 - cfg.cash_reserve_pct)
+    deploy_cap = base_capital * (1 - cfg.cash_reserve_pct)
     if deployed >= deploy_cap:
         return False, "reserve_breached", 0
 
@@ -95,7 +101,8 @@ def can_open(
             p.qty * p.entry_price for p in open_positions.values()
             if cfg.sector_map.get(p.ticker, "Unknown") == target_sector
         )
-        budget = cfg.starting_capital * sector_cap_frac - sector_notional
+        # AUDIT FIX A9: sector budget follows equity too (same rationale).
+        budget = base_capital * sector_cap_frac - sector_notional
         if budget < fill_price:
             return False, "sector_exposure_cap", 0
         qty = min(qty, int(budget // fill_price))

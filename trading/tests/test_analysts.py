@@ -53,11 +53,15 @@ def test_no_coverage_returns_none(monkeypatch):
     assert A.fetch_analyst_score("NOCOV.NS") is None
 
 
-def test_backtest_mode_returns_none(monkeypatch):
+def test_backtest_mode_returns_none():
     _reset()
     from trading import data
-    monkeypatch.setattr(data, "_BACKTEST_MODE", True)
-    assert A.fetch_analyst_score("RELIANCE.NS") is None
+    # thread-local since audit fix A8 — set it the real way for THIS thread
+    data.set_backtest_mode(True)
+    try:
+        assert A.fetch_analyst_score("RELIANCE.NS") is None
+    finally:
+        data.set_backtest_mode(False)
 
 
 def test_error_never_raises_and_breaker_opens(monkeypatch):
