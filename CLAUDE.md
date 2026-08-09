@@ -755,6 +755,19 @@ niftyindices TRI POST (WAF serves HTML shell) — owner's home machine via
 the kit is the path. FII/DII 2025-04->2026-06 hole still open (NSE monthly
 reports, manual). Owner's Colab script reviewed, not committed — its two
 good ideas absorbed into the kit. Nothing wired into the engine.**
+**COLAB INTAKE same day (owner ran the script from Colab — its network
+reaches nsearchives, ours can't): PWOI COMMITTED
+(data/fo_participant_oi_2024_2026.csv, 641 days 2024-01→2026-08-07,
+verified: NSE's own ±1-contract totals; 2024-06-04 FII election short
+matches record — the REAL version of the synthetic FPI upload) ·
+fundamentals statements zip committed (superset; RELIANCE Q1 identical to
+our direct fetch — two paths agree) · corporate actions duplicate skipped ·
+fii_dii csv was 1 day not history (niftytrader failed in Colab too; row 2
+mislabeled DII) · DELIVERY % 2019→2026 (1,778 files ~370MB) sits in
+owner's Drive AWAITING upload as a release asset (80 holiday echo dups —
+dedupe by hash) · TRI failed in Colab too (absent from its own manifest) —
+home machine via kit remains the path. Verdicts in
+docs/DATA_FETCH_2026-08-09.md.**
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

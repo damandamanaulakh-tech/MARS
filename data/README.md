@@ -124,6 +124,21 @@ docs/DATA_FETCH_2026-08-09.md.
   200/200 N200 symbols (annual ~4y + quarters), direct Yahoo timeseries
   (yfinance's wrapper returns empty here — REL FY23 revenue and TCS FY24
   profit verified vs published figures).
+- `data/fo_participant_oi_2024_2026.csv` — participant-wise F&O open
+  interest (Client/DII/FII/Pro/TOTAL x 14 contract columns), 641 trading
+  days 2024-01-01 -> 2026-08-07, 3,205 rows. Fetched by the OWNER's Colab
+  run 2026-08-09 (nsearchives blocks this cloud IP; Colab's got through).
+  Verified: every file's participant totals sum to NSE's TOTAL row within
+  +/-1 contract (the +/-1 on 288 days is NSE's own published arithmetic,
+  left as-is); 2024-06-04 election-day FII index-futures net short matches
+  the known record. This is the REAL version of the FPI-positions data an
+  earlier upload had synthesized (flaw F-003). Unlocks FII-05/06 triggers.
+- `data/fundamentals_yf_statements_2026-08-09.zip` — full yfinance
+  statements (BS/IS/CF + quarterly IS), 200/200 N200 symbols, 801 files,
+  from the same owner Colab run. Cross-checked vs
+  fundamentals_n200_2026-08-09.csv (RELIANCE Q1-FY27 net income identical
+  to the rupee via two independent fetch paths). Superset with full line
+  items; the curated CSV remains the primary file.
 - FULL-UNIVERSE OHLCV (2,715 instruments + 5 indices, 2000 -> 2026-08-07,
   ~103MB gz): fetched, cleaned, auditor hard gates PASSED (0 invalid, 0
   dup) — intake report + quarantined rows committed under
