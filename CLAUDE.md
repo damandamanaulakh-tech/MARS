@@ -727,6 +727,34 @@ the "DII cushion" conclusion CONTRADICTS its own table (+3.27% when DII
 NOT buying vs +1.23% buying). NOTHING wired — data + records only.
 Next-batch asks: FII derivatives-OI daily panel, full F&O bhavcopy,
 VIX-run trade ledger.**
+**DATA FETCH ROUND same day (owner: "fix all 5 and commit the kit / Fetch
+the data as well, no placeholder / Why u cant fetch from API of Upstox"):
+docs/DATA_FETCH_2026-08-09.md = the record. KEY FACT LEARNED: Upstox
+HISTORICAL candles are PUBLIC — no token (verified live from the sandbox);
+only live quotes need the daily login. V3 caps ~10y of daily candles per
+request (16y+ = UDAPI1148) — the uploaded kit would have failed on EVERY
+symbol; that was defect #6. Kit committed FIXED at research/tools/
+fetch_kit/ (chunking, F&O UDiFF-vs-old naming fallback incl. the Apr-Jun
+2024 election window, REAL Kite cross-check, CA yearly windows, TRI fetch,
+genuinely fail-closed auditor + clean_intake quarantine step). FETCHED
+same session, all verified: full-universe OHLCV 2,715 instruments
+2000->2026-08-07 (0 fail; hard gates PASSED after cleaning: 1,822 echo
+dups dropped, 721 conflict dates resolved by continuity rule, 743 rows
+quarantined+committed as REJECTED_ROWS; ~103MB gz — NOT in git, zipped to
+owner for release-asset upload) · nifty200_daily.csv 2004->now (benchmark
+offline at last) · index_daily_15y.csv extended to 2026-08-07 (80 overlap
+values checked, 0 disagree) · corporate_actions_2010_2026.csv 34,792 rows
+· dated N50/200/500 constituents (forward PIT starts 2026-08-09) ·
+fii_dii_net_recent.csv 30d (niftytrader, verified vs NSE; the Colab
+script's "full history" claim was WRONG — 30d rolling window only) ·
+fundamentals_n200 11,377 datapoints 200/200 (DIRECT Yahoo timeseries —
+yfinance 1.5.2 statement wrapper returns EMPTY where the raw endpoint has
+data; REL/TCS figures verified vs published). NOT fetchable from cloud
+(tested, not assumed): nsearchives (delivery/F&O/PWOI — timeouts) and
+niftyindices TRI POST (WAF serves HTML shell) — owner's home machine via
+the kit is the path. FII/DII 2025-04->2026-06 hole still open (NSE monthly
+reports, manual). Owner's Colab script reviewed, not committed — its two
+good ideas absorbed into the kit. Nothing wired into the engine.**
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

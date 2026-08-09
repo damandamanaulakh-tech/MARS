@@ -1,0 +1,8 @@
+output,schema,register_ids_filled,gate
+ohlcv_daily (per symbol),"symbol,date,open,high,low,close,volume,oi",TRG-001..079(OHLCV) + A/B/C/E groups + clean backtest,verify_intake must pass
+india_vix_daily,"date,open,high,low,close",VIX-01 VIX-02 WM023 WM024,extends 1608d asset
+fii_dii_cash_daily,"date,fii_buy,fii_sell,fii_net,dii_buy,dii_sell,dii_net",FII-01..03 + governor OOS 2023-26,continuity with 2007-2022 series
+bhavcopy_delivery,"per NSE sec_bhavdata_full",T12W_0060 + volume/delivery L1.5,daily files complete
+corporate_actions,"symbol,ex_date,purpose,ratio",CH-004 ledger; retires BT-01 clip,cross-check vs price jumps
+index_lists + TRI,"constituents + total-return series",PIT universe F-042/F-007; SR004 benchmark; X-02,dated snapshots kept forever
+fo_bhavcopy + pwoi,"UDiFF FO + participant OI",FII-04..07 T12W_0100..102 + 2024 election window,archive continuity

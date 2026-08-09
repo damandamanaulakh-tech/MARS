@@ -18,6 +18,7 @@ npm-debug.log*
 
 # committed datasets (data/ is durable, versioned)
 !data/*.csv
+!data/index_constituents/*.csv
 !data/*.xlsx
 !data/history_15stock_raw/*.csv
 !data/history_15stock/*.csv
