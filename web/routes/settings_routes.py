@@ -46,6 +46,7 @@ EDITABLE_FIELDS = [
     ("min_score_to_enter",      "Min Score to Enter",      "Strategy","number", 1,    "AM 07 score threshold", False),
     ("ocean_enabled",           "Ocean Engine On (1/0)",   "Strategy","number", 1,    "1 = allow mean-reversion buys in a correction, 0 = parked (default). Ocean picks skip the score floor and momentum gate", False),
     ("breadth_gate_enabled",    "Breadth Gate On (1/0)",   "Strategy","number", 1,    "1 = block new momentum buys when half the market is below its 200DMA (default on)", False),
+    ("correction_brake_enabled","Correction Brake On (1/0)","Strategy","number", 1,   "0 = OWNER ORDER 2026-08-09: engine buys even when Nifty is below its 200DMA (correction). 1 = restore the old brake. Panic always blocks", False),
     ("breakout_threshold_pct",  "Breakout Threshold %",    "Strategy","number", 0.5,  "Within N% of 20-day high", True),
     ("volume_confirm_ratio",    "Volume Confirm Ratio",    "Strategy","number", 0.1,  "5-day vol >= this * 20-day vol", False),
     # F15 pyramiding — opt-in add-to-winners

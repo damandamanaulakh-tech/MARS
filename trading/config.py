@@ -101,6 +101,16 @@ class Config:
     # floor and the absolute-momentum gate. This flag is that missing park
     # switch. Leave False until the crash guard is designed and tested.
     ocean_enabled: bool = False
+    # OWNER ORDER 2026-08-09 ("i want to take risk on 200 DMA" -> picked
+    # "Brake fully OFF" after being shown the v4 evidence: blind correction
+    # dip-buying tested -2.2pp across 10 episodes). False = the CORRECTION
+    # regime (Nifty < 200DMA) no longer blocks new momentum entries; the
+    # engine buys normally below the 200DMA. Everything else stands: score
+    # floor, absolute-momentum gate, breadth gate, -5% stop, kill switch,
+    # regime reserve ladder — and PANIC (crash -10% + VIX>25) still blocks.
+    # True restores the old brake (Settings toggle). UNTESTED live at False
+    # — the 60-day window judges.
+    correction_brake_enabled: bool = False
     # A3 breadth gate (owner: "wire it", 2026-07-27). New momentum entries
     # only when >50% of the scan panel's tickers close above their own
     # 200DMA. Preregistered evidence: docs/breadth_gate_results.json —

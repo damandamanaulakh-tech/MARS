@@ -815,6 +815,22 @@ items — then ordered "focus rest from 279 … discuss and wire the rest").
   names.
 - TCS sanity: ROE 45.9%, Altman 10.5, Piotroski 5/9, 3Y CAGR -11.8%,
   RS 6M -27pp — all match the known story.
+**CORRECTION BRAKE OFF (owner order 2026-08-09: "i want to take risk on
+200 DMA" → picked "Brake fully OFF" from an explicit options card AFTER
+being shown the v4 evidence that blind correction dip-buying tested
+−2.2pp).** `cfg.correction_brake_enabled=False` (default) — CORRECTION
+(Nifty < 200DMA) alone no longer blocks momentum entries; engine journals
+CORRECTION_BRAKE_OFF when the override path opens picks. UNCHANGED: panic
+still blocks, dead regime feed still brakes (C7 stays fail-safe), score
+floor 62, abs-momentum gate, breadth gate (can still block in weak
+breadth!), −5% stop, kill switch, regime reserve ladder 20/40. Settings
+toggle restores the brake (1). VIX-crush re-entry machinery kept (harmless
+alongside). Tests: trading/tests/test_correction_brake.py pins default,
+panic, dead-feed, restore, and that engine.py wires the exact predicate.
+UNTESTED live — 60-day window judges. FII-08/09 same message: owner ruled
+"why not both" → BOTH damage thresholds (static 0.213 + rolling q90)
+computed side by side on /register; current reading: static YES,
+q90 no, stacks QUIET (FII legs quiet). Assumptions review: "not now".
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

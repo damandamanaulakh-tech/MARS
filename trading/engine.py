@@ -360,7 +360,21 @@ class TradingEngine:
         # keeps the brake on (regime_feed_down_brake) instead of failing open.
         everest_ok = (regime.everest_active if regime is not None
                       else not regime_feed_down_brake)
-        if everest_ok or vix_reentry:
+        # OWNER ORDER 2026-08-09 ("take risk on 200 DMA" -> brake fully
+        # off): with correction_brake_enabled False, the CORRECTION regime
+        # alone no longer blocks entries. PANIC still does, and a dead
+        # regime feed still brakes (C7) — this override needs a live
+        # reading that says "correction", never a guess.
+        brake_off = (regime is not None and regime.regime == "correction"
+                     and not getattr(cfg, "correction_brake_enabled", True))
+        if brake_off and not everest_ok:
+            self.portfolio.decision_journal.append({
+                "ts": now.isoformat(), "action": "CORRECTION_BRAKE_OFF",
+                "why": ("Correction regime (Nifty < 200DMA) but the owner "
+                        "has switched the brake off (2026-08-09 order) — "
+                        "momentum entries proceed under all other gates."),
+            })
+        if everest_ok or vix_reentry or brake_off:
             everest_picks = [
                 r for r in ranked
                 if r["score"] >= cfg.min_score_to_enter and r["timing_pass"]
