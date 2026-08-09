@@ -65,11 +65,18 @@ piece:
   our committed 2026-08-07 exactly (480.24 FII / 235.56 DII). The
   2025-04 -> 2026-06 FII/DII history hole is STILL OPEN (NSE monthly
   reports, manual).
-- **Delivery % (sec_bhavdata_full): IN OWNER'S DRIVE, NOT YET DELIVERED**
-  — the intake manifest lists 1,778 files 2019-08-23 -> 2026-08-07
-  (~370MB; 80 are holiday echoes where NSE serves the prior day's file —
-  dedupe by hash at intake). Too big for the git tree: attach as a
-  release asset (zip the delivery/ folder), same as the OHLCV archive.
+- **Delivery % (sec_bhavdata_full): DELIVERED AND COMMITTED** — owner
+  attached the zip to the `chityy-archive` release (172MB, all 1,778
+  files, every hash identical to the run's manifest). Compact panel
+  committed as `data/delivery_daily_2019_2026.csv.gz` (1,698 days,
+  3,477,095 EQ/BE/BZ rows). Intake facts worth keeping: keying by the
+  date inside each file (not the filename) both removed the 80 holiday
+  echoes and RECOVERED 6 sessions the filename loop got wrong — Muhurat
+  2019/2020/2021, the 2024-01-20 and 2024-05-18 special Saturday
+  sessions, and a stray 2019-06-27; NSE served 08-Aug-2022 as xlsx
+  behind a .csv name (converted); BE/BZ delivery shows NSE's own '-'
+  (T2T = all delivery); 0 content conflicts across duplicate dates. The
+  raw zip stays release-only.
 - Still missing after this run: TRI series — no nifty200_tri.csv /
   nifty50_tri.csv in the run's own manifest, so every TRI chunk failed
   in Colab (cause not captured; the same WAF that blocks this sandbox is
