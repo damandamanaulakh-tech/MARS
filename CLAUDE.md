@@ -179,10 +179,10 @@ removed entirely**, owner is the only seeded user · `sync-to-hf.yml` DELETED
 (checked all 16 runs first: every one failed on empty HF_TOKEN/HF_SPACE
 before the push line, so **nothing ever leaked**) · guard tests in
 `web/tests/test_login_no_secrets.py`, verified to fail if the old page returns.
-**STILL OPEN, owner action needed: set `OWNER_PWD` in the Render dashboard.**
-The fallback is `"sourceborn"` — which is also the brand name, so it is
-guessable and un-greppable. Until it is set, the app on a public URL has a
-one-word password.
+**CLOSED 2026-08-09 (owner: "APP_PASSWORD its there"): the password env IS
+set in Render — as `APP_PASSWORD`, which `web/auth.py` honors (OWNER_PWD
+wins if both exist; verified in code, lines 35-37). The `"sourceborn"`
+fallback is out of play on the live app. Never re-raise.**
 **2026-07-27 external-review adoptions (owner: "yes push all 3"), 449 tests:**
 1. Full NSE 2026 holiday list (16 dates incl. Holi/Diwali/election day) in
    `calendars.NSE_FIXED_HOLIDAYS` — `is_trading_day()` was already wired into
@@ -707,7 +707,8 @@ over http), and the 4×→5× copy sed also hit "text-4xl" CSS (phone-layout
 guard caught it). Lesson: after sweeping edits, full suite from a clean
 state dir BEFORE claiming done. Honest leftovers: page-level "live" badge
 still means "any ticker live" (per-row price_source is the truth source);
-ntfy topic still an open-publish credential; OWNER_PWD still owner's todo.
+ntfy topic still an open-publish credential; password env CLOSED same day
+(owner set APP_PASSWORD in Render — accepted by auth.py, fallback dead).
 **Uploads review 2026-08-09 (owner: "review and get Data extraction", 10
 files/2 batches) — docs/UPLOADS_REVIEW_2026-08-09.md = verdict table.
 EXTRACTED: Chityy REVERSE_PATTERN_PARAMETER_ENGINE v0.4 complete (14 CSVs
