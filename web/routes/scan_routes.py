@@ -699,6 +699,10 @@ def owner_buy(request: Request, ticker: str = Form(...),
                             "the book (regime halt overridden by owner). "
                             + str(pick.get("reasoning", "")))[:220]
         eng._open(pick, use_qty, float(price), datetime.utcnow())
+        # AUDIT FIX A4 (2026-08-09): an owner's deliberate pick is never
+        # auto-sold by score decay (check_exit skips SCORE_DECAY for this
+        # tag). Stop/target/trail/max-hold still protect it.
+        p.positions[tkr].tags.append("owner_pick")
         from trading.orders import apply_custom_levels
         note = apply_custom_levels(p.positions[tkr], stop, target)
         if note:

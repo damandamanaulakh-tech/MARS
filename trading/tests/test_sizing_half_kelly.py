@@ -176,17 +176,16 @@ def test_no_override_keeps_the_fixed_behaviour():
 
 # ---- the engine wiring -------------------------------------------------
 
-def test_engine_sizes_through_the_shared_module_and_drops_the_double_count():
-    """Under Kelly the score already sets the size, so the old strength
-    ladder (0.5x/0.7x/1.0x by score) must not also apply — that would count
-    the score twice."""
+def test_engine_sizes_through_the_shared_module_with_no_ladder_at_all():
+    """The strength ladder is GONE (audit fix A1, 2026-08-09): under Kelly it
+    double-counted the score, and under the owner's fixed sizing it silently
+    cut the written Rs 1.25L to Rs 87.5k for every 62-74.9 pick."""
     import inspect
     from trading import engine
     src = inspect.getsource(engine)
     assert "from .sizing import position_notional_for" in src
     assert "notional_override=" in src
-    assert "kelly_sized = size_diag" in src
-    assert 'strength_mult = 1.0 if kelly_sized else (' in src
+    assert "strength_mult" not in src          # the ladder can never return
     # and the engine still must not import the read-only research lens
     assert "lens_v2" not in src
 

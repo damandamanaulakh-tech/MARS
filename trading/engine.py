@@ -168,6 +168,31 @@ class TradingEngine:
         # re-armed and all automatic buying stayed dead until a restart.
         self._roll_risk_day(self.portfolio.equity({}), now)
 
+        # AUDIT FIX A3 (2026-08-09): the -2% daily halt was EVALUATED only in
+        # refresh() (15:35), so the 09:20 scan and the 14:30 top-up happily
+        # bought on a day already past the halt — buy-at-2pm, force-sell-at-
+        # 3:35 churn on exactly the worst days. Evaluate it here with live
+        # marks on the held book; can_open then blocks every new entry with
+        # "kill_switch_active". No live quotes -> can't measure honestly ->
+        # leave it to refresh (never trip a halt on entry-price marks).
+        held_now = list(self.portfolio.positions.keys())
+        if held_now:
+            try:
+                held_px = routed_fetch_quotes(held_now, upstox_client=self.broker)
+            except Exception:
+                held_px = {}
+            if held_px and self.risk.check_kill_switch(self.portfolio.equity(held_px)):
+                if not self.portfolio.risk_day_killed:
+                    self.portfolio.decision_journal.append({
+                        "ts": now.isoformat(), "action": "KILL_SWITCH_SCAN",
+                        "why": (f"Daily loss past {self.cfg.daily_loss_halt_pct:.1%} "
+                                "at scan time — new entries blocked for the day."),
+                    })
+                self.portfolio.risk_day_killed = True
+        elif self.risk.check_kill_switch(self.portfolio.equity({})):
+            # empty book = all cash, equity is exact without quotes
+            self.portfolio.risk_day_killed = True
+
         try:
             from .calendars import festival_context
             fest = festival_context(days=5)
@@ -560,11 +585,15 @@ class TradingEngine:
                 # score twice and shrink good picks for no reason. The IFR
                 # throttle stays either way — it is a damage-cluster defence,
                 # not a score judgement.
-                kelly_sized = size_diag.get("mode") != "fixed"
-                strength_mult = 1.0 if kelly_sized else (
-                    1.0 if s >= 75 else 0.7 if s >= 60 else 0.5)
+                # AUDIT FIX A1 (2026-08-09): the strength ladder
+                # (0.5/0.7/1.0x by score) is GONE. Under Kelly it double-
+                # counted the score; under fixed it silently cut the owner's
+                # written Rs 1.25L to Rs 87.5k for every 62-74.9 pick — the
+                # size is the owner's number, not a suggestion. The IFR
+                # throttle stays: it is a damage-cluster defence, not a
+                # score judgement.
                 ifr_mult = ifr_snapshot.sizing_multiplier if ifr_snapshot else 1.0
-                throttle = min(strength_mult, ifr_mult)
+                throttle = ifr_mult
                 qty = int(qty * throttle)
                 min_val = float(getattr(cfg, "min_position_value", 0) or 0)
                 if qty > 0 and min_val > 0 and qty * fill < min_val:
@@ -576,7 +605,7 @@ class TradingEngine:
                 if qty <= 0:
                     skipped.append({
                         "ticker": pick["ticker"],
-                        "reason": f"throttle_zero_qty (strength={strength_mult}, ifr={ifr_mult})",
+                        "reason": f"throttle_zero_qty (ifr={ifr_mult})",
                     })
                     continue
             if not ok:
@@ -726,10 +755,23 @@ class TradingEngine:
         now = datetime.utcnow()
         closed: list[str] = []
         for t in targets:
-            px = prices.get(t) or self.portfolio.positions[t].entry_price
-            self._close(t, px, "SQUARE_OFF", now)
+            px = prices.get(t)
+            if not px or px <= 0:
+                # AUDIT FIX A2: never square off at a fabricated entry-price
+                # fill. The position stays open and visible; policy-C retags
+                # a stale intraday tag to momentum at the next boot, so it
+                # cannot silently live on under intraday rules.
+                self.portfolio.decision_journal.append({
+                    "ts": now.isoformat(), "action": "SQUARE_OFF_HELD_NO_QUOTE",
+                    "ticker": t,
+                    "why": ("15:25 square-off: no live quote — not closed at a "
+                            "made-up price. Sell manually with your own fill "
+                            "price, or it retags to momentum rules tomorrow."),
+                })
+                continue
+            self._close(t, float(px), "SQUARE_OFF", now)
             closed.append(t)
-        if closed:
+        if closed or targets:
             self.portfolio.save()
         return closed
 
@@ -788,9 +830,33 @@ class TradingEngine:
         }
 
         exits: list[str] = []
+        no_quote_held: list[str] = []
         for ticker in list(self.portfolio.positions.keys()):
             pos = self.portfolio.positions[ticker]
-            price = prices.get(ticker, pos.entry_price)
+            price = prices.get(ticker)
+            if not price or price <= 0:
+                # AUDIT FIX A2 (2026-08-09): the stale-data guard above only
+                # fires when ALL quotes fail. A single missing quote used to
+                # fall back to the ENTRY price — so a winner whose peak sat
+                # >= ~17.7% above entry "showed" a -15% trail breach and was
+                # closed at entry, erasing the recorded gain. No quote = no
+                # exit decision for that name, journaled once per day.
+                no_quote_held.append(ticker)
+                today_key = now.date().isoformat()
+                seen = any(e.get("action") == "EXIT_HELD_NO_QUOTE"
+                           and e.get("ticker") == ticker
+                           and str(e.get("ts", "")).startswith(today_key)
+                           for e in self.portfolio.decision_journal[-100:])
+                if not seen:
+                    self.portfolio.decision_journal.append({
+                        "ts": now.isoformat(), "action": "EXIT_HELD_NO_QUOTE",
+                        "ticker": ticker,
+                        "why": ("No live quote for this name — exit rules "
+                                "held rather than evaluated on the entry-"
+                                "price mark. Reconnect Upstox / check the "
+                                "instrument mapping."),
+                    })
+                continue
             # Recompute the score for score-decay check
             current_score = pos.entry_score
             if ticker in history:
@@ -844,10 +910,14 @@ class TradingEngine:
                 log.warning("Pyramid add failed: %s", e)
 
         # If kill switch tripped, force-close everything else — unless exits are
-        # disabled (buy-and-hold).
+        # disabled (buy-and-hold). AUDIT FIX A2: only names with a REAL quote
+        # are closed; an unpriced name stays open (visible above) instead of
+        # being force-filled at its entry price.
         if self.risk.kill_switch and not getattr(cfg, "disable_exits", False):
             for ticker in list(self.portfolio.positions.keys()):
-                price = prices.get(ticker, self.portfolio.positions[ticker].entry_price)
+                price = prices.get(ticker)
+                if not price or price <= 0:
+                    continue
                 self._close(ticker, price, "KILL_SWITCH", now)
                 exits.append(ticker)
 
@@ -858,15 +928,17 @@ class TradingEngine:
         self.drawdown_gov.update(self.portfolio.equity(prices))
         cut = self.drawdown_gov.forced_cut
         if cut > 0 and self.portfolio.positions:
+            # AUDIT FIX A2: rank and cut only names with a real quote — an
+            # unpriced position can neither be ranked honestly nor filled.
+            priced = [t for t in self.portfolio.positions
+                      if prices.get(t) and prices[t] > 0]
             by_pnl = sorted(
-                self.portfolio.positions.keys(),
-                key=lambda t: (prices.get(t, self.portfolio.positions[t].entry_price)
-                               / self.portfolio.positions[t].entry_price),
+                priced,
+                key=lambda t: prices[t] / self.portfolio.positions[t].entry_price,
             )
-            n_close = max(1, int(len(by_pnl) * cut))
+            n_close = max(1, int(len(self.portfolio.positions) * cut))
             for ticker in by_pnl[:n_close]:
-                price = prices.get(ticker, self.portfolio.positions[ticker].entry_price)
-                self._close(ticker, price, "DRAWDOWN_LADDER", now)
+                self._close(ticker, prices[ticker], "DRAWDOWN_LADDER", now)
                 exits.append(ticker)
 
         self._record_equity(prices, now)

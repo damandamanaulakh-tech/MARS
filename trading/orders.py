@@ -111,12 +111,25 @@ def _fill(engine, o: dict, price: float, now: datetime) -> None:
             _journal(p, {"ts": now.isoformat(), "action": "OWNER_ORDER_CANCELLED",
                          "ticker": tkr, "order_id": o["id"], "why": o["note"]})
             return
-        pick = {"ticker": tkr, "score": 0.0, "components": {},
+        # AUDIT FIX A4 (2026-08-09): carry the real scan score when one
+        # exists (score 0.0 made refresh's score-decay auto-sell the owner's
+        # deliberate pick), and tag the position owner_pick so the decay
+        # exit never judges it. Stop/target/trail/max-hold still apply.
+        score = 0.0
+        components: dict = {}
+        try:
+            row = ((p.scan_matrix or {}).get("rows") or {}).get(tkr) or {}
+            score = float(row.get("score") or 0.0)
+            components = dict(row.get("c") or {})
+        except Exception:
+            pass
+        pick = {"ticker": tkr, "score": score, "components": components,
                 "timing_pass": True,
                 "reasoning": (f"OWNER LIMIT ORDER {o['id']} filled @ ₹{price:.2f} "
                               f"(limit ₹{o['limit_price']:.2f}) — owner's call, "
                               "regime halt overridden by owner.")}
         engine._open(pick, qty, float(price), now)
+        p.positions[tkr].tags.append("owner_pick")
         note = apply_custom_levels(p.positions[tkr], o["stop_pct"], o["target_pct"])
         if note:
             p.positions[tkr].reasoning += f" Custom levels: {note}."

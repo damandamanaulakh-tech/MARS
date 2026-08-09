@@ -67,9 +67,17 @@ def check_exit(
     # Buy-and-hold (P0/B1): no profit-taking exits, but a momentum book still
     # needs a RISK exit — score-decay stays live so dead leaders rotate out.
     # Stop / target / trailing / max-hold remain off.
+    # AUDIT FIX A4 (2026-08-09): a position the OWNER opened by hand (BUY
+    # button / limit-order ticket) must never be auto-sold by score decay —
+    # owner limit fills carried entry score 0, so an ordinary composite
+    # reading in the 30s dumped their deliberate pick days later. Stop,
+    # target, trailing and max-hold still protect the position; only the
+    # score judgement is theirs, not the engine's.
+    owner_pick = "owner_pick" in (getattr(position, "tags", None) or [])
+
     if getattr(cfg, "disable_exits", False):
         position.peak_price = max(position.peak_price, current_price)
-        if current_score < cfg.score_decay_exit:
+        if current_score < cfg.score_decay_exit and not owner_pick:
             return True, "SCORE_DECAY"
         return False, ""
 
@@ -107,7 +115,7 @@ def check_exit(
         if trail_ret <= trail_pct:
             return True, "TRAILING_STOP"
 
-    if current_score < cfg.score_decay_exit:
+    if current_score < cfg.score_decay_exit and not owner_pick:
         return True, "SCORE_DECAY"
 
     if now is not None:

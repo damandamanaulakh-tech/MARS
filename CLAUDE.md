@@ -639,13 +639,17 @@ docs/AUDIT_2026-08-09.md — read it before touching anything. ONE fix shipped
 real data — production columns are Open/High/Low/Close, the layer read
 lowercase → KeyError on the first stock, TRIGGER_LAYER_FAILED daily, tests
 passed on lowercase fixtures. Normalized at the boundary + production-shaped
-fixtures + a real-loader end-to-end test. 669 tests. THE HEADLINE FINDINGS
-AWAITING OWNER DECISIONS: strength ladder still cuts fixed ₹1.25L to ₹87.5k
-for scores 62-74.9 (engine.py:563) · one missing quote fakes exits at entry
-price (engine.py:793) · kill switch never checked in scan (14:30 can buy on
-a crash day) · owner limit fills carry score=0 → decay auto-sells their pick ·
-fabricated USFDA/earnings calendar blocks real entries (DRREDDY ~Aug 19-22
-on an invented event) · sizing-typo fallback re-enables half_kelly · Mongo
+fixtures + a real-loader end-to-end test. 669 tests. **MONEY-PATH FIXES A1-A5 SHIPPED same day (owner: "fix all 5 money path
+first"), 681 tests:** ladder deleted (₹1.25L means ₹1.25L; IFR kept) ·
+no-quote positions HOLD with EXIT_HELD_NO_QUOTE (kill-switch/drawdown/
+square-off all skip unpriced names — no invented fills, ever) · scan()
+evaluates the -2% halt on live held marks (KILL_SWITCH_SCAN) · owner
+BUY/limit positions tagged owner_pick = decay never auto-sells them
+(stop/target/trail/max-hold still protect; limit fills carry the real scan
+score) · fabricated USFDA calendar EMPTIED + guessed future earnings dates
+removed (DATA_NEEDED; blackout fires only on real fed dates). REMAINING
+HEADLINE FINDINGS AWAITING OWNER DECISIONS:
+sizing-typo fallback re-enables half_kelly · Mongo
 connects once, never retries (boot during blip = phantom fresh book, day's
 trades vanish) · scan mutates shared cfg.mode while requests run · ^CNX200
 benchmark structurally can't load (duplicate _INDEX_KEYS in data.py) ·
