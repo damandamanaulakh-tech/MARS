@@ -143,6 +143,7 @@
     <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
       <tr>
         <th class="text-left px-3 lg:px-4 py-3">Ticker</th>
+        <th class="text-left px-3 lg:px-4 py-3" title="Which strategy opened this trade — its stop/target follow this mode's preset">Category</th>
         <th class="text-right px-3 lg:px-4 py-3">Qty</th>
         <th class="text-right px-3 lg:px-4 py-3">Entry ₹</th>
         <th class="text-right px-3 lg:px-4 py-3">Current ₹</th>
@@ -159,6 +160,13 @@
         <td class="px-3 lg:px-4 py-4 font-semibold whitespace-nowrap">{{ r.ticker }}
           <a href="/chart/{{ r.ticker }}" title="candle chart with your stop/target lines" class="ml-1 no-underline">📈</a>
           {% if r.decay_watch %}<span class="ml-1 text-[10px] text-amber-700 font-bold" title="Score {{ r.current_score | round(0) }} near decay-exit floor {{ r.decay_floor | round(0) }} — may be sold on decay">⚠ DECAY</span>{% endif %}</td>
+        <td class="px-3 lg:px-4 py-4 whitespace-nowrap"><span class="px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase
+          {% if r.category == 'Momentum' %}bg-indigo-100 text-indigo-800
+          {% elif r.category == 'Intraday' %}bg-amber-100 text-amber-800
+          {% elif r.category == 'Swing' %}bg-sky-100 text-sky-800
+          {% elif r.category == 'Short' %}bg-rose-100 text-rose-800
+          {% elif r.category == 'Long' %}bg-emerald-100 text-emerald-800
+          {% else %}bg-slate-100 text-ink-soft{% endif %}">{{ r.category }}</span></td>
         <td class="px-3 lg:px-4 py-4 tabular-nums text-right whitespace-nowrap">{{ r.qty }}</td>
         <td class="px-3 lg:px-4 py-4 tabular-nums text-right whitespace-nowrap">₹{{ r.entry_price | inr(2) }}</td>
         <td class="px-3 lg:px-4 py-4 tabular-nums text-right font-semibold whitespace-nowrap">
@@ -191,7 +199,7 @@
         </td>
       </tr>
       <tr x-show="open === '{{ r.ticker }}'" x-cloak>
-        <td colspan="9" class="px-4 lg:px-6 py-4 bg-ink/[0.02] border-t border-line">
+        <td colspan="10" class="px-4 lg:px-6 py-4 bg-ink/[0.02] border-t border-line">
           <div class="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm mb-4">
             <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">Category</div>{{ r.category }}</div>
             <div class="whitespace-nowrap"><div class="text-[10px] tracking-widest text-ink-faint uppercase">Entry Date</div>{{ r.entry_date }}</div>
