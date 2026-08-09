@@ -82,6 +82,30 @@ piece:
   in Colab (cause not captured; the same WAF that blocks this sandbox is
   the likely one). Owner home machine via the kit remains the path.
 
+## FII/DII history hole CLOSED via NSDL (same day, evening)
+The 2025-04 -> 2026-06 FII/DII hole did NOT need Colab or the owner's home
+machine after all. NSDL's official FPI archive
+(fpi.nsdl.co.in/web/Reports/Archive.aspx) answers this cloud IP with no
+login — one POST per month returns every trading day's Equity/Stock
+Exchange gross buy/sell/net. `scripts/fetch_fpi_nsdl_archive.py` is the
+reproducible fetcher; `data/fii_dii_cash.csv` extended 2025-04-01 ->
+2026-08-06 (326 rows, FII settlement basis, DII empty as before — NSDL's
+DII archive is OTP-login-walled, and no engine path consumes DII).
+Two traps found and fixed DURING verification, both now in the script:
+1. NSDL dates are REPORT dates — the page footer says each report holds
+   the PREVIOUS trading day's activity. Unshifted, correlation with NSE
+   provisional FII cash on 29 overlap days was 0.075 (noise); shifted one
+   report back it is 0.955 with 23/29 sign agreement (the 6 misses are
+   all sub-1,000-Cr near-zero days).
+2. The page repeats each date in a derivatives table and a CUMULATIVE
+   table — a last-match parser wrote the YTD figure (-2.79 lakh Cr) over
+   07-Aug's real +417.92 Cr daily row. First-match-wins fixed it.
+Provenance stays visible: NSDL is settlement-based FPI activity; NSE's
+provisional numbers differ by a median ~800 Cr/day on the overlap. The
+live engine still reads the NSE API first; this CSV is the fallback and
+research history. Remaining known holes: 2024-09-09 -> 2024-11-29 (SEBI
+era, unchanged) and DII after 2025-03 (empty, unconsumed).
+
 ## Money-path impact
 None. No engine, sizing, or exit change. Data, tools and records only.
 Nothing here is wired into scanning until the owner orders it.

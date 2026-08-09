@@ -771,6 +771,19 @@ INTERNAL date which dropped 80 holiday echoes AND recovered 6 mislabeled
 sessions incl. 3 Muhurats; raw zip stays release-only) · TRI failed in Colab too (absent from its own manifest) —
 home machine via kit remains the path. Verdicts in
 docs/DATA_FETCH_2026-08-09.md.**
+**FII/DII HOLE CLOSED same evening — NSDL FPI archive answers our cloud IP,
+no login (nseindia blocks us, fpi.nsdl.co.in doesn't).
+scripts/fetch_fpi_nsdl_archive.py; fii_dii_cash.csv extended 2025-04-01 →
+2026-08-06 (326 rows, FII only — NSDL DII archive is OTP-walled, DII
+unconsumed anyway). TWO TRAPS in the source, fixed+documented: NSDL dates
+are REPORT dates (previous trading day's activity — unshifted corr vs NSE
+0.075, shifted 0.955) and a cumulative table repeats each date (last-match
+parse wrote -2.79 lakh Cr YTD over a +418 Cr day; first-match-wins).
+NSDL=settlement basis, ~800 Cr/day median gap vs NSE provisional — known,
+documented, live engine still reads NSE API first. Remaining holes:
+2024-09-09→2024-11-29 (SEBI era) and DII after 2025-03. TRI = the ONLY
+still-unfetched item anywhere (niftyindices WAF; home machine or Colab
+retry with hardened session).**
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
