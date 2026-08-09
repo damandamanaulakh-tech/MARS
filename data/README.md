@@ -102,3 +102,31 @@ Jul 2023 daily) — F6 stays open for a current source.
   mechanically 30/20/10% of MWPL, confirmed by arithmetic); India-VIX
   history CSV (real but a subset of index_daily_15y.csv); three backtest
   workbooks recorded as narrative, not evidence (no ledgers/panels).
+
+### Data fetch round 2026-08-09 (owner: "fix all 5 and commit the kit / Fetch the data as well")
+Fetched THIS SESSION via the fixed kit (research/tools/fetch_kit/) — Upstox
+historical candles proved PUBLIC (no token; verified live). Full detail:
+docs/DATA_FETCH_2026-08-09.md.
+- `data/nifty200_daily.csv` — Nifty 200 daily OHLC 2004-01-01 -> 2026-08-07
+  (7,284 rows) — the honest benchmark series, offline at last.
+- `data/index_daily_15y.csv` — EXTENDED 2026-06-05 -> 2026-08-07 (44 rows,
+  all four indices; 80 overlap values byte-checked, 0 disagreements).
+- `data/corporate_actions_2010_2026.csv` — NSE corporate actions 2010 ->
+  2026-08, 34,792 rows (566 splits, 613 bonuses), 17 yearly API windows.
+- `data/index_constituents/2026-08-09_*.csv` — N50/N200/N500 dated
+  snapshots. The forward PIT record STARTS here; add a dated file per
+  refresh, never overwrite.
+- `data/fii_dii_net_recent.csv` — FII/DII net, last 30 sessions
+  (2026-06-29 -> 2026-08-07), niftytrader API, cross-checked vs NSE
+  snapshot. The 2025-04 -> 2026-06 history hole remains (monthly NSE
+  reports, owner machine).
+- `data/fundamentals_n200_2026-08-09.csv` — 11,377 statement datapoints,
+  200/200 N200 symbols (annual ~4y + quarters), direct Yahoo timeseries
+  (yfinance's wrapper returns empty here — REL FY23 revenue and TCS FY24
+  profit verified vs published figures).
+- FULL-UNIVERSE OHLCV (2,715 instruments + 5 indices, 2000 -> 2026-08-07,
+  ~103MB gz): fetched, cleaned, auditor hard gates PASSED (0 invalid, 0
+  dup) — intake report + quarantined rows committed under
+  research/tools/fetch_kit/. The archive itself stays OUT of the git tree
+  (Render clones the repo); delivered to the owner as a zip — attach to
+  the `chityy-archive` release to make it session-fetchable forever.
