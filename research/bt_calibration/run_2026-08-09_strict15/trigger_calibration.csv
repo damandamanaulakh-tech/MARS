@@ -1,0 +1,80 @@
+trigger_id,name,family,side,evaluations,fires,fire_rate_pct,own_side_hits,hit_rate_pct,baseline_rate_pct,lift,false_positive_rate_pct,median_lead_days,proof_tag
+T12W_0091,ATR Shock + Close Low,Collapse / Risk Tripwire,COLLAPSE,94479,738,0.78,50,6.78,1.65,4.106,56.23,4.0,VERIFIED
+T12W_0068,Panic Expansion Early,Liquidity / Volume Transition,COLLAPSE,94479,448,0.47,18,4.02,1.65,2.435,58.04,6.0,VERIFIED
+T12W_0089,Support Break With Vol Spike,Collapse / Risk Tripwire,COLLAPSE,94479,832,0.88,29,3.49,1.65,2.112,57.45,5.0,VERIFIED
+T12W_0092,Volatility Tripwire,Collapse / Risk Tripwire,COLLAPSE,94479,4240,4.49,130,3.07,1.65,1.858,55.97,5.0,VERIFIED
+T12W_0096,Crash Candle After Failed Breakout,Collapse / Risk Tripwire,COLLAPSE,94479,738,0.78,22,2.98,1.65,1.807,61.25,9.5,VERIFIED
+T12W_0093,Liquidity Evaporation + Break,Collapse / Risk Tripwire,COLLAPSE,94479,573,0.61,15,2.62,1.65,1.586,53.58,4.0,VERIFIED
+T12W_0067,Liquidity Vacuum Risk,Liquidity / Volume Transition,COLLAPSE,94479,2147,2.27,42,1.96,1.65,1.186,59.57,5.0,SUPPORTED
+T12W_0090,Two Gap Down Sequence,Collapse / Risk Tripwire,COLLAPSE,94479,13269,14.04,255,1.92,1.65,1.165,59.92,3.0,SUPPORTED
+T12W_0085,High Tight Flag Failure,Distribution / Pre-Fall,FALL,94479,49,0.05,8,16.33,8.25,1.98,48.98,1.0,VERIFIED
+T12W_0079,Exhaustion Move 3 Green Days,Distribution / Pre-Fall,FALL,94479,214,0.23,32,14.95,8.25,1.814,38.79,7.0,VERIFIED
+T12W_0080,Extended From Mean Warning,Distribution / Pre-Fall,FALL,94479,626,0.66,93,14.86,8.25,1.802,39.14,5.0,VERIFIED
+T12W_0072,Bearish Wide Range Close,Distribution / Pre-Fall,FALL,94479,3267,3.46,455,13.93,8.25,1.689,57.79,4.0,VERIFIED
+T12W_0086,False Reclaim Trap,Distribution / Pre-Fall,FALL,94479,7480,7.92,776,10.37,8.25,1.258,58.18,4.0,SUPPORTED
+T12W_0084,Volatility Expansion Downside,Distribution / Pre-Fall,FALL,94479,12727,13.47,1278,10.04,8.25,1.218,59.48,5.0,SUPPORTED
+T12W_0075,Breakdown Pressure Ratio,Distribution / Pre-Fall,FALL,94479,27875,29.5,2488,8.93,8.25,1.083,59.7,6.0,REJECTED
+T12W_0073,Lower High On Higher Volume,Distribution / Pre-Fall,FALL,94479,16036,16.97,1393,8.69,8.25,1.054,60.67,6.0,REJECTED
+T12W_0065,High Volume No Progress,Liquidity / Volume Transition,FALL,94479,3759,3.98,325,8.65,8.25,1.049,61.11,6.0,REJECTED
+T12W_0077,FiftyDMA Rejection,Distribution / Pre-Fall,FALL,94479,19177,20.3,1655,8.63,8.25,1.047,62.75,6.0,REJECTED
+T12W_0070,Failed Breakout Within 5D,Distribution / Pre-Fall,FALL,94479,6864,7.27,590,8.6,8.25,1.042,64.53,6.0,REJECTED
+T12W_0083,Down Volume Ratio Spike,Distribution / Pre-Fall,FALL,94479,23399,24.77,1994,8.52,8.25,1.034,62.94,5.0,REJECTED
+T12W_0064,Distribution Volume Spike,Liquidity / Volume Transition,FALL,94479,11996,12.7,1009,8.41,8.25,1.02,62.79,5.0,REJECTED
+T12W_0071,New High Negative CLV,Distribution / Pre-Fall,FALL,94479,4481,4.74,373,8.32,8.25,1.01,63.11,6.0,REJECTED
+T12W_0081,Distribution Cluster Count,Distribution / Pre-Fall,FALL,94479,8179,8.66,672,8.22,8.25,0.996,63.06,6.0,REJECTED
+T12W_0076,Momentum Divergence 14D,Distribution / Pre-Fall,FALL,94396,14414,15.27,1170,8.12,8.25,0.984,63.77,6.0,REJECTED
+T12W_0069,Upthrust Above Resistance,Distribution / Pre-Fall,FALL,94479,3526,3.73,285,8.08,8.25,0.98,62.96,6.0,REJECTED
+T12W_0087,Opening Strength Closing Weakness,Distribution / Pre-Fall,FALL,94479,44988,47.62,3614,8.03,8.25,0.974,62.43,6.0,REJECTED
+T12W_0078,Gap Fill Failure,Distribution / Pre-Fall,FALL,94479,49738,52.64,3979,8.0,8.25,0.97,62.46,6.0,REJECTED
+T12W_0066,Gap Up Volume Rejection,Liquidity / Volume Transition,FALL,94479,964,1.02,71,7.37,8.25,0.893,61.62,6.0,REJECTED
+T12W_0063,Liquidity Fade Before Fall,Liquidity / Volume Transition,FALL,94479,3904,4.13,255,6.53,8.25,0.792,70.49,6.0,REJECTED
+T12W_0088,Supply Wick Cluster Near High,Distribution / Pre-Fall,FALL,94479,8252,8.73,522,6.33,8.25,0.767,68.67,7.0,REJECTED
+T12W_0074,Support Test Count Overload,Distribution / Pre-Fall,FALL,94479,14469,15.31,900,6.22,8.25,0.754,69.06,7.0,REJECTED
+T12W_0082,Bearish OBV Divergence,Distribution / Pre-Fall,FALL,94479,4306,4.56,219,5.09,8.25,0.617,75.38,7.0,REJECTED
+T12W_0035,Bear Trap Volume Reversal,Failed Breakdown / Reclaim,REVERSAL_UP,94479,914,0.97,45,4.92,3.84,1.283,61.05,9.0,SUPPORTED
+T12W_0041,Reclaim With Volume Confirmation,Failed Breakdown / Reclaim,REVERSAL_UP,94479,904,0.96,42,4.65,3.84,1.211,62.94,7.0,SUPPORTED
+T12W_0036,Low Undercut Close High,Failed Breakdown / Reclaim,REVERSAL_UP,94479,5216,5.52,235,4.51,3.84,1.174,62.58,9.0,SUPPORTED
+T12W_0044,Panic Exhaustion Reclaim,Failed Breakdown / Reclaim,REVERSAL_UP,94479,3665,3.88,163,4.45,3.84,1.159,60.55,9.0,SUPPORTED
+T12W_0034,Failed Breakdown 3D Confirm,Failed Breakdown / Reclaim,REVERSAL_UP,94479,4713,4.99,193,4.1,3.84,1.067,60.92,10.0,REJECTED
+T12W_0040,Oversold To Neutral Fast,Failed Breakdown / Reclaim,REVERSAL_UP,94451,6143,6.5,251,4.09,3.84,1.065,61.61,9.0,REJECTED
+T12W_0033,Support Sweep Reclaim,Failed Breakdown / Reclaim,REVERSAL_UP,94479,4265,4.51,174,4.08,3.84,1.063,62.56,10.0,REJECTED
+T12W_0042,Three Day Failed Selloff,Failed Breakdown / Reclaim,REVERSAL_UP,94479,10349,10.95,396,3.83,3.84,0.997,62.95,9.0,REJECTED
+T12W_0037,Gap Down Reclaim,Failed Breakdown / Reclaim,REVERSAL_UP,94479,1800,1.91,60,3.33,3.84,0.869,62.89,11.0,REJECTED
+T12W_0038,Double Bottom Right Side Strength,Failed Breakdown / Reclaim,REVERSAL_UP,94479,10979,11.62,320,2.91,3.84,0.759,66.25,11.0,REJECTED
+T12W_0043,Lower Wick Cluster At Support,Failed Breakdown / Reclaim,REVERSAL_UP,94479,3247,3.44,54,1.66,3.84,0.433,77.18,10.0,REJECTED
+T12W_0032,Accumulation Cluster Count,Stealth Accumulation / Absorption,RISE,94479,0,0.0,0,0.0,17.15,,,,NOT_ENOUGH_EVIDENCE
+T12W_0005,Inside Bar Cluster 5 of 10,Compression / Base Before Move,RISE,94479,651,0.69,128,19.66,17.15,1.146,59.91,6.0,SUPPORTED
+T12W_0057,Volume Wakeup After Dry Base,Liquidity / Volume Transition,RISE,94479,2558,2.71,458,17.9,17.15,1.044,61.02,5.0,REJECTED
+T12W_0062,Dry-Up To Expansion Ratio,Liquidity / Volume Transition,RISE,94479,8806,9.32,1572,17.85,17.15,1.041,61.75,5.0,REJECTED
+T12W_0026,Base Break Volume Preview,Stealth Accumulation / Absorption,RISE,94479,16613,17.58,2956,17.79,17.15,1.037,62.22,5.0,REJECTED
+T12W_0001,NR7 Day Inside 10D Base,Compression / Base Before Move,RISE,94479,7103,7.52,1256,17.68,17.15,1.031,60.73,6.0,REJECTED
+T12W_0008,Low Volatility Higher Lows,Compression / Base Before Move,RISE,94479,15442,16.34,2690,17.42,17.15,1.016,62.36,6.0,REJECTED
+T12W_0018,Up Volume Dominance 7D,Stealth Accumulation / Absorption,RISE,94479,34039,36.03,5866,17.23,17.15,1.005,61.86,5.0,REJECTED
+T12W_0016,Breakout Pressure Ratio,Compression / Base Before Move,RISE,94479,47000,49.75,8078,17.19,17.15,1.002,62.34,5.0,REJECTED
+T12W_0009,Squeeze Plus Volume Dry Up,Compression / Base Before Move,RISE,94479,6756,7.15,1157,17.13,17.15,0.998,62.09,6.0,REJECTED
+T12W_0061,Volume Rate Of Change 5D,Liquidity / Volume Transition,RISE,94479,10106,10.7,1721,17.03,17.15,0.993,62.88,6.0,REJECTED
+T12W_0002,NR14 Compression Before Break,Compression / Base Before Move,RISE,94479,7646,8.09,1297,16.96,17.15,0.989,63.04,6.0,REJECTED
+T12W_0028,Last Red Day Volume Shrink,Stealth Accumulation / Absorption,RISE,94479,53574,56.7,9001,16.8,17.15,0.979,62.55,6.0,REJECTED
+T12W_0007,Close Above Base Midline,Compression / Base Before Move,RISE,94479,47559,50.34,7979,16.78,17.15,0.978,62.67,5.0,REJECTED
+T12W_0010,Range Contraction 3-Step,Compression / Base Before Move,RISE,94479,18630,19.72,3123,16.76,17.15,0.977,62.57,5.0,REJECTED
+T12W_0022,Higher Low With Volume Support,Stealth Accumulation / Absorption,RISE,94479,33957,35.94,5689,16.75,17.15,0.977,62.6,6.0,REJECTED
+T12W_0024,Close Recovery Same Day,Stealth Accumulation / Absorption,RISE,94479,32314,34.2,5391,16.68,17.15,0.973,63.55,6.0,REJECTED
+T12W_0029,Two Green High-CLV Days In Base,Stealth Accumulation / Absorption,RISE,94479,33880,35.86,5555,16.4,17.15,0.956,63.26,6.0,REJECTED
+T12W_0015,Micro Pullback In Base,Compression / Base Before Move,RISE,94479,38168,40.4,6216,16.29,17.15,0.949,63.36,6.0,REJECTED
+T12W_0012,Compression With Positive Drift,Compression / Base Before Move,RISE,94479,12592,13.33,2030,16.12,17.15,0.94,64.87,5.0,REJECTED
+T12W_0003,Bollinger Bandwidth 10D Squeeze,Compression / Base Before Move,RISE,94479,15753,16.67,2466,15.65,17.15,0.913,65.16,5.0,REJECTED
+T12W_0023,Demand Wick Repetition,Stealth Accumulation / Absorption,RISE,94479,13994,14.81,2168,15.49,17.15,0.903,65.97,6.0,REJECTED
+T12W_0017,Stealth Accumulation Flat Price Rising OBV,Stealth Accumulation / Absorption,RISE,94479,21684,22.95,3310,15.26,17.15,0.89,65.85,6.0,REJECTED
+T12W_0019,Positive CLV Accumulation,Stealth Accumulation / Absorption,RISE,94479,4320,4.57,659,15.25,17.15,0.889,66.57,5.0,REJECTED
+T12W_0020,Absorption At Resistance,Stealth Accumulation / Absorption,RISE,94479,4649,4.92,706,15.19,17.15,0.885,65.15,4.0,REJECTED
+T12W_0027,Accumulation Without Gap,Stealth Accumulation / Absorption,RISE,94479,8174,8.65,1223,14.96,17.15,0.872,66.7,5.0,REJECTED
+T12W_0021,Volume Up Price Flat,Stealth Accumulation / Absorption,RISE,94479,5602,5.93,824,14.71,17.15,0.858,67.14,5.0,REJECTED
+T12W_0058,Turnover Expansion No Price Move,Liquidity / Volume Transition,RISE,94479,2877,3.05,422,14.67,17.15,0.855,66.35,6.0,REJECTED
+T12W_0025,Quiet Accumulation Score,Stealth Accumulation / Absorption,RISE,94479,8170,8.65,1183,14.48,17.15,0.844,67.91,5.0,REJECTED
+T12W_0014,Volatility Shelf Build,Compression / Base Before Move,RISE,94479,14198,15.03,2052,14.45,17.15,0.843,65.83,5.0,REJECTED
+T12W_0004,ATR Percentile Bottom 20,Compression / Base Before Move,RISE,94479,19475,20.61,2805,14.4,17.15,0.84,65.59,5.0,REJECTED
+T12W_0031,Hidden Demand Delta Proxy,Stealth Accumulation / Absorption,RISE,94479,18160,19.22,2599,14.31,17.15,0.834,67.39,6.0,REJECTED
+T12W_0030,Support Touch Volume Dry,Stealth Accumulation / Absorption,RISE,94479,9945,10.53,1419,14.27,17.15,0.832,66.52,6.0,REJECTED
+T12W_0011,Tight Close Cluster,Compression / Base Before Move,RISE,94479,56374,59.67,7811,13.86,17.15,0.808,68.38,6.0,REJECTED
+T12W_0013,Pre-Break 20D High Proximity,Compression / Base Before Move,RISE,94479,25218,26.69,3282,13.01,17.15,0.759,69.66,6.0,REJECTED
+T12W_0006,Base Width Under 8 Percent,Compression / Base Before Move,RISE,94479,36994,39.16,4138,11.19,17.15,0.652,73.94,6.0,REJECTED

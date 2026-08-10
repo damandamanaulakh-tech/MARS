@@ -831,6 +831,39 @@ UNTESTED live — 60-day window judges. FII-08/09 same message: owner ruled
 "why not both" → BOTH damage thresholds (static 0.213 + rolling q90)
 computed side by side on /register; current reading: static YES,
 q90 no, stacks QUIET (FII legs quiet). Assumptions review: "not now".
+**BT01-BT08 CALIBRATION RUN + SEQUENCE IMPORTED (2026-08-10, owner: "review
+each single item… merge ur self, sequence must import for anything").**
+scripts/bt_calibration_v1.py runs the owner's reverse-backtest design with
+the PRODUCTION trigger code over 191×12y (94,479 windows). TWO label sets
+(±10% main, ±15% strict sensitivity) — both committed under
+research/bt_calibration/. THE VERDICT, label-robust:
+- **Rise triggers have NO measured edge** — best lift 1.15 at strict labels
+  (Inside Bar Cluster, barely SUPPORTED); 59-64 of 79 REJECTED. Survived
+  the label sensitivity check — not an assumption artifact.
+- **Danger side is REAL: 10 VERIFIED at strict labels** — 6 collapse
+  tripwires (ATR Shock+Close Low lift 4.11, leads 4d; Panic Expansion 2.44;
+  Support Break w/ Vol 2.11; Volatility Tripwire 1.86 on 4,240 fires;
+  Crash-after-Failed-Breakout 1.81; Liquidity Evaporation 1.59) + 4 FALL
+  warnings (High-Tight-Flag Failure 1.98, Exhaustion-3-Green 1.81,
+  Extended-from-Mean 1.80, Bearish Wide Range 1.69). The owner's system's
+  measured edge = DANGER DETECTION, not entry timing.
+- **GATE_RISE_ENTRY_01 is INERT**: 1 entry in 94k windows (score formula
+  never reaches 65), and it lost −5%. Recalibrating the score formula =
+  the BT06 follow-up if ordered.
+- Sequencing measured + IMPORTED: triggers.CALIBRATION loads the main-run
+  CSV at import; fired lists sort earliest-warning-first by measured lead;
+  /triggers shows VERIFIED/SUPPORTED/REJECTED chips. Ladder: Failed-
+  Breakdown/Reclaim 9d → Compression/Distribution/Liquidity/Accum 6d →
+  Collapse tripwires 4d.
+- docs/REGISTER_STATUS_2026-08-10.csv = all 279 classified (9 TRADES / 149
+  COMPUTES / 31 HAVE / 64 DATA_NEEDED / 4 MAPPED / 21 AUDIT / 0 name-only).
+  Owner's open data questions: dbi definition, shareholding pattern,
+  options chain/short interest, block deals+insider (Colab), paid feeds
+  y/n. Delivery-based external triggers now BUILDABLE (data landed) —
+  awaiting owner go.
+- PROPOSED NEXT (needs owner word): wire the 10 VERIFIED danger triggers
+  as an exit/throttle confirm layer (their own F-006 rule: risk side,
+  NEVER entry). PRs #47/#48 merged same day.
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
