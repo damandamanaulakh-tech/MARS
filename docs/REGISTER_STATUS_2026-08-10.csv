@@ -1,0 +1,280 @@
+id,parameter,category,detail,action
+A-01,Daily return %,TRADES,returns feed momentum score,
+A-02,Gap %,HAVE,candles.py gap logic,
+A-03,Range %,HAVE,lens_v2.atr / candles,
+A-04,Body % (signed),HAVE,candles.py body logic,
+A-05,Upper wick %,HAVE,candles.py wick logic,
+A-06,Lower wick %,HAVE,candles.py wick logic,
+B-01,SMA 20/50/200 trend state,TRADES,200DMA regime + trend state,
+B-02,EMA20 hold,HAVE,signals/technicals.py ema,
+B-03,ROC20 %,COMPUTES,VALUE 2.981890800163378 ROC20 %,
+B-04,RSI14 (Wilder),HAVE,signals/technicals.py rsi,
+B-05,"MACD (12,26,9)",HAVE,signals/technicals.py macd,
+B-06,Breakout-20 %,HAVE,signals/technicals.py bollinger/52w-high proximity (partial),
+B-07,Relative strength vs Nifty (1M/3M/6M),COMPUTES,VALUE -27.202460978831777 RS 1M -0.5pp / 3M -13.6pp / 6M -27.2pp; universe percentile needs pane,
+C-01,Volume ratio 20D,TRADES,volume-expansion timing lane,
+C-02,ATR14 %,HAVE,lens_v2.atr + market_panels.atr_panel,
+C-03,Industry breadth,COMPUTES,NA  no industry with >=3 covered members,
+D-01,Sector concentration count,TRADES,sector caps (risk.can_open),
+E-01,Rejection tag,COMPUTES,QUIET  ,
+E-02,Absorption tag,COMPUTES,QUIET  ,
+E-03,Breakdown tag,COMPUTES,QUIET  ,
+E-04,Fake breakout (trap) tag,COMPUTES,"QUIET  trap = broke prior-20 high, closed back inside",
+E-05,Leader continuation tag,COMPUTES,QUIET  panel percentile leg approximated by RS>0 (single-stock),
+E-06,Weak counter-trend bounce tag,COMPUTES,QUIET  ,
+F-01,10-factor / RSV composite score,TRADES,exit ruler (score decay),
+TRG-001,NR7 Day Inside 10D Base [T12W_0001],COMPUTES+CALIBRATED:REJECTED,lift 1.024 REJECTED lead 4.0d fires 7103,
+TRG-002,NR14 Compression Before Break [T12W_0002],COMPUTES+CALIBRATED:REJECTED,lift 0.996 REJECTED lead 5.0d fires 7646,
+TRG-003,Bollinger Bandwidth 10D Squeeze [T12W_0003],COMPUTES+CALIBRATED:REJECTED,lift 0.938 REJECTED lead 4.0d fires 15753,
+TRG-004,ATR Percentile Bottom 20 [T12W_0004],COMPUTES+CALIBRATED:REJECTED,lift 0.892 REJECTED lead 4.0d fires 19475,
+TRG-005,Inside Bar Cluster 5 of 10 [T12W_0005],COMPUTES+CALIBRATED:REJECTED,lift 1.063 REJECTED lead 4.5d fires 651,
+TRG-006,Base Width Under 8 Percent [T12W_0006],COMPUTES+CALIBRATED:REJECTED,lift 0.79 REJECTED lead 5.0d fires 36994,
+TRG-007,Close Above Base Midline [T12W_0007],COMPUTES+CALIBRATED:REJECTED,lift 0.987 REJECTED lead 4.0d fires 47559,
+TRG-008,Low Volatility Higher Lows [T12W_0008],COMPUTES+CALIBRATED:REJECTED,lift 1.004 REJECTED lead 4.0d fires 15442,
+TRG-009,Squeeze Plus Volume Dry Up [T12W_0009],COMPUTES+CALIBRATED:REJECTED,lift 0.999 REJECTED lead 4.0d fires 6756,
+TRG-010,Range Contraction 3-Step [T12W_0010],COMPUTES+CALIBRATED:REJECTED,lift 0.988 REJECTED lead 4.0d fires 18630,
+TRG-011,Tight Close Cluster [T12W_0011],COMPUTES+CALIBRATED:REJECTED,lift 0.886 REJECTED lead 5.0d fires 56374,
+TRG-012,Compression With Positive Drift [T12W_0012],COMPUTES+CALIBRATED:REJECTED,lift 0.96 REJECTED lead 4.0d fires 12592,
+TRG-013,Pre-Break 20D High Proximity [T12W_0013],COMPUTES+CALIBRATED:REJECTED,lift 0.856 REJECTED lead 4.0d fires 25218,
+TRG-014,Volatility Shelf Build [T12W_0014],COMPUTES+CALIBRATED:REJECTED,lift 0.903 REJECTED lead 4.0d fires 14198,
+TRG-015,Micro Pullback In Base [T12W_0015],COMPUTES+CALIBRATED:REJECTED,lift 0.975 REJECTED lead 4.0d fires 38168,
+TRG-016,Breakout Pressure Ratio [T12W_0016],COMPUTES+CALIBRATED:REJECTED,lift 1.004 REJECTED lead 4.0d fires 47000,
+TRG-017,Stealth Accumulation Flat Price Rising OBV [T12W_0017],COMPUTES+CALIBRATED:REJECTED,lift 0.933 REJECTED lead 4.0d fires 21684,
+TRG-018,Up Volume Dominance 7D [T12W_0018],COMPUTES+CALIBRATED:REJECTED,lift 1.004 REJECTED lead 4.0d fires 34039,
+TRG-019,Positive CLV Accumulation [T12W_0019],COMPUTES+CALIBRATED:REJECTED,lift 0.944 REJECTED lead 4.0d fires 4320,
+TRG-020,Absorption At Resistance [T12W_0020],COMPUTES+CALIBRATED:REJECTED,lift 0.936 REJECTED lead 4.0d fires 4649,
+TRG-021,Volume Up Price Flat [T12W_0021],COMPUTES+CALIBRATED:REJECTED,lift 0.936 REJECTED lead 4.0d fires 5602,
+TRG-022,Higher Low With Volume Support [T12W_0022],COMPUTES+CALIBRATED:REJECTED,lift 0.996 REJECTED lead 4.0d fires 33957,
+TRG-023,Demand Wick Repetition [T12W_0023],COMPUTES+CALIBRATED:REJECTED,lift 0.955 REJECTED lead 4.0d fires 13994,
+TRG-024,Close Recovery Same Day [T12W_0024],COMPUTES+CALIBRATED:REJECTED,lift 1.004 REJECTED lead 4.0d fires 32314,
+TRG-025,Quiet Accumulation Score [T12W_0025],COMPUTES+CALIBRATED:REJECTED,lift 0.912 REJECTED lead 4.0d fires 8170,
+TRG-026,Base Break Volume Preview [T12W_0026],COMPUTES+CALIBRATED:REJECTED,lift 1.018 REJECTED lead 4.0d fires 16613,
+TRG-027,Accumulation Without Gap [T12W_0027],COMPUTES+CALIBRATED:REJECTED,lift 0.939 REJECTED lead 4.0d fires 8174,
+TRG-028,Last Red Day Volume Shrink [T12W_0028],COMPUTES+CALIBRATED:REJECTED,lift 0.987 REJECTED lead 4.0d fires 53574,
+TRG-029,Two Green High-CLV Days In Base [T12W_0029],COMPUTES+CALIBRATED:REJECTED,lift 0.983 REJECTED lead 4.0d fires 33880,
+TRG-030,Support Touch Volume Dry [T12W_0030],COMPUTES+CALIBRATED:REJECTED,lift 0.892 REJECTED lead 5.0d fires 9945,
+TRG-031,Hidden Demand Delta Proxy [T12W_0031],COMPUTES+CALIBRATED:REJECTED,lift 0.905 REJECTED lead 5.0d fires 18160,
+TRG-032,Accumulation Cluster Count [T12W_0032],COMPUTES+CALIBRATED:NOT_ENOUGH_EVIDENCE,lift None NOT_ENOUGH_EVIDENCE lead Noned fires 0,
+TRG-033,Support Sweep Reclaim [T12W_0033],COMPUTES+CALIBRATED:REJECTED,lift 1.063 REJECTED lead 10.0d fires 4265,
+TRG-034,Failed Breakdown 3D Confirm [T12W_0034],COMPUTES+CALIBRATED:REJECTED,lift 1.067 REJECTED lead 10.0d fires 4713,
+TRG-035,Bear Trap Volume Reversal [T12W_0035],COMPUTES+CALIBRATED:SUPPORTED,lift 1.283 SUPPORTED lead 9.0d fires 914,
+TRG-036,Low Undercut Close High [T12W_0036],COMPUTES+CALIBRATED:SUPPORTED,lift 1.174 SUPPORTED lead 9.0d fires 5216,
+TRG-037,Gap Down Reclaim [T12W_0037],COMPUTES+CALIBRATED:REJECTED,lift 0.869 REJECTED lead 11.0d fires 1800,
+TRG-038,Double Bottom Right Side Strength [T12W_0038],COMPUTES+CALIBRATED:REJECTED,lift 0.759 REJECTED lead 11.0d fires 10979,
+TRG-039,RS Reclaim Before Price Break [T12W_0039],DATA_NEEDED,"date,close,sector_close",ASK OWNER
+TRG-040,Oversold To Neutral Fast [T12W_0040],COMPUTES+CALIBRATED:REJECTED,lift 1.065 REJECTED lead 9.0d fires 6143,
+TRG-041,Reclaim With Volume Confirmation [T12W_0041],COMPUTES+CALIBRATED:SUPPORTED,lift 1.211 SUPPORTED lead 7.0d fires 904,
+TRG-042,Three Day Failed Selloff [T12W_0042],COMPUTES+CALIBRATED:REJECTED,lift 0.997 REJECTED lead 9.0d fires 10349,
+TRG-043,Lower Wick Cluster At Support [T12W_0043],COMPUTES+CALIBRATED:REJECTED,lift 0.433 REJECTED lead 10.0d fires 3247,
+TRG-044,Panic Exhaustion Reclaim [T12W_0044],COMPUTES+CALIBRATED:SUPPORTED,lift 1.159 SUPPORTED lead 9.0d fires 3665,
+TRG-045,Stock RS Leads Sector 10D [T12W_0045],DATA_NEEDED,"date,close,sector_close",ASK OWNER
+TRG-046,RS Rank Jump 2 Weeks [T12W_0046],DATA_NEEDED,"date,close,universe returns",ASK OWNER
+TRG-047,Industry Peer Confirmation 3 of 5 [T12W_0047],DATA_NEEDED,peer OHLCV,ASK OWNER
+TRG-048,Sector Breadth Lead [T12W_0048],DATA_NEEDED,peer OHLCV,ASK OWNER
+TRG-049,Stock Holds While Sector Falls [T12W_0049],DATA_NEEDED,"date,close,sector_close",ASK OWNER
+TRG-050,Leader Rotation Early Signal [T12W_0050],DATA_NEEDED,"date,close,industry peer close",ASK OWNER
+TRG-051,Weak RS Before Fall [T12W_0051],DATA_NEEDED,"date,close,sector_close",ASK OWNER
+TRG-052,Peer Breakdown Lead [T12W_0052],DATA_NEEDED,peer OHLCV,ASK OWNER
+TRG-053,Sector Divergence Warning [T12W_0053],DATA_NEEDED,"date,close,sector/peer OHLCV",ASK OWNER
+TRG-054,RS Failure At New High [T12W_0054],DATA_NEEDED,"date,close,sector_close",ASK OWNER
+TRG-055,Industry Rotation Exit [T12W_0055],DATA_NEEDED,industry returns,ASK OWNER
+TRG-056,Crowded Leader Fatigue [T12W_0056],DATA_NEEDED,"date,close,peer OHLCV",ASK OWNER
+TRG-057,Volume Wakeup After Dry Base [T12W_0057],COMPUTES+CALIBRATED:REJECTED,lift 0.987 REJECTED lead 4.0d fires 2558,
+TRG-058,Turnover Expansion No Price Move [T12W_0058],COMPUTES+CALIBRATED:REJECTED,lift 0.942 REJECTED lead 4.0d fires 2877,
+TRG-059,Dollar Volume Rank Jump [T12W_0059],DATA_NEEDED,"date,close,volume,universe",ASK OWNER
+TRG-060,Delivery Spike Pre-Move [T12W_0060],DATA_NEEDED,delivery data,ASK OWNER
+TRG-061,Volume Rate Of Change 5D [T12W_0061],COMPUTES+CALIBRATED:REJECTED,lift 1.001 REJECTED lead 4.0d fires 10106,
+TRG-062,Dry-Up To Expansion Ratio [T12W_0062],COMPUTES+CALIBRATED:REJECTED,lift 1.013 REJECTED lead 4.0d fires 8806,
+TRG-063,Liquidity Fade Before Fall [T12W_0063],COMPUTES+CALIBRATED:REJECTED,lift 0.865 REJECTED lead 5.0d fires 3904,
+TRG-064,Distribution Volume Spike [T12W_0064],COMPUTES+CALIBRATED:REJECTED,lift 0.963 REJECTED lead 5.0d fires 11996,
+TRG-065,High Volume No Progress [T12W_0065],COMPUTES+CALIBRATED:REJECTED,lift 1.027 REJECTED lead 5.0d fires 3759,
+TRG-066,Gap Up Volume Rejection [T12W_0066],COMPUTES+CALIBRATED:REJECTED,lift 1.091 REJECTED lead 4.0d fires 964,
+TRG-067,Liquidity Vacuum Risk [T12W_0067],COMPUTES+CALIBRATED:REJECTED,lift 1.041 REJECTED lead 5.0d fires 2147,
+TRG-068,Panic Expansion Early [T12W_0068],COMPUTES+CALIBRATED:VERIFIED,lift 1.749 VERIFIED lead 6.0d fires 448,
+TRG-069,Upthrust Above Resistance [T12W_0069],COMPUTES+CALIBRATED:REJECTED,lift 1.003 REJECTED lead 5.0d fires 3526,
+TRG-070,Failed Breakout Within 5D [T12W_0070],COMPUTES+CALIBRATED:REJECTED,lift 1.051 REJECTED lead 5.0d fires 6864,
+TRG-071,New High Negative CLV [T12W_0071],COMPUTES+CALIBRATED:REJECTED,lift 1.003 REJECTED lead 5.0d fires 4481,
+TRG-072,Bearish Wide Range Close [T12W_0072],COMPUTES+CALIBRATED:SUPPORTED,lift 1.305 SUPPORTED lead 3.0d fires 3267,
+TRG-073,Lower High On Higher Volume [T12W_0073],COMPUTES+CALIBRATED:REJECTED,lift 1.027 REJECTED lead 5.0d fires 16036,
+TRG-074,Support Test Count Overload [T12W_0074],COMPUTES+CALIBRATED:REJECTED,lift 0.845 REJECTED lead 6.0d fires 14469,
+TRG-075,Breakdown Pressure Ratio [T12W_0075],COMPUTES+CALIBRATED:REJECTED,lift 1.037 REJECTED lead 5.0d fires 27875,
+TRG-076,Momentum Divergence 14D [T12W_0076],COMPUTES+CALIBRATED:REJECTED,lift 0.99 REJECTED lead 5.0d fires 14414,
+TRG-077,FiftyDMA Rejection [T12W_0077],COMPUTES+CALIBRATED:REJECTED,lift 1.032 REJECTED lead 5.0d fires 19177,
+TRG-078,Gap Fill Failure [T12W_0078],COMPUTES+CALIBRATED:REJECTED,lift 0.978 REJECTED lead 5.0d fires 49738,
+TRG-079,Exhaustion Move 3 Green Days [T12W_0079],COMPUTES+CALIBRATED:SUPPORTED,lift 1.487 SUPPORTED lead 5.0d fires 214,
+TRG-080,Extended From Mean Warning [T12W_0080],COMPUTES+CALIBRATED:SUPPORTED,lift 1.418 SUPPORTED lead 4.0d fires 626,
+TRG-081,Distribution Cluster Count [T12W_0081],COMPUTES+CALIBRATED:REJECTED,lift 0.992 REJECTED lead 5.0d fires 8179,
+TRG-082,Bearish OBV Divergence [T12W_0082],COMPUTES+CALIBRATED:REJECTED,lift 0.758 REJECTED lead 6.0d fires 4306,
+TRG-083,Down Volume Ratio Spike [T12W_0083],COMPUTES+CALIBRATED:REJECTED,lift 0.996 REJECTED lead 5.0d fires 23399,
+TRG-084,Volatility Expansion Downside [T12W_0084],COMPUTES+CALIBRATED:SUPPORTED,lift 1.112 SUPPORTED lead 4.0d fires 12727,
+TRG-085,High Tight Flag Failure [T12W_0085],COMPUTES+CALIBRATED:REJECTED,lift 0.838 REJECTED lead 2.0d fires 49,
+TRG-086,False Reclaim Trap [T12W_0086],COMPUTES+CALIBRATED:REJECTED,lift 1.068 REJECTED lead 5.0d fires 7480,
+TRG-087,Opening Strength Closing Weakness [T12W_0087],COMPUTES+CALIBRATED:REJECTED,lift 0.979 REJECTED lead 5.0d fires 44988,
+TRG-088,Supply Wick Cluster Near High [T12W_0088],COMPUTES+CALIBRATED:REJECTED,lift 0.891 REJECTED lead 5.0d fires 8252,
+TRG-089,Support Break With Vol Spike [T12W_0089],COMPUTES+CALIBRATED:VERIFIED,lift 1.779 VERIFIED lead 5.0d fires 832,
+TRG-090,Two Gap Down Sequence [T12W_0090],COMPUTES+CALIBRATED:REJECTED,lift 1.05 REJECTED lead 6.0d fires 13269,
+TRG-091,ATR Shock + Close Low [T12W_0091],COMPUTES+CALIBRATED:VERIFIED,lift 2.714 VERIFIED lead 4.0d fires 738,
+TRG-092,Volatility Tripwire [T12W_0092],COMPUTES+CALIBRATED:VERIFIED,lift 1.581 VERIFIED lead 6.0d fires 4240,
+TRG-093,Liquidity Evaporation + Break [T12W_0093],COMPUTES+CALIBRATED:VERIFIED,lift 1.57 VERIFIED lead 4.0d fires 573,
+TRG-094,Sector Contagion Count [T12W_0094],DATA_NEEDED,peer OHLCV,ASK OWNER
+TRG-095,Index Risk Overlay [T12W_0095],DATA_NEEDED,"date,close,index close",ASK OWNER
+TRG-096,Crash Candle After Failed Breakout [T12W_0096],COMPUTES+CALIBRATED:SUPPORTED,lift 1.219 SUPPORTED lead 9.0d fires 738,
+TRG-097,News/Event Risk Flag [T12W_0097],DATA_NEEDED,news/governance data,ASK OWNER
+TRG-098,Earnings Gap Risk Window [T12W_0098],DATA_NEEDED,"event calendar, OHLCV",ASK OWNER
+TRG-099,Pledge/Governance Risk Overlay [T12W_0099],DATA_NEEDED,"governance data, OHLCV",ASK OWNER
+TRG-100,F&O OI Short Build [T12W_0100],DATA_NEEDED,F&O OI data,ASK OWNER
+TRG-101,Long Unwinding OI [T12W_0101],DATA_NEEDED,F&O OI data,ASK OWNER
+TRG-102,Put-Call Skew Risk [T12W_0102],DATA_NEEDED,options chain data,ASK OWNER
+TRG-103,Positive News No Gap Accumulation [T12W_0103],DATA_NEEDED,news/NLP + OHLCV,ASK OWNER
+TRG-104,Order Win Pre-Move Confirmation [T12W_0104],DATA_NEEDED,news + OHLCV,ASK OWNER
+TRG-105,Broker Upgrade With RS Lead [T12W_0105],DATA_NEEDED,analyst/news + OHLCV,ASK OWNER
+TRG-106,Negative News Absorption [T12W_0106],DATA_NEEDED,news + OHLCV,ASK OWNER
+TRG-107,Rumor Spike Reject [T12W_0107],DATA_NEEDED,news + OHLCV,ASK OWNER
+TRG-108,Regulatory Risk Pre-Fall [T12W_0108],DATA_NEEDED,news/regulatory + OHLCV,ASK OWNER
+TRG-109,Earnings Miss Continuation Risk [T12W_0109],DATA_NEEDED,earnings/news + OHLCV,ASK OWNER
+TRG-110,Sentiment Divergence [T12W_0110],DATA_NEEDED,social/news + OHLCV,ASK OWNER
+TRG-111,Institutional Bulk Deal Followthrough [T12W_0111],DATA_NEEDED,bulk/block data + OHLCV,ASK OWNER
+TRG-112,Institutional Sell Warning [T12W_0112],DATA_NEEDED,bulk/block data + OHLCV,ASK OWNER
+H-01,Promoter holding %,DATA_NEEDED,promoter holding % — shareholding pattern feed not in repo,ASK OWNER
+H-02,Promoter pledge %,DATA_NEEDED,promoter pledge % — not in repo,ASK OWNER
+H-03,FII holding % + Δ,DATA_NEEDED,FII holding % per stock — not in repo,ASK OWNER
+H-04,DII holding % + Δ,DATA_NEEDED,DII holding % per stock — not in repo,ASK OWNER
+H-05,Mutual fund holding % + Δ,DATA_NEEDED,MF holding % per stock — not in repo,ASK OWNER
+H-06,Institutional activity delta,DATA_NEEDED,institutional activity delta — needs H-03..05,ASK OWNER
+H-07,Analyst rating score,DATA_NEEDED,analyst ratings — no feed,ASK OWNER
+H-08,Beta (252d),HAVE,signals/technicals.py beta_vs_benchmark,
+H-09,R&D intensity,DATA_NEEDED,R&D intensity — line item not in statements coverage,ASK OWNER
+H-10,Sustainability/ESG score,DATA_NEEDED,ESG score — no feed,ASK OWNER
+H-11,Per-stock CAGR (3Y/5Y),COMPUTES,VALUE -11.758100331054377 3Y -11.8% / 5Y -7.2%,
+H-12,Per-stock max drawdown (3Y),COMPUTES,VALUE -56.46225638210267 3Y max drawdown %,
+H-13,ADX(14),HAVE,signals/technicals.py adx,
+H-14,100 DMA + state,COMPUTES,QUIET  close below SMA100,
+H-15,12M relative strength,COMPUTES,VALUE -31.936188976686473 12M RS pp; percentile needs panel,
+H-16,Gap frequency (60d),COMPUTES,VALUE 0.016666666666666666 share of last 60 sessions gapping > 1x ATR14%,
+H-17,Breakout / failed-breakout counts (90d),COMPUTES,"VALUE 0.25 breakouts 3, traps 1 in 90d",
+H-18,Support/resistance strength,COMPUTES,VALUE 0.8281706613345456 touch-count x recency within +/-1.5% of price (ASSUMED decay),
+H-19,Macro liquidity filter,DATA_NEEDED,macro liquidity — M2/liquidity series not in repo,ASK OWNER
+H-20,Block/bulk-deal proxy,DATA_NEEDED,block/bulk deal feed not in repo,ASK OWNER
+H-21,Boom-bust cycle detector,COMPUTES,"VALUE -2.0875358942311455 BUST — PER-STOCK PROXY, register wants sector index (not in repo)",
+H-22,Seasonality scanner,COMPUTES,"VALUE 3.0168546601979913 month-7 mean vs rest, t=1.34 (NO_EFFECT)",
+H-23,Dual-regime engine selection (Everest/Ocean),HAVE,engines Everest/Ocean (Ocean parked),
+H-24,Nifty 200 Momentum 30 replication preset,TRADES,THE live preset,
+H-25,Insider trading flags (SEBI),DATA_NEEDED,insider (SAST/PIT) filings feed not in repo,ASK OWNER
+H-26,Sector blacklist,HAVE,"cfg.blacklisted_sectors mechanism (EMPTY — register's ""['Metal'] live"" claim is stale, audit removed it)",
+H-27,Per-trade component attribution,DATA_NEEDED,"infra item: per-trade attribution — build order, not a metric",ASK OWNER
+H-28,Bootstrap CIs on Sharpe / maxDD,DATA_NEEDED,"infra item: bootstrap CI — build order, not a metric",ASK OWNER
+W-001,Cross_Sectional_Momentum [WM001],COMPUTES,VALUE -27.202460978831777 6M return vs benchmark pp; cross-sectional rank needs panel,
+W-002,Dual_Momentum [WM002],COMPUTES,QUIET  abs mom > 0 AND rel mom > benchmark,
+W-003,Momentum_Acceleration [WM003],COMPUTES,"VALUE -13.431823326793424 Mom(6M now) - Mom(6M, 3M ago), pp",
+W-004,Residual_Momentum [WM004],COMPUTES,VALUE -32.18286751246707 6M residual momentum pp (market regression; sector leg not available),
+W-005,Idiosyncratic_Volatility [WM005],COMPUTES,VALUE 26.252853226510826 idiosyncratic vol % (market factor removed),
+W-006,Downside_Volatility [WM006],COMPUTES,VALUE 17.95448725468933 annualized downside vol %,
+W-007,Volatility_Risk_Premium [WM007],DATA_NEEDED,per-stock implied vol needs options chain (index-level VRP on market page),ASK OWNER
+W-008,Beta_vs_Nifty [WM008],HAVE,signals/technicals.py beta_vs_benchmark,
+W-009,Relative_Volume_RVOL [WM009],COMPUTES,VALUE 0.948521169792291 volume / SMA20(volume),
+W-010,Amihud_Illiquidity [WM010],COMPUTES,"VALUE 2.8606673701741903 Amihud |ret|/volume x1e9, 60d",
+W-011,Turnover_Ratio [WM011],DATA_NEEDED,"true shares outstanding not in repo (NI/EPS estimate used elsewhere, too rough for a turnover ratio)",ASK OWNER
+W-012,Chaikin_Money_Flow [WM012],COMPUTES,VALUE 0.006091247293825436 Chaikin Money Flow 20d,
+W-013,Gross_Profitability [WM013],COMPUTES,VALUE 0.6602877634724629 gross profit / total assets,
+W-014,ROE_Quality [WM014],COMPUTES,VALUE 0.45887728459530025 ROE,
+W-015,Earnings_Yield [WM015],COMPUTES,VALUE 0.05994270603790216 EPS / price,
+W-016,FCF_Yield [WM016],COMPUTES,VALUE 0.058405463708704176 FCF / mcap (shares ASSUMED NI/EPS),
+W-017,Accruals_Quality [WM017],COMPUTES,VALUE 0.02621564713881517 d(working capital)/assets from statements zip,
+W-018,Debt_to_EBITDA [WM018],COMPUTES,VALUE 0.15611423195063232 debt / EBITDA,
+W-019,News_Sentiment_Score [WM019],DATA_NEEDED,news sentiment — no NLP feed,ASK OWNER
+W-020,Analyst_Revision_Momentum [WM020],DATA_NEEDED,analyst estimate revisions — no feed,ASK OWNER
+W-021,Short_Interest_Ratio [WM021],DATA_NEEDED,short interest — NSE feed not free (register agrees),ASK OWNER
+W-022,Put_Call_Ratio [WM022],DATA_NEEDED,per-stock put/call volume — options chain not in repo,ASK OWNER
+W-023,India_VIX_Level [WM023],TRADES,regime panic/VIX,
+W-024,India_VIX_Change [WM024],TRADES,vix_crush re-entry,
+W-025,USDINR_Momentum [WM025],DATA_NEEDED,USDINR series not in repo,ASK OWNER
+W-026,Yield_Curve_Slope [WM026],DATA_NEEDED,short-rate leg (1Y/3M) not in repo; 10Y alone is not a slope,ASK OWNER
+W-027,Global_Risk_On_Off [WM027],DATA_NEEDED,credit-spread inputs not in repo,ASK OWNER
+W-028,Risk_Parity_Weight [WM028],COMPUTES,NA  no book/vol supplied,
+W-029,Max_Diversification_Ratio [WM029],DATA_NEEDED,"needs covariance matrix — research script order, not a page metric",ASK OWNER
+W-030,Turnover_Constraint [WM030],COMPUTES,QUIET  rule documented: sum|dw|/2 <= threshold; AM07 has no rebalance-turnove,
+W-031,Sector_Neutral_Strength [WM031],COMPUTES,QUIET  AM07 sector caps = partial neutralization; full-neutral not implemente,
+BT-01,Daily return clip,MAPPED,AM07 uses CA-adjusted candles + the cleaning quarantine instead of a return clip; era-pinn,
+BT-02,History coverage floor,MAPPED,AM07 momentum needs >=252 bars per name (min-history floor),
+BT-03,Activity filter (vol-proxy),MAPPED,"AM07 filters by liquidity (Rs 1Cr+ median turnover), not a volatility proxy",
+BT-04,Rebalance cadence,MAPPED,AM07 scans daily; walk-forward re-forms monthly in studies,
+PX-01,Index-Calm Internal Fracture,DATA_NEEDED,dbi (down-breadth index) never defined in the provided files,ASK OWNER
+PX-02,Down-Tail Creep Before Break,COMPUTES,"QUIET 10.0 ASSUMED tail cut -3%/+3%, window-relative percentiles — see ASSUMED_CO",
+PX-03,Breadth Sink Under Flat Tape,COMPUTES,"QUIET 44.0 ASSUMED tail cut -3%/+3%, window-relative percentiles — see ASSUMED_CO",
+PX-04,Rotation Violence Expansion,COMPUTES,"QUIET 3.004875722653437 ASSUMED tail cut -3%/+3%, window-relative percentiles — see ASSUMED_CO",
+PX-05,Bond Safety Leak + Equity Fracture,DATA_NEEDED,dbi never defined in the provided files,ASK OWNER
+PX-06,Yield Stress + Weak Breadth,COMPUTES,"QUIET -0.0730000000000004 ASSUMED tail cut -3%/+3%, window-relative percentiles — see ASSUMED_CO",
+PX-07,Hidden Accumulation Breadth Drift,COMPUTES,"QUIET 50.0 ASSUMED tail cut -3%/+3%, window-relative percentiles — see ASSUMED_CO",
+PX-08,Washout-to-Reclaim Thrust,COMPUTES,"QUIET 0.6363764217623857 ASSUMED tail cut -3%/+3%, window-relative percentiles — see ASSUMED_CO",
+PX-09,Asymmetry Flip After Panic,COMPUTES,"QUIET 16.0 ASSUMED tail cut -3%/+3%, window-relative percentiles — see ASSUMED_CO",
+PX-10,Compression Release Without Panic,COMPUTES,"QUIET 4.805602064802325 ASSUMED tail cut -3%/+3%, window-relative percentiles — see ASSUMED_CO",
+PX-11,Breadth Capitulation Exhaustion,COMPUTES,"QUIET 10.0 ASSUMED tail cut -3%/+3%, window-relative percentiles — see ASSUMED_CO",
+PX-12,Macro-Relief Reclaim,COMPUTES,"QUIET 4.0 ASSUMED tail cut -3%/+3%, window-relative percentiles — see ASSUMED_CO",
+FII-01,FII 5D Cash Stress Q10,COMPUTES,QUIET 8195.470000000003 5d sum vs q10 -18474 Cr (window = committed history),
+FII-02,FII 10D Sell Cluster 7in10,COMPUTES,QUIET 4.0 negative days in last 10,
+FII-03,FII-DII Divergence Support,COMPUTES,QUIET 274.0400000000001 FII 5d < 0 AND DII 5d > 0,
+FII-04,FII Index Futures Net Unwind,COMPUTES,QUIET -150058.0 FII idx-fut net contracts vs rolling q10 -234451,
+FII-05,Participant FII Futures Short Bias,COMPUTES,QUIET 87.08505506237768 short share % vs q80 87.7%,
+FII-06,Client-Against-FII Crowding,COMPUTES,QUIET 76.13490587216573 client long share rising while FII net short deepens (5d),
+FII-07,Index Options PCR OI Shock,COMPUTES,"QUIET 0.8943977486698226 PCR-OI 0.89, -17.4% vs 20d avg (TOTAL row, ASSUMED per register gap)",
+FII-08,IFR + FII Cash Stress Stack,COMPUTES,QUIET  damage[static 0.213]: YES · damage[rolling q90]: no (owner: both varia,
+FII-09,IFR + FII Derivatives Stack,COMPUTES,QUIET  damage[static 0.213]: YES · damage[rolling q90]: no (owner: both varia,
+TG-01,Pre-rise watchlist gate,HAVE,trading/triggers.py gates,
+TG-02,Paper entry permission gate,HAVE,trading/triggers.py gates,
+TG-03,Failed breakdown reversal gate,HAVE,trading/triggers.py gates,
+TG-04,Pre-fall avoid gate,HAVE,trading/triggers.py gates,
+TG-05,Paper exit warning gate,HAVE,trading/triggers.py gates,
+TG-06,Collapse hard block,HAVE,trading/triggers.py gates,
+TG-07,Sector confirmation gate,HAVE,trading/triggers.py gates,
+TG-08,News/event overlay gate,HAVE,trading/triggers.py gates,
+TC-01,Squeeze + quiet accumulation,HAVE,trading/triggers.py clusters,
+TC-02,Failed breakdown reclaim,HAVE,trading/triggers.py clusters,
+TC-03,RS lead + base hold,HAVE,trading/triggers.py clusters,
+TC-04,Distribution near high,HAVE,trading/triggers.py clusters,
+TC-05,Failed breakout trap,HAVE,trading/triggers.py clusters,
+TC-06,Support break risk stack,HAVE,trading/triggers.py clusters,
+TC-07,Contagion overlay,HAVE,trading/triggers.py clusters,
+TC-08,External catalyst alignment,HAVE,trading/triggers.py clusters,
+VIX-01,Extreme-VIX entry block (WM023 regime),TRADES,regime panic block,
+VIX-02,VIX spike-day entry freeze,COMPUTES,QUIET 0.0 1d +0.0% / 3d -0.2%; freeze = 1d >20% (today or yesterday),
+X-01,Skip-month momentum (12-1),COMPUTES,VALUE -34.30462793309298 12-1 skip-month return %,
+X-02,1Y Jensen's alpha,COMPUTES,"VALUE -44.197229497747884 Jensen alpha %/yr, beta -0.19 (Rf ASSUMED 6.5%)",
+X-03,EPS growth stability (5Y),COMPUTES,PARTIAL 0.03291044808851305 sigma over 3 growth points (register wants 5Y; repo holds ~4 years),
+X-04,Low-vol as return factor,COMPUTES,VALUE 26.424731036949783 annualized vol % (low preferred),
+X-05,Durability composite,DATA_NEEDED,durability composite — filings-based components not in repo,ASK OWNER
+X-06,Float / supply factor,DATA_NEEDED,free-float % — not in repo,ASK OWNER
+X-07,Institutional sponsorship trend,DATA_NEEDED,institutional holder count — not in repo,ASK OWNER
+X-08,Industry-group RS rank,COMPUTES,industry RS ranking over panel groups (>=3 members),
+X-09,Distance above 52-week LOW,COMPUTES,VALUE 14.781464993929582 % above 52w low (rule wants >= 30),
+X-10,200DMA slope duration,COMPUTES,QUIET 0.0 200DMA rising 0 sessions,
+X-11,Estimate-revision decomposition,DATA_NEEDED,estimate revisions — no feed,ASK OWNER
+X-12,Piotroski F-Score,COMPUTES,VALUE 5.0 5/9 legs true,
+X-13,Altman Z-Score gate,COMPUTES,VALUE 10.491862123868124 Z; exclude <1.8; MVE uses ASSUMED shares; EBIT=operating income,
+X-14,Beneish M-Score gate,COMPUTES,PARTIAL  all 8 ratios need 2y aligned rows — full M-score deferred to research ,
+X-15,SUE / PEAD factor,COMPUTES,PARTIAL 3.1099999999999994 qEPS YoY change; SUE sigma leg needs 8 quarters of surprises (repo hol,
+X-16,Book/Market value factor,COMPUTES,VALUE 0.1306290549787569 book/market (shares ASSUMED NI/EPS),
+X-17,Asset-growth factor,COMPUTES,VALUE 0.1424741118468449 YoY total-asset growth (low preferred),
+X-18,Supertrend flip state,COMPUTES,"QUIET  close vs ATR(10)x3 bands: inside (simplified band, not stateful supert",
+X-19,Nifty200Mom30 exact mechanics,DATA_NEEDED,documented on page (H-24 preset live); exact replication is a research script order,ASK OWNER
+X-20,Low-beta tilt (BAB),COMPUTES,QUIET -0.191071451430629 preferred band 0.6-1.0,
+U-01,Core minimum,AUDIT_ROW,"AM07 has no CORE_MIN concept; universe = full NSE auto-refresh (2,393), scan = rotating ~5",
+U-02,Core maximum,AUDIT_ROW,"AM07 cap = max_positions 80 (book), scan bucket ~50",
+U-03,Discovery maximum,AUDIT_ROW,"AM07 discovery = whole universe via rotation, no 5000 cap needed",
+U-04,ADV20 minimum,AUDIT_ROW,AM07 liquidity gate fails closed post-audit (A-batch); turnover floor Rs 1Cr+ median,
+U-05,5D turnover minimum,AUDIT_ROW,"AM07 uses median daily turnover, not 5-day sum — same intent",
+U-06,Core eligibility,AUDIT_ROW,"AM07 eligibility = liquidity + blocklist + score floor + abs-momentum + regime gates, all ",
+U-07,Ranking rule,AUDIT_ROW,"AM07 ranks by momentum score, never alphabetical (the alphabetical-bucket fault was found ",
+S-01,Momentum score,AUDIT_ROW,"AM07 momentum = 6m+12m vol-adjusted rank blend (v2.1/v3 tested) — already rank-based, the ",
+S-02,Quality score,AUDIT_ROW,AM07 quality blend 35% exists; missing-inputs handling differs,
+S-03,Final score,AUDIT_ROW,AM07 blend 65/35 equivalent lives in strategy config,
+S-04,ADV gate (scanner),AUDIT_ROW,AM07 ADV-equivalent gate fails closed (audit A-batch),
+S-05,Turnover gate (scanner),AUDIT_ROW,AM07 turnover gate fails closed,
+S-06,Staleness gate,AUDIT_ROW,AM07 staleness guard: DATA_STALE + HOLD (stale-data guard),
+S-07,Momentum gate,AUDIT_ROW,AM07 absolute-momentum gate ON (own 6m return > 0),
+S-08,Correlation gate,AUDIT_ROW,"AM07 computes REAL pairwise correlation, cap 0.85 (risk_v2)",
+S-09,Hard pass,AUDIT_ROW,AM07 hard pass = all gates AND; kill switch on top,
+S-10,SELECT threshold,AUDIT_ROW,AM07 momentum floor = 62 (owner order 2026-07-30); ASH08 ruling 67 applies to ASH08's diff,
+S-11,WATCH threshold,AUDIT_ROW,AM07 has no WATCH band; trigger layer provides watchlist,
+S-12,Decision states,AUDIT_ROW,AM07 states: scan pick / no-pick / blocked (journaled); UNKNOWN-vs-REJECT split adopted he,
+S-13,Coverage,AUDIT_ROW,coverage telemetry — computed on this page (see scan_quality),
+S-14,Effective score,AUDIT_ROW,effective score telemetry — computed on this page,

@@ -106,6 +106,7 @@ def trigger_detail(request: Request, ticker: str):
         except Exception:
             pass
         view = stock_view(df, asof=asof)
+        from trading.triggers import CALIBRATION
         by_family: dict[str, list[dict]] = {}
         for t in TRIGGERS:
             h = view["hits"].get(t.id)
@@ -117,6 +118,7 @@ def trigger_detail(request: Request, ticker: str):
                            else "n/a" if h is None
                            else "FIRED" if h else "quiet"),
                 "needs": t.needs,
+                "cal": CALIBRATION.get(t.id),
             })
         detail = {"ticker": ticker, "view": view, "by_family": by_family,
                   "bars": len(df)}
