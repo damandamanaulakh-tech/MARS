@@ -93,6 +93,23 @@ def register_page(request: Request, ticker: str = ""):
             pwoi=inputs.get("pwoi"),
             sectors=sector_map,
         )
+        # W-028..031: portfolio-construction rules against the LIVE book
+        try:
+            from .. import state
+            p = state.portfolio()
+            equity = max(p.equity() if callable(getattr(p, "equity", None))
+                         else 0.0, 1.0)
+            weights = {t: pos.qty * pos.avg_price / equity
+                       for t, pos in (p.positions or {}).items()}
+            vols = {}
+            for t, df in panel.items():
+                r = df["Close"].pct_change().dropna() if "Close" in df else None
+                if r is not None and len(r) >= 60:
+                    vols[t] = float(r.std())
+            mv.update(rv.portfolio_items(weights, vols))
+        except Exception:
+            log.exception("register: portfolio items failed")
+            mv.update(rv.portfolio_items({}, {}))
         market_rows = _rows_for(mv)
     except Exception as e:                                    # noqa: BLE001
         log.exception("register: market view failed")
@@ -131,7 +148,7 @@ def register_page(request: Request, ticker: str = ""):
             "stock_rows": stock_rows,
             "ticker": t, "stock_err": stock_err,
             "have": sorted(rv.AM07_HAVE.items()),
-            "us_map": sorted(rv.U_S_MAPPING.items()),
+            "us_map": sorted(rv.U_S_MAPPING.items()) + sorted(rv.BT_MAPPING.items()),
             "assumed": sorted(rv.ASSUMED_CONSTANTS.items()),
             "counts": counts, "states": states,
             "n_registry": len(rv.REGISTRY),

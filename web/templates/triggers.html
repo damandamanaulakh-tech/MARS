@@ -93,6 +93,12 @@
         <td class="px-4 py-2">
           <span class="font-semibold">{{ t.name }}</span>
           <span class="text-[10px] text-ink-faint ml-1">{{ t.side }} · w{{ t.weight }}</span>
+          {% if t.cal %}
+            {% if t.cal.proof_tag == 'VERIFIED' %}<span class="ml-1 px-1.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold">VERIFIED lift {{ t.cal.lift }} · leads {{ t.cal.median_lead_days|int }}d</span>
+            {% elif t.cal.proof_tag == 'SUPPORTED' %}<span class="ml-1 px-1.5 py-0.5 bg-sky-100 text-sky-800 text-[10px] font-bold">SUPPORTED lift {{ t.cal.lift }}</span>
+            {% elif t.cal.proof_tag == 'REJECTED' %}<span class="ml-1 px-1.5 py-0.5 bg-rose-100 text-rose-800 text-[10px] font-bold" title="fired {{ t.cal.fires }}x in 94k windows; no edge over chance">REJECTED lift {{ t.cal.lift }}</span>
+            {% else %}<span class="ml-1 px-1.5 py-0.5 bg-slate-100 text-ink-faint text-[10px]">few fires</span>{% endif %}
+          {% endif %}
           <div class="text-xs text-ink-soft">{{ t.definition }}</div>
           <div class="text-[10px] text-ink-faint font-mono mt-0.5">{{ t.formula }}</div>
           {% if t.status == 'DATA_NEEDED' %}<div class="text-[10px] text-amber-700 mt-0.5">needs: {{ t.needs }}</div>{% endif %}

@@ -44,6 +44,7 @@ import csv
 import logging
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Callable, Optional
 
 import numpy as np
@@ -765,6 +766,42 @@ EXTERNAL = [t for t in TRIGGERS if not t.ohlcv_ready]
 
 
 # --------------------------------------------------------------------------
+# Calibration (BT01-BT08, owner order 2026-08-10 "sequence must import"):
+# the measured verdicts ride WITH the layer. Loaded from the committed run
+# so display always shows each trigger's evidence — lift vs chance, proof
+# tag, and MEDIAN LEAD DAYS (the sequencing: how many days before its event
+# a trigger historically fires). Missing file = empty dict, fail-visible on
+# the page, never fabricated.
+# --------------------------------------------------------------------------
+
+_CAL_CSV = (Path(__file__).resolve().parents[1] / "research" /
+            "bt_calibration" / "run_2026-08-09" / "trigger_calibration.csv")
+
+
+def _load_calibration() -> dict[str, dict]:
+    out: dict[str, dict] = {}
+    try:
+        with open(_CAL_CSV, encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                out[row["trigger_id"]] = {
+                    "proof_tag": row["proof_tag"],
+                    "lift": float(row["lift"]) if row["lift"] else None,
+                    "median_lead_days": (float(row["median_lead_days"])
+                                         if row["median_lead_days"] else None),
+                    "fires": int(row["fires"]),
+                    "false_positive_rate_pct":
+                        (float(row["false_positive_rate_pct"])
+                         if row["false_positive_rate_pct"] else None),
+                }
+    except OSError:
+        pass
+    return out
+
+
+CALIBRATION: dict[str, dict] = _load_calibration()
+
+
+# --------------------------------------------------------------------------
 # Evaluation: one stock → hits, family counts, side scores, gates
 # --------------------------------------------------------------------------
 
@@ -899,12 +936,18 @@ def stock_view(df: pd.DataFrame, asof: str = "") -> dict:
     scores = side_scores(hits)
     gates = evaluate_gates(hits)
     fired = [t for t in TRIGGERS if hits.get(t.id) is True]
+    # SEQUENCE ORDER (owner 2026-08-10): earliest-warning triggers first —
+    # sorted by measured median lead days from the BT01-BT08 calibration.
+    # Uncalibrated triggers sort last, never guessed.
+    fired.sort(key=lambda t: -(CALIBRATION.get(t.id, {})
+                               .get("median_lead_days") or -1))
     return {
         "asof": asof,
         "hits": hits,
         "fired": [{"id": t.id, "name": t.name, "family": t.family,
                    "side": t.side, "weight": t.weight,
-                   "definition": t.definition, "formula": t.formula}
+                   "definition": t.definition, "formula": t.formula,
+                   "calibration": CALIBRATION.get(t.id)}
                   for t in fired],
         "family_counts": fam,
         "scores": scores,

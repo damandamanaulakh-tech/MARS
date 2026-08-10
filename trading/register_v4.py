@@ -125,6 +125,17 @@ ASSUMED_CONSTANTS: dict[str, str] = {
                       "DATA_NEEDED",
 }
 
+# BT rows: the register's backtest knobs vs what AM07's backtest actually
+# does — documentation, not computation.
+BT_MAPPING: dict[str, str] = {
+    "BT-01": "AM07 uses CA-adjusted candles + the cleaning quarantine "
+             "instead of a return clip; era-pinned studies note their own",
+    "BT-02": "AM07 momentum needs >=252 bars per name (min-history floor)",
+    "BT-03": "AM07 filters by liquidity (Rs 1Cr+ median turnover), not a "
+             "volatility proxy",
+    "BT-04": "AM07 scans daily; walk-forward re-forms monthly in studies",
+}
+
 # S/U rows: the register audits the ASH08 build. AM07's equivalents, for the
 # page — documentation, not computation.
 U_S_MAPPING: dict[str, str] = {
@@ -511,6 +522,7 @@ def stock_view(df: pd.DataFrame, symbol: str = "",
         for rid in ("W-004", "W-005", "X-02", "X-20", "W-002", "W-001"):
             out[rid] = _na(rid, "needs benchmark closes")
     if n >= 21:
+        value("B-03", x.ret(20) * 100, "ROC20 %")
         value("W-009", vol_ratio, "volume / SMA20(volume)")
         r1 = np.abs(np.diff(c) / c[:-1])
         v1 = x.v[1:]
@@ -750,7 +762,7 @@ _STOCK_DATA_NEEDED = {
 }
 
 _STOCK_IDS = [
-    "E-01", "E-02", "E-03", "E-04", "E-05", "E-06", "B-07",
+    "B-03", "E-01", "E-02", "E-03", "E-04", "E-05", "E-06", "B-07",
     "H-11", "H-12", "H-14", "H-15", "H-16", "H-17", "H-18", "H-21", "H-22",
     "W-001", "W-002", "W-003", "W-004", "W-005", "W-006", "W-009", "W-010",
     "W-012", "W-013", "W-014", "W-015", "W-016", "W-017", "W-018",
@@ -877,11 +889,28 @@ def market_view(panel: dict[str, pd.DataFrame],
                     "PX-12", "FIRED" if ychg5 <= p10y and
                     (up_pct5.iloc[-1] - up_pct5.iloc[-6]) >= 12 else "QUIET",
                     float(up_pct5.iloc[-1] - up_pct5.iloc[-6]), A)
+        # X-08: industry-group RS rank — rank industries by mean member 6M
+        # return; register rule: favour stocks in top-N groups
+        if sectors is not None and len(prices) >= 127:
+            r6 = prices.pct_change(126).iloc[-1]
+            grp = {}
+            for t, v in r6.items():
+                sec = (sectors.get(t) or sectors.get(t + ".NS")
+                       or sectors.get(str(t).replace(".NS", "")))
+                if sec and pd.notna(v):
+                    grp.setdefault(sec, []).append(float(v))
+            ranked = sorted(((np.mean(v), s) for s, v in grp.items()
+                             if len(v) >= 3), reverse=True)
+            if ranked:
+                top = ", ".join(f"{s} {m*100:+.1f}%" for m, s in ranked[:3])
+                out["X-08"] = Reading("X-08", "VALUE", float(len(ranked)),
+                                      f"top groups: {top} (>=3 members each)")
         # C-03 industry breadth
         if sectors:
             per = {}
             for t in prices.columns:
-                sec = sectors.get(t)
+                sec = (sectors.get(t) or sectors.get(t + ".NS")
+                       or sectors.get(str(t).replace(".NS", "")))
                 if not sec or len(prices[t].dropna()) < 200:
                     continue
                 above = prices[t].iloc[-1] > prices[t].rolling(200).mean().iloc[-1]
