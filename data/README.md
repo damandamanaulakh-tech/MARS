@@ -159,3 +159,36 @@ docs/DATA_FETCH_2026-08-09.md.
   research/tools/fetch_kit/. The archive itself stays OUT of the git tree
   (Render clones the repo); delivered to the owner as a zip — attach to
   the `chityy-archive` release to make it session-fetchable forever.
+
+## Asset re-check intake 2026-08-11 (owner: "re check on repo asset…
+mostly u will get the data u needed" — they were right)
+- `data/market_internals_1996_2024.csv` — 7,162 days of the owner's own
+  market internals (breadth, dispersion, tails, bond yield, dbi, PX-01..12
+  fire flags). SOLVED two mysteries: dbi = cross-sectional dispersion /
+  |equal-weight return| (verified 6,808/7,162 rows exact; dbi_5d = 5d mean,
+  7,158/7,158) → PX-01/05 now compute. And their thresholds.csv shows
+  tail_down3_5d p90 = 0.212987 → the "static 0.213" damage threshold IS
+  the rolling q90, frozen over 1996-2024. Both variants = one rule.
+- `data/fii_dii_cash_history_2007_2022.csv` — 3,770 daily FII+DII rows
+  with gross legs (net==buy−sell on 3,770/3,770). Overlap vs the older
+  fii_dii_daily_2014_2023.csv agrees on ~73% of days exactly and diverges
+  on ~27% uniformly across years — the new file is the better-provenanced
+  record (named NSE source, internally consistent); old file kept, treat
+  the new one as primary for pre-2024 research.
+- `data/fo_participant_oi_2013_2023.csv` — PWOI long-format 97,635 rows
+  2013→2023: extends the participant-OI record 11 years behind the
+  2024-2026 panel (different column layout — long vs wide; note before
+  merging).
+- `data/fii_derivatives_stats_current_clean.csv`,
+  `data/fo_options_pcr_oi_by_symbol_2026_06_03.csv`,
+  `data/fpi_monthly_net_investments_parsed.csv` — single-day/monthly
+  F&O + FPI records from the assets.
+- `research/chityy_archive/trigger_pre_1_2_week_engine.py` — the original
+  Chityy trigger engine code, RECOVERED (the 2026-07-27 note "the
+  sourceborn_chityy .py was never saved anywhere" was WRONG — it sat in
+  the release assets as trigger_pre_1_2_week_engine.py).
+- `research/chityy_archive/prior_calibration/` — the owner's own earlier
+  calibration outputs (thresholds, top pre-fall/combo triggers, event fire
+  matrix, parameter manifest, definer table). Their top pre-fall result
+  (tail_down3_5d>0.213 → lift 1.91) independently agrees with our
+  BT01-BT08 danger-side verdict.

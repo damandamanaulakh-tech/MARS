@@ -1,0 +1,10 @@
+parameter_id,layer,parameter_name,formula,status,app_use
+IFR_01,Internal Fracture,DAMAGE_CLUSTER_5IN10,count(last_10d tail_down3_5d > rolling_q90) >= 5,KEEP_CONDITIONAL,Risk throttle
+IFR_02,Internal Fracture,TAIL_DAMAGE_SHOCK_Q95,tail_down3_5d > rolling_q95,KEEP,Shock warning
+IFR_03,Internal Fracture,TAIL_DAMAGE_DISPERSION,tail_down3_5d > q90 and disp_5d > q85,KEEP,Structural fracture
+IFR_04,Internal Repair,TAIL_REPAIR_RATIO,tail_up3_5d / tail_down3_5d,WATCH,Recovery diagnostic only
+FII_01,FII Cash,FII_CASH_STRESS_Q10,fii_net_5d <= rolling_q10,KEEP_AS_CONFIRMATION,Institutional stress confirm
+FII_02,FII Cash,FII_SELL_CLUSTER_7IN10,count(last_10d fii_net_cr < 0) >= 7,KEEP_AS_CONFIRMATION,Sell cluster confirm
+FII_03,FII/DII Cash,FII_DII_DIVERGENCE_5D,fii_net_5d < 0 and dii_net_5d > 0,WATCH,Support/divergence watch
+STACK_01,Composite,ADAPTIVE_IFR_FII_CASH_STACK,IFR + FII cash weighted risk score,KEEP_FOR_PAPER,Paper exposure engine
+DER_01,Derivatives,FII_INDEX_FUTURES_NET_UNWIND,needs historical participant-wise OI,HOLD_DATA_NEEDED,Future confirmation layer
