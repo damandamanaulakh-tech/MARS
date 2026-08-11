@@ -327,9 +327,10 @@ v1-v4 program — do not quote it.**
   (2026-07-27 evening): owner asset-attached everything (106 assets now) —
   PRE RISE_FALL_TRIGGER_LAYER_CSV_CODE_v0_2 holds NO .py, only 8 CSV design
   maps (trigger params/score gates/clusters/pyramid map/reverse-backtest
-  design), committed to research/chityy_archive/trigger_layer_v0_2/. The
-  sourceborn_chityy .py code was never saved anywhere — design maps are the
-  surviving record. Back.Test.Claude.zip = duplicate of the
+  design), committed to research/chityy_archive/trigger_layer_v0_2/. ~~The
+  sourceborn_chityy .py code was never saved anywhere~~ (WRONG — RECOVERED
+  2026-08-11: trigger_pre_1_2_week_engine.py sat in the release assets;
+  committed to research/chityy_archive/). Back.Test.Claude.zip = duplicate of the
   repo's 191-ticker panel (release-only).
 - Original archive plan (superseded by the above; kept for context):
   do NOT put it in the git tree (100MB/file limit, Render deploys clone the
@@ -864,6 +865,24 @@ research/bt_calibration/. THE VERDICT, label-robust:
 - PROPOSED NEXT (needs owner word): wire the 10 VERIFIED danger triggers
   as an exit/throttle confirm layer (their own F-006 rule: risk side,
   NEVER entry). PRs #47/#48 merged same day.
+**ASSET RE-CHECK 2026-08-11 (owner: "re check on repo asset… mostly u will
+get the data u needed" — RIGHT on every count, PR #50):** the release
+assets held the answers to almost everything open. dbi RECOVERED from
+05_daily_market_internals.csv (7,162 days 1996-2024 w/ PX flags): dbi =
+cross-sectional dispersion / |EW return|, verified 6,808/7,162 exact,
+dbi_5d = 5d mean 7,158/7,158 → PX-01/05 compute, ZERO register items left
+on undefined formulas. 0.213 SOLVED: thresholds.csv p90(tail_down3_5d) =
+0.212987 — static 0.213 and rolling q90 were ALWAYS THE SAME RULE (one
+frozen 1996-2024). FII/DII 2007-2022 daily w/ DII + gross legs committed
+(fii_dii_cash_history_2007_2022.csv, internally consistent 3,770/3,770;
+~73% exact vs old daily file, divergence documented, new = primary
+pre-2024). PWOI extended to 2013 (fo_participant_oi_2013_2023.csv,
+97,635 rows). Owner's own prior calibration committed
+(research/chityy_archive/prior_calibration/) — their tail>0.213 lift 1.91
+independently corroborates our BT danger verdict. Still open asks (owner
+answering): Colab script for shareholding/F&O-bhavcopy/block-deals+insider
+(y/n), paid feeds y/n, TRI, the broken Unconfirmed.880272.crdownload
+asset, optional NSE.1991-2010 long-history intake.
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
