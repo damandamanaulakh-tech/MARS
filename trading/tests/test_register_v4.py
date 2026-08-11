@@ -170,11 +170,19 @@ def test_fii3_data_needed_when_dii_blank():
     assert out["FII-03"].state == "DATA_NEEDED"
 
 
-def test_px_dbi_items_stay_data_needed():
+def test_px_dbi_items_now_compute_with_recovered_formula():
+    # dbi recovered 2026-08-11 from the owner's market-internals asset
     out = rv.market_view(_panel(), index_close=_frame(n=300)["Close"])
-    assert out["PX-01"].state == "DATA_NEEDED"
-    assert out["PX-05"].state == "DATA_NEEDED"
-    assert "dbi" in out["PX-01"].note
+    assert out["PX-01"].state in ("FIRED", "QUIET")
+    assert "recovered" in out["PX-01"].note
+    assert out["PX-05"].state == "NA"      # no bond series passed here
+
+
+def test_px05_computes_with_bond_series():
+    idx = _frame(n=300, seed=99)["Close"]
+    bond = pd.Series(np.linspace(7.2, 6.9, 300), index=idx.index)
+    out = rv.market_view(_panel(), index_close=idx, bond_yield=bond)
+    assert out["PX-05"].state in ("FIRED", "QUIET")
 
 
 def test_px_computable_items_evaluate_with_panel():

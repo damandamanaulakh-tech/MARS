@@ -1,0 +1,73 @@
+event,event_date,event_type,code,name,side,status,fire_date,lead_trading_days
+2008_GFC_ENTRY,2008-01-21,fall,PX01,Index-Calm Internal Fracture,Pre-Fall/Regime Shift,FIRED,2008-01-08,9
+2008_GFC_ENTRY,2008-01-21,fall,PX02,Down-Tail Creep Before Price Break,Pre-Fall/Crash,FIRED,2008-01-08,9
+2008_GFC_ENTRY,2008-01-21,fall,PX03,Breadth Sink Under Flat Tape,Pre-Fall/Top,NO_FIRE,,
+2008_GFC_ENTRY,2008-01-21,fall,PX04,Rotation Violence Expansion,Pre-Regime Change,NO_FIRE,,
+2008_GFC_ENTRY,2008-01-21,fall,PX05,Bond Safety Leak + Equity Fracture,Pre-Fall/Liquidity Stress,NO_FIRE,,
+2008_GFC_ENTRY,2008-01-21,fall,PX06,Yield Stress + Weak Breadth,Pre-Fall/Rate Stress,NO_FIRE,,
+2008_GFC_ENTRY,2008-01-21,fall,PX07,Hidden Accumulation Breadth Drift,Pre-Rise,NO_FIRE,,
+2008_GFC_ENTRY,2008-01-21,fall,PX08,Washout-to-Reclaim Thrust,Recovery/Bottom,FIRED,2007-12-31,15
+2008_GFC_ENTRY,2008-01-21,fall,PX09,Asymmetry Flip After Panic,Recovery,NO_FIRE,,
+2008_GFC_ENTRY,2008-01-21,fall,PX10,Compression Release Without Panic,Pre-Rise/Breakout,NO_FIRE,,
+2008_GFC_ENTRY,2008-01-21,fall,PX11,Breadth Capitulation Exhaustion,Recovery Setup,FIRED,2008-01-14,5
+2008_GFC_ENTRY,2008-01-21,fall,PX12,Macro-Relief Reclaim,Recovery,NO_FIRE,,
+COVID_CRASH_START,2020-02-24,fall,PX01,Index-Calm Internal Fracture,Pre-Fall/Regime Shift,NO_FIRE,,
+COVID_CRASH_START,2020-02-24,fall,PX02,Down-Tail Creep Before Price Break,Pre-Fall/Crash,NO_FIRE,,
+COVID_CRASH_START,2020-02-24,fall,PX03,Breadth Sink Under Flat Tape,Pre-Fall/Top,NO_FIRE,,
+COVID_CRASH_START,2020-02-24,fall,PX04,Rotation Violence Expansion,Pre-Regime Change,NO_FIRE,,
+COVID_CRASH_START,2020-02-24,fall,PX05,Bond Safety Leak + Equity Fracture,Pre-Fall/Liquidity Stress,NO_FIRE,,
+COVID_CRASH_START,2020-02-24,fall,PX06,Yield Stress + Weak Breadth,Pre-Fall/Rate Stress,NO_FIRE,,
+COVID_CRASH_START,2020-02-24,fall,PX07,Hidden Accumulation Breadth Drift,Pre-Rise,NO_FIRE,,
+COVID_CRASH_START,2020-02-24,fall,PX08,Washout-to-Reclaim Thrust,Recovery/Bottom,NO_FIRE,,
+COVID_CRASH_START,2020-02-24,fall,PX09,Asymmetry Flip After Panic,Recovery,FIRED,2020-02-10,9
+COVID_CRASH_START,2020-02-24,fall,PX10,Compression Release Without Panic,Pre-Rise/Breakout,NO_FIRE,,
+COVID_CRASH_START,2020-02-24,fall,PX11,Breadth Capitulation Exhaustion,Recovery Setup,FIRED,2020-02-03,14
+COVID_CRASH_START,2020-02-24,fall,PX12,Macro-Relief Reclaim,Recovery,FIRED,2020-02-07,10
+POST_COVID_RECOVERY,2020-03-24,recovery,PX01,Index-Calm Internal Fracture,Pre-Fall/Regime Shift,NO_FIRE,,
+POST_COVID_RECOVERY,2020-03-24,recovery,PX02,Down-Tail Creep Before Price Break,Pre-Fall/Crash,NO_FIRE,,
+POST_COVID_RECOVERY,2020-03-24,recovery,PX03,Breadth Sink Under Flat Tape,Pre-Fall/Top,NO_FIRE,,
+POST_COVID_RECOVERY,2020-03-24,recovery,PX04,Rotation Violence Expansion,Pre-Regime Change,NO_FIRE,,
+POST_COVID_RECOVERY,2020-03-24,recovery,PX05,Bond Safety Leak + Equity Fracture,Pre-Fall/Liquidity Stress,NO_FIRE,,
+POST_COVID_RECOVERY,2020-03-24,recovery,PX06,Yield Stress + Weak Breadth,Pre-Fall/Rate Stress,FIRED,2020-03-23,1
+POST_COVID_RECOVERY,2020-03-24,recovery,PX07,Hidden Accumulation Breadth Drift,Pre-Rise,NO_FIRE,,
+POST_COVID_RECOVERY,2020-03-24,recovery,PX08,Washout-to-Reclaim Thrust,Recovery/Bottom,NO_FIRE,,
+POST_COVID_RECOVERY,2020-03-24,recovery,PX09,Asymmetry Flip After Panic,Recovery,NO_FIRE,,
+POST_COVID_RECOVERY,2020-03-24,recovery,PX10,Compression Release Without Panic,Pre-Rise/Breakout,NO_FIRE,,
+POST_COVID_RECOVERY,2020-03-24,recovery,PX11,Breadth Capitulation Exhaustion,Recovery Setup,FIRED,2020-03-24,0
+POST_COVID_RECOVERY,2020-03-24,recovery,PX12,Macro-Relief Reclaim,Recovery,NO_FIRE,,
+2022_CORRECTION,2022-01-17,fall,PX01,Index-Calm Internal Fracture,Pre-Fall/Regime Shift,NO_FIRE,,
+2022_CORRECTION,2022-01-17,fall,PX02,Down-Tail Creep Before Price Break,Pre-Fall/Crash,NO_FIRE,,
+2022_CORRECTION,2022-01-17,fall,PX03,Breadth Sink Under Flat Tape,Pre-Fall/Top,NO_FIRE,,
+2022_CORRECTION,2022-01-17,fall,PX04,Rotation Violence Expansion,Pre-Regime Change,NO_FIRE,,
+2022_CORRECTION,2022-01-17,fall,PX05,Bond Safety Leak + Equity Fracture,Pre-Fall/Liquidity Stress,NO_FIRE,,
+2022_CORRECTION,2022-01-17,fall,PX06,Yield Stress + Weak Breadth,Pre-Fall/Rate Stress,NO_FIRE,,
+2022_CORRECTION,2022-01-17,fall,PX07,Hidden Accumulation Breadth Drift,Pre-Rise,NO_FIRE,,
+2022_CORRECTION,2022-01-17,fall,PX08,Washout-to-Reclaim Thrust,Recovery/Bottom,FIRED,2021-12-28,14
+2022_CORRECTION,2022-01-17,fall,PX09,Asymmetry Flip After Panic,Recovery,FIRED,2021-12-27,15
+2022_CORRECTION,2022-01-17,fall,PX10,Compression Release Without Panic,Pre-Rise/Breakout,NO_FIRE,,
+2022_CORRECTION,2022-01-17,fall,PX11,Breadth Capitulation Exhaustion,Recovery Setup,NO_FIRE,,
+2022_CORRECTION,2022-01-17,fall,PX12,Macro-Relief Reclaim,Recovery,NO_FIRE,,
+2024_ELECTION_SHOCK,2024-06-04,fall,PX01,Index-Calm Internal Fracture,Pre-Fall/Regime Shift,NO_FIRE,,
+2024_ELECTION_SHOCK,2024-06-04,fall,PX02,Down-Tail Creep Before Price Break,Pre-Fall/Crash,NO_FIRE,,
+2024_ELECTION_SHOCK,2024-06-04,fall,PX03,Breadth Sink Under Flat Tape,Pre-Fall/Top,NO_FIRE,,
+2024_ELECTION_SHOCK,2024-06-04,fall,PX04,Rotation Violence Expansion,Pre-Regime Change,NO_FIRE,,
+2024_ELECTION_SHOCK,2024-06-04,fall,PX05,Bond Safety Leak + Equity Fracture,Pre-Fall/Liquidity Stress,FIRED,2024-05-27,6
+2024_ELECTION_SHOCK,2024-06-04,fall,PX06,Yield Stress + Weak Breadth,Pre-Fall/Rate Stress,NO_FIRE,,
+2024_ELECTION_SHOCK,2024-06-04,fall,PX07,Hidden Accumulation Breadth Drift,Pre-Rise,NO_FIRE,,
+2024_ELECTION_SHOCK,2024-06-04,fall,PX08,Washout-to-Reclaim Thrust,Recovery/Bottom,NO_FIRE,,
+2024_ELECTION_SHOCK,2024-06-04,fall,PX09,Asymmetry Flip After Panic,Recovery,FIRED,2024-05-15,13
+2024_ELECTION_SHOCK,2024-06-04,fall,PX10,Compression Release Without Panic,Pre-Rise/Breakout,FIRED,2024-05-17,11
+2024_ELECTION_SHOCK,2024-06-04,fall,PX11,Breadth Capitulation Exhaustion,Recovery Setup,NO_FIRE,,
+2024_ELECTION_SHOCK,2024-06-04,fall,PX12,Macro-Relief Reclaim,Recovery,NO_FIRE,,
+POST_JUN4_RECOVERY,2024-06-05,recovery,PX01,Index-Calm Internal Fracture,Pre-Fall/Regime Shift,NO_FIRE,,
+POST_JUN4_RECOVERY,2024-06-05,recovery,PX02,Down-Tail Creep Before Price Break,Pre-Fall/Crash,NO_FIRE,,
+POST_JUN4_RECOVERY,2024-06-05,recovery,PX03,Breadth Sink Under Flat Tape,Pre-Fall/Top,NO_FIRE,,
+POST_JUN4_RECOVERY,2024-06-05,recovery,PX04,Rotation Violence Expansion,Pre-Regime Change,NO_FIRE,,
+POST_JUN4_RECOVERY,2024-06-05,recovery,PX05,Bond Safety Leak + Equity Fracture,Pre-Fall/Liquidity Stress,FIRED,2024-05-27,7
+POST_JUN4_RECOVERY,2024-06-05,recovery,PX06,Yield Stress + Weak Breadth,Pre-Fall/Rate Stress,NO_FIRE,,
+POST_JUN4_RECOVERY,2024-06-05,recovery,PX07,Hidden Accumulation Breadth Drift,Pre-Rise,NO_FIRE,,
+POST_JUN4_RECOVERY,2024-06-05,recovery,PX08,Washout-to-Reclaim Thrust,Recovery/Bottom,NO_FIRE,,
+POST_JUN4_RECOVERY,2024-06-05,recovery,PX09,Asymmetry Flip After Panic,Recovery,NO_FIRE,,
+POST_JUN4_RECOVERY,2024-06-05,recovery,PX10,Compression Release Without Panic,Pre-Rise/Breakout,NO_FIRE,,
+POST_JUN4_RECOVERY,2024-06-05,recovery,PX11,Breadth Capitulation Exhaustion,Recovery Setup,NO_FIRE,,
+POST_JUN4_RECOVERY,2024-06-05,recovery,PX12,Macro-Relief Reclaim,Recovery,NO_FIRE,,

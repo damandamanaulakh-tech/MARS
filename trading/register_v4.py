@@ -110,6 +110,12 @@ ASSUMED_CONSTANTS: dict[str, str] = {
     "PX tails": "tail_down3 = share of panel members whose worst 3-day "
                 "return inside the window <= -3% (register never defines "
                 "the cut; -3% ASSUMED). tail_up3 mirror at +3%",
+    "dbi (VERIFIED, no longer assumed)": "dbi = cross-sectional dispersion "
+        "/ |equal-weight return|; dbi_5d = 5-day mean. Recovered from the "
+        "owner's market_internals_1996_2024.csv (6,808/7,162 rows exact; "
+        "5d-mean 7,158/7,158). The 'static 0.213' damage threshold = the "
+        "p90 of tail_down3_5d frozen over 1996-2024 (their thresholds.csv) "
+        "— both damage variants were always the same q90 rule",
     "PX percentile refs": "p10/p25/p75/p90 legs computed vs the loaded "
                           "panel-history window (~250d), not 10Y",
     "W-011/W-015/W-016/X-13/X-16 shares": "shares outstanding approximated "
@@ -832,9 +838,31 @@ def market_view(panel: dict[str, pd.DataFrame],
             ychg5 = float(bond_yield.iloc[-1] - bond_yield.iloc[-6])
 
         A = "ASSUMED tail cut -3%/+3%, window-relative percentiles — see ASSUMED_CONSTANTS"
-        out["PX-01"] = _dn("PX-01", "dbi (down-breadth index) never defined "
-                                    "in the provided files")
-        out["PX-05"] = _dn("PX-05", "dbi never defined in the provided files")
+        # dbi RECOVERED 2026-08-11 from the owner's market_internals asset:
+        # dbi = cross-sectional dispersion / |equal-weight return| (verified
+        # on 6,808/7,162 rows of their 1996-2024 file; dbi_5d = 5d mean,
+        # 7,158/7,158 exact). PX-01/05 now compute.
+        ew = rets.mean(axis=1)
+        disp1 = rets.std(axis=1) * 100
+        with np.errstate(divide="ignore", invalid="ignore"):
+            dbi = (disp1 / (ew.abs() * 100)).replace([np.inf, -np.inf], np.nan)
+        dbi5 = dbi.rolling(5).mean()
+        if iret5 is not None and np.isfinite(dbi5.iloc[-1]):
+            out["PX-01"] = Reading(
+                "PX-01", "FIRED" if dbi5.iloc[-1] >= 15.55 and abs(iret5) <= 1.5
+                and disp5.iloc[-1] >= 2.78 else "QUIET",
+                float(dbi5.iloc[-1]),
+                "dbi = disp/|EW ret| (recovered from owner's internals file)")
+        else:
+            out["PX-01"] = _na("PX-01", "dbi needs index + panel window")
+        if ychg5 is not None and np.isfinite(dbi5.iloc[-1]):
+            out["PX-05"] = Reading(
+                "PX-05", "FIRED" if ychg5 <= -0.106 and dbi5.iloc[-1] >= 11.21
+                and up_pct5.iloc[-1] < 48 else "QUIET",
+                float(dbi5.iloc[-1]),
+                "dbi recovered; yield leg from committed bond csv")
+        else:
+            out["PX-05"] = _na("PX-05", "needs bond yield + dbi window")
         if iret5 is not None:
             out["PX-02"] = Reading("PX-02", "FIRED" if
                                    tail_dn3_5.iloc[-1] >= 17.79 and iret5 > -2
