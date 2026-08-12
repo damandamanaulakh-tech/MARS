@@ -48,9 +48,12 @@ def test_external_triggers_have_no_fn_and_name_their_data():
         assert t.needs, f"{t.id} must say what data unlocks it"
 
 
-def test_engine_and_risk_never_import_the_trigger_layer():
-    """Display + watchlist only — the owner's own REQUIRES_15Y_BACKTEST rule.
-    The money path may not silently grow a dependency on unproven triggers."""
+def test_money_path_trigger_boundary_updated_2026_08_11():
+    """The owner order arrived: 'danger layer, go with c then auto with B'.
+    NEW contract: engine may import trading.danger (the SELL-side layer of
+    calibration-VERIFIED tripwires) and nothing else from the trigger
+    world. Entry gates stay forbidden in the money path forever (F-006),
+    and risk.py / orders.py stay clean entirely."""
     import re
     from pathlib import Path
     pat = re.compile(r"^\s*(from\s+\S*triggers\s+import|import\s+\S*triggers)",
@@ -58,7 +61,12 @@ def test_engine_and_risk_never_import_the_trigger_layer():
     for mod in ("trading/engine.py", "trading/risk.py", "trading/orders.py"):
         src = Path(mod).read_text()
         assert not pat.search(src), \
-            f"{mod} imports the trigger layer — that needs an owner order"
+            f"{mod} imports triggers directly — only trading.danger may"
+        assert "GATE_RISE" not in src, \
+            f"{mod} consults an entry gate — forbidden (F-006)"
+    dsrc = Path("trading/danger.py").read_text()
+    assert "GATE_RISE" not in dsrc and "evaluate_gates" not in dsrc, \
+        "danger.py must never consult entry gates"
 
 
 def test_trigger_module_places_no_orders():

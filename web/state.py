@@ -62,6 +62,7 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.loss_day = doc.get("loss_day")
     p.loss_count = int(doc.get("loss_count", 0) or 0)
     p.trigger_watch = dict(doc.get("trigger_watch", {}) or {})
+    p.danger_alerts_start = doc.get("danger_alerts_start")
     p.last_save = doc.get("last_save")
 
 
@@ -115,6 +116,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "loss_day": self.loss_day,
             "loss_count": self.loss_count,
             "trigger_watch": self.trigger_watch,
+            "danger_alerts_start": self.danger_alerts_start,
             "last_save": self.last_save,
         }
         db.save_portfolio(doc)

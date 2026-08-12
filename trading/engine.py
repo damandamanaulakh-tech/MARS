@@ -890,8 +890,20 @@ class TradingEngine:
             return self._summary_dict({p.ticker: p.entry_price for p in self.portfolio.positions.values()})
 
         now = datetime.utcnow()
-        history = fetch_daily(tickers, period="6mo")
+        history = fetch_daily(tickers, period="1y")
         bench = fetch_daily([cfg.benchmark], period="6mo").get(cfg.benchmark)
+
+        # OWNER ORDER 2026-08-11 danger layer (C then auto B): the strict-
+        # calibration-VERIFIED danger tripwires guard HELD names. Sell side
+        # only; runs before the exit loop so a tightened stop is live today.
+        try:
+            self._danger_pass(prices, history, now)
+        except Exception:
+            log.exception("danger layer pass failed")
+            self.portfolio.decision_journal.append({
+                "ts": now.isoformat(), "action": "DANGER_LAYER_FAILED",
+                "why": "danger pass raised; positions untouched this run",
+            })
 
         # Daily kill switch check. Roll the baseline FIRST — without this the
         # baseline stays pinned at starting_capital forever and the "-2% daily"
@@ -1094,6 +1106,97 @@ class TradingEngine:
             stop_price=round(fill_price * (1 + self.cfg.stop_loss_pct), 2),
             target_price=round(fill_price * (1 + self.cfg.take_profit_pct), 2),
         )
+
+    def _danger_pass(self, prices: dict, history: dict, now: datetime) -> None:
+        """Mode C (alerts, first 7 days) then mode B (auto per-stock defence).
+        1 VERIFIED danger trigger on a held name -> tighten stop to -2.5%
+        off the live price (never loosened); 2+ -> exit half. Journaled and
+        pushed; once per ticker per day."""
+        cfg = self.cfg
+        if not getattr(cfg, "danger_layer_enabled", False):
+            return
+        from . import danger
+        if not danger.VERIFIED:
+            return                      # calibration file missing = inert
+        today_iso = now.date().isoformat()
+        if not self.portfolio.danger_alerts_start:
+            self.portfolio.danger_alerts_start = today_iso
+            self.portfolio.decision_journal.append({
+                "ts": now.isoformat(), "action": "DANGER_LAYER_ARMED",
+                "why": (f"Danger layer live (owner order 2026-08-11): "
+                        f"{len(danger.VERIFIED)} strict-VERIFIED tripwires "
+                        f"watch held names. Alerts-only for "
+                        f"{danger.ALERT_DAYS} days, then auto per-stock "
+                        "defence (tighten/-2.5% on 1 fire, exit half on 2+)."),
+            })
+        auto = danger.auto_mode_active(self.portfolio.danger_alerts_start,
+                                       today_iso)
+        seen_today = {
+            e.get("ticker") for e in self.portfolio.decision_journal[-300:]
+            if str(e.get("action", "")).startswith("DANGER_")
+            and str(e.get("ts", "")).startswith(today_iso)
+        }
+        for ticker in list(self.portfolio.positions.keys()):
+            if ticker in seen_today:
+                continue
+            price = prices.get(ticker)
+            df = history.get(ticker)
+            if not price or price <= 0 or df is None or len(df) < 60:
+                continue                # no quote / thin history = no action
+            fired = danger.evaluate_stock(df)
+            reading = danger.plan(ticker, fired, auto)
+            if reading.action == "NONE":
+                continue
+            pos = self.portfolio.positions[ticker]
+            entry = {
+                "ts": now.isoformat(), "ticker": ticker,
+                "fired": reading.fired, "price": round(price, 2),
+                "why": danger.describe(reading, auto),
+            }
+            if reading.action == "ALERT":
+                entry["action"] = "DANGER_ALERT"
+            elif reading.action == "TIGHTEN":
+                new_stop = round(price * (1 + danger.TIGHTEN_PCT), 2)
+                if new_stop > (pos.stop_price or 0):
+                    pos.stop_price = new_stop
+                    pos.custom_levels = True   # survives boot retag
+                    entry["action"] = "DANGER_TIGHTEN"
+                    entry["new_stop"] = new_stop
+                else:
+                    entry["action"] = "DANGER_ALERT"
+                    entry["why"] += " (existing stop already tighter)"
+            elif reading.action == "EXIT_HALF":
+                self._exit_half(ticker, price, danger.describe(reading, auto),
+                                now)
+                entry["action"] = "DANGER_EXIT_HALF"
+            self.portfolio.decision_journal.append(entry)
+        self.portfolio.save()
+
+    def _exit_half(self, ticker: str, raw_price: float, reason: str,
+                   now: datetime) -> None:
+        """Sell half the position at the live price (full close if qty==1).
+        Same slippage/cost model as _close; the sold half becomes a real
+        ClosedTrade — nothing vanishes from the record."""
+        pos = self.portfolio.positions[ticker]
+        if pos.qty <= 1:
+            self._close(ticker, raw_price, reason, now)
+            return
+        half = pos.qty // 2
+        exit_price = slippage_price(raw_price, "SELL", self.cfg)
+        gross = (exit_price - pos.entry_price) * half
+        costs = trade_costs(half, pos.entry_price, exit_price, self.cfg)
+        self.portfolio.cash += half * exit_price - costs
+        self.portfolio.trades.append(ClosedTrade(
+            ticker=ticker, qty=half,
+            entry_date=pos.entry_date, exit_date=now,
+            entry_price=pos.entry_price, exit_price=exit_price,
+            gross_pnl=gross, costs=costs, net_pnl=gross - costs,
+            reason=reason, sector=pos.sector,
+            entry_score=pos.entry_score, reasoning=pos.reasoning,
+            entry_notes=getattr(pos, "entry_notes", "") or "",
+            tags=list(getattr(pos, "tags", []) or []),
+        ))
+        pos.qty -= half
 
     def _close(self, ticker: str, raw_price: float, reason: str, now: datetime) -> None:
         pos = self.portfolio.positions.pop(ticker)

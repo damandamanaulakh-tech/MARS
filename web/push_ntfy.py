@@ -42,6 +42,9 @@ DOC_ID = "push"
 PUSH_ACTIONS = {
     "BUY": "🟢",
     "SELL": "🔴",
+    "DANGER_ALERT": "🚨",
+    "DANGER_TIGHTEN": "🚨",
+
     "SCAN_FAILED": "⚠️",
     "DATA_STALE": "⚠️",
     "CORRECTION_VIX_REENTRY": "🚀",
