@@ -883,6 +883,29 @@ independently corroborates our BT danger verdict. Still open asks (owner
 answering): Colab script for shareholding/F&O-bhavcopy/block-deals+insider
 (y/n), paid feeds y/n, TRI, the broken Unconfirmed.880272.crdownload
 asset, optional NSE.1991-2010 long-history intake.
+**DANGER LAYER LIVE (owner order 2026-08-11: "danger layer, go with c then
+auto with B" — their triggers' FIRST money-path influence, evidence-earned).**
+trading/danger.py + engine._danger_pass (runs in refresh before the exit
+loop): the 10 strict-calibration-VERIFIED danger tripwires (6 collapse + 4
+fall, lifts 1.6-4.1x) guard HELD names. Mode C first 7 days (DANGER_ALERT
+journal+push, would-have-done text, no touch); then auto mode B: 1 fire =
+stop tightens to -2.5% off live price (NEVER loosened; custom_levels=True
+so boot retag keeps it), 2+ fires = _exit_half (real ClosedTrade, full
+close if qty 1). Sell side ONLY (F-006) — boundary test rewritten:
+engine may import trading.danger, never triggers directly, no entry gate
+anywhere in the money path. VERIFIED list loads from the strict15 CSV at
+import (evidence-locked, guard-tested). portfolio.danger_alerts_start
+persisted JSON+Mongo both directions (risk_day lesson). Settings toggle
+danger_layer_enabled (default ON). Once-per-ticker-per-day journal guard.
+752 tests. Same message: owner SKIPPED re-uploading Jun-2018 FII zip
+(the broken crdownload — "month data doesnt change much") · Colab v2 is
+RUNNING on their side · "no new positions why so" DIAGNOSED: breadth gate
+at 50.8% vs the <=50% line (±7pp bucket sampling noise → BREADTH_BLOCKED
+most days) + abs-momentum passing only ~51% — the brake-off is live but
+these two tested gates stand; owner told where the toggle is · owner:
+"i dont want to skip anything" on remaining DATA_NEEDED — paid-feed items
+stay open, free paths first (Upstox option chain via existing daily
+token = next build candidate).**
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

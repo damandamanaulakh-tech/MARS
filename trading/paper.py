@@ -125,6 +125,7 @@ class Portfolio:
     risk_day: Optional[str] = None            # ISO date the baseline belongs to
     risk_day_equity: float = 0.0              # equity the -2% halt measures from
     risk_day_killed: bool = False             # switch tripped today? (survives restart)
+    danger_alerts_start: Optional[str] = None  # danger layer mode-C start date (owner order 2026-08-11)
     # Owner order 2026-07-30: the starting_capital this book's cash has been
     # synced to. Changing Starting Capital in Settings now really adds/removes
     # cash (journaled CAPITAL_ADJUST) instead of doing nothing to a live book.
@@ -231,6 +232,7 @@ class Portfolio:
                 "risk_day": self.risk_day,                     # daily kill-switch baseline date
                 "risk_day_equity": self.risk_day_equity,       # ...and the equity it measures from
                 "risk_day_killed": self.risk_day_killed,       # tripped-today flag
+                "danger_alerts_start": self.danger_alerts_start,  # danger layer C->B clock
                 "capital_base": self.capital_base,   # capital the cash is synced to
                 "dd_peak_equity": self.dd_peak_equity,  # drawdown-governor peak
                 "loss_day": self.loss_day,               # 2-loss halt state
@@ -273,6 +275,7 @@ class Portfolio:
             p.risk_day = data.get("risk_day")
             p.risk_day_equity = float(data.get("risk_day_equity", 0.0) or 0.0)
             p.risk_day_killed = bool(data.get("risk_day_killed", False))
+            p.danger_alerts_start = data.get("danger_alerts_start")
             # Legacy books predate capital_base; every live book started at
             # the 2026 spec's 25L, so that is the honest baseline to sync from.
             p.capital_base = float(data.get("capital_base", 25_00_000.0) or 25_00_000.0)

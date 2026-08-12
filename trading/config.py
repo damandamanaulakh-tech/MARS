@@ -111,6 +111,12 @@ class Config:
     # True restores the old brake (Settings toggle). UNTESTED live at False
     # — the 60-day window judges.
     correction_brake_enabled: bool = False
+    # OWNER ORDER 2026-08-11 ("danger layer, go with c then auto with B"):
+    # the 10 strict-calibration-VERIFIED danger triggers protect HELD
+    # positions. First 7 days = alerts only (mode C); then automatic
+    # per-stock defence (mode B): 1 fire = tighten stop to -2.5% off price,
+    # 2+ fires = exit half. Sell side ONLY - never entries (F-006).
+    danger_layer_enabled: bool = True
     # A3 breadth gate (owner: "wire it", 2026-07-27). New momentum entries
     # only when >50% of the scan panel's tickers close above their own
     # 200DMA. Preregistered evidence: docs/breadth_gate_results.json —
