@@ -927,6 +927,36 @@ data/india_10y_bond_yield.csv committed (2016->2026-06, macro research,
 not wired) · owner is moving more browser-only files into release ASSETS
 (only assets are session-readable).
 
+**FULL RE-AUDIT 2026-08-12 (owner: "do the reaudit fully… each parameter,
+file, folder… clear formula and detail, no placeholder… each header…
+flaws, suggestions… sequence of selections is not there, auto weekly new
+pull is not there") — docs/AUDIT_2026-08-12.md IS THE DOCUMENT, read it
+before answering any "what exists / what's wired" question.** 9 sections:
+verdict · the machine + data-freshness matrix (auto vs frozen, per file) ·
+money path formulas · COMPLETE parameter dictionary (every Config field /
+preset / risk gate / IFR constant / danger trigger / regime rule / sizing
+formula / 34 candles / 112 trigger constants, each with formula + code
+home + consumer, spot-verified vs code) · page-by-page map (every header
+on every screen, its data source, its update time) · full file/data/
+external-access inventory (every repo file's purpose, every data file's
+rows/range/consumer incl. NO-CODE-CONSUMER marks, Mongo collections,
+every external endpoint, env vars) · flaws F1-F8 (F1 NEW: weekly OHLCV
+top-up gates on broker.is_connected() but Upstox historical candles are
+PUBLIC — Fridays skip whenever the 03:30-dead token isn't back, fix =
+drop the gate; F2: nifty200_daily.csv committed but backtest still
+network-fetches ^CNX200; F3: breadth gate reads the ~50-name bucket ±7pp
+noise, sits at 50.8% vs ≤50% line = why book stays empty) · 12 PENDING
+NODES sequenced one-decision-each (Node 1 = the owner's named gap:
+selection-sequence stage machine quiet→compressing→accumulating→reclaim→
+entry-window→post-entry danger watch, watchlist-only per calibration
+evidence; Node 2 = weekly top-up token-gate removal; Node 3 = auto weekly
+pull for FII/delivery/PWOI/fundamentals + offline benchmark) · 6
+suggestions ("WHY NO TRADE TODAY?" dashboard line, 09:25 scan push,
+weekly self-report page, stage-ladder view, token nudge). The three
+dictionary sections were built by 3 parallel agents and spliced; momentum
+preset / can_open order / IFR constants spot-verified against code before
+commit. Owner works the nodes one by one — wait for their pick per node.
+
 ## Standing user rules
 0. Merge authorization (owner, 2026-07-27, this session): Claude MAY merge
    its own PRs once CI is green — "u r also authorize for doing the merge".
