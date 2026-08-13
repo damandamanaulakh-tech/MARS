@@ -318,7 +318,7 @@
         <td class="px-3 lg:px-6 py-3 text-ink-faint whitespace-nowrap">{{ loop.index }}</td>
         <td class="px-3 lg:px-6 py-3 font-semibold whitespace-nowrap">{{ p.ticker }}
           <a href="/chart/{{ p.ticker }}" title="candle chart" class="ml-1 no-underline">📈</a></td>
-        <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap {% if p.score >= 75 %}font-bold{% endif %}">{{ p.score | round(2) }}</td>
+        <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap {% if p.score is not none and p.score is number and p.score >= 75 %}font-bold{% endif %}">{% if p.score is not none and p.score is number %}{{ p.score | round(2) }}{% else %}—{% endif %}</td>
         <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap">₹{{ p.last_close | inr(2) }}</td>
         <td class="px-3 lg:px-6 py-3 uppercase text-xs tracking-widest whitespace-nowrap {% if p.timing_pass %}text-emerald-700{% else %}text-ink-faint{% endif %}">
           {% if p.timing_pass %}YES{% else %}no{% endif %}

@@ -582,6 +582,19 @@ def run_trigger_layer(where: str = "manual") -> dict:
                 tickers.append(t)
         tickers = tickers[:TRIGGER_LAYER_MAX_TICKERS]
 
+        # External panels (sector/RS, delivery, F&O OI, deals) — ONE batch
+        # load for the whole run: the delivery file is 3.5M rows and a
+        # per-stock pass would be 80 passes. A failure here leaves ext None,
+        # which keeps those triggers at DATA_NEEDED instead of breaking the
+        # layer (owner order 2026-08-13 wired them; they must never be able to
+        # take the job down).
+        ext_batch = None
+        try:
+            from trading import external_panels
+            ext_batch = external_panels.prepare(tickers)
+        except Exception as e:
+            log.warning("[triggers] external panels unavailable: %s", e)
+
         prev_watch = set((p.trigger_watch or {}).get("watchlist") or [])
         rows: dict[str, dict] = {}
         watchlist: list[str] = []
@@ -597,7 +610,9 @@ def run_trigger_layer(where: str = "manual") -> dict:
                            else df.iloc[-1].get("date", ""))[:10]
             except Exception:
                 pass
-            view = stock_view(df, asof=asof)
+            view = stock_view(df, asof=asof,
+                              ext=(ext_batch.for_ticker(t) if ext_batch
+                                   else None))
             rows[t] = {
                 "asof": view["asof"],
                 "family_counts": view["family_counts"],

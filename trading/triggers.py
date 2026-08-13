@@ -709,6 +709,235 @@ _FNS: dict[str, Callable] = {
     "T12W_0096": _t0096,
 }
 
+
+# --------------------------------------------------------------------------
+# The 21 EXTERNAL-DATA trigger implementations (owner order 2026-08-13:
+# "why u r waiting for 28 which u can wire, do that").
+#
+# These were DATA_NEEDED until the sector panel, delivery %, F&O open interest
+# and bulk/block deals landed in the repo. Each takes (x, ext, fam):
+#   x    = the stock's own OHLCV context (same as every other trigger)
+#   ext  = external_panels.StockExternals — None-safe: a missing panel field
+#          returns None, which stays DATA_NEEDED and never becomes a quiet
+#          False
+#   fam  = family counts from the OHLCV pass, for the two deal triggers whose
+#          formula is "deal flag + accumulation/distribution cluster"
+#
+# Every formula is the owner's own string from trigger_params_v0_2.csv; where
+# their sheet says "threshold" or "improves" the number lives in
+# external_panels.ASSUMED_EXTERNAL_CONSTANTS and is shown on the page as
+# ASSUMED, exactly like the OHLCV side.
+# --------------------------------------------------------------------------
+
+def _ext_const(name: str) -> float:
+    from .external_panels import ASSUMED_EXTERNAL_CONSTANTS
+    return ASSUMED_EXTERNAL_CONSTANTS[name]
+
+
+def _in_base(x) -> bool:
+    """Price still inside a base: 20d range <= 15% wide and not at its high.
+
+    ASSUMED reading of the sheet's "while price in base" / "base not broken".
+    """
+    if x.n < 21:
+        return False
+    hi, lo = float(np.max(x.h[-20:])), float(np.min(x.l[-20:]))
+    if not np.isfinite(hi) or not np.isfinite(lo) or x.c[-1] <= 0:
+        return False
+    return (hi - lo) / x.c[-1] <= 0.15 and x.c[-1] < hi
+
+
+def _near_support(x) -> bool:
+    """Within 3% of the 20d low (ASSUMED reading of "near support")."""
+    if x.n < 21:
+        return False
+    lo = float(np.min(x.l[-20:]))
+    return np.isfinite(lo) and lo > 0 and (x.c[-1] / lo - 1.0) <= _ext_const(
+        "near_support_frac")
+
+
+def _support_broken(x) -> bool:
+    """Today's close at/below the prior 20 sessions' low."""
+    if x.n < 22:
+        return False
+    return float(x.c[-1]) <= float(np.min(x.l[-21:-1]))
+
+
+def _e0039(x, e, fam):        # RS line 10D high while price below 10D high
+    if e.rs_line is None or len(e.rs_line) < 11:
+        return None
+    rs = e.rs_line
+    return bool(rs[-1] >= np.nanmax(rs[-10:]) and
+                x.c[-1] < float(np.nanmax(x.c[-10:])))
+
+
+def _e0045(x, e, fam):        # stock-sector 10d spread > threshold, in base
+    if e.ret_10d is None or e.sector_ret_10d is None:
+        return None
+    return bool(e.ret_10d - e.sector_ret_10d >
+                _ext_const("rs_outperformance_10d") and _in_base(x))
+
+
+def _e0046(x, e, fam):        # rank percentile improves >= 20 points in 10D
+    if e.rs_rank_now is None or e.rs_rank_prev is None:
+        return None
+    return bool(e.rs_rank_now - e.rs_rank_prev >= _ext_const("rank_jump_points"))
+
+
+def _e0047(x, e, fam):        # >=3 of top 5 peers carry pre-rise flags
+    if e.peer_prerise_flags is None:
+        return None
+    return bool(e.peer_prerise_flags >= _ext_const("peer_flag_min_count"))
+
+
+def _e0048(x, e, fam):        # % peers above 20DMA rises over 10 days
+    b = e.peer_pct_above_ma20
+    if b is None or len(b) < 11:
+        return None
+    return bool(b[-1] > b[-11])
+
+
+def _e0049(x, e, fam):        # sector 5d down, stock 5d flat-or-up
+    if e.ret_5d is None or e.sector_ret_5d is None:
+        return None
+    return bool(e.sector_ret_5d < 0 and e.ret_5d >= 0)
+
+
+def _e0050(x, e, fam):        # top decile inside own industry, base not broken
+    if e.own_sector_rank is None:
+        return None
+    top = 100.0 - _ext_const("top_decile_pct")
+    return bool(e.own_sector_rank >= top and not _support_broken(x))
+
+
+def _e0051(x, e, fam):        # stock-sector 10d spread < -threshold
+    if e.ret_10d is None or e.sector_ret_10d is None:
+        return None
+    return bool(e.ret_10d - e.sector_ret_10d <
+                -_ext_const("rs_underperformance_10d"))
+
+
+def _e0052(x, e, fam):        # >=3 peers break 20D low before target breaks
+    if e.peer_break_20d_low is None:
+        return None
+    return bool(e.peer_break_20d_low >= _ext_const("peer_break_min_count") and
+                not _support_broken(x))
+
+
+def _e0053(x, e, fam):        # sector breadth declining, target near support
+    b = e.peer_pct_above_ma20
+    if b is None or len(b) < 6:
+        return None
+    return bool(b[-1] < b[-6] and _near_support(x))
+
+
+def _e0054(x, e, fam):        # price at 20D high, RS line below its prior high
+    if e.rs_line is None or len(e.rs_line) < 40:
+        return None
+    at_high = float(x.c[-1]) >= float(np.nanmax(x.c[-20:]))
+    return bool(at_high and e.rs_line[-1] < np.nanmax(e.rs_line[-40:-1]))
+
+
+def _e0055(x, e, fam):        # industry rank worsens >= 20 points in 10D
+    if e.sector_rank_now is None or e.sector_rank_prev is None:
+        return None
+    return bool(e.sector_rank_prev - e.sector_rank_now >=
+                _ext_const("rank_jump_points"))
+
+
+def _e0056(x, e, fam):        # 20D high + peer breadth down + RS slope flat
+    b, rs = e.peer_pct_above_ma20, e.rs_line
+    if b is None or len(b) < 6 or rs is None or len(rs) < 10:
+        return None
+    at_high = float(x.c[-1]) >= float(np.nanmax(x.c[-20:]))
+    slope = np.polyfit(np.arange(10), rs[-10:], 1)[0] if np.all(
+        np.isfinite(rs[-10:])) else np.nan
+    if not np.isfinite(slope):
+        return None
+    return bool(at_high and b[-1] < b[-6] and slope <= _ext_const(
+        "rs_slope_flat"))
+
+
+def _e0059(x, e, fam):        # turnover rank improves >= 25 percentile points
+    if e.turnover_rank_now is None or e.turnover_rank_prev is None:
+        return None
+    return bool(e.turnover_rank_now - e.turnover_rank_prev >=
+                _ext_const("turnover_rank_jump_points"))
+
+
+def _e0060(x, e, fam):        # delivery ratio above its 80th percentile
+    d = e.delivery_ratio
+    if d is None or len(d) < 30:
+        return None
+    seg = d[np.isfinite(d)]
+    if len(seg) < 30:
+        return None
+    return bool(seg[-1] >= np.percentile(seg, _ext_const("delivery_pctile")))
+
+
+def _e0094(x, e, fam):        # >=30% of industry broke down before target
+    if e.peer_break_20d_low is None or not e.peers:
+        return None
+    frac = e.peer_break_20d_low / float(e.peers)
+    return bool(frac >= _ext_const("peer_breakdown_frac") and
+                not _support_broken(x))
+
+
+def _e0095(x, e, fam):        # index below its 20DMA and target support break
+    ic = e.index_close
+    if ic is None or len(ic) < 20:
+        return None
+    ma20 = float(np.nanmean(ic[-20:]))
+    if not np.isfinite(ma20):
+        return None
+    return bool(ic[-1] < ma20 and _support_broken(x))
+
+
+def _e0100(x, e, fam):        # price down + OI up over 5D
+    if e.fut_oi is None or len(e.fut_oi) < 6:
+        return None
+    r5 = x.ret(5) if x.n > 5 else None
+    if r5 is None or not np.isfinite(r5):
+        return None
+    return bool(r5 < 0 and e.fut_oi[-1] > e.fut_oi[-6])
+
+
+def _e0101(x, e, fam):        # price down + OI down after a prior uptrend
+    if e.fut_oi is None or len(e.fut_oi) < 6 or x.n < 27:
+        return None
+    r5 = x.ret(5)
+    prior = x.c[-6] / x.c[-26] - 1.0
+    if not (np.isfinite(r5) and np.isfinite(prior)):
+        return None
+    return bool(r5 < 0 and e.fut_oi[-1] < e.fut_oi[-6] and prior > 0)
+
+
+def _e0111(x, e, fam):        # bulk/block BUY + accumulation cluster
+    if e.deal_buy_recent is None:
+        return None
+    return bool(e.deal_buy_recent and fam.get(F_ACCUMULATION, 0) >= 2)
+
+
+def _e0112(x, e, fam):        # bulk/block SELL + distribution cluster
+    if e.deal_sell_recent is None:
+        return None
+    return bool(e.deal_sell_recent and fam.get(F_DISTRIBUTION, 0) >= 2)
+
+
+_EXT_FNS = {
+    "T12W_0039": _e0039, "T12W_0045": _e0045, "T12W_0046": _e0046,
+    "T12W_0047": _e0047, "T12W_0048": _e0048, "T12W_0049": _e0049,
+    "T12W_0050": _e0050, "T12W_0051": _e0051, "T12W_0052": _e0052,
+    "T12W_0053": _e0053, "T12W_0054": _e0054, "T12W_0055": _e0055,
+    "T12W_0056": _e0056, "T12W_0059": _e0059, "T12W_0060": _e0060,
+    "T12W_0094": _e0094, "T12W_0095": _e0095, "T12W_0100": _e0100,
+    "T12W_0101": _e0101, "T12W_0111": _e0111, "T12W_0112": _e0112,
+}
+
+# Minimum stock-side history for the external triggers.
+_EXT_MIN_BARS = 30
+
+
 # Minimum history a trigger needs; the evaluator returns None below this.
 _MIN_BARS_DEFAULT = 70
 _MIN_BARS = {
@@ -734,6 +963,10 @@ class Trigger:
     ohlcv_ready: bool
     needs: str                # what external data unlocks a DATA_NEEDED trigger
     fn: Optional[Callable] = field(default=None, compare=False)
+    # Set for the 21 external triggers whose data now lives in the repo. They
+    # run only when a panel batch is supplied; without one they stay None
+    # (DATA_NEEDED), so nothing about the no-panel path changed.
+    ext_fn: Optional[Callable] = field(default=None, compare=False)
 
 
 def _load_registry() -> list[Trigger]:
@@ -753,16 +986,24 @@ def _load_registry() -> list[Trigger]:
                 ohlcv_ready=ready,
                 needs="" if ready else row["required_columns"].strip(),
                 fn=_FNS.get(tid) if ready else None,
+                ext_fn=None if ready else _EXT_FNS.get(tid),
             ))
     missing = [t.id for t in out if t.ohlcv_ready and t.fn is None]
     if missing:
         raise RuntimeError(f"OHLCV-ready triggers without implementation: {missing}")
+    stray = set(_EXT_FNS) - {t.id for t in out if not t.ohlcv_ready}
+    if stray:
+        raise RuntimeError(f"external impls for non-external ids: {sorted(stray)}")
     return out
 
 
 TRIGGERS: list[Trigger] = _load_registry()
 COMPUTABLE = [t for t in TRIGGERS if t.ohlcv_ready]
 EXTERNAL = [t for t in TRIGGERS if not t.ohlcv_ready]
+# Of the 33 external triggers: those whose data is now in the repo, and those
+# still genuinely waiting on a feed (news/analyst/governance, options chain).
+EXTERNAL_WIRED = [t for t in EXTERNAL if t.ext_fn is not None]
+EXTERNAL_PENDING = [t for t in EXTERNAL if t.ext_fn is None]
 
 
 # --------------------------------------------------------------------------
@@ -805,11 +1046,15 @@ CALIBRATION: dict[str, dict] = _load_calibration()
 # Evaluation: one stock → hits, family counts, side scores, gates
 # --------------------------------------------------------------------------
 
-def evaluate(df: pd.DataFrame) -> dict[str, Optional[bool]]:
+def evaluate(df: pd.DataFrame, ext=None) -> dict[str, Optional[bool]]:
     """The trigger_hit_matrix row for one stock (owner's L04A).
 
     {trigger_id: True fired / False computed-quiet / None not computable}.
-    External-data triggers are always None here — DATA_NEEDED, never guessed.
+
+    `ext` is an external_panels.StockExternals for this stock. Without it
+    every external trigger stays None (DATA_NEEDED) — the original behaviour.
+    With it, the 21 triggers whose data now lives in the repo compute too; the
+    12 that still need an outside feed stay None either way.
     """
     hits: dict[str, Optional[bool]] = {}
     if df is None or len(df) < 25:
@@ -828,6 +1073,19 @@ def evaluate(df: pd.DataFrame) -> dict[str, Optional[bool]]:
         except Exception as e:                        # a broken trigger is
             log.warning("trigger %s crashed: %s", t.id, e)   # visible, not a 0
             hits[t.id] = None
+        # --- external pass: needs the family counts from the OHLCV pass above,
+    # because two of the owner's formulas are "deal flag + cluster".
+    if ext is not None:
+        fam = family_counts(hits)
+        for t in EXTERNAL_WIRED:
+            if x.n < _EXT_MIN_BARS:
+                continue
+            try:
+                r = t.ext_fn(x, ext, fam)
+                hits[t.id] = None if r is None else bool(r)
+            except Exception as e:
+                log.warning("external trigger %s crashed: %s", t.id, e)
+                hits[t.id] = None
     return hits
 
 
@@ -929,9 +1187,13 @@ def evaluate_gates(hits: dict[str, Optional[bool]]) -> list[dict]:
     return out
 
 
-def stock_view(df: pd.DataFrame, asof: str = "") -> dict:
-    """Everything the page and the watchlist job need for one stock."""
-    hits = evaluate(df)
+def stock_view(df: pd.DataFrame, asof: str = "", ext=None) -> dict:
+    """Everything the page and the watchlist job need for one stock.
+
+    `ext` (external_panels.StockExternals) switches on the 21 external
+    triggers whose data is in the repo; without it they read DATA_NEEDED.
+    """
+    hits = evaluate(df, ext=ext)
     fam = family_counts(hits)
     scores = side_scores(hits)
     gates = evaluate_gates(hits)
@@ -957,4 +1219,9 @@ def stock_view(df: pd.DataFrame, asof: str = "") -> dict:
                      for g in gates),
         "computable": sum(1 for t in COMPUTABLE if hits.get(t.id) is not None),
         "total_computable": len(COMPUTABLE),
+        "external_computed": sum(1 for t in EXTERNAL_WIRED
+                                 if hits.get(t.id) is not None),
+        "total_external_wired": len(EXTERNAL_WIRED),
+        "external_missing": (list(ext.missing()) if ext is not None else
+                             ["no panel batch supplied"]),
     }

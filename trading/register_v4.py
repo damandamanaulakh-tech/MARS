@@ -730,10 +730,88 @@ def stock_view(df: pd.DataFrame, symbol: str = "",
     else:
         out["X-17"] = _dn("X-17", "needs 2 annual asset points")
 
+    # ---- items unlocked by the 2026-08-12/13 data intake -----------------
+    # Owner order 2026-08-13: "why u r waiting for 28 which u can wire, do
+    # that". Each reads a committed file; a file or symbol that is absent
+    # falls through to the DATA_NEEDED sweep below, never to a made-up value.
+    _wire_intake_items(out, symbol, value)
+
     # items whose data simply is not in the repo
     for rid, why in _STOCK_DATA_NEEDED.items():
         out.setdefault(rid, _dn(rid, why))
     return out
+
+
+def _wire_intake_items(out: dict[str, Reading], symbol: str, value) -> None:
+    """H-01, X-06, H-20, H-25, W-022 — the register items whose feeds landed.
+
+    Kept in one function so the provenance of each is readable, and so the
+    stock_view above stays about OHLCV maths.
+    """
+    if not symbol:
+        return
+    try:
+        from . import external_panels as XP
+    except Exception as e:                                   # pragma: no cover
+        log.warning("register: external panels unavailable: %s", e)
+        return
+
+    # H-01 promoter holding % + X-06 free float (NSE shareholding pattern).
+    # These JSONs carry ONLY the promoter/public split; the FII/DII/MF
+    # breakdown and pledge % live in the XBRL each record links to, which this
+    # app cannot fetch — so H-02..H-06 and X-07 stay DATA_NEEDED.
+    q = XP.shareholding_quarters(symbol)
+    if q:
+        latest = q[0]
+        prev = q[1] if len(q) > 1 else None
+        delta = (None if prev is None else
+                 round(latest["promoter_pct"] - prev["promoter_pct"], 2))
+        out["H-01"] = Reading(
+            "H-01", "VALUE", latest["promoter_pct"],
+            f"promoter+group % as of {latest['date']}" +
+            (f", {delta:+.2f}pp vs {prev['date']}" if delta is not None else ""))
+        if latest.get("public_pct") is not None:
+            out["X-06"] = Reading(
+                "X-06", "VALUE", latest["public_pct"],
+                f"public shareholding % as of {latest['date']} — PROXY for "
+                "free float (true free float excludes locked-in public "
+                "holdings; NSE's split is all we hold)")
+
+    # H-20 block/bulk deal proxy. The source is truncated (NSE returned at
+    # most 70 rows a month), so a nil reading is PARTIAL, never QUIET.
+    deals = XP.deal_summary(symbol)
+    if deals is not None:
+        if deals["bulk_rows"] or deals["block_rows"]:
+            out["H-20"] = Reading(
+                "H-20", "VALUE", float(deals["bulk_net_qty"]),
+                f"net bulk qty over {deals['window_days']}d to "
+                f"{deals['asof']} ({deals['bulk_rows']} bulk, "
+                f"{deals['block_rows']} block rows); block deals report both "
+                "counterparties so only bulk carries direction")
+        else:
+            out["H-20"] = Reading(
+                "H-20", "PARTIAL", None,
+                f"no deal rows to {deals['asof']} — but every bulk month in "
+                "the file hit NSE's 70-row cap, so absence is not evidence "
+                "of no deal")
+
+    # H-25 SEBI PIT insider disclosures.
+    ins = XP.insider_events(symbol)
+    if ins is not None:
+        out["H-25"] = Reading(
+            "H-25", "VALUE", float(ins["net_qty"]),
+            f"net insider qty over {ins['window_days']}d "
+            f"({ins['buys']} buy / {ins['sells']} sell disclosures"
+            + (f", last {ins['last']}" if ins['last'] else "") + ")")
+
+    # W-022 put/call ratio — OI basis, not volume (said so in the note).
+    pcr = XP.pcr_oi(symbol)
+    if pcr is not None:
+        out["W-022"] = Reading(
+            "W-022", "VALUE", pcr["pcr_oi"],
+            f"PCR on {pcr['basis']}, as of {pcr['asof']}" +
+            (f"; {pcr['pctile_1y']}th pctile of its own history"
+             if pcr.get("pctile_1y") is not None else ""))
 
 
 _STOCK_DATA_NEEDED = {
