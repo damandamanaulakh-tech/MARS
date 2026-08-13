@@ -43,6 +43,7 @@ Writes: external_trigger_calibration.csv, summary.md
 """
 from __future__ import annotations
 
+import json
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -91,6 +92,12 @@ def main(out_dir: str) -> None:
           f"{len(ps.delivery)} · F&O symbols: {len(ps.fo)} · "
           f"deal symbols: {len(ps.deals)}", flush=True)
 
+    # Checkpointing: two earlier attempts at this run were killed mid-pass by
+    # container restarts, losing everything. State is now flushed every
+    # CKPT_EVERY tickers and reloaded on start, so a restart resumes instead of
+    # starting over. Delete the file to force a clean run.
+    ckpt_path = out / "checkpoint.json"
+
     sides = {t.id: t.side for t in EXTERNAL_WIRED}
     fires: dict[str, int] = defaultdict(int)
     evals: dict[str, int] = defaultdict(int)
@@ -101,8 +108,38 @@ def main(out_dir: str) -> None:
     last_eval: dict[str, str] = {}
     base_windows: dict[str, int] = defaultdict(int)
     n_windows = 0
+    done: set[str] = set()
 
+    if ckpt_path.exists():
+        try:
+            ck = json.loads(ckpt_path.read_text())
+            fires.update(ck["fires"]); evals.update(ck["evals"])
+            fp.update(ck["fp"]); base_windows.update(ck["base_windows"])
+            for tid, d in ck["hits"].items():
+                hits[tid].update(d)
+            for tid, v in ck["leads"].items():
+                leads[tid].extend(v)
+            first_eval.update(ck["first_eval"]); last_eval.update(ck["last_eval"])
+            n_windows = ck["n_windows"]; done = set(ck["done"])
+            print(f"resumed from checkpoint: {len(done)} tickers already done, "
+                  f"{n_windows:,} windows", flush=True)
+        except Exception as e:
+            print(f"checkpoint unreadable ({e}) — starting clean", flush=True)
+
+    def _flush() -> None:
+        ckpt_path.write_text(json.dumps({
+            "fires": dict(fires), "evals": dict(evals), "fp": dict(fp),
+            "hits": {k2: dict(v2) for k2, v2 in hits.items()},
+            "leads": {k2: list(v2) for k2, v2 in leads.items()},
+            "base_windows": dict(base_windows), "n_windows": n_windows,
+            "first_eval": first_eval, "last_eval": last_eval,
+            "done": sorted(done),
+        }))
+
+    CKPT_EVERY = 10
     for k, tick in enumerate(sorted(panel)):
+        if tick in done:
+            continue
         df = panel[tick]
         if len(df) < MIN_BARS + FWD + 50:
             continue
@@ -173,10 +210,14 @@ def main(out_dir: str) -> None:
                     s = seg[i + 1:i + 21]
                     if s.any():
                         leads[t.id].append(int(np.argmax(s)) + 1)
+        done.add(tick)
+        if len(done) % CKPT_EVERY == 0:
+            _flush()
         if (k + 1) % 25 == 0:
             print(f"{k + 1}/{len(panel)} tickers done "
                   f"({n_windows:,} windows)", flush=True)
 
+    _flush()
     base_rate = {e: (base_windows[e] / n_windows if n_windows else 0.0)
                  for e in base_windows}
     rows = []
