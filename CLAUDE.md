@@ -969,6 +969,69 @@ the Colab MANIFEST_v2 before commit.**
   buys from**. Fixture now saves after restoring, and scan.html renders a
   missing score as "—" (never a fake 0). Suite: 777 tests.
 
+**CALIBRATION ROUND 2026-08-13 (owner: "merge it and run the calibration" →
+"stop doing back test" → "wire 0066 with gap 1%" → "wire 0040 too").
+docs/WIRING_2026-08-13.md carries the full record; 786 tests green.**
+- **PanelSet refactor**: external_panels now computes every panel as a FULL-
+  HISTORY series with `externals_at(ticker, when)` reading as of ANY past bar,
+  so calibration runs the SAME production code with a past date (the
+  anti-divergence rule that kept BT01-BT08 honest). `prepare()` = a thin
+  wrapper over `externals_at(last)`; live behaviour unchanged.
+  `_load_panel(tail)` cached per depth — production keeps the short tail for
+  the 512MB box, calibration passes tail=0 (2,981 bars, 2014-06-30→2026-07-17).
+- **External calibration INCOMPLETE — owner ordered it stopped at 50/191
+  tickers.** scripts/bt_calibration_external_v1.py exists and works (a
+  12-ticker pilot ran clean: index overlay 2.02 VERIFIED, sector contagion
+  1.32, top-decile-in-industry 1.25, most RS-rise REJECTED). NO results
+  committed; the 21 external triggers carry NO measured verdict. Do not quote
+  the pilot as a verdict.
+- **THE 64 REJECTIONS, made legible** (docs/REJECTED_TRIGGERS_2026-08-13.csv,
+  one row per trigger with rule + counts). Chance rates over 12y: RISE 32.08%,
+  FALL 19.49%, COLLAPSE 3.45%, REVERSAL_UP 3.84%. hit% = hits/fires,
+  chance = event-windows/all-windows, lift = hit/chance. **16 rules are
+  INVERTED** (fired and the move came LESS often than an average day; worst:
+  tight base −6.73pp, bearish OBV divergence near highs −4.72pp, lower-wick
+  cluster at support lift 0.433). **19 fire on >1/3 of all days** (one on
+  59.7%) — describing the market, not predicting it. 35 of 64 rejections are
+  RISE. The high RISE baseline (32%) is what most rise rules cannot beat.
+- **THRESHOLD SWEEP with a TRAIN/TEST SPLIT** (scripts/threshold_sweep_
+  nearmiss.py, research/threshold_sweep/): 6 near-misses swept, settings chosen
+  on 2014-2020 and read on 2020-2026. Engine validated first — it reproduces
+  all 6 committed lifts exactly. **3 of 6 survive, 3 are pure curve fits**:
+  0033 went 1.964 train → 0.961 test, 0086 1.345 → 0.925, 0034 1.105 → 0.975.
+  **Without the split, 0033 would have looked like the best trigger in the book
+  and delivered nothing. Never sweep a threshold without a holdout.**
+- **TWO TRIGGERS RECALIBRATED AND WIRED (owner orders), both display/watchlist
+  only — tests assert neither is in danger.VERIFIED:**
+  * **T12W_0066 gap-up rejection: gap must be >= 1%** (was unconstrained — an
+    open a paisa above the prior high counted). 1.091 REJECTED → **1.213
+    SUPPORTED**; train 1.217 / test 1.227; 347 fires, lead 2d, FP 30.6%. The
+    gap axis improved MONOTONICALLY at every volume multiple (1.06→1.17→1.23→
+    1.58 for 0%→0.5%→1%→2%) = a gradient, not a lucky cell. Volume stayed 1.5x.
+  * **T12W_0040 oversold-to-neutral: entry RSI < 30** (was 35). 1.065 REJECTED
+    → **1.161 SUPPORTED**; train 1.162 / test 1.142; 2,985 fires, lead 4d,
+    FP 31.9%. **Exit level deliberately LEFT at 45** — train preferred 45, test
+    preferred 50, the halves disagree, so that axis is NOT measured and fitting
+    it would be curve-fitting (noted in MEASURED_CONSTANT_SOURCE, test-pinned).
+  * **MY ERROR, corrected in the commit: I first quoted 0040 as "1.48 test
+    lift at RSI 25→50". That was the best cell ON THE TEST HALF; in train it
+    scored 1.096, below the bar, and would never have been selected. Choosing
+    by the holdout destroys the holdout. The honest number is 1.142.**
+- **NEW: MEASURED_CONSTANTS + MEASURED_CONSTANT_SOURCE** in triggers.py, kept
+  apart from ASSUMED_CONSTANTS — a measured number filed as assumed is as
+  wrong as the reverse; tests enforce the split and require each to cite its
+  run. **RECALIBRATED dict overrides stale CALIBRATION rows**: the 2026-08-09
+  verdicts measured the OLD rules, so displaying them beside changed rules
+  would misreport the live trigger; each override names its sweep and keeps
+  the superseded verdict as history.
+- Still-open near-miss: **T12W_0005 inside-bar cluster** holds out of sample
+  (7-in-15, test 1.118) but on only 108 test fires — left alone, not ordered.
+- 279 register standing after both merges: **19 in the money path** (9 TRADES
+  + 10 danger triggers), 32 still need an outside feed, 4 were never data
+  items, rest compute as display/research. F-01 (the composite driving score-
+  decay exits) is the one money-path item with a stubbed input
+  (short_interest=50 at 5% weight; catalyst neutral unless the API key is set).
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
