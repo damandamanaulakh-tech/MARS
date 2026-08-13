@@ -68,6 +68,23 @@ F_EVENT = "Event / News / Institution Overlay"
 
 # Constants the owner's formulas name but do not number — every one of these
 # is a candidate for the 15Y calibration backtest (BT06 in their design).
+# Constants that are no longer guesses: each was chosen by a split-sample
+# sweep and carries the run that set it. Kept apart from ASSUMED_CONSTANTS so
+# the page can say which numbers are measured and which are still placeholders.
+MEASURED_CONSTANTS = {
+    # T12W_0066: the sheet said only "gap up ... volume rejection", so the gap
+    # size was originally unconstrained (any open above the prior high) and the
+    # rule was REJECTED at lift 1.091. The sweep found the gap size IS the
+    # information: test-half lift rose monotonically with it at every volume
+    # multiple. Owner order 2026-08-13: "wire 0066 with gap 1%".
+    "gap_up_min_gap": 0.01,
+}
+MEASURED_CONSTANT_SOURCE = {
+    "gap_up_min_gap": ("threshold sweep 2026-08-13 "
+                       "(research/threshold_sweep/): chosen on 2014-2020, "
+                       "confirmed on 2020-2026 — train lift 1.217, test 1.227"),
+}
+
 ASSUMED_CONSTANTS = {
     "midpoint_band_frac": 0.25,      # T12W_0001 "within midpoint band"
     "atr_shelf_slope": 0.02,         # T12W_0014 "slope small"
@@ -507,7 +524,14 @@ def _t0065(x):  # high volume, no progress
 
 
 def _t0066(x):  # gap-up volume rejection
-    return (x.o[-1] > x.h[-2] and x.c[-1] < x.o[-1]
+    # The gap must be a REAL gap, not merely an open a paisa above yesterday's
+    # high: measured 2026-08-13, see MEASURED_CONSTANTS. Volume multiple
+    # unchanged at 1.5x (the owner's order named the gap only).
+    if x.h[-2] <= 0:
+        return None
+    gap = x.o[-1] / x.h[-2] - 1.0
+    return (gap >= MEASURED_CONSTANTS["gap_up_min_gap"]
+            and x.c[-1] < x.o[-1]
             and x.v[-1] > 1.5 * x.vol20[-1])
 
 
@@ -1040,6 +1064,24 @@ def _load_calibration() -> dict[str, dict]:
 
 
 CALIBRATION: dict[str, dict] = _load_calibration()
+
+# When a rule's constant changes, the verdict stored from the earlier run
+# describes the rule as it WAS. Leaving it on screen would misreport the live
+# rule, so a recalibrated trigger carries its own measured numbers and names
+# the run they came from.
+RECALIBRATED: dict[str, dict] = {
+    "T12W_0066": {
+        "proof_tag": "SUPPORTED",       # lift >= 1.1 with fires >= 30
+        "lift": 1.213,                  # 347 fires, 82 hits, 23.63% vs 19.49%
+        "median_lead_days": 2.0,
+        "fires": 347,
+        "false_positive_rate_pct": 30.55,
+        "recalibrated": "2026-08-13 gap>=1% sweep — train 1.217 / test 1.227",
+        "superseded": "1.091 REJECTED (2026-08-09 run, gap unconstrained)",
+    },
+}
+for _tid, _row in RECALIBRATED.items():
+    CALIBRATION[_tid] = _row
 
 
 # --------------------------------------------------------------------------

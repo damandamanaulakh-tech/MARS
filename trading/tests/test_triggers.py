@@ -279,3 +279,60 @@ def test_the_real_loader_output_feeds_the_trigger_layer():
 def test_a_frame_missing_columns_raises_loudly():
     with pytest.raises(KeyError):
         T._Ctx(pd.DataFrame({"Close": [1.0] * 30}))
+
+# ---------------------------------------------------------------------------
+# T12W_0066 recalibration (owner order 2026-08-13 "wire 0066 with gap 1%")
+# ---------------------------------------------------------------------------
+
+def _gap_frame(gap_pct, close_red=True, vol_mult=2.0, n=120):
+    """A flat base, then a gap-up bar that closes red on volume."""
+    idx = pd.bdate_range("2025-01-01", periods=n)
+    c = np.full(n, 100.0); h = c * 1.005; l = c * 0.995; o = c * 0.999
+    v = np.full(n, 1_000_000.0)
+    o[-1] = h[-2] * (1 + gap_pct)
+    h[-1] = o[-1] * 1.002
+    c[-1] = o[-1] * (0.99 if close_red else 1.001)
+    l[-1] = min(c[-1], o[-1]) * 0.998
+    v[-1] = 1_000_000.0 * vol_mult
+    return pd.DataFrame({"Open": o, "High": h, "Low": l, "Close": c,
+                         "Volume": v}, index=idx)
+
+
+def test_gap_up_rejection_needs_a_real_gap():
+    """The measured constant: below 1% is not a gap, so it must not fire.
+
+    Before this, any open a paisa above the prior high counted, and the trigger
+    was REJECTED at lift 1.091. The sweep showed the gap size carries the
+    information.
+    """
+    assert T.evaluate(_gap_frame(0.0005))["T12W_0066"] is False
+    assert T.evaluate(_gap_frame(0.008))["T12W_0066"] is False
+    assert T.evaluate(_gap_frame(0.010))["T12W_0066"] is True
+    assert T.evaluate(_gap_frame(0.025))["T12W_0066"] is True
+
+
+def test_gap_up_rejection_still_needs_rejection_and_volume():
+    assert T.evaluate(_gap_frame(0.02, close_red=False))["T12W_0066"] is False
+    assert T.evaluate(_gap_frame(0.02, vol_mult=1.2))["T12W_0066"] is False
+
+
+def test_measured_constant_is_not_filed_as_assumed():
+    assert T.MEASURED_CONSTANTS["gap_up_min_gap"] == 0.01
+    assert "gap_up_min_gap" not in T.ASSUMED_CONSTANTS
+    src = T.MEASURED_CONSTANT_SOURCE["gap_up_min_gap"]
+    assert "sweep" in src and "test" in src, "a measured constant must cite its run"
+
+
+def test_recalibrated_verdict_replaces_the_stale_one():
+    """The 2026-08-09 verdict describes the OLD rule; showing it would lie."""
+    c = T.CALIBRATION["T12W_0066"]
+    assert c["proof_tag"] == "SUPPORTED"
+    assert c["lift"] == 1.213
+    assert "superseded" in c and "1.091" in c["superseded"]
+    assert "2026-08-13" in c["recalibrated"]
+
+
+def test_recalibration_did_not_touch_the_money_path():
+    """0066 is a display/watchlist trigger — it must not be in the sell layer."""
+    from trading import danger
+    assert "T12W_0066" not in danger.VERIFIED
