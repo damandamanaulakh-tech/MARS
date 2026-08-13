@@ -742,6 +742,106 @@ def stock_view(df: pd.DataFrame, symbol: str = "",
     return out
 
 
+def _wire_fetched_feeds(out: dict[str, Reading], symbol: str, XP) -> None:
+    """H-02..H-07, W-011, W-020, X-06, X-07, X-11 — the feeds fetched
+    2026-08-13 from the shareholding XBRL and Yahoo's raw endpoints.
+
+    Every reading names its source and its as-of quarter/period. Where the
+    source is unreliable (see revisions_view) the number is withheld and the
+    item says so rather than publishing a wrong figure.
+    """
+    # --- institutional holdings: FII / DII / MF / pledge / holder counts ---
+    h = XP.institutional_holdings(symbol)
+    if h:
+        q, pq = h.get("quarter"), h.get("prior_quarter")
+        asof = f"as of {q}" + (f" vs {pq}" if pq else "")
+
+        def hold(rid, pct, delta, label):
+            if pct is None:
+                return
+            note = f"{label} {asof}"
+            if delta is not None:
+                note += f", {delta:+.2f}pp QoQ"
+            out[rid] = Reading(rid, "VALUE", pct, note)
+
+        hold("H-03", h["fii_pct"], h["fii_delta"], "FII/FPI holding %")
+        hold("H-04", h["dii_pct"], h["dii_delta"], "DII holding %")
+        hold("H-05", h["mf_pct"], h["mf_delta"], "mutual-fund holding %")
+
+        # H-02 promoter pledge: the XBRL carries a yes/no encumbrance flag,
+        # not a pledged percentage, so this is a FLAG — said so on the page.
+        pl = h.get("promoter_pledged")
+        if pl in ("true", "false"):
+            out["H-02"] = Reading(
+                "H-02", "FIRED" if pl == "true" else "QUIET",
+                1.0 if pl == "true" else 0.0,
+                f"promoter shares pledged/encumbered: {pl.upper()} {asof} "
+                "(XBRL gives a flag, not a pledged %)")
+
+        # H-06 institutional activity delta: the three legs together.
+        legs = [h.get(k) for k in ("fii_delta", "dii_delta", "mf_delta")]
+        if all(v is not None for v in legs):
+            out["H-06"] = Reading(
+                "H-06", "VALUE", round(h["fii_delta"] + h["dii_delta"], 4),
+                f"FII {h['fii_delta']:+.2f}pp + DII {h['dii_delta']:+.2f}pp "
+                f"(MF {h['mf_delta']:+.2f}pp of DII) {asof}")
+
+        # X-07 institutional sponsorship trend: holder COUNTS, not percentages
+        # — a rising count means more institutions on the register.
+        if h.get("fii_holders") is not None:
+            d = h.get("fii_holders_delta")
+            out["X-07"] = Reading(
+                "X-07", "VALUE", h["fii_holders"],
+                f"{h['fii_holders']:.0f} foreign institutions on the register"
+                + (f", {d:+.0f} QoQ" if d is not None else "")
+                + f"; {h.get('mf_holders') or 0:.0f} mutual funds {asof}")
+
+    # --- analyst ratings (H-07) -------------------------------------------
+    a = XP.analyst_view(symbol)
+    if a:
+        out["H-07"] = Reading(
+            "H-07", "VALUE", a["score"],
+            f"{a['n_analysts']:.0f} analysts, consensus target "
+            f"{a['target_mean']:.0f}; score by {a['formula']}")
+
+    # --- estimate revisions (W-020 momentum, X-11 decomposition) ----------
+    r = XP.revisions_view(symbol)
+    if r:
+        net = r["net_revisions_30d"]
+        out["W-020"] = Reading(
+            "W-020", "VALUE", net,
+            f"net EPS revisions last 30d: {r['up_30d']:.0f} up / "
+            f"{r['down_30d']:.0f} down for {r['period']} ({r['end_date']})")
+        if r.get("pct_change_30d") is not None:
+            out["X-11"] = Reading(
+                "X-11", "VALUE", r["pct_change_30d"],
+                f"consensus EPS drift over 30d for {r['period']}; "
+                f"{r['up_30d']:.0f} up / {r['down_30d']:.0f} down revisions")
+        else:
+            out["X-11"] = Reading(
+                "X-11", "PARTIAL", None,
+                "revision COUNTS are sound (see W-020) but this source's "
+                "historical estimate values are inconsistent for this symbol "
+                "(zero or >50% 30-day jump), so no drift % is published")
+
+    # --- real shares outstanding (W-011) and TRUE free float (X-06) -------
+    sh = XP.shares_view(symbol)
+    if sh and sh.get("shares_outstanding"):
+        so = sh["shares_outstanding"]
+        if sh.get("free_float_pct") is not None:
+            out["X-06"] = Reading(
+                "X-06", "VALUE", sh["free_float_pct"],
+                f"TRUE free float % ({sh['float_shares']:,.0f} of {so:,.0f} "
+                "shares) — replaces the public-shareholding proxy")
+        # W-011 turnover ratio needs today's volume, which stock_view has; the
+        # shares count is the piece that was missing, so publish it here and
+        # let the caller's volume finish the ratio.
+        out["W-011"] = Reading(
+            "W-011", "VALUE", so,
+            f"real shares outstanding {so:,.0f} (source: issuer key "
+            "statistics) — retires the ASSUMED NI/EPS share estimate")
+
+
 def _wire_intake_items(out: dict[str, Reading], symbol: str, value) -> None:
     """H-01, X-06, H-20, H-25, W-022 — the register items whose feeds landed.
 
@@ -804,6 +904,11 @@ def _wire_intake_items(out: dict[str, Reading], symbol: str, value) -> None:
             f"({ins['buys']} buy / {ins['sells']} sell disclosures"
             + (f", last {ins['last']}" if ins['last'] else "") + ")")
 
+    # ---- the 13 items whose feeds were fetched 2026-08-13 ----------------
+    # Owner: "API keys r there, fetch it" then "wire the 13". Each reads a
+    # committed CSV; an absent symbol falls through to the DATA_NEEDED sweep.
+    _wire_fetched_feeds(out, symbol, XP)
+
     # W-022 put/call ratio — OI basis, not volume (said so in the note).
     pcr = XP.pcr_oi(symbol)
     if pcr is not None:
@@ -816,12 +921,12 @@ def _wire_intake_items(out: dict[str, Reading], symbol: str, value) -> None:
 
 _STOCK_DATA_NEEDED = {
     "H-01": "promoter holding % — shareholding pattern feed not in repo",
-    "H-02": "promoter pledge % — not in repo",
-    "H-03": "FII holding % per stock — not in repo",
-    "H-04": "DII holding % per stock — not in repo",
-    "H-05": "MF holding % per stock — not in repo",
-    "H-06": "institutional activity delta — needs H-03..05",
-    "H-07": "analyst ratings — no feed",
+    "H-02": "promoter pledge flag — this symbol absent from the fetched XBRL set",
+    "H-03": "FII holding % — this symbol absent from the fetched XBRL set",
+    "H-04": "DII holding % — this symbol absent from the fetched XBRL set",
+    "H-05": "MF holding % — this symbol absent from the fetched XBRL set",
+    "H-06": "institutional delta — needs two fetched quarters for this symbol",
+    "H-07": "analyst ratings — this symbol absent from the fetched rating set",
     "H-09": "R&D intensity — line item not in statements coverage",
     "H-10": "ESG score — no feed",
     "H-19": "macro liquidity — M2/liquidity series not in repo",
@@ -831,16 +936,15 @@ _STOCK_DATA_NEEDED = {
     "H-28": "infra item: bootstrap CI — build order, not a metric",
     "W-007": "per-stock implied vol needs options chain (index-level VRP "
              "on market page)",
-    "W-011": "true shares outstanding not in repo (NI/EPS estimate used "
-             "elsewhere, too rough for a turnover ratio)",
+    "W-011": "shares outstanding — this symbol absent from the fetched key stats",
     "W-019": "news sentiment — no NLP feed",
-    "W-020": "analyst estimate revisions — no feed",
+    "W-020": "estimate revisions — this symbol absent from the fetched set",
     "W-021": "short interest — NSE feed not free (register agrees)",
     "W-022": "per-stock put/call volume — options chain not in repo",
     "X-05": "durability composite — filings-based components not in repo",
-    "X-06": "free-float % — not in repo",
-    "X-07": "institutional holder count — not in repo",
-    "X-11": "estimate revisions — no feed",
+    "X-06": "free float — this symbol absent from the fetched key stats",
+    "X-07": "institutional holder count — this symbol absent from the XBRL set",
+    "X-11": "estimate revisions — this symbol absent from the fetched set",
     "X-19": "documented on page (H-24 preset live); exact replication is a "
             "research script order",
 }
@@ -1171,13 +1275,29 @@ def market_view(panel: dict[str, pd.DataFrame],
         else:
             out["FII-09"] = _na("FII-09", both + "; PWOI legs unavailable")
 
+    # W-025 USDINR momentum (fetched 2026-08-13). A rising USDINR is a
+    # weakening rupee — a headwind for importers, a tailwind for exporters.
+    try:
+        from . import external_panels as _XP
+        fx = _XP.usdinr_series()
+    except Exception:                                        # pragma: no cover
+        fx = None
+    if fx is not None and len(fx) >= 21:
+        a = float(fx.iloc[-1])
+        b = float(fx.iloc[-21])
+        if b > 0:
+            out["W-025"] = Reading(
+                "W-025", "VALUE", round(100.0 * (a / b - 1.0), 3),
+                f"USDINR 20-session change ({b:.2f} -> {a:.2f}), as of "
+                f"{fx.index[-1].date()}")
+
     for rid, why in _MARKET_DATA_NEEDED.items():
         out.setdefault(rid, _dn(rid, why))
     return out
 
 
 _MARKET_DATA_NEEDED = {
-    "W-025": "USDINR series not in repo",
+    "W-025": "USDINR series unreadable (data/usdinr_daily.csv)",
     "W-026": "short-rate leg (1Y/3M) not in repo; 10Y alone is not a slope",
     "W-027": "credit-spread inputs not in repo",
     "H-19": "macro liquidity series not in repo",
