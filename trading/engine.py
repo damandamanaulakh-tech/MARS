@@ -1124,13 +1124,38 @@ class TradingEngine:
             self.portfolio.decision_journal.append({
                 "ts": now.isoformat(), "action": "DANGER_LAYER_ARMED",
                 "why": (f"Danger layer live (owner order 2026-08-11): "
-                        f"{len(danger.VERIFIED)} strict-VERIFIED tripwires "
+                        f"{len(danger.VERIFIED)} VERIFIED tripwires "
+                        f"({len(danger.PANEL_FED)} panel-fed, added on the "
+                        "2026-08-13 order, cleared the main +/-10% labels; the "
+                        "rest cleared strict +/-15%) "
                         f"watch held names. Alerts-only for "
                         f"{danger.ALERT_DAYS} days, then auto per-stock "
                         "defence (tighten/-2.5% on 1 fire, exit half on 2+)."),
             })
         auto = danger.auto_mode_active(self.portfolio.danger_alerts_start,
                                        today_iso)
+        # Panels for the panel-fed tripwires (owner order 2026-08-13: Index
+        # Risk Overlay + Sector Contagion Count). ONE light load for the whole
+        # held book — peer panel + index only, never the 3.5M-row delivery
+        # file. None on any failure, which makes those two abstain instead of
+        # guessing; journaled once a day so a silent loss of cover is visible.
+        held = list(self.portfolio.positions.keys())
+        ext_map = danger.externals_for(held) if danger.PANEL_FED else None
+        if danger.PANEL_FED and ext_map is None and held:
+            already = any(
+                e.get("action") == "DANGER_PANELS_UNAVAILABLE"
+                and str(e.get("ts", "")).startswith(today_iso)
+                for e in self.portfolio.decision_journal[-300:])
+            if not already:
+                self.portfolio.decision_journal.append({
+                    "ts": now.isoformat(),
+                    "action": "DANGER_PANELS_UNAVAILABLE",
+                    "why": (f"{len(danger.PANEL_FED)} panel-fed tripwires "
+                            f"({', '.join(danger.PANEL_FED)}) could not read "
+                            "their panels this run and abstained. The "
+                            f"{len(danger.VERIFIED) - len(danger.PANEL_FED)} "
+                            "OHLCV tripwires still ran."),
+                })
         seen_today = {
             e.get("ticker") for e in self.portfolio.decision_journal[-300:]
             if str(e.get("action", "")).startswith("DANGER_")
@@ -1143,7 +1168,8 @@ class TradingEngine:
             df = history.get(ticker)
             if not price or price <= 0 or df is None or len(df) < 60:
                 continue                # no quote / thin history = no action
-            fired = danger.evaluate_stock(df)
+            fired = danger.evaluate_stock(
+                df, ext=(ext_map or {}).get(ticker))
             reading = danger.plan(ticker, fired, auto)
             if reading.action == "NONE":
                 continue
