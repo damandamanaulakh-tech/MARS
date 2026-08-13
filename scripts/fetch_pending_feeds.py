@@ -123,6 +123,14 @@ def parse_xbrl(xml: str) -> dict:
         v = pct.get(ctx)
         # XBRL carries fractions (0.7177), the register wants percent.
         out[field] = round(float(v) * 100, 4) if v not in (None, "") else None
+    # A PROFESSIONALLY MANAGED company (HDFCBANK, ICICIBANK, ITC, LT, BSE...)
+    # has no promoter, so its XBRL omits the promoter context entirely and
+    # public shareholding is 100%. An earlier version of this parser treated
+    # that as a broken file and discarded 13 major names' FII/DII/MF rows.
+    # Absent promoter context + present public shareholding = promoter is 0,
+    # which is what the committed JSON says for exactly these names.
+    if out.get("promoter_pct") is None and out.get("public_pct") is not None:
+        out["promoter_pct"] = 0.0
     for field, ctx in XBRL_HOLDERS.items():
         v = holders.get(ctx)
         out[field] = int(float(v)) if v not in (None, "") else None
@@ -157,8 +165,8 @@ def stage_xbrl(quarters: int) -> None:
             try:
                 xml = _get(url).decode("utf-8", "replace")
                 row = parse_xbrl(xml)
-                if row.get("promoter_pct") is None:
-                    raise ValueError("no promoter percentage in file")
+                if row.get("public_pct") is None:
+                    raise ValueError("no public shareholding in file")
                 row.update({"symbol": sym, "quarter": rec.get("date"),
                             "submitted": rec.get("submissionDate"),
                             "source": url})
