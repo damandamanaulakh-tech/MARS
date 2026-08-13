@@ -1,0 +1,7 @@
+trigger_id,side,production_setting,production_lift_all,production_lift_test,best_train_setting,best_train_lift,best_train_fires,same_setting_test_lift,same_setting_test_fires,settings_tried,holds_up
+T12W_0005,RISE,"n=5, win=10",1.063,1.066,"n=7, win=15",1.24,165,1.118,108,13,True
+T12W_0033,REVERSAL_UP,"lb=20, vmult=0.0",1.063,0.945,"lb=60, vmult=1.0",1.964,504,0.961,597,18,False
+T12W_0034,REVERSAL_UP,"bwin=4, lb=25",1.067,1.127,"bwin=3, lb=40",1.105,1104,0.975,1648,16,False
+T12W_0040,REVERSAL_UP,"hi=45, lo=35",1.065,1.094,"hi=45, lo=30",1.162,1327,1.142,1658,15,True
+T12W_0066,FALL,"gap=0.0, vmult=1.5",1.091,1.062,"gap=0.01, vmult=1.75",1.374,102,1.312,177,15,True
+T12W_0086,FALL,"lb=20, rwin=3",1.068,0.943,"lb=40, rwin=2",1.345,1600,0.925,1838,15,False
