@@ -1,0 +1,58 @@
+# One-shot utility: pull the shareholding zip from the chityy-archive release,
+# extract it, verify EVERY json against MANIFEST_v2.csv, commit only exact
+# matches. Deleted after use.
+name: fetch-shareholding-zip
+on:
+  push:
+    branches: [claude/repo-audit-overview-epyrvc]
+    paths: ['.github/workflows/fetch_shareholding_zip.yml']
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download, verify each file, commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release download chityy-archive \
+            --pattern 'shareholding-*.zip' --dir /tmp/shz --repo "$GITHUB_REPOSITORY"
+          cd /tmp/shz && unzip -o -q ./*.zip && cd "$GITHUB_WORKSPACE"
+          python3 - <<'PY'
+          import csv, hashlib, os, shutil, glob
+          man = {}
+          with open("data/shareholding/MANIFEST_v2.csv") as f:
+              for r in csv.reader(f):
+                  if len(r) >= 3 and r[0].startswith("shareholding/"):
+                      man[os.path.basename(r[0])] = (int(r[1]), r[2].strip())
+          src = {os.path.basename(p): p for p in glob.glob("/tmp/shz/**/*.json", recursive=True)}
+          ok = bad = already = 0; badlist = []
+          for name, (size, h16) in man.items():
+              dest = os.path.join("data/shareholding", name)
+              if os.path.exists(dest):
+                  already += 1; continue
+              p = src.get(name)
+              if not p: bad += 1; badlist.append(f"{name}:missing-from-zip"); continue
+              b = open(p, "rb").read()
+              if len(b) != size or hashlib.sha256(b).hexdigest()[:16] != h16:
+                  bad += 1; badlist.append(f"{name}:hash-or-size"); continue
+              shutil.copyfile(p, dest); ok += 1
+          print(f"manifest={len(man)} already={already} committed={ok} rejected={bad}")
+          if badlist: print("REJECTED:", badlist[:20])
+          open("/tmp/intake_summary.txt","w").write(
+              f"manifest={len(man)} already_present={already} newly_verified={ok} rejected={bad}\n")
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/shareholding/
+          git commit -F - <<MSG || { echo "nothing new to commit"; exit 0; }
+          Colab v2 intake: shareholding JSONs from release zip (each hash-verified)
+
+          $(cat /tmp/intake_summary.txt)
+          Every file checked against MANIFEST_v2.csv (byte size + sha256_16)
+          inside the workflow; mismatches rejected, never committed.
+          MSG
+          for i in 1 2 3 4 5; do git pull --rebase origin "$GITHUB_REF_NAME" && git push && break || sleep 5; done
