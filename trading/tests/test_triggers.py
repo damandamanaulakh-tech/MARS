@@ -336,3 +336,49 @@ def test_recalibration_did_not_touch_the_money_path():
     """0066 is a display/watchlist trigger — it must not be in the sell layer."""
     from trading import danger
     assert "T12W_0066" not in danger.VERIFIED
+
+
+def _rsi_ctx(dip: float, last: float, n: int = 120):
+    """A context whose RSI dips to `dip` then closes at `last`.
+
+    The RSI array is set directly: a synthetic price path steep enough to be
+    oversold drives RSI to 0, which cannot test the 30-vs-35 boundary at all.
+    """
+    idx = pd.bdate_range("2025-01-01", periods=n)
+    c = np.full(n, 100.0)
+    df = pd.DataFrame({"Open": c, "High": c * 1.01, "Low": c * 0.99,
+                       "Close": c, "Volume": np.full(n, 1e6)}, index=idx)
+    x = T._Ctx(df)
+    r = np.full(n, 50.0)
+    r[-6:-1] = dip
+    r[-1] = last
+    x.rsi14 = r
+    return x
+
+
+def test_oversold_to_neutral_needs_a_deep_dip_not_a_shallow_one():
+    """RSI < 35 was too shallow: it scored 1.023 train / 1.094 test. The
+    measured entry depth is 30, which scored 1.162 / 1.142."""
+    assert bool(T._t0040(_rsi_ctx(33, 50))) is False   # would have fired at 35
+    assert bool(T._t0040(_rsi_ctx(29, 50))) is True
+
+
+def test_oversold_to_neutral_still_needs_the_reclaim():
+    assert bool(T._t0040(_rsi_ctx(25, 44))) is False    # never reclaims 45
+    assert bool(T._t0040(_rsi_ctx(25, 46))) is True
+
+
+def test_oversold_exit_level_was_not_fitted():
+    """The two halves disagreed on the exit axis (train 45, test 50), so the
+    production value stays and says so — fitting it would be curve-fitting."""
+    assert T.MEASURED_CONSTANTS["oversold_exit_rsi"] == 45.0
+    src = T.MEASURED_CONSTANT_SOURCE["oversold_exit_rsi"]
+    assert "UNCHANGED" in src and "disagreed" in src
+
+
+def test_0040_recalibrated_verdict_and_money_path():
+    c = T.CALIBRATION["T12W_0040"]
+    assert c["proof_tag"] == "SUPPORTED" and c["lift"] == 1.161
+    assert "1.065" in c["superseded"]
+    from trading import danger
+    assert "T12W_0040" not in danger.VERIFIED

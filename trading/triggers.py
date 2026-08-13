@@ -78,11 +78,26 @@ MEASURED_CONSTANTS = {
     # information: test-half lift rose monotonically with it at every volume
     # multiple. Owner order 2026-08-13: "wire 0066 with gap 1%".
     "gap_up_min_gap": 0.01,
+    # T12W_0040: the sheet said "oversold to neutral FAST" without numbers.
+    # RSI below 35 was too shallow to be a real oversold — in both halves of
+    # the panel, requiring a DEEPER dip beat a shallower one. Owner order
+    # 2026-08-13: "wire 0040 too". The exit level stays 45: train preferred
+    # 45, test preferred 50, so that axis is NOT stable and the production
+    # value is kept rather than fitted.
+    "oversold_entry_rsi": 30.0,
+    "oversold_exit_rsi": 45.0,
 }
 MEASURED_CONSTANT_SOURCE = {
     "gap_up_min_gap": ("threshold sweep 2026-08-13 "
                        "(research/threshold_sweep/): chosen on 2014-2020, "
                        "confirmed on 2020-2026 — train lift 1.217, test 1.227"),
+    "oversold_entry_rsi": ("threshold sweep 2026-08-13 "
+                           "(research/threshold_sweep/): chosen on 2014-2020 "
+                           "(lift 1.162), read on 2020-2026 (1.142) — was 35, "
+                           "which scored 1.023 train / 1.094 test"),
+    "oversold_exit_rsi": ("UNCHANGED production value — the sweep's two halves "
+                          "disagreed on this axis (train best 45, test best "
+                          "50), so it was not fitted"),
 }
 
 ASSUMED_CONSTANTS = {
@@ -451,10 +466,13 @@ def _t0038(x):  # double bottom, stronger right side
 
 
 def _t0040(x):  # oversold to neutral fast
+    # Entry depth measured 2026-08-13 (MEASURED_CONSTANTS): a dip under 35 was
+    # too shallow to mean anything. Exit level left at the production 45.
     r = x.rsi14
     if np.any(~np.isfinite(r[-6:])):
         return None
-    return np.min(r[-6:-1]) < 35 and r[-1] > 45
+    return (np.min(r[-6:-1]) < MEASURED_CONSTANTS["oversold_entry_rsi"]
+            and r[-1] > MEASURED_CONSTANTS["oversold_exit_rsi"])
 
 
 def _t0041(x):  # reclaim with volume confirmation
@@ -1070,6 +1088,15 @@ CALIBRATION: dict[str, dict] = _load_calibration()
 # rule, so a recalibrated trigger carries its own measured numbers and names
 # the run they came from.
 RECALIBRATED: dict[str, dict] = {
+    "T12W_0040": {
+        "proof_tag": "SUPPORTED",       # lift >= 1.1 with fires >= 30
+        "lift": 1.161,                  # 2,985 fires, 133 hits, 4.46% vs 3.84%
+        "median_lead_days": 4.0,
+        "fires": 2985,
+        "false_positive_rate_pct": 31.86,
+        "recalibrated": "2026-08-13 RSI<30 sweep — train 1.162 / test 1.142",
+        "superseded": "1.065 REJECTED (2026-08-09 run, RSI<35)",
+    },
     "T12W_0066": {
         "proof_tag": "SUPPORTED",       # lift >= 1.1 with fires >= 30
         "lift": 1.213,                  # 347 fires, 82 hits, 23.63% vs 19.49%
