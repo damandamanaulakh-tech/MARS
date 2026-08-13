@@ -1,0 +1,65 @@
+id,name,side,rule,fires,evals,fire_pct,hit_pct,base_pct,lift,fp_pct,edge_pp
+T12W_0067,Liquidity Vacuum Risk,COLLAPSE,vol10/vol60<0.55 and price near support,2147,94479,2.27,3.59,3.45,1.041,33.35,0.14
+T12W_0090,Two Gap Down Sequence,COLLAPSE,count(open<prior_low last10)>=2,13269,94479,14.04,3.62,3.45,1.05,31.92,0.17
+T12W_0082,Bearish OBV Divergence,FALL,"price 20D high proximity and slope(OBV,10)<0",4306,94479,4.56,14.77,19.49,0.758,47.03,-4.72
+T12W_0085,High Tight Flag Failure,FALL,prior strong gain + tight flag + close below flag low,49,94479,0.05,16.33,19.49,0.838,32.65,-3.16
+T12W_0074,Support Test Count Overload,FALL,touches of support in last15 >=3 and rebounds shrinking,14469,94479,15.31,16.47,19.49,0.845,40.0,-3.02
+T12W_0063,Liquidity Fade Before Fall,FALL,vol5/vol20<0.7 while price near 20D high,3904,94479,4.13,16.85,19.49,0.865,41.44,-2.64
+T12W_0088,Supply Wick Cluster Near High,FALL,count(upper_wick_ratio>0.45 near resistance last10)>=3,8252,94479,8.73,17.37,19.49,0.891,39.61,-2.12
+T12W_0064,Distribution Volume Spike,FALL,sum(vol on down days last7)/sum(vol last7)>0.58 and vol7>vol20,11996,94479,12.7,18.76,19.49,0.963,35.02,-0.73
+T12W_0078,Gap Fill Failure,FALL,close below gap_fill_level after touching it,49738,94479,52.64,19.05,19.49,0.978,34.16,-0.44
+T12W_0087,Opening Strength Closing Weakness,FALL,count(open>prior_close and close<open last7)>=3,44988,94479,47.62,19.07,19.49,0.979,34.26,-0.42
+T12W_0076,Momentum Divergence 14D,FALL,price makes higher high while RSI/MACD histogram lower high,14414,94396,15.27,19.29,19.49,0.99,35.51,-0.2
+T12W_0081,Distribution Cluster Count,FALL,sum distribution flags last10 >= threshold,8179,94479,8.66,19.33,19.49,0.992,35.41,-0.16
+T12W_0083,Down Volume Ratio Spike,FALL,down_volume_5d/total_volume_5d>=0.65,23399,94479,24.77,19.42,19.49,0.996,34.58,-0.07
+T12W_0069,Upthrust Above Resistance,FALL,high>resistance and close<resistance and CLV<0.4,3526,94479,3.73,19.54,19.49,1.003,34.15,0.05
+T12W_0071,New High Negative CLV,FALL,high>=20D high and CLV<0.45,4481,94479,4.74,19.55,19.49,1.003,33.99,0.06
+T12W_0065,High Volume No Progress,FALL,vol_today>1.8*vol20 and close<=prior_close or CLV<0.35,3759,94479,3.98,20.01,19.49,1.027,34.03,0.52
+T12W_0073,Lower High On Higher Volume,FALL,swing_high lower than prior swing_high and volume higher,16036,94479,16.97,20.01,19.49,1.027,32.84,0.52
+T12W_0077,FiftyDMA Rejection,FALL,high crosses 50DMA but close below 50DMA twice in 10 days,19177,94479,20.3,20.11,19.49,1.032,34.83,0.62
+T12W_0075,Breakdown Pressure Ratio,FALL,count(CLV<0.35 last7)>=4,27875,94479,29.5,20.21,19.49,1.037,32.14,0.72
+T12W_0070,Failed Breakout Within 5D,FALL,breakout close above resistance then close below resistance within 5 days,6864,94479,7.27,20.48,19.49,1.051,35.11,0.99
+T12W_0086,False Reclaim Trap,FALL,close above support then close below within 3D,7480,94479,7.92,20.82,19.49,1.068,31.8,1.33
+T12W_0066,Gap Up Volume Rejection,FALL,open>prior_high and close<open and volume>1.5*vol20,964,94479,1.02,21.27,19.49,1.091,33.82,1.78
+T12W_0043,Lower Wick Cluster At Support,REVERSAL_UP,count(lower_wick_ratio>0.5 near support last10)>=3,3247,94479,3.44,1.66,3.84,0.433,49.95,-2.18
+T12W_0038,Double Bottom Right Side Strength,REVERSAL_UP,second_low near first_low but CLV higher and volume lower/same,10979,94479,11.62,2.91,3.84,0.759,37.97,-0.93
+T12W_0037,Gap Down Reclaim,REVERSAL_UP,open<prior_low and close>=prior_close,1800,94479,1.91,3.33,3.84,0.869,32.67,-0.51
+T12W_0042,Three Day Failed Selloff,REVERSAL_UP,3-day low undercut + close above day1 close by day3,10349,94479,10.95,3.83,3.84,0.997,33.88,-0.01
+T12W_0033,Support Sweep Reclaim,REVERSAL_UP,low < min(low[-20:-1]) and close > prior_support,4265,94479,4.51,4.08,3.84,1.063,34.23,0.24
+T12W_0040,Oversold To Neutral Fast,REVERSAL_UP,RSI14 crosses above 45 from below 35 within 5 sessions,6143,94451,6.5,4.09,3.84,1.065,32.48,0.25
+T12W_0034,Failed Breakdown 3D Confirm,REVERSAL_UP,close reclaims broken support within 3 days after breakdown,4713,94479,4.99,4.1,3.84,1.067,32.17,0.26
+T12W_0006,Base Width Under 8 Percent,RISE,(max_high_10d-min_low_10d)/close <= 0.08,36994,94479,39.16,25.35,32.08,0.79,44.91,-6.73
+T12W_0013,Pre-Break 20D High Proximity,RISE,close >= 0.97*max(high[-20:]) and volume not panic,25218,94479,26.69,27.47,32.08,0.856,40.71,-4.61
+T12W_0011,Tight Close Cluster,RISE,stdev(close[-5:])/avg(close[-5:]) <= 1.5%,56374,94479,59.67,28.41,32.08,0.886,39.42,-3.67
+T12W_0004,ATR Percentile Bottom 20,RISE,ATR14 percentile over 252 days <= 20 and price above 20D low,19475,94479,20.61,28.61,32.08,0.892,37.35,-3.47
+T12W_0030,Support Touch Volume Dry,RISE,low near 20D support and volume < 0.8*vol20,9945,94479,10.53,28.62,32.08,0.892,39.27,-3.46
+T12W_0014,Volatility Shelf Build,RISE,"abs(slope(ATR14,5)) small and ATR14 percentile <=30",14198,94479,15.03,28.98,32.08,0.903,36.98,-3.1
+T12W_0031,Hidden Demand Delta Proxy,RISE,(CLV*volume) 5D sum rising while close flat,18160,94479,19.22,29.04,32.08,0.905,38.14,-3.04
+T12W_0025,Quiet Accumulation Score,RISE,zscore(OBV_slope)+zscore(CLV_avg)-abs(return_10d),8170,94479,8.65,29.25,32.08,0.912,38.49,-2.83
+T12W_0017,Stealth Accumulation Flat Price Rising OBV,RISE,"slope(OBV,10)>0 and abs(return_10d)<=3%",21684,94479,22.95,29.94,32.08,0.933,36.91,-2.14
+T12W_0020,Absorption At Resistance,RISE,close within 2% of 20D high and volume>1.3*vol20 and no close below mid,4649,94479,4.92,30.03,32.08,0.936,36.24,-2.05
+T12W_0021,Volume Up Price Flat,RISE,vol5>1.25*vol20 and abs(return_10d)<3%,5602,94479,5.93,30.02,32.08,0.936,37.79,-2.06
+T12W_0003,Bollinger Bandwidth 10D Squeeze,RISE,bandwidth=(upper20-lower20)/ma20; flag if bandwidth percentile <= 15 over 6M,15753,94479,16.67,30.08,32.08,0.938,36.79,-2.0
+T12W_0027,Accumulation Without Gap,RISE,positive CLV + rising OBV + no gap >3% last10,8174,94479,8.65,30.13,32.08,0.939,36.64,-1.95
+T12W_0058,Turnover Expansion No Price Move,RISE,turnover5>1.5*turnover20 and abs(return5)<3%,2877,94479,3.05,30.21,32.08,0.942,39.24,-1.87
+T12W_0019,Positive CLV Accumulation,RISE,"avg((close-low)/(high-low),7) >= 0.65",4320,94479,4.57,30.28,32.08,0.944,36.32,-1.8
+T12W_0023,Demand Wick Repetition,RISE,count(lower_wick_ratio>0.45 last7)>=3,13994,94479,14.81,30.63,32.08,0.955,37.46,-1.45
+T12W_0012,Compression With Positive Drift,RISE,"bandwidth percentile <=25 and linear_slope(close,10)>0",12592,94479,13.33,30.81,32.08,0.96,36.51,-1.27
+T12W_0015,Micro Pullback In Base,RISE,"drawdown from 10D high between -2% and -6%, no 10D low break",38168,94479,40.4,31.27,32.08,0.975,34.53,-0.81
+T12W_0029,Two Green High-CLV Days In Base,RISE,count(close>open and CLV>0.7 last5)>=2 and no breakout close yet,33880,94479,35.86,31.53,32.08,0.983,34.86,-0.55
+T12W_0007,Close Above Base Midline,RISE,close > (highest_high_10+lowest_low_10)/2 for 3 of last 5 days,47559,94479,50.34,31.65,32.08,0.987,34.2,-0.43
+T12W_0028,Last Red Day Volume Shrink,RISE,volume on down days last5 < avg volume down days prior20,53574,94479,56.7,31.66,32.08,0.987,34.36,-0.42
+T12W_0057,Volume Wakeup After Dry Base,RISE,vol5 < 0.75*vol20 then vol_today > 1.5*vol20,2558,94479,2.71,31.67,32.08,0.987,34.36,-0.41
+T12W_0010,Range Contraction 3-Step,RISE,range_t < range_t-1 < range_t-2 and close not breaking 10D low,18630,94479,19.72,31.7,32.08,0.988,34.28,-0.38
+T12W_0002,NR14 Compression Before Break,RISE,flag if today's high-low <= MIN(high-low over 14 sessions),7646,94479,8.09,31.96,32.08,0.996,34.06,-0.12
+T12W_0022,Higher Low With Volume Support,RISE,latest_swing_low > prior_swing_low and pullback volume <= avg volume,33957,94479,35.94,31.94,32.08,0.996,33.76,-0.14
+T12W_0009,Squeeze Plus Volume Dry Up,RISE,bandwidth low + volume_5d_avg < volume_20d_avg*0.75,6756,94479,7.15,32.05,32.08,0.999,34.43,-0.03
+T12W_0061,Volume Rate Of Change 5D,RISE,vol5/vol20 > 1.4 and price not extended,10106,94479,10.7,32.1,32.08,1.001,35.21,0.02
+T12W_0008,Low Volatility Higher Lows,RISE,ATR14 down 3 sessions and low_5d_slope > 0,15442,94479,16.34,32.2,32.08,1.004,34.39,0.12
+T12W_0016,Breakout Pressure Ratio,RISE,avg(CLV last5) > avg(CLV prior5) and CLV=(close-low)/(high-low),47000,94479,49.75,32.2,32.08,1.004,33.75,0.12
+T12W_0018,Up Volume Dominance 7D,RISE,sum(volume where close>prior_close last7) / total_volume_7d >= 0.62,34039,94479,36.03,32.2,32.08,1.004,33.46,0.12
+T12W_0024,Close Recovery Same Day,RISE,"day_low_breaks_prior_low and close>open or close>midrange, count>=2 last7",32314,94479,34.2,32.2,32.08,1.004,35.04,0.12
+T12W_0062,Dry-Up To Expansion Ratio,RISE,min(vol5/vol20 last10)<0.75 and current vol/vol20>1.4,8806,94479,9.32,32.5,32.08,1.013,34.04,0.42
+T12W_0026,Base Break Volume Preview,RISE,vol3/vol20 between 1.15 and 1.6 while price below breakout,16613,94479,17.58,32.67,32.08,1.018,33.44,0.59
+T12W_0001,NR7 Day Inside 10D Base,RISE,range_today = high-low; flag if range_today <= MIN(range[-7:]) and close within 10D range midpoint band,7103,94479,7.52,32.86,32.08,1.024,32.61,0.78
+T12W_0005,Inside Bar Cluster 5 of 10,RISE,count inside bars in last 10 >= 5,651,94479,0.69,34.1,32.08,1.063,33.33,2.02
