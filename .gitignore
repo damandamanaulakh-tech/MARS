@@ -38,3 +38,8 @@ docs/param_search_v1_progress.jsonl
 !data/india_10y_bond_yield.csv
 !data/shareholding/*.csv
 !data/chityy/*.csv
+
+# Calibration resume artifacts: a run's checkpoint is transient state for
+# surviving a container restart mid-pass, not evidence. The results
+# (CSV + summary.md) are committed; the checkpoint is not.
+research/**/checkpoint.json

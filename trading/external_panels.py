@@ -26,9 +26,15 @@ Honesty rules, same as the rest of the app:
     slice we have", not "no deal happened". `DEALS_TRUNCATED` says so and
     the page prints it.
 
-Boundary (test-enforced, same as triggers.py and lens_v2.py): trading/
-engine.py, risk.py and orders.py must never import this module. Display and
-watchlist only.
+Boundary (test-enforced): trading/engine.py, risk.py and orders.py must never
+import this module directly.
+
+SCOPE CHANGED 2026-08-13 — this is no longer display-only. Owner order "wire
+0095 and 0094 both" put two panel-fed tripwires into the danger layer, so
+`trading/danger.py` (the SELL side) imports this module and the engine reaches
+it only through there. That is the owner's own F-006 rule: the risk side may
+act on a calibrated signal, the entry side may not. No entry gate, sizing rule
+or new-position decision reads anything here.
 """
 
 from __future__ import annotations
@@ -401,17 +407,37 @@ class PanelSet:
     rather than per stock per date.
     """
 
+    #: every heavy source this class can load
+    ALL_SOURCES = ("panel", "index", "delivery", "fo_oi", "deals")
+
     def __init__(self, tickers: Optional[list[str]] = None,
-                 tail: int = _PANEL_TAIL):
-        self.panel = _load_panel(tail)
-        self.smap = _sector_map()
-        self.index_s = _load_index_close()
-        self.fo = _load_fo_oi()
-        self.deals = _load_deals()
-        syms = {_base_symbol(t) for t in (tickers or list(self.panel))}
-        self.delivery = _load_delivery(syms)
+                 tail: int = _PANEL_TAIL,
+                 sources: tuple[str, ...] = ALL_SOURCES):
+        # `sources` exists for the danger layer, which needs only the peer
+        # panel and the index and runs inside engine.refresh — streaming the
+        # 3.5M-row delivery file there would be unacceptable. Everything not
+        # requested stays empty, which reads downstream as DATA_NEEDED rather
+        # than as a quiet zero.
+        self.sources_requested = tuple(sources)
+        want = set(sources)
+        self.panel = _load_panel(tail) if "panel" in want else {}
+        self.smap = _sector_map() if "panel" in want else {}
+        self.index_s = _load_index_close() if "index" in want else None
+        self.fo = _load_fo_oi() if "fo_oi" in want else {}
+        self.deals = _load_deals() if "deals" in want else {}
+        if "delivery" in want:
+            syms = {_base_symbol(t) for t in (tickers or list(self.panel))}
+            self.delivery = _load_delivery(syms)
+        else:
+            self.delivery = {}
 
         names = sorted(self.panel)
+        if not names:
+            # Nothing to build cross-sectionally; every field stays empty and
+            # externals_at() returns a StockExternals with only the symbol-side
+            # panels filled (or none at all).
+            self._init_empty()
+            return
         self.close = pd.DataFrame(
             {t: self.panel[t]["close"] for t in names}).sort_index()
         vol_cols = {t: self.panel[t]["volume"] for t in names
@@ -514,6 +540,31 @@ class PanelSet:
             "deals": str(deals_last.date()) if deals_last is not None else "",
         }
         self._deals_last = deals_last
+
+    def _init_empty(self) -> None:
+        self.close = pd.DataFrame()
+        self.vol = None
+        self.ret60 = self.ret10 = pd.DataFrame()
+        self.rs_rank = self.turnover_rank = None
+        self.by_sector = {}
+        self.sector_close = {}
+        self.sector_breadth = {}
+        self.sector_ret10 = pd.DataFrame()
+        self.sector_rank = None
+        self.own_sector_rank = pd.DataFrame()
+        self.rs_lines = {}
+        self.broke_low = pd.DataFrame()
+        self.prerise_flag = pd.DataFrame()
+        self._sector_break_count = {}
+        self._sector_flag_top5 = {}
+        self._sector_flag_rank6 = {}
+        self._sector_rank_desc = {}
+        self.sources = {"panel": False, "sector_map": False,
+                        "index": self.index_s is not None,
+                        "delivery": bool(self.delivery), "fo_oi": bool(self.fo),
+                        "deals": bool(self.deals)}
+        self.asof = {"panel": "", "index": "", "deals": ""}
+        self._deals_last = None
 
     # -- as-of reader ------------------------------------------------------
 
@@ -672,16 +723,19 @@ class PanelSet:
         return sx
 
 
-_panelset_cache: Optional[PanelSet] = None
+_panelset_cache: dict[tuple, PanelSet] = {}
 
 
 def panel_set(tickers: Optional[list[str]] = None, rebuild: bool = False,
-              tail: int = _PANEL_TAIL) -> PanelSet:
-    """The shared PanelSet (built once per process unless rebuild=True)."""
-    global _panelset_cache
-    if _panelset_cache is None or rebuild:
-        _panelset_cache = PanelSet(tickers, tail=tail)
-    return _panelset_cache
+              tail: int = _PANEL_TAIL,
+              sources: tuple[str, ...] = PanelSet.ALL_SOURCES) -> PanelSet:
+    """The shared PanelSet, cached per (tail, sources) — the danger layer's
+    light set and the research set are different objects, not one clobbering
+    the other."""
+    key = (tail, tuple(sources))
+    if rebuild or key not in _panelset_cache:
+        _panelset_cache[key] = PanelSet(tickers, tail=tail, sources=sources)
+    return _panelset_cache[key]
 
 
 def prepare(tickers: list[str]) -> ExternalData:
@@ -843,6 +897,7 @@ def pcr_oi(ticker: str) -> Optional[dict]:
 
 def reset_caches() -> None:
     """Drop cached panels (tests, and after a weekly data top-up)."""
-    global _insider_cache, _fo_cache, _deals_cache, _panelset_cache
+    global _insider_cache, _fo_cache, _deals_cache
     _panel_cache.clear()
-    _insider_cache = _fo_cache = _deals_cache = _panelset_cache = None
+    _panelset_cache.clear()
+    _insider_cache = _fo_cache = _deals_cache = None

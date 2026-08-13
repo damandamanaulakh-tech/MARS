@@ -13,6 +13,7 @@ import pandas as pd
 import pytest
 
 from trading import danger
+from trading import external_panels as XP
 from trading.config import Config
 from trading.engine import TradingEngine
 from trading.paper import PaperPosition, Portfolio
@@ -24,15 +25,40 @@ ROOT = Path(__file__).resolve().parents[2]
 # Evidence lock
 # ---------------------------------------------------------------------------
 
-def test_verified_list_comes_from_strict_calibration_csv():
+def test_verified_list_comes_from_the_committed_calibration_csvs():
+    """The money path's tripwire list must come from evidence FILES, never a
+    hardcoded list. Two sources since the 2026-08-13 order.
+    """
     import csv
-    with open(ROOT / "research" / "bt_calibration" / "run_2026-08-09_strict15"
-              / "trigger_calibration.csv") as f:
-        expect = {r["trigger_id"] for r in csv.DictReader(f)
-                  if r["proof_tag"] == "VERIFIED"
-                  and r["side"] in ("FALL", "COLLAPSE")}
-    assert set(danger.VERIFIED) == expect
-    assert len(danger.VERIFIED) == 10
+
+    def verified(path):
+        with open(path) as f:
+            return {r["trigger_id"] for r in csv.DictReader(f)
+                    if r["proof_tag"] == "VERIFIED"
+                    and r["side"] in ("FALL", "COLLAPSE")}
+
+    ohlcv = verified(ROOT / "research" / "bt_calibration" /
+                     "run_2026-08-09_strict15" / "trigger_calibration.csv")
+    ext = verified(ROOT / "research" / "bt_calibration_external" /
+                   "run_2026-08-13" / "external_trigger_calibration.csv")
+    assert len(ohlcv) == 10
+    # every OHLCV verdict is admitted; the external side only by explicit order
+    assert ohlcv <= set(danger.VERIFIED)
+    assert set(danger.PANEL_FED) <= ext
+    assert set(danger.VERIFIED) == ohlcv | set(danger.PANEL_FED)
+    assert len(danger.VERIFIED) == 12
+
+
+def test_a_future_external_run_cannot_self_promote_into_the_money_path():
+    """Scoring VERIFIED is not enough — the id must be on the ordered list."""
+    assert danger._EXTERNAL_ALLOWED == ("T12W_0095", "T12W_0094")
+    admitted = danger._read_verified(
+        danger._EXTERNAL_CSV, "main", needs_panels=True,
+        allow=danger._EXTERNAL_ALLOWED)
+    unrestricted = danger._read_verified(
+        danger._EXTERNAL_CSV, "main", needs_panels=True, allow=None)
+    assert set(admitted) <= set(unrestricted)
+    assert set(admitted) == set(danger.PANEL_FED)
 
 
 def test_danger_side_only_never_entries():
@@ -123,7 +149,7 @@ def test_alert_mode_touches_nothing(tmp_path):
 def test_auto_mode_exits_half_on_two_fires(tmp_path, monkeypatch):
     eng = _engine(tmp_path, start_days_ago=10)     # auto mode
     monkeypatch.setattr(danger, "evaluate_stock",
-                        lambda df: list(danger.VERIFIED)[:2])
+                        lambda df, ext=None: list(danger.VERIFIED)[:2])
     prices = {"CRASH.NS": 72.9}
     eng._danger_pass(prices, {"CRASH.NS": _crashing()}, datetime.utcnow())
     pos = eng.portfolio.positions["CRASH.NS"]
@@ -137,7 +163,7 @@ def test_auto_mode_exits_half_on_two_fires(tmp_path, monkeypatch):
 def test_auto_mode_tighten_on_single_fire(tmp_path, monkeypatch):
     eng = _engine(tmp_path, start_days_ago=10)
     one = list(danger.VERIFIED)[:1]
-    monkeypatch.setattr(danger, "evaluate_stock", lambda df: one)
+    monkeypatch.setattr(danger, "evaluate_stock", lambda df, ext=None: one)
     # winner at 120 with the entry stop still at 95: tighten pulls it to 117
     prices = {"CRASH.NS": 120.0}
     eng._danger_pass(prices, {"CRASH.NS": _calm()}, datetime.utcnow())
@@ -150,7 +176,7 @@ def test_auto_mode_tighten_on_single_fire(tmp_path, monkeypatch):
 def test_tighten_never_loosens_an_already_tighter_stop(tmp_path, monkeypatch):
     eng = _engine(tmp_path, start_days_ago=10)
     monkeypatch.setattr(danger, "evaluate_stock",
-                        lambda df: list(danger.VERIFIED)[:1])
+                        lambda df, ext=None: list(danger.VERIFIED)[:1])
     # underwater at 90 with stop 95: -2.5% off price (87.75) would LOOSEN
     # the stop - the layer must keep 95 and only alert
     eng._danger_pass({"CRASH.NS": 90.0}, {"CRASH.NS": _calm()},
@@ -195,3 +221,96 @@ def test_start_date_persists_round_trip(tmp_path):
     p.save()
     p2 = Portfolio.load_or_fresh(cfg)
     assert p2.danger_alerts_start == "2026-08-11"
+
+
+# ---------------------------------------------------------------------------
+# Panel-fed tripwires (owner order 2026-08-13 "wire 0095 and 0094 both")
+# ---------------------------------------------------------------------------
+
+def _flat_frame(n: int = 200):
+    idx = pd.bdate_range("2025-01-01", periods=n)
+    c = np.full(n, 100.0)
+    return pd.DataFrame({"Open": c * 0.999, "High": c * 1.005,
+                         "Low": c * 0.995, "Close": c,
+                         "Volume": np.full(n, 1e6)}, index=idx)
+
+
+def _broken_support_frame(n: int = 200):
+    """Closes below the prior 20 sessions' lowest low — a real breakdown."""
+    d = _flat_frame(n)
+    d.iloc[-1, d.columns.get_loc("Low")] = 93.0
+    d.iloc[-1, d.columns.get_loc("Close")] = float(d["Low"][:-1].min()) * 0.98
+    return d
+
+
+def test_both_ordered_tripwires_are_admitted_with_their_evidence():
+    assert set(danger.PANEL_FED) == {"T12W_0094", "T12W_0095"}
+    for tid, expect in (("T12W_0095", 2.28), ("T12W_0094", 1.546)):
+        v = danger.VERIFIED[tid]
+        assert v["side"] == "COLLAPSE"
+        assert abs(v["lift"] - expect) < 0.01
+        assert v["needs_panels"] is True
+
+
+def test_the_two_evidence_bars_stay_distinguishable():
+    """The 10 OHLCV tripwires cleared strict +/-15%; the two panel-fed ones
+    cleared main +/-10%. A future session must not mistake one for the other."""
+    labels = {tid: v["labels"] for tid, v in danger.VERIFIED.items()}
+    assert labels["T12W_0095"] == "main +/-10%"
+    assert labels["T12W_0094"] == "main +/-10%"
+    ohlcv = [t for t in danger.VERIFIED if t not in danger.PANEL_FED]
+    assert ohlcv and all(labels[t] == "strict +/-15%" for t in ohlcv)
+
+
+def test_index_overlay_fires_on_a_breakdown_under_a_weak_index():
+    weak = XP.StockExternals(ticker="X.NS",
+                             index_close=np.linspace(100, 80, 60))
+    assert "T12W_0095" in danger.evaluate_stock(_broken_support_frame(), ext=weak)
+    strong = XP.StockExternals(ticker="X.NS",
+                               index_close=np.linspace(80, 100, 60))
+    assert "T12W_0095" not in danger.evaluate_stock(_broken_support_frame(),
+                                                    ext=strong)
+
+
+def test_contagion_fires_when_peers_break_first_and_target_holds():
+    lead = XP.StockExternals(ticker="X.NS", peers=10, peer_break_20d_low=4)
+    assert "T12W_0094" in danger.evaluate_stock(_flat_frame(), ext=lead)
+    quiet = XP.StockExternals(ticker="X.NS", peers=10, peer_break_20d_low=1)
+    assert "T12W_0094" not in danger.evaluate_stock(_flat_frame(), ext=quiet)
+
+
+def test_the_panel_fed_pair_cannot_alone_reach_exit_half():
+    """0095 needs the target's support BROKEN, 0094 needs it INTACT — they are
+    mutually exclusive, so the pair can only ever tighten a stop on its own.
+    Documented because 2+ fires is what escalates to selling half."""
+    ext = XP.StockExternals(ticker="X.NS", peers=10, peer_break_20d_low=9,
+                            index_close=np.linspace(100, 80, 60))
+    for df in (_flat_frame(), _broken_support_frame()):
+        fired = [t for t in danger.evaluate_stock(df, ext=ext)
+                 if t in danger.PANEL_FED]
+        assert len(fired) <= 1, fired
+
+
+def test_no_panels_means_abstain_not_a_guessed_fire():
+    """Panels unavailable -> the layer degrades to the OHLCV tripwires."""
+    fired = danger.evaluate_stock(_broken_support_frame(), ext=None)
+    assert not any(t in danger.PANEL_FED for t in fired)
+
+
+def test_externals_for_never_loads_the_heavy_feeds():
+    """This runs inside engine.refresh; streaming the 3.5M-row delivery file
+    there would be unacceptable."""
+    got = danger.externals_for(["TCS.NS"])
+    if got is None:
+        pytest.skip("panels unavailable in this checkout")
+    x = got["TCS.NS"]
+    assert x.delivery_ratio is None and x.fut_oi is None
+    assert x.index_close is not None
+
+
+def test_engine_reaches_the_panels_only_through_this_module():
+    from pathlib import Path
+    root = Path(danger.__file__).resolve().parent
+    for name in ("engine.py", "risk.py", "orders.py"):
+        assert "external_panels" not in (root / name).read_text(), (
+            f"{name} must reach the panels only via trading.danger")
