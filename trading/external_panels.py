@@ -88,7 +88,9 @@ _MIN_PANEL_BARS = 60
 # Panel loading (cached at module level — the layer runs once a day)
 # --------------------------------------------------------------------------
 
-_panel_cache: Optional[dict[str, pd.DataFrame]] = None
+# Cached per history depth: production keeps a short tail (RAM on the 512MB
+# box), the calibration needs the full 12 years.
+_panel_cache: dict[int, dict[str, pd.DataFrame]] = {}
 
 
 def _sector_map() -> dict[str, str]:
@@ -100,11 +102,14 @@ def _sector_map() -> dict[str, str]:
         return {}
 
 
-def _load_panel() -> dict[str, pd.DataFrame]:
-    """{ticker: DataFrame(close, volume)} for the committed 191-name panel."""
-    global _panel_cache
-    if _panel_cache is not None:
-        return _panel_cache
+def _load_panel(tail: int = _PANEL_TAIL) -> dict[str, pd.DataFrame]:
+    """{ticker: DataFrame(close, volume)} for the committed 191-name panel.
+
+    `tail` bounds bars per name. The default keeps the live layer inside the
+    512MB box; pass 0 for the full history (the calibration does).
+    """
+    if tail in _panel_cache:
+        return _panel_cache[tail]
     out: dict[str, pd.DataFrame] = {}
     try:
         with zipfile.ZipFile(_PANEL_ZIP) as z:
@@ -123,10 +128,11 @@ def _load_panel() -> dict[str, pd.DataFrame]:
                 keep = pd.DataFrame({"close": df[cols["close"]].astype(float)})
                 if "volume" in cols:
                     keep["volume"] = df[cols["volume"]].astype(float)
-                out[ticker] = keep.sort_index().tail(_PANEL_TAIL)
+                keep = keep.sort_index()
+                out[ticker] = keep if tail <= 0 else keep.tail(tail)
     except OSError as e:
         log.warning("external_panels: panel zip unreadable: %s", e)
-    _panel_cache = out
+    _panel_cache[tail] = out
     return out
 
 
@@ -381,6 +387,303 @@ def _ret(arr: np.ndarray, days: int) -> Optional[float]:
     return a / b - 1.0
 
 
+class PanelSet:
+    """Every external panel as a FULL-HISTORY series, plus an as-of reader.
+
+    Why full history: the trigger layer needs today's reading, but the
+    calibration (BT01-BT08 for the external side) needs the reading as of any
+    past bar. Both go through `externals_at()`, so the calibration can never
+    measure something different from what the live layer computes — the same
+    rule that kept the OHLCV calibration honest by calling the production
+    trigger functions directly.
+
+    All cross-sectional work is vectorised once here (191 columns x ~3k rows)
+    rather than per stock per date.
+    """
+
+    def __init__(self, tickers: Optional[list[str]] = None,
+                 tail: int = _PANEL_TAIL):
+        self.panel = _load_panel(tail)
+        self.smap = _sector_map()
+        self.index_s = _load_index_close()
+        self.fo = _load_fo_oi()
+        self.deals = _load_deals()
+        syms = {_base_symbol(t) for t in (tickers or list(self.panel))}
+        self.delivery = _load_delivery(syms)
+
+        names = sorted(self.panel)
+        self.close = pd.DataFrame(
+            {t: self.panel[t]["close"] for t in names}).sort_index()
+        vol_cols = {t: self.panel[t]["volume"] for t in names
+                    if "volume" in self.panel[t].columns}
+        self.vol = (pd.DataFrame(vol_cols).reindex(self.close.index)
+                    if vol_cols else None)
+
+        c = self.close
+        self.ret60 = c / c.shift(60) - 1.0
+        self.ret10 = c / c.shift(10) - 1.0
+        # Cross-sectional percentile ranks (0-100, higher = stronger). A row
+        # with too few live names is left NaN, mirroring _pct_rank's min_n.
+        live = c.notna().sum(axis=1)
+        self.rs_rank = (self.ret60.rank(axis=1, pct=True) * 100.0)
+        self.rs_rank = self.rs_rank.where(live >= 20)
+        if self.vol is not None:
+            turn = (c * self.vol).rolling(20).mean()
+            self.turnover_rank = (turn.rank(axis=1, pct=True) * 100.0
+                                  ).where(live >= 20)
+        else:
+            self.turnover_rank = None
+
+        # Sector aggregates: equal-weight index, breadth, and 10d return rank.
+        self.by_sector: dict[str, list[str]] = {}
+        for t in names:
+            sec = self.smap.get(t)
+            if sec:
+                self.by_sector.setdefault(sec, []).append(t)
+        self.by_sector = {k: v for k, v in self.by_sector.items() if len(v) >= 2}
+
+        self.sector_close: dict[str, pd.Series] = {}
+        self.sector_breadth: dict[str, pd.Series] = {}
+        ma20 = c.rolling(20).mean()
+        above = c > ma20
+        valid = ma20.notna()
+        prior_low20 = c.shift(1).rolling(20).min()
+        self.broke_low = c <= prior_low20
+        pos20_rng = c.rolling(21).max() - c.rolling(21).min()
+        self.prerise_flag = ((self.ret10 > 0) & (pos20_rng > 0) &
+                             (((c - c.rolling(21).min()) /
+                               pos20_rng.replace(0, np.nan)) >= 0.5))
+        sec_ret10 = {}
+        for sec, members in self.by_sector.items():
+            wide = c[members]
+            first = wide.apply(lambda col: col.dropna().iloc[0]
+                               if col.notna().any() else np.nan)
+            norm = wide.divide(first, axis=1)
+            idx = norm.mean(axis=1, skipna=True)
+            self.sector_close[sec] = idx
+            vc = valid[members].sum(axis=1)
+            self.sector_breadth[sec] = ((above[members].where(valid[members])
+                                         .sum(axis=1) /
+                                         vc.replace(0, np.nan)) * 100.0)
+            sec_ret10[sec] = idx / idx.shift(10) - 1.0
+        self.sector_ret10 = pd.DataFrame(sec_ret10)
+        # RS line per ticker = close / its sector index, on the panel calendar.
+        # Precomputed because externals_at() is called ~100k times by the
+        # calibration and a per-call concat/join dominated the run.
+        self.rs_lines: dict[str, pd.Series] = {}
+        for sec, members in self.by_sector.items():
+            rs = c[members].div(self.sector_close[sec], axis=0)
+            for m in members:
+                self.rs_lines[m] = rs[m]
+        # >=8 sectors is the same floor prepare() used for sector-vs-sector.
+        self.sector_rank = (self.sector_ret10.rank(axis=1, pct=True) * 100.0
+                            ).where(self.sector_ret10.notna().sum(axis=1) >= 8)
+
+        # Within-industry rank, peer breakdown counts, peer pre-rise flags —
+        # each computed per sector then read back per ticker, with the stock
+        # itself removed from its own peer group.
+        self.own_sector_rank = pd.DataFrame(index=c.index, columns=names,
+                                            dtype=float)
+        self._sector_break_count: dict[str, pd.Series] = {}
+        self._sector_flag_top5: dict[str, pd.Series] = {}
+        self._sector_flag_rank6: dict[str, pd.Series] = {}
+        self._sector_rank_desc: dict[str, pd.DataFrame] = {}
+        for sec, members in self.by_sector.items():
+            r = self.ret60[members]
+            self.own_sector_rank[members] = (r.rank(axis=1, pct=True) * 100.0
+                                             ).where(r.notna().sum(axis=1) >= 3)
+            self._sector_break_count[sec] = self.broke_low[members].sum(axis=1)
+            rank_desc = r.rank(axis=1, ascending=False, method="first")
+            self._sector_rank_desc[sec] = rank_desc
+            f = self.prerise_flag[members]
+            self._sector_flag_top5[sec] = (f & (rank_desc <= 5)).sum(axis=1)
+            self._sector_flag_rank6[sec] = (f & (rank_desc == 6)).sum(axis=1)
+
+        self.sources = {
+            "panel": bool(self.panel), "sector_map": bool(self.smap),
+            "index": self.index_s is not None, "delivery": bool(self.delivery),
+            "fo_oi": bool(self.fo), "deals": bool(self.deals),
+        }
+        panel_last = self.close.index[-1] if len(self.close) else None
+        deals_last = max((g["date"].max() for g in self.deals.values()),
+                         default=None)
+        self.asof = {
+            "panel": str(panel_last.date()) if panel_last is not None else "",
+            "index": (str(self.index_s.index[-1].date())
+                      if self.index_s is not None else ""),
+            "deals": str(deals_last.date()) if deals_last is not None else "",
+        }
+        self._deals_last = deals_last
+
+    # -- as-of reader ------------------------------------------------------
+
+    def externals_at(self, ticker: str,
+                     when: Optional[pd.Timestamp] = None) -> StockExternals:
+        """Externals for `ticker` as of `when` (default: the panel's last bar).
+
+        Every field stays None when its panel is absent or too short at that
+        date, which keeps the trigger at DATA_NEEDED instead of inventing a
+        quiet False.
+        """
+        sx = StockExternals(ticker=ticker)
+        own = self.panel.get(ticker)
+        if own is None or not len(own):
+            sx.index_asof = self.asof.get("index", "")
+            return self._attach_symbol_panels(sx, ticker, when)
+        dates = own.index
+        if when is None:
+            pos = len(dates) - 1
+        else:
+            pos = int(dates.searchsorted(when, side="right")) - 1
+            if pos < 0:
+                return sx
+        asof = dates[pos]
+        sx.asof = str(asof.date())
+        c = own["close"].to_numpy(dtype=float)[:pos + 1]
+
+        sec = self.smap.get(ticker)
+        if sec and sec in self.by_sector and pos >= _MIN_PANEL_BARS:
+            members = [m for m in self.by_sector[sec] if m != ticker]
+            sx.sector, sx.peers = sec, len(members)
+            sx.ret_5d, sx.ret_10d = _ret(c, 5), _ret(c, 10)
+            sidx = self.sector_close[sec]
+            sa = sidx.to_numpy(dtype=float)[:sidx.index.searchsorted(
+                asof, side="right")]
+            sx.sector_ret_5d, sx.sector_ret_10d = _ret(sa, 5), _ret(sa, 10)
+            rsl = self.rs_lines.get(ticker)
+            if rsl is not None:
+                seg = rsl.to_numpy(dtype=float)[
+                    :self.close.index.searchsorted(asof, side="right")]
+                seg = seg[np.isfinite(seg)]
+                if len(seg) >= 30:
+                    sx.rs_line = seg[-60:]
+            br = self.sector_breadth[sec].iloc[:
+                self.sector_breadth[sec].index.searchsorted(asof, side="right")]
+            br = br.dropna()
+            if len(br) >= 15:
+                sx.peer_pct_above_ma20 = br.to_numpy(dtype=float)[-15:]
+            sx.rs_rank_now = self._rank_at(self.rs_rank, ticker, asof, 0)
+            sx.rs_rank_prev = self._rank_at(self.rs_rank, ticker, asof, 10)
+            sx.own_sector_rank = self._rank_at(self.own_sector_rank, ticker,
+                                               asof, 0)
+            sx.sector_rank_now = self._rank_at(self.sector_rank, sec, asof, 0)
+            sx.sector_rank_prev = self._rank_at(self.sector_rank, sec, asof, 10)
+            if self.turnover_rank is not None:
+                sx.turnover_rank_now = self._rank_at(self.turnover_rank,
+                                                     ticker, asof, 0)
+                sx.turnover_rank_prev = self._rank_at(self.turnover_rank,
+                                                      ticker, asof, 10)
+            ipos = self.close.index.searchsorted(asof, side="right") - 1
+            if ipos >= 0:
+                own_broke = bool(self.broke_low[ticker].iloc[ipos]) \
+                    if ticker in self.broke_low.columns else False
+                total = float(self._sector_break_count[sec].iloc[ipos])
+                sx.peer_break_20d_low = int(max(0.0, total - (1 if own_broke
+                                                              else 0)))
+                # top-5 peers, self removed: drop self's own flag when it sits
+                # inside the top 5 and promote the 6th-ranked member instead.
+                top5 = float(self._sector_flag_top5[sec].iloc[ipos])
+                rank_desc = self._sector_rank_desc[sec]
+                own_rank = (float(rank_desc[ticker].iloc[ipos])
+                            if ticker in rank_desc.columns else np.nan)
+                if np.isfinite(own_rank):
+                    own_flag = (bool(self.prerise_flag[ticker].iloc[ipos])
+                                if ticker in self.prerise_flag.columns
+                                else False)
+                    if own_rank <= 5:
+                        top5 -= 1.0 if own_flag else 0.0
+                        top5 += float(self._sector_flag_rank6[sec].iloc[ipos])
+                    sx.peer_prerise_flags = int(max(0.0, top5))
+
+        if self.index_s is not None:
+            ic = self.index_s.iloc[:self.index_s.index.searchsorted(
+                asof, side="right")]
+            if len(ic) >= 20:
+                sx.index_close = ic.to_numpy(dtype=float)[-60:]
+                sx.index_asof = str(ic.index[-1].date())
+
+        return self._attach_symbol_panels(sx, ticker, asof)
+
+    def _rank_at(self, frame: Optional[pd.DataFrame], col: str,
+                 asof: pd.Timestamp, back: int) -> Optional[float]:
+        if frame is None or col not in frame.columns:
+            return None
+        pos = int(frame.index.searchsorted(asof, side="right")) - 1 - back
+        if pos < 0:
+            return None
+        v = frame[col].iloc[pos]
+        return None if not np.isfinite(v) else round(float(v), 1)
+
+    def _attach_symbol_panels(self, sx: StockExternals, ticker: str,
+                              asof: Optional[pd.Timestamp]) -> StockExternals:
+        """Delivery, F&O OI and deals — keyed on the bare symbol."""
+        sym = _base_symbol(ticker)
+        dv = self.delivery.get(sym)
+        if dv is not None:
+            seg = (dv if asof is None else
+                   dv.iloc[:dv.index.searchsorted(asof, side="right")])
+            if len(seg) >= 30:
+                sx.delivery_ratio = seg.to_numpy(dtype=float)[-120:]
+                sx.delivery_asof = str(seg.index[-1].date())
+
+        oi = self.fo.get(sym)
+        if oi is not None:
+            seg = (oi if asof is None else
+                   oi.iloc[:oi.index.searchsorted(asof, side="right")])
+            if len(seg) >= 10:
+                sx.fut_oi = seg["fut_oi"].to_numpy(dtype=float)[-30:]
+                sx.ce_oi = seg["ce_oi"].to_numpy(dtype=float)[-30:]
+                sx.pe_oi = seg["pe_oi"].to_numpy(dtype=float)[-30:]
+                sx.fo_asof = str(seg.index[-1].date())
+
+        if self.deals:
+            anchor = asof if asof is not None else self._deals_last
+            g = self.deals.get(sym)
+            win = int(ASSUMED_EXTERNAL_CONSTANTS["deal_window_days"])
+            if anchor is None:
+                return sx
+            if g is None:
+                window = None
+            else:
+                window = g[(g["date"] <= anchor) &
+                           (g["date"] >= anchor - pd.Timedelta(days=win * 2))]
+            if window is not None and len(window):
+                bulk = window[window["kind"] == "bulk"]
+                bq = pd.to_numeric(bulk["qty"], errors="coerce").fillna(0.0)
+                sx.bulk_rows = int(len(bulk))
+                sx.block_rows = int((window["kind"] == "block").sum())
+                sx.bulk_net_qty = float(bq[bulk["side"] == "BUY"].sum() -
+                                        bq[bulk["side"] == "SELL"].sum())
+                sx.deals_asof = str(pd.Timestamp(anchor).date())
+            if not sx.bulk_rows:
+                # No bulk row for this name in the window. Only "quiet" if the
+                # months we looked at were COMPLETE; NSE capped months at 70
+                # rows, and inside those absence proves nothing.
+                months = {d.strftime("%Y-%m") for d in pd.date_range(
+                    pd.Timestamp(anchor) - pd.Timedelta(days=win * 2),
+                    pd.Timestamp(anchor), freq="D")}
+                capped = bool(months & _bulk_capped_months)
+                sx.deals_capped = capped
+                sx.deal_buy_recent = None if capped else False
+                sx.deal_sell_recent = None if capped else False
+            else:
+                sx.deal_buy_recent = bool(sx.bulk_net_qty > 0)
+                sx.deal_sell_recent = bool(sx.bulk_net_qty < 0)
+        return sx
+
+
+_panelset_cache: Optional[PanelSet] = None
+
+
+def panel_set(tickers: Optional[list[str]] = None, rebuild: bool = False,
+              tail: int = _PANEL_TAIL) -> PanelSet:
+    """The shared PanelSet (built once per process unless rebuild=True)."""
+    global _panelset_cache
+    if _panelset_cache is None or rebuild:
+        _panelset_cache = PanelSet(tickers, tail=tail)
+    return _panelset_cache
+
+
 def prepare(tickers: list[str]) -> ExternalData:
     """Load every external panel once for this batch of tickers.
 
@@ -388,198 +691,10 @@ def prepare(tickers: list[str]) -> ExternalData:
     stock (the /triggers page). Absent files simply leave fields None.
     """
     tickers = [t for t in dict.fromkeys(tickers) if t]
-    panel = _load_panel()
-    smap = _sector_map()
-    index_s = _load_index_close()
-    fo = _load_fo_oi()
-    deals = _load_deals()
-    delivery = _load_delivery({_base_symbol(t) for t in tickers})
-
-    ed = ExternalData(sources={
-        "panel": bool(panel), "sector_map": bool(smap),
-        "index": index_s is not None, "delivery": bool(delivery),
-        "fo_oi": bool(fo), "deals": bool(deals),
-    })
-
-    # --- sector aggregates from the panel (equal-weight peer index) --------
-    by_sector: dict[str, list[str]] = {}
-    for t in panel:
-        sec = smap.get(t)
-        if sec:
-            by_sector.setdefault(sec, []).append(t)
-
-    sector_close: dict[str, pd.Series] = {}
-    sector_breadth: dict[str, pd.Series] = {}
-    for sec, members in by_sector.items():
-        closes = [panel[m]["close"] for m in members if len(panel[m]) >=
-                  _MIN_PANEL_BARS]
-        if len(closes) < 2:
-            continue
-        wide = pd.concat(closes, axis=1).sort_index().dropna(how="all")
-        norm = wide.divide(wide.iloc[0], axis=1)          # equal-weight index
-        sector_close[sec] = norm.mean(axis=1, skipna=True).dropna()
-        ma20 = wide.rolling(20).mean()
-        above = (wide > ma20)
-        valid = ma20.notna()
-        with np.errstate(invalid="ignore"):
-            sector_breadth[sec] = (above.where(valid).sum(axis=1) /
-                                   valid.sum(axis=1).replace(0, np.nan))
-
-    # --- cross-sectional rank populations ---------------------------------
-    rs_now, rs_prev, tv_now, tv_prev = {}, {}, {}, {}
-    for t, df in panel.items():
-        c = df["close"].to_numpy(dtype=float)
-        rs_now[t] = _ret(c, 60)
-        rs_prev[t] = _ret(c[:-10], 60) if len(c) > 70 else None
-        if "volume" in df.columns:
-            v = df["volume"].to_numpy(dtype=float)
-            turn = c * v
-            tv_now[t] = (float(np.nanmean(turn[-20:]))
-                         if len(turn) >= 20 else None)
-            tv_prev[t] = (float(np.nanmean(turn[-30:-10]))
-                          if len(turn) >= 30 else None)
-    sec_ret_now = {s: _ret(v.to_numpy(dtype=float), 10)
-                   for s, v in sector_close.items()}
-    sec_ret_prev = {s: _ret(v.to_numpy(dtype=float)[:-10], 10)
-                    for s, v in sector_close.items() if len(v) > 20}
-
-    index_arr = (index_s.to_numpy(dtype=float)[-60:]
-                 if index_s is not None else None)
-    index_asof = (str(index_s.index[-1].date()) if index_s is not None else "")
-    panel_last = max((df.index[-1] for df in panel.values() if len(df)),
-                     default=None)
-    deals_last = max((g["date"].max() for g in deals.values()), default=None)
-    ed.asof = {
-        "panel": str(panel_last.date()) if panel_last is not None else "",
-        "index": index_asof,
-        "deals": str(deals_last.date()) if deals_last is not None else "",
-    }
-
+    ps = PanelSet(tickers)
+    ed = ExternalData(sources=dict(ps.sources), asof=dict(ps.asof))
     for t in tickers:
-        sx = StockExternals(ticker=t)
-        sym = _base_symbol(t)
-        sec = smap.get(t)
-        own = panel.get(t)
-
-        if sec and own is not None and len(own) >= _MIN_PANEL_BARS:
-            members = [m for m in by_sector.get(sec, []) if m != t]
-            sx.sector, sx.peers = sec, len(members)
-            c = own["close"].to_numpy(dtype=float)
-            sx.ret_5d, sx.ret_10d = _ret(c, 5), _ret(c, 10)
-            sc = sector_close.get(sec)
-            if sc is not None:
-                sa = sc.to_numpy(dtype=float)
-                sx.sector_ret_5d, sx.sector_ret_10d = _ret(sa, 5), _ret(sa, 10)
-                joined = pd.concat(
-                    [own["close"].rename("s"), sc.rename("x")],
-                    axis=1, join="inner").dropna()
-                if len(joined) >= 30:
-                    line = (joined["s"] / joined["x"]).to_numpy(dtype=float)
-                    sx.rs_line = line[-60:]
-            br = sector_breadth.get(sec)
-            if br is not None and br.notna().sum() >= 15:
-                sx.peer_pct_above_ma20 = (br.dropna().to_numpy(dtype=float)
-                                          * 100.0)[-15:]
-            broke = 0
-            for m in members:
-                mc = panel[m]
-                if len(mc) < 25:
-                    continue
-                low = mc["close"].to_numpy(dtype=float)
-                if float(low[-1]) <= float(np.nanmin(low[-21:-1])):
-                    broke += 1
-            sx.peer_break_20d_low = broke
-            # "3 of top 5 peers have pre-rise flags": top 5 by 60d return,
-            # flag = 10d return positive while inside its own 20d range top.
-            top5 = sorted(members, key=lambda m: (rs_now.get(m) if
-                          rs_now.get(m) is not None else -9e9), reverse=True)[:5]
-            flags = 0
-            for m in top5:
-                mc = panel[m]["close"].to_numpy(dtype=float)
-                r10 = _ret(mc, 10)
-                if r10 is not None and r10 > 0 and len(mc) >= 21:
-                    hi, lo = float(np.nanmax(mc[-21:])), float(np.nanmin(mc[-21:]))
-                    if hi > lo and (mc[-1] - lo) / (hi - lo) >= 0.5:
-                        flags += 1
-            sx.peer_prerise_flags = flags if top5 else None
-            sx.rs_rank_now = _pct_rank(rs_now.get(t), list(rs_now.values()))
-            # Rank inside the stock's OWN industry (their "industry_relative_
-            # rank"): percentile of 60d return among sector members. Small
-            # sectors have few members, so _pct_rank's 20-name floor is
-            # relaxed here — a 6-name sector still ranks honestly.
-            sec_pop = [rs_now.get(m) for m in by_sector.get(sec, [])
-                       if rs_now.get(m) is not None]
-            mine = rs_now.get(t)
-            if mine is not None and len(sec_pop) >= 3:
-                sx.own_sector_rank = round(
-                    100.0 * sum(1 for p in sec_pop if p <= mine) /
-                    len(sec_pop), 1)
-            sx.rs_rank_prev = _pct_rank(rs_prev.get(t), list(rs_prev.values()))
-            sx.sector_rank_now = _pct_rank(sec_ret_now.get(sec),
-                                           list(sec_ret_now.values()), min_n=8)
-            sx.sector_rank_prev = _pct_rank(sec_ret_prev.get(sec),
-                                            list(sec_ret_prev.values()),
-                                            min_n=8)
-            sx.turnover_rank_now = _pct_rank(tv_now.get(t),
-                                             list(tv_now.values()))
-            sx.turnover_rank_prev = _pct_rank(tv_prev.get(t),
-                                              list(tv_prev.values()))
-
-        sx.index_close = index_arr
-        sx.index_asof = index_asof
-        if own is not None and len(own):
-            sx.asof = str(own.index[-1].date())
-
-        dv = delivery.get(sym)
-        if dv is not None and len(dv) >= 30:
-            sx.delivery_ratio = dv.to_numpy(dtype=float)[-120:]
-            sx.delivery_asof = str(dv.index[-1].date())
-
-        oi = fo.get(sym)
-        if oi is not None and len(oi) >= 10:
-            sx.fut_oi = oi["fut_oi"].to_numpy(dtype=float)[-30:]
-            sx.ce_oi = oi["ce_oi"].to_numpy(dtype=float)[-30:]
-            sx.pe_oi = oi["pe_oi"].to_numpy(dtype=float)[-30:]
-            sx.fo_asof = str(oi.index[-1].date())
-
-        if deals:
-            g = deals.get(sym)
-            win = int(ASSUMED_EXTERNAL_CONSTANTS["deal_window_days"])
-            # Anchor on THIS stock's as-of bar (calendar days ~ 2x sessions).
-            # Anchoring on the symbol's own last deal would mark a name with
-            # any deal in its history as "recent deal" forever.
-            anchor = (own.index[-1] if own is not None and len(own)
-                      else (deals_last if deals_last is not None else None))
-            if g is None or anchor is None:
-                sx.deal_buy_recent = sx.deal_sell_recent = (
-                    False if anchor is not None else None)
-            else:
-                window = g[(g["date"] <= anchor) &
-                           (g["date"] >= anchor - pd.Timedelta(days=win * 2))]
-                bulk = window[window["kind"] == "bulk"]
-                bq = pd.to_numeric(bulk["qty"], errors="coerce").fillna(0.0)
-                buys = float(bq[bulk["side"] == "BUY"].sum())
-                sells = float(bq[bulk["side"] == "SELL"].sum())
-                sx.bulk_net_qty = buys - sells
-                sx.bulk_rows = int(len(bulk))
-                sx.block_rows = int((window["kind"] == "block").sum())
-                if sx.bulk_rows:
-                    sx.deal_buy_recent = bool(sx.bulk_net_qty > 0)
-                    sx.deal_sell_recent = bool(sx.bulk_net_qty < 0)
-                else:
-                    # No bulk row for this name in the window. Only call that
-                    # "quiet" if the months we looked at were COMPLETE; if NSE
-                    # capped them at 70 rows, absence proves nothing and the
-                    # trigger stays DATA_NEEDED.
-                    months = {d.strftime("%Y-%m") for d in pd.date_range(
-                        anchor - pd.Timedelta(days=win * 2), anchor, freq="D")}
-                    capped = bool(months & _bulk_capped_months)
-                    sx.deal_buy_recent = None if capped else False
-                    sx.deal_sell_recent = None if capped else False
-                    sx.deals_capped = capped
-                sx.deals_asof = str(anchor.date())
-
-        ed.per_ticker[t] = sx
+        ed.per_ticker[t] = ps.externals_at(t)
     return ed
 
 
@@ -728,5 +843,6 @@ def pcr_oi(ticker: str) -> Optional[dict]:
 
 def reset_caches() -> None:
     """Drop cached panels (tests, and after a weekly data top-up)."""
-    global _panel_cache, _insider_cache, _fo_cache, _deals_cache
-    _panel_cache = _insider_cache = _fo_cache = _deals_cache = None
+    global _insider_cache, _fo_cache, _deals_cache, _panelset_cache
+    _panel_cache.clear()
+    _insider_cache = _fo_cache = _deals_cache = _panelset_cache = None
