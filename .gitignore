@@ -43,3 +43,8 @@ docs/param_search_v1_progress.jsonl
 # surviving a container restart mid-pass, not evidence. The results
 # (CSV + summary.md) are committed; the checkpoint is not.
 research/**/checkpoint.json
+
+# Fetch resume state (per-symbol progress marks for scripts/fetch_pending_feeds.py).
+# Transient, like the calibration checkpoint — the fetched DATA is committed,
+# the progress marks are not.
+data/.fetch_ckpt/
