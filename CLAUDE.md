@@ -906,6 +906,69 @@ these two tested gates stand; owner told where the toggle is · owner:
 "i dont want to skip anything" on remaining DATA_NEEDED — paid-feed items
 stay open, free paths first (Upstox option chain via existing daily
 token = next build candidate).**
+**COLAB v2 + RELEASE INTAKE, THEN 26 REGISTER ITEMS WIRED (2026-08-12/13,
+owner: "colab data is also there on drive fetch that too" → "zip is uploaded
+on release, fetch it" → "why u r waiting for 28 which u can wire, do that").
+docs/WIRING_2026-08-13.md is the record; every intake file hash-verified vs
+the Colab MANIFEST_v2 before commit.**
+- DATA IN: fo_oi_daily_2024_2026.csv (110,054 rows, 518 days, 278 F&O symbols,
+  fut+CE+PE OI) · block_deals_2019_2026.csv (4,002) + bulk_deals_2019_2026.csv
+  (6,440) — **TRUNCATED: NSE caps 70 rows/month, all 92 bulk months + 39 of 91
+  block months at the cap** · data/shareholding/ 193 NSE records × 20 quarters
+  · insider_pit.csv (54,150 SEBI PIT rows, 1,652 syms, 2023-01→2026-05-02).
+  TRI still unfetched (absent from Colab's own manifest — niftyindices WAF
+  blocks Colab too).
+- **LESSON — a session cannot download this PRIVATE repo's release assets**
+  (403 "GitHub access is not enabled for this session"); Drive MCP caps
+  transfers ~10MB. The working route for big files: a **one-shot GitHub
+  Actions workflow** that downloads the asset inside GitHub, verifies size +
+  sha256 against the manifest, commits, then gets deleted. Used twice
+  (insider_pit.csv, the 193-file shareholding zip: 127 newly verified, 0
+  rejected). Per-file Drive fetching via subagents burned two credit limits —
+  ask for a zip on the release instead.
+- **NEW trading/external_panels.py** — batch loader (ONE pass over the 3.5M-row
+  delivery file per run) building an equal-weight sector index + peer breadth
+  from the 191×12y panel × the 19-sector map, cross-sectional RS/turnover ranks
+  plus a WITHIN-industry rank (their "industry_relative_rank"), per-stock
+  delivery ratio, F&O OI, and deal windows. Every field Optional; missing =
+  None = DATA_NEEDED, never a quiet False.
+- **21 external triggers implemented; 19 compute, 2 honestly blocked.** Wired:
+  the 15 sector/RS/peer family (T12W_0039, 0045-0056, 0059, 0094) + 0095 index
+  overlay + 0060 delivery spike + 0100/0101 OI tripwires. **T12W_0111/0112
+  report DATA_NEEDED by design** — the bulk file's 70-row cap means "no row"
+  ≠ "no deal"; a paged pull turns them on with no code change.
+- **5 register items wired** (register_v4._wire_intake_items): H-01 promoter %
+  (+ QoQ delta, 20 quarters) · X-06 free float **as a labelled PROXY** (public
+  %, not true free float) · H-20 bulk net qty + block row count · H-25 insider
+  net qty 180d · W-022 PCR on **OI basis, not volume** (said so on the page).
+  PX-01/05 already computed since the 08-11 dbi recovery. Total 26 wired.
+- **TWO BUGS THE REAL DATA EXPOSED, both fixed before commit:** the deal window
+  was anchored to each symbol's last-ever deal, so any name with any deal
+  history read "recent deal" forever (every stock fired both deal triggers);
+  and after that fix both still fired together because **NSE reports BOTH
+  counterparties of a block deal** — buy and sell cancel exactly, so direction
+  comes from BULK rows only (per-client, >0.5%), block deals are presence only.
+- **THE SHAREHOLDING FILES DO NOT CONTAIN FII/DII/MF.** Only promoter+group %
+  and public %. The institutional split and pledge % sit in the XBRL each
+  record links to (nsearchives, blocks our IP) → H-02..H-06 and X-07 stay
+  DATA_NEEDED with a free Colab path. Do not claim otherwise.
+- Register recount, checked against files on disk (docs/REGISTER_DATA_GAPS_
+  2026-08-12.csv, all 279 rows): **32 still need an outside feed** (15
+  news/analyst/governance, 6 shareholding XBRL, 2 options chain, 1 short
+  interest, 8 macro/misc), 4 were never data items (attribution, bootstrap CI,
+  covariance, index replication), 26 wired today, rest already computing.
+  **Money path: 19 of 279** — the 9 TRADES params + the 10 danger triggers.
+  Everything added today is display/watchlist only; boundary test asserts
+  engine/risk/orders never import external_panels.
+- Scope discipline kept: entry thresholds, exits, sizing, gates ALL unchanged.
+- **PRE-EXISTING BUG FOUND AND FIXED while working:** test_trigger_page seeded
+  a pick with no `score` and restored the attribute in a finally — but
+  run_trigger_layer had already PERSISTED the portfolio, so the score-less pick
+  stayed in cfg.state_dir/portfolio.json for every later test AND later run;
+  /scan then raised UndefinedError rendering it = **a 500 on the page the owner
+  buys from**. Fixture now saves after restoring, and scan.html renders a
+  missing score as "—" (never a fake 0). Suite: 777 tests.
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

@@ -110,7 +110,12 @@ def test_post_scan_pass_populates_watch_and_journals(monkeypatch):
         assert "NODATA.NS" in out["no_history"]      # DATA_NEEDED, not guessed
         assert p.positions == positions_before        # no entry, no exit
     finally:
+        # run_trigger_layer PERSISTS the portfolio, so restoring the attribute
+        # alone left the score-less pick in cfg.state_dir/portfolio.json for
+        # every later test (and later run) to load — that is what made
+        # test_parameter_page's /scan render blow up. Save after restoring.
         p.trigger_watch, p.last_scan_picks = old_watch, old_picks
+        p.save()
 
 
 def test_pass_failure_is_journaled_not_silent(monkeypatch):
@@ -121,6 +126,7 @@ def test_pass_failure_is_journaled_not_silent(monkeypatch):
     monkeypatch.setattr("web.candle_chart.load_ohlcv", _boom)
     p = state.portfolio()
     old_watch, old_picks = p.trigger_watch, p.last_scan_picks
+    # A pick with no score on purpose: the layer must not care.
     p.last_scan_picks = [{"ticker": "ANY.NS"}]
     try:
         out = scheduler.run_trigger_layer("test")
@@ -128,4 +134,9 @@ def test_pass_failure_is_journaled_not_silent(monkeypatch):
         assert any(e.get("action") == "TRIGGER_LAYER_FAILED"
                    for e in p.decision_journal[-5:])
     finally:
+        # run_trigger_layer PERSISTS the portfolio, so restoring the attribute
+        # alone left the score-less pick in cfg.state_dir/portfolio.json for
+        # every later test (and later run) to load — that is what made
+        # test_parameter_page's /scan render blow up. Save after restoring.
         p.trigger_watch, p.last_scan_picks = old_watch, old_picks
+        p.save()

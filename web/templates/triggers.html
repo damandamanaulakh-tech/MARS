@@ -8,7 +8,12 @@
     <p class="text-ink-soft mt-2 max-w-3xl">
       Your {{ n_triggers }} pre-rise/fall triggers, exactly as your sheets define them:
       <strong>{{ n_computable }} computed daily</strong> from stored OHLCV ·
-      <strong>{{ n_external }} DATA_NEEDED</strong> (need delivery %, sector panels, F&amp;O OI, news flags — never guessed).
+      <strong>{{ n_external_wired }} more</strong> from the data that has since landed
+      (sector/RS panel, delivery %, F&amp;O open interest, bulk/block deals) ·
+      <strong>{{ n_external_pending }} still DATA_NEEDED</strong>
+      (news/analyst/governance feeds, strike-level options chain — never guessed).
+      Panel readings carry their own as-of date: the stored OHLCV panel ends before today,
+      so every relative-strength number is as-of that panel, not live.
       This page and the watchlist <strong>touch no entry and no exit</strong> — your own rule:
       every trigger REQUIRES_15Y_BACKTEST before it earns the money path.
     </p>

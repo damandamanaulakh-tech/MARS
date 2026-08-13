@@ -192,3 +192,43 @@ mostly u will get the data u needed" — they were right)
   matrix, parameter manifest, definer table). Their top pre-fall result
   (tail_down3_5d>0.213 → lift 1.91) independently agrees with our
   BT01-BT08 danger-side verdict.
+
+## Colab v2 + release intake 2026-08-13 (owner: "colab data is also there on
+## drive fetch that too" / "zip is uploaded on release, fetch it")
+Every file below was verified against the Colab run's own MANIFEST_v2.csv
+(byte size + sha256 prefix) before it was committed; nothing unverified was
+kept.
+- `data/fo_oi_daily_2024_2026.csv` — 110,054 rows, 518 trading days
+  2024-07-08 -> 2026-08-11, 278 F&O symbols (futures + CE + PE open interest
+  per symbol-day, summed across expiries when read). 0 all-zero rows, 0
+  duplicate symbol-days; cross-checked against the committed 2026-06-08
+  top-contracts snapshot. CONSUMED BY: triggers T12W_0100/0101 (OI short
+  build, long unwinding) and register W-022 (PCR, OI basis).
+- `data/block_deals_2019_2026.csv` (4,002 rows) and
+  `data/bulk_deals_2019_2026.csv` (6,440 rows), 2019-01 -> 2026-08.
+  **TRUNCATED AT SOURCE**: NSE returns at most 70 rows per month — all 92
+  bulk months and 39 of 91 block months sit exactly at that cap. So an
+  absent symbol is NOT evidence of "no deal", and the code says so:
+  `external_panels` marks those windows capped and the deal triggers report
+  DATA_NEEDED rather than a quiet False. A complete pull (paged) would light
+  them up with no code change.
+  Note on semantics, learned from the data: BLOCK deals report BOTH
+  counterparties, so their buy and sell quantities cancel exactly — presence
+  is meaningful, direction is not. Only BULK rows (per-client, >0.5% of
+  shares) carry a direction.
+- `data/shareholding/*.json` — 193 NSE shareholding-pattern records, 20
+  quarters each (~5 years). These carry ONLY the promoter+group % and public
+  %; the FII / DII / mutual-fund split and pledge % live in the XBRL file
+  each record links to (`nsearchives`, which blocks this app's IP). So
+  register H-01 (promoter %) and X-06 (free-float proxy) compute, while
+  H-02..H-06 and X-07 stay DATA_NEEDED with a known free path (Colab).
+  `data/shareholding/MANIFEST_v2.csv` is the verification anchor.
+- `data/insider_pit.csv` — 54,150 SEBI PIT insider disclosures, 1,652
+  symbols, 32 columns, disclosure dates 2023-01-02 -> 2026-05-02. 26 rows
+  (0.05%) carry impossible transaction dates (1923, 3034) — NSE filing typos,
+  left as-is so the file still matches its source hash; the loader ignores
+  them. CONSUMED BY: register H-25. Fetched via a one-shot GitHub Actions job
+  because a session cannot download this private repo's release assets
+  directly (18MB, over the Drive transfer cap too).
+- NOT in this intake: TRI (absent from the Colab manifest — niftyindices' WAF
+  blocked Colab as well as us) and a current FII/DII daily feed.

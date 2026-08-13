@@ -1,0 +1,65 @@
+id,parameter,status_2026_08_10,status_2026_08_12,evidence_or_gap,status_2026_08_13,wiring
+TRG-039,RS Reclaim Before Price Break [T12W_0039],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,191x12y panel + sector map (both in repo),WIRED,trading/triggers.py external impl + external_panels sector/RS panel
+TRG-045,Stock RS Leads Sector 10D [T12W_0045],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,191x12y panel + sector map (both in repo),WIRED,trading/triggers.py external impl + external_panels sector/RS panel
+TRG-046,RS Rank Jump 2 Weeks [T12W_0046],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,191x12y panel + sector map (both in repo),WIRED,trading/triggers.py external impl + external_panels sector/RS panel
+TRG-047,Industry Peer Confirmation 3 of 5 [T12W_0047],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,191x12y panel + sector map (both in repo),WIRED,trading/triggers.py external impl + external_panels sector/RS panel
+TRG-048,Sector Breadth Lead [T12W_0048],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,191x12y panel + sector map (both in repo),WIRED,trading/triggers.py external impl + external_panels sector/RS panel
+TRG-049,Stock Holds While Sector Falls [T12W_0049],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,191x12y panel + sector map (both in repo),WIRED,trading/triggers.py external impl + external_panels sector/RS panel
+TRG-050,Leader Rotation Early Signal [T12W_0050],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,191x12y panel + sector map (both in repo),WIRED,trading/triggers.py external impl + external_panels sector/RS panel
+TRG-051,Weak RS Before Fall [T12W_0051],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,191x12y panel + sector map (both in repo),WIRED,trading/triggers.py external impl + external_panels sector/RS panel
+TRG-052,Peer Breakdown Lead [T12W_0052],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,191x12y panel + sector map (both in repo),WIRED,trading/triggers.py external impl + external_panels sector/RS panel
+TRG-053,Sector Divergence Warning [T12W_0053],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,191x12y panel + sector map (both in repo),WIRED,trading/triggers.py external impl + external_panels sector/RS panel
+TRG-054,RS Failure At New High [T12W_0054],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,191x12y panel + sector map (both in repo),WIRED,trading/triggers.py external impl + external_panels sector/RS panel
+TRG-055,Industry Rotation Exit [T12W_0055],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,191x12y panel + sector map (both in repo),WIRED,trading/triggers.py external impl + external_panels sector/RS panel
+TRG-056,Crowded Leader Fatigue [T12W_0056],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,191x12y panel + sector map (both in repo),WIRED,trading/triggers.py external impl + external_panels sector/RS panel
+TRG-059,Dollar Volume Rank Jump [T12W_0059],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,191x12y panel + sector map (both in repo),WIRED,trading/triggers.py external impl + external_panels sector/RS panel
+TRG-060,Delivery Spike Pre-Move [T12W_0060],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,delivery_daily_2019_2026.csv.gz,WIRED,"external impl, delivery_daily_2019_2026.csv.gz"
+TRG-094,Sector Contagion Count [T12W_0094],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,191x12y panel + sector map (both in repo),WIRED,trading/triggers.py external impl + external_panels sector/RS panel
+TRG-095,Index Risk Overlay [T12W_0095],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,index_daily_15y.csv (index close),WIRED,"external impl, index_daily_15y.csv Nifty close"
+TRG-097,News/Event Risk Flag [T12W_0097],DATA_NEEDED,STILL_NEEDS_FEED,news/analyst/governance/earnings-event feed,STILL_NEEDS_FEED,
+TRG-098,Earnings Gap Risk Window [T12W_0098],DATA_NEEDED,STILL_NEEDS_FEED,news/analyst/governance/earnings-event feed,STILL_NEEDS_FEED,
+TRG-099,Pledge/Governance Risk Overlay [T12W_0099],DATA_NEEDED,STILL_NEEDS_FEED,news/analyst/governance/earnings-event feed,STILL_NEEDS_FEED,
+TRG-100,F&O OI Short Build [T12W_0100],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,fo_oi_daily_2024_2026.csv (NEW 08-12),WIRED,"external impl, fo_oi_daily_2024_2026.csv"
+TRG-101,Long Unwinding OI [T12W_0101],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,fo_oi_daily_2024_2026.csv (NEW 08-12),WIRED,"external impl, fo_oi_daily_2024_2026.csv"
+TRG-102,Put-Call Skew Risk [T12W_0102],DATA_NEEDED,STILL_NEEDS_FEED,strike-level options chain,STILL_NEEDS_FEED,
+TRG-103,Positive News No Gap Accumulation [T12W_0103],DATA_NEEDED,STILL_NEEDS_FEED,news/analyst/governance/earnings-event feed,STILL_NEEDS_FEED,
+TRG-104,Order Win Pre-Move Confirmation [T12W_0104],DATA_NEEDED,STILL_NEEDS_FEED,news/analyst/governance/earnings-event feed,STILL_NEEDS_FEED,
+TRG-105,Broker Upgrade With RS Lead [T12W_0105],DATA_NEEDED,STILL_NEEDS_FEED,news/analyst/governance/earnings-event feed,STILL_NEEDS_FEED,
+TRG-106,Negative News Absorption [T12W_0106],DATA_NEEDED,STILL_NEEDS_FEED,news/analyst/governance/earnings-event feed,STILL_NEEDS_FEED,
+TRG-107,Rumor Spike Reject [T12W_0107],DATA_NEEDED,STILL_NEEDS_FEED,news/analyst/governance/earnings-event feed,STILL_NEEDS_FEED,
+TRG-108,Regulatory Risk Pre-Fall [T12W_0108],DATA_NEEDED,STILL_NEEDS_FEED,news/analyst/governance/earnings-event feed,STILL_NEEDS_FEED,
+TRG-109,Earnings Miss Continuation Risk [T12W_0109],DATA_NEEDED,STILL_NEEDS_FEED,news/analyst/governance/earnings-event feed,STILL_NEEDS_FEED,
+TRG-110,Sentiment Divergence [T12W_0110],DATA_NEEDED,STILL_NEEDS_FEED,news/analyst/governance/earnings-event feed,STILL_NEEDS_FEED,
+TRG-111,Institutional Bulk Deal Followthrough [T12W_0111],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,block/bulk_deals_2019_2026.csv (NEW 08-12; 70-row/month cap),IMPL_BLOCKED_BY_SOURCE_CAP,"IMPLEMENTED but reports DATA_NEEDED: every bulk-deal month in the committed file hit NSE's 70-row cap, so 'no bulk row for this name' is not evidence of no deal. A complete bulk-deal pull lights it up with no code change."
+TRG-112,Institutional Sell Warning [T12W_0112],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,block/bulk_deals_2019_2026.csv (NEW 08-12; 70-row/month cap),IMPL_BLOCKED_BY_SOURCE_CAP,IMPLEMENTED but reports DATA_NEEDED: same 70-row cap on the bulk-deal source.
+H-01,Promoter holding %,DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,"data/shareholding/*.json pr_and_prgrp, 20 quarters (NEW 08-12)",WIRED,"register_v4._wire_intake_items — promoter+group %, 20 quarters"
+H-02,Promoter pledge %,DATA_NEEDED,STILL_NEEDS_FEED,"NSE shareholding XBRL detail — links ARE in the new JSONs, nsearchives blocked from our IP (Colab path)",STILL_NEEDS_FEED,
+H-03,FII holding % + Δ,DATA_NEEDED,STILL_NEEDS_FEED,"NSE shareholding XBRL detail — links ARE in the new JSONs, nsearchives blocked from our IP (Colab path)",STILL_NEEDS_FEED,
+H-04,DII holding % + Δ,DATA_NEEDED,STILL_NEEDS_FEED,"NSE shareholding XBRL detail — links ARE in the new JSONs, nsearchives blocked from our IP (Colab path)",STILL_NEEDS_FEED,
+H-05,Mutual fund holding % + Δ,DATA_NEEDED,STILL_NEEDS_FEED,"NSE shareholding XBRL detail — links ARE in the new JSONs, nsearchives blocked from our IP (Colab path)",STILL_NEEDS_FEED,
+H-06,Institutional activity delta,DATA_NEEDED,STILL_NEEDS_FEED,"NSE shareholding XBRL detail — links ARE in the new JSONs, nsearchives blocked from our IP (Colab path)",STILL_NEEDS_FEED,
+H-07,Analyst rating score,DATA_NEEDED,STILL_NEEDS_FEED,news/analyst/governance/earnings-event feed,STILL_NEEDS_FEED,
+H-09,R&D intensity,DATA_NEEDED,STILL_NEEDS_FEED,R&D line item,STILL_NEEDS_FEED,
+H-10,Sustainability/ESG score,DATA_NEEDED,STILL_NEEDS_FEED,ESG feed,STILL_NEEDS_FEED,
+H-19,Macro liquidity filter,DATA_NEEDED,STILL_NEEDS_FEED,macro liquidity / M2 series,STILL_NEEDS_FEED,
+H-20,Block/bulk-deal proxy,DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,block+bulk deals (NEW 08-12),WIRED,register_v4._wire_intake_items — bulk net qty + block row count
+H-25,Insider trading flags (SEBI),DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,"insider_pit.csv 54,150 PIT rows (NEW 08-12)",WIRED,"register_v4._wire_intake_items — SEBI PIT net qty, 180d"
+H-27,Per-trade component attribution,DATA_NEEDED,NOT_A_DATA_ITEM,infra: per-trade attribution build order,NOT_A_DATA_ITEM,
+H-28,Bootstrap CIs on Sharpe / maxDD,DATA_NEEDED,NOT_A_DATA_ITEM,infra: bootstrap CI build order,NOT_A_DATA_ITEM,
+W-007,Volatility_Risk_Premium [WM007],DATA_NEEDED,STILL_NEEDS_FEED,strike-level options chain (per-stock IV),STILL_NEEDS_FEED,
+W-011,Turnover_Ratio [WM011],DATA_NEEDED,STILL_NEEDS_FEED,true shares outstanding,STILL_NEEDS_FEED,
+W-019,News_Sentiment_Score [WM019],DATA_NEEDED,STILL_NEEDS_FEED,news/analyst/governance/earnings-event feed,STILL_NEEDS_FEED,
+W-020,Analyst_Revision_Momentum [WM020],DATA_NEEDED,STILL_NEEDS_FEED,news/analyst/governance/earnings-event feed,STILL_NEEDS_FEED,
+W-021,Short_Interest_Ratio [WM021],DATA_NEEDED,STILL_NEEDS_FEED,NSE short interest (not free),STILL_NEEDS_FEED,
+W-022,Put_Call_Ratio [WM022],DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,"fo_oi_daily ce_oi/pe_oi = PCR on OI basis, not volume (NEW 08-12)",WIRED,register_v4._wire_intake_items — PCR on OI basis (not volume)
+W-025,USDINR_Momentum [WM025],DATA_NEEDED,STILL_NEEDS_FEED,USDINR series,STILL_NEEDS_FEED,
+W-026,Yield_Curve_Slope [WM026],DATA_NEEDED,STILL_NEEDS_FEED,short-rate leg (1Y/3M),STILL_NEEDS_FEED,
+W-027,Global_Risk_On_Off [WM027],DATA_NEEDED,STILL_NEEDS_FEED,credit-spread series,STILL_NEEDS_FEED,
+W-029,Max_Diversification_Ratio [WM029],DATA_NEEDED,NOT_A_DATA_ITEM,research script: covariance matrix,NOT_A_DATA_ITEM,
+PX-01,Index-Calm Internal Fracture,DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,market_internals_1996_2024.csv — dbi formula recovered 08-11,WIRED,already computing since the 2026-08-11 dbi recovery
+PX-05,Bond Safety Leak + Equity Fracture,DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,market_internals_1996_2024.csv — dbi formula recovered 08-11,WIRED,already computing since the 2026-08-11 dbi recovery
+X-05,Durability composite,DATA_NEEDED,STILL_NEEDS_FEED,filings-based durability components,STILL_NEEDS_FEED,
+X-06,Float / supply factor,DATA_NEEDED,DATA_IN_REPO_NOT_WIRED,shareholding public_val = free-float PROXY (NEW 08-12),WIRED,register_v4._wire_intake_items — public % as a free-float PROXY
+X-07,Institutional sponsorship trend,DATA_NEEDED,STILL_NEEDS_FEED,"NSE shareholding XBRL detail — links ARE in the new JSONs, nsearchives blocked from our IP (Colab path)",STILL_NEEDS_FEED,
+X-11,Estimate-revision decomposition,DATA_NEEDED,STILL_NEEDS_FEED,news/analyst/governance/earnings-event feed,STILL_NEEDS_FEED,
+X-19,Nifty200Mom30 exact mechanics,DATA_NEEDED,NOT_A_DATA_ITEM,research script: exact index replication (preset already live),NOT_A_DATA_ITEM,

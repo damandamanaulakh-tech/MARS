@@ -43,7 +43,8 @@ def triggers_page(request: Request):
     if not user:
         return RedirectResponse("/login", status_code=303)
     from trading.triggers import (ASSUMED_CONSTANTS, COMPUTABLE, EXTERNAL,
-                                  GATE_ROWS, TRIGGERS)
+                                  EXTERNAL_PENDING, EXTERNAL_WIRED, GATE_ROWS,
+                                  TRIGGERS)
     p = state.portfolio()
     tw = p.trigger_watch or {}
     rows = []
@@ -63,6 +64,10 @@ def triggers_page(request: Request):
             "n_triggers": len(TRIGGERS),
             "n_computable": len(COMPUTABLE),
             "n_external": len(EXTERNAL),
+            # Since 2026-08-13 some external triggers compute from committed
+            # panels; the header must not keep claiming all 33 are blocked.
+            "n_external_wired": len(EXTERNAL_WIRED),
+            "n_external_pending": len(EXTERNAL_PENDING),
             "gate_rows": GATE_ROWS,
             "score_note": ASSUMED_CONSTANTS["score_formula"],
             "universe": _universe_names(),
@@ -105,7 +110,15 @@ def trigger_detail(request: Request, ticker: str):
                        else df.iloc[-1].get("date", ""))[:10]
         except Exception:
             pass
-        view = stock_view(df, asof=asof)
+        # Panels for this one stock (sector/RS, delivery, F&O OI, deals).
+        # None on any failure → those triggers read DATA_NEEDED, as before.
+        ext = None
+        try:
+            from trading import external_panels
+            ext = external_panels.prepare([ticker]).for_ticker(ticker)
+        except Exception:
+            ext = None
+        view = stock_view(df, asof=asof, ext=ext)
         from trading.triggers import CALIBRATION
         by_family: dict[str, list[dict]] = {}
         for t in TRIGGERS:
