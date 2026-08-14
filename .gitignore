@@ -48,5 +48,3 @@ research/**/checkpoint.json
 # Transient, like the calibration checkpoint — the fetched DATA is committed,
 # the progress marks are not.
 data/.fetch_ckpt/
-# fetch checkpoints (resume state, not data)
-data/.fetch_ckpt/
