@@ -742,6 +742,38 @@ def stock_view(df: pd.DataFrame, symbol: str = "",
     return out
 
 
+def _wire_news_item(out: dict[str, Reading], symbol: str) -> None:
+    """W-019 news sentiment, from the stored daily news pass.
+
+    Display only. News can never be calibrated here (no archive), so this
+    informs and does not trade — the owner's REQUIRES_15Y_BACKTEST rule.
+    """
+    try:
+        from web import state
+        nw = (state.portfolio().news_watch or {})
+    except Exception:                                        # pragma: no cover
+        return
+    row = (nw.get("rows") or {}).get(symbol)
+    if not row:
+        return
+    if row.get("verdict") == "UNKNOWN":
+        out["W-019"] = Reading("W-019", "NA", None,
+                               "news fetch failed for this name — unknown, "
+                               "not 'no news'")
+        return
+    if row.get("verdict") == "NO_NEWS":
+        out["W-019"] = Reading("W-019", "NA", None,
+                               f"no headlines naming this stock in "
+                               f"{nw.get('lookback_days', 7)} days")
+        return
+    tags = ", ".join(row.get("tags") or []) or "no event tags"
+    out["W-019"] = Reading(
+        "W-019", "VALUE", float(row.get("sentiment") or 0.0),
+        f"lexicon sentiment over {len(row.get('headlines') or [])} headlines "
+        f"as of {row.get('asof')}; events: {tags}; verdict "
+        f"{row.get('verdict')} (display only, blocks nothing)")
+
+
 def _wire_fetched_feeds(out: dict[str, Reading], symbol: str, XP) -> None:
     """H-02..H-07, W-011, W-020, X-06, X-07, X-11 — the feeds fetched
     2026-08-13 from the shareholding XBRL and Yahoo's raw endpoints.
@@ -909,6 +941,11 @@ def _wire_intake_items(out: dict[str, Reading], symbol: str, value) -> None:
     # committed CSV; an absent symbol falls through to the DATA_NEEDED sweep.
     _wire_fetched_feeds(out, symbol, XP)
 
+    # W-019 news sentiment reads the daily news pass's STORED verdict. It is
+    # never fetched inside a page render (that would put a network call in the
+    # request path) and never invented: no stored reading = DATA_NEEDED.
+    _wire_news_item(out, symbol)
+
     # W-022 put/call ratio — OI basis, not volume (said so in the note).
     pcr = XP.pcr_oi(symbol)
     if pcr is not None:
@@ -937,7 +974,7 @@ _STOCK_DATA_NEEDED = {
     "W-007": "per-stock implied vol needs options chain (index-level VRP "
              "on market page)",
     "W-011": "shares outstanding — this symbol absent from the fetched key stats",
-    "W-019": "news sentiment — no NLP feed",
+    "W-019": "no stored news reading for this name (the daily news pass covers the scanned + held list)",
     "W-020": "estimate revisions — this symbol absent from the fetched set",
     "W-021": "short interest — NSE feed not free (register agrees)",
     "W-022": "per-stock put/call volume — options chain not in repo",
