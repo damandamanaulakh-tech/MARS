@@ -47,11 +47,13 @@ def triggers_page(request: Request):
                                   TRIGGERS)
     p = state.portfolio()
     tw = p.trigger_watch or {}
+    nw = p.news_watch or {}
+    news_rows = (nw.get("rows") or {})
     rows = []
     for t, r in sorted((tw.get("rows") or {}).items(),
                        key=lambda kv: (-len(kv[1].get("gates_passed") or []),
                                        -(kv[1].get("scores") or {}).get("RISE", 0))):
-        rows.append({"ticker": t, **r})
+        rows.append({"ticker": t, **r, "news": news_rows.get(t)})
     return templates.TemplateResponse(
         request, "triggers.html",
         {
@@ -60,6 +62,7 @@ def triggers_page(request: Request):
             "tw": tw,
             "rows": rows,
             "watchlist": tw.get("watchlist") or [],
+            "news": nw,
             "no_history": tw.get("no_history") or [],
             "n_triggers": len(TRIGGERS),
             "n_computable": len(COMPUTABLE),
@@ -94,7 +97,8 @@ def trigger_detail(request: Request, ticker: str):
     user = auth.current_user(request)
     if not user:
         return RedirectResponse("/login", status_code=303)
-    from trading.triggers import (ASSUMED_CONSTANTS, EXTERNAL, GATE_ROWS,
+    from trading.triggers import (ASSUMED_CONSTANTS, EXTERNAL, EXTERNAL_PENDING,
+                                  EXTERNAL_WIRED, GATE_ROWS,
                                   TRIGGERS, stock_view)
     from ..candle_chart import load_ohlcv
 
@@ -119,6 +123,8 @@ def trigger_detail(request: Request, ticker: str):
         except Exception:
             ext = None
         view = stock_view(df, asof=asof, ext=ext)
+        news_detail = ((state.portfolio().news_watch or {}).get("rows")
+                       or {}).get(ticker)
         from trading.triggers import CALIBRATION
         by_family: dict[str, list[dict]] = {}
         for t in TRIGGERS:
@@ -134,7 +140,7 @@ def trigger_detail(request: Request, ticker: str):
                 "cal": CALIBRATION.get(t.id),
             })
         detail = {"ticker": ticker, "view": view, "by_family": by_family,
-                  "bars": len(df)}
+                  "bars": len(df), "news": news_detail}
     return templates.TemplateResponse(
         request, "triggers.html",
         {
@@ -147,6 +153,8 @@ def trigger_detail(request: Request, ticker: str):
             "n_triggers": len(TRIGGERS),
             "n_computable": sum(1 for t in TRIGGERS if t.ohlcv_ready),
             "n_external": len(EXTERNAL),
+            "n_external_wired": len(EXTERNAL_WIRED),
+            "n_external_pending": len(EXTERNAL_PENDING),
             "gate_rows": GATE_ROWS,
             "score_note": ASSUMED_CONSTANTS["score_formula"],
             "universe": _universe_names(),

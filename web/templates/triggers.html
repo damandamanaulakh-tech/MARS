@@ -36,6 +36,35 @@
 </form>
 
 {% if detail %}
+{% if detail.news %}
+<div class="border border-line p-4 mb-6"><!-- news_block_marker -->
+  <div class="flex items-center gap-3 mb-2">
+    <h2 class="font-black text-lg">📰 News</h2>
+    {% if detail.news.verdict == 'TRIGGER' %}
+      <span class="px-2 py-0.5 bg-amber-100 text-amber-800 text-xs font-bold">TRIGGER</span>
+    {% elif detail.news.verdict == 'UNKNOWN' %}
+      <span class="px-2 py-0.5 bg-slate-200 text-slate-700 text-xs font-bold">FETCH FAILED</span>
+    {% elif detail.news.verdict == 'NO_NEWS' %}
+      <span class="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-bold">NO NEWS</span>
+    {% else %}
+      <span class="px-2 py-0.5 bg-emerald-50 text-emerald-800 text-xs font-bold">PASS</span>
+    {% endif %}
+    <span class="text-ink-faint text-xs">as of {{ detail.news.asof }}</span>
+  </div>
+  <p class="text-ink-soft text-sm mb-3">{{ detail.news.why }}
+    <strong>Display only — a news verdict never blocks a buy or moves a stop</strong>,
+    because news cannot be calibrated (no archive exists to test it against).</p>
+  {% for h in detail.news.headlines %}
+  <div class="text-sm py-1 border-b border-line last:border-0">
+    {% if h.side == 'RISK' %}<span class="text-rose-700 font-bold text-[10px] mr-1">RISK</span>
+    {% elif h.side == 'OPP' %}<span class="text-emerald-700 font-bold text-[10px] mr-1">OPP</span>{% endif %}
+    {{ h.title }}
+    <span class="text-ink-faint text-xs">· {{ h.source }} {{ h.published[:16] }}</span>
+    {% if h.tags %}<span class="text-ink-faint text-[10px]">[{{ h.tags|join(', ') }}]</span>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
 <!-- ============ ONE STOCK, ALL 112 ============ -->
 <div class="mb-4">
   <a href="/triggers" class="text-xs text-ink-faint hover:text-ink">&larr; back to today's table</a>

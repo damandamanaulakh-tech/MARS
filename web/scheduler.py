@@ -647,6 +647,13 @@ def run_trigger_layer(where: str = "manual") -> dict:
         p.save()
         log.info("[triggers:%s] %d scored, %d on watchlist, %d no-history",
                  where, len(rows), len(watchlist), len(no_history))
+        # The owner's funnel: news runs in the SAME daily cycle, over the names
+        # already filtered — not on a schedule of its own. Isolated so a news
+        # failure cannot touch the trigger-layer result just computed.
+        try:
+            run_news_feed(where)
+        except Exception:
+            log.exception("news feed pass failed after trigger layer")
         return p.trigger_watch
     except Exception as e:
         log.exception("Trigger layer pass failed: %s", e)
@@ -656,6 +663,90 @@ def run_trigger_layer(where: str = "manual") -> dict:
                 "action": "TRIGGER_LAYER_FAILED",
                 "err": f"{type(e).__name__}: {str(e)[:120]}",
                 "why": "Trigger-layer pass crashed — scan itself unaffected.",
+            })
+            p.save()
+        except Exception:
+            pass
+        return {}
+
+
+def run_news_feed(where: str = "manual", limit: int = 60) -> dict:
+    """📰 The owner's news pass — their design, on their order.
+
+    Owner 2026-08-13: "when i will fetch new universe for stocks, u will run
+    the feed that time only and it kept on that stock ... if it value it
+    trigger or it pass", then "no block just show".
+
+    So this runs ONCE per daily cycle (called right after the trigger layer,
+    which follows the 09:20 scan), over the names the scan already filtered
+    plus everything held — never on a separate schedule, and never over the
+    whole universe. The verdict is stored per stock in `portfolio.news_watch`
+    and shown; it blocks nothing, sizes nothing and cannot place an order.
+
+    A crash here can no more break the scan than the trigger layer can.
+    """
+    from datetime import datetime as _dt
+    from . import state
+    p = state.portfolio()
+    try:
+        from trading import news_feed
+        tickers: list[str] = []
+        seen: set[str] = set()
+        # held first — the owner's own money is the priority read
+        for t in list(p.positions.keys()) \
+                + [pk.get("ticker") for pk in (p.last_scan_picks or [])] \
+                + list(((p.scan_matrix or {}).get("rows") or {}).keys()):
+            if t and t not in seen:
+                seen.add(t)
+                tickers.append(t)
+        if not tickers:
+            return {}
+        readings = news_feed.run(tickers, limit=limit)
+        rows = {t: r.to_dict() for t, r in readings.items()}
+        triggered = sorted(t for t, r in readings.items()
+                           if r.verdict == "TRIGGER")
+        unknown = sorted(t for t, r in readings.items() if r.fetch_failed)
+        prev = set((p.news_watch or {}).get("triggered") or [])
+        p.news_watch = {
+            "ts": _dt.utcnow().isoformat(),
+            "rows": rows,
+            "triggered": triggered,
+            "fetch_failed": unknown,
+            "scanned": len(rows),
+            "lookback_days": news_feed.LOOKBACK_DAYS,
+            "note": ("display only — a news verdict never blocks a buy or "
+                     "moves a stop; news cannot be calibrated (no archive)"),
+        }
+        for t in triggered:
+            if t not in prev:                  # journal each name once
+                r = rows[t]
+                p.decision_journal.append({
+                    "ts": _dt.utcnow().isoformat(),
+                    "action": "NEWS_TRIGGER",
+                    "ticker": t,
+                    "tags": r["tags"],
+                    "why": (f"News verdict TRIGGER: {r['why']}"),
+                })
+        if unknown:
+            p.decision_journal.append({
+                "ts": _dt.utcnow().isoformat(),
+                "action": "NEWS_FETCH_FAILED",
+                "why": (f"{len(unknown)} name(s) could not be fetched "
+                        f"({', '.join(unknown[:6])}) — recorded as UNKNOWN, "
+                        "never as 'no news'."),
+            })
+        p.save()
+        log.info("[news:%s] %d read, %d TRIGGER, %d unfetchable",
+                 where, len(rows), len(triggered), len(unknown))
+        return p.news_watch
+    except Exception as e:
+        log.exception("News feed pass failed: %s", e)
+        try:
+            p.decision_journal.append({
+                "ts": _dt.utcnow().isoformat(),
+                "action": "NEWS_FEED_FAILED",
+                "err": f"{type(e).__name__}: {str(e)[:120]}",
+                "why": "News pass crashed — scan and trigger layer unaffected.",
             })
             p.save()
         except Exception:
