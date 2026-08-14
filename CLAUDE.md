@@ -1102,18 +1102,64 @@ owner: "run the external calibration for the 21" → "wire 0095 and 0094 both"
   tripwires), **19 still need an outside feed** — was 64 on 2026-08-11, 32 on
   the morning of 08-13. The 19: 10 news-family (RSS IS reachable — Google
   News/Moneycontrol/ET all return real feeds — but news is live-only, so those
-  triggers can never be calibrated), plus options chain ×2 (NSE answers {}
+  triggers can never be calibrated; **1 of the 10, W-019, wired 2026-08-14 by
+  the news module → 18 blocked**, 9 news triggers left), plus options chain ×2 (NSE answers {}
   without cookie priming), ESG (Yahoo returned EMPTY for all 193), short
   interest, short-rate leg, credit spreads, R&D line item, durability filings.
-- **OWNER'S FUNNEL DESIGN (stated 2026-08-13, NOT yet built):** run the news
-  feed at UNIVERSE-FETCH time only, keep the verdict attached to the stock,
-  read TRIGGER or PASS per name; and size the candidate list to what cash can
+- **OWNER'S FUNNEL DESIGN (stated 2026-08-13):** run the news feed at
+  UNIVERSE-FETCH time only, keep the verdict attached to the stock, read
+  TRIGGER or PASS per name; and size the candidate list to what cash can
   actually fund — **₹50L ÷ ₹1.25L = 40 slots, so at 60-70% deployed only
   12-16 remain**; surfacing 50 candidates is wasted motion. Their words: "in
   real life capital amount is fixed once i use 60-70% then cant use as using
-  here". OPEN QUESTION they must answer: does a bad-news verdict BLOCK a buy
-  (an uncalibrated entry gate, against their own REQUIRES_15Y_BACKTEST rule)
-  or only display? Build it with the block behind a default-off flag.
+  here". **HALF BUILT: the news half shipped 2026-08-14 (below). The SLOT
+  SIZING half is NOT built** — the scan still surfaces ~50 regardless of free
+  slots. The block question they answered themselves: **"no block just show"**.
+
+**NEWS MODULE SHIPPED 2026-08-14 (owner: "build the news module, no block
+just show"), PR #61, 824 tests. `trading/news_feed.py` — DISPLAY ONLY.**
+- Every stock the daily pass touches carries a verdict: **TRIGGER / PASS /
+  NO_NEWS / UNKNOWN**, attached to the stock (`portfolio.news_watch`,
+  persisted JSON **and** Mongo both directions — the risk_day lesson).
+- **NO LLM, deliberately** — an LLM verdict can't be reproduced tomorrow;
+  these are readable rules. Pure deterministic classifier over Google News
+  RSS: 8 weighted event families (results beat/miss, regulatory, governance,
+  downgrade/upgrade, rumour, order_win, expansion, block_deal) + a lexicon
+  that scores ONLY untagged headlines so one headline can't count twice.
+  `TRIGGER_SCORE = 2.0` is **ASSUMED and labelled on-page**: news has NO
+  archive of past headlines, so unlike the 112 triggers it **can never be
+  calibrated** — which is exactly why it stays out of the money path
+  (boundary test: engine/risk/orders/**danger** may not import news_feed).
+- **FOUR FAULTS THE LIVE FEED EXPOSED, all fixed pre-commit — read these
+  before touching the patterns:**
+  1. `"RBI Governor lists 5 ways AI can transform … fraud detection in
+     banking"` tagged a BANK as a governance risk, and one tag alone clears
+     the bar. Two fixes: negative lookahead so `fraud` won't match
+     detection/prevention/management/analytics/control, **and
+     `mentions_company()` — a headline that never names the stock is not
+     judged against it** (Google News answers a company query with sector
+     round-ups). That sector headline was the WHOLE of YESBANK's TRIGGER.
+  2. The real event, `"Senior Group President Rajat Monga Quits"`, was
+     **MISSED** — the role pattern only knew CFO/CEO. Now MD, chairman,
+     president, whole-time director, company secretary × quits/resigns/
+     exits/steps down/departs.
+  3. Quote pages drowned real news (RELIANCE's top three "headlines" were a
+     live-price page, a chart page and a weekly-outlook template) →
+     `NOISE_PATTERNS`.
+  4. A 503 read as "no news". **UNKNOWN is its own verdict** with
+     `fetch_failed` set — a broken fetch and a quiet stock are different
+     facts and never render as the same chip.
+  Also: Indian headlines read "bags Rs 2,400 crore order" — the words aren't
+  adjacent, so order patterns are gap-tolerant (`\bbags?\b[^.;]{0,45}\border`).
+- Runs inside the post-scan trigger pass (`scheduler.run_news_feed`, called
+  from `run_trigger_layer`), **bounded to 60 names** per the owner's slot
+  logic. Journals NEWS_TRIGGER (once/name/day), NEWS_FETCH_FAILED,
+  NEWS_FEED_FAILED — a feed outage cannot break the scan. Shown on /triggers
+  per row and per stock with the causing headline and the line "Display only
+  — never blocks a buy or moves a stop"; W-019 on /register reads the STORED
+  verdict so no page render touches the network.
+- **9 news-family register triggers still unwired** (TRG-097/099/103/104/
+  106/107/108/109/110) — the feed now exists to serve them when ordered.
 
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
