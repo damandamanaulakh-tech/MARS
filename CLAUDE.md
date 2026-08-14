@@ -1032,6 +1032,89 @@ docs/WIRING_2026-08-13.md carries the full record; 786 tests green.**
   decay exits) is the one money-path item with a stubbed input
   (short_interest=50 at 5% weight; catalyst neutral unless the API key is set).
 
+**DANGER LAYER NOW 12 TRIPWIRES + 13 REGISTER ITEMS WIRED (2026-08-13/14,
+owner: "run the external calibration for the 21" → "wire 0095 and 0094 both"
+→ "API keys r there, fetch it" → "wire the 13"). PRs #58, #59 merged;
+802 tests. docs/WIRING_2026-08-13.md is the record.**
+- **EXTERNAL CALIBRATION COMPLETE** (research/bt_calibration_external/
+  run_2026-08-13/, 191 tickers, 94,479 windows, same design as BT01-BT08):
+  **2 VERIFIED, 1 SUPPORTED, 16 REJECTED, 2 unjudgeable.** Winners are both
+  danger-side — T12W_0095 Index Risk Overlay lift **2.280** (3,272 fires,
+  lead 3d) and T12W_0094 Sector Contagion **1.546** (6,982 fires). T12W_0050
+  Leader Rotation SUPPORTED 1.115 is the ONLY entry-side signal of 21 that
+  beat chance. The sector/RS entry family failed a THIRD independent time
+  (Stock RS Leads Sector 0.842 = inverted; Sector Breadth Lead 1.009 firing on
+  44% of days). F&O OI pair judged on 2024-07+ only; bulk-deal pair recorded
+  4 and 21 fires (70-row cap) = NOT_ENOUGH_EVIDENCE as predicted. The runner
+  is CHECKPOINTED (two earlier attempts died to container restarts).
+- **0095 + 0094 WIRED INTO danger.py — 12 tripwires now guard held names.**
+  Both COLLAPSE-side VERIFIED, so they qualified under the rule already in
+  the module; no new admission criteria invented. **THE TWO EVIDENCE BARS
+  DIFFER AND THAT IS DELIBERATELY VISIBLE**: the 10 incumbents cleared STRICT
+  ±15% labels, these two only MAIN ±10% (the external run exists only at main
+  labels). Every entry carries a `labels` field, describe() prints it into the
+  journal AND the phone alert, a test asserts the groups stay distinguishable.
+  Re-running the external calibration at strict labels would settle it.
+  Design facts, test-pinned: 0095 needs the held name's support BROKEN, 0094
+  needs it INTACT → **mutually exclusive, so the pair alone can only tighten a
+  stop, never reach the 2-fire EXIT_HALF rung**. `_EXTERNAL_ALLOWED` names the
+  two ordered ids so a future run cannot self-promote into the money path.
+  `danger.externals_for()` loads ONLY panel+index (1.5s, never the 3.5M-row
+  delivery file) because it runs inside engine.refresh; failure → those two
+  abstain, other 10 still run, DANGER_PANELS_UNAVAILABLE journals once/day.
+  engine.py still contains NO reference to external_panels — it reaches the
+  panels only through danger.py (test-pinned both ways).
+- **"nsearchives blocks our IP" WAS WRONG — 6 items needed no Colab.** The
+  block is on the bhavcopy/delivery archive paths; the shareholding **XBRL**
+  path answers fine. Proven by fetching a real 1.3MB file whose promoter
+  (71.77%) and public (28.23%) match the committed TCS JSON exactly. Never
+  repeat the old claim.
+- **FETCHED (scripts/fetch_pending_feeds.py, checkpointed, 193/193 symbols,
+  ZERO failures):** shareholding_institutional.csv (386 rows = 2 quarters ×
+  193: FII, FPI cat1/2, DII, MF, insurance, banks, promoter, public, 4 holder
+  counts, pledge flag — present on ALL rows) · analyst_ratings.csv (189 with
+  real targets) · estimate_revisions.csv (690) · earnings_dates.csv (168, 84
+  exchange-CONFIRMED) · shares_outstanding.csv (184, 183 with TRUE free
+  float) · usdinr_daily.csv (2,601 days) · india_broad_money.csv (62 ANNUAL
+  rows — too coarse for a daily filter, file says so).
+  Parser trap: professionally managed companies (HDFCBANK, ICICIBANK, ITC, LT,
+  BSE…) have NO promoter so their XBRL omits that context — an earlier cut
+  treated it as a broken file and would have dropped 13 major names.
+- **13 WIRED** (register_v4._wire_fetched_feeds + 2 triggers): H-02 pledge ·
+  H-03 FII · H-04 DII · H-05 MF · H-06 institutional delta · X-07 holder
+  counts (TATASTEEL: 850 foreign institutions, +34 QoQ) · H-07 analyst score
+  (ASSUMED linear weights, labelled) · W-020 revision counts · X-11 drift ·
+  **W-011 real shares outstanding (retires the ASSUMED NI/EPS proxy)** ·
+  **X-06 TRUE free float (retires the public-% proxy)** · W-025 USDINR
+  momentum · TRG-098 + TRG-105 (external triggers 21 → **23** wired, 12 → 10
+  pending). All display/research; both new triggers UNCALIBRATED and
+  test-asserted OUT of danger.VERIFIED.
+- **DATA TRAP CAUGHT: Yahoo's epsTrend history is inconsistent** — 16 of 189
+  symbols imply a >100% 30-day estimate change and 5 carry eps_30d_ago = 0
+  (RELIANCE read +149%). The revision COUNTS are a different, sound field. So
+  the percentage is suppressed outside ±50%, X-11 says PARTIAL and why, and
+  W-020 carries the signal from the counts. Test-pinned on RELIANCE.
+- **TRG-098 CAN NEVER BE BACKTESTED** — the earnings calendar is a forward
+  snapshot with no archive of past "next earnings date" values.
+  `earnings_window` is point-in-time (days-away from the AS-OF bar, not today)
+  so a backtest cannot read tomorrow's calendar.
+- **REGISTER STANDING: 21 in the money path** (9 TRADES + 12 danger
+  tripwires), **19 still need an outside feed** — was 64 on 2026-08-11, 32 on
+  the morning of 08-13. The 19: 10 news-family (RSS IS reachable — Google
+  News/Moneycontrol/ET all return real feeds — but news is live-only, so those
+  triggers can never be calibrated), plus options chain ×2 (NSE answers {}
+  without cookie priming), ESG (Yahoo returned EMPTY for all 193), short
+  interest, short-rate leg, credit spreads, R&D line item, durability filings.
+- **OWNER'S FUNNEL DESIGN (stated 2026-08-13, NOT yet built):** run the news
+  feed at UNIVERSE-FETCH time only, keep the verdict attached to the stock,
+  read TRIGGER or PASS per name; and size the candidate list to what cash can
+  actually fund — **₹50L ÷ ₹1.25L = 40 slots, so at 60-70% deployed only
+  12-16 remain**; surfacing 50 candidates is wasted motion. Their words: "in
+  real life capital amount is fixed once i use 60-70% then cant use as using
+  here". OPEN QUESTION they must answer: does a bad-news verdict BLOCK a buy
+  (an uncalibrated entry gate, against their own REQUIRES_15Y_BACKTEST rule)
+  or only display? Build it with the block behind a default-off flag.
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
