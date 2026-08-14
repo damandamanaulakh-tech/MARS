@@ -954,6 +954,29 @@ def _e0101(x, e, fam):        # price down + OI down after a prior uptrend
     return bool(r5 < 0 and e.fut_oi[-1] < e.fut_oi[-6] and prior > 0)
 
 
+def _e0098(x, e, fam):        # earnings/event window + volatility expansion
+    if e.earnings_days_away is None or x.n < 30:
+        return None
+    win = _ext_const("event_window_days")
+    near = abs(e.earnings_days_away) <= win
+    atr_now = x.atr14[-1]
+    atr_prior = float(np.nanmean(x.atr14[-20:-5])) if x.n >= 25 else np.nan
+    if not (np.isfinite(atr_now) and np.isfinite(atr_prior) and atr_prior > 0):
+        return None
+    expanding = atr_now >= _ext_const("atr_expansion_mult") * atr_prior
+    return bool(near and expanding)
+
+
+def _e0105(x, e, fam):        # analyst upgrade + relative-strength lead
+    if e.analyst_net_revisions is None:
+        return None
+    rank = e.own_sector_rank if e.own_sector_rank is not None else e.rs_rank_now
+    if rank is None:
+        return None
+    return bool(e.analyst_net_revisions >= _ext_const("analyst_upgrade_min_net")
+                and rank >= _ext_const("rs_lead_rank_min"))
+
+
 def _e0111(x, e, fam):        # bulk/block BUY + accumulation cluster
     if e.deal_buy_recent is None:
         return None
@@ -974,6 +997,10 @@ _EXT_FNS = {
     "T12W_0056": _e0056, "T12W_0059": _e0059, "T12W_0060": _e0060,
     "T12W_0094": _e0094, "T12W_0095": _e0095, "T12W_0100": _e0100,
     "T12W_0101": _e0101, "T12W_0111": _e0111, "T12W_0112": _e0112,
+    # wired 2026-08-13 once the earnings calendar and analyst revisions were
+    # fetched. Both are display/watchlist only and UNCALIBRATED: the earnings
+    # one cannot be backtested at all (no archive of past next-earnings dates).
+    "T12W_0098": _e0098, "T12W_0105": _e0105,
 }
 
 # Minimum stock-side history for the external triggers.

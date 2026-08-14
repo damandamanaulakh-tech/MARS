@@ -72,6 +72,10 @@ DEALS_TRUNCATED = (
 # Collected here for their calibration run to replace with measured numbers,
 # exactly like triggers.ASSUMED_CONSTANTS.
 ASSUMED_EXTERNAL_CONSTANTS = {
+    "event_window_days": 10,           # T12W_0098 "within next/last 10D"
+    "atr_expansion_mult": 1.3,         # T12W_0098 "volatility expansion"
+    "analyst_upgrade_min_net": 1.0,    # T12W_0105 "upgrade_flag" (net revisions)
+    "rs_lead_rank_min": 60.0,          # T12W_0105 "RS lead signal"
     "rs_outperformance_10d": 0.03,     # "> threshold" for RS lead (3pp / 10d)
     "rs_underperformance_10d": 0.03,   # "< -threshold" for RS lag
     "rank_jump_points": 20.0,          # "improves by >=20 points" (their number)
@@ -338,6 +342,15 @@ class StockExternals:
     deal_buy_recent: Optional[bool] = None
     deal_sell_recent: Optional[bool] = None
 
+    # Reference feeds fetched 2026-08-13 (earnings calendar, analyst revisions).
+    # FORWARD SNAPSHOT: the earnings date is "next known at fetch time", so the
+    # trigger that reads it informs today but can never be backtested — there
+    # is no archive of past next-earnings-date values.
+    earnings_days_away: Optional[int] = None
+    earnings_is_estimate: Optional[bool] = None
+    analyst_net_revisions: Optional[float] = None
+    analyst_score: Optional[float] = None
+
     def missing(self) -> list[str]:
         """Which panels came back empty for this stock (shown on the page)."""
         out = []
@@ -349,6 +362,10 @@ class StockExternals:
             out.append("delivery")
         if self.fut_oi is None:
             out.append("F&O OI")
+        if self.earnings_days_away is None:
+            out.append("earnings calendar")
+        if self.analyst_net_revisions is None:
+            out.append("analyst revisions")
         if self.deal_buy_recent is None:
             out.append("bulk deals (NSE 70-row/month cap — absence proves "
                        "nothing)" if self.deals_capped else "bulk/block deals")
@@ -667,8 +684,22 @@ class PanelSet:
 
     def _attach_symbol_panels(self, sx: StockExternals, ticker: str,
                               asof: Optional[pd.Timestamp]) -> StockExternals:
-        """Delivery, F&O OI and deals — keyed on the bare symbol."""
+        """Delivery, F&O OI, deals and the small reference feeds."""
         sym = _base_symbol(ticker)
+        # Reference feeds are tiny CSVs, cached — cheap enough to attach on
+        # every path, including the danger layer's light one (which does not
+        # consume them).
+        ew = earnings_window(ticker, str(asof.date()) if asof is not None
+                             else None)
+        if ew:
+            sx.earnings_days_away = ew["days_away"]
+            sx.earnings_is_estimate = ew["is_estimate"]
+        rv = revisions_view(ticker)
+        if rv:
+            sx.analyst_net_revisions = rv["net_revisions_30d"]
+        av = analyst_view(ticker)
+        if av:
+            sx.analyst_score = av["score"]
         dv = self.delivery.get(sym)
         if dv is not None:
             seg = (dv if asof is None else
@@ -895,9 +926,200 @@ def pcr_oi(ticker: str) -> Optional[dict]:
     }
 
 
+# --------------------------------------------------------------------------
+# Reference panels fetched 2026-08-13 (owner: "API keys r there, fetch it").
+# Per-stock lookups, cached whole because each file is small.
+# --------------------------------------------------------------------------
+
+_ref_cache: dict[str, dict] = {}
+
+
+def _load_ref(name: str, key: str = "symbol") -> dict[str, list[dict]]:
+    """{symbol: [rows]} from a small committed CSV. {} when absent."""
+    if name in _ref_cache:
+        return _ref_cache[name]
+    out: dict[str, list[dict]] = {}
+    try:
+        with open(_DATA / f"{name}.csv", newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                out.setdefault((row.get(key) or "").strip().upper(),
+                               []).append(row)
+    except OSError:
+        log.warning("external_panels: %s.csv absent", name)
+    _ref_cache[name] = out
+    return out
+
+
+def _f(row: dict, key: str) -> Optional[float]:
+    v = (row or {}).get(key)
+    try:
+        return float(v) if v not in (None, "", "None") else None
+    except (TypeError, ValueError):
+        return None
+
+
+def institutional_holdings(ticker: str) -> Optional[dict]:
+    """FII / DII / mutual-fund / insurance holdings + holder counts + pledge.
+
+    Parsed from the NSE shareholding XBRL (the file each committed JSON links
+    to). Two quarters per symbol, so the QoQ deltas H-06 and X-07 need are
+    real, not inferred. None = not fetched for this symbol.
+    """
+    rows = _load_ref("shareholding_institutional").get(_base_symbol(ticker))
+    if not rows:
+        return None
+    # newest first: the fetch wrote latest-quarter rows first per symbol
+    latest, prior = rows[0], (rows[1] if len(rows) > 1 else None)
+
+    def d(field):
+        a, b = _f(latest, field), _f(prior, field) if prior else None
+        return None if a is None or b is None else round(a - b, 4)
+
+    return {
+        "quarter": latest.get("quarter"), "prior_quarter":
+            (prior or {}).get("quarter"),
+        "fii_pct": _f(latest, "fii_pct"), "fii_delta": d("fii_pct"),
+        "dii_pct": _f(latest, "dii_pct"), "dii_delta": d("dii_pct"),
+        "mf_pct": _f(latest, "mf_pct"), "mf_delta": d("mf_pct"),
+        "insurance_pct": _f(latest, "insurance_pct"),
+        "promoter_pct": _f(latest, "promoter_pct"),
+        "promoter_pledged": (latest.get("promoter_pledged") or "").lower(),
+        "fii_holders": _f(latest, "fii_holders"),
+        "fii_holders_delta": d("fii_holders"),
+        "dii_holders": _f(latest, "dii_holders"),
+        "mf_holders": _f(latest, "mf_holders"),
+        "mf_holders_delta": d("mf_holders"),
+        "source": latest.get("source"),
+    }
+
+
+def analyst_view(ticker: str) -> Optional[dict]:
+    """Broker ratings, consensus target and analyst count."""
+    rows = _load_ref("analyst_ratings").get(_base_symbol(ticker))
+    if not rows:
+        return None
+    r = rows[0]
+    counts = {k: _f(r, k) or 0.0 for k in
+              ("strong_buy", "buy", "hold", "sell", "strong_sell")}
+    total = sum(counts.values())
+    if total <= 0:
+        return None
+    # 0-100, higher = more bullish. Weights are the obvious linear ones and
+    # ASSUMED — the register never defined a scoring formula for H-07.
+    w = {"strong_buy": 100.0, "buy": 75.0, "hold": 50.0, "sell": 25.0,
+         "strong_sell": 0.0}
+    return {
+        "score": round(sum(counts[k] * w[k] for k in counts) / total, 1),
+        "counts": counts, "n_analysts": _f(r, "n_analysts"),
+        "mean_rating": _f(r, "mean_rating"),
+        "target_mean": _f(r, "target_mean"),
+        "period": r.get("period"),
+        "formula": "ASSUMED linear weights (100 strong-buy .. 0 strong-sell)",
+    }
+
+
+#: Yahoo's epsTrend history is not reliable: 16 of 189 symbols imply a >100%
+#: estimate change in 30 days and 5 carry eps_30d_ago = 0 (a missing value
+#: encoded as zero, which would read as an infinite revision). The COUNTS in
+#: epsRevisions are a different, sound field. So the percentage is published
+#: only inside a sane band and the counts carry the register item.
+_MAX_CREDIBLE_EPS_CHANGE_PCT = 50.0
+
+
+def revisions_view(ticker: str) -> Optional[dict]:
+    """EPS revision counts (primary) and estimate drift (guarded).
+
+    The register's momentum item reads the NET REVISION COUNT, not the percent
+    change, because this source's historical estimate values are inconsistent
+    — see _MAX_CREDIBLE_EPS_CHANGE_PCT. A percent change outside the credible
+    band is returned as None with `pct_unreliable` set, never as a number.
+    """
+    rows = _load_ref("estimate_revisions").get(_base_symbol(ticker))
+    if not rows:
+        return None
+    # the current fiscal year row is the one the register's momentum item wants
+    cur = next((r for r in rows if (r.get("period") or "") == "0y"), rows[0])
+    now, d7, d30 = (_f(cur, "eps_avg"), _f(cur, "eps_7d_ago"),
+                    _f(cur, "eps_30d_ago"))
+    up = _f(cur, "up_last30d") or 0.0
+    down = _f(cur, "down_last30d") or 0.0
+    out = {"period": cur.get("period"), "end_date": cur.get("end_date"),
+           "eps_avg": now, "up_30d": up, "down_30d": down,
+           "net_revisions_30d": up - down, "pct_change_30d": None,
+           "pct_change_7d": None, "pct_unreliable": False}
+    for key, base in (("pct_change_30d", d30), ("pct_change_7d", d7)):
+        if now is None or base in (None, 0) or base <= 0:
+            out["pct_unreliable"] = True
+            continue
+        chg = round(100.0 * (now / base - 1.0), 3)
+        if abs(chg) > _MAX_CREDIBLE_EPS_CHANGE_PCT:
+            out["pct_unreliable"] = True    # source inconsistency, not a move
+            continue
+        out[key] = chg
+    return out
+
+
+def shares_view(ticker: str) -> Optional[dict]:
+    """Real shares outstanding and TRUE free float.
+
+    This retires two proxies at once: the ASSUMED shares-from-NI/EPS estimate
+    (W-011) and the public-shareholding-% stand-in for free float (X-06).
+    """
+    rows = _load_ref("shares_outstanding").get(_base_symbol(ticker))
+    if not rows:
+        return None
+    r = rows[0]
+    so, fl = _f(r, "shares_outstanding"), _f(r, "float_shares")
+    return {
+        "shares_outstanding": so, "float_shares": fl,
+        "free_float_pct": (round(100.0 * fl / so, 2)
+                           if so and fl and so > 0 else None),
+        "held_pct_institutions": _f(r, "held_pct_institutions"),
+    }
+
+
+def earnings_window(ticker: str, asof: Optional[str] = None) -> Optional[dict]:
+    """Days until the next reported earnings date.
+
+    FORWARD-LOOKING SNAPSHOT: this is the next date as known at fetch time, so
+    it can inform today but cannot be backtested — there is no archive of past
+    'next earnings date' values. `is_estimate` says whether the exchange has
+    confirmed the date or Yahoo guessed it.
+    """
+    rows = _load_ref("earnings_dates").get(_base_symbol(ticker))
+    if not rows:
+        return None
+    r = rows[0]
+    date = (r.get("earnings_date") or "").strip()
+    if not date:
+        return None
+    try:
+        import datetime as _dt
+        d = _dt.date.fromisoformat(date)
+        ref = (_dt.date.fromisoformat(asof[:10]) if asof
+               else _dt.date.today())
+        days = (d - ref).days
+    except ValueError:
+        return None
+    return {"earnings_date": date, "days_away": days,
+            "is_estimate": str(r.get("is_estimate", "")).lower() == "true"}
+
+
+def usdinr_series() -> Optional[pd.Series]:
+    """USDINR daily close (market-level, feeds W-025)."""
+    try:
+        df = pd.read_csv(_DATA / "usdinr_daily.csv", parse_dates=["date"])
+    except OSError:
+        return None
+    s = pd.Series(pd.to_numeric(df["close"], errors="coerce").to_numpy(),
+                  index=df["date"]).dropna().sort_index()
+    return s if len(s) >= 30 else None
+
+
 def reset_caches() -> None:
     """Drop cached panels (tests, and after a weekly data top-up)."""
     global _insider_cache, _fo_cache, _deals_cache
     _panel_cache.clear()
     _panelset_cache.clear()
+    _ref_cache.clear()
     _insider_cache = _fo_cache = _deals_cache = None

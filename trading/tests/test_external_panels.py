@@ -43,8 +43,8 @@ def test_registry_split_is_the_owners_sheet_plus_new_implementations():
     assert len(T.TRIGGERS) == 112
     assert len(T.COMPUTABLE) == 79            # OHLCV side, unchanged
     assert len(T.EXTERNAL) == 33              # the sheet's external count
-    assert len(T.EXTERNAL_WIRED) == 21        # data now in the repo
-    assert len(T.EXTERNAL_PENDING) == 12      # still need an outside feed
+    assert len(T.EXTERNAL_WIRED) == 23        # data now in the repo
+    assert len(T.EXTERNAL_PENDING) == 10      # still need an outside feed
     assert len(T.EXTERNAL_WIRED) + len(T.EXTERNAL_PENDING) == len(T.EXTERNAL)
     for t in T.EXTERNAL_PENDING:
         assert t.ext_fn is None
@@ -279,3 +279,81 @@ def test_panels_module_places_no_orders_and_touches_no_network():
     for forbidden in ("requests.", "urllib", "http", "place_order",
                       "buy(", "sell("):
         assert forbidden not in src, f"external_panels must not contain {forbidden}"
+
+
+# ---------------------------------------------------------------------------
+# Feeds fetched 2026-08-13 (owner: "fetch it" then "wire the 13")
+# ---------------------------------------------------------------------------
+
+def test_institutional_holdings_read_with_deltas():
+    h = XP.institutional_holdings("TATASTEEL.NS")
+    if h is None:
+        pytest.skip("holdings not fetched in this checkout")
+    for k in ("fii_pct", "dii_pct", "mf_pct"):
+        assert h[k] is not None and 0 <= h[k] <= 100
+    # two quarters were fetched, so the QoQ deltas must be real numbers
+    assert h["prior_quarter"] and h["fii_delta"] is not None
+    assert h["promoter_pledged"] in ("true", "false")
+    assert h["fii_holders"] and h["fii_holders"] > 0     # X-07's input
+
+
+def test_unreliable_eps_history_is_withheld_not_published():
+    """Yahoo's epsTrend history is inconsistent: 16 of 189 symbols imply a
+    >100% 30-day estimate change and 5 carry eps_30d_ago = 0. The counts are
+    sound; the percentage must be suppressed rather than published wrong."""
+    r = XP.revisions_view("RELIANCE.NS")
+    if r is None:
+        pytest.skip("revisions not fetched in this checkout")
+    assert r["pct_change_30d"] is None and r["pct_unreliable"] is True
+    # ...while the revision COUNTS still come through
+    assert r["up_30d"] is not None and r["down_30d"] is not None
+    assert r["net_revisions_30d"] == r["up_30d"] - r["down_30d"]
+
+
+def test_true_free_float_replaces_the_proxy():
+    sh = XP.shares_view("TATASTEEL.NS")
+    if sh is None:
+        pytest.skip("key stats not fetched in this checkout")
+    assert sh["shares_outstanding"] > 0
+    assert 0 < sh["free_float_pct"] <= 100
+    assert sh["float_shares"] <= sh["shares_outstanding"]
+
+
+def test_earnings_window_is_point_in_time():
+    """days_away must be measured from the as-of date, not from today, or a
+    backtest would read tomorrow's calendar."""
+    a = XP.earnings_window("TATASTEEL.NS", asof="2026-07-17")
+    b = XP.earnings_window("TATASTEEL.NS", asof="2026-07-27")
+    if a is None or b is None:
+        pytest.skip("earnings dates not fetched in this checkout")
+    assert a["days_away"] - b["days_away"] == 10
+
+
+def test_the_two_new_triggers_are_display_only_and_uncalibrated():
+    from trading import danger
+    for tid in ("T12W_0098", "T12W_0105"):
+        assert tid in {t.id for t in T.EXTERNAL_WIRED}
+        assert tid not in danger.VERIFIED, (
+            f"{tid} is uncalibrated — it must not reach the money path")
+
+
+def test_earnings_trigger_needs_the_window_and_volatility():
+    base = _df(drift=0.0)
+    far = XP.StockExternals(ticker="X.NS", earnings_days_away=40)
+    assert T.evaluate(base, ext=far)["T12W_0098"] is False
+    no_cal = XP.StockExternals(ticker="X.NS")
+    assert T.evaluate(base, ext=no_cal)["T12W_0098"] is None    # DATA_NEEDED
+
+
+def test_broker_upgrade_trigger_needs_both_legs():
+    up_and_strong = XP.StockExternals(ticker="X.NS", analyst_net_revisions=3.0,
+                                     own_sector_rank=90.0)
+    assert T.evaluate(_df(), ext=up_and_strong)["T12W_0105"] is True
+    up_but_weak = XP.StockExternals(ticker="X.NS", analyst_net_revisions=3.0,
+                                    own_sector_rank=20.0)
+    assert T.evaluate(_df(), ext=up_but_weak)["T12W_0105"] is False
+    downgrades = XP.StockExternals(ticker="X.NS", analyst_net_revisions=-5.0,
+                                   own_sector_rank=90.0)
+    assert T.evaluate(_df(), ext=downgrades)["T12W_0105"] is False
+    assert T.evaluate(_df(), ext=XP.StockExternals(ticker="X.NS")
+                      )["T12W_0105"] is None
