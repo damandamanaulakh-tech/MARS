@@ -140,3 +140,85 @@ def test_pass_failure_is_journaled_not_silent(monkeypatch):
         # test_parameter_page's /scan render blow up. Save after restoring.
         p.trigger_watch, p.last_scan_picks = old_watch, old_picks
         p.save()
+
+
+# ---------------------------------------------------------------------------
+# News-fed triggers on the page (owner order 2026-08-14: "wire them")
+# ---------------------------------------------------------------------------
+
+_NEWS_ROW = {
+    "ticker": "TATASTEEL.NS", "asof": "2026-08-14", "verdict": "TRIGGER",
+    "risk_score": 2.5, "opp_score": 0.0, "tags": ["governance"],
+    "sentiment": 0.0, "fetch_failed": False,
+    "why": "risk events in the last 7d: governance",
+    "headlines": [{"title": "Tata Steel CFO resigns", "published": "Thu, 14 Aug 2026",
+                   "source": "ET", "tags": ["governance"], "side": "RISK",
+                   "sentiment": 0}],
+}
+
+
+def _with_news(rows: dict):
+    p = state.portfolio()
+    old = p.news_watch
+    p.news_watch = {"ts": "2026-08-14T04:00:00", "rows": rows,
+                    "triggered": sorted(rows), "fetch_failed": [],
+                    "scanned": len(rows), "lookback_days": 7,
+                    "note": "display only"}
+    p.save()
+    return p, old
+
+
+def test_stored_news_feeds_the_nine_triggers_and_says_when_it_was_read():
+    """The verdict is TODAY's and the price bars are the last STORED ones.
+    A page that let the reader assume they were simultaneous would be lying
+    by omission."""
+    p, old = _with_news({"TATASTEEL.NS": _NEWS_ROW})
+    try:
+        html = _client().get("/triggers/TATASTEEL.NS").text
+        assert "news triggers" in html
+        assert "STORED price bar" in html
+        assert "never be calibrated" in html
+    finally:
+        p.news_watch = old
+        p.save()
+
+
+def test_a_stock_with_no_stored_reading_says_data_needed_not_quiet():
+    """No reading is not the same as no news, and the page must not let the
+    nine look like they checked and found nothing."""
+    p, old = _with_news({"TATASTEEL.NS": _NEWS_ROW})
+    try:
+        html = _client().get("/triggers/RELIANCE.NS").text
+        assert "DATA_NEEDED" in html
+        assert "not a quiet" in html
+    finally:
+        p.news_watch = old
+        p.save()
+
+
+def test_page_never_fetches_news_while_rendering(monkeypatch):
+    """Rendering must be offline: a page render that hit Google News would
+    make every reload a network call and could hang the request."""
+    from trading import news_feed
+
+    def _boom(*a, **k):
+        raise AssertionError("the page must not fetch news")
+    monkeypatch.setattr(news_feed, "fetch_headlines", _boom)
+    p, old = _with_news({"TATASTEEL.NS": _NEWS_ROW})
+    try:
+        assert _client().get("/triggers/TATASTEEL.NS").status_code == 200
+    finally:
+        p.news_watch = old
+        p.save()
+
+
+def test_news_runs_before_the_trigger_pass_so_the_nine_can_read_it():
+    """Order matters: nine of the owner's triggers take a news flag as one of
+    their two legs, so a news pass that ran afterwards would always leave
+    them DATA_NEEDED."""
+    import inspect
+
+    from web import scheduler
+    src = inspect.getsource(scheduler.run_trigger_layer)
+    assert src.index("run_news_feed") < src.index("external_panels.prepare")
+    assert "news=news_rows" in src

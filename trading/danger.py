@@ -148,7 +148,10 @@ def evaluate_stock(df: pd.DataFrame, ext=None) -> list[str]:
     if ext is not None:
         for tid, fn in _EXT_FNS.items():
             try:
-                if fn(x, ext, {}) is True:      # neither needs family counts
+                # Neither needs family counts, and neither reads another
+                # trigger's hit — the empty dicts are the honest arguments,
+                # not placeholders standing in for data.
+                if fn(x, ext, {}, {}) is True:
                     fired.append(tid)
             except Exception:                               # noqa: BLE001
                 continue

@@ -88,6 +88,16 @@ ASSUMED_EXTERNAL_CONSTANTS = {
     "near_support_frac": 0.03,         # "near support" = within 3% of 20D low
     "deal_window_days": 10,            # "bulk_deal_buy_flag" recency window
     "rs_slope_flat": 0.0,              # "RS slope flatten" = slope <= 0
+    # --- news-fed triggers (T12W_0097/0099/0103/0104/0106/0107/0108/0109/0110)
+    # The owner's sheet names the flags but never the numbers behind them.
+    # `news_event_bar` MIRRORS news_feed.TRIGGER_SCORE and a test pins the two
+    # together — triggers.py must not import the news module, so the value is
+    # duplicated here rather than allowed to drift.
+    "news_event_bar": 2.0,             # "positive_news_score > threshold"
+    "news_flat_return_3d": 0.03,       # THEIR number: "abs(return3) < 3%"
+    "news_cluster_min": 2,             # "accumulation flags active" / "cluster"
+    "news_sentiment_high": 0.5,        # "sentiment_score high" (-1..+1 scale)
+    "news_weak_clv": 0.4,              # "negative CLV" at a new high
 }
 
 _PANEL_TAIL = 420          # bars kept per panel name (RAM on the 512MB box)
@@ -351,6 +361,24 @@ class StockExternals:
     analyst_net_revisions: Optional[float] = None
     analyst_score: Optional[float] = None
 
+    # Today's news reading for this stock, handed in by the caller as a plain
+    # dict (this module never imports news_feed — the news verdict is data
+    # here, not a dependency). Populated ONLY for a reading that actually
+    # happened: a failed fetch leaves every field None, because "we could not
+    # look" must stay DATA_NEEDED and never become a quiet False.
+    #
+    # TIMING, and it is a real one: the news is TODAY's, while every price
+    # field above is as-of the stored panel's last bar. The nine triggers that
+    # combine the two are therefore "today's news against the last stored
+    # bar", which the page states rather than implying they are simultaneous.
+    news_verdict: Optional[str] = None          # TRIGGER | PASS | NO_NEWS
+    news_tags: Optional[tuple[str, ...]] = None
+    news_risk: Optional[float] = None
+    news_opp: Optional[float] = None
+    news_sentiment: Optional[float] = None      # lexicon mean, -1..+1
+    news_count: Optional[int] = None
+    news_asof: str = ""
+
     def missing(self) -> list[str]:
         """Which panels came back empty for this stock (shown on the page)."""
         out = []
@@ -369,6 +397,8 @@ class StockExternals:
         if self.deal_buy_recent is None:
             out.append("bulk deals (NSE 70-row/month cap — absence proves "
                        "nothing)" if self.deals_capped else "bulk/block deals")
+        if self.news_risk is None:
+            out.append("news reading (not fetched, or the fetch failed)")
         return out
 
 
@@ -769,17 +799,54 @@ def panel_set(tickers: Optional[list[str]] = None, rebuild: bool = False,
     return _panelset_cache[key]
 
 
-def prepare(tickers: list[str]) -> ExternalData:
+def attach_news(sx: StockExternals, reading: Optional[dict]) -> StockExternals:
+    """Copy one stored news reading onto a stock's externals.
+
+    `reading` is a `news_feed.NewsReading.to_dict()` as persisted in
+    `portfolio.news_watch` — a plain dict, so this module stays free of any
+    news import and the news feed stays a display layer.
+
+    A reading whose fetch FAILED (verdict UNKNOWN) is deliberately not copied:
+    every field stays None, so the news triggers read DATA_NEEDED. "We could
+    not look" and "we looked and it was quiet" are different facts, and only
+    the second one may produce a quiet False.
+    """
+    if not isinstance(reading, dict):
+        return sx
+    verdict = str(reading.get("verdict") or "")
+    if verdict not in ("TRIGGER", "PASS", "NO_NEWS"):
+        return sx
+    if reading.get("fetch_failed"):
+        return sx
+    sx.news_verdict = verdict
+    sx.news_tags = tuple(reading.get("tags") or ())
+    sx.news_risk = float(reading.get("risk_score") or 0.0)
+    sx.news_opp = float(reading.get("opp_score") or 0.0)
+    sx.news_sentiment = float(reading.get("sentiment") or 0.0)
+    sx.news_count = len(reading.get("headlines") or ())
+    sx.news_asof = str(reading.get("asof") or "")
+    return sx
+
+
+def prepare(tickers: list[str],
+            news: Optional[dict[str, dict]] = None) -> ExternalData:
     """Load every external panel once for this batch of tickers.
 
     Called at the start of a trigger-layer run (scheduler) or for a single
     stock (the /triggers page). Absent files simply leave fields None.
+
+    `news` is the stored `portfolio.news_watch["rows"]` — pass it and the nine
+    news-fed triggers compute; omit it and they stay DATA_NEEDED, exactly as
+    before the news module existed.
     """
     tickers = [t for t in dict.fromkeys(tickers) if t]
     ps = PanelSet(tickers)
     ed = ExternalData(sources=dict(ps.sources), asof=dict(ps.asof))
     for t in tickers:
-        ed.per_ticker[t] = ps.externals_at(t)
+        sx = ps.externals_at(t)
+        if news:
+            attach_news(sx, news.get(t))
+        ed.per_ticker[t] = sx
     return ed
 
 

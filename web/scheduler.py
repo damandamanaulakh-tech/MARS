@@ -16,6 +16,7 @@ import logging
 import os
 import threading
 from datetime import datetime
+from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -582,6 +583,19 @@ def run_trigger_layer(where: str = "manual") -> dict:
                 tickers.append(t)
         tickers = tickers[:TRIGGER_LAYER_MAX_TICKERS]
 
+        # News runs FIRST, over the same filtered list (owner's funnel: "u
+        # will run the feed that time only and it kept on that stock"). It has
+        # to precede the trigger pass because nine of the owner's triggers
+        # read a news flag as one of their two legs. Isolated: if the feed is
+        # down those nine stay DATA_NEEDED and every other trigger is
+        # unaffected — a news outage must never change a price verdict.
+        news_rows: dict = {}
+        try:
+            news_rows = (run_news_feed(where, tickers=tickers) or {}).get(
+                "rows") or {}
+        except Exception:
+            log.exception("news feed pass failed before trigger layer")
+
         # External panels (sector/RS, delivery, F&O OI, deals) — ONE batch
         # load for the whole run: the delivery file is 3.5M rows and a
         # per-stock pass would be 80 passes. A failure here leaves ext None,
@@ -591,7 +605,7 @@ def run_trigger_layer(where: str = "manual") -> dict:
         ext_batch = None
         try:
             from trading import external_panels
-            ext_batch = external_panels.prepare(tickers)
+            ext_batch = external_panels.prepare(tickers, news=news_rows)
         except Exception as e:
             log.warning("[triggers] external panels unavailable: %s", e)
 
@@ -647,13 +661,6 @@ def run_trigger_layer(where: str = "manual") -> dict:
         p.save()
         log.info("[triggers:%s] %d scored, %d on watchlist, %d no-history",
                  where, len(rows), len(watchlist), len(no_history))
-        # The owner's funnel: news runs in the SAME daily cycle, over the names
-        # already filtered — not on a schedule of its own. Isolated so a news
-        # failure cannot touch the trigger-layer result just computed.
-        try:
-            run_news_feed(where)
-        except Exception:
-            log.exception("news feed pass failed after trigger layer")
         return p.trigger_watch
     except Exception as e:
         log.exception("Trigger layer pass failed: %s", e)
@@ -670,18 +677,26 @@ def run_trigger_layer(where: str = "manual") -> dict:
         return {}
 
 
-def run_news_feed(where: str = "manual", limit: int = 60) -> dict:
+def run_news_feed(where: str = "manual", limit: int = 60,
+                  tickers: Optional[list[str]] = None) -> dict:
     """📰 The owner's news pass — their design, on their order.
 
     Owner 2026-08-13: "when i will fetch new universe for stocks, u will run
     the feed that time only and it kept on that stock ... if it value it
     trigger or it pass", then "no block just show".
 
-    So this runs ONCE per daily cycle (called right after the trigger layer,
-    which follows the 09:20 scan), over the names the scan already filtered
-    plus everything held — never on a separate schedule, and never over the
-    whole universe. The verdict is stored per stock in `portfolio.news_watch`
-    and shown; it blocks nothing, sizes nothing and cannot place an order.
+    So this runs ONCE per daily cycle (called at the START of the trigger
+    layer, which follows the 09:20 scan), over the names the scan already
+    filtered plus everything held — never on a separate schedule, and never
+    over the whole universe. The verdict is stored per stock in
+    `portfolio.news_watch` and shown; it blocks nothing, sizes nothing and
+    cannot place an order.
+
+    It runs BEFORE the trigger pass because nine of the owner's own triggers
+    take a news flag as one of their two legs (T12W_0097/0099/0103/0104/0106/
+    0107/0108/0109/0110). `tickers` lets the trigger layer hand over the exact
+    list it is about to score, so the two passes can never disagree about
+    which names were looked at.
 
     A crash here can no more break the scan than the trigger layer can.
     """
@@ -690,15 +705,16 @@ def run_news_feed(where: str = "manual", limit: int = 60) -> dict:
     p = state.portfolio()
     try:
         from trading import news_feed
-        tickers: list[str] = []
-        seen: set[str] = set()
-        # held first — the owner's own money is the priority read
-        for t in list(p.positions.keys()) \
-                + [pk.get("ticker") for pk in (p.last_scan_picks or [])] \
-                + list(((p.scan_matrix or {}).get("rows") or {}).keys()):
-            if t and t not in seen:
-                seen.add(t)
-                tickers.append(t)
+        if tickers is None:
+            tickers = []
+            seen: set[str] = set()
+            # held first — the owner's own money is the priority read
+            for t in list(p.positions.keys()) \
+                    + [pk.get("ticker") for pk in (p.last_scan_picks or [])] \
+                    + list(((p.scan_matrix or {}).get("rows") or {}).keys()):
+                if t and t not in seen:
+                    seen.add(t)
+                    tickers.append(t)
         if not tickers:
             return {}
         readings = news_feed.run(tickers, limit=limit)

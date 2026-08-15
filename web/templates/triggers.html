@@ -9,9 +9,11 @@
       Your {{ n_triggers }} pre-rise/fall triggers, exactly as your sheets define them:
       <strong>{{ n_computable }} computed daily</strong> from stored OHLCV ·
       <strong>{{ n_external_wired }} more</strong> from the data that has since landed
-      (sector/RS panel, delivery %, F&amp;O open interest, bulk/block deals) ·
+      (sector/RS panel, delivery %, F&amp;O open interest, bulk/block deals,
+      analyst revisions, earnings calendar, and since 14 Aug the news feed) ·
       <strong>{{ n_external_pending }} still DATA_NEEDED</strong>
-      (news/analyst/governance feeds, strike-level options chain — never guessed).
+      ({% if n_external_pending == 1 %}the strike-level options chain, which NSE does
+      not serve us{% else %}outside feeds we cannot reach{% endif %} — never guessed).
       Panel readings carry their own as-of date: the stored OHLCV panel ends before today,
       so every relative-strength number is as-of that panel, not live.
       This page and the watchlist <strong>touch no entry and no exit</strong> — your own rule:
@@ -63,6 +65,20 @@
     {% if h.tags %}<span class="text-ink-faint text-[10px]">[{{ h.tags|join(', ') }}]</span>{% endif %}
   </div>
   {% endfor %}
+  <div class="text-xs text-ink-faint mt-3 pt-2 border-t border-line">
+    This verdict also feeds <strong>{{ detail.view.news_computed }} of your
+    {{ detail.view.total_news_fed }} news triggers</strong> below
+    (T12W_0097/0099/0103/0104/0106/0107/0108/0109/0110).
+    {{ detail.view.news_note }}
+  </div>
+</div>
+{% elif detail %}
+<div class="border border-line p-4 mb-6 text-sm text-ink-soft"><!-- news_block_marker -->
+  <h2 class="font-black text-lg mb-1">📰 News</h2>
+  No stored news reading for this stock — the daily pass covers the scanned
+  bucket plus held names, and this page never fetches. Your
+  {{ detail.view.total_news_fed }} news triggers therefore read
+  <strong>DATA_NEEDED</strong> below, not a quiet "nothing happened".
 </div>
 {% endif %}
 <!-- ============ ONE STOCK, ALL 112 ============ -->
