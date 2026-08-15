@@ -55,8 +55,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from trading import external_panels as XP                          # noqa: E402
-from trading.triggers import (EXTERNAL_WIRED, _Ctx, _EXT_MIN_BARS,  # noqa: E402
-                             family_counts, COMPUTABLE)
+from trading.triggers import (EXTERNAL_WIRED, NEWS_FED, _Ctx,  # noqa: E402
+                             _EXT_MIN_BARS, family_counts, COMPUTABLE)
 
 STEP = 5                # eval every 5 trading days (v1's grid)
 MIN_BARS = 300          # bars of own history before a stock is evaluated
@@ -175,6 +175,7 @@ def main(out_dir: str) -> None:
             # is capped — so compute the 79-trigger pass only when they can
             # actually be evaluated.
             fam: dict = {}
+            oh: dict = {}
             if (ext.deal_buy_recent is not None or
                     ext.deal_sell_recent is not None):
                 oh = {}
@@ -185,8 +186,14 @@ def main(out_dir: str) -> None:
                         oh[ct.id] = None
                 fam = family_counts(oh)
             for t in EXTERNAL_WIRED:
+                # The nine news-fed triggers are skipped on purpose, not by
+                # omission: no archive of past headlines exists, so a past
+                # window has no news to read and any "result" here would be
+                # the price leg alone masquerading as a calibrated verdict.
+                if t.id in NEWS_FED:
+                    continue
                 try:
-                    r = t.ext_fn(x, ext, fam)
+                    r = t.ext_fn(x, ext, fam, oh)
                 except Exception:
                     r = None
                 if r is None:

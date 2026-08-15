@@ -805,7 +805,7 @@ def _support_broken(x) -> bool:
     return float(x.c[-1]) <= float(np.min(x.l[-21:-1]))
 
 
-def _e0039(x, e, fam):        # RS line 10D high while price below 10D high
+def _e0039(x, e, fam, hits):        # RS line 10D high while price below 10D high
     if e.rs_line is None or len(e.rs_line) < 11:
         return None
     rs = e.rs_line
@@ -813,81 +813,81 @@ def _e0039(x, e, fam):        # RS line 10D high while price below 10D high
                 x.c[-1] < float(np.nanmax(x.c[-10:])))
 
 
-def _e0045(x, e, fam):        # stock-sector 10d spread > threshold, in base
+def _e0045(x, e, fam, hits):        # stock-sector 10d spread > threshold, in base
     if e.ret_10d is None or e.sector_ret_10d is None:
         return None
     return bool(e.ret_10d - e.sector_ret_10d >
                 _ext_const("rs_outperformance_10d") and _in_base(x))
 
 
-def _e0046(x, e, fam):        # rank percentile improves >= 20 points in 10D
+def _e0046(x, e, fam, hits):        # rank percentile improves >= 20 points in 10D
     if e.rs_rank_now is None or e.rs_rank_prev is None:
         return None
     return bool(e.rs_rank_now - e.rs_rank_prev >= _ext_const("rank_jump_points"))
 
 
-def _e0047(x, e, fam):        # >=3 of top 5 peers carry pre-rise flags
+def _e0047(x, e, fam, hits):        # >=3 of top 5 peers carry pre-rise flags
     if e.peer_prerise_flags is None:
         return None
     return bool(e.peer_prerise_flags >= _ext_const("peer_flag_min_count"))
 
 
-def _e0048(x, e, fam):        # % peers above 20DMA rises over 10 days
+def _e0048(x, e, fam, hits):        # % peers above 20DMA rises over 10 days
     b = e.peer_pct_above_ma20
     if b is None or len(b) < 11:
         return None
     return bool(b[-1] > b[-11])
 
 
-def _e0049(x, e, fam):        # sector 5d down, stock 5d flat-or-up
+def _e0049(x, e, fam, hits):        # sector 5d down, stock 5d flat-or-up
     if e.ret_5d is None or e.sector_ret_5d is None:
         return None
     return bool(e.sector_ret_5d < 0 and e.ret_5d >= 0)
 
 
-def _e0050(x, e, fam):        # top decile inside own industry, base not broken
+def _e0050(x, e, fam, hits):        # top decile inside own industry, base not broken
     if e.own_sector_rank is None:
         return None
     top = 100.0 - _ext_const("top_decile_pct")
     return bool(e.own_sector_rank >= top and not _support_broken(x))
 
 
-def _e0051(x, e, fam):        # stock-sector 10d spread < -threshold
+def _e0051(x, e, fam, hits):        # stock-sector 10d spread < -threshold
     if e.ret_10d is None or e.sector_ret_10d is None:
         return None
     return bool(e.ret_10d - e.sector_ret_10d <
                 -_ext_const("rs_underperformance_10d"))
 
 
-def _e0052(x, e, fam):        # >=3 peers break 20D low before target breaks
+def _e0052(x, e, fam, hits):        # >=3 peers break 20D low before target breaks
     if e.peer_break_20d_low is None:
         return None
     return bool(e.peer_break_20d_low >= _ext_const("peer_break_min_count") and
                 not _support_broken(x))
 
 
-def _e0053(x, e, fam):        # sector breadth declining, target near support
+def _e0053(x, e, fam, hits):        # sector breadth declining, target near support
     b = e.peer_pct_above_ma20
     if b is None or len(b) < 6:
         return None
     return bool(b[-1] < b[-6] and _near_support(x))
 
 
-def _e0054(x, e, fam):        # price at 20D high, RS line below its prior high
+def _e0054(x, e, fam, hits):        # price at 20D high, RS line below its prior high
     if e.rs_line is None or len(e.rs_line) < 40:
         return None
     at_high = float(x.c[-1]) >= float(np.nanmax(x.c[-20:]))
     return bool(at_high and e.rs_line[-1] < np.nanmax(e.rs_line[-40:-1]))
 
 
-def _e0055(x, e, fam):        # industry rank worsens >= 20 points in 10D
+def _e0055(x, e, fam, hits):        # industry rank worsens >= 20 points in 10D
     if e.sector_rank_now is None or e.sector_rank_prev is None:
         return None
     return bool(e.sector_rank_prev - e.sector_rank_now >=
                 _ext_const("rank_jump_points"))
 
 
-def _e0056(x, e, fam):        # 20D high + peer breadth down + RS slope flat
+def _e0056(x, e, fam, hits):        # 20D high + peer breadth down + RS slope flat
     b, rs = e.peer_pct_above_ma20, e.rs_line
     if b is None or len(b) < 6 or rs is None or len(rs) < 10:
         return None
@@ -900,14 +900,14 @@ def _e0056(x, e, fam):        # 20D high + peer breadth down + RS slope flat
         "rs_slope_flat"))
 
 
-def _e0059(x, e, fam):        # turnover rank improves >= 25 percentile points
+def _e0059(x, e, fam, hits):        # turnover rank improves >= 25 percentile points
     if e.turnover_rank_now is None or e.turnover_rank_prev is None:
         return None
     return bool(e.turnover_rank_now - e.turnover_rank_prev >=
                 _ext_const("turnover_rank_jump_points"))
 
 
-def _e0060(x, e, fam):        # delivery ratio above its 80th percentile
+def _e0060(x, e, fam, hits):        # delivery ratio above its 80th percentile
     d = e.delivery_ratio
     if d is None or len(d) < 30:
         return None
@@ -917,7 +917,7 @@ def _e0060(x, e, fam):        # delivery ratio above its 80th percentile
     return bool(seg[-1] >= np.percentile(seg, _ext_const("delivery_pctile")))
 
 
-def _e0094(x, e, fam):        # >=30% of industry broke down before target
+def _e0094(x, e, fam, hits):        # >=30% of industry broke down before target
     if e.peer_break_20d_low is None or not e.peers:
         return None
     frac = e.peer_break_20d_low / float(e.peers)
@@ -925,7 +925,7 @@ def _e0094(x, e, fam):        # >=30% of industry broke down before target
                 not _support_broken(x))
 
 
-def _e0095(x, e, fam):        # index below its 20DMA and target support break
+def _e0095(x, e, fam, hits):        # index below its 20DMA and target support break
     ic = e.index_close
     if ic is None or len(ic) < 20:
         return None
@@ -935,7 +935,7 @@ def _e0095(x, e, fam):        # index below its 20DMA and target support break
     return bool(ic[-1] < ma20 and _support_broken(x))
 
 
-def _e0100(x, e, fam):        # price down + OI up over 5D
+def _e0100(x, e, fam, hits):        # price down + OI up over 5D
     if e.fut_oi is None or len(e.fut_oi) < 6:
         return None
     r5 = x.ret(5) if x.n > 5 else None
@@ -944,7 +944,7 @@ def _e0100(x, e, fam):        # price down + OI up over 5D
     return bool(r5 < 0 and e.fut_oi[-1] > e.fut_oi[-6])
 
 
-def _e0101(x, e, fam):        # price down + OI down after a prior uptrend
+def _e0101(x, e, fam, hits):        # price down + OI down after a prior uptrend
     if e.fut_oi is None or len(e.fut_oi) < 6 or x.n < 27:
         return None
     r5 = x.ret(5)
@@ -954,7 +954,7 @@ def _e0101(x, e, fam):        # price down + OI down after a prior uptrend
     return bool(r5 < 0 and e.fut_oi[-1] < e.fut_oi[-6] and prior > 0)
 
 
-def _e0098(x, e, fam):        # earnings/event window + volatility expansion
+def _e0098(x, e, fam, hits):        # earnings/event window + volatility expansion
     if e.earnings_days_away is None or x.n < 30:
         return None
     win = _ext_const("event_window_days")
@@ -967,7 +967,7 @@ def _e0098(x, e, fam):        # earnings/event window + volatility expansion
     return bool(near and expanding)
 
 
-def _e0105(x, e, fam):        # analyst upgrade + relative-strength lead
+def _e0105(x, e, fam, hits):        # analyst upgrade + relative-strength lead
     if e.analyst_net_revisions is None:
         return None
     rank = e.own_sector_rank if e.own_sector_rank is not None else e.rs_rank_now
@@ -977,16 +977,132 @@ def _e0105(x, e, fam):        # analyst upgrade + relative-strength lead
                 and rank >= _ext_const("rs_lead_rank_min"))
 
 
-def _e0111(x, e, fam):        # bulk/block BUY + accumulation cluster
+def _e0111(x, e, fam, hits):        # bulk/block BUY + accumulation cluster
     if e.deal_buy_recent is None:
         return None
     return bool(e.deal_buy_recent and fam.get(F_ACCUMULATION, 0) >= 2)
 
 
-def _e0112(x, e, fam):        # bulk/block SELL + distribution cluster
+def _e0112(x, e, fam, hits):        # bulk/block SELL + distribution cluster
     if e.deal_sell_recent is None:
         return None
     return bool(e.deal_sell_recent and fam.get(F_DISTRIBUTION, 0) >= 2)
+
+
+# --------------------------------------------------------------------------
+# The 9 NEWS-FED triggers (owner order 2026-08-14: "wire them", the day after
+# the news module shipped). Their own formulas name a news flag AND a price
+# condition; where the price half is a trigger they already designed, these
+# read that trigger's ACTUAL hit out of `hits` rather than re-deriving it, so
+# the page can never show T12W_0057 quiet while T12W_0104 claims it fired.
+#
+# NONE OF THE NINE CAN EVER BE CALIBRATED. Google News serves roughly a week
+# back and no archive of past headlines exists, so there is no way to measure
+# a lift the way the 112 price triggers were measured. Under the owner's own
+# REQUIRES_15Y_BACKTEST rule they are therefore display/watchlist only, and a
+# test asserts none of them can enter danger.VERIFIED.
+#
+# TIMING, stated because it matters: the news half is TODAY's reading and the
+# price half is as-of the last STORED bar, which the committed panel puts
+# days behind. These fire on "today's news against the last stored bar".
+# --------------------------------------------------------------------------
+
+def _news_tag(e, *tags) -> Optional[bool]:
+    """Whether any of `tags` is in today's reading. None = no reading."""
+    if e.news_tags is None:
+        return None
+    return any(t in e.news_tags for t in tags)
+
+
+def _e0097(x, e, fam, hits):  # negative news/governance/event flag
+    if e.news_risk is None:
+        return None
+    return bool(e.news_risk >= _ext_const("news_event_bar"))
+
+
+def _e0099(x, e, fam, hits):  # governance risk tag + support breakdown
+    g = _news_tag(e, "governance")
+    if g is None:
+        return None
+    return bool(g and _support_broken(x))
+
+
+def _e0103(x, e, fam, hits):  # positive news, price not yet extended, accum
+    if e.news_opp is None or x.n < 4:
+        return None
+    r3 = x.ret(3)
+    if r3 is None or not np.isfinite(r3):
+        return None
+    return bool(e.news_opp >= _ext_const("news_event_bar")
+                and abs(r3) < _ext_const("news_flat_return_3d")
+                and fam.get(F_ACCUMULATION, 0) >= _ext_const("news_cluster_min"))
+
+
+def _e0104(x, e, fam, hits):  # order_win_flag + volume_wakeup_after_dry_base
+    o = _news_tag(e, "order_win")
+    wake = hits.get("T12W_0057")          # their formula names this trigger
+    if o is None or wake is None:
+        return None
+    return bool(o and wake)
+
+
+def _e0106(x, e, fam, hits):  # negative_news_flag + support_sweep_reclaim
+    if e.news_risk is None:
+        return None
+    sweep = hits.get("T12W_0033")         # their formula names this trigger
+    if sweep is None:
+        return None
+    return bool(e.news_risk >= _ext_const("news_event_bar") and sweep)
+
+
+def _e0107(x, e, fam, hits):  # news_spike_flag + gap_up_volume_rejection
+    if e.news_risk is None or e.news_opp is None:
+        return None
+    rej = hits.get("T12W_0066")           # their formula names this trigger
+    if rej is None:
+        return None
+    # "news spike" is undefined in their sheet: read here as an event of
+    # either side at the same bar the news module calls a TRIGGER. ASSUMED.
+    spike = max(e.news_risk, e.news_opp) >= _ext_const("news_event_bar")
+    return bool(spike and rej)
+
+
+def _e0108(x, e, fam, hits):  # regulatory_risk_flag + distribution cluster
+    r = _news_tag(e, "regulatory")
+    if r is None:
+        return None
+    return bool(r and fam.get(F_DISTRIBUTION, 0) >=
+                _ext_const("news_cluster_min"))
+
+
+def _e0109(x, e, fam, hits):  # earnings_miss_flag + close below 10D low
+    m = _news_tag(e, "results_miss")
+    if m is None or x.n < 11:
+        return None
+    prior_low = float(np.min(x.l[-11:-1]))
+    if not np.isfinite(prior_low):
+        return None
+    return bool(m and float(x.c[-1]) < prior_low)
+
+
+def _e0110(x, e, fam, hits):  # sentiment high + RS failure / new high weak CLV
+    # PROXY, labelled: their sheet says SOCIAL sentiment. No social feed
+    # exists here, so this reads the news lexicon's mean sentiment instead —
+    # a different crowd, and the page says so.
+    if e.news_sentiment is None or x.n < 21:
+        return None
+    high = e.news_sentiment >= _ext_const("news_sentiment_high")
+    rs_fail = None
+    if e.rs_line is not None and len(e.rs_line) >= 40:
+        prior = np.nanmax(e.rs_line[-40:-1])
+        if np.isfinite(prior):
+            rs_fail = bool(e.rs_line[-1] < prior)
+    hi20 = np.nanmax(x.c[-20:])
+    weak_at_high = bool(np.isfinite(hi20) and float(x.c[-1]) >= float(hi20)
+                        and x.clv[-1] < _ext_const("news_weak_clv"))
+    if rs_fail is None and not weak_at_high:
+        return None      # the RS leg is DATA_NEEDED and the price leg is quiet
+    return bool(high and (bool(rs_fail) or weak_at_high))
 
 
 _EXT_FNS = {
@@ -1001,7 +1117,19 @@ _EXT_FNS = {
     # fetched. Both are display/watchlist only and UNCALIBRATED: the earnings
     # one cannot be backtested at all (no archive of past next-earnings dates).
     "T12W_0098": _e0098, "T12W_0105": _e0105,
+    # wired 2026-08-14 on the owner's order once the news module existed.
+    # Display/watchlist only and PERMANENTLY uncalibratable — see the block
+    # above. T12W_0102 (put-call skew) is the one external trigger still
+    # unwired: it needs an options chain, which NSE does not serve us.
+    "T12W_0097": _e0097, "T12W_0099": _e0099, "T12W_0103": _e0103,
+    "T12W_0104": _e0104, "T12W_0106": _e0106, "T12W_0107": _e0107,
+    "T12W_0108": _e0108, "T12W_0109": _e0109, "T12W_0110": _e0110,
 }
+
+#: The news-fed subset, named so the page, the calibration runner and the
+#: danger-layer guard can all point at the same list.
+NEWS_FED = ("T12W_0097", "T12W_0099", "T12W_0103", "T12W_0104", "T12W_0106",
+            "T12W_0107", "T12W_0108", "T12W_0109", "T12W_0110")
 
 # Minimum stock-side history for the external triggers.
 _EXT_MIN_BARS = 30
@@ -1177,7 +1305,12 @@ def evaluate(df: pd.DataFrame, ext=None) -> dict[str, Optional[bool]]:
             if x.n < _EXT_MIN_BARS:
                 continue
             try:
-                r = t.ext_fn(x, ext, fam)
+                # `hits` goes in too: three of the owner's news formulas name
+                # an existing trigger as their price leg ("+ support_sweep_
+                # reclaim", "+ gap_up_volume_rejection", "+ volume_wakeup_
+                # after_dry_base"), so they read that trigger's real result
+                # instead of a second implementation that could disagree.
+                r = t.ext_fn(x, ext, fam, hits)
                 hits[t.id] = None if r is None else bool(r)
             except Exception as e:
                 log.warning("external trigger %s crashed: %s", t.id, e)
@@ -1320,4 +1453,15 @@ def stock_view(df: pd.DataFrame, asof: str = "", ext=None) -> dict:
         "total_external_wired": len(EXTERNAL_WIRED),
         "external_missing": (list(ext.missing()) if ext is not None else
                              ["no panel batch supplied"]),
+        "news_computed": sum(1 for tid in NEWS_FED
+                             if hits.get(tid) is not None),
+        "total_news_fed": len(NEWS_FED),
+        # Stated, not buried: these nine mix today's news with the last
+        # stored bar, and no archive exists to ever calibrate them.
+        "news_note": (
+            "News-fed triggers read TODAY's news verdict against the last "
+            "STORED price bar — the two are not the same moment. They can "
+            "never be calibrated (no archive of past headlines exists), so "
+            "they are display and watchlist only, like the rest of this page."
+        ),
     }

@@ -43,8 +43,10 @@ def test_registry_split_is_the_owners_sheet_plus_new_implementations():
     assert len(T.TRIGGERS) == 112
     assert len(T.COMPUTABLE) == 79            # OHLCV side, unchanged
     assert len(T.EXTERNAL) == 33              # the sheet's external count
-    assert len(T.EXTERNAL_WIRED) == 23        # data now in the repo
-    assert len(T.EXTERNAL_PENDING) == 10      # still need an outside feed
+    # 23 after the 2026-08-13 feed intake, 32 once the nine news-fed triggers
+    # were wired on 2026-08-14. What is left needs data nobody here can reach.
+    assert len(T.EXTERNAL_WIRED) == 32
+    assert [t.id for t in T.EXTERNAL_PENDING] == ["T12W_0102"]  # options chain
     assert len(T.EXTERNAL_WIRED) + len(T.EXTERNAL_PENDING) == len(T.EXTERNAL)
     for t in T.EXTERNAL_PENDING:
         assert t.ext_fn is None

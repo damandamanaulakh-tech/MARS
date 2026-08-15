@@ -116,15 +116,23 @@ def trigger_detail(request: Request, ticker: str):
             pass
         # Panels for this one stock (sector/RS, delivery, F&O OI, deals).
         # None on any failure → those triggers read DATA_NEEDED, as before.
+        news_detail = ((state.portfolio().news_watch or {}).get("rows")
+                       or {}).get(ticker)
         ext = None
         try:
             from trading import external_panels
-            ext = external_panels.prepare([ticker]).for_ticker(ticker)
+            # The STORED news verdict goes in with the panels so the nine
+            # news-fed triggers compute here exactly as they did in the daily
+            # pass. Nothing here fetches news — the page never hits the
+            # network; a stock the daily pass did not cover simply reads
+            # DATA_NEEDED on those nine.
+            ext = external_panels.prepare(
+                [ticker],
+                news=({ticker: news_detail} if news_detail else None),
+            ).for_ticker(ticker)
         except Exception:
             ext = None
         view = stock_view(df, asof=asof, ext=ext)
-        news_detail = ((state.portfolio().news_watch or {}).get("rows")
-                       or {}).get(ticker)
         from trading.triggers import CALIBRATION
         by_family: dict[str, list[dict]] = {}
         for t in TRIGGERS:

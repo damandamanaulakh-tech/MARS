@@ -65,11 +65,26 @@ def load_registry() -> list[dict]:
 REGISTRY: list[dict] = load_registry()
 REGISTRY_BY_ID: dict[str, dict] = {r["ID"]: r for r in REGISTRY}
 
+
+def _trigger_coverage_note() -> str:
+    """"trading/triggers.py (N compute, M from outside feeds, K DATA_NEEDED)"
+    with the numbers read from the live registry, not typed in here."""
+    try:
+        from .triggers import COMPUTABLE, EXTERNAL_PENDING, EXTERNAL_WIRED
+        return (f"trading/triggers.py ({len(COMPUTABLE)} compute from OHLCV, "
+                f"{len(EXTERNAL_WIRED)} from outside feeds, "
+                f"{len(EXTERNAL_PENDING)} DATA_NEEDED)")
+    except Exception:                                       # pragma: no cover
+        return "trading/triggers.py"
+
 # Where the ~151 already-present items live in AM07. Shown on the page so a
 # register row is never re-implemented twice. Kept as data, not behaviour.
 AM07_HAVE: dict[str, str] = {
-    **{f"TRG-{i:03d}": "trading/triggers.py (79 compute, 33 DATA_NEEDED)"
-       for i in range(1, 113)},
+    # Counts DERIVED, never typed: this line read "79 compute, 33
+    # DATA_NEEDED" for months after the external and news triggers were
+    # wired. A hand-kept number on a page the owner reads is a lie waiting
+    # to happen.
+    **{f"TRG-{i:03d}": _trigger_coverage_note() for i in range(1, 113)},
     **{f"TG-0{i}": "trading/triggers.py gates" for i in range(1, 9)},
     **{f"TC-0{i}": "trading/triggers.py clusters" for i in range(1, 9)},
     "A-01": "momentum/returns core", "A-02": "candles.py gap logic",
