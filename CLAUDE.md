@@ -1103,7 +1103,8 @@ owner: "run the external calibration for the 21" → "wire 0095 and 0094 both"
   the morning of 08-13. The 19: 10 news-family (RSS IS reachable — Google
   News/Moneycontrol/ET all return real feeds — but news is live-only, so those
   triggers can never be calibrated; **1 of the 10, W-019, wired 2026-08-14 by
-  the news module → 18 blocked**, 9 news triggers left), plus options chain ×2 (NSE answers {}
+  the news module → 18 blocked**; the other 9 news triggers wired 2026-08-14,
+  see below), plus options chain ×2 (NSE answers {}
   without cookie priming), ESG (Yahoo returned EMPTY for all 193), short
   interest, short-rate leg, credit spreads, R&D line item, durability filings.
 - **OWNER'S FUNNEL DESIGN (stated 2026-08-13):** run the news feed at
@@ -1158,8 +1159,61 @@ just show"), PR #61, 824 tests. `trading/news_feed.py` — DISPLAY ONLY.**
   per row and per stock with the causing headline and the line "Display only
   — never blocks a buy or moves a stop"; W-019 on /register reads the STORED
   verdict so no page render touches the network.
-- **9 news-family register triggers still unwired** (TRG-097/099/103/104/
-  106/107/108/109/110) — the feed now exists to serve them when ordered.
+
+**THE 9 NEWS-FED TRIGGERS WIRED 2026-08-14 (owner: "wire them"), PR #63,
+848 tests (635 trading + 213 web). External triggers 23 → 32.**
+- T12W_0097 news/event risk flag · 0099 governance + support break · 0103
+  positive news, price not extended, accumulation · 0104 order win + volume
+  wake-up · 0106 negative news absorbed by a sweep-reclaim · 0107 news spike
+  + gap-up rejection · 0108 regulatory + distribution cluster · 0109 earnings
+  miss + 10D low break · 0110 sentiment divergence.
+- **ONE external trigger left: T12W_0102** (put-call skew) — needs a
+  strike-level options chain NSE does not serve us. That is the whole
+  external backlog now.
+- **THREE OF THEIR FORMULAS NAME A TRIGGER THEY ALREADY DESIGNED**:
+  `volume_wakeup_after_dry_base` IS T12W_0057, `support_sweep_reclaim` IS
+  T12W_0033, `gap_up_volume_rejection` IS T12W_0066. So 0104/0106/0107 read
+  those triggers' ACTUAL hits out of the evaluation dict — the page can never
+  show T12W_0057 quiet while T12W_0104 claims it fired. External signature
+  widened `(x, e, fam)` → `(x, e, fam, hits)`; test asserts agreement both
+  ways. **Check for this pattern before implementing any future formula of
+  theirs — they cross-reference their own sheet by name.**
+- **A FAILED FETCH CANNOT BECOME AN ALL-CLEAR.** `external_panels.attach_news`
+  refuses to copy a reading whose verdict is UNKNOWN → all nine DATA_NEEDED.
+  Treating UNKNOWN as "no bad news" would turn ONE Google News outage into a
+  silent all-clear on every held stock at once. NO_NEWS is different and does
+  produce a real False.
+- **The two halves are not the same moment**: news is TODAY's, the price leg
+  is as-of the last STORED bar (committed panel runs days behind).
+  `stock_view` returns `news_note` saying so and the page prints it,
+  test-pinned — a caveat that lives only in a code comment is not a caveat
+  the owner ever sees.
+- ASSUMED (all on-page): `news_event_bar 2.0` **mirrors
+  news_feed.TRIGGER_SCORE** — triggers.py must NOT import news_feed (danger.py
+  imports triggers; news stays out of that graph), so the value is duplicated
+  and a test pins the two together. `news_cluster_min 2`,
+  `news_sentiment_high 0.5`, `news_weak_clv 0.4`. `news_flat_return_3d 0.03`
+  is THEIR number. **T12W_0110 is a labelled PROXY** — their sheet says SOCIAL
+  sentiment; no social feed exists here.
+- Scope unchanged: display/watchlist only, and **permanently uncalibratable**
+  (Google News serves ~1 week; no archive of past headlines). Tests assert
+  none of the nine is in danger.VERIFIED / danger._EXT_FNS /
+  _EXTERNAL_ALLOWED; `danger.externals_for()` takes no news argument; the
+  external calibration runner SKIPS them explicitly (a past window has no
+  news, so any "result" would be the price leg alone wearing a calibrated
+  verdict's clothes).
+- **Order flipped**: `run_news_feed` now runs at the START of
+  `run_trigger_layer` (was the end) and receives the exact ticker list about
+  to be scored. Running afterwards would have left all nine DATA_NEEDED for
+  ever. Still isolated — a feed outage touches no price trigger.
+- Also fixed: `AM07_HAVE` labelled all 112 trigger rows "79 compute, 33
+  DATA_NEEDED", hand-typed and wrong since the external intake — derived now.
+- **SUITE GOTCHA, not a bug**: `test_scans_halt_while_mongo_is_expected_but_
+  down` fails on a REPEATED SAME-DAY run against the persistent
+  `/tmp/sourceborn_paper` — `_degraded_halt` journals MONGO_OFFLINE_HALT once
+  per day, so the second run skips the append and the test's `[-5:]` window
+  misses it. Base tree fails identically; CI never sees it (fresh container).
+  `rm -rf /tmp/sourceborn_paper` before re-running. Do not debug it as real.
 
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
