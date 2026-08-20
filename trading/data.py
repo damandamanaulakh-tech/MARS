@@ -167,11 +167,68 @@ def _parse_yf_multi(raw, tickers: list[str]) -> Dict[str, pd.DataFrame]:
     return out
 
 
+def committed_nifty200(start: str, end: str) -> pd.DataFrame | None:
+    """The Nifty 200 benchmark from the COMMITTED data/nifty200_daily.csv
+    (2004→2026-08-07, fetched 2026-08-09), clipped to [start, end].
+
+    AUDIT F2 FIX (2026-08-20, owner: "fix F2"): this file sat in the repo
+    with ZERO code consumers while every backtest network-fetched ^CNX200 —
+    so the honest ruler for a N200-momentum strategy depended on Yahoo not
+    rate-limiting a datacenter IP that day. The committed series is now the
+    deterministic base; the network is only asked for the tail beyond the
+    file's last row (see fetch_daily_range).
+
+    Returns None (never a guess) when the file is unreadable or the window
+    doesn't touch it. Volume is set to 0.0 — the source has none, and the
+    benchmark maths reads only Close; a NaN column would poison float casts.
+    """
+    import pathlib
+    path = pathlib.Path(__file__).resolve().parents[1] / "data" / "nifty200_daily.csv"
+    try:
+        raw = pd.read_csv(path, parse_dates=["date"], index_col="date")
+    except (OSError, ValueError, KeyError) as e:
+        log.warning("committed nifty200 csv unreadable: %s", e)
+        return None
+    raw = raw.rename(columns={"open": "Open", "high": "High",
+                              "low": "Low", "close": "Close"})
+    raw = raw[(raw.index >= pd.Timestamp(start)) & (raw.index <= pd.Timestamp(end))]
+    if raw.empty:
+        return None
+    raw["Volume"] = 0.0
+    return raw[["Open", "High", "Low", "Close", "Volume"]].astype("float32").sort_index()
+
+
 def fetch_daily_range(tickers: list[str], start: str, end: str) -> Dict[str, pd.DataFrame]:
-    """Date-bounded history (backtests). Upstox-first, yfinance fallback."""
+    """Date-bounded history (backtests). Upstox-first, yfinance fallback.
+
+    ^CNX200 is special-cased (F2 fix): the committed CSV is the base, and the
+    network is consulted only for dates past the file's end — so the N200
+    benchmark line is deterministic offline for any window the file covers,
+    and a dead network merely truncates the tail (which the backtest already
+    discloses as BENCHMARK TRUNCATED)."""
     if isinstance(tickers, str):
         tickers = [tickers]
     out: Dict[str, pd.DataFrame] = {}
+    if "^CNX200" in tickers:
+        base = committed_nifty200(start, end)
+        if base is not None:
+            tail_from = base.index[-1] + pd.Timedelta(days=1)
+            if pd.Timestamp(end) > base.index[-1]:
+                # Ask the network for the tail only; a failure keeps the base.
+                # The recursion terminates because the tail window starts
+                # after the CSV's last row, so committed_nifty200 returns
+                # None on re-entry and the call falls through to the
+                # broker/yfinance path.
+                tail = fetch_daily_range(["^CNX200"],
+                                         tail_from.date().isoformat(), end)
+                t = tail.get("^CNX200")
+                if t is not None and not t.empty:
+                    base = pd.concat([base, t])
+                    base = base[~base.index.duplicated(keep="last")].sort_index()
+            out["^CNX200"] = base
+            tickers = [t for t in tickers if t != "^CNX200"]
+            if not tickers:
+                return out
     if _HISTORY_BROKER is not None:
         for t in tickers:
             ik = _instrument_key(t)

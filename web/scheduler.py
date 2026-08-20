@@ -392,10 +392,12 @@ def _push_phone_alerts(where: str) -> None:
 def _weekly_history_topup() -> None:
     """Friday 16:30 IST: merge fresh candles into the Mongo OHLCV store.
 
-    Fail-visible: no broker/token or Mongo offline journals
-    DATA_REFRESH_SKIPPED instead of silently doing nothing; a run journals
-    DATA_REFRESH_WEEKLY with the counts. Scope = tickers already in the
-    store plus anything currently held (bounded, safe on 512 MB)."""
+    Runs with or without the daily Upstox login — historical candles are a
+    public endpoint (F1 fix 2026-08-20); only a missing client object or
+    Mongo offline skips, and both journal DATA_REFRESH_SKIPPED instead of
+    silently doing nothing. A run journals DATA_REFRESH_WEEKLY with the
+    counts. Scope = tickers already in the store plus anything currently
+    held (bounded, safe on 512 MB)."""
     from datetime import date, datetime as _dt
 
     from trading.calendars import is_trading_day
@@ -412,10 +414,19 @@ def _weekly_history_topup() -> None:
         except Exception:
             pass
 
+    # AUDIT F1 FIX (2026-08-20, owner: "fix F1"): this job used to also
+    # require broker.is_connected() — but Upstox HISTORICAL candles are a
+    # PUBLIC endpoint (get_daily_candles now works tokenless), so gating a
+    # Friday-evening data refresh on the 03:30-dead login token skipped the
+    # top-up any week the owner hadn't logged in, for no reason. Only a
+    # missing broker OBJECT (no API keys configured at all) still skips,
+    # because there is then no client to fetch with.
     broker = getattr(eng, "broker", None)
-    if broker is None or not getattr(broker, "is_connected", lambda: False)():
+    if broker is None:
         _journal("DATA_REFRESH_SKIPPED",
-                 "Weekly OHLCV top-up skipped: Upstox not connected (log in).")
+                 "Weekly OHLCV top-up skipped: no Upstox client configured "
+                 "(historical candles need no login, but they do need the "
+                 "API client to exist).")
         return
     if not db.is_connected():
         _journal("DATA_REFRESH_SKIPPED",

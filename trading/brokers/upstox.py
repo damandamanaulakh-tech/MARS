@@ -211,12 +211,26 @@ class UpstoxClient:
         Returns a pandas DataFrame (Open/High/Low/Close/Volume, float32,
         ascending DatetimeIndex) or None on any failure. This is the
         yfinance replacement: Yahoo 429-blocks datacenter IPs (Render),
-        Upstox does not — and the user is authenticated anyway.
+        Upstox does not.
+
+        NO TOKEN REQUIRED — audit F1 fix (2026-08-20, owner: "fix F1").
+        Upstox HISTORICAL candles are a PUBLIC endpoint (verified live from
+        the sandbox 2026-08-09 and re-verified 2026-08-20: real TCS candles
+        with a bare accept header, no Authorization). This method used to
+        route through _auth_headers(), which raises when the 03:30-dead
+        token isn't back — so the Friday 16:30 weekly top-up silently lost
+        any week the owner hadn't logged in yet, for no API reason at all.
+        Auth headers are still SENT when a token exists (harmless, and
+        matches Upstox's documented usage); their absence is no longer a
+        failure. Live quotes/orders still require the daily login — only
+        this read-only history path is public.
         """
         import pandas as pd
         try:
+            headers = (self._auth_headers() if self.access_token
+                       else {"accept": "application/json"})
             url = f"{HIST_URL}/{quote(instrument_key, safe='')}/day/{to_date}/{from_date}"
-            r = httpx.get(url, headers=self._auth_headers(), timeout=30.0)
+            r = httpx.get(url, headers=headers, timeout=30.0)
             r.raise_for_status()
             candles = (r.json().get("data") or {}).get("candles") or []
             if not candles:
