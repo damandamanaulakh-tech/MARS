@@ -479,6 +479,19 @@ def _weekly_history_topup() -> None:
         from trading.history_store import top_up_history
         tickers = {m["ticker"] for m in db.list_history_meta() if m.get("ticker")}
         tickers |= set(eng.portfolio.positions.keys())
+        # CODEX REVIEW FIX (PR #68): the scope used to be "already stored +
+        # held", so the store could never GROW — it sat at the original 191
+        # names, which also starved the F3 breadth reading of the wide
+        # sample it claims. The full universe file (~2,400 tradeable names)
+        # is now included: tokenless since F1, one bounded request per
+        # stale name, off-hours on Friday, merged one doc at a time so the
+        # 512 MB box never holds more than one name's frame.
+        try:
+            from trading.universes import load_full_universe
+            tickers |= set(load_full_universe())
+        except Exception:
+            log.exception("weekly top-up: universe file unreadable — "
+                          "refreshing stored+held only")
         keys = to_instrument_keys(sorted(tickers))
         summ = top_up_history(
             broker, keys,

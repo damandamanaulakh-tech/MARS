@@ -118,11 +118,36 @@ def test_empty_custom_list_restores_the_rotating_bucket(tmp_path):
     assert universe != list(U50)
 
 
-def test_other_modes_keep_their_own_universe(tmp_path):
+def test_custom_list_governs_every_mode_not_only_momentum(tmp_path):
+    """CODEX REVIEW FIX (PR #68): the 09:20 rotation runs short/swing/
+    positional too, and each can OPEN positions — a momentum-only
+    restriction would have let the other passes buy outside the 50."""
+    for mode in ("swing", "short", "positional"):
+        cfg = Config(state_dir=str(tmp_path), mode=mode)
+        eng = TradingEngine(cfg, Portfolio.fresh(cfg))
+        universe, _ = eng.scan_universe()
+        assert universe == list(U50), mode
+
+
+def test_other_modes_keep_their_own_universe_when_custom_is_off(tmp_path):
     cfg = Config(state_dir=str(tmp_path), mode="swing")
+    cfg.custom_universe = ()
     eng = TradingEngine(cfg, Portfolio.fresh(cfg))
     universe, _ = eng.scan_universe()
-    assert universe == cfg.universe          # custom list is momentum-only
+    assert universe == cfg.universe
+
+
+def test_every_custom_name_has_a_real_sector(tmp_path):
+    """CODEX REVIEW FIX (PR #68): risk.can_open counts all Unknown names as
+    ONE sector for max_sector_positions — a book of unmapped small-caps
+    would have hit sector_cap_reached on unrelated companies."""
+    cfg = Config(state_dir=str(tmp_path))
+    unmapped = [t for t in U50 if cfg.sector_map.get(t, "Unknown") == "Unknown"]
+    assert not unmapped, unmapped
+    # and the fills really lean Auto + Metal, as ordered
+    from collections import Counter
+    c = Counter(cfg.sector_map[t] for t in U50)
+    assert c["Metal"] >= 8 and c["Auto"] >= 9
 
 
 # ---------------------------------------------------------------------------

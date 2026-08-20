@@ -21,6 +21,12 @@
   <strong class="font-mono">{{ request.query_params.get('bad') }}</strong>.
   Nothing was changed; fix the names and save again.
 </div>
+{% elif saved == 'universe_too_big' %}
+<div class="mb-6 px-4 py-3 border border-red-200 bg-red-50 text-red-800 text-sm">
+  ✕ Custom universe NOT saved — {{ request.query_params.get('n') }} names is too many.
+  The design is 50 (cap 60): the scan reads every name daily and the 512MB box
+  cannot fetch hundreds. Nothing was changed.
+</div>
 {% elif saved == 'universe_purged' %}
 <div class="mb-6 px-4 py-3 border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm">
   ✓ Old universe removed — scan matrix, last picks, shadow book and the cached instrument

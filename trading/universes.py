@@ -235,6 +235,12 @@ def rotating_bucket(tickers: list[str], size: int, day_index: int) -> list[str]:
 def get_nifty_200_universe():
     """Returns (tickers_list, sector_map) for Nifty 200 preset."""
     sector_map = dict(NIFTY_200_SECTOR_MAP_EXTRAS)
+    # Custom-universe names get real sectors too (Codex review fix, PR #68)
+    # — defined next to OWNER_UNIVERSE_2026_08_20 below.
+    try:
+        sector_map.update(CUSTOM_UNIVERSE_SECTOR_MAP)
+    except NameError:                                   # pragma: no cover
+        pass
     # Anything not in the map -> Unknown
     for t in NIFTY_200_TICKERS:
         sector_map.setdefault(t, "Unknown")
@@ -275,6 +281,48 @@ def apply_blocklist(universe: list[str], held, blocklist) -> list[str]:
 # rotating bucket. The blocklist still applies on top, and every other
 # gate/score/exit is untouched — their words: "rest remains same".
 # ---------------------------------------------------------------------------
+
+# Sector map for the custom-universe names the Nifty-200 map doesn't cover
+# (CODEX REVIEW FIX, PR #68): unmapped names all read "Unknown", and
+# risk.can_open counts every Unknown position as ONE sector for
+# max_sector_positions — so a book of unmapped small-caps would have hit
+# sector_cap_reached on completely unrelated companies. Same 19-sector
+# vocabulary as NIFTY_200_SECTOR_MAP_EXTRAS (Pharma = the healthcare
+# bucket, per APOLLOHOSP/FORTIS precedent). Merged into the default
+# cfg.sector_map below.
+CUSTOM_UNIVERSE_SECTOR_MAP: dict = {
+    "HFCL.NS": "Telecom",          # telecom gear + optical fibre
+    "IOLCP.NS": "Pharma",          # IOL Chemicals & Pharma
+    "SKIPPER.NS": "Capital Goods",  # T&D towers
+    "ELGIEQUIP.NS": "Capital Goods",
+    "INDGN.NS": "Pharma",          # healthcare-tech services
+    "ACUTAAS.NS": "Chemicals",
+    "USHAMART.NS": "Metal",        # steel wire ropes
+    "PGEL.NS": "Consumer",         # electronics manufacturing (durables)
+    "THERMAX.NS": "Capital Goods",
+    "GVT&D.NS": "Capital Goods",   # power T&D equipment
+    "KIRLPNU.NS": "Capital Goods",
+    "SYRMA.NS": "Capital Goods",   # electronics manufacturing services
+    "RAIN.NS": "Chemicals",        # carbon products / chemicals
+    "AGL.NS": "Logistics",         # Allcargo Global
+    "MASTEK.NS": "IT",
+    "ANGELONE.NS": "Financial",
+    "VTL.NS": "Textiles",
+    "LODHA.NS": "Construction",
+    "MAXHEALTH.NS": "Pharma",      # hospitals (healthcare bucket)
+    "IMFA.NS": "Metal",            # ferro alloys
+    "POCL.NS": "Metal",            # lead/zinc oxides
+    "ITCHOTELS.NS": "Consumer",    # hotels
+    "SCI.NS": "Logistics",         # shipping
+    "VPRPL.NS": "Construction",
+    "IGIL.NS": "Consumer",         # gem certification services
+    "ONEPOINT.NS": "IT",           # BPO/tech services
+    "ASHOKLEY.NS": "Auto",
+    "SONACOMS.NS": "Auto",
+    "UNOMINDA.NS": "Auto",
+    "APLAPOLLO.NS": "Metal",       # steel tubes
+    "JSL.NS": "Metal",             # stainless steel
+}
 
 OWNER_UNIVERSE_2026_08_20: tuple = (
     # --- the owner's 33 ---

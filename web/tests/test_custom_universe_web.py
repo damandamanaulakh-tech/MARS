@@ -158,3 +158,68 @@ def test_disconnect_keeps_the_history_client(monkeypatch):
     from web import state as st
     src = inspect.getsource(st.refresh_broker_attachment)
     assert "set_history_broker(None)" not in src
+
+
+# ---------------------------------------------------------------------------
+# Codex review fixes (PR #68)
+# ---------------------------------------------------------------------------
+
+def test_settings_refuses_more_than_sixty_names():
+    """A pasted 2,400-name list would have the scan download 2y for every
+    name daily — an OOM on the 512MB box. The design is 50; cap 60."""
+    import csv
+    with open("data/upstox_nse_equities.csv", newline="") as f:
+        many = [r["ticker"].replace(".NS", "")
+                for r in csv.DictReader(f)][:80]
+    cfg = state.cfg()
+    old = cfg.custom_universe
+    try:
+        r = _post_settings(_client(), custom_universe=", ".join(many))
+        assert "saved=universe_too_big" in r.headers["location"]
+        assert tuple(cfg.custom_universe) == tuple(old)   # untouched
+    finally:
+        _restore(old)
+
+
+def test_save_settings_merges_instead_of_wiping(monkeypatch):
+    """The dashboard's mode quick-switch saves only {"mode": ...} — with the
+    old replace_one it silently deleted every other stored override,
+    including the owner's weekly universe list. $set must merge."""
+    from web import db
+
+    class _Coll:
+        def __init__(self):
+            self.doc = {"_id": "default", "custom_universe": ["TCS.NS"]}
+
+        def update_one(self, flt, update, upsert=False):
+            assert "$set" in update, "save_settings must merge via $set"
+            self.doc.update(update["$set"])
+
+    class _DB:
+        settings = _Coll()
+
+    monkeypatch.setattr(db, "_CONNECTED", True)
+    monkeypatch.setattr(db, "_DB", _DB())
+    db.save_settings({"mode": "swing"})
+    assert _DB.settings.doc["custom_universe"] == ["TCS.NS"]   # survived
+    assert _DB.settings.doc["mode"] == "swing"
+
+
+def test_weekly_topup_scope_includes_the_full_universe_file():
+    """The store could never GROW (scope was stored+held) — it sat at 191
+    names for ever, starving the F3 breadth reading. Source-pinned."""
+    import inspect
+
+    from web import scheduler
+    src = inspect.getsource(scheduler._weekly_history_topup)
+    assert "load_full_universe" in src
+
+
+def test_breadth_bar_is_high_enough_to_mean_wide():
+    """At 200 usable names a 'full store' reading carries ~±6pp of sampling
+    error — nearly the bucket's noise wearing the wide reading's label."""
+    import inspect
+
+    from trading.breadth import store_breadth
+    assert inspect.signature(store_breadth).parameters[
+        "min_sample"].default == 1000

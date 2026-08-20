@@ -279,12 +279,22 @@ def list_journal_archive(limit: int = 2000) -> list:
 # ---------- settings overrides ----------
 
 def save_settings(overrides: dict[str, Any], doc_id: str = "default") -> None:
+    """MERGE the given keys into the settings doc — never replace it.
+
+    CODEX REVIEW FIX (PR #68): this was replace_one, so any PARTIAL writer
+    wiped every other stored override — the dashboard's mode quick-switch
+    saves only {"mode": ...} and was silently deleting the owner's custom
+    universe (and every other override) from Mongo; the in-memory values
+    survived until the next restart, then bootstrap restored defaults over
+    the owner's choices. Latent for every override since the beginning —
+    the custom-universe list just made it visible. $set merges instead.
+    """
     if not _CONNECTED or _DB is None:
         return
     try:
-        _DB.settings.replace_one(
+        _DB.settings.update_one(
             {"_id": doc_id},
-            {**overrides, "_id": doc_id},
+            {"$set": dict(overrides)},
             upsert=True,
         )
     except Exception as e:

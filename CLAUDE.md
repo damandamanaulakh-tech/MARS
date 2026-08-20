@@ -1333,6 +1333,24 @@ rest remains same / ARE SOME FOR THIS WEEK, ADD MORE AND MAKE IT 50").
 - /scan shows a "🎯 Your 50-stock universe" badge; scan matrix/piano/
   triggers/news all inherit the 50 automatically (they read the scan).
 - Scope kept: "rest remains same" — no gate, score, exit, sizing touched.
+- **CODEX REVIEW ON PR #68 — ALL FIVE FINDINGS REAL, ALL FIXED same day,
+  926 tests:** (1) custom universe now governs EVERY mode, not just
+  momentum — the 09:20 rotation's short/swing/positional passes could
+  otherwise BUY outside the 50 and overwrite /scan with off-list rows.
+  (2) `db.save_settings` was `replace_one` — the dashboard mode
+  quick-switch (saves only {"mode"}) silently WIPED every stored override
+  incl. the weekly universe list; latent for every override since the
+  beginning; now `$set` merge. (3) All 31 previously-unmapped custom names
+  got REAL sectors (`universes.CUSTOM_UNIVERSE_SECTOR_MAP`, Pharma = the
+  healthcare bucket per APOLLOHOSP precedent) — risk.can_open counts every
+  "Unknown" as ONE sector, so unmapped small-caps would have jammed
+  max_sector_positions on unrelated companies. (4) breadth `min_sample`
+  raised 200 → 1000 — at ~200 names a "full store" reading carries ~±6pp,
+  nearly the bucket noise wearing the wide label; AND the Friday top-up
+  scope now includes the FULL universe file, so the store finally GROWS
+  (it could never grow before — scope was stored+held) toward ~2,400 and
+  clears the bar itself. (5) Settings list capped at 60 names — a pasted
+  2,400-name list would have OOMed the 512MB box.
 - LIVE-APP FACT (healthz, 2026-08-20): `history_tickers: 191` — the
   full-universe OHLCV fetched 2026-08-09 never entered the app's Mongo
   (zipped to owner as release asset only). The daily top-up will grow the

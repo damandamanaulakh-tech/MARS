@@ -93,6 +93,24 @@ class TradingEngine:
         enter via the custom list either.
         """
         cfg = self.cfg
+        held = list(self.portfolio.positions.keys())
+        custom = tuple(getattr(cfg, "custom_universe", ()) or ())
+        # CODEX REVIEW FIX (PR #68): the custom list applies to EVERY mode,
+        # not only momentum — the 09:20 rotation also runs short/swing/
+        # positional, each of which can OPEN positions, so a momentum-only
+        # restriction would have let the other three passes buy outside the
+        # owner's 50 and overwrite /scan with off-list results. "Reduce the
+        # universe to 50" means the app's universe, not one mode's.
+        if custom and cfg.mode != "nifty200_momentum":
+            universe = list(dict.fromkeys(held + list(custom)))
+            try:
+                from .universes import apply_blocklist
+                universe = apply_blocklist(
+                    universe, self.portfolio.positions.keys(),
+                    getattr(cfg, "ticker_blocklist", ()))
+            except ImportError:
+                pass
+            return universe, history_period
         # v5: nifty200_momentum mode needs 2 years of history for the
         # momentum_score() to be valid.
         # P1 (search v2.1 evidence, user-approved 2026-07-19): momentum's
@@ -104,8 +122,6 @@ class TradingEngine:
         # close-only research panel could not.
         if cfg.mode == "nifty200_momentum":
             history_period = "2y"
-            held = list(self.portfolio.positions.keys())
-            custom = tuple(getattr(cfg, "custom_universe", ()) or ())
             try:
                 if custom:
                     universe = list(dict.fromkeys(held + list(custom)))

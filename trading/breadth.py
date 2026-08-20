@@ -45,7 +45,7 @@ DEAD_NAME_DAYS = 30
 
 
 def store_breadth(docs: Iterable[dict], dma: int = 200,
-                  min_sample: int = 200) -> Optional[dict]:
+                  min_sample: int = 1000) -> Optional[dict]:
     """Reduce streamed OHLCV tail-docs to one breadth reading.
 
     Each doc needs `ticker`, `end` (ISO date of its last close) and
@@ -53,6 +53,15 @@ def store_breadth(docs: Iterable[dict], dma: int = 200,
     {pct, above, sample, asof, dma, excluded_stale, excluded_short} or None
     when fewer than `min_sample` names are usable — a thin store must not
     wear a confident number.
+
+    min_sample=1000 (CODEX REVIEW FIX, PR #68 — was 200): the live store
+    held ~191 names, and the daily custom-universe top-up would have grown
+    it to ~240 — at which point a "full store" reading would have crossed a
+    200 bar carrying ~±6pp of sampling error, nearly the same noise the F3
+    fix exists to remove. At 1000+ names the error is ~±3pp and shrinking;
+    below the bar the gate keeps its honest bucket fallback. The weekly
+    top-up now backfills the whole universe file, so the store reaches
+    ~2,400 names within a few Fridays and the bar clears itself.
     """
     from datetime import date, timedelta
 

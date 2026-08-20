@@ -238,6 +238,13 @@ async def settings_save(request: Request):
         if not names:
             cfg.custom_universe = ()
             overrides["custom_universe"] = []
+        elif len(names) > 60:
+            # CODEX REVIEW FIX (PR #68): unbounded, a pasted 2,400-name list
+            # would have had the scan download 2 years × every name daily —
+            # an OOM on the 512 MB box. The design is 50; 60 leaves slack.
+            return RedirectResponse(
+                f"/settings?saved=universe_too_big&n={len(names)}",
+                status_code=303)
         else:
             try:
                 from trading.universes import load_full_universe
