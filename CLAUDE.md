@@ -1113,9 +1113,9 @@ owner: "run the external calibration for the 21" → "wire 0095 and 0094 both"
   actually fund — **₹50L ÷ ₹1.25L = 40 slots, so at 60-70% deployed only
   12-16 remain**; surfacing 50 candidates is wasted motion. Their words: "in
   real life capital amount is fixed once i use 60-70% then cant use as using
-  here". **HALF BUILT: the news half shipped 2026-08-14 (below). The SLOT
-  SIZING half is NOT built** — the scan still surfaces ~50 regardless of free
-  slots. The block question they answered themselves: **"no block just show"**.
+  here". **FULLY BUILT: news half 2026-08-14 (below), slot-sizing half
+  2026-08-15** (owner: "wire the slot sizing too"). The block question they
+  answered themselves: **"no block just show"**.
 
 **NEWS MODULE SHIPPED 2026-08-14 (owner: "build the news module, no block
 just show"), PR #61, 824 tests. `trading/news_feed.py` — DISPLAY ONLY.**
@@ -1214,6 +1214,50 @@ just show"), PR #61, 824 tests. `trading/news_feed.py` — DISPLAY ONLY.**
   per day, so the second run skips the append and the test's `[-5:]` window
   misses it. Base tree fails identically; CI never sees it (fresh container).
   `rm -rf /tmp/sourceborn_paper` before re-running. Do not debug it as real.
+
+**SLOT FUNNEL + SELECTION SEQUENCE + FULL RE-CHECK 2026-08-15 (owner: "wire
+the slot sizing too / n re chk all the repo work / stock selection sequence
+is still pending"). 874 tests (26 new). docs/RECHECK_2026-08-15.md = the
+re-check record — every number computed from code that day, read it before
+answering "what's live / what's pending".**
+- **Slot funnel LIVE** (`trading/slots.py` + /scan): "N slots fundable today"
+  card + a divider in the picks table — everything past the fundable line is
+  greyed, shown-never-hidden ("no block just show"). SAME ARITHMETIC as
+  `risk.can_open` (entry-price deployed, regime reserve, ₹1.25L notional,
+  80-cap), so the display can't promise a slot the gate refuses; base equity
+  is entry-price (page fetches no quotes) so it can differ from the gate's
+  live-marked equity by the day's unrealised P&L — said on the page. Display
+  only; boundary test keeps it out of engine/risk/orders/danger. Their
+  arithmetic test-pinned: ₹50L fresh book = 40 slots; 60%/70% deployed =
+  16/12 remaining (their exact words).
+- **Selection sequence LIVE — audit Node 1 CLOSED** (`trading/
+  selection_sequence.py` + /triggers ladder view + Stage column + per-stock
+  chip). The owner's ladder verbatim: QUIET → COMPRESSING → ACCUMULATING →
+  RECLAIM → ENTRY_WINDOW → POST_ENTRY_WATCH; highest rung wins; held names
+  always read post-entry watch (the danger layer guards from there).
+  **ENTRY_WINDOW IS GATE_RISE_WATCH_01 passing** — no second formula, so the
+  stage and the gate chip can never disagree; COMPRESSING/ACCUMULATING use
+  the gate's own >=2; RECLAIM >=1 is ASSUMED (their sheet sets no family
+  threshold) and labelled. Danger overlay (distribution>=3 per their
+  fall-avoid leg, or any collapse fire) WARNS ⚠ without demoting — their
+  ladder has no down direction. Stage stored per row by run_trigger_layer
+  (persists JSON+Mongo inside trigger_watch); page derives it for pre-stage
+  stored rows so old state never renders blank. Watchlist-only, on-page:
+  "reading order only, never an entry signal" (rise side measured ~chance).
+- **RE-CHECK verdict: all 13 money-path config claims verified live** (floor
+  62, fixed ₹1.25L, −5/+12, reserve 0, brake OFF, breadth ON, ocean parked,
+  danger ON, blocklist…), boundaries hold (engine/risk/orders import NO
+  display module), persistence mirrors both ways, register backlog computed:
+  **9 items still need an outside feed** (TRG-102 options chain, H-09 R&D,
+  H-10 ESG, H-19 macro liquidity, W-007 VRP, W-021 short interest, W-026
+  yield curve, W-027 global risk, X-05 durability) + TRG-111/112 blocked by
+  NSE's 70-row bulk cap. Money path still 21 of 279.
+- **STILL OPEN, re-confirmed, awaiting owner's node picks — do not fix
+  unasked:** F1/Node 2: weekly OHLCV top-up still gates on
+  broker.is_connected() though Upstox historical candles are PUBLIC (Fridays
+  skip whenever the token is dead; fix = drop the gate) · F2/Node 3 part:
+  backtest still network-fetches ^CNX200 while data/nifty200_daily.csv sits
+  committed with ZERO consumers.
 
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,

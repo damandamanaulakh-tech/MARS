@@ -297,6 +297,24 @@
 </div>
 {% endif %}
 
+{% if picks and slots %}
+<!-- ============ SLOT FUNNEL (owner's design: candidates sized to cash) ============ -->
+<div class="bg-white border border-line mb-4 px-4 lg:px-6 py-3 text-sm"><!-- slot_funnel_marker -->
+  <span class="font-bold">💺 {{ slots.free }} slot{{ '' if slots.free == 1 else 's' }} fundable today</span>
+  <span class="text-ink-soft">
+    — ₹{{ slots.cash | inr(0) }} free cash ÷ ₹{{ slots.per_trade | inr(0) }} per trade
+    {% if slots.reserve_pct > 0 %} after the {{ (slots.reserve_pct * 100) | round(0) | int }}% regime reserve{% endif %}
+    = {{ slots.slots_by_cash }} by cash · {{ slots.slots_by_ceiling }} open under the {{ slots.max_positions }}-position cap
+    ({{ slots.open_count }} held) · binding limit: <strong>{{ slots.limiting }}</strong>.
+  </span>
+  <div class="text-xs text-ink-faint mt-1">
+    Your funnel: the list below is ranked, and everything past slot {{ slots.free }} cannot be funded at today's cash —
+    shown, never hidden. Display only: <code>risk.can_open</code> stays the sole authority when a trade opens,
+    and its equity uses live marks, so the count can differ by the day's unrealised P&amp;L.
+  </div>
+</div>
+{% endif %}
+
 {% if picks %}
 <div class="bg-white border border-line">
   <div class="overflow-x-auto">
@@ -314,7 +332,14 @@
     </thead>
     <tbody>
       {% for p in picks %}
-      <tr class="border-b border-line last:border-0">
+      {% if slots and loop.index == slots.free + 1 %}
+      <tr class="border-b border-line bg-amber-50/60"><!-- slot_divider_marker -->
+        <td colspan="{% if user and user.role == 'owner' %}7{% else %}6{% endif %}" class="px-3 lg:px-6 py-2 text-xs text-amber-800 font-semibold">
+          ── beyond today's cash: the {{ picks | length - slots.free }} pick{{ '' if picks | length - slots.free == 1 else 's' }} below can't be funded at ₹{{ slots.per_trade | inr(0) }} each — shown, not hidden ──
+        </td>
+      </tr>
+      {% endif %}
+      <tr class="border-b border-line last:border-0 {% if slots and loop.index > slots.free %}opacity-50{% endif %}">
         <td class="px-3 lg:px-6 py-3 text-ink-faint whitespace-nowrap">{{ loop.index }}</td>
         <td class="px-3 lg:px-6 py-3 font-semibold whitespace-nowrap">{{ p.ticker }}
           <a href="/chart/{{ p.ticker }}" title="candle chart" class="ml-1 no-underline">📈</a></td>
