@@ -129,9 +129,12 @@ def index_strip(bars: int = 60) -> list[dict]:
 
 
 def breadth_panel() -> Optional[dict]:
-    """Market breadth from the engine's OWN scan panel — this is the number
-    the A3 breadth gate actually uses to allow or block new buys, so it is
-    the most decision-relevant panel on the page."""
+    """Market breadth from the engine's scan panel, plus (since the F3 fix,
+    2026-08-20) the FULL-STORE 200DMA reading the A3 gate now prefers —
+    ~2,700 names, ~±1pp noise, refreshed daily before the 09:20 scan. The
+    bucket numbers stay on the panel (score bands, gate-pass rates are
+    per-scan facts) but the gate's own number is the store reading while
+    fresh, and the panel says which is which."""
     from . import state
     p = state.portfolio()
     rows = ((p.scan_matrix or {}).get("rows") or {})
@@ -181,6 +184,9 @@ def breadth_panel() -> Optional[dict]:
         "sectors": sectors,
         "gate_on": bool(getattr(cfg, "breadth_gate_enabled", False)),
         "gate_min_pct": round(float(getattr(cfg, "breadth_min_pct", 0.5)) * 100),
+        # F3: the full-store reading the gate prefers while fresh. None when
+        # never computed — the template then shows only the bucket numbers.
+        "store": (p.breadth_store or None),
         "ts": (p.scan_matrix or {}).get("ts"),
     }
 

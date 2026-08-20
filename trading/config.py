@@ -128,6 +128,13 @@ class Config:
     breadth_gate_enabled: bool = True
     breadth_min_pct: float = 0.50
     breadth_min_sample: int = 30
+    # F3 fix (2026-08-20): the gate PREFERS the full-store breadth reading
+    # (~2,700 names, ~±1pp noise) over the scan bucket (~50 names, ±7pp)
+    # while the stored reading's closes are at most this many days old.
+    # Past that it falls back to the bucket sample — stale-wide loses to
+    # fresh-narrow once the gap grows. ASSUMED number: the weekly top-up
+    # plus weekend is 7-9 days in the worst normal case.
+    breadth_store_max_age_days: int = 10
 
     # --- Per-trade risk ---
     stop_loss_pct: float = -0.05              # -5% hard stop

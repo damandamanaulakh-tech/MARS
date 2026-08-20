@@ -1296,15 +1296,36 @@ class TradingEngine:
                 cfg, "breadth_gate_enabled", False):
             return False
         try:
-            from .regime import compute_breadth
-            breadth, sample = compute_breadth(history)
+            # F3 FIX (owner order 2026-08-20: "fix F3"): PREFER the
+            # full-store reading (~2,700 names, ~±1pp sampling noise,
+            # computed by scheduler.refresh_breadth_store from one streamed
+            # Mongo query) over the scan's own ~50-name bucket (±7pp — the
+            # market sat at 50.8% vs the <=50% line and buy-or-block was
+            # decided by WHICH names the rotation served that day). The
+            # stored reading is trusted only while its closes are fresh
+            # (cfg.breadth_store_max_age_days); otherwise this degrades to
+            # exactly the pre-fix bucket behaviour, never something new.
+            from .breadth import is_fresh
+            breadth = sample = None
+            source = ""
+            stored = getattr(self.portfolio, "breadth_store", None) or {}
+            if is_fresh(stored, now.date(),
+                        getattr(cfg, "breadth_store_max_age_days", 10)):
+                breadth = float(stored["pct"])
+                sample = int(stored["sample"])
+                source = (f"full store ({sample} names, closes to "
+                          f"{stored.get('asof')})")
+            else:
+                from .regime import compute_breadth
+                breadth, sample = compute_breadth(history)
+                source = f"scan bucket sample ({sample} names, ±7pp noise)"
             if (breadth is not None
                     and sample >= getattr(cfg, "breadth_min_sample", 30)
                     and breadth <= getattr(cfg, "breadth_min_pct", 0.50)):
                 self.portfolio.decision_journal.append({
                     "ts": now.isoformat(), "action": "BREADTH_BLOCKED",
-                    "why": (f"Breadth gate: only {breadth*100:.0f}% of "
-                            f"{sample} panel tickers above their 200DMA "
+                    "why": (f"Breadth gate: only {breadth*100:.1f}% above "
+                            f"their 200DMA — {source} "
                             f"(needs >{cfg.breadth_min_pct*100:.0f}%). "
                             f"{n_picks} pick(s) held back; exits unaffected."),
                 })

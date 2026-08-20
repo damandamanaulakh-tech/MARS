@@ -386,8 +386,8 @@
 {% endif %}
 
 <!-- Market breadth + What's coming (owner ask 2026-07-30, reference mockups).
-     Breadth is the engine's OWN scan panel — the same number the A3 gate
-     uses to allow or block new buys. -->
+     Since the F3 fix (2026-08-20) the A3 gate prefers the FULL-STORE 200DMA
+     reading below; the score bands remain the day's scan-panel facts. -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
   {% if breadth %}
   <div class="border border-line bg-white">
@@ -396,6 +396,15 @@
       <div class="text-xs text-ink-faint">{{ breadth.scanned }} scanned{% if breadth.ts %} · {{ breadth.ts[:16] | replace('T',' ') }}{% endif %}</div>
     </div>
     <div class="px-4 lg:px-6 py-4">
+      {% if breadth.store and breadth.store.pct is not none %}
+      <div class="mb-4 px-3 py-2 bg-ink/[0.03] text-sm"><!-- breadth_store_marker -->
+        <span class="font-bold tabular-nums">{{ (breadth.store.pct * 100) | round(1) }}%</span>
+        of <span class="tabular-nums">{{ breadth.store.sample }}</span> stored names above their 200DMA
+        <span class="text-xs text-ink-faint">· closes to {{ breadth.store.asof }} · this full-store reading is what the breadth gate
+          {% if breadth.gate_on %}uses while fresh (blocks new momentum buys at ≤{{ breadth.gate_min_pct }}%){% else %}would use — gate currently OFF{% endif %}
+          — ~±1pp sampling noise vs the old 50-name bucket's ±7pp</span>
+      </div>
+      {% endif %}
       <div class="grid grid-cols-4 gap-2 text-center mb-4">
         <div><div class="text-lg font-black tabular-nums text-emerald-700">{{ breadth.strong }}</div>
           <div class="text-[9px] uppercase tracking-widest text-ink-faint">strong 70+</div></div>

@@ -389,6 +389,47 @@ def _push_phone_alerts(where: str) -> None:
         log.warning("[%s] phone-alert push failed: %s", where, e)
 
 
+def refresh_breadth_store(where: str = "manual") -> dict:
+    """F3 fix (owner order 2026-08-20): compute market breadth over the FULL
+    Mongo OHLCV store (~2,700 names, one streamed $slice query) and persist
+    the reading on the portfolio for the A3 gate to prefer.
+
+    The gate used to read the scan's own ~50-name bucket — ±7pp sampling
+    noise against a <=50% line, so buy-or-block flapped on which 50 names the
+    rotation served that day. The full-store reading has ~±1pp noise and
+    carries its as-of date (store closes can trail up to a week between
+    Friday top-ups; the F1 fix made those reliable).
+
+    Fail-safe: any failure leaves the previous reading in place and the gate
+    falls back to the bucket sample once the reading is stale — behaviour
+    then degrades to exactly the pre-fix gate, never to something new.
+    """
+    from datetime import datetime as _dt
+
+    from trading.breadth import store_breadth
+    from . import db, state
+    p = state.portfolio()
+    try:
+        dma = 200
+        reading = store_breadth(db.history_tails(dma + 5), dma=dma)
+        if reading is None:
+            log.info("[breadth:%s] no usable full-store reading "
+                     "(store thin or Mongo down) — gate keeps its fallback",
+                     where)
+            return {}
+        reading["computed"] = _dt.utcnow().isoformat()
+        p.breadth_store = reading
+        p.save()
+        log.info("[breadth:%s] %.1f%% of %d above 200DMA (closes to %s, "
+                 "%d stale + %d short excluded)", where,
+                 reading["pct"] * 100, reading["sample"], reading["asof"],
+                 reading["excluded_stale"], reading["excluded_short"])
+        return reading
+    except Exception as e:
+        log.exception("full-store breadth refresh failed: %s", e)
+        return {}
+
+
 def _weekly_history_topup() -> None:
     """Friday 16:30 IST: merge fresh candles into the Mongo OHLCV store.
 
@@ -449,6 +490,9 @@ def _weekly_history_topup() -> None:
                  f"{summ['skipped_fresh']} already fresh, "
                  f"{summ['failed']} failed of {summ['total']}.")
         log.info("[fri 16:30] weekly history top-up: %s", summ)
+        # F3: the store just got a week of fresh closes — recompute the
+        # full-store breadth reading the A3 gate prefers.
+        refresh_breadth_store("post-topup")
     except Exception as e:
         log.exception("weekly history top-up failed: %s", e)
         _journal("DATA_REFRESH_FAILED", f"Weekly OHLCV top-up crashed: {e}")
@@ -523,6 +567,14 @@ def _daily_multi_mode_scan() -> None:
         log.warning("[09:20] another multi-mode scan is already running — skipped")
         return
     log.info("[09:20] Daily multi-mode scan starting (target 60-70%% deployed)")
+    # F3: refresh the full-store breadth reading BEFORE the scans, so the A3
+    # gate judges today's entries on ~2,700 names instead of the day's
+    # ~50-name bucket. Isolated — a failure leaves the previous reading and
+    # the gate's bucket fallback intact, and can never stop the scan.
+    try:
+        refresh_breadth_store("09:20")
+    except Exception:
+        log.exception("breadth refresh failed before daily scan")
     summary = []
     import gc
     from trading.modes import MODE_LOCK
