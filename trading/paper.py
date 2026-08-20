@@ -119,6 +119,7 @@ class Portfolio:
     scan_matrix: dict = field(default_factory=dict)  # 🎹 full scan hit-map (overwritten each scan)
     trigger_watch: dict = field(default_factory=dict)  # ⚡ owner's trigger-layer daily result (display+watchlist only)
     news_watch: dict = field(default_factory=dict)     # 📰 news verdict per stock (display only, never blocks)
+    breadth_store: dict = field(default_factory=dict)  # F3: full-store breadth reading {pct, sample, asof} the A3 gate prefers over the noisy bucket sample
     pending_orders: List[dict] = field(default_factory=list)  # owner limit orders (day validity)
     filings: List[dict] = field(default_factory=list)  # matched exchange announcements (held+watch)
     # Daily loss-halt baseline. Persisted so a mid-day Render restart cannot
@@ -229,6 +230,7 @@ class Portfolio:
                 "scan_matrix": self.scan_matrix,               # 🎹 one scan's hit-map, fixed size
                 "trigger_watch": self.trigger_watch,           # ⚡ trigger-layer daily result
                 "news_watch": self.news_watch,                 # 📰 news verdict per stock
+                "breadth_store": self.breadth_store,           # F3 full-store breadth
                 "pending_orders": self.pending_orders[-200:],  # owner limit orders, capped
                 "filings": self.filings[:100],                 # matched announcements, capped
                 "risk_day": self.risk_day,                     # daily kill-switch baseline date
@@ -273,6 +275,7 @@ class Portfolio:
             p.scan_matrix = dict(data.get("scan_matrix", {}))
             p.trigger_watch = dict(data.get("trigger_watch", {}))
             p.news_watch = dict(data.get("news_watch", {}))
+            p.breadth_store = dict(data.get("breadth_store", {}))
             p.pending_orders = list(data.get("pending_orders", []))
             p.filings = list(data.get("filings", []))
             p.risk_day = data.get("risk_day")

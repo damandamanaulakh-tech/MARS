@@ -1270,6 +1270,23 @@ answering "what's live / what's pending".**
     which the backtest's existing BENCHMARK TRUNCATED warning already
     discloses. Verified through `backtest._bulk_download` with all network
     mocked dead: 993 benchmark rows 2019→2022 offline.
+  * **F3 CLOSED same day (owner: "fix F3 too"), 899 tests — the LAST open
+    audit flaw.** The A3 breadth gate now PREFERS a FULL-STORE 200DMA
+    reading (~2,700 names, ~±1pp noise) over the ~50-name scan bucket
+    (±7pp — buy-or-block used to flap on which names the rotation served;
+    the market sat 50.8% vs the ≤50% line). `trading/breadth.py` (pure
+    reduction: dead names >30d stale excluded, thin sample → None, reading
+    carries asof) + `db.history_tails` (ONE streamed Mongo `$slice` tail
+    query, not 2,700 full-doc loads) + `scheduler.refresh_breadth_store`
+    (runs before the 09:20 scan incl. catch-up, and after the Friday
+    top-up — which F1 just made reliable). Reading persisted on
+    `portfolio.breadth_store` JSON+Mongo BOTH ways (risk_day lesson);
+    trusted only while closes ≤ `cfg.breadth_store_max_age_days` (10,
+    ASSUMED) old — stale/missing falls back to the bucket, i.e. EXACTLY the
+    pre-fix gate, never something new. Journal + dashboard breadth panel
+    name which source decided and its as-of. VIX-reentry bypass unchanged.
+    `$slice` vs live Atlas UNVERIFIED from sandbox — first live journal
+    line tells; failure is fail-safe (bucket fallback).
 
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,

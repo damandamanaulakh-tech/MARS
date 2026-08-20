@@ -212,6 +212,29 @@ def load_history_doc(ticker: str) -> Optional[dict]:
         return None
 
 
+def history_tails(rows: int):
+    """Stream every stored ticker's LAST `rows` candles (F3 breadth fix).
+
+    One find() with a $slice projection — the server trims each doc's
+    candles array to its tail, so ~2,700 names' worth of 200-close windows
+    arrive in a single streamed query instead of 2,700 full-history loads
+    (each full doc is ~12y of rows; the tail is ~7% of it). Yields raw docs
+    {ticker, end, candles}; trading/breadth.py does the reduction. Empty
+    iterator when Mongo is down — the caller treats that as "no reading",
+    never as breadth of zero.
+    """
+    if not _CONNECTED or _DB is None:
+        return
+    try:
+        cur = _DB.ohlcv.find(
+            {}, {"ticker": 1, "end": 1, "candles": {"$slice": -int(rows)}})
+        for doc in cur:
+            yield doc
+    except Exception as e:
+        log.warning("Mongo history_tails failed: %s", e)
+        return
+
+
 def list_history_meta() -> list:
     """Lightweight index of what's stored: ticker, n, start, end (no candles)."""
     if not _CONNECTED or _DB is None:

@@ -232,3 +232,42 @@ def test_lens_dates_the_history_its_numbers_come_from():
     with _p("web.db.is_connected", return_value=False):
         page = c.get("/lens?ticker=RELIANCE").text
     assert "stored daily bars to" in page, "lens must date its stored inputs"
+
+
+def test_breadth_panel_carries_the_full_store_reading_when_present():
+    """F3 fix: the gate prefers the full-store 200DMA reading — the panel
+    must show that number and its as-of date next to the bucket facts."""
+    p = state.portfolio()
+    saved_m, saved_b = p.scan_matrix, p.breadth_store
+    p.scan_matrix = {"ts": "2026-08-20T09:20:00", "score_floor": 62.0,
+                     "rows": {"A.NS": {"score": 70.0, "timing": True,
+                                       "abs_mom": True}}}
+    p.breadth_store = {"pct": 0.548, "sample": 2641, "asof": "2026-08-19"}
+    try:
+        b = mp.breadth_panel()
+        assert b["store"]["pct"] == 0.548 and b["store"]["sample"] == 2641
+    finally:
+        p.scan_matrix, p.breadth_store = saved_m, saved_b
+
+
+def test_dashboard_renders_the_store_breadth_line():
+    from fastapi.testclient import TestClient
+    from web import auth as _a
+    from web.main import app
+    p = state.portfolio()
+    saved_m, saved_b = p.scan_matrix, p.breadth_store
+    p.scan_matrix = {"ts": "2026-08-20T09:20:00", "score_floor": 62.0,
+                     "rows": {"A.NS": {"score": 70.0, "timing": True,
+                                       "abs_mom": True}}}
+    p.breadth_store = {"pct": 0.548, "sample": 2641, "asof": "2026-08-19"}
+    p.save()
+    try:
+        c = TestClient(app)
+        c.post("/login", data={"email": "owner@sourceborn.in",
+                               "password": _a._SEEDED_PWD})
+        html = c.get("/").text
+        assert "breadth_store_marker" in html
+        assert "2641" in html and "2026-08-19" in html
+    finally:
+        p.scan_matrix, p.breadth_store = saved_m, saved_b
+        p.save()
