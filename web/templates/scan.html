@@ -23,7 +23,9 @@
 <div class="flex flex-wrap items-end justify-between gap-3 mb-8">
   <div>
     <h1 class="font-black text-3xl lg:text-5xl tracking-tight">Scan &amp; Watchlist</h1>
-    <p class="text-ink-soft mt-2">Last scan: {{ last_scan or 'never' }} · {{ picks | length }} archived (cap 50).</p>
+    <p class="text-ink-soft mt-2">Last scan: {{ last_scan or 'never' }} · {{ picks | length }} archived (cap 50).
+      {% if custom_universe_n %}<span class="ml-1 px-2 py-0.5 bg-ink text-white text-[10px] font-bold tracking-widest uppercase">🎯 Your {{ custom_universe_n }}-stock universe</span>
+      <span class="text-xs text-ink-faint">scanned in full daily, no rotation — edit it in Settings</span>{% endif %}</p>
   </div>
   <div class="flex flex-wrap gap-2 items-center">
     <a href="/scan.csv" class="px-4 py-2 border border-line text-sm font-semibold tracking-wide whitespace-nowrap hover:bg-ink/[0.03]">⬇ CSV</a>

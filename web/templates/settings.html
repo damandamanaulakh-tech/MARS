@@ -15,6 +15,18 @@
 <div class="mb-6 px-4 py-3 border border-red-200 bg-red-50 text-red-800 text-sm">Owner role required to save changes.</div>
 {% elif saved == 'reset' %}
 <div class="mb-6 px-4 py-3 border border-amber-200 bg-amber-50 text-amber-900 text-sm">⟳ All AM 07 + risk params reset to factory defaults. (Mode preserved.)</div>
+{% elif saved == 'universe_unknown' %}
+<div class="mb-6 px-4 py-3 border border-red-200 bg-red-50 text-red-800 text-sm">
+  ✕ Custom universe NOT saved — these names are not on NSE (check spelling):
+  <strong class="font-mono">{{ request.query_params.get('bad') }}</strong>.
+  Nothing was changed; fix the names and save again.
+</div>
+{% elif saved == 'universe_too_big' %}
+<div class="mb-6 px-4 py-3 border border-red-200 bg-red-50 text-red-800 text-sm">
+  ✕ Custom universe NOT saved — {{ request.query_params.get('n') }} names is too many.
+  The design is 50 (cap 60): the scan reads every name daily and the 512MB box
+  cannot fetch hundreds. Nothing was changed.
+</div>
 {% elif saved == 'universe_purged' %}
 <div class="mb-6 px-4 py-3 border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm">
   ✓ Old universe removed — scan matrix, last picks, shadow book and the cached instrument
@@ -116,6 +128,26 @@
       {% endfor %}
     </div>
   </div>
+
+  <!-- CUSTOM UNIVERSE (owner order 2026-08-20: 50 names, refreshed weekly) -->
+  <div class="bg-white border border-line"><!-- custom_universe_marker -->
+    <div class="px-4 lg:px-6 py-4 border-b border-line">
+      <div class="font-bold">🎯 Custom Universe ({{ custom_universe | length }} names{% if not custom_universe %} — OFF, scanning full NSE by rotation{% endif %})</div>
+      <div class="text-xs text-ink-faint mt-1">
+        Your weekly list. When filled, the momentum scan reads EXACTLY these names every day — all fresh daily,
+        no rotation. Every other rule (score floor, gates, stops, sizing) is untouched.
+        One name per line or comma-separated; .NS optional. A name not on NSE is refused with its name shown —
+        never silently dropped. <strong>Blank the box to go back to the full-NSE rotating bucket.</strong>
+        Blocklist still applies (YESBANK can never enter).
+      </div>
+    </div>
+    <div class="p-4 lg:p-6">
+      <textarea name="custom_universe" rows="6"
+                class="w-full border border-line focus:border-ink outline-none p-3 text-sm font-mono"
+                placeholder="TCS, RELIANCE, HFCL …">{{ custom_universe | map('replace', '.NS', '') | join(', ') }}</textarea>
+    </div>
+  </div>
+
   {% for group, items in groups.items() %}
   <div class="bg-white border border-line">
     <div class="px-4 lg:px-6 py-4 border-b border-line">

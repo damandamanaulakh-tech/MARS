@@ -224,6 +224,10 @@ def _coerce_override(cfg, key: str, value):
             return type(expected)(float(value))
         except ValueError:
             return value
+    # custom_universe (2026-08-20): stored as a JSON list, the Config field
+    # is a tuple — coerce so `if custom:` and equality checks behave.
+    if isinstance(expected, tuple) and isinstance(value, list):
+        return tuple(value)
     return value
 
 
@@ -316,20 +320,28 @@ def _attach_broker_if_persisted() -> None:
         from trading.brokers.upstox import UpstoxClient, UpstoxConfigError
     except ImportError:
         return
-    token_doc = db.load_upstox_token()
-    if not token_doc or not token_doc.get("access_token"):
-        return
     try:
         client = UpstoxClient.from_env()
     except UpstoxConfigError:
         return
-    client.access_token = token_doc.get("access_token")
-    client.user_id = token_doc.get("user_id")
-    client.user_name = token_doc.get("user_name")
-    client.connected_at = token_doc.get("connected_at")
-    _ENGINE.attach_broker(client)
+    token_doc = db.load_upstox_token()
+    if token_doc and token_doc.get("access_token"):
+        client.access_token = token_doc.get("access_token")
+        client.user_id = token_doc.get("user_id")
+        client.user_name = token_doc.get("user_name")
+        client.connected_at = token_doc.get("connected_at")
+        _ENGINE.attach_broker(client)
     # Route ALL historical candles through Upstox too (Yahoo 429-blocks
     # cloud IPs; scans/backtests starve on yfinance alone).
+    #
+    # ROOT CAUSE OF "prices are still not live" (owner, 2026-08-20): this
+    # attach used to RETURN EARLY when no token was stored — so before the
+    # day's login (the token dies at 03:30 IST) there was NO client at all,
+    # every historical fetch fell to Yahoo's 429 wall, and scans/charts
+    # starved even though Upstox HISTORICAL candles are public and work
+    # TOKENLESS (F1 fix). The history client is now attached with or
+    # without a token; only LIVE quotes still wait for the daily login —
+    # that is an Upstox rule, not ours.
     from trading import data as trading_data
     trading_data.set_history_broker(client)
 
@@ -340,11 +352,12 @@ def refresh_broker_attachment() -> None:
         if _ENGINE is None:
             return
         _attach_broker_if_persisted()
-        # If Mongo cleared the token, ensure engine forgets it too
+        # If Mongo cleared the token, the engine forgets it (live quotes are
+        # honestly absent until the next login) — but the HISTORY client
+        # stays: the candle endpoint is public, so a logout must not send
+        # history fetching back to Yahoo's 429 wall.
         if db.load_upstox_token() is None:
             _ENGINE.attach_broker(None)
-            from trading import data as trading_data
-            trading_data.set_history_broker(None)
 
 
 # {ticker: (price, fetched_at_epoch)} — per-ticker timestamps, because a

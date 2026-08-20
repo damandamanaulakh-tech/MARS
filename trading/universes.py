@@ -235,6 +235,12 @@ def rotating_bucket(tickers: list[str], size: int, day_index: int) -> list[str]:
 def get_nifty_200_universe():
     """Returns (tickers_list, sector_map) for Nifty 200 preset."""
     sector_map = dict(NIFTY_200_SECTOR_MAP_EXTRAS)
+    # Custom-universe names get real sectors too (Codex review fix, PR #68)
+    # — defined next to OWNER_UNIVERSE_2026_08_20 below.
+    try:
+        sector_map.update(CUSTOM_UNIVERSE_SECTOR_MAP)
+    except NameError:                                   # pragma: no cover
+        pass
     # Anything not in the map -> Unknown
     for t in NIFTY_200_TICKERS:
         sector_map.setdefault(t, "Unknown")
@@ -249,3 +255,88 @@ def apply_blocklist(universe: list[str], held, blocklist) -> list[str]:
         return list(universe)
     held = set(held or ())
     return [t for t in universe if t in held or t not in blocked]
+
+
+# ---------------------------------------------------------------------------
+# OWNER'S CUSTOM 50 (order 2026-08-20: "reduce the universe to 50 share only
+# but all fresh ... do not change codes and just work on 50 count, rest
+# remains same ... ARE SOME FOR THIS WEEK, ADD MORE AND MAKE IT 50").
+#
+# 33 are the owner's own picks, resolved against the live universe file —
+# the exact mapping from their message (ambiguous ones they resolved
+# themselves on 2026-08-20): IOCP→IOLCP · ELGIE→ELGIEQUIP · USHAMRT→USHAMART
+# · GVTD→GVT&D · KIRPLU→KIRLPNU · AGL→AGL (Allcargo Global, exact symbol) ·
+# HDGC→HDFCBANK · ICICI→ICICIBANK · BHARTIAIRTEL→BHARTIARTL · MASTK→MASTEK ·
+# MAXHEALTHCARE→MAXHEALTH · ADITYABIRLA→ABCAPITAL · ITCHOTEL→ITCHOTELS.
+# MTARTECH is EXCLUDED: NSE lists it in the BE (trade-to-trade) series,
+# which the tradeable universe deliberately filters out — it stays on the
+# series-watch card; the owner can buy it manually via the ticket.
+#
+# 17 fill the count to 50 per their "Automobile & Metal is growing add
+# accordingly": 9 automobile/ancillary + 8 metal, all liquid, all present
+# in the committed universe file (verified 2026-08-20).
+#
+# The list is EDITABLE in Settings (Custom Universe) — the owner refreshes
+# it weekly ("ARE SOME FOR THIS WEEK"); blank restores the full-NSE
+# rotating bucket. The blocklist still applies on top, and every other
+# gate/score/exit is untouched — their words: "rest remains same".
+# ---------------------------------------------------------------------------
+
+# Sector map for the custom-universe names the Nifty-200 map doesn't cover
+# (CODEX REVIEW FIX, PR #68): unmapped names all read "Unknown", and
+# risk.can_open counts every Unknown position as ONE sector for
+# max_sector_positions — so a book of unmapped small-caps would have hit
+# sector_cap_reached on completely unrelated companies. Same 19-sector
+# vocabulary as NIFTY_200_SECTOR_MAP_EXTRAS (Pharma = the healthcare
+# bucket, per APOLLOHOSP/FORTIS precedent). Merged into the default
+# cfg.sector_map below.
+CUSTOM_UNIVERSE_SECTOR_MAP: dict = {
+    "HFCL.NS": "Telecom",          # telecom gear + optical fibre
+    "IOLCP.NS": "Pharma",          # IOL Chemicals & Pharma
+    "SKIPPER.NS": "Capital Goods",  # T&D towers
+    "ELGIEQUIP.NS": "Capital Goods",
+    "INDGN.NS": "Pharma",          # healthcare-tech services
+    "ACUTAAS.NS": "Chemicals",
+    "USHAMART.NS": "Metal",        # steel wire ropes
+    "PGEL.NS": "Consumer",         # electronics manufacturing (durables)
+    "THERMAX.NS": "Capital Goods",
+    "GVT&D.NS": "Capital Goods",   # power T&D equipment
+    "KIRLPNU.NS": "Capital Goods",
+    "SYRMA.NS": "Capital Goods",   # electronics manufacturing services
+    "RAIN.NS": "Chemicals",        # carbon products / chemicals
+    "AGL.NS": "Logistics",         # Allcargo Global
+    "MASTEK.NS": "IT",
+    "ANGELONE.NS": "Financial",
+    "VTL.NS": "Textiles",
+    "LODHA.NS": "Construction",
+    "MAXHEALTH.NS": "Pharma",      # hospitals (healthcare bucket)
+    "IMFA.NS": "Metal",            # ferro alloys
+    "POCL.NS": "Metal",            # lead/zinc oxides
+    "ITCHOTELS.NS": "Consumer",    # hotels
+    "SCI.NS": "Logistics",         # shipping
+    "VPRPL.NS": "Construction",
+    "IGIL.NS": "Consumer",         # gem certification services
+    "ONEPOINT.NS": "IT",           # BPO/tech services
+    "ASHOKLEY.NS": "Auto",
+    "SONACOMS.NS": "Auto",
+    "UNOMINDA.NS": "Auto",
+    "APLAPOLLO.NS": "Metal",       # steel tubes
+    "JSL.NS": "Metal",             # stainless steel
+}
+
+OWNER_UNIVERSE_2026_08_20: tuple = (
+    # --- the owner's 33 ---
+    "HFCL.NS", "IOLCP.NS", "SKIPPER.NS", "ELGIEQUIP.NS", "INDGN.NS",
+    "ACUTAAS.NS", "USHAMART.NS", "PGEL.NS", "THERMAX.NS", "GVT&D.NS",
+    "KIRLPNU.NS", "SYRMA.NS", "RAIN.NS", "TCS.NS", "AGL.NS",
+    "HDFCBANK.NS", "ICICIBANK.NS", "BHARTIARTL.NS", "MASTEK.NS",
+    "ANGELONE.NS", "VTL.NS", "LODHA.NS", "MAXHEALTH.NS", "NMDC.NS",
+    "IMFA.NS", "ABCAPITAL.NS", "RELIANCE.NS", "POCL.NS", "ITCHOTELS.NS",
+    "SCI.NS", "VPRPL.NS", "IGIL.NS", "ONEPOINT.NS",
+    # --- automobile (9) — "Automobile ... is growing" ---
+    "M&M.NS", "MARUTI.NS", "EICHERMOT.NS", "TVSMOTOR.NS", "ASHOKLEY.NS",
+    "BHARATFORG.NS", "MOTHERSON.NS", "SONACOMS.NS", "UNOMINDA.NS",
+    # --- metal (8) — "... & Metal is growing" ---
+    "TATASTEEL.NS", "JSWSTEEL.NS", "HINDALCO.NS", "JINDALSTEL.NS",
+    "VEDL.NS", "NATIONALUM.NS", "APLAPOLLO.NS", "JSL.NS",
+)

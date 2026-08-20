@@ -120,17 +120,20 @@ def records_to_df(doc: dict) -> Optional[pd.DataFrame]:
 def top_up_history(broker, ticker_to_key: dict[str, str],
                    load_doc: Callable[[str], Optional[dict]],
                    save_doc: Callable[[dict], None],
-                   today: date) -> dict:
+                   today: date, fresh_within_days: int = 4) -> dict:
     """Weekly freshness pass (owner order 2026-07-27: "renewed every week").
 
     For each ticker, download only the RECENT candles (1 paginated year is
     plenty for a weekly gap) and MERGE them into the stored doc — never
     replace it. A naive weekly re-save with years=1 would silently truncate
     the 12-year research store to 12 months; this merge is the reason this
-    helper exists. Skips tickers already fresh (stored end >= last Friday).
+    helper exists. Skips tickers already fresh (stored end >= today −
+    `fresh_within_days`; 4 is the weekly job's Friday-to-Monday tolerance,
+    the daily custom-universe pass passes 1 — owner order 2026-08-20 "all
+    fresh").
     """
     ok = skipped = failed = 0
-    fresh_cutoff = (today - timedelta(days=4)).isoformat()
+    fresh_cutoff = (today - timedelta(days=fresh_within_days)).isoformat()
     for ticker, key in ticker_to_key.items():
         try:
             doc = load_doc(ticker)

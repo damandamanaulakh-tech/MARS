@@ -128,6 +128,9 @@ def settings_view(request: Request, saved: str | None = None):
             "saved": saved,
             "db_status": state.db_status(),
             "push": _push_state(),
+            # OWNER ORDER 2026-08-20: the custom 50-name universe, shown for
+            # weekly editing. Empty = rotating full-NSE bucket.
+            "custom_universe": list(getattr(cfg, "custom_universe", ()) or ()),
         },
     )
 
@@ -219,6 +222,43 @@ async def settings_save(request: Request):
     if new_mode in {m[0] for m in MODE_CHOICES}:
         cfg.mode = new_mode
         overrides["mode"] = new_mode
+
+    # OWNER ORDER 2026-08-20: the custom 50-name universe, editable weekly.
+    # Comma/space/newline separated; .NS appended if missing; EVERY name
+    # must resolve in the live universe file or the whole edit is REFUSED
+    # with the bad names listed — a typo must never silently shrink the
+    # scan list ("no fake data" applies to the universe too). Blank = back
+    # to the full-NSE rotating bucket.
+    if "custom_universe" in form:
+        import re as _re
+        raw_u = str(form["custom_universe"] or "")
+        names = [n.upper() for n in _re.split(r"[,\s]+", raw_u) if n.strip()]
+        names = [n if n.endswith(".NS") else n + ".NS" for n in names]
+        names = list(dict.fromkeys(names))
+        if not names:
+            cfg.custom_universe = ()
+            overrides["custom_universe"] = []
+        elif len(names) > 60:
+            # CODEX REVIEW FIX (PR #68): unbounded, a pasted 2,400-name list
+            # would have had the scan download 2 years × every name daily —
+            # an OOM on the 512 MB box. The design is 50; 60 leaves slack.
+            return RedirectResponse(
+                f"/settings?saved=universe_too_big&n={len(names)}",
+                status_code=303)
+        else:
+            try:
+                from trading.universes import load_full_universe
+                known = set(load_full_universe())
+            except Exception:
+                known = set()
+            bad = [n for n in names if known and n not in known]
+            if bad:
+                return RedirectResponse(
+                    "/settings?saved=universe_unknown&bad=" + ",".join(
+                        n.replace(".NS", "") for n in bad[:8]),
+                    status_code=303)
+            cfg.custom_universe = tuple(names)
+            overrides["custom_universe"] = names
 
     # Editable scalar fields
     preset_submitted: dict = {}

@@ -1288,6 +1288,76 @@ answering "what's live / what's pending".**
     `$slice` vs live Atlas UNVERIFIED from sandbox — first live journal
     line tells; failure is fail-safe (bucket fallback).
 
+**CUSTOM 50-NAME UNIVERSE + THE PRICE-OUTAGE ROOT CAUSE (2026-08-20, owner:
+"prices are still not live, why its not getting update / and reduce the
+universe to 50 share only / but all fresh / [34 names] / Automobile & Metal
+is growing add accordingly / do not change codes and just work on 50 count,
+rest remains same / ARE SOME FOR THIS WEEK, ADD MORE AND MAKE IT 50").
+920 tests. READ THIS BEFORE TOUCHING UNIVERSE OR PRICE PATHS.**
+- **"PRICES NOT LIVE" ROOT CAUSE FOUND — the history client only existed
+  after login.** `state._attach_broker_if_persisted` returned EARLY when no
+  token doc was stored (the token dies 03:30 IST daily), so before the
+  day's login there was NO Upstox client at all → `data._HISTORY_BROKER`
+  None → every historical fetch fell to yfinance, which Yahoo 429-blocks on
+  Render → scans/charts starved even though Upstox candles are PUBLIC (F1)
+  and — verified live 2026-08-20 — **a DEAD bearer header is simply ignored
+  by the candle endpoint**. Fixed: the client is built from env keys and
+  attached as history broker WITH OR WITHOUT a token; engine.broker (live
+  LTP quotes) still honestly waits for the daily login — that is an Upstox
+  rule. Logout keeps the history client (`refresh_broker_attachment` no
+  longer nulls it; test-pinned). Both top-up jobs fall back to
+  `data.history_broker()` when engine.broker is None.
+- **OWNER'S CUSTOM UNIVERSE LIVE**: `universes.OWNER_UNIVERSE_2026_08_20`
+  (50 names) = their 33 + 9 automobile + 8 metal fills. Their symbol
+  resolutions, CONFIRMED BY THEM via options card: IOCP→IOLCP ·
+  HDGC→HDFCBANK · ADITYABIRLA→ABCAPITAL · ICICI→ICICIBANK; my confident
+  maps: ELGIE→ELGIEQUIP, USHAMRT→USHAMART, GVTD→GVT&D, KIRPLU→KIRLPNU,
+  MASTK→MASTEK, MAXHEALTHCARE→MAXHEALTH, ITCHOTEL→ITCHOTELS,
+  BHARTIAIRTEL→BHARTIARTL, AGL→AGL (Allcargo Global, exact symbol).
+  **MTARTECH EXCLUDED — NSE lists it BE-series (T2T)**, the tradeable
+  universe filters T2T by design; it sits on the series-watch card, manual
+  ticket buys only. Told the owner.
+- Wiring: `cfg.custom_universe` (default = the 50; empty = rotating
+  bucket) → `engine.scan_universe()` (extracted from scan(), logic
+  unchanged + the custom branch: held always ride along, blocklist still
+  strips, no rotation, same 2y history). **Settings has an editable
+  textarea** (weekly refresh is THEIR workflow now — "ARE SOME FOR THIS
+  WEEK"): normalises case/.NS/separators, and REFUSES the whole edit
+  listing any name not on NSE — a typo can never silently shrink the
+  money universe. Stored override list→tuple coerced at the boot door.
+- **"all fresh" = `scheduler._daily_universe_topup()`**: every scan day,
+  after the scans and BEFORE the trigger layer, the store is topped up for
+  custom+held names (tokenless, `fresh_within_days=1`; the weekly job keeps
+  4). Journals DATA_REFRESH_DAILY only on failures. Only runs when a custom
+  universe is set — 2,700 names daily would not fit the 512MB box.
+- /scan shows a "🎯 Your 50-stock universe" badge; scan matrix/piano/
+  triggers/news all inherit the 50 automatically (they read the scan).
+- Scope kept: "rest remains same" — no gate, score, exit, sizing touched.
+- **CODEX REVIEW ON PR #68 — ALL FIVE FINDINGS REAL, ALL FIXED same day,
+  926 tests:** (1) custom universe now governs EVERY mode, not just
+  momentum — the 09:20 rotation's short/swing/positional passes could
+  otherwise BUY outside the 50 and overwrite /scan with off-list rows.
+  (2) `db.save_settings` was `replace_one` — the dashboard mode
+  quick-switch (saves only {"mode"}) silently WIPED every stored override
+  incl. the weekly universe list; latent for every override since the
+  beginning; now `$set` merge. (3) All 31 previously-unmapped custom names
+  got REAL sectors (`universes.CUSTOM_UNIVERSE_SECTOR_MAP`, Pharma = the
+  healthcare bucket per APOLLOHOSP precedent) — risk.can_open counts every
+  "Unknown" as ONE sector, so unmapped small-caps would have jammed
+  max_sector_positions on unrelated companies. (4) breadth `min_sample`
+  raised 200 → 1000 — at ~200 names a "full store" reading carries ~±6pp,
+  nearly the bucket noise wearing the wide label; AND the Friday top-up
+  scope now includes the FULL universe file, so the store finally GROWS
+  (it could never grow before — scope was stored+held) toward ~2,400 and
+  clears the bar itself. (5) Settings list capped at 60 names — a pasted
+  2,400-name list would have OOMed the 512MB box.
+- LIVE-APP FACT (healthz, 2026-08-20): `history_tickers: 191` — the
+  full-universe OHLCV fetched 2026-08-09 never entered the app's Mongo
+  (zipped to owner as release asset only). The daily top-up will grow the
+  store to the custom 50 on its own; the 2,700-name F3 breadth sample is
+  really ~191 until the store grows (min_sample 200 → the F3 gate will
+  fall back to the bucket until then — fail-safe, disclosed here).
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

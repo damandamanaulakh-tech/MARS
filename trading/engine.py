@@ -78,8 +78,39 @@ class TradingEngine:
 
     # ---------- public API ----------
 
-    def scan(self, history_period: str = "6mo") -> ScanResult:
+    def scan_universe(self, history_period: str = "6mo") -> tuple:
+        """Which tickers today's scan reads, and how much history.
+
+        Extracted from scan() 2026-08-20 (unchanged logic + one new branch)
+        so the selection is testable on its own. Priority in momentum mode:
+          1. cfg.custom_universe — OWNER ORDER 2026-08-20 ("reduce the
+             universe to 50 share only but all fresh"): the exact list, no
+             rotation, scanned in full every day. Held names always ride
+             along so exits/correlation keep their history.
+          2. the rotating full-NSE bucket (P1, evidence-earned breadth).
+          3. Nifty 200 when full_universe_scan is off.
+        The owner blocklist applies to EVERY branch — a banned name cannot
+        enter via the custom list either.
+        """
         cfg = self.cfg
+        held = list(self.portfolio.positions.keys())
+        custom = tuple(getattr(cfg, "custom_universe", ()) or ())
+        # CODEX REVIEW FIX (PR #68): the custom list applies to EVERY mode,
+        # not only momentum — the 09:20 rotation also runs short/swing/
+        # positional, each of which can OPEN positions, so a momentum-only
+        # restriction would have let the other three passes buy outside the
+        # owner's 50 and overwrite /scan with off-list results. "Reduce the
+        # universe to 50" means the app's universe, not one mode's.
+        if custom and cfg.mode != "nifty200_momentum":
+            universe = list(dict.fromkeys(held + list(custom)))
+            try:
+                from .universes import apply_blocklist
+                universe = apply_blocklist(
+                    universe, self.portfolio.positions.keys(),
+                    getattr(cfg, "ticker_blocklist", ()))
+            except ImportError:
+                pass
+            return universe, history_period
         # v5: nifty200_momentum mode needs 2 years of history for the
         # momentum_score() to be valid.
         # P1 (search v2.1 evidence, user-approved 2026-07-19): momentum's
@@ -92,7 +123,9 @@ class TradingEngine:
         if cfg.mode == "nifty200_momentum":
             history_period = "2y"
             try:
-                if getattr(cfg, "full_universe_scan", False):
+                if custom:
+                    universe = list(dict.fromkeys(held + list(custom)))
+                elif getattr(cfg, "full_universe_scan", False):
                     from .universes import (NIFTY_200_TICKERS,
                                             load_full_universe,
                                             rotating_bucket)
@@ -102,7 +135,6 @@ class TradingEngine:
                             full, 50, datetime.utcnow().date().toordinal())
                     else:
                         bucket = NIFTY_200_TICKERS
-                    held = list(self.portfolio.positions.keys())
                     universe = list(dict.fromkeys(held + bucket))
                 else:
                     from .universes import NIFTY_200_TICKERS
@@ -120,6 +152,11 @@ class TradingEngine:
                 getattr(cfg, "ticker_blocklist", ()))
         except ImportError:
             pass
+        return universe, history_period
+
+    def scan(self, history_period: str = "6mo") -> ScanResult:
+        cfg = self.cfg
+        universe, history_period = self.scan_universe(history_period)
         history = fetch_daily(universe, period=history_period)
         bench = fetch_daily([cfg.benchmark], period=history_period).get(cfg.benchmark)
 
