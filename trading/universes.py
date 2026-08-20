@@ -249,3 +249,46 @@ def apply_blocklist(universe: list[str], held, blocklist) -> list[str]:
         return list(universe)
     held = set(held or ())
     return [t for t in universe if t in held or t not in blocked]
+
+
+# ---------------------------------------------------------------------------
+# OWNER'S CUSTOM 50 (order 2026-08-20: "reduce the universe to 50 share only
+# but all fresh ... do not change codes and just work on 50 count, rest
+# remains same ... ARE SOME FOR THIS WEEK, ADD MORE AND MAKE IT 50").
+#
+# 33 are the owner's own picks, resolved against the live universe file —
+# the exact mapping from their message (ambiguous ones they resolved
+# themselves on 2026-08-20): IOCP→IOLCP · ELGIE→ELGIEQUIP · USHAMRT→USHAMART
+# · GVTD→GVT&D · KIRPLU→KIRLPNU · AGL→AGL (Allcargo Global, exact symbol) ·
+# HDGC→HDFCBANK · ICICI→ICICIBANK · BHARTIAIRTEL→BHARTIARTL · MASTK→MASTEK ·
+# MAXHEALTHCARE→MAXHEALTH · ADITYABIRLA→ABCAPITAL · ITCHOTEL→ITCHOTELS.
+# MTARTECH is EXCLUDED: NSE lists it in the BE (trade-to-trade) series,
+# which the tradeable universe deliberately filters out — it stays on the
+# series-watch card; the owner can buy it manually via the ticket.
+#
+# 17 fill the count to 50 per their "Automobile & Metal is growing add
+# accordingly": 9 automobile/ancillary + 8 metal, all liquid, all present
+# in the committed universe file (verified 2026-08-20).
+#
+# The list is EDITABLE in Settings (Custom Universe) — the owner refreshes
+# it weekly ("ARE SOME FOR THIS WEEK"); blank restores the full-NSE
+# rotating bucket. The blocklist still applies on top, and every other
+# gate/score/exit is untouched — their words: "rest remains same".
+# ---------------------------------------------------------------------------
+
+OWNER_UNIVERSE_2026_08_20: tuple = (
+    # --- the owner's 33 ---
+    "HFCL.NS", "IOLCP.NS", "SKIPPER.NS", "ELGIEQUIP.NS", "INDGN.NS",
+    "ACUTAAS.NS", "USHAMART.NS", "PGEL.NS", "THERMAX.NS", "GVT&D.NS",
+    "KIRLPNU.NS", "SYRMA.NS", "RAIN.NS", "TCS.NS", "AGL.NS",
+    "HDFCBANK.NS", "ICICIBANK.NS", "BHARTIARTL.NS", "MASTEK.NS",
+    "ANGELONE.NS", "VTL.NS", "LODHA.NS", "MAXHEALTH.NS", "NMDC.NS",
+    "IMFA.NS", "ABCAPITAL.NS", "RELIANCE.NS", "POCL.NS", "ITCHOTELS.NS",
+    "SCI.NS", "VPRPL.NS", "IGIL.NS", "ONEPOINT.NS",
+    # --- automobile (9) — "Automobile ... is growing" ---
+    "M&M.NS", "MARUTI.NS", "EICHERMOT.NS", "TVSMOTOR.NS", "ASHOKLEY.NS",
+    "BHARATFORG.NS", "MOTHERSON.NS", "SONACOMS.NS", "UNOMINDA.NS",
+    # --- metal (8) — "... & Metal is growing" ---
+    "TATASTEEL.NS", "JSWSTEEL.NS", "HINDALCO.NS", "JINDALSTEL.NS",
+    "VEDL.NS", "NATIONALUM.NS", "APLAPOLLO.NS", "JSL.NS",
+)

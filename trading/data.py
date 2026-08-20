@@ -54,6 +54,14 @@ def set_history_broker(client) -> None:
     _HISTORY_BROKER = client
 
 
+def history_broker():
+    """The client history fetches route through — attached with or WITHOUT
+    a login token since 2026-08-20 (candles are a public endpoint; a dead
+    bearer is ignored, verified live). The top-up jobs read this instead of
+    engine.broker so a login-less morning still refreshes the store."""
+    return _HISTORY_BROKER
+
+
 def _instrument_key(ticker: str) -> str | None:
     """AUDIT FIX C10 (2026-08-09): this loaded the committed CSV once per
     boot, swallowed OSError into a permanently-EMPTY map (all history routing

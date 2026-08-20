@@ -462,12 +462,13 @@ def _weekly_history_topup() -> None:
     # top-up any week the owner hadn't logged in, for no reason. Only a
     # missing broker OBJECT (no API keys configured at all) still skips,
     # because there is then no client to fetch with.
-    broker = getattr(eng, "broker", None)
+    from trading.data import history_broker
+    broker = getattr(eng, "broker", None) or history_broker()
     if broker is None:
         _journal("DATA_REFRESH_SKIPPED",
                  "Weekly OHLCV top-up skipped: no Upstox client configured "
                  "(historical candles need no login, but they do need the "
-                 "API client to exist).")
+                 "API client to exist — set the API keys in Render).")
         return
     if not db.is_connected():
         _journal("DATA_REFRESH_SKIPPED",
@@ -615,9 +616,64 @@ def _daily_multi_mode_scan() -> None:
             cfg.apply_mode_preset()
         _ROTATION_LOCK.release()
     _check_pending_orders("post-scan")
+    # OWNER ORDER 2026-08-20 ("all fresh"): with the custom 50-name universe
+    # live, top up the STORE for exactly those names every scan day —
+    # tokenless since F1 — so charts/triggers/news read today-fresh candles,
+    # not last Friday's. Runs BEFORE the trigger layer so the layer already
+    # sees the fresh bars. Isolated: a failure journals and cannot stop the
+    # trigger pass.
+    try:
+        _daily_universe_topup()
+    except Exception:
+        log.exception("daily custom-universe top-up failed")
     run_trigger_layer("09:20")
     _push_phone_alerts("09:20")
     log.info("[09:20] Daily multi-mode scan complete: %s", " · ".join(summary))
+
+
+def _daily_universe_topup() -> None:
+    """Merge fresh daily candles into the Mongo store for the owner's custom
+    universe + held names. Daily counterpart of the Friday job, bounded to
+    ~50 names so it is cheap; skips names already fresh to yesterday. Only
+    runs when a custom universe is set — the rotating full-NSE mode keeps
+    the weekly cadence (2,700 names daily would not fit the 512 MB box)."""
+    from datetime import date, datetime as _dt
+
+    from . import db, state
+    cfg = state.cfg()
+    custom = tuple(getattr(cfg, "custom_universe", ()) or ())
+    if not custom:
+        return
+    eng = state.engine()
+    from trading.data import history_broker
+    broker = getattr(eng, "broker", None) or history_broker()
+    if broker is None or not db.is_connected():
+        log.info("[daily-topup] skipped: %s",
+                 "no Upstox client" if broker is None else "Mongo offline")
+        return
+    try:
+        from trading.brokers.upstox_instruments import to_instrument_keys
+        from trading.history_store import top_up_history
+        names = sorted(set(custom) | set(eng.portfolio.positions.keys()))
+        keys = to_instrument_keys(names)
+        summ = top_up_history(
+            broker, keys,
+            load_doc=db.load_history_doc,
+            save_doc=db.save_history_doc,
+            today=date.today(),
+            fresh_within_days=1,
+        )
+        log.info("[daily-topup] custom universe: %s", summ)
+        if summ.get("failed"):
+            eng.portfolio.decision_journal.append({
+                "ts": _dt.utcnow().isoformat(), "action": "DATA_REFRESH_DAILY",
+                "why": (f"Daily top-up for the custom universe: {summ['ok']} "
+                        f"refreshed, {summ['skipped_fresh']} already fresh, "
+                        f"{summ['failed']} FAILED of {summ['total']}."),
+            })
+            eng.portfolio.save()
+    except Exception as e:
+        log.exception("daily universe top-up failed: %s", e)
 
 
 TRIGGER_LAYER_MAX_TICKERS = 80    # bounded work on the 512 MB box

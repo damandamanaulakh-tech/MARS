@@ -13,6 +13,17 @@ from dataclasses import dataclass, field
 from typing import Tuple
 
 
+def _owner_universe_default() -> tuple:
+    """The owner's 50-name custom universe (order 2026-08-20). Lazy import
+    for the same circular-import reason as _nifty_200_default; empty tuple
+    (= rotating full-NSE bucket) if the constant is ever unimportable."""
+    try:
+        from .universes import OWNER_UNIVERSE_2026_08_20
+        return OWNER_UNIVERSE_2026_08_20
+    except Exception:
+        return ()
+
+
 def _nifty_200_default() -> Tuple[list, dict]:
     """Default universe + sector map = Nifty 200. Imported here to avoid
     a circular import at module load if universes.py grows engine deps."""
@@ -82,6 +93,14 @@ class Config:
     # P1: momentum mode scans the FULL NSE universe via rotating buckets
     # (engine.scan); set False to fall back to the Nifty-200-only scan.
     full_universe_scan: bool = True
+    # OWNER ORDER 2026-08-20 ("reduce the universe to 50 share only but all
+    # fresh ... rest remains same"): when non-empty, the momentum scan reads
+    # EXACTLY this list every day (held names always included, blocklist
+    # still applies, every gate/score/exit unchanged) instead of the
+    # rotating full-NSE bucket. Editable in Settings; the owner refreshes it
+    # weekly. Empty tuple = back to the rotating bucket.
+    custom_universe: tuple = field(
+        default_factory=lambda: _owner_universe_default())
     # User instruction 2026-07-21: names the engine must NEVER scan or buy,
     # even though they are currently listed (distress/junk the owner bans).
     # Held positions are exempt so exits still work if one is ever held.

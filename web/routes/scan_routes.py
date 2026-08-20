@@ -76,6 +76,7 @@ def scan_view(request: Request, error: str | None = None):
             "preset_target": round(_momentum_preset().take_profit_pct * 100, 1),
             "picks": picks,
             "slots": slots,
+            "custom_universe_n": len(getattr(cfg, "custom_universe", ()) or ()),
             "skipped": p.last_scan_skipped or [],
             "opened": p.last_scan_opened or [],
             "last_scan": p.last_scan,
