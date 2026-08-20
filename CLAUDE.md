@@ -1252,12 +1252,24 @@ answering "what's live / what's pending".**
   H-10 ESG, H-19 macro liquidity, W-007 VRP, W-021 short interest, W-026
   yield curve, W-027 global risk, X-05 durability) + TRG-111/112 blocked by
   NSE's 70-row bulk cap. Money path still 21 of 279.
-- **STILL OPEN, re-confirmed, awaiting owner's node picks — do not fix
-  unasked:** F1/Node 2: weekly OHLCV top-up still gates on
-  broker.is_connected() though Upstox historical candles are PUBLIC (Fridays
-  skip whenever the token is dead; fix = drop the gate) · F2/Node 3 part:
-  backtest still network-fetches ^CNX200 while data/nifty200_daily.csv sits
-  committed with ZERO consumers.
+- ~~STILL OPEN: F1 · F2~~ **BOTH FIXED 2026-08-20 (owner: "fix F1 and F2
+  both"), 884 tests:**
+  * **F1 CLOSED**: `get_daily_candles` now works TOKENLESS (auth header sent
+    only when a token exists; endpoint re-verified public with a live TCS
+    fetch same day) and the Friday 16:30 weekly top-up no longer gates on
+    `broker.is_connected()` — only a missing client OBJECT (no API keys) or
+    Mongo offline still skips, both journaled. Login-dead Fridays now
+    refresh the store. Paper lock untouched (read-only path; test pins
+    `assert_paper_trading` still present).
+  * **F2 CLOSED**: `data.committed_nifty200()` reads the committed
+    `data/nifty200_daily.csv` (2004→2026-08-07, finally has a consumer) and
+    `fetch_daily_range` special-cases ^CNX200 — committed file is the
+    deterministic base, network asked ONLY for the tail past the file's last
+    row (recursion-safe: the tail window misses the file so re-entry falls
+    through to broker/yf). Dead network = base truncated at 2026-08-07,
+    which the backtest's existing BENCHMARK TRUNCATED warning already
+    discloses. Verified through `backtest._bulk_download` with all network
+    mocked dead: 993 benchmark rows 2019→2022 offline.
 
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
