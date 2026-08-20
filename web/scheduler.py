@@ -627,15 +627,24 @@ def run_trigger_layer(where: str = "manual") -> dict:
             view = stock_view(df, asof=asof,
                               ext=(ext_batch.for_ticker(t) if ext_batch
                                    else None))
+            gates_passed = [g["id"] for g in view["gates"]
+                            if g["status"] == "PASS"]
+            # The owner's selection sequence (their named gap, 2026-08-12
+            # audit Node 1): one rung on the quiet→compressing→accumulating→
+            # reclaim→entry-window→post-entry-watch ladder, derived from the
+            # numbers just computed. Watchlist-only, like everything here.
+            from trading.selection_sequence import stage_for
+            stage = stage_for(view["family_counts"], gates_passed,
+                              held=t in p.positions)
             rows[t] = {
                 "asof": view["asof"],
                 "family_counts": view["family_counts"],
                 "scores": view["scores"],
                 "data_quality": view["data_quality"],
-                "gates_passed": [g["id"] for g in view["gates"]
-                                 if g["status"] == "PASS"],
+                "gates_passed": gates_passed,
                 "fired": [f["id"] for f in view["fired"]],
                 "watch": view["watch"],
+                "stage": stage,
             }
             if view["watch"]:
                 watchlist.append(t)

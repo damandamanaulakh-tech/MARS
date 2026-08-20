@@ -38,6 +38,17 @@ def scan_view(request: Request, error: str | None = None):
     from collections import Counter
     picks = p.last_scan_picks or []
     piano = _build_piano(p.scan_matrix or {})
+    # The owner's funnel arithmetic (their design 2026-08-13: "in real life
+    # capital amount is fixed once i use 60-70% then cant use as using
+    # here") — how many of these picks today's cash can actually fund, by
+    # the same math risk.can_open enforces. Display only; a broken compute
+    # hides the card, never the page.
+    slots = None
+    try:
+        from trading.slots import slot_view
+        slots = slot_view(p, cfg)
+    except Exception:
+        log.exception("slot view failed")
     # F8: sector counts of the scanned picks
     sector_counts = Counter(cfg.sector_map.get(pk.get("ticker"), "Unknown")
                             for pk in picks)
@@ -64,6 +75,7 @@ def scan_view(request: Request, error: str | None = None):
             "preset_stop": round(abs(_momentum_preset().stop_loss_pct) * 100, 1),
             "preset_target": round(_momentum_preset().take_profit_pct * 100, 1),
             "picks": picks,
+            "slots": slots,
             "skipped": p.last_scan_skipped or [],
             "opened": p.last_scan_opened or [],
             "last_scan": p.last_scan,

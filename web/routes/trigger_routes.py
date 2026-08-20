@@ -45,15 +45,30 @@ def triggers_page(request: Request):
     from trading.triggers import (ASSUMED_CONSTANTS, COMPUTABLE, EXTERNAL,
                                   EXTERNAL_PENDING, EXTERNAL_WIRED, GATE_ROWS,
                                   TRIGGERS)
+    from trading.selection_sequence import STAGE_META, STAGES, stage_for
     p = state.portfolio()
     tw = p.trigger_watch or {}
     nw = p.news_watch or {}
     news_rows = (nw.get("rows") or {})
+    held = set(p.positions.keys())
     rows = []
     for t, r in sorted((tw.get("rows") or {}).items(),
                        key=lambda kv: (-len(kv[1].get("gates_passed") or []),
                                        -(kv[1].get("scores") or {}).get("RISE", 0))):
-        rows.append({"ticker": t, **r, "news": news_rows.get(t)})
+        # Stage: stored by the daily pass since 2026-08-15; derived here for
+        # rows persisted before that, so old state never renders a blank.
+        stage = r.get("stage") or stage_for(r.get("family_counts"),
+                                            r.get("gates_passed"),
+                                            held=t in held)
+        rows.append({"ticker": t, **r, "news": news_rows.get(t),
+                     "stage": stage})
+    # The owner's ladder view: every scored stock on its rung, highest first.
+    ladder = [
+        {"stage": s, "meta": STAGE_META[s],
+         "tickers": sorted(x["ticker"] for x in rows
+                           if x["stage"]["stage"] == s)}
+        for s in reversed(STAGES)
+    ]
     return templates.TemplateResponse(
         request, "triggers.html",
         {
@@ -61,6 +76,8 @@ def triggers_page(request: Request):
             "active": "triggers",
             "tw": tw,
             "rows": rows,
+            "ladder": ladder,
+            "stage_meta": STAGE_META,
             "watchlist": tw.get("watchlist") or [],
             "news": nw,
             "no_history": tw.get("no_history") or [],
@@ -147,8 +164,14 @@ def trigger_detail(request: Request, ticker: str):
                 "needs": t.needs,
                 "cal": CALIBRATION.get(t.id),
             })
+        from trading.selection_sequence import STAGE_META, stage_for
+        stage = stage_for(view["family_counts"],
+                          [g["id"] for g in view["gates"]
+                           if g["status"] == "PASS"],
+                          held=ticker in state.portfolio().positions)
         detail = {"ticker": ticker, "view": view, "by_family": by_family,
-                  "bars": len(df), "news": news_detail}
+                  "bars": len(df), "news": news_detail,
+                  "stage": stage, "stage_meta": STAGE_META[stage["stage"]]}
     return templates.TemplateResponse(
         request, "triggers.html",
         {
