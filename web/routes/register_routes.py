@@ -97,9 +97,16 @@ def register_page(request: Request, ticker: str = ""):
         try:
             from .. import state
             p = state.portfolio()
-            equity = max(p.equity() if callable(getattr(p, "equity", None))
-                         else 0.0, 1.0)
-            weights = {t: pos.qty * pos.avg_price / equity
+            # Fixed 2026-08-21 (found while hunting the /positions 500): this
+            # called p.equity() without the prices argument and read a
+            # pos.avg_price field that does not exist — both raised, the
+            # except below swallowed it, and W-028..031 have NEVER computed
+            # on a live book. Entry-price equity is the honest offline base
+            # (this page fetches no quotes) and entry_price is the real field.
+            deployed = sum(pos.qty * pos.entry_price
+                           for pos in (p.positions or {}).values())
+            equity = max(float(p.cash) + deployed, 1.0)
+            weights = {t: pos.qty * pos.entry_price / equity
                        for t, pos in (p.positions or {}).items()}
             vols = {}
             for t, df in panel.items():

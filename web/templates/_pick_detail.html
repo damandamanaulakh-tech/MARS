@@ -13,7 +13,15 @@
    Light high-contrast palette to match the site (bars must be readable).
    ============================================================ #}
 {% set comps = p.components or {} %}
-{% set total = (p.entry_score if p.entry_score is defined and p.entry_score else p.score) | float %}
+{#- THE /positions 500 (owner report 2026-08-21, "not fixed"): a hand-tapped
+    🟢BUY stores entry_score 0 — no scan score exists at a manual entry —
+    and 0 is falsy, so the old line fell through to p.score, WHICH POSITION
+    ROWS DO NOT HAVE. One owner-bought position took down the whole page,
+    on the exact screen the owner checks prices on. Shipped broken in the
+    2026-07-22 repo port; armed by the first manual buy. 0 renders as an
+    honest 0.0 now — "no scan score at entry" — never a dead page. -#}
+{% set total = (p.entry_score if p.entry_score is defined and p.entry_score is not none
+                else (p.score if p.score is defined and p.score is not none else 0)) | float %}
 {% set safe_id = p.ticker | replace('.','_') | replace('&','_') %}
 
 <div class="mt-2 rounded-xl border border-line bg-white p-3 lg:p-4 text-left overflow-x-auto">
