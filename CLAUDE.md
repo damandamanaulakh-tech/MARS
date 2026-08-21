@@ -1333,7 +1333,35 @@ rest remains same / ARE SOME FOR THIS WEEK, ADD MORE AND MAKE IT 50").
 - /scan shows a "🎯 Your 50-stock universe" badge; scan matrix/piano/
   triggers/news all inherit the 50 automatically (they read the scan).
 - Scope kept: "rest remains same" — no gate, score, exit, sizing touched.
-- **CODEX REVIEW ON PR #68 — ALL FIVE FINDINGS REAL, ALL FIXED same day,
+- **2026-08-21 THE /positions 500 (owner screenshot: "Internal Server Error…
+not fixed") — FOUND AND FIXED (PR #69), 930 tests. READ THIS FAULT CLASS.**
+- ROOT CAUSE: `_pick_detail.html` line 16 — `p.entry_score if … and
+  p.entry_score else p.score`. A hand-tapped 🟢BUY stores entry_score **0**
+  (no scan score exists at a manual entry), 0 is FALSY, the fallback reached
+  `p.score` which POSITION rows don't carry → jinja UndefinedError → the
+  whole page 500s. ONE owner-bought position kills /positions — the exact
+  screen the owner checks prices on, which retroactively explains part of
+  "prices are still not live". Shipped in the 2026-07-22 repo port; armed by
+  the first manual buy; every fixture/replica had only scan-opened positions
+  (score > 0) so every crawl rendered clean until the real book (scan buys
+  MIXED WITH owner buys) was modelled. FAULT CLASS: `x if x else y` in a
+  template treats a legitimate 0 as absence — grep for it before trusting a
+  page.
+- DIAGNOSIS METHOD THAT WORKED (keep for next time): healthz/login 200 +
+  all pages 303 unauthenticated proved the process healthy → the crash was
+  auth'd-render + live state only → modelled the owner's real book shapes
+  (scan buy, owner buy score-0, date-only entry_date, GVT&D ampersand,
+  custom levels, zero-entry) → each alone rendered, the five together
+  500'd → traceback named the line.
+- ALSO FIXED, same hunt: register_routes portfolio block called
+  `p.equity()` WITHOUT prices and read nonexistent `pos.avg_price` — the
+  except swallowed both, so W-028..031 NEVER computed on a book with
+  positions. Now entry-price equity (cash + Σqty·entry) + the real field.
+- Repeated MY OWN documented mistake: a source-pin test tripped on its own
+  explanatory comment (same as the F1 test). Strip comment lines before
+  asserting on source. Twice now — do not make it three.
+
+**CODEX REVIEW ON PR #68 — ALL FIVE FINDINGS REAL, ALL FIXED same day,
   926 tests:** (1) custom universe now governs EVERY mode, not just
   momentum — the 09:20 rotation's short/swing/positional passes could
   otherwise BUY outside the 50 and overwrite /scan with off-list rows.
