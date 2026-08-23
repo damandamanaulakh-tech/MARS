@@ -67,8 +67,9 @@ def test_all_nine_are_wired_and_only_the_options_chain_is_left():
     assert len(T.NEWS_FED) == 9
     wired = {t.id for t in T.EXTERNAL_WIRED}
     assert set(T.NEWS_FED) <= wired
-    # the one external trigger still genuinely blocked
-    assert [t.id for t in T.EXTERNAL_PENDING] == ["T12W_0102"]
+    # Node 8 (2026-08-23) wired the last one — nothing is pending now
+    assert T.EXTERNAL_PENDING == []
+    assert "T12W_0102" in wired
 
 
 def test_no_reading_leaves_every_news_trigger_data_needed():
@@ -236,7 +237,8 @@ def test_calibration_runner_skips_the_news_triggers():
     """A backtest window has no news to read, so any "result" would be the
     price leg alone wearing a calibrated verdict's clothes."""
     src = Path("scripts/bt_calibration_external_v1.py").read_text()
-    assert "if t.id in NEWS_FED:" in src and "continue" in src
+    assert "if t.id in NEWS_FED or t.id in CHAIN_FED:" in src
+    assert "continue" in src
 
 
 def test_the_timing_caveat_is_on_the_page_not_only_in_a_comment():

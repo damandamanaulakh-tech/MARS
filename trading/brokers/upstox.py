@@ -274,6 +274,49 @@ class UpstoxClient:
             log.warning("Upstox get_intraday_candles failed for %s: %s", instrument_key, e)
             return None
 
+    def get_option_contracts(self, instrument_key: str) -> Optional[list]:
+        """Option contracts for an underlying (Node 8, 2026-08-23). Returns
+        the raw contract list (each row carries an `expiry`) or None — None
+        also covers "this underlying has no options", which the caller must
+        treat as not-F&O, never as an error worth retrying.
+
+        AUTH REQUIRED — unlike historical candles, the option endpoints
+        reject tokenless calls, so this feed honestly depends on the owner's
+        daily login (audit F8). Read-only; the paper lock is untouched.
+        """
+        try:
+            r = httpx.get(
+                "https://api.upstox.com/v2/option/contract",
+                params={"instrument_key": instrument_key},
+                headers=self._auth_headers(), timeout=20.0)
+            r.raise_for_status()
+            return (r.json().get("data") or []) or None
+        except (httpx.HTTPError, UpstoxAuthError, ValueError, KeyError) as e:
+            log.warning("Upstox option contracts failed for %s: %s",
+                        instrument_key, e)
+            return None
+
+    def get_option_chain(self, instrument_key: str,
+                         expiry_date: str) -> Optional[list]:
+        """Full option chain for one underlying + expiry: raw per-strike rows
+        (call_options / put_options with market_data.oi and
+        option_greeks.iv). None on any failure. Shape per Upstox's published
+        v2 schema — the sandbox holds no token, so the FIRST post-login run
+        is the live verification; a parse miss journals, never guesses.
+        """
+        try:
+            r = httpx.get(
+                "https://api.upstox.com/v2/option/chain",
+                params={"instrument_key": instrument_key,
+                        "expiry_date": expiry_date},
+                headers=self._auth_headers(), timeout=30.0)
+            r.raise_for_status()
+            return (r.json().get("data") or []) or None
+        except (httpx.HTTPError, UpstoxAuthError, ValueError, KeyError) as e:
+            log.warning("Upstox option chain failed for %s %s: %s",
+                        instrument_key, expiry_date, e)
+            return None
+
     def get_quote(self, instrument_key: str) -> Optional[dict]:
         """Full real-time quote for one instrument.
 

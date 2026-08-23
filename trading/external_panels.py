@@ -98,6 +98,11 @@ ASSUMED_EXTERNAL_CONSTANTS = {
     "news_cluster_min": 2,             # "accumulation flags active" / "cluster"
     "news_sentiment_high": 0.5,        # "sentiment_score high" (-1..+1 scale)
     "news_weak_clv": 0.4,              # "negative CLV" at a new high
+    # --- T12W_0102 put-call skew (Node 8). Their sheet: "PCR/skew
+    # deterioration + price near support" — no numbers given, so both legs
+    # are ASSUMED until a forward snapshot archive earns a calibration.
+    "pcr_deterioration_frac": 0.15,    # PCR-OI up >=15% over the snapshot window
+    "iv_skew_min_pts": 3.0,            # ATM put IV - call IV >= 3 IV points
 }
 
 _PANEL_TAIL = 420          # bars kept per panel name (RAM on the 512MB box)
@@ -379,6 +384,16 @@ class StockExternals:
     news_count: Optional[int] = None
     news_asof: str = ""
 
+    # Node 8 (2026-08-23): today's option-chain snapshot, handed in by the
+    # caller as plain dicts (this module never imports options_chain — the
+    # chain is data here). Populated only when the snapshot is FRESH
+    # (options_chain.MAX_AGE_DAYS); a login-less day leaves every field
+    # None = DATA_NEEDED, never a stale chain wearing today's confidence.
+    pcr_oi: Optional[float] = None              # put OI / call OI, nearest expiry
+    iv_skew: Optional[float] = None             # ATM put IV − call IV, IV pts
+    pcr_change: Optional[float] = None          # frac change over the snapshot window
+    chain_asof: str = ""
+
     def missing(self) -> list[str]:
         """Which panels came back empty for this stock (shown on the page)."""
         out = []
@@ -399,6 +414,9 @@ class StockExternals:
                        "nothing)" if self.deals_capped else "bulk/block deals")
         if self.news_risk is None:
             out.append("news reading (not fetched, or the fetch failed)")
+        if self.pcr_oi is None:
+            out.append("option chain (no snapshot — needs the daily "
+                       "Upstox login, or this name has no options)")
         return out
 
 
@@ -828,8 +846,38 @@ def attach_news(sx: StockExternals, reading: Optional[dict]) -> StockExternals:
     return sx
 
 
+def attach_chain(sx: StockExternals, summary: Optional[dict],
+                 history: Optional[list], asof: str) -> StockExternals:
+    """Copy one stock's option-chain snapshot onto its externals (Node 8).
+
+    `summary`/`history` come from portfolio.option_chain — plain dicts, so
+    this module never imports options_chain. A snapshot that is not FRESH
+    (older than options_chain.MAX_AGE_DAYS — a login-less day) attaches
+    NOTHING: every consumer then reads DATA_NEEDED, because a stale chain
+    wearing today's confidence is the exact fault the news UNKNOWN rule
+    exists to prevent.
+    """
+    if not isinstance(summary, dict):
+        return sx
+    from datetime import date
+
+    from .options_chain import is_fresh, pcr_change
+    if not is_fresh(asof, date.today()):
+        return sx
+    try:
+        sx.pcr_oi = float(summary["pcr_oi"])
+    except (KeyError, TypeError, ValueError):
+        return sx
+    skew = summary.get("iv_skew")
+    sx.iv_skew = float(skew) if skew is not None else None
+    sx.pcr_change = pcr_change(history or [])
+    sx.chain_asof = str(asof)
+    return sx
+
+
 def prepare(tickers: list[str],
-            news: Optional[dict[str, dict]] = None) -> ExternalData:
+            news: Optional[dict[str, dict]] = None,
+            chain: Optional[dict] = None) -> ExternalData:
     """Load every external panel once for this batch of tickers.
 
     Called at the start of a trigger-layer run (scheduler) or for a single
@@ -842,10 +890,15 @@ def prepare(tickers: list[str],
     tickers = [t for t in dict.fromkeys(tickers) if t]
     ps = PanelSet(tickers)
     ed = ExternalData(sources=dict(ps.sources), asof=dict(ps.asof))
+    c_rows = (chain or {}).get("rows") or {}
+    c_hist = (chain or {}).get("history") or {}
+    c_asof = str((chain or {}).get("asof") or "")
     for t in tickers:
         sx = ps.externals_at(t)
         if news:
             attach_news(sx, news.get(t))
+        if c_rows:
+            attach_chain(sx, c_rows.get(t), c_hist.get(t), c_asof)
         ed.per_ticker[t] = sx
     return ed
 

@@ -11,9 +11,10 @@
       <strong>{{ n_external_wired }} more</strong> from the data that has since landed
       (sector/RS panel, delivery %, F&amp;O open interest, bulk/block deals,
       analyst revisions, earnings calendar, and since 14 Aug the news feed) ·
-      <strong>{{ n_external_pending }} still DATA_NEEDED</strong>
-      ({% if n_external_pending == 1 %}the strike-level options chain, which NSE does
-      not serve us{% else %}outside feeds we cannot reach{% endif %} — never guessed).
+      {% if n_external_pending == 0 %}<strong>all 33 external triggers wired</strong>
+      (the last, T12W_0102, reads the daily Upstox option-chain snapshot — it computes
+      only on days you logged in, and says DATA_NEEDED otherwise){% else %}<strong>{{ n_external_pending }} still DATA_NEEDED</strong>
+      (outside feeds we cannot reach — never guessed){% endif %}.
       Panel readings carry their own as-of date: the stored OHLCV panel ends before today,
       so every relative-strength number is as-of that panel, not live.
       This page and the watchlist <strong>touch no entry and no exit</strong> — your own rule:

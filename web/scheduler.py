@@ -389,6 +389,96 @@ def _push_phone_alerts(where: str) -> None:
         log.warning("[%s] phone-alert push failed: %s", where, e)
 
 
+def run_option_chain_snapshot(where: str = "manual") -> dict:
+    """Node 8 (owner order 2026-08-23: "continue with node 8"): one option-
+    chain snapshot per trading day, through the owner's own Upstox token.
+
+    Scope = the custom universe plus held names (the index rides along as
+    ^NSEI). Feeds T12W_0102 (the LAST unwired trigger), W-022 true PCR and
+    W-007 per-stock IV. HONESTLY TOKEN-DEPENDENT (audit F8): with no login
+    there is no chain — journaled OPTION_CHAIN_SKIPPED, every consumer
+    reads DATA_NEEDED. Runs from the 09:20 job and again on Upstox connect;
+    the once-per-day guard makes the second arrival a no-op.
+    """
+    from datetime import date as _date, datetime as _dt
+
+    from . import state
+    p = state.portfolio()
+
+    def _journal(action, why):
+        try:
+            p.decision_journal.append(
+                {"ts": _dt.utcnow().isoformat(), "action": action, "why": why})
+            p.save()
+        except Exception:
+            pass
+
+    try:
+        today = _date.today().isoformat()
+        if (p.option_chain or {}).get("asof") == today:
+            return p.option_chain            # already snapped today
+        eng = state.engine()
+        broker = getattr(eng, "broker", None)
+        if broker is None or not getattr(broker, "is_connected",
+                                         lambda: False)():
+            # once per day, not once per attempt — the 09:20 miss and the
+            # catch-up miss are the same fact
+            if (p.option_chain or {}).get("skip_noted") != today:
+                p.option_chain = {**(p.option_chain or {}),
+                                  "skip_noted": today}
+                _journal("OPTION_CHAIN_SKIPPED",
+                         "Option-chain snapshot skipped: the option "
+                         "endpoints need the daily Upstox login (unlike "
+                         "historical candles). T12W_0102 / W-022 / W-007 "
+                         "read DATA_NEEDED today.")
+            return {}
+        from trading.brokers.upstox_instruments import to_instrument_keys
+        from trading.options_chain import HISTORY_KEEP, snapshot_universe
+        cfg = state.cfg()
+        tickers = sorted(set(getattr(cfg, "custom_universe", ()) or ())
+                         | set(p.positions.keys()))
+        keys = to_instrument_keys(tickers)
+        snap = snapshot_universe(broker, tickers, keys.get,
+                                 _date.today())
+        if not snap["rows"]:
+            _journal("OPTION_CHAIN_FAILED",
+                     f"Option-chain snapshot returned nothing "
+                     f"({len(snap['failed'])} failed, "
+                     f"{len(snap['skipped_no_fo'])} without options) — "
+                     "consumers keep DATA_NEEDED.")
+            return {}
+        # bounded per-ticker history — the forward archive T12W_0102's
+        # deterioration leg needs
+        hist = dict((p.option_chain or {}).get("history") or {})
+        for t, r in snap["rows"].items():
+            rows = list(hist.get(t) or [])
+            rows = [x for x in rows if x[0] != snap["asof"]]
+            rows.append((snap["asof"], r.get("pcr_oi"), r.get("iv_skew")))
+            hist[t] = rows[-HISTORY_KEEP:]
+        p.option_chain = {"asof": snap["asof"], "ts": snap["ts"],
+                          "rows": snap["rows"], "history": hist,
+                          "skipped_no_fo": snap["skipped_no_fo"],
+                          "failed": snap["failed"]}
+        p.save()
+        _journal("OPTION_CHAIN_SNAPSHOT",
+                 f"Option chain snapped for {len(snap['rows'])} name(s) "
+                 f"incl. ^NSEI ({len(snap['skipped_no_fo'])} without "
+                 f"options, {len(snap['failed'])} failed). Feeds "
+                 "T12W_0102, W-022, W-007.")
+        log.info("[chain:%s] %d rows, %d no-F&O, %d failed", where,
+                 len(snap["rows"]), len(snap["skipped_no_fo"]),
+                 len(snap["failed"]))
+        return p.option_chain
+    except Exception as e:
+        log.exception("option chain snapshot failed: %s", e)
+        try:
+            _journal("OPTION_CHAIN_FAILED",
+                     f"Option-chain snapshot crashed: {e}")
+        except Exception:
+            pass
+        return {}
+
+
 def _weekly_fii_refresh() -> None:
     """Node 3 (owner order 2026-08-23): weekly NSDL FPI tail into Mongo.
 
@@ -779,6 +869,16 @@ def run_trigger_layer(where: str = "manual") -> dict:
         except Exception:
             log.exception("news feed pass failed before trigger layer")
 
+        # Node 8: today's option-chain snapshot (token-dependent; a skip is
+        # journaled and T12W_0102 reads DATA_NEEDED). Runs before the
+        # trigger pass for the same reason news does — a consumer must not
+        # run before its feed.
+        chain: dict = {}
+        try:
+            chain = run_option_chain_snapshot(where) or {}
+        except Exception:
+            log.exception("option chain snapshot failed before trigger layer")
+
         # External panels (sector/RS, delivery, F&O OI, deals) — ONE batch
         # load for the whole run: the delivery file is 3.5M rows and a
         # per-stock pass would be 80 passes. A failure here leaves ext None,
@@ -788,7 +888,8 @@ def run_trigger_layer(where: str = "manual") -> dict:
         ext_batch = None
         try:
             from trading import external_panels
-            ext_batch = external_panels.prepare(tickers, news=news_rows)
+            ext_batch = external_panels.prepare(tickers, news=news_rows,
+                                                chain=chain)
         except Exception as e:
             log.warning("[triggers] external panels unavailable: %s", e)
 

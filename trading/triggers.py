@@ -1105,6 +1105,28 @@ def _e0110(x, e, fam, hits):  # sentiment high + RS failure / new high weak CLV
     return bool(high and (bool(rs_fail) or weak_at_high))
 
 
+def _e0102(x, e, fam, hits):  # put-call skew risk (Node 8, 2026-08-23)
+    """Their formula: "PCR/skew deterioration + price near support".
+
+    Deterioration needs OUR OWN forward snapshot archive (no history of
+    past chains exists anywhere) — until options_chain.SNAPSHOT_WINDOW
+    days of snapshots accumulate, the deterioration leg is None and the
+    skew LEVEL alone may satisfy the options half. Both thresholds are
+    ASSUMED (their sheet gives words, not numbers) and shown on-page.
+    UNCALIBRATED and permanently display/watchlist-only until the forward
+    archive is long enough to earn a verdict.
+    """
+    if e.pcr_oi is None:
+        return None                    # no fresh chain = DATA_NEEDED
+    det = (e.pcr_change is not None
+           and e.pcr_change >= _ext_const("pcr_deterioration_frac"))
+    skew = (e.iv_skew is not None
+            and e.iv_skew >= _ext_const("iv_skew_min_pts"))
+    if e.pcr_change is None and e.iv_skew is None:
+        return None                    # neither options leg computable yet
+    return bool((det or skew) and _near_support(x))
+
+
 _EXT_FNS = {
     "T12W_0039": _e0039, "T12W_0045": _e0045, "T12W_0046": _e0046,
     "T12W_0047": _e0047, "T12W_0048": _e0048, "T12W_0049": _e0049,
@@ -1124,7 +1146,16 @@ _EXT_FNS = {
     "T12W_0097": _e0097, "T12W_0099": _e0099, "T12W_0103": _e0103,
     "T12W_0104": _e0104, "T12W_0106": _e0106, "T12W_0107": _e0107,
     "T12W_0108": _e0108, "T12W_0109": _e0109, "T12W_0110": _e0110,
+    # wired 2026-08-23 (Node 8): the LAST external trigger. Chain-fed —
+    # computes only on days the owner's Upstox login produced a snapshot.
+    "T12W_0102": _e0102,
 }
+
+#: Chain-fed trigger(s): like NEWS_FED, no backward archive exists, so the
+#: calibration runner skips them and they can never self-promote into the
+#: danger layer. A FORWARD archive accumulates from the daily snapshots —
+#: months from now a calibration becomes possible; not before.
+CHAIN_FED = ("T12W_0102",)
 
 #: The news-fed subset, named so the page, the calibration runner and the
 #: danger-layer guard can all point at the same list.

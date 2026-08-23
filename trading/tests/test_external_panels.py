@@ -43,10 +43,13 @@ def test_registry_split_is_the_owners_sheet_plus_new_implementations():
     assert len(T.TRIGGERS) == 112
     assert len(T.COMPUTABLE) == 79            # OHLCV side, unchanged
     assert len(T.EXTERNAL) == 33              # the sheet's external count
-    # 23 after the 2026-08-13 feed intake, 32 once the nine news-fed triggers
-    # were wired on 2026-08-14. What is left needs data nobody here can reach.
-    assert len(T.EXTERNAL_WIRED) == 32
-    assert [t.id for t in T.EXTERNAL_PENDING] == ["T12W_0102"]  # options chain
+    # 23 after the 2026-08-13 feed intake, 32 with the news-fed nine
+    # (2026-08-14), 33 with the chain-fed T12W_0102 (Node 8, 2026-08-23):
+    # EVERY external trigger now has a data path. 0102 computes only on
+    # days the owner's login produced a chain snapshot — wired is not the
+    # same as always-computable, and the page says which.
+    assert len(T.EXTERNAL_WIRED) == 33
+    assert T.EXTERNAL_PENDING == []
     assert len(T.EXTERNAL_WIRED) + len(T.EXTERNAL_PENDING) == len(T.EXTERNAL)
     for t in T.EXTERNAL_PENDING:
         assert t.ext_fn is None
