@@ -46,16 +46,18 @@ AM07_WEIGHTS = {
     "catalyst":          0.10,   # stubbed at 50 until news API wired
     "relative_strength": 0.10,
     "vol_adj_upside":    0.10,
-    "short_interest":    0.05,   # stubbed at 50 (no free NSE source)
+    "short_interest":    0.05,   # LIVE 2026-08-23 (Node 7): futures-OI proxy; 50 for non-F&O/stale
     "analyst_revision":  0.05,   # LIVE 2026-07-16: yfinance consensus (50 when unfetchable)
     "breakout_quality":  0.05,
     "sector_alignment":  0.10,
 }
 
-# v4: catalyst now live via Claude API news sentiment.
-# short_interest remains stubbed (no clean free source). analyst_revision went
-# LIVE 2026-07-16 (yfinance consensus; neutral 50 only when unfetchable).
-STUB_COMPONENTS = {"short_interest"}
+# v4: catalyst now live via Claude API news sentiment. analyst_revision went
+# LIVE 2026-07-16 (yfinance consensus). short_interest went LIVE 2026-08-23
+# (Node 7): a LABELLED PROXY from the committed futures-OI panel — true
+# borrowed-share short interest has no free NSE source; non-F&O names and a
+# stale panel read the old neutral 50. No component is a constant any more.
+STUB_COMPONENTS: set = set()
 
 
 @dataclass
