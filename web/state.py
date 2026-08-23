@@ -66,6 +66,7 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     # lesson from 2026-07-27.
     p.news_watch = dict(doc.get("news_watch", {}) or {})
     p.breadth_store = dict(doc.get("breadth_store", {}) or {})
+    p.option_chain = dict(doc.get("option_chain", {}) or {})
     p.danger_alerts_start = doc.get("danger_alerts_start")
     p.last_save = doc.get("last_save")
 
@@ -122,6 +123,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "trigger_watch": self.trigger_watch,
             "news_watch": self.news_watch,
             "breadth_store": self.breadth_store,
+            "option_chain": self.option_chain,
             "danger_alerts_start": self.danger_alerts_start,
             "last_save": self.last_save,
         }

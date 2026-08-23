@@ -1468,6 +1468,38 @@ Node/Flaw list — docs/AUDIT_2026-08-12.md §7-8 is the canonical backlog.**
 - Two old test pins updated to the new truths (flows either/or → merge;
   short_interest STUB wording → proxy wording).
 
+**NODE 8 SHIPPED (owner: "continue with node 8"), 973 tests (12 new) —
+THE LAST EXTERNAL TRIGGER IS WIRED. External backlog: ZERO pending.**
+- `trading/options_chain.py` + `UpstoxClient.get_option_contracts/
+  get_option_chain` + `scheduler.run_option_chain_snapshot`: ONE chain
+  snapshot per trading day over custom universe + held (+^NSEI), through
+  the owner's own token. **AUTH-DEPENDENT BY NATURE (F8)**: option
+  endpoints reject tokenless calls (unlike candles) — no login = journaled
+  OPTION_CHAIN_SKIPPED (once/day) and every consumer reads DATA_NEEDED,
+  never a stale chain wearing today's confidence
+  (`options_chain.MAX_AGE_DAYS=2` freshness rule in attach_chain).
+- Runs in the 09:20 job before the trigger layer AND on Upstox connect
+  (login callback spawns it — catch-up alone would NOT retry when the scan
+  had already run tokenless). Once-per-day guard.
+- **T12W_0102 wired** (`_e0102`): their formula "PCR/skew deterioration +
+  price near support". Deterioration needs OUR OWN forward archive
+  (`SNAPSHOT_WINDOW=5` snapshots; history bounded HISTORY_KEEP=15 on
+  `portfolio.option_chain`, persisted JSON+Mongo both ways) — first days
+  honestly DATA_NEEDED on that leg; skew level (ASSUMED >=3 IV pts) can
+  satisfy the options half alone. `pcr_deterioration_frac=0.15` ASSUMED.
+  **CHAIN_FED tuple**: calibration runner skips it (no backward archive
+  exists; a forward one accumulates — months from now a calibration
+  becomes possible), danger layer can't admit it, test-pinned.
+- W-022 upgraded to TRUE chain PCR and W-007 gains per-stock ATM IV on
+  fresh-snapshot days (register `_wire_chain_items`, "an upgrade that only
+  upgrades" — login-less days keep the old proxy/index readings).
+- **UNVERIFIED LIVE: the chain response SHAPE** — sandbox has no token, so
+  parsing follows Upstox's published schema; the FIRST post-login snapshot
+  is the live verification (failure journals OPTION_CHAIN_FAILED,
+  consumers stay DATA_NEEDED — fail-visible, not fail-wrong).
+- Register standing after Node 8: **9 items still need an outside feed**
+  becomes **8** (TRG-102 off the list; the 2 bulk-cap triggers unchanged).
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

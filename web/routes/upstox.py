@@ -139,6 +139,13 @@ def callback(
     try:
         from .. import scheduler as _sched
         _sched.catchup_scan_if_missed("upstox_connect")
+        # Node 8: the login this moment IS the unblock for the option-chain
+        # snapshot too (the endpoints reject tokenless calls). If today's
+        # scan already ran without a token, the chain was skipped and no
+        # catch-up would retry it — this does. Once-per-day guard inside.
+        import threading as _th
+        _th.Thread(target=_sched.run_option_chain_snapshot,
+                   args=("upstox_connect",), daemon=True).start()
     except Exception:
         pass
     return RedirectResponse("/?upstox_connected=1", status_code=303)

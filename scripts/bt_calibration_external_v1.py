@@ -55,7 +55,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from trading import external_panels as XP                          # noqa: E402
-from trading.triggers import (EXTERNAL_WIRED, NEWS_FED, _Ctx,  # noqa: E402
+from trading.triggers import (CHAIN_FED, EXTERNAL_WIRED, NEWS_FED, _Ctx,  # noqa: E402
                              _EXT_MIN_BARS, family_counts, COMPUTABLE)
 
 STEP = 5                # eval every 5 trading days (v1's grid)
@@ -190,7 +190,10 @@ def main(out_dir: str) -> None:
                 # omission: no archive of past headlines exists, so a past
                 # window has no news to read and any "result" here would be
                 # the price leg alone masquerading as a calibrated verdict.
-                if t.id in NEWS_FED:
+                if t.id in NEWS_FED or t.id in CHAIN_FED:
+                    # no backward archive exists for news or option chains —
+                    # a past window has neither, so any "result" would be
+                    # the price leg alone wearing a calibrated verdict.
                     continue
                 try:
                     r = t.ext_fn(x, ext, fam, oh)

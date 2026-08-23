@@ -83,6 +83,11 @@ def _trigger_note(i: int) -> str:
         if tid in NEWS_FED:
             return ("trading/triggers.py — computes from the daily news "
                     "feed (wired 2026-08-14; display only, uncalibratable)")
+        if tid == "T12W_0102":
+            return ("trading/triggers.py — computes from the daily Upstox "
+                    "option-chain snapshot (wired 2026-08-23; needs your "
+                    "daily login; uncalibrated until the forward archive "
+                    "grows)")
         if tid in ("T12W_0111", "T12W_0112"):
             return ("trading/triggers.py — code wired but reads DATA_NEEDED: "
                     "NSE caps bulk-deal files at 70 rows/month, so 'no deal "
@@ -774,6 +779,39 @@ def stock_view(df: pd.DataFrame, symbol: str = "",
     return out
 
 
+def _wire_chain_items(out: dict[str, Reading], symbol: str) -> None:
+    """W-022 live-chain PCR + W-007 per-stock ATM IV, from the STORED daily
+    snapshot (Node 8). Never fetched in a page render; a login-less day
+    leaves the pre-existing readings untouched — an upgrade that only
+    upgrades."""
+    try:
+        from web import state
+        oc = (state.portfolio().option_chain or {})
+    except Exception:                                        # pragma: no cover
+        return
+    from .options_chain import is_fresh
+    asof = str(oc.get("asof") or "")
+    row = (oc.get("rows") or {}).get(f"{symbol}.NS") or (
+        oc.get("rows") or {}).get(symbol)
+    if not row or not is_fresh(asof):
+        return
+    try:
+        out["W-022"] = Reading(
+            "W-022", "VALUE", float(row["pcr_oi"]),
+            f"TRUE chain PCR-OI (nearest expiry {row.get('expiry')}), live "
+            f"snapshot {asof} — supersedes the committed-panel proxy today")
+    except (KeyError, TypeError, ValueError):
+        pass
+    iv_c, iv_p = row.get("iv_call"), row.get("iv_put")
+    if iv_c is not None:
+        skew = row.get("iv_skew")
+        out["W-007"] = Reading(
+            "W-007", "VALUE", float(iv_c),
+            f"per-stock ATM IV {iv_c:.1f}% (put {iv_p:.1f}%"
+            + (f", skew {skew:+.1f} pts" if skew is not None else "")
+            + f") — live chain {asof}; index VRP remains on the market page")
+
+
 def _wire_news_item(out: dict[str, Reading], symbol: str) -> None:
     """W-019 news sentiment, from the stored daily news pass.
 
@@ -977,6 +1015,12 @@ def _wire_intake_items(out: dict[str, Reading], symbol: str, value) -> None:
     # never fetched inside a page render (that would put a network call in the
     # request path) and never invented: no stored reading = DATA_NEEDED.
     _wire_news_item(out, symbol)
+
+    # Node 8 (2026-08-23): the daily option-chain snapshot upgrades W-022 to
+    # a TRUE chain PCR and gives W-007 its per-stock IV leg — but only on
+    # days the owner's login produced a fresh snapshot; otherwise the
+    # committed-panel proxy (W-022) / index VRP (W-007) stand as before.
+    _wire_chain_items(out, symbol)
 
     # W-022 put/call ratio — OI basis, not volume (said so in the note).
     pcr = XP.pcr_oi(symbol)

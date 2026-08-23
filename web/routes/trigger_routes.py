@@ -146,6 +146,7 @@ def trigger_detail(request: Request, ticker: str):
             ext = external_panels.prepare(
                 [ticker],
                 news=({ticker: news_detail} if news_detail else None),
+                chain=(state.portfolio().option_chain or None),
             ).for_ticker(ticker)
         except Exception:
             ext = None
