@@ -1420,6 +1420,54 @@ shipped (PR #71). READ BEFORE ANSWERING ANY "why does the app say X":**
   REQUIRES_15Y_BACKTEST rule stands; wiring it to entries needs their
   explicit order.
 
+**PENDING-FLAWS ROUND 1 (owner order 2026-08-23: "start fixing ur pending
+and flaws one by one"). 961 tests (33 new). Worked from the audit's own
+Node/Flaw list — docs/AUDIT_2026-08-12.md §7-8 is the canonical backlog.**
+- **Node 7 CLOSED — short_interest unstubbed.** The composite's last
+  constant (50, 5% weight in swing+positional, both in the daily rotation)
+  is now a LABELLED PROXY from data/fo_oi_daily_2024_2026.csv
+  (`trading/signals/futures_oi.py`): OI up + price down = short build-up =
+  low; OI down + price up = covering = high; window 5d, 10% OI = full tilt
+  (ASSUMED). Non-F&O names (~2,150) and a panel older than 10 days read the
+  old neutral 50 — the failure mode is the world before the fix; the
+  component self-activates when a fresh Colab panel lands. Measured:
+  TATASTEEL 30.3, RELIANCE 54.8 (panel asof 2026-08-11). STUB_COMPONENTS
+  is now EMPTY; piano tap page truth-passed.
+- **F6-tests CLOSED — engine.scan/refresh + scheduler now have direct
+  tests** (test_engine_direct.py, test_scheduler_jobs.py): floor on every
+  BUY, kill switch blocks all entries, −5% stop fires at a real price,
+  no-quote HOLD never invents a fill, dd-peak persists, 09:20 rotation
+  restores the owner's mode even when a mid-rotation scan crashes,
+  rotation lock, catch-up gates, 15:35 refresh survives an engine crash.
+- **Node 3 CLOSED (FII half) — the FII tide stays live.**
+  `trading/signals/fii_nsdl.py` = httpx port of the NSDL backfill script
+  (requests not in requirements) keeping BOTH traps: report→trading-date
+  shift (corr 0.955 shifted vs 0.075 not) and first-Equity-row-wins (the
+  cumulative row once wrote −2.79 lakh Cr over a +418 Cr day).
+  `db.save/load_fii_rows` (fii_daily, keyed by date) ·
+  `scheduler._weekly_fii_refresh` inside the Friday job, journals
+  DATA_REFRESH_FII/_FAILED/_SKIPPED · `flows.set_store_reader` injected at
+  boot (broker-attach pattern). **get_flows now MERGES by date: CSV <
+  store < live NSE** — the old either/or collapsed the calibrated 5-day
+  sum to one day whenever NSE answered. Staleness guard unchanged and
+  still rules the merged series. VERIFIED LIVE: 15 rows 2026-07-31→08-20
+  fetched from the sandbox. Basis note: NSDL=settlement, NSE=provisional
+  (~800 Cr/day gap, documented).
+- **Node 9 = docs/DESIGN_ONE_DAMAGE_NUMBER.md — decision doc, NO code.**
+  Proposes one canonical tail_down3_5d series with three consumers, zero
+  day-one behaviour change, danger tripwires untouched by design. Owner
+  must say "go" for steps 1-2; step 3 only after the 60-day window.
+- **STILL OPEN, honestly:** Node 3's monthly halves (constituents PIT
+  snapshot, fundamentals refresh) · Node 6 delivery triggers + recalib ·
+  Node 8 Upstox option chain job (would close TRG-102, W-022, W-007) ·
+  Node 10 register full-scale precompute · Nodes 11/12 = OWNER DECISIONS
+  (BT06 score recalibration; exit study) · F7 DII post-2025-03 (NSDL DII
+  is OTP-walled — genuinely unfetchable from cloud) · F8 live quotes need
+  the daily login (structural; token-nudge push is a listed suggestion,
+  not ordered).
+- Two old test pins updated to the new truths (flows either/or → merge;
+  short_interest STUB wording → proxy wording).
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

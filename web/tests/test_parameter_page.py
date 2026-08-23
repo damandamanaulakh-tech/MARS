@@ -48,10 +48,16 @@ def test_score_page_shows_live_floor():
     assert "≥ 55" in html
 
 
-def test_stub_parameter_is_honest():
+def test_short_interest_page_is_honest_about_being_a_proxy():
+    """Node 7 (2026-08-23): the stub went live as a futures-OI PROXY — the
+    page must say proxy, name the neutral rules, and never claim true
+    borrowed-share data exists."""
     _seed()
     html = _client().get("/scan/parameter/short_interest").text
-    assert "STUB" in html and "never faked" in html
+    assert "PROXY" in html
+    assert "futures" in html.lower()
+    assert "neutral" in html
+    assert "STUB" not in html
 
 
 def test_outcome_and_gates_pages_render():
