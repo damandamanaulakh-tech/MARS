@@ -66,14 +66,31 @@ REGISTRY: list[dict] = load_registry()
 REGISTRY_BY_ID: dict[str, dict] = {r["ID"]: r for r in REGISTRY}
 
 
-def _trigger_coverage_note() -> str:
-    """"trading/triggers.py (N compute, M from outside feeds, K DATA_NEEDED)"
-    with the numbers read from the live registry, not typed in here."""
+def _trigger_note(i: int) -> str:
+    """PER-TRIGGER truth for the TRG-xxx rows (owner complaint 2026-08-21:
+    the old aggregate string — "…1 DATA_NEEDED" — was printed identically on
+    ALL 112 rows, so the page READ as data-needed-everywhere when 111 of 112
+    actually compute. A label repeated out of context is a lie even when
+    each copy is technically true. Each row now states its own status."""
+    tid = f"T12W_{i:04d}"
     try:
-        from .triggers import COMPUTABLE, EXTERNAL_PENDING, EXTERNAL_WIRED
-        return (f"trading/triggers.py ({len(COMPUTABLE)} compute from OHLCV, "
-                f"{len(EXTERNAL_WIRED)} from outside feeds, "
-                f"{len(EXTERNAL_PENDING)} DATA_NEEDED)")
+        from .triggers import NEWS_FED, TRIGGERS
+        t = next((x for x in TRIGGERS if x.id == tid), None)
+        if t is None:                                       # pragma: no cover
+            return "trading/triggers.py"
+        if t.ohlcv_ready:
+            return "trading/triggers.py — computes daily from stored OHLCV"
+        if tid in NEWS_FED:
+            return ("trading/triggers.py — computes from the daily news "
+                    "feed (wired 2026-08-14; display only, uncalibratable)")
+        if tid in ("T12W_0111", "T12W_0112"):
+            return ("trading/triggers.py — code wired but reads DATA_NEEDED: "
+                    "NSE caps bulk-deal files at 70 rows/month, so 'no deal "
+                    "row' proves nothing; a paged pull turns both on")
+        if t.ext_fn is not None:
+            return ("trading/triggers.py — computes from committed panels "
+                    "(sector/RS, delivery, F&O OI, deals, analyst/earnings)")
+        return f"trading/triggers.py — DATA_NEEDED: {t.needs or 'outside feed'}"
     except Exception:                                       # pragma: no cover
         return "trading/triggers.py"
 
@@ -84,7 +101,7 @@ AM07_HAVE: dict[str, str] = {
     # DATA_NEEDED" for months after the external and news triggers were
     # wired. A hand-kept number on a page the owner reads is a lie waiting
     # to happen.
-    **{f"TRG-{i:03d}": _trigger_coverage_note() for i in range(1, 113)},
+    **{f"TRG-{i:03d}": _trigger_note(i) for i in range(1, 113)},
     **{f"TG-0{i}": "trading/triggers.py gates" for i in range(1, 9)},
     **{f"TC-0{i}": "trading/triggers.py clusters" for i in range(1, 9)},
     "A-01": "momentum/returns core", "A-02": "candles.py gap logic",
