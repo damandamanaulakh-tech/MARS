@@ -1386,6 +1386,40 @@ not fixed") — FOUND AND FIXED (PR #69), 930 tests. READ THIS FAULT CLASS.**
   really ~191 until the store grows (min_sample 200 → the F3 gate will
   fall back to the bucket until then — fail-safe, disclosed here).
 
+**2026-08-23 TRUST ROUND 2 (owner: "i fed you like a baby each single data…
+still data needed / Signal not working / engine still show parked / where is
+the lie / if something is not done say it"). Answered with facts, one fix
+shipped (PR #71). READ BEFORE ANSWERING ANY "why does the app say X":**
+- **The register's TRG rows printed ONE aggregate label 112 times**
+  ("…1 DATA_NEEDED") — each copy technically true, but repeated down the
+  page it read as data-needed-everywhere, and the owner concluded their
+  uploads changed nothing. FIXED: per-trigger truth per row (79 OHLCV /
+  21 panels / 9 news / 111-112 bulk-cap / 102 options chain). LESSON: an
+  aggregate label repeated out of context is a lie even when true.
+- **The real backlog stated to the owner: 9 register items** (macro
+  liquidity, yield-curve short leg, credit spreads, ESG, short interest,
+  R&D, durability, options chain ×1 trigger + 2 bulk-cap triggers). 64 →
+  9 since 08-11; nothing pending is something the owner supplied.
+- **Signal "irrelevant stocks" DIAGNOSED, not a fault**: the live book
+  holds ~12 positions the OLD full-NSE multi-mode rotation bought before
+  the 50-universe order (BERGEPAINT, COFORGE, ETERNAL, NAUKRI, PETRONET,
+  RADICO, SUPREMEIND, TVSMOTOR, GILT5YBEES bond ETF…— visible on the
+  owner's trigger-page screenshot as post-entry watch). Signal's pool
+  leads with held names by design. The old universe filter (NSE_EQ + EQ
+  series) INCLUDES ETFs — that is how a gilt ETF entered a momentum book.
+  All modes are locked to the 50 since PR #68; the stragglers remain HELD
+  until the owner sells or exits fire. Offered (not built): Signal
+  defaults to today's top-scored pick instead of alphabetical first.
+- **Ocean "parked" re-confirmed to the owner as THEIR OWN approved state**
+  (2026-07-27; no order since says enable; needs a crash guard first;
+  Settings toggle named). Do not treat "why parked" as an enable order.
+- **Told the owner plainly: green tests ≠ working app** (the /positions
+  500 proved it — fixtures model what I imagine; their screenshots beat
+  my suite). Selection sequence re-explained: it reads, never picks,
+  because THEIR calibration measured rise triggers ~chance and THEIR
+  REQUIRES_15Y_BACKTEST rule stands; wiring it to entries needs their
+  explicit order.
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
