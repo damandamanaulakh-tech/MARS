@@ -183,15 +183,73 @@ def flows_age_days(flows: Optional[list[FlowReading]]) -> Optional[int]:
     return (date.today() - max(f.trade_date for f in flows)).days
 
 
-def get_flows(max_age_days: int = MAX_FLOW_AGE_DAYS) -> Optional[list[FlowReading]]:
-    """Live NSE feed first (403s from cloud), committed CSV as fallback.
+# Node 3 (2026-08-23): the Mongo FII store, filled weekly from the NSDL
+# archive by the Friday job. Injected by web/state at boot (the broker-attach
+# pattern) so this trading-side module never imports web.db.
+_STORE_READER = None
 
-    STALENESS GUARD added 2026-07-31. Returns None when the newest reading is
-    older than `max_age_days` — a stale flow tide is not a signal, and feeding
-    one into the score dressed as current is the same fault as showing a stale
-    price. Callers already treat None as neutral 50, so the factor goes quiet
-    instead of lying. Pass max_age_days=0 to disable (research/backtests)."""
-    flows = fetch_latest_flows() or fetch_flows_from_csv()
+
+def set_store_reader(fn) -> None:
+    """fn(since_iso) -> [{date, fii_buy, fii_sell, fii_net}, ...] ascending."""
+    global _STORE_READER
+    _STORE_READER = fn
+
+
+def fetch_flows_from_store() -> Optional[list[FlowReading]]:
+    """FII rows from the Mongo store (NSDL settlement basis, trading-dated).
+    None when no reader is attached or the store is empty — an absent store
+    must never read as zero flow."""
+    if _STORE_READER is None:
+        return None
+    try:
+        rows = _STORE_READER("") or []
+    except Exception as e:                                   # noqa: BLE001
+        log.warning("FII store read failed: %s", e)
+        return None
+    out: list[FlowReading] = []
+    for r in rows:
+        try:
+            d = datetime.strptime(str(r.get("date", "")).strip()[:10],
+                                  "%Y-%m-%d").date()
+            buy = float(r.get("fii_buy") or 0.0)
+            sell = float(r.get("fii_sell") or 0.0)
+            net = float(r.get("fii_net") or 0.0)
+        except (ValueError, TypeError):
+            continue
+        if buy == 0.0 and sell == 0.0 and net == 0.0:
+            continue                       # a hole is not a flat market
+        out.append(FlowReading(trade_date=d, fii_buy=buy, fii_sell=sell,
+                               fii_net=net, dii_buy=0.0, dii_sell=0.0,
+                               dii_net=0.0))
+    out.sort(key=lambda r: r.trade_date, reverse=True)
+    return out or None
+
+
+def get_flows(max_age_days: int = MAX_FLOW_AGE_DAYS) -> Optional[list[FlowReading]]:
+    """All three sources MERGED by date (Node 3, 2026-08-23):
+
+      committed CSV (history base)  <  Mongo store (NSDL weekly tail)
+                                    <  live NSE API (today, provisional)
+
+    Later sources overwrite earlier ones per date — the live provisional
+    number wins any day it covers, matching the pre-merge precedence. Before
+    this merge the sources were an either/or: on days NSE answered, the
+    engine saw ONE day and the 5-day sum the thresholds are calibrated on
+    collapsed to a 1-day reading; on other days the committed CSV aged
+    toward the 45-day guard and the factor went quiet. The store keeps the
+    window populated between commits. Basis note: NSDL = settlement, NSE =
+    provisional (~800 Cr/day median gap, documented in fii_nsdl.py).
+
+    STALENESS GUARD unchanged (2026-07-31): newest reading older than
+    `max_age_days` returns None — callers treat None as neutral 50. Pass
+    max_age_days=0 to disable (research/backtests)."""
+    by_date: dict = {}
+    for source in (fetch_flows_from_csv(), fetch_flows_from_store(),
+                   fetch_latest_flows()):
+        for f in (source or []):
+            by_date[f.trade_date] = f
+    flows = sorted(by_date.values(), key=lambda r: r.trade_date,
+                   reverse=True) or None
     if not flows or not max_age_days:
         return flows
     age = flows_age_days(flows)

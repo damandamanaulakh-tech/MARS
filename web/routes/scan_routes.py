@@ -95,7 +95,7 @@ def scan_view(request: Request, error: str | None = None):
 
 # 🎹 Parameter Piano — turn the scan_matrix into grid sections. Every cell is
 # a REAL computed check for one ticker; nothing is padded or invented.
-_STUB_FACTORS = {"short_interest"}   # analyst_revision went live 2026-07-16
+_STUB_FACTORS: set = set()   # last stub (short_interest) went live 2026-08-23 (Node 7)
 # Derived from trading/candles.py so a new structure can never be mis-styled
 # here: gate-capable names colour the confirm lane, bearish names get the ⚠.
 from trading import candles as _candles  # noqa: E402
@@ -304,12 +304,16 @@ _PARAM_DEFS: dict[str, dict] = {
         "rule": "0–100; 62+ = pass (the live floor).",
         "knob": "trading/scoring.py score_vol_adj_upside · weight: trading/modes.py WEIGHTS"},
     "short_interest": {
-        "title": "Short interest (STUB — waiting)",
-        "what": ("Would measure bets against the stock. NO free live source "
-                 "(NSE blocks cloud servers) — so it sits at neutral 50 and is "
-                 "clearly marked, never faked."),
-        "rule": "Fixed 50 until a data feed exists. Shown grey, counts nowhere.",
-        "knob": "trading/scoring.py (stub) — needs a data feed decision to go live"},
+        "title": "Short interest (futures-OI proxy)",
+        "what": ("Bets against the stock, read from futures open interest — "
+                 "a PROXY: true borrowed-share data has no free NSE source. "
+                 "OI rising while price falls = shorts building = LOW score; "
+                 "OI falling while price rises = short covering = HIGH. Only "
+                 "~278 F&O names have futures; everything else reads neutral "
+                 "50, and so does a panel older than 10 days — stale OI is "
+                 "never dressed up as today's shorts."),
+        "rule": "0–100; 50 = neutral / no F&O / stale panel. Weight 5% in swing & positional only.",
+        "knob": "trading/signals/futures_oi.py · panel: data/fo_oi_daily_2024_2026.csv"},
     "analyst_revision": {
         "title": "Analyst revisions",
         "what": "Are analysts raising or cutting their estimates for this stock?",

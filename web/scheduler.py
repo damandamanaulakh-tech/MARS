@@ -389,6 +389,53 @@ def _push_phone_alerts(where: str) -> None:
         log.warning("[%s] phone-alert push failed: %s", where, e)
 
 
+def _weekly_fii_refresh() -> None:
+    """Node 3 (owner order 2026-08-23): weekly NSDL FPI tail into Mongo.
+
+    Runs inside the Friday 16:30 job. Fetches the last two calendar months
+    of daily FPI equity cash (report-date shift + cumulative-row guard
+    handled in trading/signals/fii_nsdl.py), upserts them into the
+    `fii_daily` collection keyed by date, and journals the outcome either
+    way — a silent skip is forbidden. Failure changes nothing: get_flows
+    keeps its other two sources and the staleness guard stays in charge.
+    """
+    from datetime import datetime as _dt
+
+    from . import db, state
+    p = state.portfolio()
+
+    def _journal(action, why):
+        try:
+            p.decision_journal.append(
+                {"ts": _dt.utcnow().isoformat(), "action": action, "why": why})
+            p.save()
+        except Exception:
+            pass
+
+    if not db.is_connected():
+        _journal("DATA_REFRESH_FII_SKIPPED",
+                 "Weekly FII refresh skipped: Mongo offline (nowhere to "
+                 "store the rows).")
+        return
+    try:
+        from trading.signals.fii_nsdl import recent_rows
+        rows = recent_rows(months=2)
+        if not rows:
+            _journal("DATA_REFRESH_FII_FAILED",
+                     "Weekly FII refresh: NSDL archive returned nothing — "
+                     "flows keep their committed-CSV + live-API sources.")
+            return
+        n = db.save_fii_rows(rows)
+        _journal("DATA_REFRESH_FII",
+                 f"Weekly FII refresh: {n} NSDL rows stored "
+                 f"({rows[0][0]} → {rows[-1][0]}, settlement basis, "
+                 "trading-dated). The 5-day FII sum stays live.")
+        log.info("[fri 16:30] FII refresh: %d rows to %s", n, rows[-1][0])
+    except Exception as e:
+        log.exception("weekly FII refresh failed: %s", e)
+        _journal("DATA_REFRESH_FII_FAILED", f"Weekly FII refresh crashed: {e}")
+
+
 def refresh_breadth_store(where: str = "manual") -> dict:
     """F3 fix (owner order 2026-08-20): compute market breadth over the FULL
     Mongo OHLCV store (~2,700 names, one streamed $slice query) and persist
@@ -507,6 +554,10 @@ def _weekly_history_topup() -> None:
         # F3: the store just got a week of fresh closes — recompute the
         # full-store breadth reading the A3 gate prefers.
         refresh_breadth_store("post-topup")
+        # Node 3: append the week's FII tail from NSDL (public, cloud-
+        # reachable) so the 5-day FII sum the thresholds are calibrated on
+        # stays populated between repo commits.
+        _weekly_fii_refresh()
     except Exception as e:
         log.exception("weekly history top-up failed: %s", e)
         _journal("DATA_REFRESH_FAILED", f"Weekly OHLCV top-up crashed: {e}")

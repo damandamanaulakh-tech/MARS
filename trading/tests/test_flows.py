@@ -154,7 +154,13 @@ def test_fresh_flows_pass_the_staleness_guard():
     fresh = [FlowReading(date.today() - timedelta(days=1),
                          12_000.0, 8_000.0, 4_000.0, 0.0, 0.0, 0.0)]
     with patch("trading.signals.flows.fetch_latest_flows", return_value=fresh):
-        assert get_flows() == fresh
+        # Node 3 (2026-08-23): sources MERGE now — the live reading tops a
+        # series that also carries the committed history, instead of
+        # replacing it (the old either/or collapsed the 5-day sum to one
+        # day). Fresh passes the guard; the live row wins its date.
+        flows = get_flows()
+        assert flows is not None
+        assert flows[0] == fresh[0]
 
 
 def test_flows_age_days_is_none_without_data():

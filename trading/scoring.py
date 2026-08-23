@@ -6,10 +6,13 @@ Weights match what the user specified:
   short_interest 0.05, analyst_revision 0.05, breakout_quality 0.05,
   sector_alignment 0.10
 
-Three components (catalyst, short_interest, analyst_revision) are stubbed
-at neutral 50 because no free data source exists for NSE. When real feeds
-are wired in later, only the per-component compute function changes — the
-weights and engine code stay identical.
+All ten components now compute (the last stub fell 2026-08-23, Node 7):
+catalyst = live news sentiment (neutral 50 without the API key),
+analyst_revision = consensus revisions (live 2026-07-16), short_interest =
+a LABELLED PROXY from the committed futures-OI panel (short build-up low /
+covering high; non-F&O names and a stale panel read neutral 50). Weights
+and engine code were untouched at every unstub — only the per-component
+compute functions changed, as designed.
 """
 
 from __future__ import annotations
@@ -131,6 +134,16 @@ def score_sector_alignment(
     return _clip(50 + avg * 10)
 
 
+def _short_interest_score(ticker: str, close) -> float:
+    """Node 7: futures-OI short-interest proxy; 50.0 on any failure — the
+    exact value the retired stub always returned."""
+    try:
+        from .signals.futures_oi import score_short_interest
+        return score_short_interest(ticker, close)
+    except Exception:
+        return 50.0
+
+
 def _analyst_revision_score(ticker: str) -> float:
     """Live analyst consensus (TESTED 2026-07-16: RELIANCE 96.1 / CGCL 25.0).
     Neutral 50 only when no honest number exists (backtest, no coverage,
@@ -170,7 +183,12 @@ def compute_score(
         "catalyst":          catalyst_score,
         "relative_strength": score_relative_strength(close, bench_close, cfg),
         "vol_adj_upside":    score_vol_adj_upside(close, cfg),
-        "short_interest":    50.0,   # stub (no free PCR source; NSE 403s cloud)
+        # Node 7 (2026-08-23): was a CONSTANT 50 for months. Now a labelled
+        # PROXY from the committed futures-OI panel — short build-up (OI up,
+        # price down) scores low, covering scores high; non-F&O names and a
+        # stale panel return the old neutral 50, so the failure mode of this
+        # fix is exactly the world before it.
+        "short_interest":    _short_interest_score(ticker, close),
         "analyst_revision":  _analyst_revision_score(ticker),
         "breakout_quality":  score_breakout_quality(close, cfg),
         "sector_alignment":  score_sector_alignment(ticker, universe_history, cfg),

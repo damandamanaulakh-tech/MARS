@@ -212,6 +212,40 @@ def load_history_doc(ticker: str) -> Optional[dict]:
         return None
 
 
+def save_fii_rows(rows: list) -> int:
+    """Upsert NSDL FPI daily rows (Node 3). rows = [(iso_date, buy, sell,
+    net)]. Keyed by date so re-fetches overwrite, never duplicate. Returns
+    how many were written (0 when Mongo is down — the caller journals)."""
+    if not _CONNECTED or _DB is None or not rows:
+        return 0
+    n = 0
+    try:
+        for d, buy, sell, net in rows:
+            _DB.fii_daily.replace_one(
+                {"_id": str(d)},
+                {"_id": str(d), "date": str(d), "fii_buy": float(buy),
+                 "fii_sell": float(sell), "fii_net": float(net),
+                 "source": "nsdl_settlement"},
+                upsert=True)
+            n += 1
+    except Exception as e:
+        log.warning("Mongo save_fii_rows failed: %s", e)
+    return n
+
+
+def load_fii_rows(since_iso: str = "") -> list:
+    """FII daily rows from the store, ascending. [] when Mongo is down —
+    flows.py treats an empty store as 'no store', never as zero flow."""
+    if not _CONNECTED or _DB is None:
+        return []
+    try:
+        q = {"date": {"$gte": since_iso}} if since_iso else {}
+        return list(_DB.fii_daily.find(q).sort("date", 1))
+    except Exception as e:
+        log.warning("Mongo load_fii_rows failed: %s", e)
+        return []
+
+
 def history_tails(rows: int):
     """Stream every stored ticker's LAST `rows` candles (F3 breadth fix).
 

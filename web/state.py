@@ -282,6 +282,14 @@ def _bootstrap() -> None:
     # `disable_exits` in an old Mongo settings doc can never re-freeze exits.
     _CFG.disable_exits = False
 
+    # Node 3 (2026-08-23): hand flows.py its Mongo FII-store reader — the
+    # broker-attach pattern, so the trading module never imports web.db.
+    try:
+        from trading.signals import flows as _flows
+        _flows.set_store_reader(db.load_fii_rows)
+    except Exception:
+        log.exception("FII store reader attach failed")
+
     # Load portfolio: prefer Mongo (survives restarts), fall back to JSON
     _PORTFOLIO = Portfolio.load_or_fresh(_CFG)
     persisted = db.load_portfolio()
