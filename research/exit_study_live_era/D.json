@@ -1,0 +1,22 @@
+{
+ "2019": {
+  "variant": "D_target+20_t15",
+  "window": "2019",
+  "entry_floor": 62.0,
+  "return_pct": -5.65,
+  "alpha_pct": -18.4,
+  "bench_pct": 12.75,
+  "max_dd_pct": -10.98,
+  "trades": 254,
+  "win_rate_pct": 27.2,
+  "sharpe": -0.53,
+  "exit_reasons": {
+   "STOP_LOSS": 162,
+   "TAKE_PROFIT": 35,
+   "TRAILING_STOP": 8,
+   "MAX_HOLD": 6,
+   "BACKTEST_END": 43
+  },
+  "secs": 107.6
+ }
+}

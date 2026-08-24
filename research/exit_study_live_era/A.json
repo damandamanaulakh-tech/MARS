@@ -1,0 +1,22 @@
+{
+ "2019": {
+  "variant": "A_baseline_-5_+12_t15",
+  "window": "2019",
+  "entry_floor": 62.0,
+  "return_pct": -6.69,
+  "alpha_pct": -19.44,
+  "bench_pct": 12.75,
+  "max_dd_pct": -11.47,
+  "trades": 298,
+  "win_rate_pct": 31.5,
+  "sharpe": -0.67,
+  "exit_reasons": {
+   "STOP_LOSS": 186,
+   "TAKE_PROFIT": 66,
+   "TRAILING_STOP": 4,
+   "MAX_HOLD": 2,
+   "BACKTEST_END": 40
+  },
+  "secs": 110.3
+ }
+}
