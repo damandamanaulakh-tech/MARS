@@ -1673,7 +1673,28 @@ that scope is right.**
 - RUN BUG: first pass crashed AFTER the 25-min panel pass on
   `(DatetimeIndex <= ts).to_numpy()` (comparison already returns
   ndarray) — checkpoint made the re-run instant. Fix phase-boundary code
-  cheaply testable before long runs. all 8 now built (ticket +
+  cheaply testable before long runs.
+
+**NODE 12 EVIDENCE REFRESHED (owner: "node 12", 2026-08-24) — the exit
+question is REOPENED BY THE OWNER and awaits their pick; NO engine change
+shipped.** The committed exit study was era-pinned at floor 55; the live
+floor is 62, so before asking for the decision the three relevant
+variants were re-run at the LIVE floor through the SAME study machinery
+(scripts/exit_study_live_era.py — thin wrapper importing
+exit_variant_study's loader/make_cfg/run_backtest; one resumable JSON per
+variant, survived a mid-run container recycle). VERDICT SURVIVES THE ERA:
+**D (−5/+20/trail−15) beats live A (−5/+12/t15) in ALL FOUR windows at
+floor 62** — totals +69.90 vs +54.22 (+15.7pp/7.5y; was +74.69 vs +57.44
+at 55); D15 between (+58.01). D's trade-offs, stated: trail ALIVE
+(8/56/31/48 fires vs A's dead 4/9/2/11), fewer trades (2,146 vs 2,891),
+LOWER win rate (26-38% vs 32-42% — money from the tail, not hit rate),
+2024-26H1 worst-DD −20.75 vs −18.93 (elsewhere same/better).
+research/exit_study_live_era/summary.md = the record. Same harness
+caveats as every study (survivorship panel, comparison fair). Decision
+card put to the owner: switch to D / keep +12 / D15. "+12 fixed" STANDS
+until their word — do not wire anything from this block without it.
+
+User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never
