@@ -1635,7 +1635,45 @@ the frozen-at-commit data files now auto-pull. Node 3 fully CLOSED.**
   owner. docs/DESIGN_ONE_DAMAGE_NUMBER.md carries the status postscript.
 - Test-writing note: my first cut asserted `"canonical store" not in
   note` while the FALLBACK label itself says "no fresh canonical store" —
-  assert on the bracket markers, not on words a sibling label may reuse. all 8 now built (ticket +
+  assert on the bracket markers, not on words a sibling label may reuse.
+
+**NODE 11 / BT06 SHIPPED (owner: "node 11", 2026-08-24), 1,002 tests
+(5 new) — the side-score weights are MEASURED; the score formula stops
+being ASSUMED. Display/watchlist only, and the run's own verdict says
+that scope is right.**
+- scripts/bt06_score_calibration.py: same 94,479 windows/labels/panel/
+  production-trigger-code as the 2026-08-09 run; weights FIT on the
+  2014-2020 train half (w = max(0, own-side lift − 1), zero under 30
+  train fires — their own BT08 bar), judged ONLY on 2020-2026.
+  Checkpointed (windows.npz committed, 896K — the fit re-runs in
+  seconds). Run outputs in research/bt06/run_2026-08-24/.
+- **38 of 79 triggers earned weight.** Top weights independently
+  reproduce the danger-layer story: ATR Shock 2.11, Support Break 1.22,
+  Panic Expansion 1.00 — the collapse tripwires dominate.
+- **HOLDOUT VERDICT, stated plainly everywhere: even recalibrated, the
+  entry gate LOST on the test half** — GATE_RISE_ENTRY_01 went from 1
+  entry/-5% (assumed weights; the inert gate reproduced) to 8 entries,
+  25% win, −1.49%/trade (measured). RISE scores never beat chance at any
+  usable threshold (lift ≤1.0 wherever n>16); COLLAPSE score at 65/70 =
+  lift 1.13/1.25 — the aggregate DILUTES the verified tripwires. A
+  weighted sum of no-edge triggers is still no edge (rise-side edge
+  rejected a FOURTH independent time). The measured score is MORE HONEST,
+  not more predictive — REQUIRES_15Y_BACKTEST scope stands on evidence.
+- Wiring: triggers.MEASURED_WEIGHTS loads the run CSV at import (missing
+  file → sheet weights + ASSUMED label, byte-identical pre-BT06
+  behaviour, verified); side_scores uses it; a side with NO weighted
+  trigger is ABSENT from the dict (no measured evidence ≠ measured 0;
+  in practice all 4 sides have weighted triggers: RISE 8, FALL 15,
+  COLLAPSE 8, REVERSAL_UP 7). SCORE_NOTE (new) carries the formula AND
+  the holdout verdict; /triggers score_note reads it (was
+  ASSUMED_CONSTANTS["score_formula"], which now describes only the still-
+  assumed SHAPE). MEASURED_CONSTANT_SOURCE["side_score_weights"] cites
+  the run with the loss numbers. Old test pinning sheet-weight arithmetic
+  updated to pin whichever weight source side_scores really uses.
+- RUN BUG: first pass crashed AFTER the 25-min panel pass on
+  `(DatetimeIndex <= ts).to_numpy()` (comparison already returns
+  ndarray) — checkpoint made the re-run instant. Fix phase-boundary code
+  cheaply testable before long runs. all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never

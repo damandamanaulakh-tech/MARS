@@ -98,6 +98,15 @@ MEASURED_CONSTANT_SOURCE = {
     "oversold_exit_rsi": ("UNCHANGED production value — the sweep's two halves "
                           "disagreed on this axis (train best 45, test best "
                           "50), so it was not fitted"),
+    "side_score_weights": (
+        "BT06 run 2026-08-24 (research/bt06/run_2026-08-24): weights fit on "
+        "the 2014-2020 train half as max(0, own-side lift - 1), zero under "
+        "30 train fires; 38 of 79 triggers earned weight > 0. Holdout "
+        "(2020-2026) verdict, stated plainly: the entry gate went from 1 "
+        "losing entry (assumed weights) to 8 entries at 25% win / -1.49% "
+        "expectancy — still a loser — and RISE scores never beat chance at "
+        "any usable threshold. The measured score is more honest, not more "
+        "predictive; display/watchlist only stands on its own evidence."),
 }
 
 ASSUMED_CONSTANTS = {
@@ -110,9 +119,54 @@ ASSUMED_CONSTANTS = {
     "near_level_band": 0.03,         # generic "near support/high"
     "htf_prior_gain": 0.20,          # T12W_0085 "prior strong gain"
     "htf_flag_width": 0.10,          # T12W_0085 "tight flag"
-    "score_formula": "weighted % of computable triggers fired (ASSUMED — "
-                     "sheets define gates, not the score formula)",
+    "score_formula": "score SHAPE: weighted % of computable triggers fired "
+                     "(the shape stays ASSUMED — their sheets define gates, "
+                     "not a formula; the WEIGHTS are measured since BT06, "
+                     "see MEASURED_CONSTANT_SOURCE['side_score_weights'])",
 }
+
+
+# --------------------------------------------------------------------------
+# BT06 (Node 11, owner order 2026-08-24): MEASURED side-score weights.
+# Fit on the 2014-2020 train half (weight = max(0, lift-1), zero under 30
+# train fires — their own BT08 evidence bar), judged on the 2020-2026
+# holdout; run committed at research/bt06/. Loaded at import like
+# CALIBRATION so code can never drift from the committed run. File missing
+# or malformed => empty dict => side_scores falls back to the sheet
+# weights and the page keeps the ASSUMED label — the pre-BT06 world.
+# --------------------------------------------------------------------------
+_BT06_CSV = (Path(__file__).resolve().parents[1] / "research" / "bt06" /
+             "run_2026-08-24" / "side_score_weights.csv")
+
+
+def _load_measured_weights() -> dict[str, float]:
+    try:
+        with open(_BT06_CSV) as f:
+            rows = list(csv.DictReader(f))
+        out = {r["trigger_id"]: float(r["measured_weight"]) for r in rows}
+        return out if out else {}
+    except (OSError, KeyError, ValueError) as e:
+        log.warning("BT06 weights unavailable (%s) — side scores keep the "
+                    "ASSUMED sheet weights", e)
+        return {}
+
+
+MEASURED_WEIGHTS = _load_measured_weights()
+
+# What the /triggers page prints beside every side score — it must say
+# which weight set actually computed the number on screen.
+SCORE_NOTE = (
+    ("weighted % of computable triggers fired — weights MEASURED by BT06 "
+     "(train-lift fit 2014-2020, holdout-judged 2020-2026, "
+     "research/bt06/run_2026-08-24); triggers at or below chance carry "
+     "weight 0, and a side with no weighted trigger shows no score. "
+     "The score SHAPE itself remains assumed. Holdout verdict: even "
+     "recalibrated, the entry gate lost on the test half (8 entries, "
+     "25% win, -1.49%/trade) and rise scores never beat chance — this "
+     "score reads, it never buys.")
+    if MEASURED_WEIGHTS else
+    ("weighted % of computable triggers fired (ASSUMED — sheets define "
+     "gates, not the score formula; BT06 weights file not found)"))
 
 
 # --------------------------------------------------------------------------
@@ -1376,20 +1430,28 @@ def family_counts(hits: dict[str, Optional[bool]]) -> dict[str, int]:
 def side_scores(hits: dict[str, Optional[bool]]) -> dict[str, float]:
     """Weighted % of computable triggers fired, per side (0-100).
 
-    ASSUMED formula — the owner's sheets define the gate thresholds but never
-    the score formula itself; calibrating this is the 15Y backtest's job
-    (their BT06). Displayed with that label, never silently."""
+    Since BT06 (Node 11, 2026-08-24) the weights are MEASURED — fit from
+    each trigger's train-half lift, holdout-judged (run committed at
+    research/bt06/). The score SHAPE is unchanged and still an assumption
+    (their sheets define gates, never a formula). A side where NO trigger
+    earned measured weight is ABSENT from the result — "no measured
+    evidence on this side" is a different fact from a score of 0, and the
+    gates' .get(side, 0) default treats it conservatively. With the BT06
+    file missing this falls back to the sheet weights, the pre-BT06
+    world, and the page label says ASSUMED."""
+    weights = MEASURED_WEIGHTS or {t.id: t.weight for t in TRIGGERS}
     acc: dict[str, list[float]] = {}
     for t in TRIGGERS:
         h = hits.get(t.id)
         if h is None:
             continue
+        w = weights.get(t.id, 0.0)
         fired, total = acc.setdefault(t.side, [0.0, 0.0])
-        acc[t.side][1] = total + t.weight
+        acc[t.side][1] = total + w
         if h:
-            acc[t.side][0] = fired + t.weight
-    return {side: round(100.0 * f / tot, 1) if tot else 0.0
-            for side, (f, tot) in acc.items()}
+            acc[t.side][0] = fired + w
+    return {side: round(100.0 * f / tot, 1)
+            for side, (f, tot) in acc.items() if tot > 0}
 
 
 def data_quality_score(hits: dict[str, Optional[bool]]) -> float:
