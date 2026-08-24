@@ -294,6 +294,15 @@ def _bootstrap() -> None:
     except Exception:
         log.exception("FII store reader attach failed")
 
+    # Node 3 rest (2026-08-24): same pattern for the index-daily tail and
+    # the fundamentals overlay — trading modules never import web.db.
+    try:
+        from trading import data_refresh as _dr
+        _dr.set_index_reader(db.load_index_rows)
+        _dr.set_fundamentals_reader(db.load_fundamentals_rows)
+    except Exception:
+        log.exception("data_refresh reader attach failed")
+
     # Load portfolio: prefer Mongo (survives restarts), fall back to JSON
     _PORTFOLIO = Portfolio.load_or_fresh(_CFG)
     persisted = db.load_portfolio()
