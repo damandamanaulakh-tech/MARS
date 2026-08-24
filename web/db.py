@@ -418,6 +418,21 @@ def save_settings(overrides: dict[str, Any], doc_id: str = "default") -> None:
         log.warning("Mongo save_settings failed: %s", e)
 
 
+def unset_settings_keys(keys: list, doc_id: str = "default") -> None:
+    """Remove specific keys from a settings doc ($unset). save_settings is
+    a $set merge by design (PR #68) and cannot delete — migrations that
+    retire a stored override need this."""
+    if not _CONNECTED or _DB is None or not keys:
+        return
+    try:
+        _DB.settings.update_one(
+            {"_id": doc_id},
+            {"$unset": {str(k): "" for k in keys}},
+        )
+    except Exception as e:
+        log.warning("Mongo unset_settings_keys failed: %s", e)
+
+
 def load_settings(doc_id: str = "default") -> dict:
     if not _CONNECTED or _DB is None:
         return {}

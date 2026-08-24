@@ -34,15 +34,19 @@ are impossible now.
    "1.25 lac, 125000, not percentage"), up to 80 slots as the book grows.
    Each stock must also be rising on its own (not just "least bad").
 2. **Sell by rails, not feelings:** every position carries **−5% stop /
-   +12% target** from day one (your calls: stop 2026-07-26, target
-   2026-07-21), a score-decay exit that dumps dead leaders (never your own
-   manual picks — those only you sell, or the stop/target does), and a
-   200-day maximum hold. (A −15% trailing stop exists in the rules but at
-   −5%/+12% the target always closes first — Settings says this plainly.)
-3. **Bad weather = brake:** when Nifty is below its 200-day average
-   (a "correction" — the app decides this itself from live data), it stops
-   buying and holds cash. This one rule cut crash losses from −61% to −26%
-   in 30 years of testing.
+   +20% target** from day one (your calls: stop 2026-07-26; target raised
+   +12→+20 on 2026-08-24 — you picked "Switch to D" after both exit
+   studies showed it winning all four test windows), a **−15% trailing
+   stop that is now genuinely live** (above +17.6% it protects the gain;
+   at the old +12 it could never fire), a score-decay exit that dumps dead
+   leaders (never your own manual picks — those only you sell, or the
+   stop/target does), and a 200-day maximum hold.
+3. **Bad weather = brake — SWITCHED OFF at your order (2026-08-09,
+   "i want to take risk on 200 DMA"):** a correction (Nifty below its
+   200-day average) no longer blocks buying by itself. Still standing:
+   panic blocks, the breadth gate, the score floor, the −5% stop, the
+   kill switch, and the crash cash-reserve ladder (20% correction / 40%
+   panic). The Settings toggle restores the brake.
 4. **The green light inside corrections (new):** if the fear index (India
    VIX) falls back to 75% of its panic peak, the app starts buying again
    early — the only correction tactic that beat holding cash in 10 real

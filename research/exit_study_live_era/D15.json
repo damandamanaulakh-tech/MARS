@@ -1,0 +1,82 @@
+{
+ "2019": {
+  "variant": "D15_target+15_t12",
+  "window": "2019",
+  "entry_floor": 62.0,
+  "return_pct": -5.8,
+  "alpha_pct": -18.55,
+  "bench_pct": 12.75,
+  "max_dd_pct": -11.22,
+  "trades": 287,
+  "win_rate_pct": 29.3,
+  "sharpe": -0.55,
+  "exit_reasons": {
+   "STOP_LOSS": 170,
+   "TAKE_PROFIT": 50,
+   "TRAILING_STOP": 23,
+   "MAX_HOLD": 3,
+   "BACKTEST_END": 41
+  },
+  "secs": 108.9
+ },
+ "2020-21": {
+  "variant": "D15_target+15_t12",
+  "window": "2020-21",
+  "entry_floor": 62.0,
+  "return_pct": 38.61,
+  "alpha_pct": -3.85,
+  "bench_pct": 42.45,
+  "max_dd_pct": -14.86,
+  "trades": 908,
+  "win_rate_pct": 38.4,
+  "sharpe": 1.26,
+  "exit_reasons": {
+   "STOP_LOSS": 485,
+   "TAKE_PROFIT": 300,
+   "TRAILING_STOP": 67,
+   "MAX_HOLD": 1,
+   "BACKTEST_END": 55
+  },
+  "secs": 398.6
+ },
+ "2022-23": {
+  "variant": "D15_target+15_t12",
+  "window": "2022-23",
+  "entry_floor": 62.0,
+  "return_pct": 17.97,
+  "alpha_pct": -5.32,
+  "bench_pct": 23.29,
+  "max_dd_pct": -18.69,
+  "trades": 600,
+  "win_rate_pct": 38.8,
+  "sharpe": 0.74,
+  "exit_reasons": {
+   "STOP_LOSS": 312,
+   "TRAILING_STOP": 46,
+   "TAKE_PROFIT": 181,
+   "MAX_HOLD": 8,
+   "BACKTEST_END": 53
+  },
+  "secs": 393.5
+ },
+ "2024-26H1": {
+  "variant": "D15_target+15_t12",
+  "window": "2024-26H1",
+  "entry_floor": 62.0,
+  "return_pct": 7.23,
+  "alpha_pct": -2.54,
+  "bench_pct": 9.77,
+  "max_dd_pct": -19.63,
+  "trades": 791,
+  "win_rate_pct": 29.7,
+  "sharpe": 0.29,
+  "exit_reasons": {
+   "STOP_LOSS": 478,
+   "TAKE_PROFIT": 217,
+   "TRAILING_STOP": 85,
+   "MAX_HOLD": 10,
+   "BACKTEST_END": 1
+  },
+  "secs": 525.8
+ }
+}

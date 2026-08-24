@@ -45,7 +45,7 @@ def test_manual_blank_tag_gets_momentum_numbers():
     assert retag_positions_per_mode(p, NOW) == 1
     pos = p.positions["CHOLAFIN.NS"]
     assert pos.stop_price == round(1688.14 * 0.95, 2)      # owner -5% (2026-07-26)
-    assert pos.target_price == round(1688.14 * 1.12, 2)    # user's +12 (2026-07-21)
+    assert pos.target_price == round(1688.14 * 1.20, 2)    # owner's +20 (Node 12, 2026-08-24)
     entry = [e for e in p.decision_journal if e["action"] == "RETAG_EXITS"]
     assert entry and entry[0]["mode_used"] == "nifty200_momentum"
 
@@ -58,7 +58,7 @@ def test_stale_intraday_tag_gets_momentum_numbers():
     assert retag_positions_per_mode(p, NOW) == 1
     pos = p.positions["CGCL.NS"]
     assert pos.stop_price == round(219.03 * 0.95, 2)       # owner -5% (2026-07-26)
-    assert pos.target_price == round(219.03 * 1.12, 2)     # user's +12 (2026-07-21)
+    assert pos.target_price == round(219.03 * 1.20, 2)     # owner's +20 (Node 12, 2026-08-24)
 
 
 def test_same_day_intraday_keeps_intraday_numbers():

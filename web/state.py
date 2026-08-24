@@ -282,6 +282,25 @@ def _bootstrap() -> None:
         db.save_settings({"fixed_size_order_2026_08_04": True},
                          doc_id="migrations")
 
+    # Owner order 2026-08-24 (Node 12): exit bracket -5/+20/trail-15 — the
+    # owner picked "Switch to D" after both exit studies (floor-55 committed
+    # + floor-62 live-era rerun) showed it beating +12 in all four windows.
+    # The preset now carries +20; this one-time migration clears any STORED
+    # exit override (top-level settings or per-mode preset_overrides) so a
+    # pre-order Settings edit can't silently pin the superseded +12.
+    if not db.load_settings(doc_id="migrations").get("exit_order_2026_08_24"):
+        db.unset_settings_keys(["take_profit_pct", "trailing_stop_pct"])
+        po = dict(db.load_settings().get("preset_overrides") or {})
+        mo = {k: v for k, v in dict(po.get("nifty200_momentum") or {}).items()
+              if k not in ("take_profit_pct", "trailing_stop_pct")}
+        if mo:
+            po["nifty200_momentum"] = mo
+        else:
+            po.pop("nifty200_momentum", None)
+        db.save_settings({"preset_overrides": po})
+        _CFG.preset_overrides = po
+        db.save_settings({"exit_order_2026_08_24": True}, doc_id="migrations")
+
     # Apply mode preset (sets stops, target, etc. per chosen horizon)
     _CFG.apply_mode_preset()
     # Policy C (user-approved 2026-07-16): exits ON — pinned here so a stale

@@ -122,6 +122,25 @@ def test_live_momentum_floor_is_62_and_the_dataclass_default_is_dead():
     assert PRESETS["positional"].min_score_to_enter == 68.0
 
 
+# ---- owner order 2026-08-24 (Node 12): "Switch to D" -------------------
+
+def test_live_momentum_bracket_is_minus5_plus20_trail15():
+    """The owner picked variant D from the options card after BOTH exit
+    studies (floor-55 committed + floor-62 live-era rerun) showed
+    -5/+20/trail-15 beating +12 in all four windows. At +20 the -15 trail
+    arms above +17.65% and is genuinely reachable — pin that too."""
+    from trading.modes import PRESETS
+    p = PRESETS["nifty200_momentum"]
+    assert p.stop_loss_pct == -0.05
+    assert p.take_profit_pct == 0.20
+    assert p.trailing_stop_pct == -0.15
+    cfg = Config()
+    cfg.apply_mode_preset()
+    assert cfg.take_profit_pct == 0.20
+    ok, need_pct = cfg.trail_is_reachable()
+    assert ok, f"trail must be live at +20 (needs peak {need_pct}%)"
+
+
 def test_a_62_score_buys_and_a_61_does_not():
     """Drive the engine's real eligibility comparison at the new floor."""
     cfg = Config(mode="nifty200_momentum", state_dir="/tmp/floor62_tests")

@@ -196,10 +196,16 @@ PRESETS: dict[str, ModePreset] = {
                                      # 12" — tighter protection, owner's order;
                                      # UNTESTED at this number (N9 grid used -12);
                                      # 60-day window judges
-        take_profit_pct=0.12,        # user decision 2026-07-21: "+30 too much,
-                                     # keep 12% for now" (untested vs +30 — the
-                                     # 60-day window is the judge; trail -15
-                                     # remains the workhorse exit)
+        take_profit_pct=0.20,        # OWNER ORDER 2026-08-24 (Node 12): picked
+                                     # "Switch to D" from the options card after
+                                     # BOTH exit studies (floor 55 committed +
+                                     # fresh floor-62 live-era rerun) showed
+                                     # -5/+20/trail-15 beating +12 in all four
+                                     # windows (+69.9 vs +54.2 total at 62).
+                                     # Supersedes 2026-07-21 "keep 12% for now".
+                                     # At +20 the -15 trail ARMS above +17.6%
+                                     # and becomes a real exit (was dead at +12:
+                                     # a 0.24pp window).
         trailing_stop_pct=-0.15,
         score_decay_exit=40.0,
         max_hold_days=200,           # semi-annual rebalance horizon

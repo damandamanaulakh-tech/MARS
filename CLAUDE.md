@@ -1673,7 +1673,45 @@ that scope is right.**
 - RUN BUG: first pass crashed AFTER the 25-min panel pass on
   `(DatetimeIndex <= ts).to_numpy()` (comparison already returns
   ndarray) — checkpoint made the re-run instant. Fix phase-boundary code
-  cheaply testable before long runs. all 8 now built (ticket +
+  cheaply testable before long runs.
+
+**NODE 12 EVIDENCE REFRESHED (owner: "node 12", 2026-08-24) — the exit
+question is REOPENED BY THE OWNER and awaits their pick; NO engine change
+shipped.** The committed exit study was era-pinned at floor 55; the live
+floor is 62, so before asking for the decision the three relevant
+variants were re-run at the LIVE floor through the SAME study machinery
+(scripts/exit_study_live_era.py — thin wrapper importing
+exit_variant_study's loader/make_cfg/run_backtest; one resumable JSON per
+variant, survived a mid-run container recycle). VERDICT SURVIVES THE ERA:
+**D (−5/+20/trail−15) beats live A (−5/+12/t15) in ALL FOUR windows at
+floor 62** — totals +69.90 vs +54.22 (+15.7pp/7.5y; was +74.69 vs +57.44
+at 55); D15 between (+58.01). D's trade-offs, stated: trail ALIVE
+(8/56/31/48 fires vs A's dead 4/9/2/11), fewer trades (2,146 vs 2,891),
+LOWER win rate (26-38% vs 32-42% — money from the tail, not hit rate),
+2024-26H1 worst-DD −20.75 vs −18.93 (elsewhere same/better).
+research/exit_study_live_era/summary.md = the record. Same harness
+caveats as every study (survivorship panel, comparison fair).
+**OWNER DECIDED: "Switch to D" (picked from the options card, 2026-08-24)
+— WIRED same day, 1,003 tests green. Node 12 CLOSED; supersedes the
+2026-07-27 "fixed at 12%" decision by the owner's own pick.** What
+changed: `PRESETS["nifty200_momentum"].take_profit_pct` 0.12→**0.20**
+(stop −5 and trail −15 unchanged — and the trail is now GENUINELY LIVE,
+arming above +17.65%; it was dead by arithmetic at +12). One-time boot
+migration (marker exit_order_2026_08_24, new `db.unset_settings_keys`
+$unset helper — save_settings is $set-merge and cannot delete) clears any
+stored take_profit/trailing override top-level AND inside
+preset_overrides["nifty200_momentum"], so no pre-order Settings edit can
+pin the superseded +12. Held non-custom positions pick up the +20 target
+via the existing boot retag (custom_levels still skipped). Truth-pass:
+APP_BRIEF exits rewritten (+ the STALE brake paragraph fixed — it still
+claimed corrections block buying, off since 2026-08-09) · login copy ·
+dashboard era-note · config.trail_is_reachable docstring · new pin
+test_live_momentum_bracket_is_minus5_plus20_trail15 (asserts the trail is
+reachable) · 5 stale +12 pins updated (exit_policy_c ×2, docs_truth_d,
+market_panels horizons, owner_buy). UNTESTED LIVE at +20 — the 60-day
+window continues under the new bracket at the owner's order.
+
+User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never

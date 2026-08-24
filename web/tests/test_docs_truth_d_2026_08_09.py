@@ -33,7 +33,8 @@ def test_app_brief_exits_match_the_live_preset():
     p = get_preset("nifty200_momentum")
     b = _brief()
     assert p.stop_loss_pct == -0.05 and "−5% stop" in b
-    assert p.take_profit_pct == 0.12 and "+12% target" in b
+    assert p.take_profit_pct == 0.20 and "+20% target" in b
+    assert "+12% target" not in b       # superseded by Node 12 (2026-08-24)
     assert "−12% stop" not in b
     assert "partial profit books at" not in b       # no consumer exists
 

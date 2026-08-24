@@ -144,7 +144,7 @@ def test_horizons_panel_carries_the_real_presets_and_marks_the_live_one():
     names = {h["key"] for h in hs}
     assert {"nifty200_momentum", "short", "swing", "positional", "intraday"} <= names
     mom = next(h for h in hs if h["key"] == "nifty200_momentum")
-    assert mom["stop"] == -5.0 and mom["target"] == 12.0   # the owner's numbers
+    assert mom["stop"] == -5.0 and mom["target"] == 20.0   # owner's numbers (Node 12, 2026-08-24)
     assert sum(1 for h in hs if h["active"]) <= 1
 
 

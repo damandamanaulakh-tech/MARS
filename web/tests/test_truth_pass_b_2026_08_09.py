@@ -130,7 +130,7 @@ def test_order_ticket_placeholders_derive_from_the_preset():
     assert 'placeholder="5 (preset)"' not in src
     assert "{{ preset_target }}" in src and "{{ preset_stop }}" in src
     html = _client().get("/scan").text
-    assert "12" in html                # live momentum target +12 shows up
+    assert "20" in html                # live momentum target +20 (Node 12)
 
 
 def test_dashboard_dropped_the_dead_yfinance_promise():
