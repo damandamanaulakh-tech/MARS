@@ -65,15 +65,31 @@ def test_nearest_expiry_skips_the_past():
     assert OC.nearest_expiry([], date(2026, 8, 23)) is None
 
 
-def test_pcr_change_needs_the_forward_archive():
-    """No history of past chains exists anywhere — deterioration cannot be
-    read off a single day's level."""
+def test_deterioration_is_the_owners_15_day_pattern_not_a_number():
+    """Owner (2026-08-24): "there is no number, its just a pattern like the
+    other candle, but span of candle is 15 days". Net rising + more up-days
+    than down across the stock's own recorded span."""
+    assert OC.SNAPSHOT_WINDOW == 15               # their span, verbatim
+    # two points are not a pattern
     short = [("2026-08-21", 1.0, 2.0), ("2026-08-22", 1.1, 2.0)]
-    assert OC.pcr_change(short) is None           # < SNAPSHOT_WINDOW
-    hist = [(f"2026-08-{d:02d}", 1.0 + 0.05 * i, 2.0)
-            for i, d in enumerate(range(15, 22))]
-    ch = OC.pcr_change(hist)
-    assert ch is not None and ch > 0.15
+    assert OC.deterioration_pattern(short) is None
+    # PCR grinding up across the span = deterioration growing -> True
+    rising = [(f"2026-08-{d:02d}", 1.0 + 0.02 * i, None)
+              for i, d in enumerate(range(1, 16))]
+    assert OC.deterioration_pattern(rising) is True
+    # recorded but flat/falling = pattern present and NOT growing -> False
+    falling = [(f"2026-08-{d:02d}", 1.5 - 0.02 * i, None)
+               for i, d in enumerate(range(1, 16))]
+    assert OC.deterioration_pattern(falling) is False
+    # one spike inside a falling span is not "growing" — persistence matters
+    choppy = [(f"2026-08-{d:02d}", v, None) for d, v in
+              zip(range(1, 16), [1.5, 1.4, 1.3, 1.2, 1.1, 1.0, 0.9, 0.8,
+                                 0.9, 0.8, 0.7, 0.6, 0.7, 0.6, 1.6])]
+    assert OC.deterioration_pattern(choppy) is False
+    # the skew series alone can carry the pattern
+    skew_up = [(f"2026-08-{d:02d}", None, 0.5 + 0.2 * i)
+               for i, d in enumerate(range(1, 16))]
+    assert OC.deterioration_pattern(skew_up) is True
 
 
 # ---------------------------------------------------------------------------
@@ -123,27 +139,38 @@ def test_0102_is_data_needed_without_a_chain():
                  XP.StockExternals(ticker="X.NS"))["T12W_0102"] is None
 
 
-def test_0102_fires_on_skew_at_support_and_stays_quiet_off_support():
+def _hist(days: int, rising: bool = True):
+    step = 0.02 if rising else -0.02
+    return [(f"2026-08-{d:02d}", 1.0 + step * i, None)
+            for i, d in enumerate(range(1, days + 1))]
+
+
+def test_0102_fires_on_a_growing_pattern_at_support_only():
     today = date.today().isoformat()
     sx = XP.StockExternals(ticker="X.NS")
-    XP.attach_chain(sx, _summary(skew=5.0), [], today)     # skew ≥ 3 pts
+    XP.attach_chain(sx, _summary(), _hist(15, rising=True), today)
+    assert sx.chain_deterioration is True
     assert _hits(_near_support_df(), sx)["T12W_0102"] is True
-    # same options picture, price NOT near support -> their formula says no
+    # same pattern, price NOT near support -> their formula says no
     idx = pd.bdate_range("2025-01-01", periods=120)
     c = np.linspace(100, 130, 120)
     strong = pd.DataFrame({"Open": c, "High": c * 1.01, "Low": c * 0.99,
                            "Close": c, "Volume": np.full(120, 1e6)}, index=idx)
     assert _hits(strong, sx)["T12W_0102"] is False
+    # recorded span that is NOT growing -> quiet even at support
+    calm = XP.StockExternals(ticker="X.NS")
+    XP.attach_chain(calm, _summary(), _hist(15, rising=False), today)
+    assert _hits(_near_support_df(), calm)["T12W_0102"] is False
 
 
-def test_0102_deterioration_leg_uses_the_forward_archive():
+def test_0102_needs_its_own_recorded_days_first():
+    """The owner's recorder: "record it for 15 days". A stock with too few
+    of its OWN recordings reads DATA_NEEDED, whatever today's level is."""
     today = date.today().isoformat()
-    hist = [(f"2026-08-{d:02d}", 1.0 + 0.05 * i, 0.0)
-            for i, d in enumerate(range(15, 22))]           # PCR rising 30%
     sx = XP.StockExternals(ticker="X.NS")
-    XP.attach_chain(sx, _summary(skew=0.5), hist, today)    # skew leg quiet
-    assert sx.pcr_change is not None
-    assert _hits(_near_support_df(), sx)["T12W_0102"] is True
+    XP.attach_chain(sx, _summary(skew=9.0), _hist(2), today)
+    assert sx.chain_deterioration is None
+    assert _hits(_near_support_df(), sx)["T12W_0102"] is None
 
 
 def test_0102_can_never_reach_the_money_path():
