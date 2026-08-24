@@ -1244,25 +1244,41 @@ EXTERNAL_PENDING = [t for t in EXTERNAL if t.ext_fn is None]
 
 _CAL_CSV = (Path(__file__).resolve().parents[1] / "research" /
             "bt_calibration" / "run_2026-08-09" / "trigger_calibration.csv")
+# Node 6 close-out (2026-08-24): the EXTERNAL run's 21 verdicts were
+# committed 2026-08-13 but never loaded into these chips — so the trigger
+# pages showed T12W_0060 with no verdict while its measured answer
+# (REJECTED, lift 0.992 over 59,195 windows, firing on 22% of all days) sat
+# in the repo. A verdict the owner cannot see might as well not exist.
+_CAL_EXT_CSV = (Path(__file__).resolve().parents[1] / "research" /
+                "bt_calibration_external" / "run_2026-08-13" /
+                "external_trigger_calibration.csv")
 
 
 def _load_calibration() -> dict[str, dict]:
     out: dict[str, dict] = {}
-    try:
-        with open(_CAL_CSV, encoding="utf-8") as f:
-            for row in csv.DictReader(f):
-                out[row["trigger_id"]] = {
-                    "proof_tag": row["proof_tag"],
-                    "lift": float(row["lift"]) if row["lift"] else None,
-                    "median_lead_days": (float(row["median_lead_days"])
-                                         if row["median_lead_days"] else None),
-                    "fires": int(row["fires"]),
-                    "false_positive_rate_pct":
-                        (float(row["false_positive_rate_pct"])
-                         if row["false_positive_rate_pct"] else None),
-                }
-    except OSError:
-        pass
+    for path, run in ((_CAL_CSV, "2026-08-09 OHLCV run"),
+                      (_CAL_EXT_CSV, "2026-08-13 external run")):
+        try:
+            with open(path, encoding="utf-8") as f:
+                for row in csv.DictReader(f):
+                    entry = {
+                        "proof_tag": row["proof_tag"],
+                        "lift": float(row["lift"]) if row["lift"] else None,
+                        "median_lead_days": (float(row["median_lead_days"])
+                                             if row["median_lead_days"] else None),
+                        "fires": int(row["fires"]),
+                        "false_positive_rate_pct":
+                            (float(row["false_positive_rate_pct"])
+                             if row["false_positive_rate_pct"] else None),
+                        "run": run,
+                    }
+                    if row.get("data_note"):
+                        entry["data_note"] = row["data_note"]
+                    # the two runs judge disjoint trigger sets; keep the
+                    # first verdict if that ever changes (main run wins)
+                    out.setdefault(row["trigger_id"], entry)
+        except OSError:
+            pass
     return out
 
 

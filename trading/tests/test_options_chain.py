@@ -232,14 +232,38 @@ def test_job_without_a_token_journals_the_skip_once(monkeypatch):
     old = p.option_chain
     p.option_chain = {}
     monkeypatch.setattr(state.engine(), "broker", _FakeBroker(connected=False))
+    # count only THIS test's appends — the state dir persists between runs
+    # (the documented mongo-halt gotcha's fault class: windowed assertions
+    # over a journal that accumulates across same-day invocations)
+    n0 = len(p.decision_journal)
     try:
         scheduler.run_option_chain_snapshot("test")
-        skips = [e for e in p.decision_journal[-3:]
-                 if e.get("action") == "OPTION_CHAIN_SKIPPED"]
-        assert len(skips) == 1
+        new = [e for e in p.decision_journal[n0:]
+               if e.get("action") == "OPTION_CHAIN_SKIPPED"]
+        assert len(new) == 1
         n = len(p.decision_journal)
         scheduler.run_option_chain_snapshot("test")        # same day again
         assert len(p.decision_journal) == n                # no second entry
     finally:
         p.option_chain = old
         p.save()
+
+
+# ---------------------------------------------------------------------------
+# Node 6 close-out: the external run's verdicts reach the page chips
+# ---------------------------------------------------------------------------
+
+def test_external_calibration_verdicts_load_into_the_chips():
+    """T12W_0060's measured answer (REJECTED, lift 0.992 over 59,195
+    windows, firing on 22% of all days) sat in a committed CSV the trigger
+    pages never read. A verdict the owner cannot see might as well not
+    exist — the chips now carry both runs, each naming its run."""
+    from trading.triggers import CALIBRATION, RECALIBRATED
+    c60 = CALIBRATION["T12W_0060"]
+    assert c60["proof_tag"] == "REJECTED" and abs(c60["lift"] - 0.992) < 1e-9
+    assert "external" in c60["run"]
+    assert CALIBRATION["T12W_0095"]["proof_tag"] == "VERIFIED"
+    assert CALIBRATION["T12W_0050"]["proof_tag"] == "SUPPORTED"
+    # the sweep-recalibrated pair still overrides its stale main-run row
+    for tid in RECALIBRATED:
+        assert "recalibrated" in CALIBRATION[tid]
