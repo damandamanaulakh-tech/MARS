@@ -70,6 +70,19 @@
   {{ rows_table(stock_rows, "Per-stock items — " ~ ticker ~ " (from stored history + committed fundamentals)") }}
 {% endif %}
 
+{% if precomputed %}
+<div class="border border-line bg-emerald-50/50 px-4 py-2 mb-2 text-sm"><!-- register_precompute_marker -->
+  <strong>Full-store precompute:</strong> these market items were computed over
+  <strong class="tabular-nums">{{ precomputed.sample }}</strong> stored names
+  (closes to {{ precomputed.asof }}, computed {{ (precomputed.ts or '')[:16] | replace('T',' ') }} UTC)
+  — the nightly Node-10 pass, not the old 50-name render-time sample.
+</div>
+{% else %}
+<div class="border border-line bg-amber-50/60 px-4 py-2 mb-2 text-xs text-amber-800"><!-- register_fallback_marker -->
+  No fresh precompute available — market items below computed now over the capped
+  50-member / 320-bar sample (the honest RAM guard). The nightly 16:45 pass lifts this.
+</div>
+{% endif %}
 {{ rows_table(market_rows, "Market-level items — PX panic signatures · FII/derivatives stack · VIX · breadth (committed data, as-of latest stored bar)") }}
 
 <!-- the U/S audit rows: their build vs this build -->

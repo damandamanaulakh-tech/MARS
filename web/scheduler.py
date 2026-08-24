@@ -113,6 +113,13 @@ def start_if_enabled() -> None:
             day_of_week="mon-fri", hour=15, minute=35,
             id="eod_refresh",
         )
+        # Node 10: nightly register precompute over the full store — after
+        # the close and the 15:35 refresh, when the box is otherwise idle.
+        _SCHED.add_job(
+            run_register_precompute, "cron",
+            day_of_week="mon-fri", hour=16, minute=45,
+            id="register_precompute",
+        )
 
     if daily and os.environ.get("SB_DISABLE_CATCHUP") != "1":
         # Deploy-restart healing: if the process boots after a missed 09:20
@@ -389,6 +396,112 @@ def _push_phone_alerts(where: str) -> None:
         log.warning("[%s] phone-alert push failed: %s", where, e)
 
 
+def run_register_precompute(where: str = "manual") -> dict:
+    """Node 10 (owner order 2026-08-24: "continue with node 10"): the
+    register's MARKET view precomputed nightly over the FULL stored panel.
+
+    THE F5 FLAW THIS LIFTS: /register computed its market-level items (PX
+    panic signatures, breadth, dispersion, tails) at page-render time over
+    a 50-member, 320-bar sample — the 512MB RAM guard — so every panic
+    number was panel-relative to whichever 50 names loaded first, and the
+    page paid the compute cost on every open.
+
+    The precompute reads ONLY closes, via the same streamed Mongo $slice
+    tail query the F3 breadth fix uses — the full ~2,700-name store costs a
+    few MB, not the OOM the cap guarded against. The result is stored on
+    `portfolio.register_market` (JSON+Mongo both ways); the page reads it
+    while fresh and falls back to the old capped live compute otherwise —
+    degrade-to-before, never to something new.
+
+    Thin store (< min names — sandbox, Mongo down, young store) journals
+    REGISTER_PRECOMPUTE_SKIPPED and stores nothing: a 60-name "full panel"
+    wearing the wide label is the exact lie F5's disclosure existed to
+    prevent.
+    """
+    from datetime import datetime as _dt
+
+    from . import db, state
+    p = state.portfolio()
+
+    def _journal(action, why):
+        try:
+            p.decision_journal.append(
+                {"ts": _dt.utcnow().isoformat(), "action": action, "why": why})
+            p.save()
+        except Exception:
+            pass
+
+    MIN_NAMES = 150       # below this the capped live view is just as honest
+    try:
+        import pandas as pd
+
+        import trading.register_v4 as rv
+        from trading.universes import get_nifty_200_universe
+        panel: dict = {}
+        newest = ""
+        for doc in db.history_tails(340):
+            candles = doc.get("candles") or []
+            t = doc.get("ticker") or ""
+            if not t or len(candles) < 60:
+                continue
+            try:
+                # ALL FIVE columns — register_v4's normalizer (the 2026-08-09
+                # lowercase-fixture lesson) rejects close-only frames, and a
+                # rejected member silently drops out of the panel. My first
+                # cut here built Close-only and every PX item read NA with
+                # 2,700 names loaded; the $slice docs carry o/h/l/c/v anyway.
+                idx = pd.to_datetime([c[0] for c in candles])
+                panel[t] = pd.DataFrame({
+                    "Open": [float(c[1]) for c in candles],
+                    "High": [float(c[2]) for c in candles],
+                    "Low": [float(c[3]) for c in candles],
+                    "Close": [float(c[4]) for c in candles],
+                    "Volume": [float(c[5]) for c in candles],
+                }, index=idx)
+            except (TypeError, ValueError, IndexError):
+                continue
+            end = str(doc.get("end") or "")
+            if end > newest:
+                newest = end
+        if len(panel) < MIN_NAMES:
+            log.info("[register:%s] store too thin (%d names) — page keeps "
+                     "its capped live view", where, len(panel))
+            return {}
+        _, sector_map = get_nifty_200_universe()
+        inputs = rv.load_market_inputs()
+        mv = rv.market_view(panel, index_close=inputs.get("index"),
+                            vix_close=inputs.get("vix"),
+                            bond_yield=inputs.get("bond"),
+                            flows=inputs.get("flows"),
+                            pwoi=inputs.get("pwoi"),
+                            sectors=sector_map)
+        rows = {rid: {"state": r.state,
+                      "value": None if r.value is None else float(r.value),
+                      "note": r.note}
+                for rid, r in mv.items()}
+        p.register_market = {"asof": newest,
+                             "ts": _dt.utcnow().isoformat(),
+                             "sample": len(panel), "rows": rows}
+        p.save()
+        _journal("REGISTER_PRECOMPUTE",
+                 f"Register market view precomputed over the FULL store: "
+                 f"{len(panel)} names, closes to {newest}, "
+                 f"{len(rows)} items. /register now reads this instead of "
+                 "the 50-name render-time sample.")
+        log.info("[register:%s] %d names, %d items, closes to %s", where,
+                 len(panel), len(rows), newest)
+        return p.register_market
+    except Exception as e:
+        log.exception("register precompute failed: %s", e)
+        try:
+            _journal("REGISTER_PRECOMPUTE_FAILED",
+                     f"Register precompute crashed: {e} — the page keeps "
+                     "its capped live view.")
+        except Exception:
+            pass
+        return {}
+
+
 def run_option_chain_snapshot(where: str = "manual") -> dict:
     """Node 8 (owner order 2026-08-23: "continue with node 8"): one option-
     chain snapshot per trading day, through the owner's own Upstox token.
@@ -648,6 +761,9 @@ def _weekly_history_topup() -> None:
         # reachable) so the 5-day FII sum the thresholds are calibrated on
         # stays populated between repo commits.
         _weekly_fii_refresh()
+        # Node 10: the store just gained a week of closes — refresh the
+        # precomputed register view over it.
+        run_register_precompute("post-topup")
     except Exception as e:
         log.exception("weekly history top-up failed: %s", e)
         _journal("DATA_REFRESH_FAILED", f"Weekly OHLCV top-up crashed: {e}")
