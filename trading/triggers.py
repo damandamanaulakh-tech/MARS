@@ -1105,26 +1105,25 @@ def _e0110(x, e, fam, hits):  # sentiment high + RS failure / new high weak CLV
     return bool(high and (bool(rs_fail) or weak_at_high))
 
 
-def _e0102(x, e, fam, hits):  # put-call skew risk (Node 8, 2026-08-23)
-    """Their formula: "PCR/skew deterioration + price near support".
+def _e0102(x, e, fam, hits):  # put-call skew risk (Node 8; pattern per owner)
+    """Their formula: "PCR/skew deterioration + price near support" — and
+    their clarification (2026-08-24): "there is no number, its just a
+    pattern like the other candle, but span of candle is 15 days ... the
+    algorithm only review the changes in that particular stock and record
+    it for 15 days".
 
-    Deterioration needs OUR OWN forward snapshot archive (no history of
-    past chains exists anywhere) — until options_chain.SNAPSHOT_WINDOW
-    days of snapshots accumulate, the deterioration leg is None and the
-    skew LEVEL alone may satisfy the options half. Both thresholds are
-    ASSUMED (their sheet gives words, not numbers) and shown on-page.
-    UNCALIBRATED and permanently display/watchlist-only until the forward
-    archive is long enough to earn a verdict.
+    So the deterioration leg is a PATTERN over the stock's own 15-day
+    recorded span (options_chain.deterioration_pattern — net rising with
+    more up-days than down, on PCR or skew), not a threshold. Until enough
+    of the stock's own recordings exist, it reads DATA_NEEDED — no archive
+    of past chains exists anywhere to borrow from. UNCALIBRATED and
+    display/watchlist-only until the forward archive earns a verdict.
     """
     if e.pcr_oi is None:
         return None                    # no fresh chain = DATA_NEEDED
-    det = (e.pcr_change is not None
-           and e.pcr_change >= _ext_const("pcr_deterioration_frac"))
-    skew = (e.iv_skew is not None
-            and e.iv_skew >= _ext_const("iv_skew_min_pts"))
-    if e.pcr_change is None and e.iv_skew is None:
-        return None                    # neither options leg computable yet
-    return bool((det or skew) and _near_support(x))
+    if e.chain_deterioration is None:
+        return None                    # pattern needs more recorded days
+    return bool(e.chain_deterioration and _near_support(x))
 
 
 _EXT_FNS = {
@@ -1245,25 +1244,41 @@ EXTERNAL_PENDING = [t for t in EXTERNAL if t.ext_fn is None]
 
 _CAL_CSV = (Path(__file__).resolve().parents[1] / "research" /
             "bt_calibration" / "run_2026-08-09" / "trigger_calibration.csv")
+# Node 6 close-out (2026-08-24): the EXTERNAL run's 21 verdicts were
+# committed 2026-08-13 but never loaded into these chips — so the trigger
+# pages showed T12W_0060 with no verdict while its measured answer
+# (REJECTED, lift 0.992 over 59,195 windows, firing on 22% of all days) sat
+# in the repo. A verdict the owner cannot see might as well not exist.
+_CAL_EXT_CSV = (Path(__file__).resolve().parents[1] / "research" /
+                "bt_calibration_external" / "run_2026-08-13" /
+                "external_trigger_calibration.csv")
 
 
 def _load_calibration() -> dict[str, dict]:
     out: dict[str, dict] = {}
-    try:
-        with open(_CAL_CSV, encoding="utf-8") as f:
-            for row in csv.DictReader(f):
-                out[row["trigger_id"]] = {
-                    "proof_tag": row["proof_tag"],
-                    "lift": float(row["lift"]) if row["lift"] else None,
-                    "median_lead_days": (float(row["median_lead_days"])
-                                         if row["median_lead_days"] else None),
-                    "fires": int(row["fires"]),
-                    "false_positive_rate_pct":
-                        (float(row["false_positive_rate_pct"])
-                         if row["false_positive_rate_pct"] else None),
-                }
-    except OSError:
-        pass
+    for path, run in ((_CAL_CSV, "2026-08-09 OHLCV run"),
+                      (_CAL_EXT_CSV, "2026-08-13 external run")):
+        try:
+            with open(path, encoding="utf-8") as f:
+                for row in csv.DictReader(f):
+                    entry = {
+                        "proof_tag": row["proof_tag"],
+                        "lift": float(row["lift"]) if row["lift"] else None,
+                        "median_lead_days": (float(row["median_lead_days"])
+                                             if row["median_lead_days"] else None),
+                        "fires": int(row["fires"]),
+                        "false_positive_rate_pct":
+                            (float(row["false_positive_rate_pct"])
+                             if row["false_positive_rate_pct"] else None),
+                        "run": run,
+                    }
+                    if row.get("data_note"):
+                        entry["data_note"] = row["data_note"]
+                    # the two runs judge disjoint trigger sets; keep the
+                    # first verdict if that ever changes (main run wins)
+                    out.setdefault(row["trigger_id"], entry)
+        except OSError:
+            pass
     return out
 
 

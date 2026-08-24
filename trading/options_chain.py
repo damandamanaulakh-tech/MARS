@@ -37,9 +37,18 @@ from typing import Optional
 
 log = logging.getLogger(__name__)
 
-#: snapshots needed before the "deterioration" leg of T12W_0102 computes.
-SNAPSHOT_WINDOW = 5
-#: per-ticker (date, pcr, skew) rows kept on the portfolio. Bounded RAM.
+#: THE OWNER'S SPAN (their words, 2026-08-24: "there is no number, its just
+#: a pattern like the other candle, but span of candle is 15 days ... the
+#: algorithm only review the changes in that particular stock and record it
+#: for 15 days"). The deterioration read is a PATTERN over up to 15 recorded
+#: snapshots — not a numeric threshold.
+SNAPSHOT_WINDOW = 15
+#: minimum recorded days before any pattern is read at all — a shape needs
+#: more than a couple of points. ASSUMED (the span is theirs; this floor
+#: only stops a 2-day "pattern").
+MIN_PATTERN_DAYS = 5
+#: per-ticker (date, pcr, skew) rows kept on the portfolio = the 15-day
+#: candle the owner described. Bounded RAM.
 HISTORY_KEEP = 15
 #: a stored snapshot older than this many days is not "today's chain".
 MAX_AGE_DAYS = 2
@@ -122,19 +131,39 @@ def summarize_chain(rows: list, spot: Optional[float] = None) -> Optional[dict]:
     }
 
 
-def pcr_change(history: list, window: int = SNAPSHOT_WINDOW) -> Optional[float]:
-    """Fractional PCR change across the last `window` snapshots.
+def deterioration_pattern(history: list,
+                          span: int = SNAPSHOT_WINDOW) -> Optional[bool]:
+    """The owner's 15-day pattern read (their words: "no number, its just a
+    pattern like the other candle, but span of candle is 15 days").
 
-    None until enough FORWARD archive exists — the deterioration leg of
-    T12W_0102 must not fire off a single day's level."""
-    rows = [(d, p) for d, p, *_ in (history or []) if p]
-    if len(rows) < window:
+    Reads the SHAPE of the recorded PCR/skew rows over the span, exactly the
+    way a candle pattern is read — no numeric threshold:
+      * NET RISING: the latest reading above the span's first, AND
+      * PERSISTENT: more up-days than down-days across the recorded span
+    on EITHER the PCR series or the skew series. Puts piling up (PCR) or put
+    insurance getting pricier vs calls (skew), growing through the window,
+    is the deterioration their sheet names.
+
+    None until MIN_PATTERN_DAYS of the stock's own recordings exist — a
+    two-point line is not a pattern, and no archive of past chains exists
+    anywhere to borrow from.
+    """
+    def _series(idx: int) -> Optional[list]:
+        rows = sorted((r[0], r[idx]) for r in (history or [])
+                      if len(r) > idx and r[idx] is not None)
+        return [v for _, v in rows[-span:]] if len(rows) >= MIN_PATTERN_DAYS             else None
+
+    def _grows(vals: Optional[list]) -> Optional[bool]:
+        if vals is None:
+            return None
+        ups = sum(1 for a, b in zip(vals, vals[1:]) if b > a)
+        downs = sum(1 for a, b in zip(vals, vals[1:]) if b < a)
+        return bool(vals[-1] > vals[0] and ups > downs)
+
+    pcr, skew = _grows(_series(1)), _grows(_series(2))
+    if pcr is None and skew is None:
         return None
-    rows.sort()
-    first, last = rows[-window][1], rows[-1][1]
-    if first <= 0:
-        return None
-    return round(last / first - 1.0, 4)
+    return bool(pcr) or bool(skew)
 
 
 def is_fresh(asof: str, today: Optional[date] = None,

@@ -1500,6 +1500,42 @@ THE LAST EXTERNAL TRIGGER IS WIRED. External backlog: ZERO pending.**
 - Register standing after Node 8: **9 items still need an outside feed**
   becomes **8** (TRG-102 off the list; the 2 bulk-cap triggers unchanged).
 
+**2026-08-24 OWNER ANSWERS + 0102 PATTERN + NODE 6 CLOSED (owner: three
+points then "finish the node 6 after answering above"). 974 tests.**
+- **Login-bottleneck answer given (their point 1):** everything already
+  runs daily WITHOUT login (scan/news/triggers/breadth/FII/exits/top-up —
+  candles public since F1); ONLY live tick quotes + option chains need the
+  token (Upstox rejects tokenless there); and login-time catch-up already
+  updates everything the moment they log in (built into the callback). The
+  one workaround — an auto-login robot storing their password + TOTP on
+  Render — breaks Upstox ToS; offered as THEIR decision only, not built.
+- **T12W_0102 REWIRED to their 15-day pattern (their point 3, verbatim:
+  "there is no number, its just a pattern like the other candle, but span
+  of candle is 15 days ... record it for 15 days").** The two ASSUMED
+  thresholds (pcr 0.15 / skew 3.0 pts) DELETED — overruled by owner.
+  `options_chain.deterioration_pattern`: net rising + more up-days than
+  down across the stock's OWN recorded span (PCR or skew series),
+  SNAPSHOT_WINDOW=15 (their span), MIN_PATTERN_DAYS=5 (ASSUMED floor —
+  a two-point line is not a pattern). Too few recordings = DATA_NEEDED.
+- **NODE 6 CLOSED — mostly already done, and the audit's phrasing had
+  over-promised.** Checked EVERY sheet file: their sheets hold NO verbatim
+  delivery spike/dry-up formulas beyond T12W_0060's one line (the
+  parameter-bank Dry-Up rows are placeholders, "Formula" literal,
+  "awaiting linked data"). 0060 was already wired verbatim (2026-08-13)
+  AND already calibrated in the external run: **REJECTED, lift 0.992 over
+  59,195 windows, firing on 22% of all days** — describes the market,
+  predicts nothing; under their own rule it joins NO gate. Inventing
+  dry-up formulas would violate the build-only-what-they-list order.
+- **THE REAL NODE-6 GAP FOUND AND FIXED: the external run's 21 verdicts
+  never loaded into the page chips** — T12W_0060 showed NO verdict while
+  its REJECTED sat committed. `_load_calibration` now merges BOTH runs
+  (each row carries `run` + `data_note`; RECALIBRATED still overrides;
+  CALIBRATION = 100 rows). A verdict the owner cannot see might as well
+  not exist.
+- Fault-class repeat caught in MY OWN new test: windowed journal assertion
+  over the persistent state dir (the mongo-halt gotcha class) — fixed by
+  counting only the test's own appends. Watch for it in every new test.
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

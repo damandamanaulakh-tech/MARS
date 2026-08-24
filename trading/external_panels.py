@@ -98,11 +98,10 @@ ASSUMED_EXTERNAL_CONSTANTS = {
     "news_cluster_min": 2,             # "accumulation flags active" / "cluster"
     "news_sentiment_high": 0.5,        # "sentiment_score high" (-1..+1 scale)
     "news_weak_clv": 0.4,              # "negative CLV" at a new high
-    # --- T12W_0102 put-call skew (Node 8). Their sheet: "PCR/skew
-    # deterioration + price near support" — no numbers given, so both legs
-    # are ASSUMED until a forward snapshot archive earns a calibration.
-    "pcr_deterioration_frac": 0.15,    # PCR-OI up >=15% over the snapshot window
-    "iv_skew_min_pts": 3.0,            # ATM put IV - call IV >= 3 IV points
+    # T12W_0102's deterioration carries NO numeric threshold — the owner
+    # overruled the two ASSUMED numbers that briefly lived here (2026-08-24:
+    # "there is no number, its just a pattern ... span of candle is 15
+    # days"). The pattern read lives in options_chain.deterioration_pattern.
 }
 
 _PANEL_TAIL = 420          # bars kept per panel name (RAM on the 512MB box)
@@ -391,7 +390,12 @@ class StockExternals:
     # None = DATA_NEEDED, never a stale chain wearing today's confidence.
     pcr_oi: Optional[float] = None              # put OI / call OI, nearest expiry
     iv_skew: Optional[float] = None             # ATM put IV − call IV, IV pts
-    pcr_change: Optional[float] = None          # frac change over the snapshot window
+    # The owner's 15-day pattern (2026-08-24: "no number, its just a pattern
+    # ... span of candle is 15 days"): True = deterioration growing across
+    # the stock's own recorded span, False = recorded and not growing,
+    # None = fewer than MIN_PATTERN_DAYS recordings yet.
+    chain_deterioration: Optional[bool] = None
+    chain_days: int = 0                         # recordings held for this stock
     chain_asof: str = ""
 
     def missing(self) -> list[str]:
@@ -861,7 +865,7 @@ def attach_chain(sx: StockExternals, summary: Optional[dict],
         return sx
     from datetime import date
 
-    from .options_chain import is_fresh, pcr_change
+    from .options_chain import deterioration_pattern, is_fresh
     if not is_fresh(asof, date.today()):
         return sx
     try:
@@ -870,7 +874,8 @@ def attach_chain(sx: StockExternals, summary: Optional[dict],
         return sx
     skew = summary.get("iv_skew")
     sx.iv_skew = float(skew) if skew is not None else None
-    sx.pcr_change = pcr_change(history or [])
+    sx.chain_deterioration = deterioration_pattern(history or [])
+    sx.chain_days = len(history or [])
     sx.chain_asof = str(asof)
     return sx
 
