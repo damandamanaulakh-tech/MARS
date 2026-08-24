@@ -1605,7 +1605,37 @@ the frozen-at-commit data files now auto-pull. Node 3 fully CLOSED.**
 - NOT auto-pulled still (genuinely blocked): delivery %, PWOI, F&O
   bhavcopy (nsearchives blocks cloud — Colab), DII post-2025-03 (NSDL
   OTP wall), TRI (niftyindices WAF). Node 3 has nothing left that cloud
-  can reach. all 8 now built (ticket +
+  can reach.
+
+**NODE 9 STEPS 1-2 SHIPPED (owner: "node 9 go", 2026-08-24), 997 tests
+(9 new) — ONE canonical damage number, day-one behaviour changed NOWHERE.**
+- **NEW trading/internals.py** — the single computation site for the
+  owner's tail_down3_5d (worst 3-day return in last 5 days <= -3%, share
+  of panel; the formula recovered from market_internals_1996_2024.csv).
+  STATIC_THRESHOLD 0.213 = their own frozen p90. Pure reduction: no
+  danger/engine/risk/orders/network imports, test-enforced. A test pins
+  the formula BYTE-EQUAL to the register's old inline expression.
+- **engine.scan computes the reading over the SAME panel IFR reads**
+  (deliberate: a disagreement in the journal is the FORMULAS disagreeing,
+  never the sample), stores `portfolio.damage_store` (persisted JSON+Mongo
+  both directions — risk_day lesson). Every IFR_SIGNAL_FIRED entry now
+  carries canonical_tail_down3_5d + canonical_static_cluster +
+  canonical_q90_cluster beside IFR's own numbers. **KEY FACT: IFR's
+  private formula is genuinely different** (any single -3% DAY in 5 days
+  vs the owner's worst 3-DAY return in 5 days) — 60 days of these pairs
+  decide whether they agree.
+- FII-08/09 prefer a fresh (<=5d) stored reading, note says
+  "[canonical store: scan panel of N names, asof …]"; stale/missing =
+  exactly the old page-panel recompute, labelled "[page panel]".
+- **Danger layer untouched BY DESIGN and test-enforced** (danger.py must
+  not import internals) — its 12 tripwires are calibration-VERIFIED
+  per-stock rules; welding them to a panel gauge would discard evidence.
+- **STEP 3 NOT DONE, deliberately**: after the 60-day window, read the
+  accumulated journal pairs, put the IFR-reads-the-store switch to the
+  owner. docs/DESIGN_ONE_DAMAGE_NUMBER.md carries the status postscript.
+- Test-writing note: my first cut asserted `"canonical store" not in
+  note` while the FALLBACK label itself says "no fresh canonical store" —
+  assert on the bracket markers, not on words a sibling label may reuse. all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never

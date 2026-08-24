@@ -57,3 +57,25 @@ two read sites + tests). Step 3 is a one-line switch once ordered.
 
 **Decision needed from the owner**: "go" on steps 1–2, or leave the three
 gauges separate. Nothing proceeds without it.
+
+---
+
+## STATUS (2026-08-24): steps 1–2 SHIPPED on the owner's "node 9 go"
+
+* `trading/internals.py` — the single computation site
+  (`tail_down3_5d`, `damage_reading`, `is_fresh`); a test pins its formula
+  byte-equal to the register's old inline expression.
+* `engine.scan` computes the reading over the SAME panel IFR reads
+  (so a journal disagreement is the formulas disagreeing, never the
+  sample), stores it on `portfolio.damage_store` (JSON+Mongo both
+  directions), and every `IFR_SIGNAL_FIRED` journal entry now carries
+  `canonical_tail_down3_5d` + `canonical_static_cluster` +
+  `canonical_q90_cluster` beside IFR's own numbers.
+* FII-08/09 prefer a fresh (≤5 days) stored reading and say so in the
+  note; a stale or missing store degrades to exactly the old page-panel
+  recompute, also labelled.
+* The danger layer is untouched, and a test enforces the promise
+  (danger.py must not import internals).
+
+**Step 3 remains NOT DONE by design** — after the 60-day window, read the
+accumulated journal pairs and put the switch decision to the owner.

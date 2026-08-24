@@ -466,6 +466,22 @@ class TradingEngine:
         now = datetime.utcnow()
         prices = {r["ticker"]: r["last_close"] for r in ranked}
 
+        # Node 9 step 1 (owner "go" 2026-08-24): the canonical damage
+        # reading — the OWNER'S tail_down3_5d formula — computed ONCE over
+        # the exact panel IFR is about to read, stored for the display
+        # consumers (FII-08/09). Same panel on purpose: when IFR fires the
+        # journal shows both numbers side by side, so any disagreement is
+        # the FORMULAS disagreeing, never the sample.
+        canonical = None
+        try:
+            from .internals import damage_reading
+            canonical = damage_reading(history)
+            if canonical is not None:
+                canonical["computed"] = now.isoformat()
+                self.portfolio.damage_store = canonical
+        except Exception:
+            pass
+
         # v6/v7: IFR check — DAMAGE_CLUSTER + TAIL_DAMAGE_RATIO (Q2-validated)
         ifr_snapshot = None
         try:
@@ -488,6 +504,18 @@ class TradingEngine:
                     "ratio_today": ifr_snapshot.ratio_today,
                     "ratio_threshold": ifr_snapshot.ratio_threshold,
                     "sizing_multiplier": ifr_snapshot.sizing_multiplier,
+                    # Node 9 step 2: the canonical number beside IFR's own.
+                    # IFR counts stocks with any single -3% DAY in 5 days;
+                    # the owner's formula takes the worst 3-DAY return in
+                    # 5 days. 60 days of these pairs decide step 3.
+                    "canonical_tail_down3_5d": (
+                        None if canonical is None else canonical["value"]),
+                    "canonical_static_cluster": (
+                        None if canonical is None
+                        else canonical["static_cluster"]),
+                    "canonical_q90_cluster": (
+                        None if canonical is None
+                        else canonical["q90_cluster"]),
                     "why": ifr_snapshot.reason,
                 })
         except Exception:

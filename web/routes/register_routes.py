@@ -106,6 +106,12 @@ def register_page(request: Request, ticker: str = ""):
                   for rid, r in precomputed["rows"].items()}
         else:
             panel, sector_map = _load_panel()
+            dmg = {}
+            try:
+                from .. import state as _st
+                dmg = _st.portfolio().damage_store or {}
+            except Exception:
+                log.exception("register: damage store read failed")
             mv = rv.market_view(
                 panel,
                 index_close=inputs.get("index"),
@@ -114,6 +120,7 @@ def register_page(request: Request, ticker: str = ""):
                 flows=inputs.get("flows"),
                 pwoi=inputs.get("pwoi"),
                 sectors=sector_map,
+                damage_store=dmg,
             )
         # W-028..031: portfolio-construction rules against the LIVE book
         try:
