@@ -46,7 +46,7 @@ def test_opens_momentum_position_at_live_price(monkeypatch):
         assert pos is not None, "position not opened"
         assert pos.mode == "nifty200_momentum"
         assert abs(pos.stop_price - 500.0 * 0.95) < 0.5      # owner -5% (2026-07-26)
-        assert abs(pos.target_price - 500.0 * 1.12) < 0.5    # user's +12 (2026-07-21)
+        assert abs(pos.target_price - 500.0 * 1.20) < 0.5    # owner's +20 (Node 12, 2026-08-24)
         assert p.cash < cash_before
         buys = [e for e in p.decision_journal
                 if e.get("action") == "BUY"

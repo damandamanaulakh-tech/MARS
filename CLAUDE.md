@@ -1690,9 +1690,26 @@ at 55); D15 between (+58.01). D's trade-offs, stated: trail ALIVE
 LOWER win rate (26-38% vs 32-42% — money from the tail, not hit rate),
 2024-26H1 worst-DD −20.75 vs −18.93 (elsewhere same/better).
 research/exit_study_live_era/summary.md = the record. Same harness
-caveats as every study (survivorship panel, comparison fair). Decision
-card put to the owner: switch to D / keep +12 / D15. "+12 fixed" STANDS
-until their word — do not wire anything from this block without it.
+caveats as every study (survivorship panel, comparison fair).
+**OWNER DECIDED: "Switch to D" (picked from the options card, 2026-08-24)
+— WIRED same day, 1,003 tests green. Node 12 CLOSED; supersedes the
+2026-07-27 "fixed at 12%" decision by the owner's own pick.** What
+changed: `PRESETS["nifty200_momentum"].take_profit_pct` 0.12→**0.20**
+(stop −5 and trail −15 unchanged — and the trail is now GENUINELY LIVE,
+arming above +17.65%; it was dead by arithmetic at +12). One-time boot
+migration (marker exit_order_2026_08_24, new `db.unset_settings_keys`
+$unset helper — save_settings is $set-merge and cannot delete) clears any
+stored take_profit/trailing override top-level AND inside
+preset_overrides["nifty200_momentum"], so no pre-order Settings edit can
+pin the superseded +12. Held non-custom positions pick up the +20 target
+via the existing boot retag (custom_levels still skipped). Truth-pass:
+APP_BRIEF exits rewritten (+ the STALE brake paragraph fixed — it still
+claimed corrections block buying, off since 2026-08-09) · login copy ·
+dashboard era-note · config.trail_is_reachable docstring · new pin
+test_live_momentum_bracket_is_minus5_plus20_trail15 (asserts the trail is
+reachable) · 5 stale +12 pins updated (exit_policy_c ×2, docs_truth_d,
+market_panels horizons, owner_buy). UNTESTED LIVE at +20 — the 60-day
+window continues under the new bracket at the owner's order.
 
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
