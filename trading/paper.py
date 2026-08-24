@@ -122,6 +122,7 @@ class Portfolio:
     breadth_store: dict = field(default_factory=dict)  # F3: full-store breadth reading {pct, sample, asof} the A3 gate prefers over the noisy bucket sample
     option_chain: dict = field(default_factory=dict)   # Node 8: daily chain snapshot {asof, rows, history} (display/triggers only; needs the daily login)
     register_market: dict = field(default_factory=dict)  # Node 10: nightly full-store register market view {asof, sample, rows} (/register reads, never computes)
+    damage_store: dict = field(default_factory=dict)     # Node 9: canonical tail_down3_5d reading from the scan panel (FII-08/09 read it; IFR journals it beside its own)
     pending_orders: List[dict] = field(default_factory=list)  # owner limit orders (day validity)
     filings: List[dict] = field(default_factory=list)  # matched exchange announcements (held+watch)
     # Daily loss-halt baseline. Persisted so a mid-day Render restart cannot
@@ -235,6 +236,7 @@ class Portfolio:
                 "breadth_store": self.breadth_store,           # F3 full-store breadth
                 "option_chain": self.option_chain,             # Node 8 chain snapshot
                 "register_market": self.register_market,       # Node 10 precompute
+                "damage_store": self.damage_store,             # Node 9 canonical damage
                 "pending_orders": self.pending_orders[-200:],  # owner limit orders, capped
                 "filings": self.filings[:100],                 # matched announcements, capped
                 "risk_day": self.risk_day,                     # daily kill-switch baseline date
@@ -282,6 +284,7 @@ class Portfolio:
             p.breadth_store = dict(data.get("breadth_store", {}))
             p.option_chain = dict(data.get("option_chain", {}))
             p.register_market = dict(data.get("register_market", {}))
+            p.damage_store = dict(data.get("damage_store", {}) or {})
             p.pending_orders = list(data.get("pending_orders", []))
             p.filings = list(data.get("filings", []))
             p.risk_day = data.get("risk_day")

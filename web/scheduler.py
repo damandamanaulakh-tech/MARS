@@ -474,7 +474,8 @@ def run_register_precompute(where: str = "manual") -> dict:
                             bond_yield=inputs.get("bond"),
                             flows=inputs.get("flows"),
                             pwoi=inputs.get("pwoi"),
-                            sectors=sector_map)
+                            sectors=sector_map,
+                            damage_store=p.damage_store)
         rows = {rid: {"state": r.state,
                       "value": None if r.value is None else float(r.value),
                       "note": r.note}

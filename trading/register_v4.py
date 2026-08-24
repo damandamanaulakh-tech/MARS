@@ -1116,7 +1116,8 @@ def market_view(panel: dict[str, pd.DataFrame],
                 bond_yield: Optional[pd.Series] = None,
                 flows: Optional[pd.DataFrame] = None,
                 pwoi: Optional[pd.DataFrame] = None,
-                sectors: Optional[dict[str, str]] = None
+                sectors: Optional[dict[str, str]] = None,
+                damage_store: Optional[dict] = None
                 ) -> dict[str, Reading]:
     """PX-01..12, FII-01..09, VIX-02, C-03, W-007 market VRP.
     panel = {ticker: OHLCV df} (the scan bucket / stored-history sample)."""
@@ -1364,27 +1365,39 @@ def market_view(panel: dict[str, pd.DataFrame],
         for rid in ("FII-04", "FII-05", "FII-06", "FII-07"):
             out[rid] = _dn(rid, "PWOI panel missing")
     # FII-08/09: owner ruled 2026-08-09 "why not both 0.213 and rolling q90"
-    # — BOTH damage variants computed, side by side. Damage day per
-    # trading/ifr.py: market tail_down3_5d (share of members with a <=-3%
-    # 3-day move inside the last 5 days) above threshold; cluster = >=5 such
-    # days in the last 10. Static variant: > 21.3% (IFR v0.4). Rolling
-    # variant: > q90 of the loaded window (~250d page panel, not the
-    # engine's full history — labelled).
+    # — BOTH damage variants computed, side by side. Node 9 (owner "go"
+    # 2026-08-24): the damage verdicts now PREFER the canonical stored
+    # reading the engine computes once per scan over its own panel
+    # (trading/internals.py — one computation site, three consumers).
+    # A stale or missing store degrades to EXACTLY the old page-panel
+    # recompute below, never to something new; the note says which ran.
     dmg_static = dmg_q90 = None
-    if prices is not None and len(prices) >= 40:
+    dmg_src = ""
+    try:
+        from trading import internals as _itn
+        if _itn.is_fresh(damage_store):
+            dmg_static = bool(damage_store["static_cluster"])
+            dmg_q90 = bool(damage_store["q90_cluster"])
+            dmg_src = (f" [canonical store: scan panel of "
+                       f"{damage_store.get('sample')} names, asof "
+                       f"{damage_store.get('asof')}]")
+    except Exception:                                         # noqa: BLE001
+        log.exception("register_v4: damage store read failed")
+    if dmg_static is None and prices is not None and len(prices) >= 40:
         tail = (prices.pct_change(3).rolling(5).min() <= -0.03).mean(axis=1) * 100
         tail = tail.dropna()
         if len(tail) >= 60:
             q90 = float(np.percentile(tail, 90))
             dmg_static = int((tail.tail(10) > 21.3).sum()) >= 5
             dmg_q90 = int((tail.tail(10) > q90).sum()) >= 5
+            dmg_src = " [page panel — no fresh canonical store]"
     if dmg_static is None:
         out["FII-08"] = _na("FII-08", "panel too small for the damage series")
         out["FII-09"] = _na("FII-09", "panel too small for the damage series")
     else:
         both = (f"damage[static 0.213]: {'YES' if dmg_static else 'no'} · "
                 f"damage[rolling q90]: {'YES' if dmg_q90 else 'no'} "
-                "(owner: both variants shown)")
+                "(owner: both variants shown)" + dmg_src)
         f01 = out.get("FII-01")
         if f01 is not None and f01.state in ("FIRED", "QUIET"):
             s8 = (dmg_static or dmg_q90) and f01.state == "FIRED"

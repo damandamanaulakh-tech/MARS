@@ -68,6 +68,7 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.breadth_store = dict(doc.get("breadth_store", {}) or {})
     p.option_chain = dict(doc.get("option_chain", {}) or {})
     p.register_market = dict(doc.get("register_market", {}) or {})
+    p.damage_store = dict(doc.get("damage_store", {}) or {})
     p.danger_alerts_start = doc.get("danger_alerts_start")
     p.last_save = doc.get("last_save")
 
@@ -126,6 +127,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "breadth_store": self.breadth_store,
             "option_chain": self.option_chain,
             "register_market": self.register_market,
+            "damage_store": self.damage_store,
             "danger_alerts_start": self.danger_alerts_start,
             "last_save": self.last_save,
         }
