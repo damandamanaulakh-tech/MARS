@@ -1536,6 +1536,36 @@ points then "finish the node 6 after answering above"). 974 tests.**
   over the persistent state dir (the mongo-halt gotcha class) — fixed by
   counting only the test's own appends. Watch for it in every new test.
 
+**NODE 10 SHIPPED (owner: "continue with node 10"), 979 tests (5 new) —
+register market view at FULL SCALE; the F5 50-member/320-bar cap lifted.**
+- `scheduler.run_register_precompute`: streams `db.history_tails(340)`
+  (the one $slice query, breadth's F3 machinery), builds FIVE-column
+  frames, runs `register_v4.market_view` over the FULL store (~2,700
+  names when the store grows; ~191 today), stores
+  `portfolio.register_market` = {asof, ts, sample, rows} (persisted
+  JSON+Mongo BOTH ways — risk_day lesson), journals REGISTER_PRECOMPUTE/
+  _FAILED. Cron 16:45 IST mon-fri + a second pass after the Friday
+  top-up. MEASURED on the 512MB box: 2,700-name market_view = 0.1s,
+  87MB peak — safe.
+- **MIN_NAMES=150 thin-store guard**: fewer names stores NOTHING — a
+  60-name reading wearing the "full store" label is the exact lie F5's
+  disclosure existed to prevent; the page keeps its honest capped
+  fallback instead.
+- /register prefers a precompute whose closes are ≤5 days old
+  (emerald banner names sample+asof); stale/absent degrades to EXACTLY
+  the old capped 50-member/320-bar live compute (amber banner names the
+  cap and the 16:45 pass). Held names' closes still load on the
+  precompute path so W-028..031 keep their vol inputs.
+- **BUG IN MY FIRST CUT, and the test that hid it**: I fed close-only
+  frames; `register_v4`'s normalizer (the 2026-08-09 lowercase lesson)
+  demands all five OHLCV columns, so EVERY member silently dropped and
+  PX items read NA with 2,700 names loaded — while my test PASSED,
+  because it only asserted "any rows present" and the panel-independent
+  FII/VIX rows satisfied it. Fixed the frames (the $slice docs carry
+  o/h/l/c/v anyway) AND hardened the test to require PX-01 computed.
+  LESSON: a weak assertion is a fault mask — assert the panel-DEPENDENT
+  item, not just any output.
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

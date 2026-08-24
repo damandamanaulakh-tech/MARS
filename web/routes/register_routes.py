@@ -81,18 +81,40 @@ def register_page(request: Request, ticker: str = ""):
 
     market_rows, stock_rows, stock_err = [], [], ""
     inputs = {}
+    precomputed = None
     try:
         inputs = rv.load_market_inputs()
-        panel, sector_map = _load_panel()
-        mv = rv.market_view(
-            panel,
-            index_close=inputs.get("index"),
-            vix_close=inputs.get("vix"),
-            bond_yield=inputs.get("bond"),
-            flows=inputs.get("flows"),
-            pwoi=inputs.get("pwoi"),
-            sectors=sector_map,
-        )
+        # Node 10 (owner order 2026-08-24): prefer the nightly FULL-STORE
+        # precompute (~2,700 names) over the render-time 50-member sample.
+        # Fresh = closes within 5 days; stale or absent degrades to exactly
+        # the old capped live compute, never to something new.
+        panel = {}
+        try:
+            from datetime import date, timedelta
+            from .. import state as app_state
+            stored = app_state.portfolio().register_market or {}
+            asof = str(stored.get("asof") or "")[:10]
+            if (stored.get("rows") and asof
+                    and date.today() - date.fromisoformat(asof)
+                    <= timedelta(days=5)):
+                precomputed = stored
+        except Exception:
+            log.exception("register: precompute read failed")
+        if precomputed:
+            mv = {rid: rv.Reading(rid, r.get("state", "NA"),
+                                  r.get("value"), r.get("note", ""))
+                  for rid, r in precomputed["rows"].items()}
+        else:
+            panel, sector_map = _load_panel()
+            mv = rv.market_view(
+                panel,
+                index_close=inputs.get("index"),
+                vix_close=inputs.get("vix"),
+                bond_yield=inputs.get("bond"),
+                flows=inputs.get("flows"),
+                pwoi=inputs.get("pwoi"),
+                sectors=sector_map,
+            )
         # W-028..031: portfolio-construction rules against the LIVE book
         try:
             from .. import state
@@ -108,6 +130,15 @@ def register_page(request: Request, ticker: str = ""):
             equity = max(float(p.cash) + deployed, 1.0)
             weights = {t: pos.qty * pos.entry_price / equity
                        for t, pos in (p.positions or {}).items()}
+            # On the precompute path `panel` is empty — load just the HELD
+            # names' closes for the risk-parity vols (<=80 names, cheap),
+            # or W-029..031 would silently lose their inputs.
+            if not panel and p.positions:
+                from web.candle_chart import load_ohlcv
+                for ht in p.positions:
+                    hdf = load_ohlcv(ht, tail=_PANEL_TAIL)
+                    if hdf is not None and len(hdf) >= 60:
+                        panel[ht] = hdf
             vols = {}
             for t, df in panel.items():
                 r = df["Close"].pct_change().dropna() if "Close" in df else None
@@ -151,6 +182,7 @@ def register_page(request: Request, ticker: str = ""):
         request, "register.html",
         {
             "user": user, "active": "register",
+            "precomputed": precomputed,
             "market_rows": market_rows,
             "stock_rows": stock_rows,
             "ticker": t, "stock_err": stock_err,
