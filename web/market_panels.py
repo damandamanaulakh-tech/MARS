@@ -85,6 +85,10 @@ def index_strip(bars: int = 60) -> list[dict]:
         cols = ["trade_date"] + [c for _l, c, _v, _s in _INDICES]
         df = pd.read_csv(_INDEX_CSV, usecols=cols, parse_dates=["trade_date"],
                          dayfirst=True).dropna(subset=["trade_date"])
+        # Node 3: sparkline background extends past the committed CSV with
+        # the weekly stored tail (headline number stays LIVE-or-dash).
+        from trading import data_refresh as _dr
+        df, _ = _dr.extend_index_df(df)
         df = df.sort_values("trade_date").tail(bars + 1)
         if not df.empty:
             asof = df["trade_date"].iloc[-1]

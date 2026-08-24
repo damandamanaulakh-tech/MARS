@@ -1566,7 +1566,46 @@ register market view at FULL SCALE; the F5 50-member/320-bar cap lifted.**
   LESSON: a weak assertion is a fault mask — assert the panel-DEPENDENT
   item, not just any output.
 
-User's 8-step plan validated this session: all 8 now built (ticket +
+**NODE 3 REST SHIPPED (owner: "node 3", 2026-08-24), 988 tests (9 new) —
+the frozen-at-commit data files now auto-pull. Node 3 fully CLOSED.**
+- **NEW trading/data_refresh.py** — fetchers + injected Mongo readers
+  (flows.set_store_reader pattern: trading never imports web.db; readers
+  attached at boot in state._bootstrap). Storage is Mongo because Render
+  wipes disk on restart — the committed CSVs stay the deterministic base
+  and every consumer merges the stored tail on top; reader missing or
+  failing = the committed file alone, exactly the pre-Node-3 world.
+- **Weekly index tail** (`_weekly_index_refresh`, Friday 16:30 job):
+  the 4 dashboard indices via Upstox PUBLIC candles (v2 endpoint,
+  tokenless — the F1 fact), rows shaped to index_daily_15y.csv's own
+  columns, upserted into Mongo `index_daily` keyed by date. VERIFIED
+  LIVE from the sandbox: real Nifty/Sensex/VIX/BankNifty closes for
+  2026-08-19→21 through the actual client. Consumers wired: dashboard
+  sparklines (headline stays LIVE-or-dash), register load_market_inputs
+  (index+VIX feed the Node 10 nightly precompute too), and
+  **external_panels._load_index_close — T12W_0095's index leg, a LIVE
+  danger tripwire, had been reading an index state frozen at the CSV's
+  commit date (17 days stale at ship time). That was the real money-path
+  win of this node.** Journals DATA_REFRESH_INDEX/_SKIPPED/_FAILED.
+- **Monthly constituents snapshot** (`_monthly_constituents_snapshot`):
+  Nifty 50/200/500 lists from niftyindices.com (the exact GET of the
+  2026-08-09 snapshots; verified live 50/200/500 rows), stored per
+  (month, list) in `index_constituents` — the forward PIT record grows
+  itself now. Malformed/HTML responses refused (needs Symbol col + ≥40
+  rows). Month-guarded via settings doc_id="data_refresh".
+- **Monthly fundamentals refresh** (`_monthly_fundamentals_refresh`):
+  Yahoo direct timeseries (the raw endpoint — yfinance wrapper returns
+  empty, the 2026-08-09 finding) for custom universe + held, bare
+  symbols URL-encoded (the M&M/GVT&D lesson). Rows in `fundamentals`
+  keyed symbol|field|as_of; register_v4.load_fundamentals overlays them
+  on the committed CSV (stored wins = fresher fetch of the same figure);
+  `clear_fundamentals_cache()` called post-store so page + precompute
+  see new quarters without a restart. Verified live: TCS 60 datapoints.
+- Month guards skip silently inside the month (by design, ×4 Fridays);
+  Mongo-down and fetch failures always journal — no silent no-ops.
+- NOT auto-pulled still (genuinely blocked): delivery %, PWOI, F&O
+  bhavcopy (nsearchives blocks cloud — Colab), DII post-2025-03 (NSDL
+  OTP wall), TRI (niftyindices WAF). Node 3 has nothing left that cloud
+  can reach. all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never

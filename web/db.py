@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import datetime
 from typing import Any, Optional
 
 log = logging.getLogger(__name__)
@@ -243,6 +244,88 @@ def load_fii_rows(since_iso: str = "") -> list:
         return list(_DB.fii_daily.find(q).sort("date", 1))
     except Exception as e:
         log.warning("Mongo load_fii_rows failed: %s", e)
+        return []
+
+
+def save_index_rows(rows: list) -> int:
+    """Upsert index-daily rows (Node 3 index tail). rows = [{'date': iso,
+    'nifty_open': ..., ...}] in the committed CSV's column names. Keyed by
+    date so re-fetches overwrite, never duplicate."""
+    if not _CONNECTED or _DB is None or not rows:
+        return 0
+    n = 0
+    try:
+        for r in rows:
+            d = str(r.get("date") or "")
+            if not d:
+                continue
+            _DB.index_daily.replace_one(
+                {"_id": d}, {**{k: v for k, v in r.items()}, "_id": d,
+                             "date": d}, upsert=True)
+            n += 1
+    except Exception as e:
+        log.warning("Mongo save_index_rows failed: %s", e)
+    return n
+
+
+def load_index_rows(since_iso: str = "") -> list:
+    """Stored index-daily rows, ascending. [] when Mongo is down — every
+    consumer then behaves exactly as before Node 3 (committed CSV alone)."""
+    if not _CONNECTED or _DB is None:
+        return []
+    try:
+        q = {"date": {"$gte": since_iso}} if since_iso else {}
+        return list(_DB.index_daily.find(q).sort("date", 1))
+    except Exception as e:
+        log.warning("Mongo load_index_rows failed: %s", e)
+        return []
+
+
+def save_constituent_snapshot(month: str, name: str, rows: list) -> bool:
+    """One dated constituents list (Node 3 forward-PIT record). Keyed by
+    (month, list name); a re-run in the same month overwrites its own doc."""
+    if not _CONNECTED or _DB is None or not rows:
+        return False
+    try:
+        _DB.index_constituents.replace_one(
+            {"_id": f"{month}:{name}"},
+            {"_id": f"{month}:{name}", "month": month, "name": name,
+             "fetched": datetime.utcnow().isoformat(),
+             "rows": rows},
+            upsert=True)
+        return True
+    except Exception as e:
+        log.warning("Mongo save_constituent_snapshot failed: %s", e)
+        return False
+
+
+def save_fundamentals_rows(rows: list) -> int:
+    """Upsert fundamentals rows (Node 3 monthly refresh). rows =
+    [{'symbol','field','as_of','value'}] — the committed CSV's own schema.
+    Keyed by symbol|field|as_of so a re-fetch updates in place."""
+    if not _CONNECTED or _DB is None or not rows:
+        return 0
+    n = 0
+    try:
+        for r in rows:
+            key = f"{r['symbol']}|{r['field']}|{r['as_of']}"
+            _DB.fundamentals.replace_one(
+                {"_id": key}, {**r, "_id": key}, upsert=True)
+            n += 1
+    except Exception as e:
+        log.warning("Mongo save_fundamentals_rows failed: %s", e)
+    return n
+
+
+def load_fundamentals_rows() -> list:
+    """All stored fundamentals rows. [] when Mongo is down — register_v4
+    then reads the committed CSV alone, the pre-Node-3 world."""
+    if not _CONNECTED or _DB is None:
+        return []
+    try:
+        return list(_DB.fundamentals.find({}))
+    except Exception as e:
+        log.warning("Mongo load_fundamentals_rows failed: %s", e)
         return []
 
 

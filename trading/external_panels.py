@@ -179,7 +179,18 @@ def _load_index_close() -> Optional[pd.Series]:
                   index=pd.to_datetime(df[date_col], errors="coerce",
                                        dayfirst=True))
     s = s[s.index.notna()].dropna().sort_index()
-    return s if len(s) >= 30 else None
+    if len(s) < 30:
+        return None
+    # Node 3 (2026-08-24): append the weekly stored tail so the T12W_0095
+    # index overlay — a live danger tripwire — stops reading an index state
+    # frozen at the CSV's commit date. No store / failure = the committed
+    # series exactly as before.
+    try:
+        from trading import data_refresh as _dr
+        s = _dr.extend_close_series(s, close_col)
+    except Exception as e:                                    # noqa: BLE001
+        log.warning("external_panels: index tail extend failed: %s", e)
+    return s
 
 
 def _load_delivery(symbols: set[str]) -> dict[str, pd.Series]:

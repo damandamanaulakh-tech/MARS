@@ -639,6 +639,173 @@ def _weekly_fii_refresh() -> None:
         _journal("DATA_REFRESH_FII_FAILED", f"Weekly FII refresh crashed: {e}")
 
 
+def _refresh_journal(action: str, why: str) -> None:
+    """Append-only journal line for the Node 3 refresh jobs."""
+    from datetime import datetime as _dt
+
+    from . import state
+    try:
+        p = state.portfolio()
+        p.decision_journal.append(
+            {"ts": _dt.utcnow().isoformat(), "action": action, "why": why})
+        p.save()
+    except Exception:
+        pass
+
+
+def _weekly_index_refresh() -> None:
+    """Node 3 (owner: "node 3", 2026-08-24): weekly index-daily tail.
+
+    Fetches the four dashboard indices' candles PAST the newest date we
+    hold (committed CSV or stored tail, whichever is later) via the public
+    Upstox candle endpoint — tokenless, the F1 fact — and upserts them into
+    the `index_daily` collection. Consumers (dashboard sparklines, register
+    index/VIX inputs, the T12W_0095 index overlay in the danger layer)
+    merge this tail onto the committed CSV; Mongo down or fetch dead =
+    the committed file alone, exactly the pre-Node-3 world.
+    """
+    from . import db
+    if not db.is_connected():
+        _refresh_journal("DATA_REFRESH_INDEX_SKIPPED",
+                         "Weekly index refresh skipped: Mongo offline "
+                         "(nowhere to store the tail).")
+        return
+    try:
+        from trading import data as tdata, data_refresh as dr
+        last = dr.committed_index_last()
+        stored = dr.stored_index_rows()
+        if stored:
+            last = max(last, str(stored[-1].get("date") or ""))
+        if not last:
+            _refresh_journal("DATA_REFRESH_INDEX_FAILED",
+                             "Weekly index refresh: committed index CSV "
+                             "unreadable — nothing to extend from.")
+            return
+        broker = tdata.history_broker()
+        if broker is None:
+            _refresh_journal("DATA_REFRESH_INDEX_SKIPPED",
+                             "Weekly index refresh skipped: no Upstox "
+                             "client object (API keys unset).")
+            return
+        rows = dr.fetch_index_tail(broker, last)
+        if not rows:
+            _refresh_journal("DATA_REFRESH_INDEX",
+                             f"Weekly index refresh: already current to "
+                             f"{last} — nothing new to store.")
+            return
+        n = db.save_index_rows(rows)
+        _refresh_journal("DATA_REFRESH_INDEX",
+                         f"Weekly index refresh: {n} day(s) stored "
+                         f"({rows[0]['date']} → {rows[-1]['date']}). "
+                         "Dashboard sparklines, register index/VIX and the "
+                         "T12W_0095 overlay now read past the committed "
+                         "CSV.")
+        log.info("[fri 16:30] index refresh: %d rows to %s", n,
+                 rows[-1]["date"])
+    except Exception as e:
+        log.exception("weekly index refresh failed: %s", e)
+        _refresh_journal("DATA_REFRESH_INDEX_FAILED",
+                         f"Weekly index refresh crashed: {e}")
+
+
+def _monthly_constituents_snapshot() -> None:
+    """Node 3: monthly Nifty 50/200/500 constituents re-snapshot — the
+    forward point-in-time record data/index_constituents/ (2026-08-09)
+    started. Month-guarded via the data_refresh settings doc; a quiet skip
+    inside the month is by design (it ran already), only failures journal.
+    """
+    from datetime import date as _date
+
+    from . import db
+    if not db.is_connected():
+        return                      # weekly retry; the index job journaled
+    month = _date.today().isoformat()[:7]
+    try:
+        if db.load_settings(doc_id="data_refresh").get(
+                "constituents_month") == month:
+            return
+        from trading import data_refresh as dr
+        lists = dr.fetch_constituents()
+        if not lists:
+            _refresh_journal("DATA_REFRESH_CONSTITUENTS_FAILED",
+                             "Monthly constituents snapshot: niftyindices "
+                             "returned nothing usable — will retry next "
+                             "Friday.")
+            return
+        saved = [n for n, rows in lists.items()
+                 if db.save_constituent_snapshot(month, n, rows)]
+        if not saved:
+            _refresh_journal("DATA_REFRESH_CONSTITUENTS_FAILED",
+                             "Monthly constituents snapshot: fetched but "
+                             "Mongo refused the docs.")
+            return
+        db.save_settings({"constituents_month": month},
+                         doc_id="data_refresh")
+        counts = ", ".join(f"{n.replace('ind_', '').replace('list', '')} "
+                           f"{len(lists[n])}" for n in saved)
+        _refresh_journal("DATA_REFRESH_CONSTITUENTS",
+                         f"Monthly constituents snapshot stored for {month}: "
+                         f"{counts}. The forward PIT record grows.")
+        log.info("[fri 16:30] constituents snapshot %s: %s", month, saved)
+    except Exception as e:
+        log.exception("constituents snapshot failed: %s", e)
+        _refresh_journal("DATA_REFRESH_CONSTITUENTS_FAILED",
+                         f"Monthly constituents snapshot crashed: {e}")
+
+
+def _monthly_fundamentals_refresh() -> None:
+    """Node 3: monthly fundamentals refresh (Yahoo direct timeseries — the
+    raw endpoint, since the yfinance wrapper returns empty where the
+    endpoint has data). Scope = custom universe + held names, bounded.
+    register_v4.load_fundamentals overlays the stored rows on the committed
+    CSV; the cache is cleared after a successful store so the page and the
+    nightly precompute see the new quarters without a restart."""
+    from datetime import date as _date
+
+    from . import db, state
+    if not db.is_connected():
+        return                      # weekly retry; the index job journaled
+    month = _date.today().isoformat()[:7]
+    try:
+        if db.load_settings(doc_id="data_refresh").get(
+                "fundamentals_month") == month:
+            return
+        from trading import data_refresh as dr
+        cfg = state.cfg()
+        p = state.portfolio()
+        syms = sorted({t.replace(".NS", "")
+                       for t in (tuple(cfg.custom_universe or ())
+                                 + tuple((p.positions or {}).keys()))})
+        if not syms:
+            return
+        rows, n_ok = dr.fetch_fundamentals(syms)
+        if not rows:
+            _refresh_journal("DATA_REFRESH_FUNDAMENTALS_FAILED",
+                             f"Monthly fundamentals refresh: Yahoo returned "
+                             f"nothing for all {len(syms)} symbols — will "
+                             "retry next Friday.")
+            return
+        n = db.save_fundamentals_rows(rows)
+        db.save_settings({"fundamentals_month": month},
+                         doc_id="data_refresh")
+        try:
+            import trading.register_v4 as rv
+            rv.clear_fundamentals_cache()
+        except Exception:
+            log.exception("fundamentals cache clear failed")
+        _refresh_journal("DATA_REFRESH_FUNDAMENTALS",
+                         f"Monthly fundamentals refresh for {month}: "
+                         f"{n} datapoints stored, {n_ok}/{len(syms)} "
+                         "symbols answered. /register H/W/X items read the "
+                         "fresh quarters.")
+        log.info("[fri 16:30] fundamentals refresh: %d rows, %d/%d ok",
+                 n, n_ok, len(syms))
+    except Exception as e:
+        log.exception("fundamentals refresh failed: %s", e)
+        _refresh_journal("DATA_REFRESH_FUNDAMENTALS_FAILED",
+                         f"Monthly fundamentals refresh crashed: {e}")
+
+
 def refresh_breadth_store(where: str = "manual") -> dict:
     """F3 fix (owner order 2026-08-20): compute market breadth over the FULL
     Mongo OHLCV store (~2,700 names, one streamed $slice query) and persist
@@ -761,6 +928,11 @@ def _weekly_history_topup() -> None:
         # reachable) so the 5-day FII sum the thresholds are calibrated on
         # stays populated between repo commits.
         _weekly_fii_refresh()
+        # Node 3 rest (owner order 2026-08-24): index tail weekly;
+        # constituents + fundamentals once a month, guarded inside.
+        _weekly_index_refresh()
+        _monthly_constituents_snapshot()
+        _monthly_fundamentals_refresh()
         # Node 10: the store just gained a week of closes — refresh the
         # precomputed register view over it.
         run_register_precompute("post-topup")

@@ -240,7 +240,10 @@ _stmt_cache: dict[str, dict[str, pd.DataFrame]] = {}
 
 
 def load_fundamentals(symbol: str) -> dict[str, dict[str, float]]:
-    """{field: {as_of: value}} for one symbol from the curated CSV."""
+    """{field: {as_of: value}} for one symbol — committed CSV base, then
+    the Node 3 monthly-refresh rows overlaid (stored wins on the same
+    symbol/field/as_of: it is the fresher fetch of the same reported
+    figure). No store = the CSV alone, the pre-Node-3 world."""
     global _fund_cache
     if not _fund_cache:
         try:
@@ -250,7 +253,20 @@ def load_fundamentals(symbol: str) -> dict[str, dict[str, float]]:
                         r["field"], {})[r["as_of"]] = float(r["value"])
         except OSError:
             log.warning("register_v4: fundamentals CSV missing")
+        try:
+            from trading import data_refresh as _dr
+            for r in _dr.stored_fundamentals_rows():
+                _fund_cache.setdefault(r["symbol"], {}).setdefault(
+                    r["field"], {})[r["as_of"]] = float(r["value"])
+        except Exception as e:                                # noqa: BLE001
+            log.warning("register_v4: fundamentals overlay failed: %s", e)
     return _fund_cache.get(symbol, {})
+
+
+def clear_fundamentals_cache() -> None:
+    """Called by the monthly refresh job after storing new rows, so the
+    page and the nightly precompute see them without a process restart."""
+    _fund_cache.clear()
 
 
 def load_statements(symbol: str) -> dict[str, pd.DataFrame]:
@@ -1493,6 +1509,10 @@ def load_market_inputs() -> dict:
                                                "india_vix_close"])
         idx["trade_date"] = pd.to_datetime(idx["trade_date"], dayfirst=True,
                                            format="mixed")
+        # Node 3: append the stored weekly tail past the committed file —
+        # failure or no store leaves the frame exactly as committed.
+        from trading import data_refresh as _dr
+        idx, _ = _dr.extend_index_df(idx)
         idx = idx.set_index("trade_date").sort_index()
         out["index"] = idx["nifty_close"].dropna()
         out["vix"] = idx["india_vix_close"].dropna()
