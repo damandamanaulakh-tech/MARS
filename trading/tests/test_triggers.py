@@ -206,10 +206,15 @@ def _hits_where(true_ids):
 
 
 def test_side_scores_are_weighted_percent():
+    # Weights are the BT06 MEASURED set since Node 11 (owner order
+    # 2026-08-24) — the arithmetic is pinned against whichever weight
+    # source side_scores really uses (sheet weights only as the fallback).
+    w = T.MEASURED_WEIGHTS or {t.id: t.weight for t in T.TRIGGERS}
     rise = [t for t in T.COMPUTABLE if t.side == "RISE"]
-    hits = _hits_where({rise[0].id})
+    fired = next(t for t in rise if w.get(t.id, 0) > 0)
+    hits = _hits_where({fired.id})
     s = T.side_scores(hits)
-    expect = 100.0 * rise[0].weight / sum(t.weight for t in rise)
+    expect = 100.0 * w[fired.id] / sum(w.get(t.id, 0.0) for t in rise)
     assert s["RISE"] == pytest.approx(expect, abs=0.11)
     assert s["FALL"] == 0.0
 

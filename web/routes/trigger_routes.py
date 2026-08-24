@@ -42,7 +42,7 @@ def triggers_page(request: Request):
     user = auth.current_user(request)
     if not user:
         return RedirectResponse("/login", status_code=303)
-    from trading.triggers import (ASSUMED_CONSTANTS, COMPUTABLE, EXTERNAL,
+    from trading.triggers import (COMPUTABLE, EXTERNAL, SCORE_NOTE,
                                   EXTERNAL_PENDING, EXTERNAL_WIRED, GATE_ROWS,
                                   TRIGGERS)
     from trading.selection_sequence import STAGE_META, STAGES, stage_for
@@ -89,7 +89,7 @@ def triggers_page(request: Request):
             "n_external_wired": len(EXTERNAL_WIRED),
             "n_external_pending": len(EXTERNAL_PENDING),
             "gate_rows": GATE_ROWS,
-            "score_note": ASSUMED_CONSTANTS["score_formula"],
+            "score_note": SCORE_NOTE,
             "universe": _universe_names(),
             "detail": None,
         },
@@ -114,7 +114,7 @@ def trigger_detail(request: Request, ticker: str):
     user = auth.current_user(request)
     if not user:
         return RedirectResponse("/login", status_code=303)
-    from trading.triggers import (ASSUMED_CONSTANTS, EXTERNAL, EXTERNAL_PENDING,
+    from trading.triggers import (EXTERNAL, EXTERNAL_PENDING, SCORE_NOTE,
                                   EXTERNAL_WIRED, GATE_ROWS,
                                   TRIGGERS, stock_view)
     from ..candle_chart import load_ohlcv
@@ -188,7 +188,7 @@ def trigger_detail(request: Request, ticker: str):
             "n_external_wired": len(EXTERNAL_WIRED),
             "n_external_pending": len(EXTERNAL_PENDING),
             "gate_rows": GATE_ROWS,
-            "score_note": ASSUMED_CONSTANTS["score_formula"],
+            "score_note": SCORE_NOTE,
             "universe": _universe_names(),
             "detail": detail,
             "detail_ticker": ticker,
