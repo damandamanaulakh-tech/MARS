@@ -1742,6 +1742,26 @@ the sandbox). What shipped:
   cash; per-stock institutional = quarterly shareholding, already wired).
   Do not promise per-stock FII again.
 
+**FII-TIDE STUDY 2026-08-25 (owner: "its not about getting in the app,
+its about to use data for selection and scoring") — TESTED THEIR WAY,
+NO WIRE EARNED.** scripts/fii_tide_study.py + research/fii_tide_study/:
+7 signals (FII-04/05 fires, tide, extremes, DII/FII cash ±5000Cr) over
+FII idx-fut positioning 2012→2026 + cash 2007→2026 vs forward Nifty,
+train/test at 2020-06-30. ALL FAIL an honest read: S1/S4/S6 flip sign
+between halves; S2 inverted; **S5 (DII heavy selling, the one that
+looked real at +3.7pp test) collapsed on episode dedupe — 74 fire-days
+= 13 episodes, 6 of 8 test episodes are the 2020 melt-up, last two
+(2021) LOST.** Third independent landing of the same conclusion (uploads
+workbook block-table 2026-08-09; owner's prior calibration). FLAGGED TO
+OWNER, their call: the composite's LIVE FII-cash ±20 catalyst tilt IS
+S6 and fails its holdout (composite drives swing/positional + decay
+exits, not momentum entries; their historic spec — untouched without
+their word). FII positioning is MARKET-level — it can time/size, never
+rank one stock over another; told them per-stock daily FII exists in no
+feed. The Upstox daily feed accumulates a forward archive for a future
+re-test. Selection influence their data HAS earned stays: the 12 danger
+tripwires + canonical damage journal.
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
