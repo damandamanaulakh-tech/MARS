@@ -1711,6 +1711,37 @@ reachable) · 5 stale +12 pins updated (exit_policy_c ×2, docs_truth_d,
 market_panels horizons, owner_buy). UNTESTED LIVE at +20 — the 60-day
 window continues under the new bracket at the owner's order.
 
+**UPSTOX FII/DII WIRE (owner order 2026-08-24: "with upstox key u can wire
+the FII data also for each stock, so where u show data needed, needs to
+fill with live from upstox"), 1,011 tests (8 new).** Upstox launched
+Market Information APIs 2026-05-11 (/v2/market/fii + /v2/market/dii, OI,
+PCR, max-pain; data from 2026-04-01; 401 tokenless — VERIFIED live from
+the sandbox). What shipped:
+- `UpstoxClient.get_market_fii/get_market_dii` + `_market_info_headers`:
+  daily login token OR **UPSTOX_ANALYTICS_TOKEN env** (owner can generate
+  an Analytics Token on the Upstox Developer Apps page and set it in
+  Render — keeps this feed alive before the day's login; quotes still
+  need the login, that's an Upstox rule).
+- `scheduler.run_market_fii_snapshot` — once/day (09:20 job + login
+  callback, chain pattern): archives BOTH raw payloads
+  (db.save_market_info_raw — a shape miss loses nothing), maps
+  defensively (rows must prove date + idx-fut long/short legs; all-zero
+  DII refused), stores pwoi_daily rows + merges DII onto fii_daily.
+  Journals MARKET_FII_SNAPSHOT/_SKIPPED/_FAILED; UNMAPPED payloads named
+  in the journal. **RESPONSE SHAPE UNVERIFIED until the first
+  authenticated call** (sandbox has no token) — mapper candidates cover
+  the documented field names; first live journal line tells.
+- Consumers: register FII-04/05 read FII rows extended past the frozen
+  committed PWOI panel (extend_pwoi_df, degrade-to-before), note says
+  "[upstox market/fii to DATE]"; FII-06/07 legs (Client/TOTAL rows) CANNOT
+  extend — feed is FII-only — so a mixed frame prints each leg's end date.
+  DII rows = the first LIVE DII source since NSDL's OTP wall (F7 half-
+  closed FORWARD from 2026-04; the 2025-04→2026-03 hole stays historical).
+- **TOLD THE OWNER STRAIGHT: daily PER-STOCK FII does not exist in any
+  feed** (Upstox serves segment aggregates — index fut/stock fut/options/
+  cash; per-stock institutional = quarterly shareholding, already wired).
+  Do not promise per-stock FII again.
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

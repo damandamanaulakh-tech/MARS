@@ -299,6 +299,79 @@ def save_constituent_snapshot(month: str, name: str, rows: list) -> bool:
         return False
 
 
+def save_market_info_raw(kind: str, day: str, payload) -> bool:
+    """Archive one raw Market-Information payload (owner order 2026-08-24:
+    Upstox FII/DII wire). Keyed kind:day so a re-run overwrites its own
+    day. The raw copy exists so a mapper shape-miss loses nothing."""
+    if not _CONNECTED or _DB is None or payload is None:
+        return False
+    try:
+        _DB.market_info_raw.replace_one(
+            {"_id": f"{kind}:{day}"},
+            {"_id": f"{kind}:{day}", "kind": kind, "day": day,
+             "fetched": datetime.utcnow().isoformat(), "payload": payload},
+            upsert=True)
+        return True
+    except Exception as e:
+        log.warning("Mongo save_market_info_raw failed: %s", e)
+        return False
+
+
+def save_pwoi_rows(rows: list) -> int:
+    """Upsert PWOI-shaped FII rows from the Upstox market/fii feed. Keyed
+    date|client_type so re-fetches overwrite, never duplicate."""
+    if not _CONNECTED or _DB is None or not rows:
+        return 0
+    n = 0
+    try:
+        for r in rows:
+            d, ct = str(r.get("date") or ""), str(r.get("client_type") or "")
+            if not d or not ct:
+                continue
+            _DB.pwoi_daily.replace_one(
+                {"_id": f"{d}|{ct}"}, {**r, "_id": f"{d}|{ct}"}, upsert=True)
+            n += 1
+    except Exception as e:
+        log.warning("Mongo save_pwoi_rows failed: %s", e)
+    return n
+
+
+def load_pwoi_rows() -> list:
+    """Stored Upstox-fed PWOI rows, ascending by date. [] when Mongo is
+    down — the register then reads the committed panel alone."""
+    if not _CONNECTED or _DB is None:
+        return []
+    try:
+        return list(_DB.pwoi_daily.find({}).sort("date", 1))
+    except Exception as e:
+        log.warning("Mongo load_pwoi_rows failed: %s", e)
+        return []
+
+
+def update_dii_rows(rows: list) -> int:
+    """Merge DII cash legs onto the fii_daily docs (keyed by date) — the
+    first LIVE DII source since the NSDL DII archive proved OTP-walled."""
+    if not _CONNECTED or _DB is None or not rows:
+        return 0
+    n = 0
+    try:
+        for r in rows:
+            d = str(r.get("date") or "")
+            if not d:
+                continue
+            _DB.fii_daily.update_one(
+                {"_id": d},
+                {"$set": {"date": d, "dii_buy": float(r["dii_buy"]),
+                          "dii_sell": float(r["dii_sell"]),
+                          "dii_net": float(r["dii_net"]),
+                          "dii_source": "upstox_market_dii"}},
+                upsert=True)
+            n += 1
+    except Exception as e:
+        log.warning("Mongo update_dii_rows failed: %s", e)
+    return n
+
+
 def save_fundamentals_rows(rows: list) -> int:
     """Upsert fundamentals rows (Node 3 monthly refresh). rows =
     [{'symbol','field','as_of','value'}] — the committed CSV's own schema.
