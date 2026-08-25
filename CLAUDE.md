@@ -1792,6 +1792,28 @@ stands, no USFDA row ever gates a trade):
   answers our cloud IP — probed 200) but NOT built; offer stands.
 - Boundary test: engine/risk/orders/danger never import usfda_feed.
 
+**SEBI ENFORCEMENT ORDERS WIRED (owner order 2026-08-25: "wire the SEBI
+enforcement orders feed too"), 1,023 tests (5 new).** Display only.
+- **trading/sebi_feed.py**: sebi.gov.in's OWN listing backend
+  (sebiweb/ajax/home/getnewslistinfo.jsp, sid=2/ssid=9 — found by
+  brute-forcing category ids; the static pages are JS shells; ssid=10
+  stops May-2025, ssid=12 stops Mar-2023, 9 is the live one). VERIFIED
+  live: 50 real orders parsed, newest 2026-08-18. Rows: order_id (from
+  the URL), ISO date, title, full URL.
+- Matching: EXACT title word (stricter than USFDA's prefix rule — SEBI
+  titles are free prose over every sector; "Rainbow" must not match
+  RAIN). Token + full title ride every row; wrong matches visible.
+- **scheduler._weekly_sebi_refresh** (Friday block): scans ALL custom-
+  universe + held names (SEBI hits any sector). Most orders name
+  INDIVIDUALS — matches for a 50-name book are RARE; the journal carries
+  the scanned-order count so an empty week is dated evidence
+  ("No order named these companies"), never silence. Journals
+  DATA_REFRESH_SEBI/_SKIPPED/_FAILED. Mongo `sebi_orders` keyed
+  ticker|order_id (save returns NEW count).
+- **/triggers per-stock page**: ⚖️ SEBI card (sebi_block_marker), order
+  titles link to sebi.gov.in, matched token printed.
+- Boundary test: engine/risk/orders/danger never import sebi_feed.
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

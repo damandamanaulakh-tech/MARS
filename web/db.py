@@ -404,6 +404,37 @@ def load_usfda_events(ticker: str = "") -> list:
         return []
 
 
+def save_sebi_orders(rows: list) -> int:
+    """Upsert SEBI enforcement-order matches (owner order 2026-08-25).
+    Keyed ticker|order_id; returns how many were NEW so the journal can
+    name fresh orders without re-announcing old ones."""
+    if not _CONNECTED or _DB is None or not rows:
+        return 0
+    new = 0
+    try:
+        for r in rows:
+            key = f"{r.get('ticker')}|{r.get('order_id')}"
+            res = _DB.sebi_orders.replace_one(
+                {"_id": key}, {**r, "_id": key}, upsert=True)
+            if res.upserted_id is not None:
+                new += 1
+    except Exception as e:
+        log.warning("Mongo save_sebi_orders failed: %s", e)
+    return new
+
+
+def load_sebi_orders(ticker: str = "") -> list:
+    """Stored SEBI order matches, newest first. [] when Mongo is down."""
+    if not _CONNECTED or _DB is None:
+        return []
+    try:
+        q = {"ticker": ticker} if ticker else {}
+        return list(_DB.sebi_orders.find(q).sort("date", -1).limit(200))
+    except Exception as e:
+        log.warning("Mongo load_sebi_orders failed: %s", e)
+        return []
+
+
 def save_fundamentals_rows(rows: list) -> int:
     """Upsert fundamentals rows (Node 3 monthly refresh). rows =
     [{'symbol','field','as_of','value'}] — the committed CSV's own schema.
