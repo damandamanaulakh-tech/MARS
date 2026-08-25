@@ -593,6 +593,95 @@ def run_option_chain_snapshot(where: str = "manual") -> dict:
         return {}
 
 
+def run_market_fii_snapshot(where: str = "manual") -> bool:
+    """Owner order 2026-08-24 ("with upstox key u can wire the FII data"):
+    one daily pull of the Upstox Market Information FII + DII endpoints.
+
+    FII derivatives (index/stock futures + options, segment-level — no
+    feed anywhere serves daily PER-STOCK FII) extend the committed PWOI
+    panel, so FII-04/05 on /register stop being frozen at the 2026-08-07
+    Colab fetch. DII (NSE Cash) is the first LIVE DII source since the
+    NSDL DII archive proved OTP-walled (F7) — rows merge onto fii_daily.
+
+    AUTH: the daily login token, or UPSTOX_ANALYTICS_TOKEN in Render (the
+    owner can generate one on the Upstox Developer Apps page — that keeps
+    this feed alive even before the day's login). Response shape is
+    UNVERIFIED until the first authenticated call: the raw payload is
+    archived either way, the mappers refuse rows they can't prove, and a
+    shape miss journals instead of guessing.
+    """
+    import os
+    from datetime import date as _date
+
+    from . import db, state
+    try:
+        if not db.is_connected():
+            return False                 # nowhere to store; weekly jobs journal Mongo-down
+        today = _date.today().isoformat()
+        guard = db.load_settings(doc_id="data_refresh")
+        if guard.get("market_fii_day") == today:
+            return True
+        eng = state.engine()
+        broker = getattr(eng, "broker", None)
+        if broker is None or not getattr(broker, "is_connected",
+                                         lambda: False)():
+            from trading import data as tdata
+            broker = tdata.history_broker()
+        has_env = bool(os.environ.get("UPSTOX_ANALYTICS_TOKEN", "").strip())
+        has_token = bool(broker is not None
+                         and getattr(broker, "access_token", None))
+        if broker is None or not (has_token or has_env):
+            if guard.get("market_fii_skip_noted") != today:
+                db.save_settings({"market_fii_skip_noted": today},
+                                 doc_id="data_refresh")
+                _refresh_journal(
+                    "MARKET_FII_SKIPPED",
+                    "Upstox FII/DII snapshot skipped: needs the daily "
+                    "login token or UPSTOX_ANALYTICS_TOKEN in Render. "
+                    "FII-04/05 read the committed panel today.")
+            return False
+        from trading import data_refresh as dr
+        fii_raw = broker.get_market_fii(list(dr.FII_DATA_TYPES))
+        dii_raw = broker.get_market_dii()
+        if fii_raw is None and dii_raw is None:
+            _refresh_journal("MARKET_FII_FAILED",
+                             "Upstox FII/DII snapshot: both endpoints "
+                             "returned nothing — consumers keep the "
+                             "committed panels.")
+            return False
+        db.save_market_info_raw("fii", today, fii_raw)
+        db.save_market_info_raw("dii", today, dii_raw)
+        pwoi_rows = dr.map_market_fii(fii_raw) if fii_raw else []
+        dii_rows = dr.map_market_dii(dii_raw) if dii_raw else []
+        n_p = db.save_pwoi_rows(pwoi_rows)
+        n_d = db.update_dii_rows(dii_rows)
+        db.save_settings({"market_fii_day": today}, doc_id="data_refresh")
+        parts = []
+        if n_p:
+            parts.append(f"{n_p} FII derivative day-row(s) -> FII-04/05")
+        elif fii_raw is not None:
+            parts.append("FII payload archived but UNMAPPED (shape "
+                         "differs from the documented fields — raw kept, "
+                         "mapper needs one look at it)")
+        if n_d:
+            parts.append(f"{n_d} DII cash day-row(s) (first live DII "
+                         "since F7)")
+        elif dii_raw is not None:
+            parts.append("DII payload archived but UNMAPPED")
+        _refresh_journal("MARKET_FII_SNAPSHOT",
+                         "Upstox market FII/DII: " + "; ".join(parts) + ".")
+        log.info("[market-fii:%s] pwoi=%d dii=%d", where, n_p, n_d)
+        return True
+    except Exception as e:
+        log.exception("market FII/DII snapshot failed: %s", e)
+        try:
+            _refresh_journal("MARKET_FII_FAILED",
+                             f"Upstox FII/DII snapshot crashed: {e}")
+        except Exception:
+            pass
+        return False
+
+
 def _weekly_fii_refresh() -> None:
     """Node 3 (owner order 2026-08-23): weekly NSDL FPI tail into Mongo.
 
@@ -1167,6 +1256,12 @@ def run_trigger_layer(where: str = "manual") -> dict:
             chain = run_option_chain_snapshot(where) or {}
         except Exception:
             log.exception("option chain snapshot failed before trigger layer")
+        # Owner order 2026-08-24: daily Upstox FII/DII pull (same auth
+        # story as the chain; once-per-day guard inside; failure isolated).
+        try:
+            run_market_fii_snapshot(where)
+        except Exception:
+            log.exception("market FII/DII snapshot failed before trigger layer")
 
         # External panels (sector/RS, delivery, F&O OI, deals) — ONE batch
         # load for the whole run: the delivery file is 3.5M rows and a

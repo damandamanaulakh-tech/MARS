@@ -321,6 +321,7 @@ def _bootstrap() -> None:
         from trading import data_refresh as _dr
         _dr.set_index_reader(db.load_index_rows)
         _dr.set_fundamentals_reader(db.load_fundamentals_rows)
+        _dr.set_pwoi_reader(db.load_pwoi_rows)
     except Exception:
         log.exception("data_refresh reader attach failed")
 

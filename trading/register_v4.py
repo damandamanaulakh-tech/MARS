@@ -1324,13 +1324,29 @@ def market_view(panel: dict[str, pd.DataFrame],
         fii_rows = pwoi[pwoi["client_type"] == "FII"].set_index("date")
         cli_rows = pwoi[pwoi["client_type"] == "Client"].set_index("date")
         tot_rows = pwoi[pwoi["client_type"] == "TOTAL"].set_index("date")
+        # Owner order 2026-08-24: FII legs may now extend past the committed
+        # panel via the daily Upstox market/fii store. Say so when they do —
+        # and FII-06/07's client/total legs CANNOT extend (the feed is
+        # FII-only), so a mixed frame names each leg's end date.
+        src_note = leg_note = ""
+        try:
+            f_last, c_last = str(fii_rows.index.max()), str(cli_rows.index.max())
+            if ("source" in pwoi.columns
+                    and str(fii_rows.iloc[-1].get("source") or ""
+                            ).startswith("upstox")):
+                src_note = f" [upstox market/fii to {f_last}]"
+            if c_last < f_last:
+                leg_note = (f" (client/total legs end {c_last}, "
+                            f"FII legs to {f_last})")
+        except Exception:                                     # noqa: BLE001
+            pass
         net_if = (fii_rows["fut_idx_long"].astype(float)
                   - fii_rows["fut_idx_short"].astype(float))
         q10 = float(np.percentile(net_if, 10))
         out["FII-04"] = Reading(
             "FII-04", "FIRED" if net_if.iloc[-1] < q10 else "QUIET",
             float(net_if.iloc[-1]),
-            f"FII idx-fut net contracts vs rolling q10 {q10:.0f}")
+            f"FII idx-fut net contracts vs rolling q10 {q10:.0f}" + src_note)
         tot_if = (fii_rows["fut_idx_long"].astype(float)
                   + fii_rows["fut_idx_short"].astype(float))
         short_share = fii_rows["fut_idx_short"].astype(float) / tot_if
@@ -1338,7 +1354,7 @@ def market_view(panel: dict[str, pd.DataFrame],
         out["FII-05"] = Reading(
             "FII-05", "FIRED" if short_share.iloc[-1] > q80 else "QUIET",
             float(short_share.iloc[-1] * 100),
-            f"short share % vs q80 {q80*100:.1f}%")
+            f"short share % vs q80 {q80*100:.1f}%" + src_note)
         cli_tot = (cli_rows["fut_idx_long"].astype(float)
                    + cli_rows["fut_idx_short"].astype(float))
         cli_share = cli_rows["fut_idx_long"].astype(float) / cli_tot
@@ -1348,7 +1364,8 @@ def market_view(panel: dict[str, pd.DataFrame],
             out["FII-06"] = Reading(
                 "FII-06", "FIRED" if crowd else "QUIET",
                 float(cli_share.iloc[-1] * 100),
-                "client long share rising while FII net short deepens (5d)")
+                "client long share rising while FII net short deepens (5d)"
+                + leg_note)
         pcr = ((tot_rows["opt_idx_put_long"].astype(float)
                 + tot_rows["opt_idx_put_short"].astype(float))
                / (tot_rows["opt_idx_call_long"].astype(float)
@@ -1360,7 +1377,7 @@ def market_view(panel: dict[str, pd.DataFrame],
                 "FII-07", "FIRED" if jump > 0.30 else "QUIET",
                 float(pcr.iloc[-1]),
                 f"PCR-OI {pcr.iloc[-1]:.2f}, {jump*100:+.1f}% vs 20d avg "
-                "(TOTAL row, ASSUMED per register gap)")
+                "(TOTAL row, ASSUMED per register gap)" + leg_note)
     else:
         for rid in ("FII-04", "FII-05", "FII-06", "FII-07"):
             out[rid] = _dn(rid, "PWOI panel missing")
@@ -1546,7 +1563,13 @@ def load_market_inputs() -> dict:
     except OSError:
         pass
     try:
-        out["pwoi"] = pd.read_csv(_PWOI_CSV)
+        pw = pd.read_csv(_PWOI_CSV)
+        # Owner order 2026-08-24: extend the FII rows with the daily Upstox
+        # market/fii store (segment-level; only FII index-fut legs qualify).
+        # No store / failure = the committed panel exactly as before.
+        from trading import data_refresh as _dr
+        pw, _ = _dr.extend_pwoi_df(pw)
+        out["pwoi"] = pw
     except OSError:
         pass
     return out

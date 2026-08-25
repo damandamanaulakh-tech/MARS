@@ -146,6 +146,10 @@ def callback(
         import threading as _th
         _th.Thread(target=_sched.run_option_chain_snapshot,
                    args=("upstox_connect",), daemon=True).start()
+        # Owner order 2026-08-24: the login also unblocks the daily Upstox
+        # FII/DII pull (market-info endpoints reject tokenless calls).
+        _th.Thread(target=_sched.run_market_fii_snapshot,
+                   args=("upstox_connect",), daemon=True).start()
     except Exception:
         pass
     return RedirectResponse("/?upstox_connected=1", status_code=303)

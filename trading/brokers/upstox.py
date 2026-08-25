@@ -317,6 +317,56 @@ class UpstoxClient:
                         instrument_key, expiry_date, e)
             return None
 
+    def _market_info_headers(self) -> dict:
+        """Auth for the Market Information APIs (owner order 2026-08-24:
+        "with upstox key u can wire the FII data"). These endpoints accept
+        the normal OAuth token OR an Analytics Token from the Developer
+        Apps page — UPSTOX_ANALYTICS_TOKEN env, if the owner sets one in
+        Render, keeps this feed alive even before the day's login."""
+        import os
+        alt = os.environ.get("UPSTOX_ANALYTICS_TOKEN", "").strip()
+        if self.access_token:
+            return self._auth_headers()
+        if alt:
+            return {"accept": "application/json",
+                    "Authorization": f"Bearer {alt}"}
+        raise UpstoxAuthError("no token for market-info APIs")
+
+    def get_market_fii(self, data_types: list[str],
+                       interval: str = "1D") -> Optional[dict]:
+        """FII activity from /v2/market/fii (Market Information APIs,
+        launched 2026-05-11; data from 2026-04-01, 30 trading days per 1D
+        request). data_types e.g. 'NSE_FO|INDEX_FUTURES'. Returns the raw
+        `data` payload or None. AUTH REQUIRED (401 verified from the
+        sandbox tokenless) — response SHAPE is verified by the first
+        authenticated call, and the caller must treat a parse miss as
+        DATA_NEEDED, never guess."""
+        try:
+            params = [("data_type", d) for d in data_types]
+            params.append(("interval", interval))
+            r = httpx.get("https://api.upstox.com/v2/market/fii",
+                          params=params, headers=self._market_info_headers(),
+                          timeout=30.0)
+            r.raise_for_status()
+            return r.json().get("data") or None
+        except (httpx.HTTPError, UpstoxAuthError, ValueError, KeyError) as e:
+            log.warning("Upstox market FII failed: %s", e)
+            return None
+
+    def get_market_dii(self, interval: str = "1D") -> Optional[dict]:
+        """DII activity (NSE Cash) from /v2/market/dii — same contract and
+        caveats as get_market_fii. This is the first LIVE DII source the
+        app has had since the NSDL DII archive proved OTP-walled (F7)."""
+        try:
+            r = httpx.get("https://api.upstox.com/v2/market/dii",
+                          params={"interval": interval},
+                          headers=self._market_info_headers(), timeout=30.0)
+            r.raise_for_status()
+            return r.json().get("data") or None
+        except (httpx.HTTPError, UpstoxAuthError, ValueError, KeyError) as e:
+            log.warning("Upstox market DII failed: %s", e)
+            return None
+
     def get_quote(self, instrument_key: str) -> Optional[dict]:
         """Full real-time quote for one instrument.
 
