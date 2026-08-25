@@ -896,6 +896,62 @@ def _monthly_fundamentals_refresh() -> None:
                          f"Monthly fundamentals refresh crashed: {e}")
 
 
+def _weekly_usfda_refresh() -> None:
+    """Owner ask 2026-08-25 ("did u wired the US FDA data"): weekly USFDA
+    event pull for the pharma/chemical/healthcare names in the custom
+    universe + every held name. Recalls come keyless from openFDA
+    (verified live); inspections need the owner's free FDA Data Dashboard
+    key and honestly read DATA_NEEDED without it. Display only — the
+    fabricated-calendar lesson (2026-08-09) stands: no USFDA row ever
+    blocks a buy or moves a stop."""
+    from . import db, state
+    if not db.is_connected():
+        _refresh_journal("DATA_REFRESH_USFDA_SKIPPED",
+                         "Weekly USFDA refresh skipped: Mongo offline "
+                         "(nowhere to store events).")
+        return
+    try:
+        from trading.universes import CUSTOM_UNIVERSE_SECTOR_MAP
+        from trading import usfda_feed
+        cfg = state.cfg()
+        p = state.portfolio()
+        want_sectors = ("pharma", "chemical", "health")
+        tickers = set(p.positions or {})
+        for t in tuple(cfg.custom_universe or ()):
+            sec = (CUSTOM_UNIVERSE_SECTOR_MAP.get(t)
+                   or cfg.sector_map.get(t) or "").lower()
+            if any(w in sec for w in want_sectors):
+                tickers.add(t)
+        import csv as _csv
+        from pathlib import Path as _Path
+        uf = _Path(__file__).resolve().parents[1] / "data" / \
+            "upstox_nse_equities.csv"
+        with open(uf) as f:
+            rows = {r["ticker"]: r.get("name", "")
+                    for r in _csv.DictReader(f)}
+        name_map = {t: rows[t] for t in sorted(tickers) if rows.get(t)}
+        if not name_map:
+            return
+        recalls = usfda_feed.fetch_recalls(name_map)
+        inspections, insp_note = usfda_feed.fetch_inspections(name_map)
+        n_new = db.save_usfda_events(recalls + inspections)
+        fresh = sorted({r["ticker"] for r in (recalls + inspections)})
+        _refresh_journal(
+            "DATA_REFRESH_USFDA",
+            f"USFDA weekly: {len(name_map)} name(s) scanned, "
+            f"{len(recalls)} recall row(s)"
+            + (f" + {len(inspections)} inspection row(s)"
+               if inspections else "")
+            + f", {n_new} new. Inspections: {insp_note}."
+            + (f" Names with events: {', '.join(fresh)}." if fresh else ""))
+        log.info("[fri 16:30] USFDA: %d names, %d recalls, %d new",
+                 len(name_map), len(recalls), n_new)
+    except Exception as e:
+        log.exception("weekly USFDA refresh failed: %s", e)
+        _refresh_journal("DATA_REFRESH_USFDA_FAILED",
+                         f"Weekly USFDA refresh crashed: {e}")
+
+
 def refresh_breadth_store(where: str = "manual") -> dict:
     """F3 fix (owner order 2026-08-20): compute market breadth over the FULL
     Mongo OHLCV store (~2,700 names, one streamed $slice query) and persist
@@ -1023,6 +1079,8 @@ def _weekly_history_topup() -> None:
         _weekly_index_refresh()
         _monthly_constituents_snapshot()
         _monthly_fundamentals_refresh()
+        # Owner ask 2026-08-25: USFDA events for pharma names, weekly.
+        _weekly_usfda_refresh()
         # Node 10: the store just gained a week of closes — refresh the
         # precomputed register view over it.
         run_register_precompute("post-topup")

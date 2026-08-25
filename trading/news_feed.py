@@ -82,7 +82,12 @@ EVENT_RULES: list[tuple[str, str, float, tuple[str, ...]]] = [
      (r"\bsebi\b", r"\bshow[- ]cause", r"\bpenalt(?:y|ies)", r"\bfined?\b",
       r"\binvestigat(?:ion|ing|es)", r"\braid(?:s|ed)?\b", r"\bprobe\b",
       r"\bnotice from\b", r"\bcbi\b", r"\bed (?:raids?|summons)",
-      r"\binsolvency", r"\bnclt\b", r"\bban(?:s|ned)?\b")),
+      r"\binsolvency", r"\bnclt\b", r"\bban(?:s|ned)?\b",
+      # Owner ask 2026-08-25 ("US FDA data and ongoing sanctions"): the
+      # pharma regulator's own vocabulary + sanctions, so these headlines
+      # tag as regulatory risk instead of sliding through untagged.
+      r"\bus\s?fda\b", r"\bform 483\b", r"\bwarning letter",
+      r"\bimport alert", r"\bsanction(?:s|ed)?\b")),
     ("governance", RISK, 2.5,
      (r"\bresign(?:s|ed|ation)", r"\bsteps down",
       r"\bauditor (?:resigns|flags|qualif)",

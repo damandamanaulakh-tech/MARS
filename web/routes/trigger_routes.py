@@ -170,8 +170,17 @@ def trigger_detail(request: Request, ticker: str):
                           [g["id"] for g in view["gates"]
                            if g["status"] == "PASS"],
                           held=ticker in state.portfolio().positions)
+        # Owner ask 2026-08-25: stored USFDA events for this stock (weekly
+        # refresh; openFDA recalls + dashboard inspections when keyed).
+        # Display only — "no block just show".
+        usfda = []
+        try:
+            from .. import db
+            usfda = db.load_usfda_events(ticker)[:10]
+        except Exception:
+            log.exception("usfda events load failed")
         detail = {"ticker": ticker, "view": view, "by_family": by_family,
-                  "bars": len(df), "news": news_detail,
+                  "bars": len(df), "news": news_detail, "usfda": usfda,
                   "stage": stage, "stage_meta": STAGE_META[stage["stage"]]}
     return templates.TemplateResponse(
         request, "triggers.html",
