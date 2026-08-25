@@ -173,14 +173,16 @@ def trigger_detail(request: Request, ticker: str):
         # Owner ask 2026-08-25: stored USFDA events for this stock (weekly
         # refresh; openFDA recalls + dashboard inspections when keyed).
         # Display only — "no block just show".
-        usfda = []
+        usfda, sebi = [], []
         try:
             from .. import db
             usfda = db.load_usfda_events(ticker)[:10]
+            sebi = db.load_sebi_orders(ticker)[:10]
         except Exception:
-            log.exception("usfda events load failed")
+            log.exception("usfda/sebi events load failed")
         detail = {"ticker": ticker, "view": view, "by_family": by_family,
                   "bars": len(df), "news": news_detail, "usfda": usfda,
+                  "sebi": sebi,
                   "stage": stage, "stage_meta": STAGE_META[stage["stage"]]}
     return templates.TemplateResponse(
         request, "triggers.html",

@@ -952,6 +952,60 @@ def _weekly_usfda_refresh() -> None:
                          f"Weekly USFDA refresh crashed: {e}")
 
 
+def _weekly_sebi_refresh() -> None:
+    """Owner order 2026-08-25 ("wire the SEBI enforcement orders feed
+    too"): weekly pull of SEBI's live enforcement-orders listing, matched
+    by exact title word against EVERY custom-universe + held company
+    name (SEBI hits any sector). Most orders concern individuals — an
+    empty week means no order NAMED these companies, and the journal
+    carries the scanned count so absence is dated evidence. Display only:
+    no order ever blocks a buy or moves a stop."""
+    from . import db, state
+    if not db.is_connected():
+        _refresh_journal("DATA_REFRESH_SEBI_SKIPPED",
+                         "Weekly SEBI refresh skipped: Mongo offline "
+                         "(nowhere to store orders).")
+        return
+    try:
+        from trading import sebi_feed
+        cfg = state.cfg()
+        p = state.portfolio()
+        tickers = set(tuple(cfg.custom_universe or ())) | \
+            set(p.positions or {})
+        import csv as _csv
+        from pathlib import Path as _Path
+        uf = _Path(__file__).resolve().parents[1] / "data" / \
+            "upstox_nse_equities.csv"
+        with open(uf) as f:
+            rows = {r["ticker"]: r.get("name", "")
+                    for r in _csv.DictReader(f)}
+        name_map = {t: rows[t] for t in sorted(tickers) if rows.get(t)}
+        if not name_map:
+            return
+        orders = sebi_feed.fetch_orders()
+        if not orders:
+            _refresh_journal("DATA_REFRESH_SEBI_FAILED",
+                             "Weekly SEBI refresh: the listing endpoint "
+                             "returned no parseable orders — will retry "
+                             "next Friday.")
+            return
+        matched = sebi_feed.match_orders(orders, name_map)
+        n_new = db.save_sebi_orders(matched)
+        hits = sorted({m["ticker"] for m in matched})
+        _refresh_journal(
+            "DATA_REFRESH_SEBI",
+            f"SEBI weekly: {len(orders)} order(s) scanned against "
+            f"{len(name_map)} name(s); {len(matched)} matched, {n_new} "
+            "new." + (f" Named: {', '.join(hits)}." if hits
+                      else " No order named these companies."))
+        log.info("[fri 16:30] SEBI: %d orders, %d matched, %d new",
+                 len(orders), len(matched), n_new)
+    except Exception as e:
+        log.exception("weekly SEBI refresh failed: %s", e)
+        _refresh_journal("DATA_REFRESH_SEBI_FAILED",
+                         f"Weekly SEBI refresh crashed: {e}")
+
+
 def refresh_breadth_store(where: str = "manual") -> dict:
     """F3 fix (owner order 2026-08-20): compute market breadth over the FULL
     Mongo OHLCV store (~2,700 names, one streamed $slice query) and persist
@@ -1081,6 +1135,8 @@ def _weekly_history_topup() -> None:
         _monthly_fundamentals_refresh()
         # Owner ask 2026-08-25: USFDA events for pharma names, weekly.
         _weekly_usfda_refresh()
+        # Owner order 2026-08-25: SEBI enforcement orders, weekly.
+        _weekly_sebi_refresh()
         # Node 10: the store just gained a week of closes — refresh the
         # precomputed register view over it.
         run_register_precompute("post-topup")

@@ -105,6 +105,24 @@
   {% endfor %}
 </div>
 {% endif %}
+{% if detail and detail.sebi %}
+<div class="border border-line p-4 mb-6"><!-- sebi_block_marker -->
+  <div class="flex items-center gap-3 mb-2">
+    <h2 class="font-black text-lg">⚖️ SEBI enforcement orders</h2>
+    <span class="text-ink-faint text-xs">sebi.gov.in orders listing, weekly refresh</span>
+  </div>
+  <p class="text-ink-soft text-xs mb-2"><strong>Display only — never blocks a
+    buy or moves a stop.</strong> Matched by the word
+    "{{ detail.sebi[0].token }}" in the order title — the full title is shown
+    so a wrong match is visible.</p>
+  {% for o in detail.sebi %}
+  <div class="text-sm py-1 border-b border-line last:border-0">
+    <a href="{{ o.url }}" target="_blank" rel="noopener" class="hover:underline">{{ o.title }}</a>
+    <span class="text-ink-faint text-xs">· {{ o.date }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
 <!-- ============ ONE STOCK, ALL 112 ============ -->
 <div class="mb-4">
   <a href="/triggers" class="text-xs text-ink-faint hover:text-ink">&larr; back to today's table</a>
