@@ -1762,6 +1762,36 @@ feed. The Upstox daily feed accumulates a forward archive for a future
 re-test. Selection influence their data HAS earned stays: the 12 danger
 tripwires + canonical damage journal.
 
+**USFDA + SANCTIONS WIRE (owner ask 2026-08-25: "did u wired the US FDA
+data and on going senctions"), 1,018 tests (7 new).** Honest answer given
+first: NO — the old USFDA calendar was FABRICATED dates driving a real
+entry blackout, emptied by the 2026-08-09 audit; nothing real was wired
+until now. What shipped (display only — the fabricated-calendar lesson
+stands, no USFDA row ever gates a trade):
+- **trading/usfda_feed.py**: openFDA drug-enforcement recalls — PUBLIC,
+  keyless, VERIFIED live (Torrent: 85 classified recalls with dates +
+  reasons). Firm↔ticker match by company-name token (query_token/
+  firm_matches); the matched FDA firm name rides every row so a wrong
+  match is VISIBLE, never silent. FDA Data Dashboard inspections
+  (Form-483 territory) = real endpoint, verified reachable, but needs a
+  free registered key → FDA_DATADASHBOARD_USER/_KEY env (owner action at
+  datadashboard.fda.gov, OII Unified Logon); without it that half reads
+  DATA_NEEDED naming the unlock.
+- **scheduler._weekly_usfda_refresh** (Friday block): scans pharma/chem/
+  health names from the custom universe + ALL held names (name map from
+  upstox_nse_equities.csv), stores Mongo `usfda_events` keyed
+  ticker|event_id (save returns NEW count), journals DATA_REFRESH_USFDA/
+  _SKIPPED/_FAILED with names-with-events listed.
+- **/triggers per-stock page**: 🏛️ USFDA events card (class-colored,
+  firm + date shown, "display only" line) — usfda_block_marker.
+- **Sanctions half**: the news regulatory family (live daily per stock)
+  ALREADY carried sebi/penalty/ban/probe/show-cause; ADDED patterns:
+  us fda, form 483, warning letter, import alert, sanction(s|ed) — so
+  those headlines tag RISK instead of sliding through untagged. A
+  structured SEBI enforcement-orders feed is possible (sebi.gov.in
+  answers our cloud IP — probed 200) but NOT built; offer stands.
+- Boundary test: engine/risk/orders/danger never import usfda_feed.
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

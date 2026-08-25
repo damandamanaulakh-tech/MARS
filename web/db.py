@@ -372,6 +372,38 @@ def update_dii_rows(rows: list) -> int:
     return n
 
 
+def save_usfda_events(rows: list) -> int:
+    """Upsert USFDA event rows (owner ask 2026-08-25). Keyed
+    ticker|event_id so weekly re-fetches overwrite, never duplicate.
+    Returns how many were NEW (not previously stored) so the journal can
+    name fresh events without re-announcing old ones."""
+    if not _CONNECTED or _DB is None or not rows:
+        return 0
+    new = 0
+    try:
+        for r in rows:
+            key = f"{r.get('ticker')}|{r.get('event_id')}"
+            res = _DB.usfda_events.replace_one(
+                {"_id": key}, {**r, "_id": key}, upsert=True)
+            if res.upserted_id is not None:
+                new += 1
+    except Exception as e:
+        log.warning("Mongo save_usfda_events failed: %s", e)
+    return new
+
+
+def load_usfda_events(ticker: str = "") -> list:
+    """Stored USFDA events, newest first. [] when Mongo is down."""
+    if not _CONNECTED or _DB is None:
+        return []
+    try:
+        q = {"ticker": ticker} if ticker else {}
+        return list(_DB.usfda_events.find(q).sort("date", -1).limit(200))
+    except Exception as e:
+        log.warning("Mongo load_usfda_events failed: %s", e)
+        return []
+
+
 def save_fundamentals_rows(rows: list) -> int:
     """Upsert fundamentals rows (Node 3 monthly refresh). rows =
     [{'symbol','field','as_of','value'}] — the committed CSV's own schema.
