@@ -1893,6 +1893,17 @@ largely gone: only true tick LTP still needs the daily token.
   mocked. FAULT CLASS: a newly-public endpoint turns old "safe" test
   paths into live network calls.
 
+**FDA-KEY INSTANT ACTIVATION 2026-08-26 (owner: "wire these 2, ASK ME
+ANYTHING NEEDED" — item 1 Ocean was ALREADY live from the same-day
+approval, told them so; item 2 needs THEIR free FDA key).** What the
+owner must do, told to them precisely: register at datadashboard.fda.gov
+(OII Unified Logon, free) → set FDA_DATADASHBOARD_USER (approved email) +
+FDA_DATADASHBOARD_KEY in Render. New `scheduler.usfda_key_activation_
+check` (boot job, +180s): key present + no fda_dashboard-sourced events
+stored → runs the FIRST inspections pull immediately (the env change
+restarts Render, so setting the key IS the trigger); permanent no-op
+after data exists or without the key. 1,034 tests.
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

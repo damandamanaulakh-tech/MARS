@@ -128,6 +128,12 @@ def start_if_enabled() -> None:
         _SCHED.add_job(lambda: catchup_scan_if_missed("startup"), "date",
                        run_date=_dt.now() + _td(seconds=120),
                        id="startup_catchup")
+        # Owner 2026-08-26: the moment they set the FDA key in Render (the
+        # env change restarts the app), the first inspections pull runs —
+        # no waiting for Friday. No-op without the key or once data exists.
+        _SCHED.add_job(usfda_key_activation_check, "date",
+                       run_date=_dt.now() + _td(seconds=180),
+                       id="usfda_key_activation")
 
     _SCHED.start()
     log.info("Schedulers started (intraday=%s, daily=%s)", intraday, daily)
@@ -1008,6 +1014,34 @@ def _weekly_sebi_refresh() -> None:
         log.exception("weekly SEBI refresh failed: %s", e)
         _refresh_journal("DATA_REFRESH_SEBI_FAILED",
                          f"Weekly SEBI refresh crashed: {e}")
+
+
+def usfda_key_activation_check() -> bool:
+    """Owner 2026-08-26 ("wire these 2 / ASK ME ANYTHING NEEDED"): the FDA
+    inspections half waits only on their free key. Setting the env vars in
+    Render restarts the app — this boot check then runs the first
+    inspections pull IMMEDIATELY instead of waiting for Friday. Fires only
+    while the key is present AND no dashboard-sourced event is stored yet;
+    after the first successful pull it is a permanent no-op."""
+    import os
+
+    from . import db
+    if not (os.environ.get("FDA_DATADASHBOARD_USER", "").strip()
+            and os.environ.get("FDA_DATADASHBOARD_KEY", "").strip()):
+        return False
+    if not db.is_connected():
+        return False
+    try:
+        if any(r.get("source") == "fda_dashboard"
+               for r in db.load_usfda_events()):
+            return False                    # key already proven live
+        log.info("FDA key detected with no stored inspections — running "
+                 "the first USFDA pull now instead of waiting for Friday")
+        _weekly_usfda_refresh()
+        return True
+    except Exception:
+        log.exception("usfda key activation check failed")
+        return False
 
 
 def refresh_breadth_store(where: str = "manual") -> dict:

@@ -130,3 +130,27 @@ def test_money_path_never_imports_the_feed():
         src = "\n".join(ln for ln in src.splitlines()
                         if not ln.lstrip().startswith("#"))
         assert "usfda" not in src, mod
+
+
+def test_key_activation_runs_first_pull_only_until_data_exists(monkeypatch):
+    """Owner 2026-08-26: setting the FDA key restarts Render; this boot
+    check must fire the first inspections pull immediately — and never
+    again once dashboard rows exist, and never without the key."""
+    from web import scheduler
+    ran = []
+    monkeypatch.setattr(scheduler, "_weekly_usfda_refresh",
+                        lambda: ran.append(1))
+    monkeypatch.setattr("web.db.is_connected", lambda: True)
+    monkeypatch.setattr("web.db.load_usfda_events", lambda ticker="": [])
+    # no key -> no-op
+    monkeypatch.delenv("FDA_DATADASHBOARD_USER", raising=False)
+    monkeypatch.delenv("FDA_DATADASHBOARD_KEY", raising=False)
+    assert scheduler.usfda_key_activation_check() is False and not ran
+    # key + empty store -> the first pull runs
+    monkeypatch.setenv("FDA_DATADASHBOARD_USER", "o@x.in")
+    monkeypatch.setenv("FDA_DATADASHBOARD_KEY", "k")
+    assert scheduler.usfda_key_activation_check() is True and len(ran) == 1
+    # dashboard rows stored -> permanent no-op
+    monkeypatch.setattr("web.db.load_usfda_events",
+                        lambda ticker="": [{"source": "fda_dashboard"}])
+    assert scheduler.usfda_key_activation_check() is False and len(ran) == 1
