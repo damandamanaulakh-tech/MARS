@@ -699,7 +699,14 @@ class TradingEngine:
                         continue
             live_px = live_fill_px.get(pick["ticker"])
             if live_px and live_px > 0:
-                raw_fill, pick["fill_source"] = float(live_px), "live_quote"
+                # 2026-08-26: the router can now serve a ~1-minute-delayed
+                # public candle when no login token exists — label it as
+                # such, never as a live tick (the 2026-07-31 lesson).
+                from . import quote_router as _qr
+                src = _qr.LAST_SOURCES.get(pick["ticker"], "live_quote")
+                raw_fill = float(live_px)
+                pick["fill_source"] = ("live_quote" if src == "upstox"
+                                       else src)
             else:
                 raw_fill, pick["fill_source"] = pick["last_close"], "prev_close"
             fill = slippage_price(raw_fill, "BUY", cfg)

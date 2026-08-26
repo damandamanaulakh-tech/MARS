@@ -53,7 +53,8 @@
       {% endif %}
     </div>
     <div class="text-[10px] mt-1.5 tabular-nums {% if ix.live %}text-ink-faint{% else %}text-amber-800{% endif %}">
-      {% if ix.live %}live · Upstox{% if ix.hist_asof %} · grey line = stored shape to {{ ix.hist_asof }}{% endif %}
+      {% if ix.live and ix.delayed %}~1 min delayed · Upstox public candle (login = real-time){% if ix.hist_asof %} · grey line to {{ ix.hist_asof }}{% endif %}
+      {% elif ix.live %}live · Upstox{% if ix.hist_asof %} · grey line = stored shape to {{ ix.hist_asof }}{% endif %}
       {% else %}<a href="/upstox/login" class="underline font-semibold">Reconnect Upstox</a> for the live level{% endif %}
     </div>
   </div>
@@ -89,7 +90,7 @@
 <div class="mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs tracking-widest text-ink-faint uppercase">
   <span class="flex items-center gap-2">
     <span class="inline-block w-2 h-2 rounded-full {% if quote_source.source == 'upstox' %}bg-emerald-500{% else %}bg-slate-400{% endif %}"></span>
-    Quotes: {% if quote_source.source == 'upstox' %}<span class="text-emerald-700 normal-case tracking-normal font-semibold">Upstox real-time</span>{% else %}<span class="normal-case tracking-normal text-amber-700">degraded — reconnect Upstox (no fallback feed from Render)</span>{% endif %}
+    Quotes: {% if quote_source.source == 'upstox' %}<span class="text-emerald-700 normal-case tracking-normal font-semibold">Upstox real-time</span>{% else %}<span class="normal-case tracking-normal text-amber-700">~1-min delayed public candles — <a href="/upstox/login" class="underline">log in</a> for real-time ticks</span>{% endif %}
   </span>
   <span class="flex items-center gap-2">
     <span class="inline-block w-2 h-2 rounded-full {% if db_status.connected %}bg-emerald-500{% else %}bg-slate-400{% endif %}"></span>

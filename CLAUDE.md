@@ -1871,6 +1871,28 @@ the 2026-07-27 park decision by the owner's own approval.**
   told them straight the breadth gate is why this book is near-empty at
   the ~50-51% line; they chose to KEEP it on the options card.
 
+**DELAYED-QUOTE WIRE 2026-08-26 (owner: "data is just 15 sec delay and
+you r like far away" — comparing to their ASH app's 15s quotes), 1,033
+tests (4 new).** KEY FACT DISCOVERED: **Upstox INTRADAY candles are
+PUBLIC, tokenless** — verified live (375 one-minute Nifty candles, last
+bar 15:29 IST, matching the owner's ASH screenshot to the paisa;
+newest-FIRST candle order). So the login-bottleneck for prices is
+largely gone: only true tick LTP still needs the daily token.
+- `UpstoxClient.get_intraday_last` (public, reads candles[0] = newest).
+- `quote_router`: tokenless days now serve ~1-min-delayed intraday
+  closes (via the tokenless history client) BEFORE the dead-yfinance
+  last resort; the connected path falls back per missing name. Source
+  label `upstox_1min_delayed` in LAST_SOURCES — never dressed as live
+  (the 2026-07-31 lesson); engine fill_source carries the label into
+  the BUY journal.
+- Dashboard: index cards + quotes chip say "~1 min delayed - Upstox
+  public candle (login = real-time)" instead of dash/reconnect-red;
+  status() messages truth-passed.
+- Old router tests were hitting the now-real endpoint and getting REAL
+  prices mid-test — updated to the new contract with the endpoint
+  mocked. FAULT CLASS: a newly-public endpoint turns old "safe" test
+  paths into live network calls.
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

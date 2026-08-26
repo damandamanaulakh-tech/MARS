@@ -33,7 +33,9 @@ def test_quote_status_health_flag():
     from trading.quote_router import status
     s = status(None)
     assert s["source"] == "yfinance" and s["healthy"] is False
-    assert "Reconnect" in s["message"]
+    # 2026-08-26 wire: a tokenless day now runs on delayed public candles;
+    # the message names the degradation and the way back to real-time.
+    assert "delayed" in s["message"] and "Log in" in s["message"]
 
     class _Tok:
         def is_connected(self): return True
