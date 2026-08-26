@@ -1904,6 +1904,27 @@ stored → runs the FIRST inspections pull immediately (the env change
 restarts Render, so setting the key IS the trigger); permanent no-op
 after data exists or without the key. 1,034 tests.
 
+**FDA NEWSROOM WIRE 2026-08-26 (owner: "there must me general news as
+well from FDA in paper n all, u can fetch with render key"), 1,036 tests
+(2 new).** FDA's OWN newsroom RSS — press releases, MedWatch safety
+alerts, recalls, drugs — ALL FOUR verified 200 from the sandbox,
+KEYLESS (no key needed despite the owner's phrasing; told them).
+- `usfda_feed.fetch_fda_news(name_map)` -> (matched, general): matched
+  items use the same firm-token rule as recalls, land in `usfda_events`
+  (source "fda_news", classification FDA-PRESS/-MEDWATCH/...) so they
+  appear on the stock's 🏛️ card automatically; event_id = md5(link)
+  (Python hash() is per-process salted — would re-store every restart).
+- `scheduler.run_fda_news_snapshot` — once/day in the 09:20 flow (guard
+  key fda_news_day): stores the general newsroom via save_market_info_raw
+  ("fda_news"), matched via save_usfda_events; journals FDA_NEWS_MATCHED
+  only when a company of ours is named (quiet otherwise), _FAILED on
+  outage. `db.load_market_info_raw(kind)` = the new newest-doc getter.
+- /triggers index page: collapsible "🏛️ FDA newsroom" card
+  (fda_newsroom_marker) — general items with feed tag + link + date,
+  "display only" stated; matched names ALSO go to their stock page.
+- Display only, boundary intact. Note: FDA newsroom is uncalibratable
+  like all news (no archive) — never a gate.
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

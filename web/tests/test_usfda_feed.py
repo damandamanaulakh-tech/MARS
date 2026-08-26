@@ -154,3 +154,67 @@ def test_key_activation_runs_first_pull_only_until_data_exists(monkeypatch):
     monkeypatch.setattr("web.db.load_usfda_events",
                         lambda ticker="": [{"source": "fda_dashboard"}])
     assert scheduler.usfda_key_activation_check() is False and len(ran) == 1
+
+
+_RSS = """<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0"><channel><title>x</title>
+<item><title>FDA Issues Warning Letter to Torrent Pharma Facility</title>
+<link>http://www.fda.gov/a1</link>
+<pubDate>Tue, 25 Aug 2026 14:21:00 EST</pubDate></item>
+<item><title>FDA Approves First Therapy for Rare Disease</title>
+<link>http://www.fda.gov/a2</link>
+<pubDate>Wed, 19 Aug 2026 17:33:00 EST</pubDate></item>
+</channel></rss>"""
+
+
+def test_fda_news_matches_by_token_and_keeps_general(monkeypatch):
+    class _Resp:
+        text = _RSS
+
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr(
+        "trading.usfda_feed.httpx.get",
+        lambda url, headers=None, timeout=None, follow_redirects=None:
+        _Resp())
+    matched, general = usfda_feed.fetch_fda_news(
+        {"TORNTPHARM.NS": "TORRENT PHARMACEUTICALS L"})
+    # 4 feeds x 2 items, deduped nowhere (same fixture) — general capped
+    assert len(general) == 8
+    assert any("Warning Letter" in i["title"] for i in general)
+    torrent = [m for m in matched if m["ticker"] == "TORNTPHARM.NS"]
+    assert torrent and torrent[0]["source"] == "fda_news"
+    assert torrent[0]["classification"].startswith("FDA-")
+    assert "Torrent" in torrent[0]["reason"]
+    # stable id: same link -> same event_id on every call (no re-store churn)
+    again, _ = usfda_feed.fetch_fda_news(
+        {"TORNTPHARM.NS": "TORRENT PHARMACEUTICALS L"})
+    assert again[0]["event_id"] == torrent[0]["event_id"]
+
+
+def test_fda_news_snapshot_job_stores_and_guards(monkeypatch):
+    from web import scheduler
+    stored, marks = {}, {}
+    monkeypatch.setattr("web.db.is_connected", lambda: True)
+    monkeypatch.setattr("web.db.load_settings", lambda doc_id="default": {})
+    monkeypatch.setattr("web.db.save_settings",
+                        lambda d, doc_id="default": marks.update(d))
+    monkeypatch.setattr(
+        "trading.usfda_feed.fetch_fda_news",
+        lambda nm, **k: (
+            [{"ticker": "IOLCP.NS", "event_id": "news_x", "firm": "t",
+              "date": "x", "classification": "FDA-PRESS", "reason": "t",
+              "status": "u", "source": "fda_news"}],
+            [{"feed": "PRESS", "title": "t", "link": "u",
+              "published": "x"}]))
+    monkeypatch.setattr("web.db.save_market_info_raw",
+                        lambda k, day, p: stored.update({k: p}) or True)
+    monkeypatch.setattr("web.db.save_usfda_events",
+                        lambda rows: len(rows))
+    p = state.portfolio()
+    n0 = len(p.decision_journal)
+    assert scheduler.run_fda_news_snapshot("test")
+    assert stored["fda_news"] and marks.get("fda_news_day")
+    assert "FDA_NEWS_MATCHED" in [
+        e.get("action") for e in p.decision_journal[n0:]]
