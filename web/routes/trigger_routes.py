@@ -91,9 +91,23 @@ def triggers_page(request: Request):
             "gate_rows": GATE_ROWS,
             "score_note": SCORE_NOTE,
             "universe": _universe_names(),
+            "fda_news": _fda_news(),
             "detail": None,
         },
     )
+
+
+def _fda_news() -> dict:
+    """The stored FDA-newsroom snapshot (owner 2026-08-26) — display only,
+    {} when nothing stored or Mongo down (the card then hides)."""
+    try:
+        from .. import db
+        doc = db.load_market_info_raw("fda_news")
+        if doc and doc.get("payload"):
+            return {"day": doc.get("day", ""), "items": doc["payload"][:12]}
+    except Exception:
+        log.exception("fda news load failed")
+    return {}
 
 
 @router.post("/triggers/run")

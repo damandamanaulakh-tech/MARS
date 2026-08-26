@@ -101,6 +101,69 @@ def fetch_recalls(name_map: dict[str, str], limit: int = 20,
     return out
 
 
+# FDA's OWN newsroom (owner 2026-08-26: "there must be general news as
+# well from FDA in paper n all") — official RSS, keyless, all four
+# verified 200 from the sandbox. Items current to the previous day.
+FDA_NEWS_FEEDS = (
+    ("PRESS", "https://www.fda.gov/about-fda/contact-fda/stay-informed/"
+              "rss-feeds/press-releases/rss.xml"),
+    ("MEDWATCH", "https://www.fda.gov/about-fda/contact-fda/stay-informed/"
+                 "rss-feeds/medwatch/rss.xml"),
+    ("RECALLS", "https://www.fda.gov/about-fda/contact-fda/stay-informed/"
+                "rss-feeds/recalls/rss.xml"),
+    ("DRUGS", "https://www.fda.gov/about-fda/contact-fda/stay-informed/"
+              "rss-feeds/drugs/rss.xml"),
+)
+
+
+def fetch_fda_news(name_map: dict[str, str], timeout: float = 20.0,
+                   general_cap: int = 20) -> tuple[list[dict], list[dict]]:
+    """(matched_rows, general_items) from FDA's official RSS feeds.
+
+    Matched rows use the same token rule as recalls (the FDA headline must
+    carry the company token as a word) and store in the usfda_events shape
+    with source 'fda_news' — they land on the stock's card automatically.
+    General items are the newsroom itself: headline, feed, date, link —
+    market context, shown on the triggers page, never attached to a stock
+    it does not name."""
+    import feedparser
+    matched: list[dict] = []
+    general: list[dict] = []
+    tokens = {t: query_token(c) for t, c in name_map.items()}
+    for feed_name, url in FDA_NEWS_FEEDS:
+        try:
+            r = httpx.get(url, headers={"User-Agent": "Mozilla/5.0"},
+                          timeout=timeout, follow_redirects=True)
+            r.raise_for_status()
+            parsed = feedparser.parse(r.text)
+        except Exception as e:                                # noqa: BLE001
+            log.warning("FDA news feed %s failed: %s", feed_name, e)
+            continue
+        for e in parsed.entries[:25]:
+            title = (e.get("title") or "").strip()
+            link = e.get("link") or ""
+            if not title or not link:
+                continue
+            item = {"feed": feed_name, "title": title, "link": link,
+                    "published": (e.get("published") or "")[:22]}
+            general.append(item)
+            for ticker, token in tokens.items():
+                if firm_matches(title, token):
+                    matched.append({
+                        "ticker": ticker, "firm": title[:80],
+                        # stable id — Python's hash() is salted per process
+                        # and would re-store every row after each restart
+                        "event_id": "news_" + __import__("hashlib").md5(
+                            link.encode()).hexdigest()[:16],
+                        "date": item["published"],
+                        "classification": f"FDA-{feed_name}",
+                        "reason": title[:300], "status": link,
+                        "source": "fda_news",
+                    })
+    general.sort(key=lambda i: i.get("published", ""), reverse=True)
+    return matched, general[:general_cap]
+
+
 def _dashboard_auth() -> Optional[dict]:
     user = os.environ.get("FDA_DATADASHBOARD_USER", "").strip()
     key = os.environ.get("FDA_DATADASHBOARD_KEY", "").strip()

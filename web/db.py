@@ -317,6 +317,19 @@ def save_market_info_raw(kind: str, day: str, payload) -> bool:
         return False
 
 
+def load_market_info_raw(kind: str) -> Optional[dict]:
+    """Newest archived market-info payload of one kind (e.g. the FDA
+    newsroom items). None when Mongo is down or nothing stored."""
+    if not _CONNECTED or _DB is None:
+        return None
+    try:
+        return _DB.market_info_raw.find_one({"kind": kind},
+                                            sort=[("day", -1)])
+    except Exception as e:
+        log.warning("Mongo load_market_info_raw failed: %s", e)
+        return None
+
+
 def save_pwoi_rows(rows: list) -> int:
     """Upsert PWOI-shaped FII rows from the Upstox market/fii feed. Keyed
     date|client_type so re-fetches overwrite, never duplicate."""

@@ -1016,6 +1016,64 @@ def _weekly_sebi_refresh() -> None:
                          f"Weekly SEBI refresh crashed: {e}")
 
 
+def run_fda_news_snapshot(where: str = "manual") -> bool:
+    """Owner 2026-08-26 ("there must be general news as well from FDA"):
+    once-daily pull of FDA's own newsroom RSS (press releases, MedWatch,
+    recalls, drugs — all keyless, verified live). Company-matched items
+    store into usfda_events (they appear on the stock's card); the
+    general newsroom stores as the day's context for the triggers page.
+    Display only; a feed outage journals and changes nothing else."""
+    from datetime import date as _date
+
+    from . import db, state
+    try:
+        if not db.is_connected():
+            return False
+        today = _date.today().isoformat()
+        guard = db.load_settings(doc_id="data_refresh")
+        if guard.get("fda_news_day") == today:
+            return True
+        from trading import usfda_feed
+        import csv as _csv
+        from pathlib import Path as _Path
+        cfg = state.cfg()
+        p = state.portfolio()
+        tickers = set(tuple(cfg.custom_universe or ())) | \
+            set(p.positions or {})
+        uf = _Path(__file__).resolve().parents[1] / "data" / \
+            "upstox_nse_equities.csv"
+        with open(uf) as f:
+            rows = {r["ticker"]: r.get("name", "")
+                    for r in _csv.DictReader(f)}
+        name_map = {t: rows[t] for t in sorted(tickers) if rows.get(t)}
+        matched, general = usfda_feed.fetch_fda_news(name_map)
+        if not general:
+            _refresh_journal("FDA_NEWS_FAILED",
+                             "FDA newsroom pull: all four feeds returned "
+                             "nothing — will retry tomorrow.")
+            return False
+        db.save_market_info_raw("fda_news", today, general)
+        n_new = db.save_usfda_events(matched)
+        db.save_settings({"fda_news_day": today}, doc_id="data_refresh")
+        if n_new:
+            names = sorted({m["ticker"] for m in matched})
+            _refresh_journal(
+                "FDA_NEWS_MATCHED",
+                f"FDA newsroom named your companies: {', '.join(names)} "
+                f"({n_new} new item(s)). Display only.")
+        log.info("[fda-news:%s] %d general, %d matched (%d new)",
+                 where, len(general), len(matched), n_new)
+        return True
+    except Exception as e:
+        log.exception("FDA news snapshot failed: %s", e)
+        try:
+            _refresh_journal("FDA_NEWS_FAILED",
+                             f"FDA newsroom pull crashed: {e}")
+        except Exception:
+            pass
+        return False
+
+
 def usfda_key_activation_check() -> bool:
     """Owner 2026-08-26 ("wire these 2 / ASK ME ANYTHING NEEDED"): the FDA
     inspections half waits only on their free key. Setting the env vars in
@@ -1424,6 +1482,11 @@ def run_trigger_layer(where: str = "manual") -> dict:
             run_market_fii_snapshot(where)
         except Exception:
             log.exception("market FII/DII snapshot failed before trigger layer")
+        # Owner 2026-08-26: FDA's own newsroom, once daily, keyless.
+        try:
+            run_fda_news_snapshot(where)
+        except Exception:
+            log.exception("FDA news snapshot failed before trigger layer")
 
         # External panels (sector/RS, delivery, F&O OI, deals) — ONE batch
         # load for the whole run: the delivery file is 3.5M rows and a
