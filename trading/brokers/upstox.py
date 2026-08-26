@@ -317,6 +317,36 @@ class UpstoxClient:
                         instrument_key, expiry_date, e)
             return None
 
+    def get_intraday_last(self, instrument_key: str,
+                          timeout: float = 8.0) -> Optional[tuple]:
+        """(last_1min_close, candle_ts_iso) for TODAY — or None.
+
+        OWNER COMPLAINT 2026-08-26 ("data is just 15 sec delay and you r
+        like far away"): Upstox INTRADAY candles are PUBLIC exactly like
+        the daily ones — VERIFIED live from the sandbox (375 one-minute
+        Nifty candles, last 15:29 IST, no Authorization header). So the
+        app can carry ~1-minute-delayed prices ALL DAY with no login;
+        only true tick LTP still needs the daily token. Callers must
+        LABEL the price as delayed — a delayed close dressed as live is
+        the exact lie the owner caught on 2026-07-31."""
+        import httpx as _hx
+        try:
+            headers = (self._auth_headers() if self.access_token
+                       else {"accept": "application/json"})
+            url = ("https://api.upstox.com/v2/historical-candle/intraday/"
+                   f"{quote(instrument_key, safe='')}/1minute")
+            r = _hx.get(url, headers=headers, timeout=timeout)
+            r.raise_for_status()
+            candles = (r.json().get("data") or {}).get("candles") or []
+            if not candles:
+                return None
+            ts, _o, _h, _l, close = candles[0][:5]
+            px = float(close)
+            return (px, str(ts)) if px > 0 else None
+        except Exception as e:                                 # noqa: BLE001
+            log.debug("intraday last failed for %s: %s", instrument_key, e)
+            return None
+
     def _market_info_headers(self) -> dict:
         """Auth for the Market Information APIs (owner order 2026-08-24:
         "with upstox key u can wire the FII data"). These endpoints accept

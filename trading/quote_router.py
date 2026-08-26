@@ -39,7 +39,20 @@ def fetch_quotes(
         return {}
 
     if upstox_client is None or not upstox_client.is_connected():
-        return fetch_quotes_yf(tickers)
+        # OWNER COMPLAINT 2026-08-26 ("you r like far away"): before this,
+        # a login-less day fell straight to yfinance, which Yahoo
+        # 429-blocks from Render — i.e. NO prices at all until the daily
+        # login. Upstox intraday 1-minute candles are PUBLIC (verified
+        # live), so a tokenless day now gets ~1-minute-delayed prices,
+        # honestly labelled. yfinance stays as the last resort.
+        out = _intraday_fallback(tickers)
+        still = [t for t in tickers if t not in out]
+        if still:
+            yf = fetch_quotes_yf(still)
+            out.update(yf)
+            for t in yf:
+                LAST_SOURCES[t] = "yf_close"
+        return out
 
     # BATCHED (2026-07-31): one HTTP call per 250 instruments instead of one
     # per stock. A 43-name book previously fired 43 sequential requests, slow
@@ -67,13 +80,52 @@ def fetch_quotes(
         else:
             missing.append(ticker)
 
-    # Fallback for anything Upstox couldn't supply
+    # Fallback for anything Upstox LTP couldn't supply: today's public
+    # 1-minute candle first (≈15-60s delayed, labelled), yfinance last.
     if missing:
-        yf_fallback = fetch_quotes_yf(missing)
-        out.update(yf_fallback)
-        for t in yf_fallback:
-            LAST_SOURCES[t] = "yf_close"     # daily close, NOT a live tick
+        delayed = _intraday_fallback(missing, client=upstox_client)
+        out.update(delayed)
+        still = [t for t in missing if t not in delayed]
+        if still:
+            yf_fallback = fetch_quotes_yf(still)
+            out.update(yf_fallback)
+            for t in yf_fallback:
+                LAST_SOURCES[t] = "yf_close"     # daily close, NOT a live tick
 
+    return out
+
+
+def _intraday_fallback(tickers: list[str],
+                       client: Optional[UpstoxClient] = None,
+                       cap: int = 120) -> Dict[str, float]:
+    """{ticker: last 1-minute close} from the PUBLIC intraday endpoint,
+    labelled 'upstox_1min_delayed' in LAST_SOURCES. Works with no login:
+    when no connected client is passed, the tokenless history client
+    (attached at boot since 2026-08-20) carries the calls. Bounded to
+    `cap` names — one HTTP call per instrument."""
+    out: Dict[str, float] = {}
+    if not tickers:
+        return out
+    if client is None:
+        try:
+            from .data import history_broker
+            client = history_broker()
+        except Exception:                                     # noqa: BLE001
+            client = None
+    if client is None:
+        return out
+    keymap = to_instrument_keys(tickers[:cap])
+    for t in tickers[:cap]:
+        ikey = keymap.get(t)
+        if not ikey:
+            continue
+        try:
+            r = client.get_intraday_last(ikey)
+        except Exception:                                     # noqa: BLE001
+            r = None
+        if r and r[0] > 0:
+            out[t] = float(r[0])
+            LAST_SOURCES[t] = "upstox_1min_delayed"
     return out
 
 
@@ -87,8 +139,9 @@ def status(upstox_client: Optional[UpstoxClient]) -> dict:
         return {
             "source": "yfinance", "reason": "no_upstox_token", "healthy": False,
             "hours_left": None,
-            "message": "Upstox not connected — live prices unavailable and "
-                       "scans fall back to blocked Yahoo. Reconnect Upstox.",
+            "message": "Upstox not connected — prices run on ~1-minute-"
+                       "delayed public candles (2026-08-26 wire). Log in "
+                       "for real-time ticks.",
         }
     hours = None
     try:
@@ -100,7 +153,8 @@ def status(upstox_client: Optional[UpstoxClient]) -> dict:
             "source": "yfinance", "reason": "token_expired", "healthy": False,
             "hours_left": 0,
             "message": "Upstox token EXPIRED (they die 03:30 IST daily). "
-                       "Reconnect now or today's scan uses blocked Yahoo.",
+                       "Prices run on ~1-minute-delayed public candles "
+                       "until you reconnect.",
         }
     return {
         "source": "upstox", "reason": "ok", "healthy": True,

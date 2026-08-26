@@ -51,6 +51,7 @@ def index_strip(bars: int = 60) -> list[dict]:
     """
     live: dict[str, float] = {}
     prev_close: dict[str, float] = {}
+    delayed_syms: set = set()
     try:
         from trading.quote_router import fetch_quotes
         from . import state
@@ -74,7 +75,13 @@ def index_strip(bars: int = 60) -> list[dict]:
                 if pc:
                     prev_close[sym] = float(pc)
         else:
+            # No login: the router now serves PUBLIC ~1-minute-delayed
+            # intraday candles (owner complaint 2026-08-26 "you r like far
+            # away") — real numbers, labelled delayed on the card.
             live = {k: v for k, v in fetch_quotes(symbols).items() if v}
+            from trading.quote_router import LAST_SOURCES
+            delayed_syms = {k for k in live
+                            if LAST_SOURCES.get(k) == "upstox_1min_delayed"}
     except Exception as e:                     # never take the page down
         log.warning("index_strip live fetch failed: %s", e)
 
@@ -122,6 +129,8 @@ def index_strip(bars: int = 60) -> list[dict]:
         out.append({
             "label": label,
             "live": is_live,
+            # ~1-minute-delayed public candle, not a tick — card says so
+            "delayed": sym in delayed_syms,
             "last": last,                       # None => template shows "—"
             "chg": chg, "pct": round(pct, 2) if pct is not None else None,
             "up": bool(chg is not None and chg >= 0),

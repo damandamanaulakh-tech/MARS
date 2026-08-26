@@ -64,17 +64,23 @@ def test_router_falls_back_for_individual_failure():
     with patch(
         "trading.quote_router.to_instrument_keys",
         return_value={"RELIANCE.NS": "NSE_EQ|INE002A01018", "TCS.NS": "NSE_EQ|INE467B01029"},
-    ), patch.object(client, "get_ltp") as mock_ltp, patch(
+    ), patch.object(client, "get_ltp") as mock_ltp, patch.object(
+        client, "get_intraday_last",
+        return_value=(3300.0, "2026-08-26T15:29:00+05:30"),
+    ), patch(
         "trading.quote_router.fetch_quotes_yf"
     ) as mock_yf:
-        # the batch resolves Reliance only -> TCS goes to the fallback
+        # the batch resolves Reliance only -> TCS goes to the DELAYED-CANDLE
+        # fallback (2026-08-26 wire); yfinance is now the LAST resort and
+        # never gets called when the public candle answers
         mock_ltp.return_value = {"NSE_EQ|INE002A01018": 2475.5}
-        mock_yf.return_value = {"TCS.NS": 3300.0}
         out = fetch_quotes(["RELIANCE.NS", "TCS.NS"], upstox_client=client)
 
     assert out["RELIANCE.NS"] == 2475.5
     assert out["TCS.NS"] == 3300.0
-    mock_yf.assert_called_once_with(["TCS.NS"])
+    from trading.quote_router import LAST_SOURCES
+    assert LAST_SOURCES["TCS.NS"] == "upstox_1min_delayed"
+    mock_yf.assert_not_called()
 
 
 def test_no_last_price_is_not_substituted_with_a_previous_close():
@@ -89,7 +95,9 @@ def test_no_last_price_is_not_substituted_with_a_previous_close():
     with patch(
         "trading.quote_router.to_instrument_keys",
         return_value={"RELIANCE.NS": "NSE_EQ|INE002A01018"},
-    ), patch.object(client, "get_ltp", return_value={}), patch(
+    ), patch.object(client, "get_ltp", return_value={}), patch.object(
+        client, "get_intraday_last", return_value=None
+    ), patch(
         "trading.quote_router.fetch_quotes_yf", return_value={}
     ):
         out = fetch_quotes(["RELIANCE.NS"], upstox_client=client)
@@ -109,7 +117,9 @@ def test_router_handles_upstox_exception_per_ticker():
     with patch(
         "trading.quote_router.to_instrument_keys",
         return_value={"RELIANCE.NS": "NSE_EQ|INE002A01018"},
-    ), patch.object(client, "get_ltp", side_effect=RuntimeError("network")), patch(
+    ), patch.object(client, "get_ltp", side_effect=RuntimeError("network")), patch.object(
+        client, "get_intraday_last", return_value=None
+    ), patch(
         "trading.quote_router.fetch_quotes_yf"
     ) as mock_yf:
         mock_yf.return_value = {"RELIANCE.NS": 2440.0}
