@@ -93,49 +93,130 @@ def climax_volume_ratio(volume: pd.Series, lookback: int = 5, baseline: int = 20
     return recent_max / base_mean
 
 
-# ---------------- Fundamental survival check (snapshot-only) ------------------
+# ---------------- Fundamental survival check ---------------------------------
+# REWRITTEN 2026-08-26 (owner order: wire Ocean with the crash guard). The
+# old check called yfinance .info live — Yahoo 429-blocks Render, so in
+# production it ALWAYS failed and Ocean could never have picked a single
+# stock even when enabled. It now reads the fundamentals STORE (committed
+# CSV + the monthly Node 3 refresh via data_refresh's injected reader):
+# D/E < 0.5 and latest annual FCF > 0. The original spec's current-ratio
+# leg is dropped honestly — current assets/liabilities are not in the
+# store; the two remaining legs are the original thresholds. Missing
+# fundamentals = FAIL (a dip-buyer must prove survival, never assume it).
+
+_fund_cache: dict[str, dict[str, dict[str, float]]] = {}
+
+
+def _fundamentals(symbol: str) -> dict[str, dict[str, float]]:
+    global _fund_cache
+    if not _fund_cache:
+        import csv
+        from pathlib import Path
+        path = (Path(__file__).resolve().parents[2] / "data" /
+                "fundamentals_n200_2026-08-09.csv")
+        try:
+            with open(path) as f:
+                for r in csv.DictReader(f):
+                    _fund_cache.setdefault(r["symbol"], {}).setdefault(
+                        r["field"], {})[r["as_of"]] = float(r["value"])
+        except OSError:
+            log.warning("ocean: fundamentals CSV missing")
+        try:
+            from trading import data_refresh as _dr
+            for r in _dr.stored_fundamentals_rows():
+                _fund_cache.setdefault(r["symbol"], {}).setdefault(
+                    r["field"], {})[r["as_of"]] = float(r["value"])
+        except Exception as e:                                # noqa: BLE001
+            log.warning("ocean: fundamentals overlay failed: %s", e)
+    return _fund_cache.get(symbol, {})
+
 
 def survival_check(ticker: str) -> tuple[bool, list[str]]:
-    """Returns (passes_all, reasons_list).
-
-    In backtest mode returns (False, ['backtest-mode-skip']) — fundamentals
-    are not available historically from yfinance.
-    """
+    """(passes, reasons) from the fundamentals store. Backtests return
+    False — no historical snapshot exists, and pretending otherwise would
+    be lookahead."""
     if is_backtest_mode():
-        return False, ["backtest-mode: fundamentals skipped (no historical snapshot)"]
+        return False, ["backtest-mode: fundamentals skipped (no snapshot)"]
+    f = _fundamentals(ticker.replace(".NS", ""))
+    debt = f.get("annualTotalDebt", {})
+    eq = f.get("annualStockholdersEquity", {})
+    fcf = f.get("annualFreeCashFlow", {})
+    if not debt or not eq or not fcf:
+        return False, ["fundamentals missing from store"]
+    d_latest = debt[max(debt)]
+    e_latest = eq[max(eq)]
+    if e_latest <= 0:
+        return False, ["negative/zero equity"]
+    de = d_latest / e_latest
+    if de >= 0.5:
+        return False, [f"D/E {de:.2f} >= 0.5"]
+    fcf_latest = fcf[max(fcf)]
+    if fcf_latest <= 0:
+        return False, [f"latest FCF {fcf_latest:.0f} not positive"]
+    return True, [f"D/E {de:.2f} ok", f"FCF positive ({max(fcf)})"]
 
+
+# ---------------- Crash guard (owner-approved 2026-08-26) ---------------------
+# Four rails; every threshold traces to the owner's own evidence:
+#   R1 VIX knife  — v4 study: VIX-crush was the ONLY dip rule that tested
+#                   positive (+2.3pp); buying while VIX spikes is the knife.
+#   R2 damage     — their frozen p90 (0.213) on the canonical tail_down3_5d
+#                   store (Node 9); their prior calibration lift 1.91.
+#   R3 reclaim    — their reclaim family: buy the turn, never the fall.
+#   R4 danger veto— the 12 calibration-VERIFIED tripwires.
+
+VIX_Q_WINDOW = 120
+VIX_Q = 0.90
+
+
+def crash_guard_market(vix_close: Optional[pd.Series],
+                       damage_store: Optional[dict]) -> tuple[bool, str]:
+    """(ok, reason). Fail-SAFE: anything unknowable blocks — a dip-buyer
+    must prove the market is not in free-fall, never assume it."""
+    if vix_close is None or len(vix_close.dropna()) < VIX_Q_WINDOW:
+        return False, "vix_unknown"
+    v = vix_close.dropna()
+    q90 = float(v.tail(VIX_Q_WINDOW).quantile(VIX_Q))
+    last = float(v.iloc[-1])
+    rising = len(v) >= 6 and last > float(v.iloc[-6])
+    if last > q90 and rising:
+        # spike still building — unless the crush rule says the fear break
+        # already happened (the one measured re-entry, +2.3pp in v4)
+        try:
+            from trading.regime import vix_crush_ok
+            if not vix_crush_ok(v):
+                return False, f"vix_knife({last:.1f}>q90 {q90:.1f}, rising)"
+        except Exception:
+            return False, "vix_knife_unverifiable"
     try:
-        import yfinance as yf
-        info = yf.Ticker(ticker).info or {}
-    except Exception as e:
-        return False, [f"info fetch failed: {e}"]
+        from trading import internals
+        if not internals.is_fresh(damage_store):
+            return False, "damage_reading_missing_or_stale"
+        if damage_store.get("static_cluster"):
+            return False, "damage_cluster_0.213"
+    except Exception:
+        return False, "damage_reading_unreadable"
+    return True, "ok"
 
-    reasons: list[str] = []
-    debt_eq = info.get("debtToEquity")
-    if debt_eq is None:
-        reasons.append("D/E unknown")
-        return False, reasons
-    if debt_eq > 50:                  # yfinance reports as %, so 50 = 0.5
-        reasons.append(f"D/E {debt_eq / 100:.2f} > 0.5")
-        return False, reasons
-    reasons.append(f"D/E {debt_eq / 100:.2f} ok")
 
-    current_ratio = info.get("currentRatio")
-    if current_ratio is None:
-        reasons.append("Current ratio unknown")
-        return False, reasons
-    if current_ratio < 1.5:
-        reasons.append(f"Current ratio {current_ratio:.2f} < 1.5")
-        return False, reasons
-    reasons.append(f"Current ratio {current_ratio:.2f} ok")
-
-    fcf = info.get("freeCashflow")
-    if fcf is None or fcf <= 0:
-        reasons.append(f"FCF {fcf} not positive")
-        return False, reasons
-    reasons.append(f"FCF {fcf:.0f} positive")
-
-    return True, reasons
+def crash_guard_stock(df: pd.DataFrame,
+                      danger_fired: list[str]) -> tuple[bool, str]:
+    """(ok, reason) for one candidate. R3 reclaim + R4 danger veto."""
+    if danger_fired:
+        return False, "danger_" + ",".join(danger_fired)
+    try:
+        close = df["Close"].dropna()
+        low = df["Low"].dropna()
+        high = df["High"].dropna()
+        if len(close) < 22:
+            return False, "too_short"
+        if float(low.iloc[-1]) <= float(low.iloc[-21:-1].min()):
+            return False, "fresh_20d_low"
+        if float(close.iloc[-1]) <= float(high.iloc[-2]):
+            return False, "no_reclaim_above_prior_high"
+    except (KeyError, ValueError, IndexError):
+        return False, "ohlc_unreadable"
+    return True, "ok"
 
 
 # ---------------- Composite selector ------------------------------------------

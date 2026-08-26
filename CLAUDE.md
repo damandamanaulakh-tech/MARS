@@ -1827,6 +1827,50 @@ newest held row), quiet when already current (no daily journal spam;
 journals only on stored rows or failure). First live run backfills
 08-08→today in one shot.
 
+**OCEAN UN-PARKED BEHIND THE CRASH GUARD (owner 2026-08-26: "market works
+both way it should be one... both have to work in parallel" → design
+presented → owner picked "Approve as specced" from the options card; same
+card: breadth gate KEPT ON). 1,029 tests. THE PARK IS OVER — supersedes
+the 2026-07-27 park decision by the owner's own approval.**
+- **Parallel: Everest + Ocean in every regime.** Ocean's own selection
+  (>=30% under 200DMA, weekly RSI<25, climax volume, survival) makes
+  candidates rare outside sell-offs; PANIC no longer means nobody-can-buy
+  — Ocean can, behind the rails, with the 40% panic reserve still applied.
+- **The four rails (engines/ocean.py crash_guard_market/_stock), every
+  threshold evidence-traced:** R1 VIX knife (block while VIX > 120d p90
+  AND rising, unless vix_crush_ok — the only dip rule that tested
+  positive, +2.3pp v4) · R2 the owner's 0.213 damage cluster on the
+  canonical Node 9 store (moved BEFORE pick assembly so it reads today's
+  panel) · R3 per-stock reclaim (no fresh 20d low + close above prior
+  high) · R4 danger veto (the 12 VERIFIED tripwires). FAIL-SAFE: unknown
+  VIX / missing damage reading = BLOCKED, never assumed safe. Blocks
+  journal once/day (OCEAN_BLOCKED / OCEAN_STOCK_BLOCKED with the rail).
+- **Half size ₹62,500 (cfg.ocean_position_value), max 8 concurrent slots
+  (cfg.ocean_max_positions, counted via position tags=["ocean"]).** Every
+  can_open gate still applies. BUY journal carries sizing mode
+  "ocean_fixed" + reasoning "OCEAN: ...".
+- **Two deliberate exemptions, both tested:** breadth gate rules Everest
+  only (a dip engine exists FOR fallen markets — breadth-gating it means
+  it can never buy); candle confirmation skipped for ocean picks (the
+  reclaim rail IS the confirmation).
+- **survival_check REWRITTEN off yfinance** — Yahoo 429-blocks Render, so
+  the old check could NEVER pass in production (the park was double-dead).
+  Now reads the fundamentals store (committed CSV + Node 3 monthly refresh
+  via data_refresh reader): D/E < 0.5 + latest FCF > 0; current-ratio leg
+  dropped honestly (not in store); missing fundamentals = FAIL.
+- cfg.ocean_enabled default True + boot migration (marker
+  ocean_order_2026_08_26, unset_settings_keys) so the park-era stored
+  False cannot re-park it; Settings toggle still works. Engine page
+  truth-passed (ON branch names the rails; PARKED branch kept).
+- **SAME MESSAGE, index fault FIXED (owner: "still on sensex it show
+  7 august"):** the Node 3 index refresh was Friday-only and shipped on a
+  Sunday — first run never fired, store empty, everything read the CSV's
+  commit date. Now ALSO daily before the 09:20 scans + boot catch-up;
+  quiet when current. FAULT CLASS: wired-but-first-run-never-happened.
+- Owner also compared to their ASH app (ChatGPT-built, 67% deployed):
+  told them straight the breadth gate is why this book is near-empty at
+  the ~50-51% line; they chose to KEEP it on the options card.
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

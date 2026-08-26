@@ -418,20 +418,37 @@ class TradingEngine:
                 and _abs_mom_ok(r["ticker"])
             ]
 
-        # Ocean: only fires in correction/panic, and only when the owner has
-        # switched it on. See _ocean_picks().
+        # Node 9, moved up 2026-08-26: the canonical damage reading now
+        # computes BEFORE pick assembly so Ocean's rail 2 reads TODAY'S
+        # panel, not yesterday's. Same panel IFR reads, same store.
+        canonical = None
+        try:
+            from .internals import damage_reading
+            canonical = damage_reading(history)
+            if canonical is not None:
+                canonical["computed"] = now.isoformat()
+                self.portfolio.damage_store = canonical
+        except Exception:
+            pass
+
+        # Ocean (owner approval 2026-08-26: "Approve as specced") — runs in
+        # PARALLEL with Everest in every regime. Its four crash-guard rails
+        # replace the momentum gates for dip entries; see _ocean_picks().
         ocean_picks = self._ocean_picks(regime, history, universe, now)
 
-        picks = everest_picks + ocean_picks
+        picks = everest_picks
 
-        # A3 breadth gate (owner-ordered wire, 2026-07-27; preregistered
-        # evidence docs/breadth_gate_results.json): when half the panel is
-        # below its own 200DMA, relative rank is picking least-bad fallers —
-        # block ALL new entries this scan. Exits are never touched. Fail-open
-        # when the sample is too thin (short-history modes, sparse bucket).
+        # A3 breadth gate (owner-ordered wire, 2026-07-27; KEPT ON by owner
+        # choice 2026-08-26): when half the panel is below its own 200DMA,
+        # relative rank is picking least-bad fallers — block new MOMENTUM
+        # entries this scan. Ocean picks are exempt BY DESIGN: a dip engine
+        # exists exactly for fallen markets, where breadth is always low —
+        # gating it here would mean Ocean could never buy at all; its own
+        # four rails are its gate. Exits are never touched.
         if picks and self._breadth_gate_blocks(history, now, n_picks=len(picks),
                                                bypass=vix_reentry):
             picks = []
+        picks = picks + ocean_picks
 
         # v4: HALT NEW ENTRIES around known binary events (elections, RBI, Budget).
         binary_event = None
@@ -466,21 +483,9 @@ class TradingEngine:
         now = datetime.utcnow()
         prices = {r["ticker"]: r["last_close"] for r in ranked}
 
-        # Node 9 step 1 (owner "go" 2026-08-24): the canonical damage
-        # reading — the OWNER'S tail_down3_5d formula — computed ONCE over
-        # the exact panel IFR is about to read, stored for the display
-        # consumers (FII-08/09). Same panel on purpose: when IFR fires the
-        # journal shows both numbers side by side, so any disagreement is
-        # the FORMULAS disagreeing, never the sample.
-        canonical = None
-        try:
-            from .internals import damage_reading
-            canonical = damage_reading(history)
-            if canonical is not None:
-                canonical["computed"] = now.isoformat()
-                self.portfolio.damage_store = canonical
-        except Exception:
-            pass
+        # Node 9: `canonical` was computed earlier this scan (moved before
+        # pick assembly 2026-08-26 so Ocean's rail 2 reads today's panel);
+        # the IFR journal below still writes it beside IFR's own numbers.
 
         # v6/v7: IFR check — DAMAGE_CLUSTER + TAIL_DAMAGE_RATIO (Q2-validated)
         ifr_snapshot = None
@@ -679,13 +684,19 @@ class TradingEngine:
                 # Batch C: candle BUY-CONFIRMATION — execute only when the
                 # latest candle confirms the signal; otherwise wait (skip is
                 # journaled and surfaces on the watchlist / triggers card).
-                ok_candle, candle_why = candle_confirmation(tic_hist, cfg)
-                if not ok_candle:
-                    skipped.append({
-                        "ticker": pick["ticker"],
-                        "reason": f"candle_wait_{candle_why}",
-                    })
-                    continue
+                # Ocean picks are exempt: their reclaim rail (close above the
+                # prior day's high, no fresh 20d low) IS the confirmation —
+                # a capitulation-reversal bar rarely forms a textbook
+                # bullish structure, and double-gating would starve the
+                # engine the owner just approved.
+                if not pick.get("ocean"):
+                    ok_candle, candle_why = candle_confirmation(tic_hist, cfg)
+                    if not ok_candle:
+                        skipped.append({
+                            "ticker": pick["ticker"],
+                            "reason": f"candle_wait_{candle_why}",
+                        })
+                        continue
             live_px = live_fill_px.get(pick["ticker"])
             if live_px and live_px > 0:
                 raw_fill, pick["fill_source"] = float(live_px), "live_quote"
@@ -707,11 +718,21 @@ class TradingEngine:
                     cand_close = None
             kelly_notional_rs, size_diag = position_notional_for(
                 cfg, current_eq, score=pick.get("score"), close=cand_close)
+            if pick.get("ocean"):
+                # Owner-approved 2026-08-26: Ocean entries are HALF size
+                # (Rs 62,500) — the rails are the edge claim, the size is
+                # the humility. Every can_open gate still applies.
+                ocean_rs = float(getattr(cfg, "ocean_position_value",
+                                         62_500.0) or 62_500.0)
+                size_diag = {"mode": "ocean_fixed", "notional": ocean_rs}
+                notional_arg = ocean_rs
+            else:
+                notional_arg = (kelly_notional_rs
+                                if size_diag.get("mode") != "fixed" else None)
             ok, reason, qty = can_open(
                 self.risk, self.portfolio.cash, current_eq,
                 self.portfolio.positions, pick["ticker"], fill, cfg,
-                notional_override=(kelly_notional_rs
-                                   if size_diag.get("mode") != "fixed" else None),
+                notional_override=notional_arg,
             )
             pick["size_diag"] = size_diag
             # v7: size throttle = MIN of (strength, IFR) instead of product.
@@ -1170,6 +1191,8 @@ class TradingEngine:
             mode=getattr(self.cfg, "mode", ""),
             stop_price=round(fill_price * (1 + self.cfg.stop_loss_pct), 2),
             target_price=round(fill_price * (1 + self.cfg.take_profit_pct), 2),
+            # the tag is the Ocean slot counter (max 8) and the audit trail
+            tags=(["ocean"] if pick.get("ocean") else []),
         )
 
     def _danger_pass(self, prices: dict, history: dict, now: datetime) -> None:
@@ -1399,70 +1422,102 @@ class TradingEngine:
             log.warning("breadth gate failed (fail-open): %s", e)
         return False
 
+    def _ocean_journal_once(self, now: datetime, action: str, why: str) -> None:
+        today_iso = now.date().isoformat()
+        if not any(e.get("action") == action
+                   and str(e.get("ts", "")).startswith(today_iso)
+                   for e in self.portfolio.decision_journal[-60:]):
+            self.portfolio.decision_journal.append(
+                {"ts": now.isoformat(), "action": action, "why": why})
+
     def _ocean_picks(self, regime, history: dict, universe, now: datetime) -> List[dict]:
-        """Ocean (mean-reversion) candidates — empty unless the owner opted in.
+        """Ocean dip candidates behind the owner-approved crash guard
+        (2026-08-26: "Approve as specced" — half-size Rs 62,500, max 8
+        slots, four rails). Runs in PARALLEL with Everest in every regime
+        — the market works both ways (owner's words); Ocean's own
+        selection (30% under the 200DMA, weekly RSI < 25, climax volume,
+        fundamentals survival) makes candidates rare outside sell-offs.
 
-        Ocean has been described as PARKED in CLAUDE.md and docs/PARAM_SEARCH_V4
-        since the v3 review (-41% drawdown catching 2020's falling knives), but
-        until 2026-07-27 nothing in the code enforced that. The only condition
-        was regime.ocean_active, which regime.classify() sets True for
-        correction, panic AND neutral. In a correction Everest is switched off,
-        so Ocean was the sole engine able to open a position — and its picks are
-        handed score = 100 + pct_below_200dma and timing_pass = True, bypassing
-        both the score floor and the absolute-momentum gate.
-
-        cfg.ocean_enabled (default False) is that missing park switch. When the
-        regime would have activated Ocean and the flag is off, the block is
-        journalled as OCEAN_BLOCKED rather than passing silently.
+        The 2026-07-27 park is superseded by the approval. What replaced
+        the missing guard, all evidence-traced (engines/ocean.py):
+        R1 VIX knife (v4's measured VIX-crush is the only tested dip
+        entry), R2 the owner's own 0.213 damage cluster on the canonical
+        store, R3 per-stock reclaim (no fresh 20d low, close above prior
+        high), R4 the 12 VERIFIED danger tripwires as a veto. Every block
+        journals its rail; unknowable = blocked, never assumed safe.
         """
         cfg = self.cfg
-        if regime is None or not regime.ocean_active:
+        if not getattr(cfg, "ocean_enabled", False):
             return []
-
-        if not cfg.ocean_enabled:
-            # Journal the block only where it MATTERS (Everest off — Ocean was
-            # the sole buyer) and once per day, not per scan pass. In neutral
-            # Everest buys anyway; 5 spam lines/day forever would just bloat
-            # the journal (recheck fix, 2026-07-27).
-            today_iso = now.date().isoformat()
-            already = any(
-                e.get("action") == "OCEAN_BLOCKED"
-                and str(e.get("ts", "")).startswith(today_iso)
-                for e in self.portfolio.decision_journal[-50:]
-            )
-            if not regime.everest_active and not already:
-                self.portfolio.decision_journal.append({
-                    "ts": now.isoformat(), "action": "OCEAN_BLOCKED",
-                    "why": (f"Regime {regime.regime} would activate the Ocean "
-                            "mean-reversion engine, but it is parked "
-                            "(cfg.ocean_enabled=False). No Ocean buys. Turn it "
-                            "on in Settings only after the crash guard is "
-                            "tested."),
-                })
-            return []
-
-        picks: List[dict] = []
         try:
-            from .engines.ocean import scan as ocean_scan
+            from .engines.ocean import (crash_guard_market, crash_guard_stock,
+                                        scan as ocean_scan)
+            # Cap: at most ocean_max_positions concurrent Ocean holdings.
+            max_slots = int(getattr(cfg, "ocean_max_positions", 8) or 8)
+            open_ocean = sum(1 for p in self.portfolio.positions.values()
+                             if "ocean" in (getattr(p, "tags", None) or []))
+            free = max_slots - open_ocean
+            if free <= 0:
+                return []
             hist_map = {t: history[t] for t in universe if t in history}
-            for c in ocean_scan(hist_map, cfg):
+            candidates = ocean_scan(hist_map, cfg)
+            if not candidates:
+                return []
+            # Rails 1+2 — market level, once per scan.
+            vix = None
+            try:
+                vixd = fetch_daily(["^INDIAVIX"], period="1y").get("^INDIAVIX")
+                if vixd is not None and not vixd.empty:
+                    vix = vixd["Close"]
+            except Exception:
+                pass
+            ok_mkt, why_mkt = crash_guard_market(
+                vix, self.portfolio.damage_store)
+            if not ok_mkt:
+                self._ocean_journal_once(
+                    now, "OCEAN_BLOCKED",
+                    f"{len(candidates)} Ocean candidate(s) but the market "
+                    f"rail said no: {why_mkt}. A dip engine must prove the "
+                    "fall is exhausted — it never assumes.")
+                return []
+            picks: List[dict] = []
+            blocked: list[str] = []
+            from . import danger
+            for c in candidates[:free * 2]:      # bounded work per scan
+                df = hist_map.get(c.ticker)
+                try:
+                    fired = danger.evaluate_stock(df)
+                except Exception:
+                    fired = ["danger_unverifiable"]
+                ok_stk, why_stk = crash_guard_stock(df, fired)
+                if not ok_stk:
+                    blocked.append(f"{c.ticker}:{why_stk}")
+                    continue
                 picks.append({
                     "ticker": c.ticker,
-                    "score": 100 + c.pct_below_200dma,  # deepest = highest priority
+                    "score": 100 + c.pct_below_200dma,  # deepest first
                     "components": {},
                     "timing_pass": True,
                     "timing_diag": {"ocean": True},
                     "reasoning": (
                         f"OCEAN: {c.pct_below_200dma:.1f}% off 200DMA, "
                         f"weekly RSI {c.weekly_rsi:.1f}, "
-                        f"climax vol {c.climax_volume_ratio:.1f}x"
+                        f"climax vol {c.climax_volume_ratio:.1f}x; rails ok "
+                        f"({why_mkt})"
                     ),
                     "last_close": c.price,
                     "ocean": True,
                 })
+                if len(picks) >= free:
+                    break
+            if blocked:
+                self._ocean_journal_once(
+                    now, "OCEAN_STOCK_BLOCKED",
+                    "Ocean per-stock rails blocked: " + " · ".join(blocked))
+            return picks
         except Exception:
-            pass   # Ocean is bonus; never block Everest path
-        return picks
+            log.exception("ocean picks failed")
+            return []   # Ocean is bonus; never block the Everest path
 
     def _roll_risk_day(self, current_equity: float, now: datetime) -> None:
         """Re-baseline the daily loss halt once per trading day.

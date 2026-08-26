@@ -120,8 +120,16 @@ class Config:
     # panic AND neutral. In a correction Everest is off, so Ocean was the
     # only engine able to open a position — and its picks skip the score
     # floor and the absolute-momentum gate. This flag is that missing park
-    # switch. Leave False until the crash guard is designed and tested.
-    ocean_enabled: bool = False
+    # switch. OWNER APPROVAL 2026-08-26 ("Approve as specced"): the crash
+    # guard is wired (engines/ocean.py — VIX knife rail, 0.213 damage rail,
+    # per-stock reclaim, danger veto) and Ocean now runs in PARALLEL with
+    # Everest at HALF size behind it. Default ON by that approval; the
+    # Settings toggle still parks it.
+    ocean_enabled: bool = True
+    # Owner-approved Ocean sizing (2026-08-26): half the fixed ticket, and
+    # a hard concurrent-slot ceiling. Both are the owner's numbers to move.
+    ocean_position_value: float = 62_500.0
+    ocean_max_positions: int = 8
     # OWNER ORDER 2026-08-09 ("i want to take risk on 200 DMA" -> picked
     # "Brake fully OFF" after being shown the v4 evidence: blind correction
     # dip-buying tested -2.2pp across 10 episodes). False = the CORRECTION

@@ -28,11 +28,14 @@ def test_dashboard_header_labels_the_regime_as_a_regime():
 
 
 # B2 — engine page tells the truth about Ocean and the reserve ladder
-def test_engine_page_shows_parked_while_the_ocean_switch_is_off():
+def test_engine_page_tells_the_truth_about_ocean_state():
     cfg = state.cfg()
-    assert cfg.ocean_enabled is False        # the shipped state
+    # Owner approval 2026-08-26 ("Approve as specced"): Ocean ON by default
+    # behind the crash guard; the template still renders PARKED when the
+    # owner toggles it off.
+    assert cfg.ocean_enabled is True
     src = Path("web/templates/engine.html").read_text()
-    assert "PARKED (switch off)" in src
+    assert "PARKED (switch off)" in src      # the off-branch still honest
     assert "20% / 25% / 35% / 50%" not in src        # fictional ladder gone
     assert "0% / 0% / 20% / 40%" in src              # the real one
     assert "and FII flows are positive" not in src   # FII does not gate
