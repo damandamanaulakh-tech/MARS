@@ -25,7 +25,7 @@
     </p>
     <ul class="list-disc pl-5 space-y-1">
       <li><strong>🏔️ Everest (momentum/breakout)</strong> — active when Nifty is above its 200-day MA (FII flow is shown for context, it does not gate). Buys breakouts in leading sectors.</li>
-      <li><strong>🌊 Ocean (deep-reversion)</strong> — the regime marks it eligible in a correction (Nifty below its 200-DMA or ≥12% off the 52-week high), panic (≥10% off + VIX&gt;25), or neutral — but it only ever buys if your <strong>Ocean switch</strong> in Settings is ON. It is currently {% if ocean_enabled %}ON{% else %}<strong>PARKED (off)</strong>, so in a correction the app deliberately buys nothing until the VIX re-entry fires{% endif %}.</li>
+      <li><strong>🌊 Ocean (deep-reversion)</strong> — the regime marks it eligible in a correction (Nifty below its 200-DMA or ≥12% off the 52-week high), panic (≥10% off + VIX&gt;25), or neutral — but it only ever buys if your <strong>Ocean switch</strong> in Settings is ON. It is currently {% if ocean_enabled %}<strong>ON behind the crash guard</strong> (owner approval 2026-08-26): half-size dips, max 8 slots, and four rails — VIX knife, 0.213 damage cluster, per-stock reclaim, danger veto — each block journaled{% else %}<strong>PARKED (off)</strong>, so in a correction the app deliberately buys nothing until the VIX re-entry fires{% endif %}.</li>
     </ul>
     <p>The classifier reads four cheap inputs on each refresh:</p>
     <ol class="list-decimal pl-5 space-y-1">

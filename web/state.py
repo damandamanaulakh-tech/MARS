@@ -301,6 +301,16 @@ def _bootstrap() -> None:
         _CFG.preset_overrides = po
         db.save_settings({"exit_order_2026_08_24": True}, doc_id="migrations")
 
+    # Owner approval 2026-08-26 ("Approve as specced"): Ocean un-parked
+    # behind the crash guard. The park era stored ocean_enabled=False in
+    # Mongo; this one-time migration clears that override so the new
+    # default (ON) rules. The Settings toggle still works afterwards.
+    if not db.load_settings(doc_id="migrations").get("ocean_order_2026_08_26"):
+        db.unset_settings_keys(["ocean_enabled"])
+        _CFG.ocean_enabled = True
+        db.save_settings({"ocean_order_2026_08_26": True},
+                         doc_id="migrations")
+
     # Apply mode preset (sets stops, target, etc. per chosen horizon)
     _CFG.apply_mode_preset()
     # Policy C (user-approved 2026-07-16): exits ON — pinned here so a stale

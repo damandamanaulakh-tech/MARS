@@ -744,7 +744,11 @@ def _refresh_journal(action: str, why: str) -> None:
 
 
 def _weekly_index_refresh() -> None:
-    """Node 3 (owner: "node 3", 2026-08-24): weekly index-daily tail.
+    """Index-daily tail — DAILY since 2026-08-26 (owner fault report:
+    "still on sensex and all, it show 7 august" — the weekly Friday slot
+    meant the first run had never fired). Runs before the 09:20 scans,
+    at boot catch-up, and in the Friday block; idempotent, quiet when
+    already current.
 
     Fetches the four dashboard indices' candles PAST the newest date we
     hold (committed CSV or stored tail, whichever is later) via the public
@@ -779,9 +783,9 @@ def _weekly_index_refresh() -> None:
             return
         rows = dr.fetch_index_tail(broker, last)
         if not rows:
-            _refresh_journal("DATA_REFRESH_INDEX",
-                             f"Weekly index refresh: already current to "
-                             f"{last} — nothing new to store.")
+            # daily since 2026-08-26 — an already-current day is the normal
+            # case and must not write a journal line every morning
+            log.info("index refresh: already current to %s", last)
             return
         n = db.save_index_rows(rows)
         _refresh_journal("DATA_REFRESH_INDEX",
@@ -1222,6 +1226,16 @@ def _daily_multi_mode_scan() -> None:
         refresh_breadth_store("09:20")
     except Exception:
         log.exception("breadth refresh failed before daily scan")
+    # OWNER FAULT REPORT 2026-08-26 ("still on sensex and all, it show
+    # 7 august"): the index tail was wired WEEKLY (Friday 16:30) on a
+    # Sunday — so no run had ever happened and every page read the CSV
+    # frozen at its commit date. The refresh is idempotent and cheap
+    # (4 public candle calls, only dates past the newest held row), so it
+    # now runs DAILY here and at boot catch-up; Friday keeps its slot.
+    try:
+        _weekly_index_refresh()
+    except Exception:
+        log.exception("index refresh failed before daily scan")
     summary = []
     import gc
     from trading.modes import MODE_LOCK

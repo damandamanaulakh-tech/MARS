@@ -49,77 +49,56 @@ class _Candidate:
 
 
 # --------------------------------------------------------------------------
-# 1. Ocean park switch
+# 1. Ocean switch — owner approval 2026-08-26 ("Approve as specced"):
+#    default ON behind the crash guard; the Settings toggle still parks it.
 # --------------------------------------------------------------------------
 
-def test_ocean_is_parked_by_default():
-    """The park switch the docs always claimed existed."""
-    assert Config().ocean_enabled is False
+def test_ocean_is_on_by_default_since_the_approval():
+    assert Config().ocean_enabled is True
+    assert Config().ocean_position_value == 62_500.0
+    assert Config().ocean_max_positions == 8
 
 
-def test_ocean_blocked_in_correction_and_journalled(tmp_path, monkeypatch):
-    """Correction + Ocean parked = ocean.scan never runs, and it says so."""
-    eng = _engine(tmp_path)
+def test_owner_toggle_still_parks_ocean(tmp_path, monkeypatch):
+    """ocean_enabled=False = the owner's explicit park; nothing runs."""
+    eng = _engine(tmp_path, ocean_enabled=False)
     called = []
     monkeypatch.setattr("trading.engines.ocean.scan",
-                        lambda *a, **k: called.append(1) or [])
-
+                        lambda *a, **k: called.append(1) or [_Candidate()])
     picks = eng._ocean_picks(_regime(), {}, [], datetime.utcnow())
+    assert picks == [] and called == []
 
+
+def test_market_rail_blocks_and_journals_when_vix_unknowable(tmp_path, monkeypatch):
+    """Fail-SAFE: no VIX series = no dip buying, and the journal says why."""
+    eng = _engine(tmp_path, ocean_enabled=True)
+    monkeypatch.setattr("trading.engines.ocean.scan",
+                        lambda *a, **k: [_Candidate()])
+    monkeypatch.setattr("trading.engine.fetch_daily", lambda *a, **k: {})
+    picks = eng._ocean_picks(_regime(), {"TESTCO.NS": None}, ["TESTCO.NS"],
+                             datetime.utcnow())
     assert picks == []
-    assert called == []                      # the engine itself never ran
     blocked = [e for e in eng.portfolio.decision_journal
                if e.get("action") == "OCEAN_BLOCKED"]
-    assert len(blocked) == 1                 # fail-visible, not silent
-    assert "parked" in blocked[0]["why"]
-    assert "correction" in blocked[0]["why"]
+    assert len(blocked) == 1
+    assert "vix_unknown" in blocked[0]["why"]
 
 
-def test_ocean_blocked_in_panic_and_neutral_too(tmp_path, monkeypatch):
-    """regime.classify() sets ocean_active for all three — gate all three."""
-    monkeypatch.setattr("trading.engines.ocean.scan",
-                        lambda *a, **k: [_Candidate()])
-    for name in ("panic", "neutral"):
-        eng = _engine(tmp_path)
-        picks = eng._ocean_picks(_regime(name), {}, [], datetime.utcnow())
-        assert picks == [], f"{name} regime leaked an Ocean pick"
-
-
-def test_ocean_runs_when_owner_switches_it_on(tmp_path, monkeypatch):
-    """Flipping cfg.ocean_enabled restores the previous behaviour exactly."""
+def test_slot_cap_stops_new_ocean_picks(tmp_path, monkeypatch):
+    """8 open ocean-tagged positions = no more Ocean entries."""
+    from trading.paper import PaperPosition
     eng = _engine(tmp_path, ocean_enabled=True)
+    for i in range(8):
+        t = f"OC{i}.NS"
+        eng.portfolio.positions[t] = PaperPosition(
+            ticker=t, qty=1, entry_price=100.0,
+            entry_date=datetime(2026, 8, 1), sector="X", peak_price=100.0,
+            entry_score=70.0, reasoning="x", tags=["ocean"])
+    called = []
     monkeypatch.setattr("trading.engines.ocean.scan",
-                        lambda *a, **k: [_Candidate()])
-
+                        lambda *a, **k: called.append(1) or [_Candidate()])
     picks = eng._ocean_picks(_regime(), {}, [], datetime.utcnow())
-
-    assert len(picks) == 1
-    p = picks[0]
-    assert p["ticker"] == "TESTCO.NS"
-    assert p["ocean"] is True
-    assert p["score"] == 100 + (-32.0)       # deepest faller ranks highest
-    assert p["timing_pass"] is True
-    assert not [e for e in eng.portfolio.decision_journal
-                if e.get("action") == "OCEAN_BLOCKED"]
-
-
-def test_no_regime_means_no_ocean(tmp_path, monkeypatch):
-    """regime=None (regime read failed) must not activate Ocean or journal."""
-    eng = _engine(tmp_path, ocean_enabled=True)
-    monkeypatch.setattr("trading.engines.ocean.scan",
-                        lambda *a, **k: [_Candidate()])
-
-    assert eng._ocean_picks(None, {}, [], datetime.utcnow()) == []
-    assert eng.portfolio.decision_journal == []
-
-
-def test_bull_regime_does_not_journal_a_block(tmp_path):
-    """Ocean inactive is the normal case — don't spam the journal."""
-    eng = _engine(tmp_path)
-    picks = eng._ocean_picks(_regime("bull_extension", ocean=False, everest=True),
-                             {}, [], datetime.utcnow())
-    assert picks == []
-    assert eng.portfolio.decision_journal == []
+    assert picks == [] and called == []      # cap short-circuits before work
 
 
 # --------------------------------------------------------------------------
@@ -296,16 +275,22 @@ def test_tripped_flag_survives_a_mid_day_restart(tmp_path):
     assert eng2.risk.kill_switch is True                     # halt remembered
 
 
-def test_ocean_block_journals_once_per_day_and_not_in_neutral(tmp_path, monkeypatch):
+def test_ocean_block_journals_once_per_day_and_quiet_with_no_candidates(
+        tmp_path, monkeypatch):
+    """New contract (2026-08-26): no candidates = silence (the normal day);
+    candidates refused by a rail = ONE journal line per day, not per pass."""
+    eng = _engine(tmp_path, ocean_enabled=True)
+    now = datetime(2026, 8, 26, 9, 20)
+    # no candidates -> no journal line at all
     monkeypatch.setattr("trading.engines.ocean.scan", lambda *a, **k: [])
-    eng = _engine(tmp_path)
-    now = datetime(2026, 7, 27, 9, 20)
-    # neutral: Everest active -> no journal line at all
-    eng._ocean_picks(_regime("neutral", ocean=True, everest=True), {}, [], now)
-    assert eng.portfolio.decision_journal == []
-    # correction: journals once...
     eng._ocean_picks(_regime(), {}, [], now)
-    eng._ocean_picks(_regime(), {}, [], now.replace(hour=14))   # 2nd pass same day
+    assert eng.portfolio.decision_journal == []
+    # candidates + unknowable VIX -> blocked, journaled once across 2 passes
+    monkeypatch.setattr("trading.engines.ocean.scan",
+                        lambda *a, **k: [_Candidate()])
+    monkeypatch.setattr("trading.engine.fetch_daily", lambda *a, **k: {})
+    eng._ocean_picks(_regime(), {}, [], now)
+    eng._ocean_picks(_regime(), {}, [], now.replace(hour=14))
     blocked = [e for e in eng.portfolio.decision_journal
                if e.get("action") == "OCEAN_BLOCKED"]
     assert len(blocked) == 1
