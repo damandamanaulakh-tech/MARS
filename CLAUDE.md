@@ -1814,6 +1814,19 @@ enforcement orders feed too"), 1,023 tests (5 new).** Display only.
   titles link to sebi.gov.in, matched token printed.
 - Boundary test: engine/risk/orders/danger never import sebi_feed.
 
+**INDEX-TAIL FAULT FIXED 2026-08-26 (owner: "still on sensex and all, it
+show 7 august, why u r unable to fix").** ROOT CAUSE: the Node 3 index
+refresh was wired WEEKLY (Friday 16:30) and shipped on a Sunday — the
+first run had never fired, the index_daily store was EMPTY, and every
+consumer (sparklines, register inputs, T12W_0095 index leg) read the CSV
+frozen at its 2026-08-07 commit. FAULT CLASS: "wired but the first
+scheduled run hasn't happened" — same family as F1's Friday-skip. FIX:
+the refresh now ALSO runs daily before the 09:20 scans (and via boot
+catch-up, which calls the same job); idempotent (only dates past the
+newest held row), quiet when already current (no daily journal spam;
+journals only on stored rows or failure). First live run backfills
+08-08→today in one shot.
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
