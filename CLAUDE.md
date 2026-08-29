@@ -1976,6 +1976,94 @@ BEFORE TOUCHING ANY SCHEDULED JOB.**
   warns about. **Keep workflow schemas FLAT.** Doing it directly took
   minutes and was more accurate, same as last time.
 
+**EXTERNAL REVIEW ADOPTED, ITEMS 1+2 (owner 2026-08-29 uploaded
+Selection-style xlsx "AM07_vs_AshStocks_GitHub_Review", asked "review and
+tell me what is good and can be adopted", then ordered "go in same / 1 /
+then 2 / then 3"). 1,063 tests. THE BEST EXTERNAL REVIEW RECEIVED —
+pinned both repo SHAs (AM07 aacbcf48, AshStocks 067c4d66), stated its own
+limits (GitHub connector only, binaries by metadata, 18 oversized files
+sampled), and graded the real tree, not a stale spec like the 2026-07-27
+one. Its 6 AM07 findings AUDITED against code before adopting: 5 accurate
+(F-001 mongo, F-002 password, F-007 ₹1L-vs-₹25k-vs-₹62.5k, F-012 doc
+drift, F-013 196MB tree), 1 imprecise (F-009: the 18/12/6% vol tiers ARE
+dead, but risk_v2 itself is live — governor/loss-tracker/cash-reserve).**
+- **ITEM 1 SHIPPED — `web/readiness.py`, fail-closed production boot.**
+  F-001 was real AND the pre-existing degraded halt structurally could not
+  catch it: `db.mongo_expected()` is `bool(MONGO_URL)`, so "secret never
+  set" was indistinguishable from "JSON dev run on purpose" — the live
+  book would sit in /tmp and vanish on restart. F-002 verified at
+  auth.py:36-38 (`OWNER_PWD or APP_PASSWORD or "sourceborn"`, error-log
+  only). Now: on Render (the `RENDER` marker the Secure-cookie flag
+  already uses) a boot REFUSES to start without MONGO_URL, a real
+  password, and a real SESSION_SECRET — values that ARE the old fallbacks
+  fail too (set-to-fallback looks configured, which is worse than unset).
+  All failures reported together, each naming its variable.
+  `assert_ready()` runs at import in web/main.py so uvicorn fails with the
+  reason — **and Render keeps the last good deploy serving a failed boot,
+  so this cannot cause an outage.** `SB_ALLOW_INSECURE=1` = documented
+  escape hatch, logs every problem as a warning, never silent.
+  `SB_REQUIRE_PROD=1` forces the bar off-Render. /healthz gained a
+  `readiness` block (booleans + variable NAMES, never values) so a
+  misconfigured deploy is visible from outside. NO-OP in dev and tests
+  (RENDER unset) — test-pinned, plus a pin that readiness imports nothing
+  heavy so it can never itself be the reason a boot fails.
+- **ITEM 2 SHIPPED — quarterly institutional holdings on the /scan row**
+  (review C-014: AshStocks shows shareholdings on scan rows; AM07 had the
+  same data RICHER — FII/DII/MF/insurance + holder counts + pledge, two
+  quarters, 193 symbols — but only inside /register, not the screen the
+  owner buys from). `scan_routes._institutional()` reads the committed CSV
+  through external_panels' existing module cache: one dict lookup per row,
+  ZERO network, nothing new fetched. Column shows FII% and DII% with the
+  QoQ delta arrow and a ⚠ pledged flag. **Labelled QUARTERLY in the header
+  and the tooltip names the filing quarter** — a filing must never read as
+  today's flow. A symbol outside the fetched set renders an em dash with
+  "Not a zero" in the tooltip. Slot divider colspan widened 7/6 → 8/7;
+  a test counts `<th>` against `<td>` so the table can't silently skew.
+  VERIFIED BY REAL RENDER, not just tests (the /positions 500 lesson):
+  /scan returns 200 with a mixed book — in-set name, out-of-set name, and
+  a score-less ampersand ticker — printing "FII 9.06%" for TCS.
+- **BUG FOUND WHILE AUDITING THEIR F-012, WHICH THE REVIEW MISSED:**
+  `web/routes/dashboard.py:230` reads `os.environ.get("DAILY_SCHEDULER")
+  != "1"` and then tells the owner "Daily auto-scan is OFF", but
+  `scheduler.py:34` reads `os.environ.get("DAILY_SCHEDULER", "1") != "0"`
+  — **unset means ON**, and render.yaml never sets it. So unless the owner
+  set it by hand, the dashboard has been reporting auto-scan OFF while it
+  ran daily. Lying-screen class (B batch). REPORTED, NOT FIXED — owner
+  said no code beyond the three items. Also still unfixed by their order:
+  F-007 (₹1L wording vs ₹25k floor vs ₹62.5k Ocean), F-009 (dead vol-tier
+  code in risk_v2), F-012's README ₹25L and the two contradictory
+  scheduler docstrings, F-013 (196MB tree).
+- **Owner decisions recorded this round, NOT yet built:** (a) "If Friday
+  run is not done, it should run on Monday not next Friday" — the weekly
+  catch-up, which is ITEM 3 (queued next); (b) FDA Data Dashboard key is
+  the owner's own action ("FDA on me, i ll do"). Owner also corrected me
+  usefully: **FDA does arrive via news** — true and already live since the
+  2026-08-26 newsroom wire plus the us-fda/form-483/warning-letter/import-
+  alert lexicon patterns; the key only adds Form-483 inspection records.
+- **Mid-week event-risk discussion (owner: "even if FDA announce anything
+  as trump annouced the section again in mid week how app algorithm will
+  decide to exist the effected stock/segement... review online with
+  current high performance stock apps"). RESEARCHED, NOTHING BUILT.** The
+  honest state: **there is NO news→exit path** (grep-verified: engine,
+  risk, orders and danger contain no news import), so the app reacts to
+  the PRICE of an event, never the event; a gap-down exits at the gap, not
+  at −5%, because stops are checked at scheduled passes; and **sector caps
+  are ENTRY gates only — nothing cuts a sector as a basket** (0094 sector
+  contagion fires per stock, tightening N individual stops). What the
+  field does, from the research: nobody retail-scale wins the headline
+  race (algos move in ms); in the April-2025 tariff shock professionals
+  deleveraged **over days, Apr 2-10, not minutes**; the mechanism is
+  **volatility targeting**, which cuts exposure because vol rises when
+  prices fall — it needs no knowledge of WHY, and its edge is a
+  trend-following loading; news-sentiment alpha is contested in the
+  literature AND uncalibratable here (no headline archive); strict
+  drawdown-rule exits measurably UNDERPERFORM. Options put to the owner:
+  A sector-heat basket exit (testable on their own panel — the real gap),
+  B volatility-scaled exposure (best-evidenced, but changes their ordered
+  ₹1.25L sizing), C news auto-exit (**recommended against — unprovable**;
+  narrow version = alert + one-tap sector square-off, human decides),
+  D calendar de-risking. AWAITING THEIR PICK.
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

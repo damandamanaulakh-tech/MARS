@@ -25,6 +25,43 @@ def _momentum_preset():
     return get_preset("nifty200_momentum")
 
 
+def _institutional(picks) -> dict:
+    """{ticker: institutional holding row} for the scanned picks.
+
+    ADOPTED 2026-08-29 (owner order "go ... 2") from the AshStocks review,
+    which surfaces quarterly shareholdings on its scan rows. The data was
+    already committed here and already parsed by external_panels for the
+    /register page; this only puts it on the screen the owner buys from.
+
+    QUARTERLY, never live: the numbers are as of the shareholding filing,
+    which the page states and the tooltip dates. Only the ~193 symbols in
+    the fetched set resolve — everything else reads as an em dash, never a
+    zero. Reads a committed CSV through a module-level cache, so it costs
+    one dict lookup per row and touches no network.
+
+    external_panels is a display module; a page route may import it (the
+    boundary test bars engine/risk/orders/danger, not routes).
+    """
+    out: dict[str, dict] = {}
+    try:
+        from trading import external_panels
+    except Exception:
+        log.exception("institutional holdings unavailable")
+        return out
+    for pk in picks or []:
+        t = (pk or {}).get("ticker")
+        if not t or t in out:
+            continue
+        try:
+            row = external_panels.institutional_holdings(t)
+        except Exception:
+            log.exception("institutional holdings failed for %s", t)
+            row = None
+        if row:
+            out[t] = row
+    return out
+
+
 @router.get("/scan", response_class=HTMLResponse)
 def scan_view(request: Request, error: str | None = None):
     if not auth.current_user(request):
@@ -49,6 +86,12 @@ def scan_view(request: Request, error: str | None = None):
         slots = slot_view(p, cfg)
     except Exception:
         log.exception("slot view failed")
+    # ADOPTED 2026-08-29 (owner order "go ... 2") from the AshStocks review:
+    # it puts quarterly institutional shareholdings on the scan rows. AM07
+    # held the same data — richer (FII/DII/MF/insurance + holder counts +
+    # pledge, two quarters, 193 symbols) — but only inside /register, which
+    # is not the screen the owner buys from. Nothing is fetched here.
+    holdings = _institutional(picks)
     # F8: sector counts of the scanned picks
     sector_counts = Counter(cfg.sector_map.get(pk.get("ticker"), "Unknown")
                             for pk in picks)
@@ -85,6 +128,7 @@ def scan_view(request: Request, error: str | None = None):
             "sector_counts": sorted(sector_counts.items(), key=lambda kv: -kv[1]),
             "vbook": vbook[:40],
             "v_summary": v_summary,
+            "holdings": holdings,
             "piano": piano,
             "pending_orders": [o for o in (p.pending_orders or [])
                                if o.get("status") == "open"],

@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import scheduler
+from . import readiness, scheduler
 from .routes import (
     auth, dashboard, positions, scan_routes, settings_routes,
     upstox, backtest_routes, regime_routes,
@@ -20,6 +20,15 @@ from .routes import (
 
 
 WEB_DIR = Path(__file__).parent
+
+# ADOPTED 2026-08-29 (owner order "go ... 1") from the AshStocks review:
+# fail closed instead of falling back. On Render a missing MONGO_URL used to
+# put the live book in /tmp (erased on restart) and a missing password used
+# to seed a guessable one — both silently. This raises BEFORE the app object
+# is served, so `uvicorn web.main:app` fails with the reason and Render keeps
+# the last good deploy running. No-op outside production; SB_ALLOW_INSECURE=1
+# overrides it loudly. See web/readiness.py.
+readiness.assert_ready()
 
 
 app = FastAPI(
@@ -101,5 +110,8 @@ def healthz() -> dict:
                     "file_date": date.fromtimestamp(os.path.getmtime(upath)).isoformat()}
     except Exception:
         pass
+    # Readiness is booleans + the names of any unset variables, never their
+    # values — safe on an unauthenticated endpoint, and it means a
+    # misconfigured deploy is visible from outside instead of only in logs.
     return {"ok": True, "db": state.db_status(), "history_tickers": hist,
-            "universe": universe}
+            "universe": universe, "readiness": readiness.status()}
