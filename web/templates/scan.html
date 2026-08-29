@@ -328,6 +328,8 @@
         <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Score</th>
         <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Last Close</th>
         <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Timing</th>
+        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap"
+            title="FII / DII holding % from the company's NSE shareholding filing, with the change since the previous quarter. Quarterly — not today's flow.">Institutions <span class="normal-case tracking-normal text-ink-faint">(quarterly)</span></th>
         <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Reasoning</th>
         {% if user and user.role == 'owner' %}<th class="text-right px-3 lg:px-6 py-3 whitespace-nowrap">Buy</th>{% endif %}
       </tr>
@@ -336,7 +338,7 @@
       {% for p in picks %}
       {% if slots and loop.index == slots.free + 1 %}
       <tr class="border-b border-line bg-amber-50/60"><!-- slot_divider_marker -->
-        <td colspan="{% if user and user.role == 'owner' %}7{% else %}6{% endif %}" class="px-3 lg:px-6 py-2 text-xs text-amber-800 font-semibold">
+        <td colspan="{% if user and user.role == 'owner' %}8{% else %}7{% endif %}" class="px-3 lg:px-6 py-2 text-xs text-amber-800 font-semibold">
           ── beyond today's cash: the {{ picks | length - slots.free }} pick{{ '' if picks | length - slots.free == 1 else 's' }} below can't be funded at ₹{{ slots.per_trade | inr(0) }} each — shown, not hidden ──
         </td>
       </tr>
@@ -349,6 +351,17 @@
         <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap">₹{{ p.last_close | inr(2) }}</td>
         <td class="px-3 lg:px-6 py-3 uppercase text-xs tracking-widest whitespace-nowrap {% if p.timing_pass %}text-emerald-700{% else %}text-ink-faint{% endif %}">
           {% if p.timing_pass %}YES{% else %}no{% endif %}
+        </td>
+        <td class="px-3 lg:px-6 py-3 whitespace-nowrap text-xs"><!-- institutional_cell_marker -->
+          {% set h = (holdings or {}).get(p.ticker) %}
+          {% if h %}
+          <span class="tabular-nums" title="Shareholding filing for {{ h.quarter }}{% if h.prior_quarter %}, change vs {{ h.prior_quarter }}{% endif %} — quarterly, not today's flow">
+            {% if h.fii_pct is not none %}FII {{ h.fii_pct }}%{% if h.fii_delta %}<span class="{% if h.fii_delta > 0 %}text-emerald-700{% else %}text-rose-700{% endif %} font-semibold">{{ '▲' if h.fii_delta > 0 else '▼' }}{{ h.fii_delta | abs }}</span>{% endif %}{% endif %}
+            {% if h.dii_pct is not none %}<span class="text-ink-faint"> · </span>DII {{ h.dii_pct }}%{% if h.dii_delta %}<span class="{% if h.dii_delta > 0 %}text-emerald-700{% else %}text-rose-700{% endif %} font-semibold">{{ '▲' if h.dii_delta > 0 else '▼' }}{{ h.dii_delta | abs }}</span>{% endif %}{% endif %}
+            {% if h.fii_pct is none and h.dii_pct is none %}<span class="text-ink-faint">filed, no split</span>{% endif %}
+          </span>
+          {% if h.promoter_pledged == 'true' %}<span class="ml-1 text-rose-700 font-semibold" title="Promoter shares are pledged as of {{ h.quarter }}">⚠ pledged</span>{% endif %}
+          {% else %}<span class="text-ink-faint" title="No shareholding filing parsed for this symbol — the fetched set covers ~193 names. Not a zero.">—</span>{% endif %}
         </td>
         <td class="px-3 lg:px-6 py-3 text-ink-soft max-w-md truncate">{{ p.reasoning }}</td>
         {% if user and user.role == 'owner' %}
