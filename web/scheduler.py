@@ -6,8 +6,14 @@ Two job tracks:
      short, swing, and positional in sequence. Opens whatever passes the
      gates in each mode. Target 60-70% weekly capital deployment.
 
-Disabled by default. Set DAILY_SCHEDULER=1 in Render env to switch on.
-The legacy INTRADAY_SCHEDULER=1 toggle is still honoured.
+The daily track is ON by default (paper-only). Set DAILY_SCHEDULER=0 in
+Render env to switch it off. The legacy INTRADAY_SCHEDULER=1 toggle is
+still honoured, and the intraday track stays opt-in.
+
+TRUTH-PASS 2026-08-29: this header used to say "Disabled by default. Set
+DAILY_SCHEDULER=1 to switch on", contradicting both the code below and
+start_if_enabled's own docstring. Read daily_enabled() — never re-derive
+the predicate.
 """
 
 from __future__ import annotations
@@ -23,6 +29,22 @@ log = logging.getLogger(__name__)
 _SCHED = None
 
 
+def daily_enabled() -> bool:
+    """Is the daily auto-scan track on? THE single source of truth.
+
+    UNSET MEANS ON. This exists because the predicate was written out by
+    hand in three places and one of them disagreed: the dashboard read
+    `DAILY_SCHEDULER != "1"` and told the owner "Daily auto-scan is OFF"
+    whenever the variable was simply absent — which is the default, and
+    which render.yaml never sets. So the screen reported the engine idle
+    while it scanned every morning. Lying-screen class (audit B batch);
+    caught 2026-08-29 while auditing the external review's F-012.
+
+    Every reader must call this. Never re-derive it from os.environ.
+    """
+    return os.environ.get("DAILY_SCHEDULER", "1") != "0"
+
+
 def start_if_enabled() -> None:
     """Called from FastAPI startup. Idempotent.
 
@@ -31,7 +53,7 @@ def start_if_enabled() -> None:
     """
     global _SCHED
     intraday = os.environ.get("INTRADAY_SCHEDULER") == "1"
-    daily = os.environ.get("DAILY_SCHEDULER", "1") != "0"
+    daily = daily_enabled()
     if not (intraday or daily):
         log.info("Schedulers disabled (DAILY_SCHEDULER=0 and INTRADAY_SCHEDULER unset)")
         return
@@ -158,7 +180,7 @@ def catchup_scan_if_missed(reason: str = "catchup") -> bool:
 
     from trading.calendars import is_trading_day
 
-    if (os.environ.get("DAILY_SCHEDULER", "1") == "0"
+    if (not daily_enabled()
             or os.environ.get("SB_DISABLE_CATCHUP") == "1"
             or not is_trading_day()):
         return False

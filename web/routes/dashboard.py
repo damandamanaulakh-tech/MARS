@@ -226,9 +226,16 @@ def dashboard(request: Request):
         tweaks.append(f"Cash reserve raised to {cfg.cash_reserve_pct*100:.0f}% by regime classifier (defensive tilt).")
     if cfg.mode == "intraday":
         tweaks.append("Intraday mode active — all positions auto-square-off at 15:25 IST.")
-    import os as _os
-    if _os.environ.get("DAILY_SCHEDULER") != "1":
-        tweaks.append("Daily auto-scan is OFF. Set DAILY_SCHEDULER=1 in Render env to turn on automatic 09:20 IST trades.")
+    # FIXED 2026-08-29 (owner: "fix the DAILY_SCHEDULER dashboard bug").
+    # This read was `!= "1"`, so an UNSET variable — the default, and what
+    # render.yaml actually ships — printed "Daily auto-scan is OFF" while
+    # the scheduler was running the 09:20 pass every morning. Both now read
+    # scheduler.daily_enabled(), the single source of truth.
+    from ..scheduler import daily_enabled
+    if not daily_enabled():
+        tweaks.append("Daily auto-scan is OFF (DAILY_SCHEDULER=0 in Render env). "
+                      "Remove that variable, or set it to 1, to turn the "
+                      "automatic 09:20 IST scan back on.")
 
     return templates.TemplateResponse(
         request, "dashboard.html",
