@@ -1143,15 +1143,45 @@ def refresh_breadth_store(where: str = "manual") -> dict:
         return {}
 
 
+def _run_weekly_step(label: str, fn, journal) -> bool:
+    """Run ONE Friday sub-job so its failure cannot take out the others.
+
+    FIX 2026-08-29 (owner order "fix it"): every weekly sub-job used to sit
+    in a SINGLE try block, so the first crash silently skipped every feed
+    below it and the only trace was one DATA_REFRESH_FAILED line naming the
+    OHLCV pull. Most sub-jobs already catch their own exceptions; this is
+    the outer guarantee that an import error or an unexpected escape in one
+    feed cannot cost the owner the other seven.
+    """
+    try:
+        fn()
+        return True
+    except Exception as e:                      # noqa: BLE001 - isolation
+        log.exception("weekly sub-job %s failed: %s", label, e)
+        journal("DATA_REFRESH_STEP_FAILED",
+                f"Friday data block: {label} crashed ({e}) — the other "
+                f"weekly feeds still ran.")
+        return False
+
+
 def _weekly_history_topup() -> None:
     """Friday 16:30 IST: merge fresh candles into the Mongo OHLCV store.
 
     Runs with or without the daily Upstox login — historical candles are a
     public endpoint (F1 fix 2026-08-20); only a missing client object or
     Mongo offline skips, and both journal DATA_REFRESH_SKIPPED instead of
-    silently doing nothing. A run journals DATA_REFRESH_WEEKLY with the
-    counts. Scope = tickers already in the store plus anything currently
-    held (bounded, safe on 512 MB)."""
+    silently doing nothing.
+
+    ORDER (2026-08-29): journal DATA_REFRESH_WEEKLY_START, then the six
+    short store-independent feeds each isolated, THEN the OHLCV pull
+    (journals DATA_REFRESH_WEEKLY with the counts), then the two
+    store-derived recomputes. A crashed or interrupted pull can no longer
+    cost the week's FII/constituents/fundamentals/USFDA/SEBI data.
+
+    Scope of the pull = tickers already in the store, plus anything held,
+    plus the full universe file (~2,400 names since PR #68 — the store
+    could not grow before that). Merged one name at a time, so the 512 MB
+    box never holds more than one frame."""
     from datetime import date, datetime as _dt
 
     from trading.calendars import is_trading_day
@@ -1187,6 +1217,36 @@ def _weekly_history_topup() -> None:
         _journal("DATA_REFRESH_SKIPPED",
                  "Weekly OHLCV top-up skipped: Mongo offline.")
         return
+    # FIX 2026-08-29 (owner order "fix it", after they asked "is the Friday
+    # trigger captured"): the SHORT, store-independent feeds now run FIRST,
+    # each isolated, BEFORE the long OHLCV pull.
+    #
+    # WHY: all eight sub-jobs used to run in one try block AFTER a
+    # ~2,400-name top-up that takes the better part of an hour. A crash —
+    # or a container restart mid-pull, which NO try block can catch —
+    # silently skipped everything below it, and the weekly block has no
+    # catch-up, so the miss cost a full week. Three of the eight have a
+    # daily counterpart and survived that (index tail, breadth, register
+    # precompute); FIVE do not (FII tide, constituents, fundamentals,
+    # USFDA, SEBI). Measured on the live box 2026-08-28: the store held
+    # 573 of 2,428 names after two full-scope Fridays — the pull was not
+    # finishing, so those five were the ones paying for it.
+    _journal("DATA_REFRESH_WEEKLY_START",
+             "Friday data block started: short feeds first, then the "
+             "full-universe OHLCV top-up.")
+
+    # Independent of the store's freshness — cheap, so they go first and
+    # are done long before anything can interrupt the pull.
+    for _label, _fn in (
+        ("FII tide (NSDL)", _weekly_fii_refresh),
+        ("index tail", _weekly_index_refresh),
+        ("constituents snapshot", _monthly_constituents_snapshot),
+        ("fundamentals refresh", _monthly_fundamentals_refresh),
+        ("USFDA events", _weekly_usfda_refresh),
+        ("SEBI orders", _weekly_sebi_refresh),
+    ):
+        _run_weekly_step(_label, _fn, _journal)
+
     try:
         from trading.brokers.upstox_instruments import to_instrument_keys
         from trading.history_store import top_up_history
@@ -1217,28 +1277,23 @@ def _weekly_history_topup() -> None:
                  f"{summ['skipped_fresh']} already fresh, "
                  f"{summ['failed']} failed of {summ['total']}.")
         log.info("[fri 16:30] weekly history top-up: %s", summ)
-        # F3: the store just got a week of fresh closes — recompute the
-        # full-store breadth reading the A3 gate prefers.
-        refresh_breadth_store("post-topup")
-        # Node 3: append the week's FII tail from NSDL (public, cloud-
-        # reachable) so the 5-day FII sum the thresholds are calibrated on
-        # stays populated between repo commits.
-        _weekly_fii_refresh()
-        # Node 3 rest (owner order 2026-08-24): index tail weekly;
-        # constituents + fundamentals once a month, guarded inside.
-        _weekly_index_refresh()
-        _monthly_constituents_snapshot()
-        _monthly_fundamentals_refresh()
-        # Owner ask 2026-08-25: USFDA events for pharma names, weekly.
-        _weekly_usfda_refresh()
-        # Owner order 2026-08-25: SEBI enforcement orders, weekly.
-        _weekly_sebi_refresh()
-        # Node 10: the store just gained a week of closes — refresh the
-        # precomputed register view over it.
-        run_register_precompute("post-topup")
     except Exception as e:
         log.exception("weekly history top-up failed: %s", e)
         _journal("DATA_REFRESH_FAILED", f"Weekly OHLCV top-up crashed: {e}")
+
+    # These two READ the store, so they can only follow the top-up. They are
+    # isolated from it and from each other: a failed or partial pull still
+    # leaves closes worth recomputing over, and before this fix a crashed
+    # pull skipped both. Each also runs daily, so neither is a single point
+    # of failure — unlike the six above.
+    for _label, _fn in (
+        # F3: fresh closes -> recompute the full-store breadth reading the
+        # A3 gate prefers.
+        ("breadth store", lambda: refresh_breadth_store("post-topup")),
+        # Node 10: refresh the precomputed register view over the store.
+        ("register precompute", lambda: run_register_precompute("post-topup")),
+    ):
+        _run_weekly_step(_label, _fn, _journal)
 
 
 def _eod_refresh() -> None:

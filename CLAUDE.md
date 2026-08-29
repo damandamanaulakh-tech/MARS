@@ -1925,6 +1925,57 @@ KEYLESS (no key needed despite the owner's phrasing; told them).
 - Display only, boundary intact. Note: FDA newsroom is uncalibratable
   like all news (no archive) — never a gate.
 
+**FRIDAY BLOCK REORDERED + ISOLATED 2026-08-29 (owner: "is the Friday
+trigger captured? few things are subjective to everyday login and friday
+login... i did it this week" → "fix it"), 1,042 tests (6 new). READ THIS
+BEFORE TOUCHING ANY SCHEDULED JOB.**
+- **THE DIAGNOSIS (from the LIVE box, not from memory):** /healthz showed
+  `history_tickers` **573 of 2,428** — the store had grown from 191 (the
+  2026-08-20 reading) so a full-scope Friday top-up HAD run, but after TWO
+  full-scope Fridays (08-21 and 08-28; PR #68 landed 08-21 00:56 IST, i.e.
+  before that day's 16:30 slot) the pull was **only ~24% done**. There is
+  no per-run cap in `history_store.top_up_history` — it loops the whole
+  universe — so the pull was being cut off, almost certainly by a container
+  restart (the universe file's mtime, which `refresh_universe` rewrites
+  atomically on every success, sat at the last DEPLOY date, not Thu/Fri).
+- **WHY THAT WAS EXPENSIVE:** all eight weekly sub-jobs ran sequentially
+  inside ONE try block **after** that hour-long pull. A crash — or a
+  restart, which no try block can catch — silently skipped everything
+  below. Three have a daily counterpart and survived (index tail since the
+  08-26 fix, breadth, register precompute at 16:45); **FIVE do not: FII
+  tide, constituents, fundamentals, USFDA, SEBI.** A truncated pull cost a
+  whole week of those, and the weekly block has **no catch-up** (only the
+  09:20 scan has one), so the miss waited seven days.
+- **THE FIX:** `_run_weekly_step(label, fn, journal)` runs each sub-job in
+  its own guard (journals DATA_REFRESH_STEP_FAILED naming WHICH feed, the
+  others still run), and the six short store-INDEPENDENT feeds now run
+  **BEFORE** the pull — order is the real fix, since isolation alone cannot
+  survive a restart. The two store-DERIVED recomputes (breadth, register)
+  still follow the pull but are isolated from it, so a crashed pull no
+  longer skips them either. New **DATA_REFRESH_WEEKLY_START** journal line:
+  before this, a pull that died left NO evidence Friday had fired at all —
+  which is exactly why the owner's question could not be answered from
+  outside. Docstring truth-passed (it still claimed the pre-PR#68
+  stored+held scope).
+- Guard tests `web/tests/test_friday_block_isolation.py` — **verified to
+  FAIL on the pre-fix scheduler** (4 of 6; the other 2 pin the holiday and
+  Mongo-down gates that must not change).
+- **STILL OPEN, told to the owner:** the weekly block has no catch-up if
+  the process restarts across 16:30 IST. Not built — a 2,400-name pull
+  firing at an arbitrary boot time on the 512MB box is its own risk and
+  needs their decision. Also unproven: whether 08-28's run fired at all
+  (the journal answers it; needs their login).
+- **LOGIN MAP restated for the owner** (their "subjective to everyday
+  login" worry): only live tick quotes, the option chain and the Upstox
+  market FII/DII feed need the daily token — and the login callback re-runs
+  those. Candles, scans, news, triggers, danger, exits, breadth and **the
+  entire Friday block** are tokenless since F1/2026-08-20.
+- **MY ERROR THIS ROUND, repeated from 2026-07-30:** ran the diagnosis as a
+  5-agent Workflow with a nested StructuredOutput schema; ALL FIVE hit the
+  retry cap (676k tokens, zero output) — the exact failure my own note
+  warns about. **Keep workflow schemas FLAT.** Doing it directly took
+  minutes and was more accurate, same as last time.
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
