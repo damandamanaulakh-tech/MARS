@@ -2033,9 +2033,32 @@ dead, but risk_v2 itself is live — governor/loss-tracker/cash-reserve).**
   F-007 (₹1L wording vs ₹25k floor vs ₹62.5k Ocean), F-009 (dead vol-tier
   code in risk_v2), F-012's README ₹25L and the two contradictory
   scheduler docstrings, F-013 (196MB tree).
-- **Owner decisions recorded this round, NOT yet built:** (a) "If Friday
-  run is not done, it should run on Monday not next Friday" — the weekly
-  catch-up, which is ITEM 3 (queued next); (b) FDA Data Dashboard key is
+- **ITEM 3 SHIPPED — the weekly block self-heals a missed slot** (review
+  C-006: AshStocks runs a continuous 2-min market-hours loop, which
+  self-heals where a cron job simply misses; AM07's weekly block had NO
+  catch-up at all). **The loop was deliberately NOT copied** — a
+  ~2,400-name pull cannot run every two minutes on 512MB. Self-healing
+  taken without the loop: the job is registered **mon-fri at the SAME
+  16:30 slot** (market closed, nothing competing) and
+  `scheduler.weekly_block_due()` keeps the cadence weekly, so an ordinary
+  Monday costs ONE settings read. Also delivers the owner's own decision
+  verbatim: "If Friday run is not done, it should run on Monday not next
+  Friday." Rule: Friday runs when >=4 days since the last completion; any
+  other trading day runs only at >=7 days. **The 4-day Friday arm is what
+  returns the cadence TO Friday after a Monday catch-up** — without it one
+  miss would move the block to Mondays for ever (test-pinned). Ledger =
+  `weekly_block_date` in the existing `data_refresh` settings doc, written
+  **only after the block's sequence completes** (the guard-set-before-the-
+  work fault). Deliberate semantic, commented in code: completion counts
+  the SEQUENCE, not the OHLCV pull's internal result — the pull is
+  incremental and journals its own failures, so tying the ledger to it
+  would re-run an hour-long pull every evening whenever a few names
+  failed. Corrupt/future/unreadable stamps all fail TOWARD running. No
+  boot-trigger was added: a 2,400-name pull at an arbitrary boot time is
+  the risk the owner was told about, so 16:30 stays the only slot.
+- **Owner decisions recorded this round:** (a) "If Friday run is not done,
+  it should run on Monday not next Friday" — **BUILT, item 3 above**;
+  (b) FDA Data Dashboard key is
   the owner's own action ("FDA on me, i ll do"). Owner also corrected me
   usefully: **FDA does arrive via news** — true and already live since the
   2026-08-26 newsroom wire plus the us-fda/form-483/warning-letter/import-
