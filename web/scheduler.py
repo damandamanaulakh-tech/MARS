@@ -98,13 +98,21 @@ def start_if_enabled() -> None:
             id="deployment_topup_scan",
         )
         # End-of-day refresh: mark positions + fire exit rules + journal holds.
-        # Weekly data freshness (owner order 2026-07-27): Friday 16:30 IST,
-        # market closed, morning login token still alive. Tops up the stored
-        # OHLCV research store — merge, never replace.
+        # Weekly data freshness (owner order 2026-07-27): 16:30 IST, market
+        # closed. Tops up the stored OHLCV research store — merge, never
+        # replace — and runs the six short data feeds first.
+        #
+        # SELF-HEALING SLOT 2026-08-29 (owner: "if Friday run is not done, it
+        # should run on Monday not next Friday"). Registered mon-fri, not
+        # fri: weekly_block_due() keeps the cadence weekly and returns
+        # immediately on a day it already ran, so an ordinary Monday costs
+        # one settings read. A cron job that misses its slot is otherwise
+        # simply missed — this block had no catch-up at all, and a restart
+        # across 16:30 on a Friday cost a whole week of data.
         _SCHED.add_job(
             _weekly_history_topup,
             "cron",
-            day_of_week="fri", hour=16, minute=30,
+            day_of_week="mon-fri", hour=16, minute=30,
             id="weekly_history_topup",
             replace_existing=True,
         )
@@ -1143,6 +1151,67 @@ def refresh_breadth_store(where: str = "manual") -> dict:
         return {}
 
 
+# The weekly data block's completion ledger, in the settings doc the other
+# day/month guards already use. Written only AFTER the block finishes — the
+# guard-set-before-the-work fault this file has been bitten by before.
+WEEKLY_BLOCK_KEY = "weekly_block_date"
+
+
+def weekly_block_due(today=None) -> tuple[bool, str]:
+    """Should the weekly data block run today? (bool, plain-language reason)
+
+    ADOPTED 2026-08-29 (owner order "go ... 3") from the AshStocks review,
+    whose continuous market-hours loop self-heals a missed slot where a cron
+    job simply misses it. Copying that loop wholesale is wrong here — the
+    block pulls ~2,400 names and the box has 512 MB — so the self-healing is
+    taken without the loop: the job is registered mon-fri at the SAME 16:30
+    slot (market closed, nothing competing) and returns immediately unless
+    it is actually due.
+
+    This is also the owner's own decision, verbatim: "If Friday run is not
+    done, it should run on Monday not next Friday."
+
+    Friday remains the slot. The 4-day arm is what returns the cadence TO
+    Friday after a Monday catch-up — without it a single miss would move the
+    block to Mondays for ever.
+    """
+    from datetime import date as _date
+    today = today or _date.today()
+    try:
+        from . import db
+        last_iso = (db.load_settings(doc_id="data_refresh")
+                    or {}).get(WEEKLY_BLOCK_KEY)
+    except Exception:
+        log.exception("weekly block ledger unreadable")
+        last_iso = None
+    if not last_iso:
+        return True, "the weekly data block has no recorded completion yet"
+    try:
+        last = _date.fromisoformat(str(last_iso)[:10])
+    except ValueError:
+        return True, f"unreadable last-completion stamp {last_iso!r}"
+    days = (today - last).days
+    if days < 0:
+        return True, f"last completion {last} is in the future — clock skew"
+    if today.weekday() == 4:                       # Friday, the normal slot
+        return (days >= 4,
+                f"Friday slot, {days} day(s) since the last completion")
+    return (days >= 7,
+            f"catch-up check, {days} day(s) since the last completion "
+            f"({last}) — Friday's run did not complete")
+
+
+def _mark_weekly_block_done() -> None:
+    """Record completion. Only reached after the block's own sequence ran."""
+    from datetime import date as _date
+    try:
+        from . import db
+        db.save_settings({WEEKLY_BLOCK_KEY: _date.today().isoformat()},
+                         doc_id="data_refresh")
+    except Exception:
+        log.exception("could not record the weekly block completion")
+
+
 def _run_weekly_step(label: str, fn, journal) -> bool:
     """Run ONE Friday sub-job so its failure cannot take out the others.
 
@@ -1217,6 +1286,13 @@ def _weekly_history_topup() -> None:
         _journal("DATA_REFRESH_SKIPPED",
                  "Weekly OHLCV top-up skipped: Mongo offline.")
         return
+    # Self-healing slot (owner order 2026-08-29: "if Friday run is not done,
+    # it should run on Monday not next Friday"). Registered mon-fri now, so
+    # this is the gate that keeps it weekly. Cheap: one settings read.
+    due, why = weekly_block_due()
+    if not due:
+        log.info("[16:30] weekly data block not due — %s", why)
+        return
     # FIX 2026-08-29 (owner order "fix it", after they asked "is the Friday
     # trigger captured"): the SHORT, store-independent feeds now run FIRST,
     # each isolated, BEFORE the long OHLCV pull.
@@ -1232,8 +1308,8 @@ def _weekly_history_topup() -> None:
     # 573 of 2,428 names after two full-scope Fridays — the pull was not
     # finishing, so those five were the ones paying for it.
     _journal("DATA_REFRESH_WEEKLY_START",
-             "Friday data block started: short feeds first, then the "
-             "full-universe OHLCV top-up.")
+             f"Weekly data block started ({why}): short feeds first, then "
+             f"the full-universe OHLCV top-up.")
 
     # Independent of the store's freshness — cheap, so they go first and
     # are done long before anything can interrupt the pull.
@@ -1294,6 +1370,15 @@ def _weekly_history_topup() -> None:
         ("register precompute", lambda: run_register_precompute("post-topup")),
     ):
         _run_weekly_step(_label, _fn, _journal)
+
+    # Completion is recorded LAST, and deliberately counts the SEQUENCE, not
+    # the pull's internal result: the OHLCV top-up is incremental by nature
+    # (it skips names already fresh and journals its own failures), so tying
+    # the ledger to it would re-run an hour-long pull every single evening
+    # whenever a handful of names failed. A block that never reaches here —
+    # a crash, or a container restart mid-run — leaves no stamp, so the next
+    # trading day picks it up. That is the owner's Monday rule.
+    _mark_weekly_block_done()
 
 
 def _eod_refresh() -> None:
