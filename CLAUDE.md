@@ -2028,8 +2028,25 @@ dead, but risk_v2 itself is live — governor/loss-tracker/cash-reserve).**
   `scheduler.py:34` reads `os.environ.get("DAILY_SCHEDULER", "1") != "0"`
   — **unset means ON**, and render.yaml never sets it. So unless the owner
   set it by hand, the dashboard has been reporting auto-scan OFF while it
-  ran daily. Lying-screen class (B batch). REPORTED, NOT FIXED — owner
-  said no code beyond the three items. Also still unfixed by their order:
+  ran daily. Lying-screen class (B batch). **FIXED same day on their order
+  ("fix the DAILY_SCHEDULER dashboard bug"), 1,079 tests:** new
+  `scheduler.daily_enabled()` is THE single source of truth (one env read
+  in the whole app, test-pinned: dashboard.py may contain zero raw reads,
+  scheduler.py exactly one, inside the helper); all 3 call sites use it;
+  the dashboard message now fires only when the scan is genuinely off and
+  names the real cause (`DAILY_SCHEDULER=0`) instead of the old backwards
+  instruction; module docstring truth-passed (it said "Disabled by
+  default" while `start_if_enabled`'s own docstring said the opposite).
+  Guard tests verified to FAIL on the pre-fix dashboard (3 of 6).
+  **TWO OF MY OWN FAULT CLASSES REPEATED IN THE FIRST CUT OF THAT TEST
+  FILE, both caught before commit:** (1) the docstring pin tripped on my
+  own TRUTH-PASS note quoting the old wording — THIRD time (F1 test,
+  /positions hunt); split on the marker and assert only operative text.
+  (2) the "banner absent" test fetched `/dashboard`, **which is a 404** —
+  the dashboard is mounted at `/` — so it passed against an error page.
+  A weak assertion is a fault mask (the Node 10 lesson): the helper now
+  asserts login 200, page 200 AND that the tweaks block rendered before
+  any caller reads the body. Also still unfixed by their order:
   F-007 (₹1L wording vs ₹25k floor vs ₹62.5k Ocean), F-009 (dead vol-tier
   code in risk_v2), F-012's README ₹25L and the two contradictory
   scheduler docstrings, F-013 (196MB tree).
