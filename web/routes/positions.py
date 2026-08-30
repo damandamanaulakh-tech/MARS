@@ -137,8 +137,26 @@ def positions_view(
             "no_price": no_price,
             "quotes_age": state.marks_age(tickers),
             "seed_count": len(_SEED_JUNE_2026),
+            **_sector_event_context(p, cfg),
         },
     )
+
+
+def _sector_event_context(p, cfg) -> dict:
+    """Today's sector news alerts for the holdings page (owner pick C-narrow,
+    2026-08-29). Display only — a broken panel hides, never takes the page
+    down (the _panel() convention, and the /positions 500 lesson)."""
+    try:
+        from trading.sector_events import sector_alerts, unknown_feeds
+        rows = (p.news_watch or {}).get("rows") or {}
+        return {
+            "sector_alerts": sector_alerts(p.positions, rows, cfg.sector_map),
+            "news_unknown": unknown_feeds(p.positions, rows),
+            "news_asof": (p.news_watch or {}).get("ts", "")[:16],
+        }
+    except Exception:
+        log.exception("sector event panel failed")
+        return {"sector_alerts": [], "news_unknown": [], "news_asof": ""}
 
 
 @router.get("/trades", response_class=HTMLResponse)
@@ -341,6 +359,90 @@ def close_all_positions(request: Request):
             f"/positions?closed_all={len(closed)}&no_price={len(no_price)}",
             status_code=303)
     return RedirectResponse(f"/positions?closed_all={len(closed)}", status_code=303)
+
+
+@router.post("/positions/sector-exit")
+async def sector_exit(request: Request):
+    """One tap to square off a segment the owner judges hit by an event.
+
+    Owner pick C-narrow (2026-08-29), answering "how will app algorithm
+    decide to exit the affected stock/segment like IT, metals, healthcare".
+    The app does NOT decide: it groups the holdings a risk headline named,
+    and this closes them only when the owner presses the button. No rule
+    fires by itself — news cannot be calibrated here, so it never gets to
+    move money on its own.
+
+    `scope=flagged` (default) closes only the names news actually named.
+    `scope=sector` closes every holding in that segment — the owner's own
+    words were "exit the effected stock/segement", and a sanctions headline
+    naming three metal names is usually a whole-segment event. Which one ran
+    is journaled, so the record says what was intended.
+
+    Same exit path as every other sale (`eng._close`), so costs, slippage
+    and Closed Trades are identical. A name with no live quote is LEFT OPEN
+    and reported — closing at an invented price is the fault this app does
+    not commit.
+    """
+    user = auth.current_user(request)
+    if not user or user.get("role") != "owner":
+        return RedirectResponse("/positions?error=owner_only", status_code=303)
+
+    form = await request.form()
+    sector = (form.get("sector") or "").strip()
+    scope = (form.get("scope") or "flagged").strip()
+    if not sector:
+        return RedirectResponse("/positions?error=no_sector", status_code=303)
+
+    p, cfg = state.portfolio(), state.cfg()
+    from trading.sector_events import sector_alerts
+    alerts = sector_alerts(p.positions, (p.news_watch or {}).get("rows") or {},
+                           cfg.sector_map)
+    hit = next((a for a in alerts if a["sector"] == sector), None)
+    if not hit:
+        return RedirectResponse("/positions?error=sector_not_flagged",
+                                status_code=303)
+
+    targets = (hit["held"] if scope == "sector"
+               else [f["ticker"] for f in hit["flagged"]])
+    targets = [t for t in targets if t in p.positions]
+    if not targets:
+        return RedirectResponse("/positions?error=nothing_to_close",
+                                status_code=303)
+
+    eng = state.engine()
+    prices, _live = state.marks(targets)
+    closed, no_price = [], []
+    now = datetime.utcnow()
+    for t in targets:
+        px = prices.get(t)
+        if not px or px <= 0:
+            no_price.append(t)
+            continue
+        eng._close(t, float(px), "OWNER_SECTOR_EXIT", now)
+        closed.append(t)
+
+    p.decision_journal.append({
+        "ts": now.isoformat(),
+        "action": "OWNER_SECTOR_EXIT",
+        "sector": sector,
+        "scope": scope,
+        "closed": closed,
+        "skipped_no_live_price": no_price,
+        "why": (f"Owner squared off {sector} after risk news named "
+                f"{hit['n_flagged']} of {hit['n_held']} holding(s) in that "
+                f"segment ({', '.join(f['ticker'] for f in hit['flagged'])}). "
+                f"Scope={scope}. Exits at live prices; names without a live "
+                f"quote were left open rather than closed at a stale mark. "
+                f"Owner-initiated — no news rule fires on its own."),
+        "cash_after": round(p.cash, 2),
+    })
+    p.save()
+    if no_price:
+        return RedirectResponse(
+            f"/positions?closed_all={len(closed)}&no_price={len(no_price)}",
+            status_code=303)
+    return RedirectResponse(f"/positions?closed_all={len(closed)}",
+                            status_code=303)
 
 
 @router.post("/positions/purge-universe")

@@ -2102,7 +2102,42 @@ dead, but risk_v2 itself is live — governor/loss-tracker/cash-reserve).**
   B volatility-scaled exposure (best-evidenced, but changes their ordered
   ₹1.25L sizing), C news auto-exit (**recommended against — unprovable**;
   narrow version = alert + one-tap sector square-off, human decides),
-  D calendar de-risking. AWAITING THEIR PICK.
+  D calendar de-risking. **OWNER PICKED "a and c" (2026-08-29).**
+- **C-NARROW SHIPPED — sector event alert + one-tap segment square-off.**
+  `trading/sector_events.py` (pure, DISPLAY ONLY, boundary test: engine/
+  risk/orders/danger never import it) groups HELD names carrying a news
+  **TRIGGER** verdict by `cfg.sector_map`, worst sector first, and shows
+  the WHOLE segment (`quiet` = held-but-not-named) because the owner asked
+  about exiting a *segment*. UNKNOWN (fetch failed) is reported SEPARATELY
+  and is never an alert nor an all-clear — one Google News outage must not
+  read as "no bad news" on every holding. Card on /positions
+  (sector_event_marker) states on screen: "Nothing here sells by itself."
+  Owner-only POST `/positions/sector-exit` with `scope=flagged` (named
+  names) or `scope=sector` (whole segment, their own words "exit the
+  effected stock/segement"); same `eng._close` path as every other sale, so
+  costs/slippage/Closed Trades are identical; a name with NO live quote is
+  LEFT OPEN and reported (the 2026-08-04 never-invent-a-fill rule);
+  journals OWNER_SECTOR_EXIT with sector, scope, closed list and skipped
+  list. An unflagged sector cannot be squared off by this route.
+  **WHY NOT AUTOMATIC, stated in the module and on the page:** news here
+  can never be calibrated (Google News keeps ~1 week, no archive), so an
+  auto-exit would break the owner's own REQUIRES_15Y_BACKTEST rule; the
+  millisecond headline race is already lost; and in April-2025 the
+  professionals cut over DAYS, not minutes. 1,090 tests.
+  Test-fixture notes for next time: `PaperPosition` needs sector/
+  peak_price/entry_score/reasoning AND `entry_date` must be a **datetime**
+  (engine calls `pos.entry_date.date()`); a login in this sandbox costs
+  ~50s because it reaches for index quotes Yahoo blocks — that is the
+  sandbox, not the code.
+- **A (sector-heat basket exit) NOT BUILT YET — being MEASURED first.**
+  Its whole selling point when proposed was that it is testable on the
+  committed panel, and the owner's own rule (REQUIRES_15Y_BACKTEST, the
+  reason 112 triggers were measured and only 10 wired) applies because A
+  moves money. Study design: T12W_0094 sector contagion is already
+  VERIFIED per stock (lift 1.546) — the basket question is whether K+
+  names firing together in one sector predicts worse forward damage than
+  one firing alone. Train/test split at 2020-06-30, same panel/labels as
+  BT01-BT08. Wire only on measured evidence + the owner's word.
 
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
