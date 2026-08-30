@@ -139,49 +139,28 @@ def correlation_gate_blocks(
 
 
 # ============================================================================
-# 3. VOL-ADJUSTED POSITION SIZING (3 TIERS)
+# 3. VOL-ADJUSTED POSITION SIZING (3 TIERS) — DELETED 2026-08-30
 # ============================================================================
-
-# Tier thresholds in annualised volatility (%):
-#   low-vol  : < 25%  -> 18% allocation
-#   mid-vol  : 25-45% -> 12% allocation
-#   high-vol : > 45%  -> 6%  allocation
-TIER_THRESHOLDS = [(25.0, "low", 0.18), (45.0, "mid", 0.12), (1e9, "high", 0.06)]
-
-
-def annualised_vol_pct(close: pd.Series, lookback: int = 21) -> Optional[float]:
-    if close is None or len(close.dropna()) < lookback + 1:
-        return None
-    pct = close.dropna().pct_change().dropna().iloc[-lookback:]
-    if len(pct) < lookback:
-        return None
-    return float(pct.std() * np.sqrt(252) * 100)
-
-
-def vol_tier(close: pd.Series) -> tuple[str, float]:
-    """Returns (tier_name, alloc_pct). Defaults to mid if can't compute."""
-    vol = annualised_vol_pct(close)
-    if vol is None:
-        return "mid", 0.12
-    for cutoff, name, alloc in TIER_THRESHOLDS:
-        if vol < cutoff:
-            return name, alloc
-    return "high", 0.06
-
-
-def vol_adjusted_qty(
-    portfolio_value: float,
-    fill_price: float,
-    close: pd.Series,
-    sizing_multiplier: float = 1.0,
-) -> tuple[int, str]:
-    """Returns (qty, tier_name) for the new position. Multiplier applied
-    on top (for drawdown-governor + regime damping)."""
-    tier, alloc_pct = vol_tier(close)
-    target_value = portfolio_value * alloc_pct * sizing_multiplier
-    if fill_price <= 0 or target_value <= 0:
-        return 0, tier
-    return int(target_value // fill_price), tier
+#
+# This section used to define TIER_THRESHOLDS (18% / 12% / 6% of equity by
+# annualised volatility band) plus annualised_vol_pct, vol_tier and
+# vol_adjusted_qty. It was NEVER wired: engine.py imported vol_adjusted_qty
+# and never called it, and that import was removed in the 2026-08-09 audit.
+# The code stayed behind, documented like a live control, with tests
+# exercising it — which is exactly how an external reviewer read it as an
+# active sizing scheme (F-009, 2026-08-29 review; the owner ordered it
+# fixed).
+#
+# It is gone rather than commented out because the live sizing rule is not
+# in dispute: a new Everest trade is a fixed Rs 1,25,000 (owner order
+# 2026-07-30) and an Ocean trade half that (owner approval 2026-08-26),
+# both through trading/sizing.position_notional_for. A second, contradictory
+# sizing scheme sitting in the risk module can only mislead.
+#
+# The REST of this module is live and must not be confused with it:
+# DrawdownGovernor, ConsecutiveLossTracker, dynamic_cash_reserve_pct,
+# correlation_gate_blocks and passes_liquidity all run in the money path.
+# A guard test asserts the vol-tier names never come back.
 
 
 # ============================================================================

@@ -2046,10 +2046,40 @@ dead, but risk_v2 itself is live — governor/loss-tracker/cash-reserve).**
   the dashboard is mounted at `/` — so it passed against an error page.
   A weak assertion is a fault mask (the Node 10 lesson): the helper now
   asserts login 200, page 200 AND that the tweaks block rendered before
-  any caller reads the body. Also still unfixed by their order:
-  F-007 (₹1L wording vs ₹25k floor vs ₹62.5k Ocean), F-009 (dead vol-tier
-  code in risk_v2), F-012's README ₹25L and the two contradictory
-  scheduler docstrings, F-013 (196MB tree).
+  any caller reads the body.
+- **F-007 + F-009 FIXED 2026-08-30 (owner: "fix f-007 and f-009 too"),
+  1,094 tests.** Both were real; NEITHER was a behaviour bug, and no
+  owner-ordered number moved.
+  * **F-007 was a STATEMENT gap, not a conflict.** The three entry values
+    are three separate owner decisions that had never been written down
+    together: Everest ₹1,25,000 (order 2026-07-30), Ocean ₹62,500 = half
+    (approval 2026-08-26), floor ₹25,000 = a dust guard that SKIPS a trade,
+    never a target (2026-07-11). The reviewer's "owner baseline says at
+    least ₹1 lakh" traces to the owner's own words "roughly 1-1.25 for each
+    trade" — true of **Everest only**. Fixed by writing the whole policy in
+    one ENTRY VALUE POLICY block in config.py with each number's
+    provenance, and by completing docs/APP_BRIEF.md — **the owner's manual
+    had never mentioned Ocean's half size at all**, so reading their own
+    brief would not tell them the book can open ₹62,500 trades.
+    test_entry_value_policy pins the three values, that Ocean stays exactly
+    half, that the floor stays below both (a floor above an entry size
+    would silently disable that engine), and that both config and
+    APP_BRIEF keep stating all three.
+  * **F-009 DELETED, not relabelled.** risk_v2's 18/12/6% vol-tier scheme
+    (TIER_THRESHOLDS, annualised_vol_pct, vol_tier, vol_adjusted_qty) was
+    never wired — engine.py imported vol_adjusted_qty and never called it,
+    and that import went in the 2026-08-09 E batch — yet it stayed
+    documented like a live control AND had 4 tests exercising it, which is
+    exactly how the reviewer read it as active sizing. Gone, with its
+    tests; a comment block in its place records why. Guard test asserts the
+    names never return to any production module and that the LIVE half of
+    risk_v2 (DrawdownGovernor, ConsecutiveLossTracker,
+    dynamic_cash_reserve_pct, correlation_gate_blocks, passes_liquidity)
+    survived the deletion. **The reviewer's wording would have been wrong
+    if read as "risk_v2 is dead" — the module is very much alive.**
+  * Still unfixed by their order: F-012's README ₹25L and the two
+    contradictory scheduler docstrings (the DAILY_SCHEDULER half is done),
+    F-013 (196MB tree).
 - **ITEM 3 SHIPPED — the weekly block self-heals a missed slot** (review
   C-006: AshStocks runs a continuous 2-min market-hours loop, which
   self-heals where a cron job simply misses; AM07's weekly block had NO

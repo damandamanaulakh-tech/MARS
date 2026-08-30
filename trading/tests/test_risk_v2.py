@@ -9,7 +9,7 @@ import pytest
 from trading.risk_v2 import (
     ConsecutiveLossTracker, DrawdownGovernor, LiquidityRules,
     correlation, correlation_gate_blocks, daily_returns,
-    passes_liquidity, vol_adjusted_qty, vol_tier,
+    passes_liquidity,
 )
 
 
@@ -114,43 +114,6 @@ def test_correlation_gate_passes_when_uncorrelated():
     existing = pd.Series(rng.normal(0, 1, 80))
     blocker = correlation_gate_blocks(candidate, {"E.NS": existing}, threshold=0.70)
     assert blocker is None
-
-
-# -------- 3. Vol-adjusted sizing --------
-
-def test_vol_tier_low_for_flat_series():
-    closes = list(np.linspace(100, 102, 60))   # tiny drift
-    tier, alloc = vol_tier(_series(closes))
-    assert tier == "low"
-    assert alloc == 0.18
-
-
-def test_vol_tier_high_for_volatile_series():
-    rng = np.random.default_rng(0)
-    # ~80% vol
-    rets = rng.normal(0.0, 0.05, 60)
-    prices = 100 * np.exp(np.cumsum(rets))
-    tier, alloc = vol_tier(_series(prices))
-    assert tier == "high"
-    assert alloc == 0.06
-
-
-def test_vol_adjusted_qty_uses_alloc():
-    closes = list(np.linspace(100, 102, 60))   # low vol -> 18%
-    qty, tier = vol_adjusted_qty(
-        portfolio_value=1_000_000, fill_price=100.0, close=_series(closes),
-    )
-    assert tier == "low"
-    assert qty == 1800   # 1_000_000 * 0.18 / 100
-
-
-def test_vol_adjusted_qty_with_multiplier():
-    closes = list(np.linspace(100, 102, 60))
-    qty, _ = vol_adjusted_qty(
-        portfolio_value=1_000_000, fill_price=100.0, close=_series(closes),
-        sizing_multiplier=0.5,
-    )
-    assert qty == 900   # halved by drawdown multiplier
 
 
 # -------- 4. Liquidity filters --------

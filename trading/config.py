@@ -73,6 +73,37 @@ class Config:
     # the 25L/30/3.3% book of 2026-07-19.
     starting_capital: float = 50_00_000.0
     cash_reserve_pct: float = 0.0             # deploy 100% — no idle cash reserve (user setting)
+    # ------------------------------------------------------------------
+    # ENTRY VALUE POLICY — the whole of it, in one place.
+    #
+    # Written out 2026-08-30 (owner: "fix f-007") because the three numbers
+    # live in three different fields and an external reviewer read them as a
+    # contradiction: the owner's order was "roughly 1-1.25 for each trade",
+    # yet the book can open Rs 62,500 and the floor sits at Rs 25,000. They
+    # are not in conflict — they are three separate owner decisions that had
+    # never been stated together:
+    #
+    #   Everest (the momentum engine, every normal entry)
+    #       Rs 1,25,000 fixed          position_size_value, below
+    #       owner order 2026-07-30, corrected same day to
+    #       "1.25 lac, 125000, not percentage"
+    #
+    #   Ocean (the dip engine, deliberately HALF size)
+    #       Rs 62,500                  ocean_position_value
+    #       owner approval 2026-08-26 — they picked "Approve as specced"
+    #       from a card that named the half size
+    #
+    #   Floor, both engines
+    #       Rs 25,000                  min_position_value
+    #       user-approved 2026-07-11; a trade smaller than this is SKIPPED,
+    #       not shrunk. It is a dust guard, never a target size.
+    #
+    # So the honest one-line rule is: a normal entry is Rs 1.25 lakh, an
+    # Ocean entry is half that, and nothing below Rs 25,000 ever opens.
+    # "At least Rs 1 lakh" is true of Everest ONLY, and is not a global rule.
+    # Every sizing site goes through sizing.position_notional_for(), so the
+    # knobs cannot disagree at runtime. Guard test: test_entry_value_policy.
+    # ------------------------------------------------------------------
     # Fixed rupee size per new trade (owner's number). 0 = fall back to
     # max_position_pct sizing. All sizing sites go through
     # position_notional() so the two knobs can never disagree.
