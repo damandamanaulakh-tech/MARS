@@ -2,7 +2,7 @@
 
 Pinned: the listing parser reads SEBI's real row markup (fixture copied
 from a live response); title matching is EXACT-word (stricter than the
-USFDA prefix rule — SEBI titles are free prose over every sector) and
+a prefix rule — SEBI titles are free prose over every sector) and
 the matched token rides every row; the weekly job scans ALL universe +
 held names, stores and journals with the scanned count (absence = dated
 evidence); Mongo-down journals a skip; the money-path boundary holds.

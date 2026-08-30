@@ -24,7 +24,7 @@ from .data import fetch_quotes as fetch_quotes_yf
 log = logging.getLogger(__name__)
 
 
-# Codex review on PR#40: per-ticker provenance so an export can never label
+# External review on PR#40: per-ticker provenance so an export can never label
 # a yfinance daily close as "live". Updated on every fetch; read-only for
 # callers.
 LAST_SOURCES: dict = {}

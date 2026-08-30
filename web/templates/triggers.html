@@ -82,29 +82,6 @@
   <strong>DATA_NEEDED</strong> below, not a quiet "nothing happened".
 </div>
 {% endif %}
-{% if detail and detail.usfda %}
-<div class="border border-line p-4 mb-6"><!-- usfda_block_marker -->
-  <div class="flex items-center gap-3 mb-2">
-    <h2 class="font-black text-lg">🏛️ USFDA events</h2>
-    <span class="text-ink-faint text-xs">openFDA recalls
-      {%- if detail.usfda[0].source == 'fda_dashboard' %} + inspections{% endif %},
-      weekly refresh</span>
-  </div>
-  <p class="text-ink-soft text-xs mb-2"><strong>Display only — never blocks a
-    buy or moves a stop.</strong> Firm names are FDA's own; the match to this
-    stock is by company-name token and shown so a wrong match is visible.</p>
-  {% for e in detail.usfda %}
-  <div class="text-sm py-1 border-b border-line last:border-0">
-    <span class="font-bold text-[10px] mr-1
-      {% if e.classification == 'Class I' %}text-rose-700
-      {% elif e.classification == 'Class II' %}text-amber-700
-      {% else %}text-ink-faint{% endif %}">{{ e.classification }}</span>
-    {{ e.reason }}
-    <span class="text-ink-faint text-xs">· {{ e.firm }} · {{ e.date }}</span>
-  </div>
-  {% endfor %}
-</div>
-{% endif %}
 {% if detail and detail.sebi %}
 <div class="border border-line p-4 mb-6"><!-- sebi_block_marker -->
   <div class="flex items-center gap-3 mb-2">
@@ -225,24 +202,7 @@
 {% else %}
 <!-- ============ TODAY'S TABLE ============ -->
 
-{% if fda_news and fda_news.get('items') %}
-<details class="border border-line p-4 mb-6"><!-- fda_newsroom_marker -->
-  <summary class="cursor-pointer font-bold text-sm select-none">
-    🏛️ FDA newsroom · {{ fda_news['items'] | length }} item(s) · pulled {{ fda_news.day }}
-    <span class="text-ink-faint font-normal text-xs">— general market context, display only;
-      items naming your companies also land on that stock's page</span>
-  </summary>
-  <div class="mt-3">
-  {% for it in fda_news['items'] %}
-  <div class="text-sm py-1 border-b border-line last:border-0">
-    <span class="text-ink-faint font-bold text-[10px] mr-1">{{ it.feed }}</span>
-    <a href="{{ it.link }}" target="_blank" rel="noopener" class="hover:underline">{{ it.title }}</a>
-    <span class="text-ink-faint text-xs">· {{ it.published }}</span>
-  </div>
-  {% endfor %}
-  </div>
-</details>
-{% endif %}
+
 
 {% if watchlist %}
 <div class="bg-emerald-50 border border-emerald-300 text-emerald-900 p-4 mb-6 text-sm">

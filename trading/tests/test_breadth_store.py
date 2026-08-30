@@ -174,7 +174,7 @@ def test_reading_survives_a_save_load_round_trip(tmp_path):
 
 def test_scheduler_refresh_stores_and_persists(monkeypatch):
     from web import scheduler, state
-    # 1,500 docs: past the raised 1000-name bar (Codex review fix, PR #68)
+    # 1,500 docs: past the raised 1000-name bar (external review fix, PR #68)
     docs = [_above(f"A{i}") for i in range(750)] + \
            [_below(f"B{i}") for i in range(750)]
     monkeypatch.setattr("web.db.history_tails", lambda rows: iter(docs))

@@ -173,7 +173,7 @@ def push_journal_events() -> int:
         icon = PUSH_ACTIONS[e["action"]]
         label = e["action"]
         tic = e.get("ticker", "")
-        # Codex review on PR#40: kill-switch and crash-brake force-closes are
+        # External review on PR#40: kill-switch and crash-brake force-closes are
         # journaled as SELL with the cause in exit_reason — an action-name
         # match alone pushed an unexplained SELL. Name the brake.
         if label == "SELL" and e.get("exit_reason") in (

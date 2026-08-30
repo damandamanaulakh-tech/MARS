@@ -158,12 +158,6 @@ def start_if_enabled() -> None:
         _SCHED.add_job(lambda: catchup_scan_if_missed("startup"), "date",
                        run_date=_dt.now() + _td(seconds=120),
                        id="startup_catchup")
-        # Owner 2026-08-26: the moment they set the FDA key in Render (the
-        # env change restarts the app), the first inspections pull runs —
-        # no waiting for Friday. No-op without the key or once data exists.
-        _SCHED.add_job(usfda_key_activation_check, "date",
-                       run_date=_dt.now() + _td(seconds=180),
-                       id="usfda_key_activation")
 
     _SCHED.start()
     log.info("Schedulers started (intraday=%s, daily=%s)", intraday, daily)
@@ -365,12 +359,17 @@ def _square_off_pass() -> None:
 # then short, swing, positional fire scans in sequence to fill the book.
 # P1/F1 fix: the primary momentum strategy was MISSING from the morning
 # rotation (book filled only via 14:30 top-up). Momentum now fills first.
-# Owner decision 2026-07-27 ("u can remove intraday but but in 3 sections"):
-# intraday removed from the daily auto-rotation — its ±2.5/1.5 same-day churn
-# ends; momentum + the 3 swing-family sections remain. The intraday preset
-# stays available in Settings for manual use, and the 15:25 square-off job
-# keeps running for any intraday-tagged position however it was opened.
-_DAILY_MODE_ORDER = ["nifty200_momentum", "short", "swing", "positional"]
+# OWNER ORDER 2026-08-30 ("make sure category — Intraday, short, swing &
+# positional & N200 momentum execute the trades"): all FIVE categories are
+# back in the daily rotation. This supersedes their 2026-07-27 decision
+# ("u can remove intraday but but in 3 sections") which had dropped intraday.
+#
+# Intraday's own preset (±2.5/1.5, 1-day max hold) is unchanged, and the
+# 15:25 square-off job still closes every intraday-tagged position the same
+# day — so putting it back cannot leave an intraday trade running overnight.
+# Momentum stays FIRST so the primary strategy gets first call on the cash.
+_DAILY_MODE_ORDER = ["nifty200_momentum", "intraday", "short", "swing",
+                     "positional"]
 
 DEPLOYMENT_TARGET_PCT = 60.0   # weekly target gross deployment
 
@@ -936,62 +935,6 @@ def _monthly_fundamentals_refresh() -> None:
                          f"Monthly fundamentals refresh crashed: {e}")
 
 
-def _weekly_usfda_refresh() -> None:
-    """Owner ask 2026-08-25 ("did u wired the US FDA data"): weekly USFDA
-    event pull for the pharma/chemical/healthcare names in the custom
-    universe + every held name. Recalls come keyless from openFDA
-    (verified live); inspections need the owner's free FDA Data Dashboard
-    key and honestly read DATA_NEEDED without it. Display only — the
-    fabricated-calendar lesson (2026-08-09) stands: no USFDA row ever
-    blocks a buy or moves a stop."""
-    from . import db, state
-    if not db.is_connected():
-        _refresh_journal("DATA_REFRESH_USFDA_SKIPPED",
-                         "Weekly USFDA refresh skipped: Mongo offline "
-                         "(nowhere to store events).")
-        return
-    try:
-        from trading.universes import CUSTOM_UNIVERSE_SECTOR_MAP
-        from trading import usfda_feed
-        cfg = state.cfg()
-        p = state.portfolio()
-        want_sectors = ("pharma", "chemical", "health")
-        tickers = set(p.positions or {})
-        for t in tuple(cfg.custom_universe or ()):
-            sec = (CUSTOM_UNIVERSE_SECTOR_MAP.get(t)
-                   or cfg.sector_map.get(t) or "").lower()
-            if any(w in sec for w in want_sectors):
-                tickers.add(t)
-        import csv as _csv
-        from pathlib import Path as _Path
-        uf = _Path(__file__).resolve().parents[1] / "data" / \
-            "upstox_nse_equities.csv"
-        with open(uf) as f:
-            rows = {r["ticker"]: r.get("name", "")
-                    for r in _csv.DictReader(f)}
-        name_map = {t: rows[t] for t in sorted(tickers) if rows.get(t)}
-        if not name_map:
-            return
-        recalls = usfda_feed.fetch_recalls(name_map)
-        inspections, insp_note = usfda_feed.fetch_inspections(name_map)
-        n_new = db.save_usfda_events(recalls + inspections)
-        fresh = sorted({r["ticker"] for r in (recalls + inspections)})
-        _refresh_journal(
-            "DATA_REFRESH_USFDA",
-            f"USFDA weekly: {len(name_map)} name(s) scanned, "
-            f"{len(recalls)} recall row(s)"
-            + (f" + {len(inspections)} inspection row(s)"
-               if inspections else "")
-            + f", {n_new} new. Inspections: {insp_note}."
-            + (f" Names with events: {', '.join(fresh)}." if fresh else ""))
-        log.info("[fri 16:30] USFDA: %d names, %d recalls, %d new",
-                 len(name_map), len(recalls), n_new)
-    except Exception as e:
-        log.exception("weekly USFDA refresh failed: %s", e)
-        _refresh_journal("DATA_REFRESH_USFDA_FAILED",
-                         f"Weekly USFDA refresh crashed: {e}")
-
-
 def _weekly_sebi_refresh() -> None:
     """Owner order 2026-08-25 ("wire the SEBI enforcement orders feed
     too"): weekly pull of SEBI's live enforcement-orders listing, matched
@@ -1044,92 +987,6 @@ def _weekly_sebi_refresh() -> None:
         log.exception("weekly SEBI refresh failed: %s", e)
         _refresh_journal("DATA_REFRESH_SEBI_FAILED",
                          f"Weekly SEBI refresh crashed: {e}")
-
-
-def run_fda_news_snapshot(where: str = "manual") -> bool:
-    """Owner 2026-08-26 ("there must be general news as well from FDA"):
-    once-daily pull of FDA's own newsroom RSS (press releases, MedWatch,
-    recalls, drugs — all keyless, verified live). Company-matched items
-    store into usfda_events (they appear on the stock's card); the
-    general newsroom stores as the day's context for the triggers page.
-    Display only; a feed outage journals and changes nothing else."""
-    from datetime import date as _date
-
-    from . import db, state
-    try:
-        if not db.is_connected():
-            return False
-        today = _date.today().isoformat()
-        guard = db.load_settings(doc_id="data_refresh")
-        if guard.get("fda_news_day") == today:
-            return True
-        from trading import usfda_feed
-        import csv as _csv
-        from pathlib import Path as _Path
-        cfg = state.cfg()
-        p = state.portfolio()
-        tickers = set(tuple(cfg.custom_universe or ())) | \
-            set(p.positions or {})
-        uf = _Path(__file__).resolve().parents[1] / "data" / \
-            "upstox_nse_equities.csv"
-        with open(uf) as f:
-            rows = {r["ticker"]: r.get("name", "")
-                    for r in _csv.DictReader(f)}
-        name_map = {t: rows[t] for t in sorted(tickers) if rows.get(t)}
-        matched, general = usfda_feed.fetch_fda_news(name_map)
-        if not general:
-            _refresh_journal("FDA_NEWS_FAILED",
-                             "FDA newsroom pull: all four feeds returned "
-                             "nothing — will retry tomorrow.")
-            return False
-        db.save_market_info_raw("fda_news", today, general)
-        n_new = db.save_usfda_events(matched)
-        db.save_settings({"fda_news_day": today}, doc_id="data_refresh")
-        if n_new:
-            names = sorted({m["ticker"] for m in matched})
-            _refresh_journal(
-                "FDA_NEWS_MATCHED",
-                f"FDA newsroom named your companies: {', '.join(names)} "
-                f"({n_new} new item(s)). Display only.")
-        log.info("[fda-news:%s] %d general, %d matched (%d new)",
-                 where, len(general), len(matched), n_new)
-        return True
-    except Exception as e:
-        log.exception("FDA news snapshot failed: %s", e)
-        try:
-            _refresh_journal("FDA_NEWS_FAILED",
-                             f"FDA newsroom pull crashed: {e}")
-        except Exception:
-            pass
-        return False
-
-
-def usfda_key_activation_check() -> bool:
-    """Owner 2026-08-26 ("wire these 2 / ASK ME ANYTHING NEEDED"): the FDA
-    inspections half waits only on their free key. Setting the env vars in
-    Render restarts the app — this boot check then runs the first
-    inspections pull IMMEDIATELY instead of waiting for Friday. Fires only
-    while the key is present AND no dashboard-sourced event is stored yet;
-    after the first successful pull it is a permanent no-op."""
-    import os
-
-    from . import db
-    if not (os.environ.get("FDA_DATADASHBOARD_USER", "").strip()
-            and os.environ.get("FDA_DATADASHBOARD_KEY", "").strip()):
-        return False
-    if not db.is_connected():
-        return False
-    try:
-        if any(r.get("source") == "fda_dashboard"
-               for r in db.load_usfda_events()):
-            return False                    # key already proven live
-        log.info("FDA key detected with no stored inspections — running "
-                 "the first USFDA pull now instead of waiting for Friday")
-        _weekly_usfda_refresh()
-        return True
-    except Exception:
-        log.exception("usfda key activation check failed")
-        return False
 
 
 def refresh_breadth_store(where: str = "manual") -> dict:
@@ -1267,7 +1124,7 @@ def _weekly_history_topup() -> None:
     short store-independent feeds each isolated, THEN the OHLCV pull
     (journals DATA_REFRESH_WEEKLY with the counts), then the two
     store-derived recomputes. A crashed or interrupted pull can no longer
-    cost the week's FII/constituents/fundamentals/USFDA/SEBI data.
+    cost the week's FII/constituents/fundamentals/SEBI data.
 
     Scope of the pull = tickers already in the store, plus anything held,
     plus the full universe file (~2,400 names since PR #68 — the store
@@ -1325,8 +1182,8 @@ def _weekly_history_topup() -> None:
     # silently skipped everything below it, and the weekly block has no
     # catch-up, so the miss cost a full week. Three of the eight have a
     # daily counterpart and survived that (index tail, breadth, register
-    # precompute); FIVE do not (FII tide, constituents, fundamentals,
-    # USFDA, SEBI). Measured on the live box 2026-08-28: the store held
+    # precompute); FOUR do not (FII tide, constituents, fundamentals,
+    # SEBI). Measured on the live box 2026-08-28: the store held
     # 573 of 2,428 names after two full-scope Fridays — the pull was not
     # finishing, so those five were the ones paying for it.
     _journal("DATA_REFRESH_WEEKLY_START",
@@ -1340,7 +1197,6 @@ def _weekly_history_topup() -> None:
         ("index tail", _weekly_index_refresh),
         ("constituents snapshot", _monthly_constituents_snapshot),
         ("fundamentals refresh", _monthly_fundamentals_refresh),
-        ("USFDA events", _weekly_usfda_refresh),
         ("SEBI orders", _weekly_sebi_refresh),
     ):
         _run_weekly_step(_label, _fn, _journal)
@@ -1644,12 +1500,6 @@ def run_trigger_layer(where: str = "manual") -> dict:
             run_market_fii_snapshot(where)
         except Exception:
             log.exception("market FII/DII snapshot failed before trigger layer")
-        # Owner 2026-08-26: FDA's own newsroom, once daily, keyless.
-        try:
-            run_fda_news_snapshot(where)
-        except Exception:
-            log.exception("FDA news snapshot failed before trigger layer")
-
         # External panels (sector/RS, delivery, F&O OI, deals) — ONE batch
         # load for the whole run: the delivery file is 3.5M rows and a
         # per-stock pass would be 80 passes. A failure here leaves ext None,

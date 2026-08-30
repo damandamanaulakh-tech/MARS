@@ -564,7 +564,7 @@ class TradingEngine:
                 if r is not None:
                     open_returns[held] = r
 
-        # v5: per-ticker earnings/USFDA blackout — 3 days before known event
+        # v5: per-ticker earnings blackout — 3 days before a known event
         try:
             from .calendars import is_ticker_event_within
         except ImportError:
@@ -592,7 +592,7 @@ class TradingEngine:
                     "reason": f"halt_pre_{binary_event.event_type}_{binary_event.event_date}",
                 })
                 continue
-            # v5: ticker-specific event blackout (earnings, USFDA)
+            # v5: ticker-specific event blackout (earnings)
             if is_ticker_event_within is not None:
                 tic_event = is_ticker_event_within(pick["ticker"], days=3)
                 if tic_event is not None:
@@ -727,10 +727,11 @@ class TradingEngine:
                 cfg, current_eq, score=pick.get("score"), close=cand_close)
             if pick.get("ocean"):
                 # Owner-approved 2026-08-26: Ocean entries are HALF size
-                # (Rs 62,500) — the rails are the edge claim, the size is
+                # (Rs 1,68,750, owner order 2026-08-30) — the rails are the
+                # edge claim, the size is
                 # the humility. Every can_open gate still applies.
                 ocean_rs = float(getattr(cfg, "ocean_position_value",
-                                         62_500.0) or 62_500.0)
+                                         168_750.0) or 168_750.0)
                 size_diag = {"mode": "ocean_fixed", "notional": ocean_rs}
                 notional_arg = ocean_rs
             else:
@@ -1439,7 +1440,7 @@ class TradingEngine:
 
     def _ocean_picks(self, regime, history: dict, universe, now: datetime) -> List[dict]:
         """Ocean dip candidates behind the owner-approved crash guard
-        (2026-08-26: "Approve as specced" — half-size Rs 62,500, max 8
+        (2026-08-26: "Approve as specced", max 8
         slots, four rails). Runs in PARALLEL with Everest in every regime
         — the market works both ways (owner's words); Ocean's own
         selection (30% under the 200DMA, weekly RSI < 25, climax volume,
@@ -1531,7 +1532,7 @@ class TradingEngine:
 
         RiskState.__post_init__ pins day_start_equity to starting_capital and
         RiskState.roll_day() was only ever called from backtest.py — so in the
-        live app the "-2% daily loss halt" measured against the original ₹25L
+        live app the "-2% daily loss halt" measured against the original
         forever. A -2% *cumulative* drawdown therefore tripped the kill switch
         and force-closed every position.
 

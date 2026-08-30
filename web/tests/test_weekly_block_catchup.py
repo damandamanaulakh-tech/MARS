@@ -95,8 +95,8 @@ def test_not_due_returns_before_doing_any_work(monkeypatch):
     monkeypatch.setattr("trading.data.history_broker", lambda: object())
     monkeypatch.setattr(scheduler, "weekly_block_due",
                         lambda *a, **k: (False, "already ran"))
-    for name in ("_weekly_fii_refresh", "_weekly_usfda_refresh",
-                 "_weekly_sebi_refresh", "refresh_breadth_store"):
+    for name in ("_weekly_fii_refresh", "_weekly_sebi_refresh",
+                 "refresh_breadth_store"):
         monkeypatch.setattr(scheduler, name,
                             lambda *a, _n=name, **k: calls.append(_n))
     monkeypatch.setattr("trading.history_store.top_up_history",

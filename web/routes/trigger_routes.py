@@ -91,23 +91,11 @@ def triggers_page(request: Request):
             "gate_rows": GATE_ROWS,
             "score_note": SCORE_NOTE,
             "universe": _universe_names(),
-            "fda_news": _fda_news(),
             "detail": None,
         },
     )
 
 
-def _fda_news() -> dict:
-    """The stored FDA-newsroom snapshot (owner 2026-08-26) — display only,
-    {} when nothing stored or Mongo down (the card then hides)."""
-    try:
-        from .. import db
-        doc = db.load_market_info_raw("fda_news")
-        if doc and doc.get("payload"):
-            return {"day": doc.get("day", ""), "items": doc["payload"][:12]}
-    except Exception:
-        log.exception("fda news load failed")
-    return {}
 
 
 @router.post("/triggers/run")
@@ -184,18 +172,16 @@ def trigger_detail(request: Request, ticker: str):
                           [g["id"] for g in view["gates"]
                            if g["status"] == "PASS"],
                           held=ticker in state.portfolio().positions)
-        # Owner ask 2026-08-25: stored USFDA events for this stock (weekly
-        # refresh; openFDA recalls + dashboard inspections when keyed).
+        # Stored SEBI enforcement orders for this stock (weekly refresh).
         # Display only — "no block just show".
-        usfda, sebi = [], []
+        sebi = []
         try:
             from .. import db
-            usfda = db.load_usfda_events(ticker)[:10]
             sebi = db.load_sebi_orders(ticker)[:10]
         except Exception:
-            log.exception("usfda/sebi events load failed")
+            log.exception("sebi events load failed")
         detail = {"ticker": ticker, "view": view, "by_family": by_family,
-                  "bars": len(df), "news": news_detail, "usfda": usfda,
+                  "bars": len(df), "news": news_detail,
                   "sebi": sebi,
                   "stage": stage, "stage_meta": STAGE_META[stage["stage"]]}
     return templates.TemplateResponse(

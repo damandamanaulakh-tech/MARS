@@ -161,7 +161,7 @@ def test_disconnect_keeps_the_history_client(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Codex review fixes (PR #68)
+# External review fixes (PR #68)
 # ---------------------------------------------------------------------------
 
 def test_settings_refuses_more_than_sixty_names():

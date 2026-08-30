@@ -193,12 +193,15 @@ def test_limit_fill_carries_scan_score_and_the_tag(tmp_path, monkeypatch):
 # --------------------------------------------- A5: no fabricated event blocks
 
 def test_the_invented_usfda_calendar_is_gone():
-    from trading.calendars import USFDA_DECISIONS_2026, is_ticker_event_within
-    assert USFDA_DECISIONS_2026 == {}
-    # DRREDDY was blackout-blocked ~Aug 19-22 on a made-up "Rituximab
-    # biosimilar" decision. Never again.
+    """A5 held, and then strengthened. The fabricated USFDA decisions were
+    emptied on 2026-08-09; on 2026-08-30 the owner ordered FDA dropped
+    entirely, so the constant and the event type no longer exist at all.
+    DRREDDY was blackout-blocked ~Aug 19-22 on a made-up "Rituximab
+    biosimilar" decision. Never again."""
+    from trading import calendars as cal
+    assert not hasattr(cal, "USFDA_DECISIONS_2026")
     for d in (date(2026, 8, 19), date(2026, 8, 20), date(2026, 8, 22)):
-        ev = is_ticker_event_within("DRREDDY.NS", days=3, today=d)
+        ev = cal.is_ticker_event_within("DRREDDY.NS", days=3, today=d)
         assert ev is None or ev.event_type != "usfda", \
             f"fabricated USFDA event still blocks DRREDDY at {d}"
 

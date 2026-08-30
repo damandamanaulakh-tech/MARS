@@ -55,7 +55,7 @@ class _Candidate:
 
 def test_ocean_is_on_by_default_since_the_approval():
     assert Config().ocean_enabled is True
-    assert Config().ocean_position_value == 62_500.0
+    assert Config().ocean_position_value == 168_750.0
     assert Config().ocean_max_positions == 8
 
 

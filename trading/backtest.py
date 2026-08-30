@@ -399,7 +399,7 @@ def run_backtest(
         portfolio=portfolio,
         equity_curve=equity_curve,
         bench_hist=bench_in_window,
-        # Codex review on PR#40: the N200 series could extend past the
+        # External review on PR#40: the N200 series could extend past the
         # simulated window's real end (the Nifty CSV truncates the replay),
         # producing an alpha2 that compares different periods. Clip it to
         # the days the strategy actually traded.

@@ -14,7 +14,7 @@ lives only there. App state (book/journal/history) lives in Mongo
 Atlas, not in any repo — repo moves never touch money or memory.
 
 ## What it is
-Live **paper-only** trading engine (₹25L paper capital), FastAPI + Mongo
+Live **paper-only** trading engine (₹50L paper capital), FastAPI + Mongo
 Atlas on Render starter (512MB always-on). Hard PAPER_ONLY lock in
 `trading/brokers/upstox.py:assert_paper_trading` — no live orders, ever,
 without explicit user approval. User is non-technical: simple language,
@@ -34,7 +34,7 @@ uploads: audit them; several contained fabricated numbers/padded catalogs).
   owner_buy) go through `cfg.position_notional()`; `max_position_pct
   0.025` is the fallback when the fixed value is 0. Boot migration v2
   (marker capital_order_2026_07_30_v2) supersedes same-day v1 which had
-  read the size as 1.25%. Supersedes 25L/30/3.3%.
+  read the size as 1.25%.
 - **[SUPERSEDED 2026-08-04 → sizing_mode="fixed"; kept as history] SIZING
   SUPERSEDED SAME DAY — ½-Kelly was live 4 days.** Owner picked "Switch to
   ½-Kelly sizing" after reading docs/ALGO_V1_V2.md (I had asked because "ok
@@ -62,7 +62,8 @@ uploads: audit them; several contained fabricated numbers/padded catalogs).
   settings doc_id="migrations") + `Portfolio.sync_capital`: Starting-
   Capital changes now MOVE CASH by the delta (journaled CAPITAL_ADJUST,
   P&L history kept; CAPITAL_ADJUST_BLOCKED if cash would go negative).
-  capital_base persisted JSON+Mongo; legacy books default base 25L.
+  capital_base persisted JSON+Mongo; a book with no stored base is
+  treated as already synced to the live capital (2026-08-30 order).
 - **Absolute-momentum gate ON** (own 6m return > 0) — earned 4/4 in v3.
 - **Regime brake ON**: correction (Nifty < 200DMA) blocks new buys…
 - **…until VIX-crush re-entry** (v4): India VIX ≤ 75% of 120d spike peak →
@@ -164,7 +165,8 @@ Owner approved 2 fixes; BOTH SHIPPED, 433 tests green:**
    OCEAN_BLOCKED journal lines.
 2. **Daily kill switch is now actually daily** — `RiskState.roll_day()` was
    only ever called from `backtest.py`, so `day_start_equity` stayed pinned
-   at ₹25L and the "−2% daily halt" was really "−2% since inception", which
+   at the starting capital and the "−2% daily halt" was really "−2% since
+   inception", which
    force-closed the WHOLE BOOK on an ordinary drift. `engine._roll_risk_day`
    re-baselines once per day to yesterday's last mark, journals
    RISK_DAY_ROLL, and persists (`portfolio.risk_day` /
@@ -673,7 +675,7 @@ requirements PINNED + feedparser shipped (policy boost live first time) ·
 regime feed failure keeps the brake (sticky, not fail-open) · corrupt state
 quarantined · loss-halt persisted · APP_BRIEF/ALGO/boards truth-passed with
 guard tests pinning docs to config · studies era-pinned (floor 55) so
-committed evidence regenerates · Codex caught my /risk 500 in the B3 first
+committed evidence regenerates · an external review caught my /risk 500 in the B3 first
 cut → fixed + render test; crash-brake SELLs named on phone; holiday-aware
 expiries; N200 benchmark window-clipped; per-ticker quote provenance in the
 export. A PARALLEL SESSION (01EuCaxUby…) pushed flow_status()/engine-page FII
@@ -2077,7 +2079,7 @@ dead, but risk_v2 itself is live — governor/loss-tracker/cash-reserve).**
     dynamic_cash_reserve_pct, correlation_gate_blocks, passes_liquidity)
     survived the deletion. **The reviewer's wording would have been wrong
     if read as "risk_v2 is dead" — the module is very much alive.**
-  * Still unfixed by their order: F-012's README ₹25L and the two
+  * Still unfixed by their order: F-012's two
     contradictory scheduler docstrings (the DAILY_SCHEDULER half is done),
     F-013 (196MB tree).
 - **ITEM 3 SHIPPED — the weekly block self-heals a missed slot** (review
@@ -2189,6 +2191,55 @@ dead, but risk_v2 itself is live — governor/loss-tracker/cash-reserve).**
   names firing together in one sector predicts worse forward damage than
   one firing alone. Train/test split at 2020-06-30, same panel/labels as
   BT01-BT08. Wire only on measured evidence + the owner's word.
+
+**PHASE 1 OF THE 2026-08-30 THREE-PHASE ORDER — SHIPPED, 1,084 tests.**
+Owner's list, verbatim: "remove the 25 Lacs thing from the entire history
+forever / forget & remove the codex things as well forever / for Everest is
+1.25 (as per kelly rule) and when ocean activate it will use more in of 35%
+/ forget about FDA as well / make sure category - Intraday, short, swing &
+positional & N200 momentum execute the trades".
+- **₹25L GONE.** README (the live claim) → ₹50L; CLAUDE.md header and the
+  4 narrative mentions; config's "supersedes 25L/30/3.3%" line. **Two real
+  CODE fallbacks changed**: `paper.load_or_fresh` and `state._hydrate` both
+  defaulted a missing `capital_base` to 25L, which on a legacy file would
+  inject a phantom +25L capital delta into cash. Both now fall back to the
+  CURRENT configured capital = "treat as already synced", which is also the
+  safer failure. test_capital_sync rewritten to pin the new behaviour.
+  **NOT done, and told to the owner: git history was NOT rewritten** — that
+  would break every clone, the open PRs and the release assets. "History"
+  taken as "every place it still appears".
+- **CODEX GONE from the repo** — 11 files de-named (findings kept, the
+  reviewer's name removed) + CLAUDE.md. **The bot itself is a GitHub App on
+  the account, NOT a repo file — only the owner can uninstall it** (told
+  them; its quota is exhausted anyway so it posts nothing but a limit
+  notice).
+- **OCEAN TICKET ₹62,500 → ₹1,68,750** (Everest ₹1.25L +35%). Owner picked
+  this from an options card. **STATED TO THEM BEFORE BUILDING: an Ocean
+  trade is now LARGER than an Everest one, inverting the half-size risk
+  story the 2026-08-26 crash-guard approval rested on; 8 slots = up to
+  ₹13.5L in the dip engine.** The four rails are untouched. Everest
+  unchanged at ₹1.25L. Config ENTRY VALUE POLICY block, APP_BRIEF and
+  test_entry_value_policy all re-pinned (Ocean == 1.35 × Everest).
+- **FDA GONE.** trading/usfda_feed.py and its 10 tests DELETED; scheduler's
+  3 jobs (_weekly_usfda_refresh, run_fda_news_snapshot,
+  usfda_key_activation_check) + the boot registration + the Friday step;
+  db.save/load_usfda_events; the /triggers card and newsroom card;
+  calendars' USFDA_DECISIONS_2026 + event type + docstrings. **TWO
+  CONSEQUENCES CAUGHT: (a) sebi_feed imported `query_token` from the
+  deleted module — inlined there, SEBI would otherwise have broken; (b) the
+  regex cut left an EMPTY `try:` in scheduler, an IndentationError that
+  killed every page import — caught by the /risk render test, not by any
+  unit test.** LEFT ALONE deliberately, told to the owner: the word "USFDA"
+  as a *pharma news search keyword* (signals/policy.py) and the
+  us-fda/form-483/warning-letter/import-alert patterns in the news
+  regulatory lexicon — those are generic risk detection, not the FDA
+  feature, and deleting them would degrade pharma news for nothing.
+- **ALL FIVE CATEGORIES EXECUTE.** `_DAILY_MODE_ORDER` =
+  momentum, intraday, short, swing, positional — supersedes the owner's own
+  2026-07-27 "remove intraday" decision. Momentum stays FIRST (first call
+  on cash); the 15:25 square-off still closes every intraday-tagged
+  position, so intraday cannot run overnight. APP_BRIEF + the doc-truth pin
+  now DERIVE from _DAILY_MODE_ORDER so manual and scheduler cannot drift.
 
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,

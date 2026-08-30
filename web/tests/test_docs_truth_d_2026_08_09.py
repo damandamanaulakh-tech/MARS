@@ -48,8 +48,18 @@ def test_app_brief_points_at_the_live_repo():
 
 def test_app_brief_rotation_matches_the_scheduler():
     b = _brief()
-    assert "intraday removed from auto-rotation" in b
-    assert "then intraday, short, swing" not in b
+    # OWNER ORDER 2026-08-30 ("make sure category — Intraday, short, swing &
+    # positional & N200 momentum execute the trades"): all five are back in
+    # the rotation, so the brief must say so. This pin is what stops the
+    # manual and the scheduler drifting apart again.
+    assert "all five categories execute trades" in b
+    # Derived, not hand-typed: every mode the scheduler really rotates must
+    # be named in the brief, so the two cannot drift apart again.
+    from web.scheduler import _DAILY_MODE_ORDER
+    assert len(_DAILY_MODE_ORDER) == 5
+    for mode in _DAILY_MODE_ORDER:
+        word = "momentum" if mode == "nifty200_momentum" else mode
+        assert word in b.lower(), f"{mode} missing from APP_BRIEF"
 
 
 def test_status_boards_carry_supersession_banners():
@@ -85,10 +95,10 @@ def test_walk_forward_panel_names_its_era():
     assert "floor-55 era" in d
 
 
-# ---- Codex-review regression guards (PR#40) ----
+# ---- External-review regression guards (PR#40) ----
 
 def test_risk_page_renders_without_crashing():
-    """Codex caught the B3 fix deleting the equity the template renders —
+    """An external review caught the B3 fix deleting the equity the template renders —
     /risk 500'd and no test noticed. Now one does."""
     from fastapi.testclient import TestClient
     from web import auth as auth_mod

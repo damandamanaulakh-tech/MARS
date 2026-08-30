@@ -3,9 +3,9 @@ and f-009 too").
 
 F-007 — the three entry-value numbers lived in three fields and were never
 stated together, so a reviewer read them as a contradiction: the owner's
-order was "roughly 1-1.25 for each trade", yet the book opens Rs 62,500
-Ocean trades and the floor is Rs 25,000. They are three separate owner
-decisions, not a conflict. Pinned here so the policy and the code can never
+order was "roughly 1-1.25 for each trade", yet the floor is Rs 25,000 and
+Ocean has its own ticket. They are separate owner decisions, not a
+conflict. Pinned here so the policy and the code can never
 drift apart, and so the owner's own manual keeps stating all three.
 
 F-009 — risk_v2 carried an 18/12/6% volatility-tier sizing scheme that was
@@ -31,15 +31,17 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_the_three_entry_values_are_the_owners_numbers():
     cfg = Config()
     assert cfg.position_size_value == 125_000.0   # Everest, order 2026-07-30
-    assert cfg.ocean_position_value == 62_500.0   # Ocean half, appr. 08-26
+    assert cfg.ocean_position_value == 168_750.0  # Everest +35%, 08-30
     assert cfg.min_position_value == 25_000.0     # dust guard, 2026-07-11
 
 
-def test_ocean_is_exactly_half_of_a_normal_entry():
-    """The approved design word was "half size" — if either number moves
-    without the other, the page and the brief stop being true."""
+def test_ocean_is_exactly_everest_plus_35_percent():
+    """Owner order 2026-08-30 ("when ocean activate it will use more in of
+    35%"), superseding the half size of 2026-08-26. If either number moves
+    without the other, the config block and the brief stop being true."""
     cfg = Config()
-    assert cfg.ocean_position_value == cfg.position_size_value / 2
+    assert cfg.ocean_position_value == round(cfg.position_size_value * 1.35, 2)
+    assert cfg.ocean_position_value > cfg.position_size_value
 
 
 def test_the_floor_is_below_both_sizes_so_it_only_catches_dust():
@@ -54,16 +56,16 @@ def test_config_states_the_whole_policy_in_one_place():
     """The reviewer's actual complaint: no single place said all three."""
     src = (ROOT / "trading" / "config.py").read_text()
     block = src.split("ENTRY VALUE POLICY")[1][:2000]
-    for token in ("1,25,000", "62,500", "25,000"):
+    for token in ("1,25,000", "1,68,750", "25,000"):
         assert token in block, token
     assert "Ocean" in block and "Everest" in block
 
 
 def test_the_owners_manual_states_all_three_sizes():
     """APP_BRIEF is the owner's manual. Before this fix it named Rs 1.25
-    lakh and never mentioned that Ocean opens half-size trades at all."""
+    lakh and never mentioned Ocean's own ticket size at all."""
     brief = (ROOT / "docs" / "APP_BRIEF.md").read_text()
-    for token in ("1,25,000", "62,500", "25,000"):
+    for token in ("1,25,000", "1,68,750", "25,000"):
         assert token in brief, token
 
 
