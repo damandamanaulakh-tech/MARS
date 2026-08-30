@@ -137,6 +137,12 @@ class Config:
     # weekly. Empty tuple = back to the rotating bucket.
     custom_universe: tuple = field(
         default_factory=lambda: _owner_universe_default())
+    # OWNER ORDER 2026-08-30 ("batch size also reduce to 500 from 2300+",
+    # and from the options card "Top 500 by liquidity/turnover, weekly").
+    # scheduler.refresh_liquid_universe rebuilds custom_universe every Friday
+    # as the top N stored names by MEDIAN RUPEE TURNOVER — retiring the
+    # hand-typed 50-name list as the source, which is what went stale.
+    universe_target_size: int = 500
     # User instruction 2026-07-21: names the engine must NEVER scan or buy,
     # even though they are currently listed (distress/junk the owner bans).
     # Held positions are exempt so exits still work if one is ever held.

@@ -2241,6 +2241,40 @@ positional & N200 momentum execute the trades".
   position, so intraday cannot run overnight. APP_BRIEF + the doc-truth pin
   now DERIVE from _DAILY_MODE_ORDER so manual and scheduler cannot drift.
 
+**PHASE 2 (PART) — stale index line + the weekly 500-name batch, 1,099 tests.**
+- **"grey line = stored shape to 27 Aug — still it show old data" ROOT
+  CAUSE:** the index tail refreshed daily but ONLY at 09:20, **before the
+  market opens**, so it could only ever reach the PREVIOUS day's close.
+  Today's close waited for tomorrow morning and Friday's for Monday. (The
+  27-Aug reading also needed the 08-29 Friday-block fix: the index step used
+  to sit AFTER the OHLCV pull, so a cut-off pull skipped it.) FIX: the
+  refresh now ALSO runs in the 15:35 EOD job, after the close, isolated so a
+  failed pull cannot cost the exit pass. 09:20 stays as the catch-up.
+- **WEEKLY 500-NAME BATCH BY LIQUIDITY** (`trading/universe_select.py`, pure;
+  `scheduler.refresh_liquid_universe`, in the Friday block with the other
+  post-pull recomputes). Owner picked "Top 500 by liquidity/turnover, weekly,
+  replaces the 50" from an options card. **Ranked on median CLOSE x VOLUME,
+  not share count** — the committed delivery file covers the whole market but
+  carries `ttl_trd_qnty`, a SHARE COUNT, and ranking on it puts penny stocks
+  on top (10M shares at Rs 3 = Rs 3 Cr vs 50k at Rs 4,000 = Rs 20 Cr). Same
+  rupee measure `risk.passes_liquidity` already gates entries with — one
+  liquidity definition in the app, not two. MEDIAN so one block-deal day
+  cannot promote a thin name; sub-Rs-1-crore names dropped (they could never
+  pass the entry gate anyway); too little history = "not judged", never
+  "illiquid"; held names always ride along; blocklist still wins.
+  `universe_target_size: int = 500`. **HONEST LIMIT, journaled every run:**
+  it ranks the names the STORE holds (~573 today, not 2,428), so the list is
+  the top of what is stored until the Friday pull fills it — the journal says
+  "SHORT BY n" rather than passing a short list off as a full 500. Mongo down
+  or an empty result leaves the PREVIOUS list standing; emptying the universe
+  would stop the engine trading.
+- **STILL OPEN in Phase 2, told to the owner:** "remove placeholders" needs
+  them to name which screen/placeholder; and the old HELD names (BERGEPAINT,
+  COFORGE, ETERNAL, NAUKRI, PETRONET, RADICO, SUPREMEIND, TVSMOTOR,
+  GILT5YBEES...) bought by the pre-50 rotation stay held until sold — the
+  universe rebuild changes what is SCANNED, never what is already owned.
+  No manual "rebuild now" button was added (not on their list; offered).
+
 User's 8-step plan validated this session: all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

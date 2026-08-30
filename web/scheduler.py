@@ -1091,6 +1091,89 @@ def _mark_weekly_block_done() -> None:
         log.exception("could not record the weekly block completion")
 
 
+def refresh_liquid_universe(where: str = "weekly") -> dict:
+    """Rebuild the tradeable universe as the top-N names by rupee turnover.
+
+    OWNER ORDER 2026-08-30: "No automation for weekly new batch of stocks /
+    batch size also reduce to 500 from 2300+", and their pick from the
+    options card: "Top 500 by liquidity/turnover, weekly, replaces the 50".
+
+    This retires the hand-typed 50-name list of 2026-08-20 as the *source*
+    of the universe — the owner no longer has to refresh it by hand, which
+    was their own stated workflow and the thing that went stale ("system
+    still use old stocks"). Held names always ride along, so a position can
+    never fall out of its own scan universe.
+
+    Ranked from the OHLCV store, which the Friday pull grows, so the list
+    converges on a true market top-500 as the store fills. Until it does the
+    list is the top of what is stored, and the journal SAYS the sample size
+    rather than presenting a short list as a full 500.
+    """
+    from datetime import datetime as _dt
+
+    from . import db, state
+    from trading.universe_select import DEFAULT_TARGET, select_liquid_universe
+
+    cfg, p = state.cfg(), state.portfolio()
+
+    def _journal(action, why, **extra):
+        try:
+            p.decision_journal.append(
+                {"ts": _dt.utcnow().isoformat(), "action": action,
+                 "why": why, **extra})
+            p.save()
+        except Exception:
+            log.exception("universe journal failed")
+
+    if not db.is_connected():
+        _journal("UNIVERSE_BATCH_SKIPPED",
+                 "Weekly liquidity universe skipped: Mongo offline, so the "
+                 "OHLCV store could not be read. The previous list stands.")
+        return {}
+    try:
+        target = int(getattr(cfg, "universe_target_size", DEFAULT_TARGET) or
+                     DEFAULT_TARGET)
+        res = select_liquid_universe(
+            db.history_tails(40), target=target,
+            blocklist=getattr(cfg, "ticker_blocklist", ()) or (),
+            always_include=list(p.positions.keys()))
+        picked = res["tickers"]
+        if not picked:
+            _journal("UNIVERSE_BATCH_FAILED",
+                     "Weekly liquidity universe produced NO names — the "
+                     "previous list stands rather than emptying the "
+                     "universe. Store sample was "
+                     f"{res.get('sample', 0)} names.")
+            return res
+        before = list(getattr(cfg, "custom_universe", ()) or ())
+        cfg.custom_universe = tuple(picked)
+        db.save_settings({"custom_universe": list(picked)})
+        added = sorted(set(picked) - set(before))
+        dropped = sorted(set(before) - set(picked))
+        note = ("" if not res["short_by"] else
+                f" SHORT BY {res['short_by']}: only {res['judged']} of the "
+                f"{res['sample']} stored names cleared the liquidity floor, "
+                f"so this is the top of what is stored, not a full {target}.")
+        _journal("UNIVERSE_BATCH",
+                 f"[{where}] Tradeable universe rebuilt by median rupee "
+                 f"turnover: {len(picked)} names (target {target}). "
+                 f"{len(added)} added, {len(dropped)} dropped. "
+                 f"{res['skipped_thin']} skipped for thin history, "
+                 f"{res['skipped_illiquid']} below the Rs 1 crore floor."
+                 + note,
+                 added=added[:25], dropped=dropped[:25],
+                 sample=res["sample"], short_by=res["short_by"])
+        log.info("[%s] liquidity universe: %d names (+%d/-%d)",
+                 where, len(picked), len(added), len(dropped))
+        return res
+    except Exception as e:
+        log.exception("liquidity universe refresh failed: %s", e)
+        _journal("UNIVERSE_BATCH_FAILED",
+                 f"Weekly liquidity universe crashed ({e}) — the previous "
+                 "list stands.")
+        return {}
+
+
 def _run_weekly_step(label: str, fn, journal) -> bool:
     """Run ONE Friday sub-job so its failure cannot take out the others.
 
@@ -1246,6 +1329,11 @@ def _weekly_history_topup() -> None:
         ("breadth store", lambda: refresh_breadth_store("post-topup")),
         # Node 10: refresh the precomputed register view over the store.
         ("register precompute", lambda: run_register_precompute("post-topup")),
+        # Owner order 2026-08-30: the weekly 500-name batch, ranked on the
+        # store the pull just refreshed. Isolated like its neighbours, so a
+        # crashed pull leaves last week's list standing rather than emptying
+        # the universe.
+        ("liquidity universe", lambda: refresh_liquid_universe("weekly")),
     ):
         _run_weekly_step(_label, _fn, _journal)
 
@@ -1270,6 +1358,17 @@ def _eod_refresh() -> None:
         log.info("[15:35] EOD refresh done")
     except Exception as e:
         log.exception("EOD refresh failed: %s", e)
+    # OWNER FAULT REPORT 2026-08-30 ("grey line = stored shape to 27 Aug —
+    # still it show old data"). The index tail refreshed DAILY, but only at
+    # 09:20 — BEFORE the market opens — so it could only ever reach the
+    # PREVIOUS day's close. Today's close waited until tomorrow morning, and
+    # Friday's until Monday. This post-close run is what actually makes the
+    # line current; the 09:20 run stays as the catch-up for a missed evening.
+    # Isolated: a failed index pull must never cost the exit pass above.
+    try:
+        _weekly_index_refresh()
+    except Exception:
+        log.exception("index refresh failed after the close")
     _push_phone_alerts("15:35")
 
 
