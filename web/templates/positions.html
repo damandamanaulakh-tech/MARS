@@ -132,6 +132,79 @@
 </form>
 {% endif %}
 
+{% if sector_alerts %}
+<div class="mb-6"><!-- sector_event_marker -->
+  <div class="bg-amber-50 border-2 border-amber-500 p-4 lg:p-5">
+    <div class="font-black text-lg">⚠️ Event watch — risk news named your holdings</div>
+    <div class="text-xs text-ink-soft mt-1">
+      Today's headlines{% if news_asof %} (checked {{ news_asof }}){% endif %}, grouped by segment.
+      <strong>Nothing here sells by itself.</strong> News cannot be back-tested in this app
+      (no headline archive), so it never moves a stop or fires an exit on its own —
+      it puts the segment in front of you with one button. Your stops and the danger
+      layer keep working exactly as before.
+    </div>
+
+    {% for a in sector_alerts %}
+    <div class="mt-4 bg-white border border-amber-300 p-3 lg:p-4">
+      <div class="flex flex-wrap items-baseline gap-x-3">
+        <span class="font-bold text-base">{{ a.sector }}</span>
+        <span class="text-sm text-rose-700 font-semibold">{{ a.n_flagged }} of {{ a.n_held }} holding{{ '' if a.n_held == 1 else 's' }} named</span>
+      </div>
+      <ul class="mt-2 space-y-1.5 text-xs">
+        {% for f in a.flagged %}
+        <li>
+          <a href="/triggers/{{ f.ticker }}" class="font-semibold">{{ f.ticker }}</a>
+          {% if f.tags %}<span class="text-rose-700 uppercase tracking-wide">{{ f.tags | join(', ') }}</span>{% endif %}
+          {% if f.headline %}<div class="text-ink-soft">“{{ f.headline }}”{% if f.source %} — {{ f.source }}{% endif %}{% if f.published %} · {{ f.published }}{% endif %}</div>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% if a.quiet %}
+      <div class="mt-2 text-xs text-ink-faint">Also held in {{ a.sector }}, not named by news: {{ a.quiet | join(', ') }}</div>
+      {% endif %}
+
+      {% if user and user.role == 'owner' %}
+      <div class="mt-3 flex flex-wrap gap-2">
+        <form method="post" action="/positions/sector-exit"
+              onsubmit="return confirm('Square off the {{ a.n_flagged }} named {{ a.sector }} holding(s) at live prices?');">
+          <input type="hidden" name="sector" value="{{ a.sector }}">
+          <input type="hidden" name="scope" value="flagged">
+          <button class="px-3 py-2 bg-red-700 text-white text-xs font-bold tracking-wide hover:bg-red-800">
+            Square off the {{ a.n_flagged }} named
+          </button>
+        </form>
+        {% if a.quiet %}
+        <form method="post" action="/positions/sector-exit"
+              onsubmit="return confirm('Square off ALL {{ a.n_held }} {{ a.sector }} holding(s) at live prices?');">
+          <input type="hidden" name="sector" value="{{ a.sector }}">
+          <input type="hidden" name="scope" value="sector">
+          <button class="px-3 py-2 bg-white border-2 border-red-700 text-red-700 text-xs font-bold tracking-wide hover:bg-red-50">
+            Square off all {{ a.n_held }} in {{ a.sector }}
+          </button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    <div class="mt-3 text-xs text-ink-faint">
+      Exits go through the same path as every other sale — live price, real costs, booked to
+      Closed Trades. A name with no live quote is left open and reported, never closed at a
+      stale mark.
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if news_unknown %}
+<div class="mb-6 bg-white border border-line p-3 text-xs text-ink-soft"><!-- news_unknown_marker -->
+  📡 News check failed today for: <strong>{{ news_unknown | join(', ') }}</strong>.
+  That is <em>not</em> an all-clear — it means the feed did not answer, so these names
+  were not assessed either way.
+</div>
+{% endif %}
+
 {% if rows %}
 <div class="bg-white border border-line overflow-x-auto">
   <table class="w-full text-sm">
