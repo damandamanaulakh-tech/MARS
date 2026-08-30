@@ -1,7 +1,7 @@
 # Sourceborn AM07 — automatic NSE paper-trading engine
 
 Scans the full NSE cash market every trading day, opens and manages
-**paper** positions (₹25L practice capital) by tested momentum rules,
+**paper** positions (₹50L practice capital) by tested momentum rules,
 and journals every decision it makes — append-only, nothing hidden.
 FastAPI + MongoDB Atlas + APScheduler, deployed on Render
 (`render.yaml`, always-on 512 MB).

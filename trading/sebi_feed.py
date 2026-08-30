@@ -85,11 +85,28 @@ def fetch_orders(pages: int = 3, sleep_s: float = 0.4,
 
 def title_matches(title: str, token: str) -> bool:
     """The token must appear as an EXACT word of the order title (stricter
-    than the USFDA prefix rule — SEBI titles are free prose over every
+    than a prefix rule — SEBI titles are free prose over every
     sector, and a prefix match would false-hit generic tokens)."""
     if not token:
         return False
     return token in re.split(r"[^A-Z0-9]+", (title or "").upper())
+
+
+# Company-name tokenising, moved here 2026-08-30 when trading/usfda_feed.py
+# was deleted on the owner's order ("forget about FDA as well"). SEBI was the
+# only other consumer, so the helper lives with its remaining user rather
+# than in a shared module nothing else needs.
+_STOP = {"LTD", "LIMITED", "AND", "THE", "OF", "INDIA", "INDUSTRIES",
+         "COMPANY", "CO", "CORP", "INC", "PVT", "PRIVATE", "L", "INS"}
+
+
+def query_token(company_name: str) -> str:
+    """First identity-bearing token of the NSE company name — the word SEBI
+    order titles are searched for ('TORRENT PHARMACEUTICALS L' -> 'TORRENT')."""
+    for w in (company_name or "").upper().replace(".", " ").split():
+        if w not in _STOP and len(w) >= 3:
+            return w
+    return ""
 
 
 def match_orders(orders: list[dict],
@@ -97,7 +114,6 @@ def match_orders(orders: list[dict],
     """Attach orders to tickers by title token. Returns stored-row shape:
     [{ticker, order_id, date, title, url, token}] — the matched token is
     kept so a wrong match is visible on the page."""
-    from trading.usfda_feed import query_token
     tokens = {t: query_token(c) for t, c in name_map.items()}
     out = []
     for o in orders:

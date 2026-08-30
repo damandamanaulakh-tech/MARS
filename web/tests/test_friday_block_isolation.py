@@ -2,20 +2,20 @@
 
 Owner ask 2026-08-29 ("is the Friday trigger captured?" -> "fix it").
 
-THE FAULT THIS PINS: all eight weekly sub-jobs used to run sequentially
+THE FAULT THIS PINS: every weekly sub-job used to run sequentially
 inside ONE try block, AFTER a ~2,400-name OHLCV top-up that takes the
 better part of an hour. A crash — or a container restart mid-pull, which
 no try block can catch — silently skipped every feed below it, and the
 weekly block has no catch-up, so a miss cost a FULL WEEK. Three of the
-eight have a daily counterpart and survived that (index tail, breadth,
-register precompute); FIVE do not — FII tide, constituents, fundamentals,
-USFDA, SEBI. Measured on the live box 2026-08-28: the store held 573 of
-2,428 names after two full-scope Fridays, so the pull was not finishing
-and those five were the ones paying for it.
+have a daily counterpart and survived that (index tail, breadth, register
+precompute); FOUR do not — FII tide, constituents, fundamentals, SEBI.
+Measured on the live box 2026-08-28: the store held 573 of 2,428 names
+after two full-scope Fridays, so the pull was not finishing and those four
+were the ones paying for it.
 
-Pinned here: the six short store-independent feeds run BEFORE the pull;
+Pinned here: the short store-independent feeds run BEFORE the pull;
 one feed crashing cannot take out the others (and journals which one); a
-crashing pull no longer costs the six OR the two post-topup recomputes;
+crashing pull no longer costs them OR the two post-topup recomputes;
 and DATA_REFRESH_WEEKLY_START marks that Friday fired even when the pull
 later dies, which is exactly the evidence that was missing when the owner
 asked.
@@ -24,11 +24,11 @@ from __future__ import annotations
 
 from web import scheduler, state
 
-# The six short, store-INDEPENDENT feeds, in the order they must run, and
+# The short, store-INDEPENDENT feeds, in the order they must run, and
 # the two recomputes that read the store so can only follow the pull.
 SHORT_FEEDS = ("_weekly_fii_refresh", "_weekly_index_refresh",
                "_monthly_constituents_snapshot", "_monthly_fundamentals_refresh",
-               "_weekly_usfda_refresh", "_weekly_sebi_refresh")
+               "_weekly_sebi_refresh")
 POST_TOPUP = ("refresh_breadth_store", "run_register_precompute")
 
 
@@ -68,7 +68,7 @@ def _wire(monkeypatch, calls, *, topup_raises=False, feed_raises=None):
 
 
 def test_short_feeds_run_before_the_long_ohlcv_pull(monkeypatch):
-    """The five Friday-ONLY feeds must be finished before the hour-long pull
+    """The Friday-ONLY feeds must be finished before the hour-long pull
     can be interrupted. Order is the whole fix — isolation alone cannot
     survive a container restart."""
     calls = []
@@ -105,7 +105,7 @@ def test_one_feed_crashing_does_not_take_out_the_others(monkeypatch):
 
 def test_a_crashing_pull_no_longer_costs_the_weeks_feeds(monkeypatch):
     """The live failure mode: the OHLCV pull dies and the week's FII,
-    constituents, fundamentals, USFDA and SEBI data die with it."""
+    constituents, fundamentals and SEBI data die with it."""
     calls = []
     _wire(monkeypatch, calls, topup_raises=True)
     p = state.engine().portfolio

@@ -75,10 +75,13 @@ def test_withdrawal_below_free_cash_is_refused_and_journaled(tmp_path):
     assert p.decision_journal[-1]["action"] == "CAPITAL_ADJUST_BLOCKED"
 
 
-def test_legacy_book_loads_with_25l_base(tmp_path):
-    """A saved book from before capital_base must sync FROM 25L (its real
-    start), not silently adopt the new default."""
-    cfg, p = _p(tmp_path, capital=25_00_000.0)
+def test_a_book_without_capital_base_is_treated_as_already_synced(tmp_path):
+    """Owner order 2026-08-30 ("remove the 25 Lacs thing from the entire
+    history"): a file with no capital_base now falls back to the CURRENT
+    configured capital, not the superseded figure. Consequence, and the
+    reason this is safe: such a book is treated as already synced, so the
+    loader can never inject a phantom capital delta into cash."""
+    cfg, p = _p(tmp_path, capital=50_00_000.0)
     p.cash = 24_79_000.0
     p.save()
     import json
@@ -89,9 +92,9 @@ def test_legacy_book_loads_with_25l_base(tmp_path):
     json.dump(data, open(path, "w"))
     cfg2 = Config(state_dir=str(tmp_path), starting_capital=50_00_000.0)
     p2 = Portfolio.load_or_fresh(cfg2)
-    assert p2.capital_base == 25_00_000.0
-    assert p2.sync_capital(cfg2)
-    assert p2.cash == 24_79_000.0 + 25_00_000.0
+    assert p2.capital_base == 50_00_000.0
+    assert p2.sync_capital(cfg2) is None         # nothing to move
+    assert p2.cash == 24_79_000.0
 
 
 def test_reset_resets_base_too(tmp_path):

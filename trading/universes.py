@@ -235,7 +235,7 @@ def rotating_bucket(tickers: list[str], size: int, day_index: int) -> list[str]:
 def get_nifty_200_universe():
     """Returns (tickers_list, sector_map) for Nifty 200 preset."""
     sector_map = dict(NIFTY_200_SECTOR_MAP_EXTRAS)
-    # Custom-universe names get real sectors too (Codex review fix, PR #68)
+    # Custom-universe names get real sectors too (external review fix, PR #68)
     # — defined next to OWNER_UNIVERSE_2026_08_20 below.
     try:
         sector_map.update(CUSTOM_UNIVERSE_SECTOR_MAP)

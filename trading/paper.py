@@ -291,9 +291,15 @@ class Portfolio:
             p.risk_day_equity = float(data.get("risk_day_equity", 0.0) or 0.0)
             p.risk_day_killed = bool(data.get("risk_day_killed", False))
             p.danger_alerts_start = data.get("danger_alerts_start")
-            # Legacy books predate capital_base; every live book started at
-            # the 2026 spec's 25L, so that is the honest baseline to sync from.
-            p.capital_base = float(data.get("capital_base", 25_00_000.0) or 25_00_000.0)
+            # Legacy books predate capital_base. Owner order 2026-08-30
+            # ("remove the 25 Lacs thing from the entire history"): the
+            # fallback is the CURRENT configured capital, so a file with no
+            # capital_base is treated as already synced. That also stops the
+            # old fallback from injecting a phantom capital delta into cash
+            # on any book that never actually started at the superseded
+            # figure — the migration this once served ran in July 2026.
+            p.capital_base = float(data.get("capital_base", 0.0)
+                                   or cfg.starting_capital)
             p.dd_peak_equity = float(data.get("dd_peak_equity", 0.0) or 0.0)
             p.loss_day = data.get("loss_day")
             p.loss_count = int(data.get("loss_count", 0) or 0)

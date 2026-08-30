@@ -17,7 +17,7 @@ down every single decision it makes — nothing is ever hidden or deleted.
 | 03:30 | Upstox kills yesterday's token (their rule, not ours) |
 | **your login** | The ONE thing only you can do. Any time of day — the moment you connect, a missed morning scan runs itself |
 | 08:50 | Refreshes the full NSE list from Upstox (auto — ~2,400+ stocks, new listings enter same day) |
-| 09:20 | Scans the market: momentum first (a fresh ~50-stock slice of the whole NSE list daily, spread across the alphabet, plus everything held), then short, swing, positional (intraday removed from auto-rotation on your order; its preset stays for manual use) |
+| 09:20 | Scans the market: momentum first (a fresh ~50-stock slice of the whole NSE list daily, spread across the alphabet, plus everything held), then intraday, short, swing, positional — all five categories execute trades (your order 2026-08-30) |
 | 14:30 | Top-up scan if the book is under-invested |
 | 15:25 | Force-sells every intraday position — no exceptions, ever |
 | 15:35 | Marks all positions at live prices and fires the exit rules |
@@ -34,9 +34,10 @@ are impossible now.
    "1.25 lac, 125000, not percentage"), up to 80 slots as the book grows.
    Each stock must also be rising on its own (not just "least bad").
    **What a trade is worth, all three cases:** a normal (Everest) entry is
-   **₹1,25,000**; an **Ocean** dip-engine entry is deliberately **half —
-   ₹62,500** (you approved that size on 2026-08-26 when you un-parked
-   Ocean, max 8 Ocean slots at a time); and **nothing below ₹25,000 ever
+   **₹1,25,000**; an **Ocean** dip-engine entry is **₹1,68,750 — 35% MORE than a
+   normal trade** (your order 2026-08-30, replacing the half size you
+   approved on 2026-08-26; max 8 Ocean slots, so at most ₹13.5L in the
+   dip engine at once); and **nothing below ₹25,000 ever
    opens** — that is a dust guard from 2026-07-11, and a trade that small
    is skipped outright, not shrunk to fit. So "at least ₹1 lakh" describes
    Everest only, not every trade the book can make.

@@ -101,10 +101,15 @@ def test_owner_toggle_disables():
 
 # ---- 17: intraday out of the morning rotation ----
 
-def test_daily_rotation_is_momentum_plus_three_sections():
+def test_daily_rotation_runs_all_five_categories():
+    """OWNER ORDER 2026-08-30: "make sure category — Intraday, short, swing &
+    positional & N200 momentum execute the trades". Supersedes their
+    2026-07-27 decision that had dropped intraday from the rotation.
+    Momentum stays FIRST so the primary strategy gets first call on cash."""
     from web.scheduler import _DAILY_MODE_ORDER
-    assert _DAILY_MODE_ORDER == ["nifty200_momentum", "short", "swing", "positional"]
-    assert "intraday" not in _DAILY_MODE_ORDER
+    assert _DAILY_MODE_ORDER == ["nifty200_momentum", "intraday", "short",
+                                 "swing", "positional"]
+    assert _DAILY_MODE_ORDER[0] == "nifty200_momentum"
 
 def test_vix_reentry_bypasses_the_breadth_gate():
     """Owner decision 2026-07-27: at the turn of a crash breadth is always

@@ -53,27 +53,25 @@ def test_is_system_event_returns_none_when_clear():
     ev = is_system_event_within(days=2, today=date(2026, 3, 15))
     # No system event in Mar 16-17; expiry is later
     if ev is not None:
-        # If a sample USFDA happens to fall here, that's per-ticker not system
+        # Anything here must be system-wide, not a per-ticker event
         assert ev.impact == "system_wide"
 
 
-def test_usfda_calendar_ships_empty_and_the_gate_still_works():
-    """AUDIT FIX A5 (2026-08-09): the shipped USFDA entries were labelled
-    "Examples" — invented decisions that BLOCKED real entries (DRREDDY was
-    blackout-blocked on a made-up Aug-22 event). The calendar now ships
-    EMPTY (DATA_NEEDED) and the gate fires only when a real date is fed."""
+def test_the_usfda_calendar_is_gone_entirely():
+    """The shipped USFDA entries were invented "Examples" that BLOCKED real
+    entries (A5, 2026-08-09: DRREDDY was blackout-blocked on a made-up
+    Aug-22 event). They were emptied then, and on the owner's order of
+    2026-08-30 ("forget about FDA as well") the whole mechanism is deleted —
+    a stronger guarantee than an empty dict, since there is no longer a
+    container for a fabricated date to be dropped into.
+    """
     from trading import calendars as cal
-    assert cal.USFDA_DECISIONS_2026 == {}
+    assert not hasattr(cal, "USFDA_DECISIONS_2026")
     assert is_ticker_event_within("DRREDDY.NS", days=5,
                                   today=date(2026, 8, 20)) is None
-    # the mechanism itself still works the day a verified date is added
-    cal.USFDA_DECISIONS_2026["SUNPHARMA.NS"] = [(date(2026, 9, 10), "real ANDA")]
-    try:
-        ev = is_ticker_event_within("SUNPHARMA.NS", days=5,
-                                    today=date(2026, 9, 8))
-        assert ev is not None and ev.event_type == "usfda"
-    finally:
-        cal.USFDA_DECISIONS_2026.clear()
+    # the per-ticker gate itself still works, on earnings
+    for ev in cal.upcoming_events(today=date(2026, 1, 1), lookahead_days=400):
+        assert ev.event_type != "usfda"
 
 
 def test_is_ticker_event_returns_none_for_unaffected():

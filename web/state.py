@@ -56,8 +56,11 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.risk_day = doc.get("risk_day")
     p.risk_day_equity = float(doc.get("risk_day_equity", 0.0) or 0.0)
     p.risk_day_killed = bool(doc.get("risk_day_killed", False))
-    # Legacy mirror docs predate capital_base; the live book started at 25L.
-    p.capital_base = float(doc.get("capital_base", 25_00_000.0) or 25_00_000.0)
+    # Legacy mirror docs predate capital_base. Owner order 2026-08-30
+    # ("remove the 25 Lacs thing from the entire history"): the fallback is
+    # the LIVE capital, so a pre-capital_base doc can no longer resurrect the
+    # superseded 25L book on a restart.
+    p.capital_base = float(doc.get("capital_base", 50_00_000.0) or 50_00_000.0)
     p.dd_peak_equity = float(doc.get("dd_peak_equity", 0.0) or 0.0)
     p.loss_day = doc.get("loss_day")
     p.loss_count = int(doc.get("loss_count", 0) or 0)
@@ -469,7 +472,7 @@ def marks(tickers: list[str], max_age: float = MARKS_MAX_AGE_SEC
 
 def marks_sources(tickers) -> dict:
     """{ticker: 'upstox'|'yf_close'} for the tickers we have prices for —
-    Codex review on PR#40: an export must know whether a mark was a real
+    External review on PR#40: an export must know whether a mark was a real
     live tick or a delayed daily close."""
     try:
         from trading.quote_router import LAST_SOURCES

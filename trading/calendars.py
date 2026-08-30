@@ -1,4 +1,4 @@
-"""Indian-market event calendars — earnings, RBI MPC, Budget, USFDA, expiries.
+"""Indian-market event calendars — earnings, RBI MPC, Budget, expiries.
 
 All entries are MANUALLY-CURATED (no live scraping) for reliability. Update
 this file annually when RBI publishes the next year's MPC schedule and
@@ -7,7 +7,6 @@ when Union Budget date is announced.
 Used by the engine as overlays:
   - Halt new entries 5 days before earnings for that specific stock
   - Tighten stops during RBI/Budget weeks (system-wide)
-  - Flag pharma stocks 3 days before known USFDA decisions
   - Don't misread ex-dividend gaps as crashes
 """
 
@@ -20,7 +19,7 @@ from typing import Optional
 
 @dataclass
 class CalendarEvent:
-    event_type: str   # 'rbi_mpc' | 'budget' | 'earnings' | 'usfda' | 'expiry' | 'election' | 'ex_dividend'
+    event_type: str   # 'rbi_mpc' | 'budget' | 'earnings' | 'expiry' | 'election' | 'ex_dividend'
     event_date: date
     description: str
     impact: str       # 'system_wide' | 'sector' | 'single_stock'
@@ -139,7 +138,7 @@ def fno_monthly_expiry(year: int, month: int) -> date:
     # Tuesday = weekday 1
     while last_day.weekday() != 1:
         last_day -= timedelta(days=1)
-    # Codex review on PR#40: when the last Tuesday is an NSE holiday
+    # External review on PR#40: when the last Tuesday is an NSE holiday
     # (e.g. 2026-11-24 Gurpurb, 2027-01-26 Republic Day), expiry moves to
     # the PRECEDING trading day.
     while not is_trading_day(last_day):
@@ -188,18 +187,6 @@ INDIA_EARNINGS_DATES_2026 = {
     "CIPLA.NS":     [date(2026, 8, 1)],
 }
 
-
-# --- USFDA decision calendar ---
-# AUDIT FIX A5 (2026-08-09): EMPTIED. The previous entries were labelled
-# "Examples; user should refresh from industry sources" — invented events
-# ("Generic XYZ ANDA", a made-up DRREDDY "Rituximab biosimilar" on Aug 22)
-# that the engine treated as real and used to BLOCK entries via
-# is_ticker_event_within(). Fake data in the money path is the one thing
-# this app must never do. DATA_NEEDED: fill this only from a verified
-# source (drugs.fda.gov / company filings); an empty dict simply means the
-# USFDA blackout never fires until real dates are fed.
-# Format: ticker (NSE) -> [(date, drug_name)]
-USFDA_DECISIONS_2026: dict = {}
 
 
 def upcoming_events(today: Optional[date] = None, lookahead_days: int = 30) -> list[CalendarEvent]:
@@ -255,16 +242,6 @@ def upcoming_events(today: Optional[date] = None, lookahead_days: int = 30) -> l
                 description="F&O monthly expiry",
                 impact="system_wide", affected=[],
             ))
-
-    # USFDA decisions
-    for ticker, decisions in USFDA_DECISIONS_2026.items():
-        for d, drug in decisions:
-            if today <= d <= cutoff:
-                out.append(CalendarEvent(
-                    event_type="usfda", event_date=d,
-                    description=f"USFDA decision: {drug}",
-                    impact="single_stock", affected=[ticker],
-                ))
 
     # Earnings dates — single-stock binary risk (volatility spike + gap risk)
     for ticker, dates in INDIA_EARNINGS_DATES_2026.items():

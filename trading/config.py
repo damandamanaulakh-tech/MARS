@@ -69,8 +69,7 @@ class Config:
     # roughly 1-1.25 for each trade" — then corrected: "1.25 lac, 125000,
     # not percentage"): Rs 50L paper capital, FIXED Rs 1.25L per new trade,
     # 80 positions as the ceiling. At 50L the cash funds ~40 concurrent
-    # 1.25L trades; the remaining slots open as capital grows. Supersedes
-    # the 25L/30/3.3% book of 2026-07-19.
+    # 1.25L trades; the remaining slots open as capital grows.
     starting_capital: float = 50_00_000.0
     cash_reserve_pct: float = 0.0             # deploy 100% — no idle cash reserve (user setting)
     # ------------------------------------------------------------------
@@ -79,19 +78,23 @@ class Config:
     # Written out 2026-08-30 (owner: "fix f-007") because the three numbers
     # live in three different fields and an external reviewer read them as a
     # contradiction: the owner's order was "roughly 1-1.25 for each trade",
-    # yet the book can open Rs 62,500 and the floor sits at Rs 25,000. They
-    # are not in conflict — they are three separate owner decisions that had
-    # never been stated together:
+    # yet the floor sits at Rs 25,000. They are not in conflict — they are
+    # separate owner decisions that had never been stated together:
     #
     #   Everest (the momentum engine, every normal entry)
     #       Rs 1,25,000 fixed          position_size_value, below
     #       owner order 2026-07-30, corrected same day to
     #       "1.25 lac, 125000, not percentage"
     #
-    #   Ocean (the dip engine, deliberately HALF size)
-    #       Rs 62,500                  ocean_position_value
-    #       owner approval 2026-08-26 — they picked "Approve as specced"
-    #       from a card that named the half size
+    #   Ocean (the dip engine)
+    #       Rs 1,68,750                ocean_position_value
+    #       owner order 2026-08-30: "when ocean activate it will use more
+    #       in of 35%" — Everest's ticket plus 35%. This REPLACES the
+    #       half-size Rs 62,500 of the 2026-08-26 approval, and it makes an
+    #       Ocean trade LARGER than an Everest one. Told to the owner when
+    #       they ordered it: half size was part of the risk story the crash
+    #       guard was approved with; the four rails are unchanged and still
+    #       gate every Ocean entry.
     #
     #   Floor, both engines
     #       Rs 25,000                  min_position_value
@@ -99,7 +102,7 @@ class Config:
     #       not shrunk. It is a dust guard, never a target size.
     #
     # So the honest one-line rule is: a normal entry is Rs 1.25 lakh, an
-    # Ocean entry is half that, and nothing below Rs 25,000 ever opens.
+    # Ocean entry is that plus 35%, and nothing below Rs 25,000 ever opens.
     # "At least Rs 1 lakh" is true of Everest ONLY, and is not a global rule.
     # Every sizing site goes through sizing.position_notional_for(), so the
     # knobs cannot disagree at runtime. Guard test: test_entry_value_policy.
@@ -134,6 +137,12 @@ class Config:
     # weekly. Empty tuple = back to the rotating bucket.
     custom_universe: tuple = field(
         default_factory=lambda: _owner_universe_default())
+    # OWNER ORDER 2026-08-30 ("batch size also reduce to 500 from 2300+",
+    # and from the options card "Top 500 by liquidity/turnover, weekly").
+    # scheduler.refresh_liquid_universe rebuilds custom_universe every Friday
+    # as the top N stored names by MEDIAN RUPEE TURNOVER — retiring the
+    # hand-typed 50-name list as the source, which is what went stale.
+    universe_target_size: int = 500
     # User instruction 2026-07-21: names the engine must NEVER scan or buy,
     # even though they are currently listed (distress/junk the owner bans).
     # Held positions are exempt so exits still work if one is ever held.
@@ -157,9 +166,12 @@ class Config:
     # Everest at HALF size behind it. Default ON by that approval; the
     # Settings toggle still parks it.
     ocean_enabled: bool = True
-    # Owner-approved Ocean sizing (2026-08-26): half the fixed ticket, and
-    # a hard concurrent-slot ceiling. Both are the owner's numbers to move.
-    ocean_position_value: float = 62_500.0
+    # Owner order 2026-08-30 ("when ocean activate it will use more in of
+    # 35%"): Everest's fixed ticket plus 35%. Supersedes the half-size
+    # Rs 62,500 of 2026-08-26. The slot ceiling is unchanged, so Ocean can
+    # commit at most 8 x Rs 1,68,750 = Rs 13.5L. Both are the owner's
+    # numbers to move.
+    ocean_position_value: float = 168_750.0
     ocean_max_positions: int = 8
     # OWNER ORDER 2026-08-09 ("i want to take risk on 200 DMA" -> picked
     # "Brake fully OFF" after being shown the v4 evidence: blind correction

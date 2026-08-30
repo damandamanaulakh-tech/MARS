@@ -385,38 +385,6 @@ def update_dii_rows(rows: list) -> int:
     return n
 
 
-def save_usfda_events(rows: list) -> int:
-    """Upsert USFDA event rows (owner ask 2026-08-25). Keyed
-    ticker|event_id so weekly re-fetches overwrite, never duplicate.
-    Returns how many were NEW (not previously stored) so the journal can
-    name fresh events without re-announcing old ones."""
-    if not _CONNECTED or _DB is None or not rows:
-        return 0
-    new = 0
-    try:
-        for r in rows:
-            key = f"{r.get('ticker')}|{r.get('event_id')}"
-            res = _DB.usfda_events.replace_one(
-                {"_id": key}, {**r, "_id": key}, upsert=True)
-            if res.upserted_id is not None:
-                new += 1
-    except Exception as e:
-        log.warning("Mongo save_usfda_events failed: %s", e)
-    return new
-
-
-def load_usfda_events(ticker: str = "") -> list:
-    """Stored USFDA events, newest first. [] when Mongo is down."""
-    if not _CONNECTED or _DB is None:
-        return []
-    try:
-        q = {"ticker": ticker} if ticker else {}
-        return list(_DB.usfda_events.find(q).sort("date", -1).limit(200))
-    except Exception as e:
-        log.warning("Mongo load_usfda_events failed: %s", e)
-        return []
-
-
 def save_sebi_orders(rows: list) -> int:
     """Upsert SEBI enforcement-order matches (owner order 2026-08-25).
     Keyed ticker|order_id; returns how many were NEW so the journal can

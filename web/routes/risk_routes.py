@@ -24,7 +24,7 @@ def risk_view(request: Request):
     # with stale data and showing the result unlabeled. It is read-only now:
     # the governor is updated only by the engine's own scan/refresh passes on
     # live quotes, and the page says which reading it is showing.
-    # (Codex review on PR#40 caught that the first cut of this fix deleted
+    # (An external review on PR#40 caught that the first cut of this fix deleted
     # the equity the template still renders — /risk 500'd. Equity is computed
     # read-only here, on entry marks, and labelled as such by the template.)
     prices = {p2.ticker: p2.entry_price for p2 in eng.portfolio.positions.values()}

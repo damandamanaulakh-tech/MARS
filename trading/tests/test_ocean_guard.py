@@ -1,10 +1,11 @@
 """Ocean crash guard (owner approval 2026-08-26: "Approve as specced" —
-half-size Rs 62,500, max 8 slots, four rails; parallel with Everest).
+max 8 slots, four rails; parallel with Everest). Ticket resized to
+Rs 1,68,750 on the owner's order of 2026-08-30.
 
 Pinned: each rail blocks and passes on the exact conditions the owner
 approved, with FAIL-SAFE unknowns (a dip-buyer proves safety, never
 assumes it); survival reads the fundamentals STORE (the old yfinance
-path could never pass on Render); an end-to-end scan opens a half-size
+path could never pass on Render); an end-to-end scan opens an
 ocean-tagged position when everything passes, is vetoed by a danger
 fire, and is EXEMPT from the breadth gate (a dip engine exists for
 fallen markets — gating it on breadth would mean it can never buy).
@@ -193,13 +194,15 @@ def eng(tmp_path, monkeypatch):
     ocean._fund_cache.clear()
 
 
-def test_scan_opens_a_half_size_ocean_position(eng):
+def test_scan_opens_an_ocean_sized_position(eng):
     eng.scan()
     p = eng.portfolio.positions.get("CRASH.NS")
     assert p is not None, [e for e in eng.portfolio.decision_journal[-6:]]
     assert "ocean" in p.tags
     notional = p.qty * p.entry_price
-    assert 40_000 <= notional <= 63_000          # Rs 62.5k ticket, not 1.25L
+    # Rs 1,68,750 ticket (owner order 2026-08-30, "use more in of 35%"),
+    # not the Rs 1.25L Everest ticket and not the superseded Rs 62.5k half.
+    assert 1_40_000 <= notional <= 1_70_000
     buy = next(e for e in eng.portfolio.decision_journal
                if e.get("action") == "BUY" and e.get("ticker") == "CRASH.NS")
     assert buy["why"].startswith("OCEAN:")
