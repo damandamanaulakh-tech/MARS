@@ -2129,7 +2129,28 @@ dead, but risk_v2 itself is live — governor/loss-tracker/cash-reserve).**
   (engine calls `pos.entry_date.date()`); a login in this sandbox costs
   ~50s because it reaches for index quotes Yahoo blocks — that is the
   sandbox, not the code.
-- **A (sector-heat basket exit) NOT BUILT YET — being MEASURED first.**
+- **A (sector-heat basket exit) MEASURED AND NOT EARNED — NOT WIRED**
+  (scripts/sector_heat_study.py, research/sector_heat_study/, 92,950
+  stock-days over the 191x12y panel, production `_e0094` via
+  `externals_at`, 5-day grid, fwd20, split 2020-06-30). The basket claim
+  is that when K names in a sector fire 0094 together, the OTHER holdings
+  in that sector fall too — that is the only thing that makes cutting the
+  segment better than cutting the named names. **Not-fired names at k>=3
+  vs k=0: train −1.44% vs +1.22% (gap −2.66pp, looks real); test +2.41%
+  vs +1.98% (gap +0.43pp, WRONG SIGN).** The effect sign-flips between
+  halves on n=1,236 test observations — not a small-sample artifact. Same
+  failure shape as the 3 curve-fit near-misses (threshold sweep
+  2026-08-13) and all 7 FII-tide signals. Regime confound stated and
+  REJECTED as an excuse: the test half is bull-heavy (all-name mean fwd20
+  +1.98% vs train +1.03%), but the baseline carries that too — the GAP is
+  what flipped. **Recommendation: do not wire; the danger layer's existing
+  per-stock exit already does the part that measured.** NOTE, said plainly
+  because it looks alarming: on THIS metric the fired names also read fine
+  in test (+1.92% at k>=3) — that does NOT invalidate 0094's VERIFIED
+  status, which was measured on a different question (lift on COLLAPSE
+  labels within (t,t+10] vs event-window chance, not mean fwd20 return).
+  Do not quote one run's metric against the other's verdict.
+- **(superseded design note) A was to be MEASURED first because:**
   Its whole selling point when proposed was that it is testable on the
   committed panel, and the owner's own rule (REQUIRES_15Y_BACKTEST, the
   reason 112 triggers were measured and only 10 wired) applies because A
