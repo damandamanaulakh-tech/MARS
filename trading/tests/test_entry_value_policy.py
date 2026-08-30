@@ -1,0 +1,101 @@
+"""F-007 and F-009 from the 2026-08-29 external review (owner: "fix f-007
+and f-009 too").
+
+F-007 — the three entry-value numbers lived in three fields and were never
+stated together, so a reviewer read them as a contradiction: the owner's
+order was "roughly 1-1.25 for each trade", yet the book opens Rs 62,500
+Ocean trades and the floor is Rs 25,000. They are three separate owner
+decisions, not a conflict. Pinned here so the policy and the code can never
+drift apart, and so the owner's own manual keeps stating all three.
+
+F-009 — risk_v2 carried an 18/12/6% volatility-tier sizing scheme that was
+never wired (engine.py imported it and never called it; the import went in
+the 2026-08-09 audit) but was documented and TESTED like a live control,
+which is exactly how the reviewer read it. The code and its tests are gone;
+this pins that they stay gone, and that the rest of risk_v2 — which really
+does run in the money path — is untouched.
+"""
+from __future__ import annotations
+
+import inspect
+from pathlib import Path
+
+from trading import risk_v2
+from trading.config import Config
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+# --------------------------------------------------------------------- F-007
+
+def test_the_three_entry_values_are_the_owners_numbers():
+    cfg = Config()
+    assert cfg.position_size_value == 125_000.0   # Everest, order 2026-07-30
+    assert cfg.ocean_position_value == 62_500.0   # Ocean half, appr. 08-26
+    assert cfg.min_position_value == 25_000.0     # dust guard, 2026-07-11
+
+
+def test_ocean_is_exactly_half_of_a_normal_entry():
+    """The approved design word was "half size" — if either number moves
+    without the other, the page and the brief stop being true."""
+    cfg = Config()
+    assert cfg.ocean_position_value == cfg.position_size_value / 2
+
+
+def test_the_floor_is_below_both_sizes_so_it_only_catches_dust():
+    """min_position_value is a SKIP threshold, never a target. If it ever
+    rose above a real entry size it would silently block that engine."""
+    cfg = Config()
+    assert cfg.min_position_value < cfg.ocean_position_value
+    assert cfg.min_position_value < cfg.position_size_value
+
+
+def test_config_states_the_whole_policy_in_one_place():
+    """The reviewer's actual complaint: no single place said all three."""
+    src = (ROOT / "trading" / "config.py").read_text()
+    block = src.split("ENTRY VALUE POLICY")[1][:2000]
+    for token in ("1,25,000", "62,500", "25,000"):
+        assert token in block, token
+    assert "Ocean" in block and "Everest" in block
+
+
+def test_the_owners_manual_states_all_three_sizes():
+    """APP_BRIEF is the owner's manual. Before this fix it named Rs 1.25
+    lakh and never mentioned that Ocean opens half-size trades at all."""
+    brief = (ROOT / "docs" / "APP_BRIEF.md").read_text()
+    for token in ("1,25,000", "62,500", "25,000"):
+        assert token in brief, token
+
+
+# --------------------------------------------------------------------- F-009
+
+DEAD_VOL_TIER_NAMES = ("TIER_THRESHOLDS", "vol_tier", "vol_adjusted_qty",
+                       "annualised_vol_pct")
+
+
+def test_the_never_wired_vol_tier_scheme_is_gone():
+    for name in DEAD_VOL_TIER_NAMES:
+        assert not hasattr(risk_v2, name), f"{name} came back"
+
+
+def test_no_production_module_references_the_dead_names():
+    """Production only — this file necessarily names them, and so may any
+    future regression test."""
+    for py in list((ROOT / "trading").rglob("*.py")) + \
+            list((ROOT / "web").rglob("*.py")):
+        if "tests" in py.parts:
+            continue
+        body = "\n".join(ln for ln in py.read_text().splitlines()
+                         if not ln.lstrip().startswith("#"))
+        for name in DEAD_VOL_TIER_NAMES:
+            assert name not in body, f"{py.name} still references {name}"
+
+
+def test_the_live_half_of_risk_v2_is_untouched():
+    """Deleting the dead scheme must not take the real controls with it —
+    these four run in the money path."""
+    for name in ("DrawdownGovernor", "ConsecutiveLossTracker",
+                 "dynamic_cash_reserve_pct", "correlation_gate_blocks",
+                 "passes_liquidity"):
+        assert hasattr(risk_v2, name), name
+    assert inspect.isclass(risk_v2.DrawdownGovernor)

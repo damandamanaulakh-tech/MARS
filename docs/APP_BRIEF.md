@@ -33,6 +33,13 @@ are impossible now.
    floor, 2026-07-30). Each new trade is a FIXED **₹1.25 lakh** (your order:
    "1.25 lac, 125000, not percentage"), up to 80 slots as the book grows.
    Each stock must also be rising on its own (not just "least bad").
+   **What a trade is worth, all three cases:** a normal (Everest) entry is
+   **₹1,25,000**; an **Ocean** dip-engine entry is deliberately **half —
+   ₹62,500** (you approved that size on 2026-08-26 when you un-parked
+   Ocean, max 8 Ocean slots at a time); and **nothing below ₹25,000 ever
+   opens** — that is a dust guard from 2026-07-11, and a trade that small
+   is skipped outright, not shrunk to fit. So "at least ₹1 lakh" describes
+   Everest only, not every trade the book can make.
 2. **Sell by rails, not feelings:** every position carries **−5% stop /
    +20% target** from day one (your calls: stop 2026-07-26; target raised
    +12→+20 on 2026-08-24 — you picked "Switch to D" after both exit
