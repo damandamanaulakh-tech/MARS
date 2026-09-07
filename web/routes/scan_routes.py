@@ -25,6 +25,13 @@ def _momentum_preset():
     return get_preset("nifty200_momentum")
 
 
+def _next_friday():
+    """The next scheduled batch rebuild: the weekly block's Friday slot."""
+    from datetime import date, timedelta
+    today = date.today()
+    return today + timedelta(days=(4 - today.weekday()) % 7)
+
+
 def _institutional(picks) -> dict:
     """{ticker: institutional holding row} for the scanned picks.
 
@@ -120,6 +127,10 @@ def scan_view(request: Request, error: str | None = None):
             "picks": picks,
             "slots": slots,
             "custom_universe_n": len(getattr(cfg, "custom_universe", ()) or ()),
+            # Owner ask 2026-09-04: this week's batch, on the screen they buy
+            # from. Rebuilt Friday 16:30 IST; Monday only if Friday is missed.
+            "universe_batch": p.universe_batch or {},
+            "next_rebuild": _next_friday().isoformat(),
             "skipped": p.last_scan_skipped or [],
             "opened": p.last_scan_opened or [],
             "last_scan": p.last_scan,

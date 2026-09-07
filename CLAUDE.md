@@ -2275,7 +2275,45 @@ positional & N200 momentum execute the trades".
   universe rebuild changes what is SCANNED, never what is already owned.
   No manual "rebuild now" button was added (not on their list; offered).
 
-User's 8-step plan validated this session: all 8 now built (ticket +
+**ROTATION EXECUTES + BATCH DETAILS CARD (owner 2026-09-04: "skipper exit
+suggestion is there but not executed — make it happen / where is details
+for new batch every monday").** "Skipper exit suggestion" = the F6
+**rotation suggester** on the dashboard, whose card said "Suggestion only;
+nothing is sold automatically" — the exact phrase. (The other candidate,
+the danger layer's alert-week text, was checked and is NOT it: its clock
+starts on the first refresh after deploy, is persisted both ways, and has
+been in auto mode since ~08-18.)
+- **`engine._rotation_exits(picks, now)`**, called in scan() BEFORE the
+  opening loop so the cash it frees is there when can_open counts it. The
+  suggester's rule unchanged (>=`rotation_min_progress` 0.90 to target),
+  but it fires ONLY when cash is SHORT for the fresh picks (need computed
+  by the SAME `position_notional_for` the loop uses, Ocean at its own
+  ticket, minus the regime reserve) — otherwise the +20% target handles
+  the name and selling early gives up its last stretch. Only as many
+  rotations as the shortfall needs, highest progress first (three
+  near-target names must never be sold to fund one). owner_pick exempt
+  (the decay-exit rule). LIVE quote fetched per candidate; a name with
+  none is left alone AND journaled ROTATION_HELD_NO_QUOTE (never a silent
+  skip, never an invented fill). Journals ROTATION_EXIT with progress,
+  target, freed, fund_ticker/score, shortfall. `cfg.rotation_auto_enabled`
+  (default True) + Settings row "Auto Rotation On". Dashboard card copy
+  now says it executes; rotation.py docstring truth-passed.
+- **Batch details on /scan** (`universe_batch_marker`): `portfolio.
+  universe_batch` {ts, count, target, sample, judged, short_by,
+  skipped_thin, skipped_illiquid, added, dropped, held_added} written by
+  refresh_liquid_universe and persisted JSON+Mongo BOTH ways (risk_day
+  lesson, test-pinned by source). Card shows count vs target, the SHORT BY
+  badge with the plain reason, added/dropped lists, "dropping never sells"
+  line, and the next rebuild date (`scan_routes._next_friday`).
+- **"every monday" ANSWERED, not changed:** the slot is **Friday 16:30
+  IST** (so the batch is ready for Monday's open); Monday runs ONLY as the
+  catch-up when Friday's block did not complete. Because the ledger had no
+  stamp when it shipped (Sat 08-30), the FIRST run was due on the first
+  trading day after deploy = Mon 09-01, and the following Friday 09-04
+  read 3 days since → not due → next Fri 09-11. Owner offered a Monday-
+  morning slot if that is what they actually want.
+
+ all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never

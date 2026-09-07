@@ -38,6 +38,41 @@
   </div>
 </div>
 
+{% if universe_batch %}
+<div class="bg-white border border-line mb-6"><!-- universe_batch_marker -->
+  <div class="px-4 lg:px-6 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
+    <span class="text-xs tracking-widest text-ink-faint uppercase">📦 This week's batch — top {{ universe_batch.target }} by rupee turnover</span>
+    <span class="text-[10px] text-ink-faint">rebuilt {{ universe_batch.ts[:16] | replace('T', ' ') }} UTC · next rebuild {{ next_rebuild }} (Fri 16:30 IST; Monday only if Friday is missed)</span>
+  </div>
+  <div class="px-4 lg:px-6 py-4 text-sm space-y-2">
+    <div>
+      <span class="font-bold text-lg tabular-nums">{{ universe_batch.count }}</span> names in the universe
+      {% if universe_batch.short_by %}
+      <span class="ml-2 px-2 py-0.5 bg-amber-100 text-amber-900 text-xs font-semibold">SHORT BY {{ universe_batch.short_by }}</span>
+      <span class="text-xs text-ink-soft">— only {{ universe_batch.judged }} of the {{ universe_batch.sample }} names in the price store cleared the ₹1 crore/day floor. The store fills every Friday; the batch grows toward a full {{ universe_batch.target }} as it does.</span>
+      {% else %}
+      <span class="text-xs text-ink-soft">— a full batch from {{ universe_batch.sample }} stored names.</span>
+      {% endif %}
+    </div>
+    <div class="text-xs text-ink-soft">
+      {{ universe_batch.skipped_thin }} skipped for too little history · {{ universe_batch.skipped_illiquid }} below the floor
+      {% if universe_batch.held_added %} · held names carried in regardless of rank: {{ universe_batch.held_added | join(', ') }}{% endif %}
+    </div>
+    <div class="grid md:grid-cols-2 gap-3 pt-1">
+      <div>
+        <div class="text-[10px] tracking-widest text-emerald-800 uppercase font-bold mb-1">Added ({{ universe_batch.added | length }})</div>
+        <div class="text-xs leading-relaxed">{% if universe_batch.added %}{{ universe_batch.added | join(', ') }}{% else %}<span class="text-ink-faint">none</span>{% endif %}</div>
+      </div>
+      <div>
+        <div class="text-[10px] tracking-widest text-rose-800 uppercase font-bold mb-1">Dropped ({{ universe_batch.dropped | length }})</div>
+        <div class="text-xs leading-relaxed">{% if universe_batch.dropped %}{{ universe_batch.dropped | join(', ') }}{% else %}<span class="text-ink-faint">none</span>{% endif %}</div>
+      </div>
+    </div>
+    <div class="text-[10px] text-ink-faint pt-1">Dropping a name from the universe never sells it — a held position stays until its own exit fires or you sell it.</div>
+  </div>
+</div>
+{% endif %}
+
 {% if user and user.role == 'owner' %}
 <!-- 🟢 Owner order ticket: qty / market-limit / stop / target. Blank = engine decides. -->
 <div class="bg-white border border-line mb-6" x-data="{ otype: 'market' }">

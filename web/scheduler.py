@@ -1150,6 +1150,19 @@ def refresh_liquid_universe(where: str = "weekly") -> dict:
         db.save_settings({"custom_universe": list(picked)})
         added = sorted(set(picked) - set(before))
         dropped = sorted(set(before) - set(picked))
+        # Owner ask 2026-09-04 ("where is details for new batch"): keep the
+        # whole story on the portfolio (persisted JSON + Mongo, the risk_day
+        # lesson) so /scan can show it without digging through the journal.
+        p.universe_batch = {
+            "ts": _dt.utcnow().isoformat(), "where": where,
+            "count": len(picked), "target": target,
+            "sample": res["sample"], "judged": res["judged"],
+            "short_by": res["short_by"],
+            "skipped_thin": res["skipped_thin"],
+            "skipped_illiquid": res["skipped_illiquid"],
+            "added": added, "dropped": dropped,
+            "held_added": res.get("held_added", []),
+        }
         note = ("" if not res["short_by"] else
                 f" SHORT BY {res['short_by']}: only {res['judged']} of the "
                 f"{res['sample']} stored names cleared the liquidity floor, "

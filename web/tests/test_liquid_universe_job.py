@@ -45,6 +45,12 @@ def test_job_rebuilds_the_universe_and_persists_it(monkeypatch):
         assert set(cfg.custom_universe) == {"BIG.NS", "MID.NS"}
         assert set(saved["custom_universe"]) == {"BIG.NS", "MID.NS"}
         assert res["skipped_illiquid"] == 1
+        # Owner ask 2026-09-04 ("where is details for new batch"): the story
+        # is kept on the portfolio for /scan, not only in the journal.
+        b = p.universe_batch
+        assert b["count"] == 2 and b["target"] == 500
+        assert set(b["added"]) == {"BIG.NS", "MID.NS"}
+        assert b["short_by"] == 498 and b["skipped_illiquid"] == 1
         assert "UNIVERSE_BATCH" in _own(p, n0)
         why = next(e["why"] for e in p.decision_journal[n0:]
                    if e.get("action") == "UNIVERSE_BATCH")
