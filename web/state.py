@@ -68,6 +68,7 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     # Mirror BOTH ways or a Render restart silently loses it — the risk_day
     # lesson from 2026-07-27.
     p.news_watch = dict(doc.get("news_watch", {}) or {})
+    p.universe_batch = dict(doc.get("universe_batch", {}) or {})
     p.breadth_store = dict(doc.get("breadth_store", {}) or {})
     p.option_chain = dict(doc.get("option_chain", {}) or {})
     p.register_market = dict(doc.get("register_market", {}) or {})
@@ -127,6 +128,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "loss_count": self.loss_count,
             "trigger_watch": self.trigger_watch,
             "news_watch": self.news_watch,
+            "universe_batch": self.universe_batch,
             "breadth_store": self.breadth_store,
             "option_chain": self.option_chain,
             "register_market": self.register_market,

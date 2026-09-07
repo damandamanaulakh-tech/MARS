@@ -119,6 +119,7 @@ class Portfolio:
     scan_matrix: dict = field(default_factory=dict)  # 🎹 full scan hit-map (overwritten each scan)
     trigger_watch: dict = field(default_factory=dict)  # ⚡ owner's trigger-layer daily result (display+watchlist only)
     news_watch: dict = field(default_factory=dict)     # 📰 news verdict per stock (display only, never blocks)
+    universe_batch: dict = field(default_factory=dict)  # 📦 this week's liquidity batch: what came in/out (owner ask 2026-09-04)
     breadth_store: dict = field(default_factory=dict)  # F3: full-store breadth reading {pct, sample, asof} the A3 gate prefers over the noisy bucket sample
     option_chain: dict = field(default_factory=dict)   # Node 8: daily chain snapshot {asof, rows, history} (display/triggers only; needs the daily login)
     register_market: dict = field(default_factory=dict)  # Node 10: nightly full-store register market view {asof, sample, rows} (/register reads, never computes)
@@ -233,6 +234,7 @@ class Portfolio:
                 "scan_matrix": self.scan_matrix,               # 🎹 one scan's hit-map, fixed size
                 "trigger_watch": self.trigger_watch,           # ⚡ trigger-layer daily result
                 "news_watch": self.news_watch,                 # 📰 news verdict per stock
+                "universe_batch": self.universe_batch,         # 📦 weekly batch details
                 "breadth_store": self.breadth_store,           # F3 full-store breadth
                 "option_chain": self.option_chain,             # Node 8 chain snapshot
                 "register_market": self.register_market,       # Node 10 precompute
@@ -281,6 +283,7 @@ class Portfolio:
             p.scan_matrix = dict(data.get("scan_matrix", {}))
             p.trigger_watch = dict(data.get("trigger_watch", {}))
             p.news_watch = dict(data.get("news_watch", {}))
+            p.universe_batch = dict(data.get("universe_batch", {}) or {})
             p.breadth_store = dict(data.get("breadth_store", {}))
             p.option_chain = dict(data.get("option_chain", {}))
             p.register_market = dict(data.get("register_market", {}))

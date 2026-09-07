@@ -189,6 +189,15 @@ class Config:
     # per-stock defence (mode B): 1 fire = tighten stop to -2.5% off price,
     # 2+ fires = exit half. Sell side ONLY - never entries (F-006).
     danger_layer_enabled: bool = True
+    # OWNER ORDER 2026-09-04 ("skipper exit suggestion is there but not
+    # executed — make it happen"): the F6 rotation suggester now EXECUTES.
+    # At the scan, a position >= rotation_min_progress of the way to its
+    # target is SOLD to fund a fresh pick the cash cannot cover — only when
+    # cash is actually short, only as many as the shortfall needs. Owner
+    # picks are exempt (the score-decay rule); a name with no live quote is
+    # skipped, never filled at an invented price. Settings toggle.
+    rotation_auto_enabled: bool = True
+    rotation_min_progress: float = 0.90       # the suggester's own bar
     # A3 breadth gate (owner: "wire it", 2026-07-27). New momentum entries
     # only when >50% of the scan panel's tickers close above their own
     # 200DMA. Preregistered evidence: docs/breadth_gate_results.json —

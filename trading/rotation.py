@@ -2,8 +2,11 @@
 
 When an open position is most of the way to its target, its remaining upside
 is small; that capital may be better recycled into a fresh top-scored pick.
-This module only SUGGESTS — it never sells. Paper-only discipline: the user
-decides. Suggestions surface on the dashboard.
+This module computes the suggestions. Until 2026-09-04 they were display
+only; on the owner's order that day ("skipper exit suggestion is there but
+not executed — make it happen") engine._rotation_exits executes them at the
+scan, when — and only when — cash is short for a fresh pick. The dashboard
+card still shows them, now as what the next scan will do.
 """
 
 from __future__ import annotations

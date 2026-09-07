@@ -585,6 +585,16 @@ class TradingEngine:
             except Exception as e:
                 log.warning("live fill quotes unavailable — prior close: %s", e)
 
+        # OWNER ORDER 2026-09-04: rotation executes. Runs BEFORE the opening
+        # loop so the cash it frees is there when can_open counts it.
+        try:
+            rotated_out = self._rotation_exits(picks, now)
+        except Exception as e:
+            log.exception("rotation exits failed — picks proceed on cash as-is: %s", e)
+            rotated_out = []
+        if rotated_out:
+            picks = [pk for pk in picks if pk["ticker"] not in rotated_out]
+
         for pick in picks:
             if binary_event is not None:
                 skipped.append({
@@ -1293,6 +1303,110 @@ class TradingEngine:
                 entry["action"] = "DANGER_EXIT_HALF"
             self.portfolio.decision_journal.append(entry)
         self.portfolio.save()
+
+    def _rotation_exits(self, picks: list, now: datetime) -> list:
+        """OWNER ORDER 2026-09-04 ("skipper exit suggestion is there but not
+        executed — make it happen"): the F6 rotation suggester EXECUTES.
+
+        The suggester's own rule, unchanged: a position >= rotation_min_progress
+        of the way to its target has little upside left, so if a fresh pick
+        cannot be funded from cash, that position is sold to free the capital
+        and the opening loop that follows funds the pick.
+
+        Guards, each with its reason:
+          * only when cash is actually SHORT for the fresh picks — otherwise
+            the +20% target handles the near-target name, and selling early
+            just gives up its last stretch for nothing;
+          * only as many rotations as the shortfall needs, highest progress
+            first — three near-target names must never be sold to fund one;
+          * owner_pick positions are exempt, the same rule the score-decay
+            exit follows: the owner's own picks are theirs to sell;
+          * a LIVE quote is fetched for every candidate, and a name with none
+            is left alone and journaled — never an invented fill (the
+            2026-08-04 rule). The suggester reads progress off the live quote,
+            so an unquoted name cannot even be suggested.
+        Returns the tickers rotated out.
+        """
+        cfg = self.cfg
+        if not bool(getattr(cfg, "rotation_auto_enabled", True)):
+            return []
+        held = self.portfolio.positions
+        fresh = [pk for pk in (picks or [])
+                 if pk.get("ticker") and pk["ticker"] not in held]
+        if not fresh or not held:
+            return []
+
+        # What the fresh picks need, by the SAME sizing call the opening loop
+        # makes, against what cash can spend after the regime reserve.
+        from .sizing import position_notional_for
+        eq = self.portfolio.cash + sum(
+            float(p.qty) * float(p.entry_price) for p in held.values())
+        need = 0.0
+        for pk in fresh:
+            if pk.get("ocean"):
+                need += float(getattr(cfg, "ocean_position_value", 0) or 0)
+            else:
+                need += float(position_notional_for(
+                    cfg, eq, score=pk.get("score"), close=None)[0] or 0)
+        reserve = float(getattr(cfg, "cash_reserve_pct", 0.0) or 0.0)
+        shortfall = need - (self.portfolio.cash - eq * reserve)
+        if shortfall <= 0:
+            return []
+
+        candidates = [t for t, p in held.items()
+                      if "owner_pick" not in (getattr(p, "tags", None) or [])]
+        if not candidates:
+            return []
+        try:
+            live = routed_fetch_quotes(candidates, upstox_client=self.broker) or {}
+        except Exception as e:
+            log.warning("rotation: live quotes unavailable: %s", e)
+            live = {}
+        unquoted = sorted(t for t in candidates
+                          if not live.get(t) or float(live.get(t) or 0) <= 0)
+        if unquoted:
+            self.portfolio.decision_journal.append({
+                "ts": now.isoformat(), "action": "ROTATION_HELD_NO_QUOTE",
+                "tickers": unquoted,
+                "why": (f"Rotation could not assess {', '.join(unquoted)}: no "
+                        f"live quote, so no invented fill. Cash short by "
+                        f"₹{shortfall:,.0f} for {len(fresh)} fresh pick(s)."),
+            })
+
+        from .rotation import rotation_suggestions
+        min_prog = float(getattr(cfg, "rotation_min_progress", 0.90) or 0.90)
+        suggestions = rotation_suggestions(
+            {t: held[t] for t in candidates}, live, fresh, cfg,
+            min_progress=min_prog)
+
+        rotated: list = []
+        freed = 0.0
+        for s in suggestions:
+            if freed >= shortfall:
+                break
+            t = s["ticker"]
+            px = float(live.get(t) or 0)
+            if px <= 0 or t not in held:
+                continue
+            value = float(held[t].qty) * px
+            self._close(t, px, "ROTATION_EXIT", now)
+            freed += value
+            rotated.append(t)
+            self.portfolio.decision_journal.append({
+                "ts": now.isoformat(), "action": "ROTATION_EXIT", "ticker": t,
+                "price": round(px, 2), "progress_pct": s["progress_pct"],
+                "target": s["target"], "freed": round(value, 2),
+                "fund_ticker": s.get("fund_ticker"),
+                "fund_score": s.get("fund_score"),
+                "why": (f"Rotated out {t} at ₹{px:,.2f} — {s['progress_pct']}% "
+                        f"of the way to its ₹{s['target']:,.2f} target — to "
+                        f"free ₹{value:,.0f} for {s.get('fund_ticker') or 'a fresh pick'}"
+                        f" (score {s.get('fund_score')}). Cash was short by "
+                        f"₹{shortfall:,.0f}; ₹{freed:,.0f} freed so far. "
+                        f"Owner order 2026-09-04 — the suggester executes."),
+                "cash_after": round(self.portfolio.cash, 2),
+            })
+        return rotated
 
     def _exit_half(self, ticker: str, raw_price: float, reason: str,
                    now: datetime) -> None:
