@@ -2313,6 +2313,46 @@ been in auto mode since ~08-18.)
   read 3 days since → not due → next Fri 09-11. Owner offered a Monday-
   morning slot if that is what they actually want.
 
+**OWNER'S 12-STOCK REVIEW + TWO FAULTS FIXED (2026-09-08, owner: "review
+these stocks under AM07 POV" → "fix both faults / before that give me
+result for these 12 for next 6-9-12 months").**
+- Review method (reusable): tokenless Upstox daily candles (2y) → the
+  engine's OWN functions (momentum_score + quality blend 35%, floor 62,
+  abs-momentum, timing_ok, candle_confirmation, passes_liquidity,
+  danger.evaluate_stock, news_feed.read_stock). All 12 (BALKRISIND,
+  LATENTVIEW, JWL, RAILTEL, KEC, TRANSRAILL, GODFRYPHLP, BSOFT, ZENSARTECH,
+  RHIM, SURYAROSNI, THERMAX) FAILED the 62 floor (best THERMAX 58.3); 9 of
+  12 sat 9-29% under their 200DMA; no Ocean candidate (needs -30%); no
+  danger tripwire. "BL" = BALKRISIND (close 2287.10 vs their 2288).
+- **6/9/12-month "forecast" = MEASURED BASE RATES, not a model**: the
+  engine predicts nothing, so the answer was forward returns counted over
+  the committed 191x12y panel at monthly points (20,846 observations),
+  bucketed by AM07 score band x above/below 200DMA (scratchpad script
+  base_rates.py; median / p25 / p75 / %positive / %flat±5). CAVEAT
+  STATED: the panel is today's survivors, so the sub-45 band's rosy
+  numbers (median +13% at 6m) are inflated — names that kept falling left
+  the index and are not counted. Do not quote that band as an edge.
+- **FAULT 1 FIXED — news matcher tagged a PERSON as the company.** "CBI
+  court acquits Acharya Balkrishna" (Patanjali executive) gave Balkrishna
+  INDUSTRIES a regulatory TRIGGER: the surname alone cleared the
+  single-token rule. Now `news_feed._weak_token` (first name token) counts
+  ONLY with `_MARKET_CONTEXT` in the same headline (share/stock/results/
+  order/NCD/...); full core name and symbol stay strong phrases; one-word
+  company names ("suzlon") unchanged. Test pins the exact headlines.
+- **FAULT 2 FIXED — share-count liquidity floor DELETED.** `LiquidityRules
+  .min_avg_daily_volume_shares=200_000` blocked THERMAX (136k shares but
+  Rs 48 Cr/day — on the owner's OWN 50 list, so it could never be bought)
+  and GODFRYPHLP (191k, Rs 31 Cr). The Rs 5 Cr 5-day rupee rule was
+  already there and is now the ONE measure, matching universe_select's
+  rupee ranking. Field removed (not zeroed), guard test keeps it out;
+  risk.html + dashboard copy truth-passed. Money-path change on owner
+  order: a liquid high-priced stock that clears the score floor can now
+  enter — nothing else moved.
+- July port branch `port/stock-session-round1` (owner: "delete the july
+  one"): the session git proxy returns 403 on any push except the
+  designated branch, so deletion is an OWNER action on GitHub (Branches →
+  trash icon). Told them.
+
  all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

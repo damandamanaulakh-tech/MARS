@@ -120,10 +120,31 @@ def test_correlation_gate_passes_when_uncorrelated():
 
 def test_liquidity_fails_low_volume():
     closes = _series([100.0] * 30)
-    vols = _series([50_000] * 30)   # below 200k floor
+    vols = _series([50_000] * 30)   # Rs 0.5 Cr a day — thin in rupees
     ok, reason = passes_liquidity(closes, vols)
     assert ok is False
-    assert "adv" in reason
+    assert "rupee_vol" in reason
+
+
+def test_high_priced_liquid_stock_passes_on_rupee_turnover():
+    """Owner order 2026-09-08 ("fix both faults"): THERMAX traded ~136k
+    shares but Rs 48 Cr a day and was blocked by a 200k-share floor — a
+    share count says nothing about liquidity. Rupee turnover is the rule."""
+    closes = _series([3_622.0] * 30)
+    vols = _series([136_000] * 30)
+    ok, reason = passes_liquidity(closes, vols)
+    assert ok is True, reason
+
+
+def test_share_count_floor_never_returns():
+    """The share-count field is deleted, not zeroed — a zeroed knob invites
+    someone to 'turn it back on'."""
+    import inspect
+    from trading import risk_v2
+    src = "\n".join(ln for ln in inspect.getsource(risk_v2).splitlines()
+                    if not ln.lstrip().startswith("#"))
+    assert "min_avg_daily_volume_shares" not in src
+    assert not hasattr(LiquidityRules(), "min_avg_daily_volume_shares")
 
 
 def test_liquidity_passes_good_volume():

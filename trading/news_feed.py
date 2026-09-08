@@ -271,36 +271,78 @@ def company_name(ticker: str) -> Optional[str]:
     return _names.get(ticker.upper())
 
 
-def _accept_phrases(ticker: str) -> tuple[str, ...]:
-    """Phrases that mean this headline is really about this stock.
+# Words that say a headline is about a listed company rather than a person
+# or a place that happens to share its name. A single name token ("balkrishna",
+# "suzlon") is accepted ONLY next to one of these — see _weak_token.
+_MARKET_CONTEXT = re.compile(
+    r"\b(shares?|stocks?|nse|bse|sensex|nifty|q[1-4]|fy ?\d{2,4}|results?|"
+    r"quarter(?:ly)?|orders?|profit|revenue|ebitda|margins?|dividend|market cap|"
+    r"ltd|limited|promoters?|ipo|qip|ncds?|debentures?|rating|target price|"
+    r"brokerage|buyback|agm|board|listed|investors?|upper circuit|lower circuit)\b"
+)
 
-    Either the trading symbol as a word, or the company's core name (suffixes
-    stripped). Google News answers a company query with sector round-ups and
-    unrelated pieces — an RBI headline about AI fraud detection was tagging a
-    bank as a governance risk until this filter existed.
+
+def _strong_phrases(ticker: str) -> tuple[str, ...]:
+    """Phrases that by themselves mean the headline is about this stock: the
+    trading symbol as a word, or the company's core name (suffixes stripped).
+    Google News answers a company query with sector round-ups and unrelated
+    pieces — an RBI headline about AI fraud detection was tagging a bank as a
+    governance risk until this filter existed.
     """
     sym = ticker.split(".")[0].lower()
+    out = [sym]
+    core = _core_name(ticker)
+    if core:
+        out.append(core)
+    return tuple(dict.fromkeys(p for p in out if p))
+
+
+def _core_name(ticker: str) -> str:
     name = (company_name(ticker) or "").lower()
     core = re.sub(r"\b(ltd|limited|india|corp|corporation|company|the)\b\.?",
                   " ", name)
     core = re.sub(r"[^a-z0-9 ]+", " ", core)
-    core = re.sub(r"\s+", " ", core).strip()
-    out = [sym]
-    if core:
-        out.append(core)
-        first = core.split()[0]
-        # a distinctive single token is enough ("suzlon", "reliance"); a short
-        # or generic one is not ("yes", "tata" would drag in siblings)
-        if len(first) >= 6 and first not in ("general", "national", "central"):
-            out.append(first)
-    return tuple(dict.fromkeys(p for p in out if p))
+    return re.sub(r"\s+", " ", core).strip()
+
+
+def _weak_token(ticker: str) -> Optional[str]:
+    """The company's first name token alone ("suzlon", "balkrishna") — enough
+    when prose uses the short name, but NOT on its own.
+
+    Found live 2026-09-08: "CBI court acquits Acharya Balkrishna in passport
+    forgery case" (a Patanjali executive) tagged Balkrishna INDUSTRIES with a
+    regulatory risk, because the surname alone cleared this rule. A single
+    token now counts only when the headline also carries market context
+    (share/stock/results/order/...), which a court story about a person does
+    not. A short or generic token is never accepted ("yes", "tata" would drag
+    in siblings).
+    """
+    core = _core_name(ticker)
+    if not core:
+        return None
+    first = core.split()[0]
+    if first == core:            # one-word company name: already a strong phrase
+        return None
+    if len(first) >= 6 and first not in ("general", "national", "central"):
+        return first
+    return None
+
+
+def _accept_phrases(ticker: str) -> tuple[str, ...]:
+    """All phrases the matcher knows for this stock (strong first, then the
+    context-gated single token). Kept for callers that only list them."""
+    weak = _weak_token(ticker)
+    return _strong_phrases(ticker) + ((weak,) if weak else ())
 
 
 def mentions_company(title: str, ticker: str) -> bool:
     low = title.lower()
-    for p in _accept_phrases(ticker):
+    for p in _strong_phrases(ticker):
         if re.search(rf"\b{re.escape(p)}\b", low):
             return True
+    weak = _weak_token(ticker)
+    if weak and re.search(rf"\b{re.escape(weak)}\b", low):
+        return _MARKET_CONTEXT.search(low) is not None
     return False
 
 

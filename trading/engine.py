@@ -653,7 +653,7 @@ class TradingEngine:
                 last_low = float(tic_hist["Low"].iloc[-1]) if "Low" in tic_hist else None
                 last_close = float(tic_hist["Close"].iloc[-1])
                 # v5: skip live mcap fetch — yfinance .info is slow + often
-                # fails from cloud IPs. ADV + rupee_volume floor already
+                # fails from cloud IPs. The rupee-turnover floor already
                 # block illiquid names; live mcap was a redundant second gate.
                 mcap_cr = None
                 spread_pct = None
