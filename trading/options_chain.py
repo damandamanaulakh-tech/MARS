@@ -175,10 +175,13 @@ def is_fresh(asof: str, today: Optional[date] = None,
     return ((today or date.today()) - d).days <= max_age_days
 
 
-def snapshot_universe(broker, tickers: list, key_of, today: date) -> dict:
+def snapshot_universe(broker, tickers: list, key_of, today: date,
+                      include_index: bool = True) -> dict:
     """Fetch + summarize the chain for every F&O name in `tickers` (plus the
-    NIFTY index under '^NSEI'). Returns {"asof", "rows", "skipped_no_fo",
-    "failed"} — the scheduler stores it; nothing here touches state.
+    NIFTY index under '^NSEI' unless `include_index` is False — the owner's
+    one-stock "read the chain now" button, 2026-09-08, reads only the
+    stock). Returns {"asof", "rows", "skipped_no_fo", "failed"} — the
+    scheduler stores it; nothing here touches state.
 
     `key_of(ticker)` -> instrument key or None. Names without option
     contracts are recorded once as not-F&O (absence of an options market is
@@ -187,7 +190,7 @@ def snapshot_universe(broker, tickers: list, key_of, today: date) -> dict:
     rows: dict = {}
     no_fo: list = []
     failed: list = []
-    targets = [("^NSEI", "NSE_INDEX|Nifty 50")] + [
+    targets = ([("^NSEI", "NSE_INDEX|Nifty 50")] if include_index else []) + [
         (t, key_of(t)) for t in tickers]
     for ticker, ik in targets:
         if not ik:

@@ -109,6 +109,25 @@ def triggers_run_now(request: Request):
     return RedirectResponse("/triggers", status_code=303)
 
 
+@router.post("/triggers/{ticker}/chain")
+def trigger_chain_read(request: Request, ticker: str):
+    """Owner button (order 2026-09-08: "build 1"): read this one stock's
+    option chain now through the stored Upstox login. Display only."""
+    user = auth.current_user(request)
+    t = ticker.strip().upper()
+    if not t.endswith(".NS"):
+        t += ".NS"
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    if user.get("role") != "owner":
+        return RedirectResponse(f"/triggers/{t}?chain=owner_only",
+                                status_code=303)
+    from ..scheduler import read_option_chain_now
+    res = read_option_chain_now(t, "owner-button")
+    return RedirectResponse(f"/triggers/{t}?chain={res.get('status')}",
+                            status_code=303)
+
+
 @router.get("/triggers/{ticker}", response_class=HTMLResponse)
 def trigger_detail(request: Request, ticker: str):
     """One stock through all 112 triggers: fired, quiet, and DATA_NEEDED —
@@ -180,9 +199,26 @@ def trigger_detail(request: Request, ticker: str):
             sebi = db.load_sebi_orders(ticker)[:10]
         except Exception:
             log.exception("sebi events load failed")
+        # Option chain for this stock: today's snapshot row (daily job or
+        # the owner's read-now button), shown ONLY while fresh — a stale
+        # chain never wears today's confidence. Owner order 2026-09-08.
+        chain = {"row": None, "asof": "", "days": 0, "no_fo": False,
+                 "deterioration": getattr(ext, "chain_deterioration", None),
+                 "msg": request.query_params.get("chain", "")}
+        try:
+            from trading.options_chain import is_fresh
+            oc = state.portfolio().option_chain or {}
+            crow = (oc.get("rows") or {}).get(ticker)
+            chain["asof"] = str(oc.get("asof") or "")
+            chain["days"] = len((oc.get("history") or {}).get(ticker) or [])
+            chain["no_fo"] = ticker in (oc.get("skipped_no_fo") or [])
+            if isinstance(crow, dict) and is_fresh(chain["asof"]):
+                chain["row"] = crow
+        except Exception:
+            log.exception("chain context failed")
         detail = {"ticker": ticker, "view": view, "by_family": by_family,
                   "bars": len(df), "news": news_detail,
-                  "sebi": sebi,
+                  "sebi": sebi, "chain": chain,
                   "stage": stage, "stage_meta": STAGE_META[stage["stage"]]}
     return templates.TemplateResponse(
         request, "triggers.html",

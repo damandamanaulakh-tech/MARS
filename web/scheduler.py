@@ -564,8 +564,13 @@ def run_option_chain_snapshot(where: str = "manual") -> dict:
 
     try:
         today = _date.today().isoformat()
-        if (p.option_chain or {}).get("asof") == today:
-            return p.option_chain            # already snapped today
+        # Already snapped today — but only a UNIVERSE snapshot counts. The
+        # owner's one-stock "read the chain now" button (2026-09-08) also
+        # stamps today's date with scope "single"; that must not stop the
+        # daily universe pass.
+        if ((p.option_chain or {}).get("asof") == today
+                and (p.option_chain or {}).get("scope", "universe") == "universe"):
+            return p.option_chain
         eng = state.engine()
         broker = getattr(eng, "broker", None)
         if broker is None or not getattr(broker, "is_connected",
@@ -607,7 +612,7 @@ def run_option_chain_snapshot(where: str = "manual") -> dict:
         p.option_chain = {"asof": snap["asof"], "ts": snap["ts"],
                           "rows": snap["rows"], "history": hist,
                           "skipped_no_fo": snap["skipped_no_fo"],
-                          "failed": snap["failed"]}
+                          "failed": snap["failed"], "scope": "universe"}
         p.save()
         _journal("OPTION_CHAIN_SNAPSHOT",
                  f"Option chain snapped for {len(snap['rows'])} name(s) "
@@ -626,6 +631,95 @@ def run_option_chain_snapshot(where: str = "manual") -> dict:
         except Exception:
             pass
         return {}
+
+
+def read_option_chain_now(ticker: str, where: str = "owner-button") -> dict:
+    """Owner button (order 2026-09-08: "build 1"): read ONE stock's option
+    chain right now through the stored Upstox login and keep it beside the
+    daily snapshot. Display only — feeds the same three consumers
+    (T12W_0102 / W-022 / W-007) the daily job feeds; nothing here touches
+    an entry or an exit.
+
+    Returns {"status": ok | needs_login | no_fo | failed, ...}. The reason a
+    read cannot happen is returned, never hidden: the option endpoints need
+    the daily token (unlike candles), and a stock without an options market
+    has nothing to read.
+
+    Storage rule: if today's snapshot already exists, the row is merged into
+    it (scope kept). If the stored snapshot is older, a NEW today's dict with
+    this one row replaces it and is stamped scope "single" — older rows are
+    dropped rather than left wearing today's as-of (the stale-chain fault
+    attach_chain exists to prevent), and the "single" scope tells the 09:20
+    universe job it still has to run.
+    """
+    from datetime import date as _date, datetime as _dt
+
+    from . import state
+    p = state.portfolio()
+    t = (ticker or "").strip().upper()
+    if t and not t.endswith(".NS"):
+        t += ".NS"
+
+    def _journal(action, why):
+        try:
+            p.decision_journal.append(
+                {"ts": _dt.utcnow().isoformat(), "action": action,
+                 "ticker": t, "why": why})
+            p.save()
+        except Exception:
+            pass
+
+    eng = state.engine()
+    broker = getattr(eng, "broker", None)
+    if broker is None or not getattr(broker, "is_connected",
+                                     lambda: False)():
+        return {"status": "needs_login", "ticker": t}
+    try:
+        from trading.brokers.upstox_instruments import to_instrument_keys
+        from trading.options_chain import HISTORY_KEEP, snapshot_universe
+        today = _date.today()
+        keys = to_instrument_keys([t])
+        snap = snapshot_universe(broker, [t], keys.get, today,
+                                 include_index=False)
+    except Exception as e:
+        log.exception("option chain read failed for %s: %s", t, e)
+        _journal("OPTION_CHAIN_READ_FAILED",
+                 f"Owner chain read for {t} crashed: {e}")
+        return {"status": "failed", "ticker": t, "why": str(e)}
+    if t in snap["skipped_no_fo"]:
+        return {"status": "no_fo", "ticker": t}
+    if t not in snap["rows"]:
+        _journal("OPTION_CHAIN_READ_FAILED",
+                 f"Owner chain read for {t}: Upstox answered but the chain "
+                 "carried no usable open interest — DATA_NEEDED, not zero.")
+        return {"status": "failed", "ticker": t}
+    row = snap["rows"][t]
+    asof = today.isoformat()
+    cur = dict(p.option_chain or {})
+    if cur.get("asof") == asof:
+        rows = dict(cur.get("rows") or {})
+        rows[t] = row
+        cur.update({"rows": rows, "ts": snap["ts"]})
+        cur["skipped_no_fo"] = [x for x in (cur.get("skipped_no_fo") or [])
+                                if x != t]
+        cur["failed"] = [x for x in (cur.get("failed") or []) if x != t]
+    else:
+        cur = {"asof": asof, "ts": snap["ts"], "rows": {t: row},
+               "history": dict(cur.get("history") or {}),
+               "skipped_no_fo": [], "failed": [], "scope": "single"}
+    hist = dict(cur.get("history") or {})
+    kept = [x for x in (hist.get(t) or []) if x[0] != asof]
+    kept.append((asof, row.get("pcr_oi"), row.get("iv_skew")))
+    hist[t] = kept[-HISTORY_KEEP:]
+    cur["history"] = hist
+    p.option_chain = cur
+    p.save()
+    _journal("OPTION_CHAIN_READ",
+             f"Owner read the option chain for {t} ({where}): PCR(OI) "
+             f"{row.get('pcr_oi')}, IV skew {row.get('iv_skew')}, expiry "
+             f"{row.get('expiry')}; {len(hist[t])} recording(s) held for "
+             "the 15-day pattern. Display only.")
+    return {"status": "ok", "ticker": t, "row": row, "days": len(hist[t])}
 
 
 def run_market_fii_snapshot(where: str = "manual") -> bool:
