@@ -109,6 +109,26 @@ def test_headlines_must_actually_name_the_stock():
                               "RELIANCE.NS")
 
 
+def test_a_person_sharing_the_company_name_is_not_the_company():
+    """Found live 2026-09-08 on the owner's review list: two court stories
+    about Acharya Balkrishna (a Patanjali executive) gave Balkrishna
+    INDUSTRIES a regulatory-risk TRIGGER. The surname alone cleared the
+    single-token rule. Fixed on the owner's order ("fix both faults"): a
+    lone name token needs market context in the same headline."""
+    for t in ("CBI court acquits Acharya Balkrishna in passport forgery case",
+              "Ramdev aide Acharya Balkrishna acquitted in 15-year-old passport "
+              "forgery case by CBI court"):
+        assert not N.mentions_company(t, "BALKRISIND.NS"), t
+    # the company's own news still matches — full name, or short name with
+    # market context
+    assert N.mentions_company(
+        "Balkrishna Industries approves Rs 550 crore NCD issuance", "BALKRISIND.NS")
+    assert N.mentions_company(
+        "Balkrishna shares jump 4% after Q1 results", "BALKRISIND.NS")
+    # a one-word company name is a strong phrase on its own, as before
+    assert N.mentions_company("Suzlon bags 100 MW wind order", "SUZLON.NS")
+
+
 def test_quote_pages_are_dropped_as_noise():
     """Measured live: RELIANCE's top three 'headlines' were a live-price page,
     a chart page and a weekly-outlook template."""

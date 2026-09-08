@@ -169,7 +169,14 @@ def correlation_gate_blocks(
 
 @dataclass
 class LiquidityRules:
-    min_avg_daily_volume_shares: float = 200_000     # at least 2L shares/day
+    # NO share-count floor. Until 2026-09-08 this gate also demanded 200,000
+    # shares a day, which a high-priced stock never reaches however liquid it
+    # is: THERMAX (~136k shares but Rs 48 Cr a day) and GODFRYPHLP (~191k,
+    # Rs 31 Cr) were blocked from entry while penny names sailed through —
+    # the share-count trap the weekly universe batch already avoids by
+    # ranking on rupee turnover (trading/universe_select.py). The owner
+    # ordered it fixed ("fix both faults"); liquidity is measured in rupees
+    # here, exactly as it is there. A guard test keeps the old field out.
     min_rupee_volume_5d_cr: float = 5.0              # min ₹5 Cr daily rupee turnover (avg over 5d)
     max_spread_pct: float = 0.001                    # 0.1% bid-ask (Upstox-derived; soft when no live quote)
     min_market_cap_cr: float = 5_000.0               # min ₹5,000 Cr free-float mcap
@@ -198,12 +205,8 @@ def passes_liquidity(
     if close is None or volume is None or len(close.dropna()) < 20:
         return False, "insufficient_history"
 
-    # Average daily volume (last 20 days)
-    adv = float(volume.dropna().iloc[-20:].mean())
-    if adv < rules.min_avg_daily_volume_shares:
-        return False, f"adv {adv:,.0f} < {rules.min_avg_daily_volume_shares:,.0f}"
-
-    # Rupee volume (price * vol, avg of 5 days, in Crores)
+    # Rupee volume (price * vol, avg of 5 days, in Crores) — the ONE liquidity
+    # measure (see LiquidityRules for why the share count was removed)
     rupee_vol = (close.iloc[-5:] * volume.iloc[-5:]).dropna().mean()
     rupee_vol_cr = float(rupee_vol) / 1e7
     if rupee_vol_cr < rules.min_rupee_volume_5d_cr:
