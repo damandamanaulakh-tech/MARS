@@ -931,6 +931,53 @@ def _weekly_index_refresh() -> None:
                          f"Weekly index refresh crashed: {e}")
 
 
+def _sector_index_refresh() -> None:
+    """Real NSE sector-index daily closes (owner order 2026-09-09 "fix it":
+    Nifty IT fell 10% in six sessions and no screen in the app said so).
+
+    Runs beside the index tail — before the 09:20 scans, at boot catch-up,
+    in the 15:35 EOD pass (so TODAY'S close lands today) and in the Friday
+    block. Tokenless public candles; idempotent; quiet when already current.
+
+    DISPLAY ONLY, deliberately. The calibration-VERIFIED danger tripwires
+    T12W_0094/0095 keep their OWN equal-weight sector construction: their
+    lift was measured on that definition, and swapping the input under a
+    verified trigger would silently void its evidence.
+    """
+    from . import db
+    if not db.is_connected():
+        _refresh_journal("DATA_REFRESH_SECTOR_SKIPPED",
+                         "Sector index refresh skipped: Mongo offline.")
+        return
+    try:
+        from trading import data as tdata, data_refresh as dr
+        stored = db.load_sector_rows()
+        last = max((str(r.get("date") or "") for r in stored), default="")
+        broker = tdata.history_broker()
+        if broker is None:
+            _refresh_journal("DATA_REFRESH_SECTOR_SKIPPED",
+                             "Sector index refresh skipped: no Upstox client "
+                             "object (API keys unset).")
+            return
+        rows = dr.fetch_sector_tail(broker, last)
+        if not rows:
+            log.info("sector refresh: already current to %s", last or "(empty)")
+            return
+        n = db.save_sector_rows(rows)
+        got = sorted({r["sector"] for r in rows})
+        missing = [s for s in dr.SECTOR_INDEX_KEYS if s not in got]
+        _refresh_journal(
+            "DATA_REFRESH_SECTOR",
+            f"Sector index refresh: {n} row(s) stored for {len(got)} of "
+            f"{len(dr.SECTOR_INDEX_KEYS)} sectors, to {max(r['date'] for r in rows)}."
+            + (f" No data for: {', '.join(missing)}." if missing else ""))
+        log.info("sector refresh: %d rows, %d sectors", n, len(got))
+    except Exception as e:
+        log.exception("sector index refresh failed: %s", e)
+        _refresh_journal("DATA_REFRESH_SECTOR_FAILED",
+                         f"Sector index refresh crashed: {e}")
+
+
 def _monthly_constituents_snapshot() -> None:
     """Node 3: monthly Nifty 50/200/500 constituents re-snapshot — the
     forward point-in-time record data/index_constituents/ (2026-08-09)
@@ -1385,6 +1432,7 @@ def _weekly_history_topup() -> None:
     for _label, _fn in (
         ("FII tide (NSDL)", _weekly_fii_refresh),
         ("index tail", _weekly_index_refresh),
+        ("sector indices", _sector_index_refresh),
         ("constituents snapshot", _monthly_constituents_snapshot),
         ("fundamentals refresh", _monthly_fundamentals_refresh),
         ("SEBI orders", _weekly_sebi_refresh),
@@ -1476,6 +1524,10 @@ def _eod_refresh() -> None:
         _weekly_index_refresh()
     except Exception:
         log.exception("index refresh failed after the close")
+    try:
+        _sector_index_refresh()
+    except Exception:
+        log.exception("sector refresh failed after the close")
     _push_phone_alerts("15:35")
 
 
@@ -1552,6 +1604,10 @@ def _daily_multi_mode_scan() -> None:
         _weekly_index_refresh()
     except Exception:
         log.exception("index refresh failed before daily scan")
+    try:
+        _sector_index_refresh()
+    except Exception:
+        log.exception("sector refresh failed before daily scan")
     summary = []
     import gc
     from trading.modes import MODE_LOCK

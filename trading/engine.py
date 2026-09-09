@@ -1483,15 +1483,20 @@ class TradingEngine:
 
     def _breadth_gate_blocks(self, history: dict, now: datetime,
                              n_picks: int = 0, bypass: bool = False) -> bool:
-        """A3 breadth gate (owner-ordered wire, 2026-07-27).
+        """A3 breadth gate (owner-ordered wire 2026-07-27; RE-CUT 2026-09-09).
 
-        When half the panel is below its own 200DMA, relative rank is picking
-        least-bad fallers — block ALL new entries this scan. Exits are never
-        touched. Preregistered evidence: docs/breadth_gate_results.json
-        (better in chop, small cost in strong trends). Momentum mode only —
-        other modes' history windows are too short for a 200DMA and the study
-        only covered momentum. Fail-open on thin samples or errors, so a data
-        hiccup can never freeze buying by accident.
+        Blocks new momentum entries while breadth sits in the measured DEAD
+        BAND (cfg.breadth_block_low..high, 40-65%). It is not a "weak market"
+        gate any more: measured on the engine's own picks, a washed-out tape
+        (< 40% above their 200DMA) was one of the BEST states to buy, and the
+        old "block at <= 50%" rule blocked the better days on the fitted half
+        and was worth +0.02pp on the holdout, i.e. nothing. See the ENTRY
+        BREADTH BAND note in config.py for the numbers and the holdout.
+
+        Exits are never touched. Momentum mode only — the other modes' history
+        windows are too short for a 200DMA and the study only covered
+        momentum. Fail-open on thin samples or errors, so a data hiccup can
+        never freeze buying by accident.
         """
         cfg = self.cfg
         # Owner decision 2026-07-27 ("yes — we cant wait for recovery, that
@@ -1529,15 +1534,19 @@ class TradingEngine:
                 from .regime import compute_breadth
                 breadth, sample = compute_breadth(history)
                 source = f"scan bucket sample ({sample} names, ±7pp noise)"
+            lo = float(getattr(cfg, "breadth_block_low", 0.40))
+            hi = float(getattr(cfg, "breadth_block_high", 0.65))
             if (breadth is not None
                     and sample >= getattr(cfg, "breadth_min_sample", 30)
-                    and breadth <= getattr(cfg, "breadth_min_pct", 0.50)):
+                    and lo <= breadth < hi):
                 self.portfolio.decision_journal.append({
                     "ts": now.isoformat(), "action": "BREADTH_BLOCKED",
-                    "why": (f"Breadth gate: only {breadth*100:.1f}% above "
-                            f"their 200DMA — {source} "
-                            f"(needs >{cfg.breadth_min_pct*100:.0f}%). "
-                            f"{n_picks} pick(s) held back; exits unaffected."),
+                    "why": (f"Breadth gate: {breadth*100:.1f}% above their "
+                            f"200DMA sits in the measured dead band "
+                            f"{lo*100:.0f}-{hi*100:.0f}% — {source}. "
+                            f"{n_picks} pick(s) held back; exits unaffected. "
+                            f"(Below {lo*100:.0f}% the tape is washed out and "
+                            f"entries are ALLOWED — re-cut 2026-09-09.)"),
                 })
                 return True
         except Exception as e:

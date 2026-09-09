@@ -268,6 +268,38 @@ def save_index_rows(rows: list) -> int:
     return n
 
 
+def save_sector_rows(rows: list) -> int:
+    """Upsert sector-index daily rows (owner order 2026-09-09 "fix it").
+    Keyed by date|sector so a re-fetch overwrites rather than duplicates."""
+    if not _CONNECTED or _DB is None or not rows:
+        return 0
+    n = 0
+    try:
+        for r in rows:
+            d, s = str(r.get("date") or ""), str(r.get("sector") or "")
+            if not d or not s:
+                continue
+            _DB.sector_index.replace_one(
+                {"_id": f"{d}|{s}"}, {**r, "_id": f"{d}|{s}"}, upsert=True)
+            n += 1
+    except Exception as e:
+        log.warning("Mongo save_sector_rows failed: %s", e)
+    return n
+
+
+def load_sector_rows(since_iso: str = "") -> list:
+    """Stored sector rows, ascending. [] when Mongo is down — the sector
+    card then hides rather than showing a stale or invented move."""
+    if not _CONNECTED or _DB is None:
+        return []
+    try:
+        q = {"date": {"$gte": since_iso}} if since_iso else {}
+        return list(_DB.sector_index.find(q).sort("date", 1))
+    except Exception as e:
+        log.warning("Mongo load_sector_rows failed: %s", e)
+        return []
+
+
 def load_index_rows(since_iso: str = "") -> list:
     """Stored index-daily rows, ascending. [] when Mongo is down — every
     consumer then behaves exactly as before Node 3 (committed CSV alone)."""

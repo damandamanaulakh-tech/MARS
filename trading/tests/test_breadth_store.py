@@ -111,13 +111,15 @@ _NOW = datetime(2026, 8, 15, 9, 20)
 
 
 def test_fresh_wide_reading_overrides_a_panicky_bucket(tmp_path):
-    """The F3 scenario inverted: the bucket happens to sample weak names
-    (30%) but the full store says 60% — the gate must NOT block, because
-    2,700 names beat 10."""
+    """The F3 scenario inverted: the bucket happens to sample the dead band
+    (50%) but the full store says 70% — the gate must NOT block, because
+    2,700 names beat 10. (Bucket moved 30% -> 50% for the 2026-09-09 band
+    re-cut: 30% is now BELOW the band and would be allowed either way, so
+    the old fixture could no longer tell the two sources apart.)"""
     eng = _engine(tmp_path)
-    eng.portfolio.breadth_store = {"pct": 0.60, "sample": 2700,
+    eng.portfolio.breadth_store = {"pct": 0.70, "sample": 2700,
                                    "asof": "2026-08-14"}
-    assert eng._breadth_gate_blocks(_bucket_history(0.3), _NOW) is False
+    assert eng._breadth_gate_blocks(_bucket_history(0.5), _NOW) is False
 
 
 def test_fresh_wide_reading_blocks_and_names_its_source(tmp_path):
@@ -135,17 +137,19 @@ def test_stale_reading_falls_back_to_the_bucket(tmp_path):
     """Past max age the wide reading is history, not breadth — the gate
     reads the live bucket exactly as it did before the fix."""
     eng = _engine(tmp_path)
-    eng.portfolio.breadth_store = {"pct": 0.60, "sample": 2700,
+    eng.portfolio.breadth_store = {"pct": 0.70, "sample": 2700,
                                    "asof": "2026-07-01"}      # 45 days old
-    assert eng._breadth_gate_blocks(_bucket_history(0.3), _NOW) is True
+    assert eng._breadth_gate_blocks(_bucket_history(0.5), _NOW) is True
     assert "bucket" in eng.portfolio.decision_journal[-1]["why"]
 
 
-def test_no_reading_at_all_behaves_exactly_like_the_old_gate(tmp_path):
+def test_no_reading_at_all_falls_back_to_the_bucket(tmp_path):
     eng = _engine(tmp_path)
     assert eng.portfolio.breadth_store == {}
-    assert eng._breadth_gate_blocks(_bucket_history(0.3), _NOW) is True
+    assert eng._breadth_gate_blocks(_bucket_history(0.5), _NOW) is True
     assert eng._breadth_gate_blocks(_bucket_history(0.9), _NOW) is False
+    # and the washed-out end of the bucket is buyable now (re-cut 2026-09-09)
+    assert eng._breadth_gate_blocks(_bucket_history(0.2), _NOW) is False
 
 
 def test_vix_reentry_bypass_still_wins_over_everything(tmp_path):
