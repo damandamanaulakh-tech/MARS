@@ -325,8 +325,15 @@ CUSTOM_UNIVERSE_SECTOR_MAP: dict = {
 }
 
 OWNER_UNIVERSE_2026_08_20: tuple = (
-    # --- the owner's 33 ---
-    "HFCL.NS", "IOLCP.NS", "SKIPPER.NS", "ELGIEQUIP.NS", "INDGN.NS",
+    # --- the owner's 33 (HFCL now 32 — see the T2T note below) ---
+    # HFCL.NS REMOVED 2026-09-09, not by choice: the fresh Upstox master
+    # lists it in the **BE (trade-to-trade) series**. Exactly the MTARTECH
+    # case the owner already accepted on 2026-08-20 — the tradeable universe
+    # filters T2T by design, so a BE name cannot be auto-scanned; it moves
+    # to the series-watch card and stays buyable by hand through the ticket.
+    # Its sector entry is KEPT below so a held or hand-bought position still
+    # maps to Telecom. The list is 49 until the owner names a replacement.
+    "IOLCP.NS", "SKIPPER.NS", "ELGIEQUIP.NS", "INDGN.NS",
     "ACUTAAS.NS", "USHAMART.NS", "PGEL.NS", "THERMAX.NS", "GVT&D.NS",
     "KIRLPNU.NS", "SYRMA.NS", "RAIN.NS", "TCS.NS", "AGL.NS",
     "HDFCBANK.NS", "ICICIBANK.NS", "BHARTIARTL.NS", "MASTEK.NS",

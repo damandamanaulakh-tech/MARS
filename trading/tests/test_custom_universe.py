@@ -28,11 +28,30 @@ def _universe_file() -> set:
         return {r["ticker"] for r in csv.DictReader(f)}
 
 
-def test_exactly_fifty_unique_names_all_tradeable():
-    assert len(U50) == 50 and len(set(U50)) == 50
+def test_every_name_is_unique_and_tradeable():
+    """49 since 2026-09-09, and the count is the LESS important half.
+
+    NSE moved HFCL to the BE (trade-to-trade) series, so the refreshed
+    universe file no longer carries it — the same fact that kept MTARTECH
+    out on 2026-08-20. What must never break is the second assertion: every
+    auto-scanned name resolves in the tradeable file. A name that silently
+    stops resolving would be scanned, scored and possibly bought against an
+    instrument the app's own T2T rule excludes."""
+    assert len(U50) == 49 and len(set(U50)) == 49
     known = _universe_file()
     missing = [t for t in U50 if t not in known]
     assert not missing, f"not in the tradeable universe file: {missing}"
+
+
+def test_the_t2t_names_stay_out_of_the_auto_scanned_list():
+    """MTARTECH (2026-08-20) and HFCL (2026-09-09) both left for the same
+    reason. Re-adding either without NSE moving it back to EQ would put a
+    trade-to-trade name in front of the engine."""
+    from trading.universes import CUSTOM_UNIVERSE_SECTOR_MAP
+    for t2t in ("MTARTECH.NS", "HFCL.NS"):
+        assert t2t not in U50
+    # HFCL keeps its sector so a held or hand-bought position still maps
+    assert CUSTOM_UNIVERSE_SECTOR_MAP.get("HFCL.NS") == "Telecom"
 
 
 def test_the_owners_resolutions_are_honoured():
@@ -102,7 +121,10 @@ def test_held_names_ride_along_even_off_the_list(tmp_path):
         entry_date=date(2026, 8, 1), sector="Test", peak_price=100.0,
         entry_score=70.0, reasoning="fixture")
     universe, _ = eng.scan_universe()
-    assert universe[0] == "OFFLIST.NS" and len(universe) == 51
+    # derived, not a literal: the list shrank 50 -> 49 on 2026-09-09 when
+    # NSE moved HFCL to the BE series, and a hardcoded count turns a real
+    # market event into a test failure that says nothing useful.
+    assert universe[0] == "OFFLIST.NS" and len(universe) == len(U50) + 1
 
 
 def test_blocklist_still_strips_from_the_custom_list(tmp_path):
