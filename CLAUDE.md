@@ -2352,6 +2352,51 @@ result for these 12 for next 6-9-12 months").**
   one"): the session git proxy returns 403 on any push except the
   designated branch, so deletion is an OWNER action on GitHub (Branches →
   trash icon). Told them.
+- **THREE MORE TABLES RUN on the 13 (BBL corrected in for "BL" — owner:
+  "its BBL not just BL"; Bharat Bijlee close 2239 vs their 2288).** Table
+  1 = the four other categories (ONE composite formula, floors differ:
+  swing 60/positional 68/short 70/intraday 72 — all 13 scored 17-32; the
+  three trend legs read 0, four feed legs neutral 50), the 112 triggers +
+  8 gates + ladder stage (5 RECLAIM / 4 ACCUMULATING / 4 COMPRESSING;
+  NO gate passes — distribution fires on every name and their watch gate
+  needs distribution == 0), lens v2 (edge negative, Kelly 0 for all),
+  Ocean rails (KEC the near miss: −29.3% vs −30%, wRSI 25.9 vs 25, and
+  its reclaim rail fails), danger incl. 0095 (none fire), impact 2-7 bps
+  at ₹1.25L, pairwise corr max 0.60 (RailTel/JWL; five names = one
+  rail-infra theme), own-10y base rates per stock. Table 2 = FREE
+  fetches: Yahoo fundamentals timeseries WORKS from the sandbox (13/13,
+  779 rows) and Yahoo quoteSummary with crumb works; NSE shareholding API
+  = 403 (Yahoo holder split used, labelled). Findings: Thermax Q1 FY27
+  profit −83%, BBL −61%, KEC D/E 0.87 + negative OCF yet 25 analysts BUY,
+  Surya Roshni the only promoter buyer (12.5L shares Nov-Apr), Zensar
+  delivery 41→25%. Stale-by-design: F&O OI panel ends 2026-08-11 (>10d →
+  short-build neutral 50 for all), delivery ends 08-07, insider PIT ends
+  05-02 (Colab pulls). Scratchpad scripts: eval_table1.py, eval_table2.py.
+  GOTCHA: `compute_score` calls `signals.news._get_headlines_yfinance`
+  (Yahoo news) per stock — from the sandbox it HANGS on connection resets;
+  monkeypatch it to `[]` (= the neutral-50 catalyst the live app gets
+  without a key) before scoring offline.
+- **"READ THE CHAIN NOW" BUTTON SHIPPED (owner: "run the third table with
+  my upstox login" → told them the sandbox holds no token → "build 1").**
+  `scheduler.read_option_chain_now(ticker)` + owner-only POST
+  `/triggers/{ticker}/chain` + 🔗 card on the per-stock trigger page
+  (chain_read_marker): PCR(OI), ATM strike, ATM IV call/put, IV skew,
+  expiry, strikes, and the 15-day T12W_0102 pattern state ("n of 5 days
+  recorded" until MIN_PATTERN_DAYS). Reasons returned, never hidden:
+  needs_login (option endpoints need the daily token — Upstox rule) /
+  no_fo (no options market, not a fault) / failed (journaled
+  OPTION_CHAIN_READ_FAILED). `snapshot_universe(include_index=False)`
+  reads one stock without the Nifty chain. **STORAGE RULE + THE BUG IT
+  AVOIDS**: the daily job's once-per-day guard keyed on `asof == today`;
+  a read-now also stamps today, so without a scope check the 09:20
+  UNIVERSE pass would silently skip on any day the owner tapped first.
+  Snapshots now carry `scope` ("universe" | "single"); the guard skips
+  only on a universe snapshot (test-pinned). Merge into today's dict when
+  it exists; otherwise a NEW today's dict with the one row (older rows
+  dropped rather than wearing today's as-of). Journals OPTION_CHAIN_READ.
+  Display only — engine/risk/orders/danger contain no reference
+  (test-pinned). Response SHAPE still unverified live (no token here);
+  the first owner tap is the verification, failure is visible.
 
  all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,

@@ -82,6 +82,42 @@
   <strong>DATA_NEEDED</strong> below, not a quiet "nothing happened".
 </div>
 {% endif %}
+{% if detail and detail.chain %}
+<div class="border border-line p-4 mb-6"><!-- chain_read_marker -->
+  <div class="flex items-center justify-between gap-3 flex-wrap">
+    <div class="font-bold">🔗 Option chain
+      {% if detail.chain.row %}<span class="text-xs font-normal text-ink-faint ml-2">read {{ detail.chain.asof }} · expiry {{ detail.chain.row.expiry }} · {{ detail.chain.row.n_strikes }} strikes</span>{% endif %}
+    </div>
+    {% if user and user.role == 'owner' %}
+    <form method="post" action="/triggers/{{ detail.ticker }}/chain">
+      <button class="px-3 py-1.5 bg-ink text-white text-xs font-bold tracking-widest uppercase hover:bg-black">🔗 Read the chain now</button>
+      <span class="text-xs text-ink-faint ml-2">uses your Upstox login for today</span>
+    </form>
+    {% endif %}
+  </div>
+  {% if detail.chain.msg == 'needs_login' %}
+  <p class="text-sm text-amber-700 mt-2">Needs your Upstox login for today. Log in from the dashboard, then tap again. Candles are public; option chains are not — that is an Upstox rule, not ours.</p>
+  {% elif detail.chain.msg == 'no_fo' %}
+  <p class="text-sm text-ink-soft mt-2">No options market for this stock — there is no chain to read. Not a fault.</p>
+  {% elif detail.chain.msg == 'failed' %}
+  <p class="text-sm text-red-700 mt-2">Upstox answered but the chain carried no usable open interest. Journaled as OPTION_CHAIN_READ_FAILED; reads DATA_NEEDED, never zero.</p>
+  {% elif detail.chain.msg == 'ok' %}
+  <p class="text-sm text-emerald-700 mt-2">Chain read just now.</p>
+  {% endif %}
+  {% if detail.chain.row %}
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-3 text-sm">
+    <div><div class="text-xs text-ink-faint">PCR (OI basis)</div><div class="text-xl font-black tabular-nums">{{ detail.chain.row.pcr_oi }}</div></div>
+    <div><div class="text-xs text-ink-faint">ATM strike</div><div class="text-xl font-black tabular-nums">{{ detail.chain.row.atm_strike if detail.chain.row.atm_strike is not none else '—' }}</div></div>
+    <div><div class="text-xs text-ink-faint">ATM IV call / put</div><div class="text-xl font-black tabular-nums">{{ detail.chain.row.iv_call if detail.chain.row.iv_call is not none else '—' }} / {{ detail.chain.row.iv_put if detail.chain.row.iv_put is not none else '—' }}</div></div>
+    <div><div class="text-xs text-ink-faint">IV skew (put − call)</div><div class="text-xl font-black tabular-nums">{{ detail.chain.row.iv_skew if detail.chain.row.iv_skew is not none else '—' }}</div></div>
+    <div><div class="text-xs text-ink-faint">15-day pattern (T12W_0102)</div><div class="text-xl font-black">{% if detail.chain.deterioration is none %}<span class="text-ink-faint text-base">{{ detail.chain.days }} of 5 days recorded</span>{% elif detail.chain.deterioration %}<span class="text-red-700">DETERIORATING</span>{% else %}<span class="text-emerald-700">steady</span>{% endif %}</div></div>
+  </div>
+  <p class="text-xs text-ink-faint mt-2">PCR above 1 = more put than call open interest (hedging or bearish bets); skew above 0 = puts pricier than calls. Feeds T12W_0102, W-022 and W-007 on /register. Display only — never blocks a buy or moves a stop.</p>
+  {% elif not detail.chain.msg %}
+  <p class="text-sm text-ink-soft mt-2">No fresh chain for this stock{% if detail.chain.no_fo %} — the daily pass found no options market for it{% elif detail.chain.asof %} (last snapshot {{ detail.chain.asof }} did not include it){% endif %}. {% if user and user.role == 'owner' %}Tap the button after your morning login.{% endif %}</p>
+  {% endif %}
+</div>
+{% endif %}
 {% if detail and detail.sebi %}
 <div class="border border-line p-4 mb-6"><!-- sebi_block_marker -->
   <div class="flex items-center gap-3 mb-2">
