@@ -207,7 +207,22 @@ class Config:
     # Momentum mode only — the other modes' history windows are too short
     # for a 200DMA and the study only covered momentum.
     breadth_gate_enabled: bool = True
-    breadth_min_pct: float = 0.50
+    # RE-CUT 2026-09-09 (owner order "fix it", after the measurement below).
+    # The gate used to block whenever breadth was <= 0.50. Measured against
+    # the thing it actually blocks — the ENGINE'S OWN PICKS' forward 20-day
+    # return, 540 weekly scan points 2015-2026, production selection (floor
+    # 62 + abs-momentum + timing), split at 2020-06-30 — that rule was worth
+    # NOTHING: blocked days returned +1.02% vs +0.88% allowed on the fitted
+    # half (it blocked the BETTER days) and +2.03% vs +2.05% on the holdout.
+    # The real shape is a U: both extremes pay, the MIDDLE band does not.
+    # Blocking 40-65% instead: fitted +3.54pp edge, holdout +1.61pp, and
+    # every one of 33 candidate band pairs was positive in BOTH halves, so
+    # this is a plateau, not a lucky cell. Edges were chosen on the fitted
+    # half alone (the 2026-08-13 rule: never pick a threshold by the holdout).
+    # A washed-out tape (< 40%) is now BUYABLE, which is the behaviour change.
+    # research/breadth_recut_2026-09-09/.
+    breadth_block_low: float = 0.40
+    breadth_block_high: float = 0.65
     breadth_min_sample: int = 30
     # F3 fix (2026-08-20): the gate PREFERS the full-store breadth reading
     # (~2,700 names, ~±1pp noise) over the scan bucket (~50 names, ±7pp)

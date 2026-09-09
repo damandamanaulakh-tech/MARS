@@ -2398,6 +2398,72 @@ result for these 12 for next 6-9-12 months").**
   (test-pinned). Response SHAPE still unverified live (no token here);
   the first owner tap is the verification, failure is visible.
 
+**PRE-DROP CALIBRATION + BREADTH GATE RE-CUT (2026-09-09, owner: "i feel
+things are not working fine... app should predict from data and give inputs
+to exist or add before fall and rise, else everyone know what happend / show
+me flaws" → "fix it"). 784 trading + 346 web tests.
+research/breadth_recut_2026-09-09/summary.md IS THE RECORD — read it before
+answering any "can the app see a fall coming" question.**
+- **NOTHING PREDICTS A MARKET FALL from this data. 24 of 25 candidates
+  failed the holdout** (scripts/predrop_calibration.py; Nifty fwd20 <= -5%,
+  split 2020-06-30, episode-counted). Fifth time this project has hit the
+  same shape: the bigger the train lift, the more total the test collapse
+  (momentum-crash setup 10.47 -> 0.00; realised-vol 2.62 -> 0.00; defensives
+  leading 2.24 -> 0.00). **Distribution days (the O'Neil rule) 0.55/0.84 =
+  BELOW chance. Breadth divergence 0.00/0.00.** Do not re-propose these.
+- **THE OWNER'S DAMAGE CLUSTER IS COINCIDENT, NOT LEADING** — tail_down3_5d
+  >= 0.213 scores 1.09 train / 1.18 test for forward drops, i.e. chance. It
+  reports damage that already happened. Fine as Ocean's rail R2 (a risk
+  choice); never quote it as foresight.
+- Only survivor, **NOT wired**: 10y yield +25bp in 20d (1.75 train / 3.78
+  test, lead 10-16d). The holdout hits are nearly all the 2022 rate shock and
+  the Oct-2022 / Mar-2026 firings preceded +5-7% RISES. ~6 independent events
+  in 12 years, file ends 2026-06. Say so if it is ever proposed.
+- **SLOW-GRIND EXIT TRIGGER: MEASURED, FAILED, NOT WIRED.** The real gap the
+  owner pointed at (the 12 danger tripwires fired on ZERO of 220 names while
+  Nifty IT fell 10% in six sessions — they only catch shocks). "Down X% over
+  N days, no day worse than -4%", 12 variants, BT01-BT08 labels/split: every
+  one strong in train and BELOW CHANCE in test (20%/15d: 6.70 -> 0.00). A
+  name that has bled steadily is LESS likely to fall another 10%.
+- **BREADTH GATE RE-CUT — MONEY PATH, the one change that earned it.**
+  Judged properly for the first time: on the forward 20d return of the
+  ENGINE'S OWN PICKS (production selection rebuilt, 540 weekly points), not
+  the index. **The live "block at <= 50%" rule was worth NOTHING: it blocked
+  the BETTER days in train (+1.02% blocked vs +0.88% allowed) and was +0.02pp
+  in test.** True shape is a **U** — both extremes pay, the middle does not.
+  Now `cfg.breadth_block_low=0.40` / `breadth_block_high=0.65` (a BAND);
+  `breadth_min_pct` DELETED (guard test keeps it out). Edges chosen on TRAIN
+  alone: train edge +3.54pp, **holdout +1.61pp**, and **33 of 33 candidate
+  bands positive in BOTH halves** = a plateau, not a lucky cell. Every
+  single-threshold "block below X" rule is NEGATIVE in train for X <= 45%.
+  **BEHAVIOUR CHANGE: a washed-out tape (< 40%) is now BUYABLE** — it
+  measured as one of the best states. VIX bypass, momentum-only, fail-open
+  and the F3 store-preference all unchanged. Boot migration
+  breadth_band_2026_09_09 clears stored overrides. Today's live 48.2% is
+  INSIDE the band, so today still blocks — the change bites in a washout.
+- **MY OWN BUG, caught before the decision:** the first cut put newly-listed
+  names (price but no 200-bar mean) in the breadth DENOMINATOR and never the
+  numerator, crushing early-year breadth toward 0 and inventing a fake
+  washout regime. Fixed in both scripts (count only names that HAVE the MA).
+  Node 10 weak-assertion fault class. Also: india_10y_bond_yield.csv is
+  MM/DD/YYYY (investing.com), NOT day-first — a dayfirst read scrambles every
+  date past the 12th.
+- **SECTOR FEED WIRED (display only)** — the owner's flaw "IT -10% in six
+  sessions and no screen says so". `data_refresh.SECTOR_INDEX_KEYS` (16 real
+  NSE sector/size indices, every key VERIFIED live tokenless 2026-09-09;
+  Consumer Durables / Oil & Gas / Healthcare 400'd and are deliberately
+  ABSENT rather than guessed) + `fetch_sector_tail` + pure `sector_moves` +
+  `db.save/load_sector_rows` (`sector_index`, keyed date|sector) +
+  `scheduler._sector_index_refresh` in the SAME three slots as the index tail
+  (09:20, 15:35 post-close, Friday block) + `market_panels.sector_panel` +
+  the 🧭 dashboard card (sector_strip_marker), worst first, 1d and 5d.
+  One stored day prints a dash, never a 0% that reads flat; a dead sector is
+  NAMED in the journal. **T12W_0094/0095 KEEP their own equal-weight
+  construction** — they are calibration-VERIFIED on that definition and
+  swapping the input would void the evidence silently (test-pinned both ways).
+- Live verification: 16/16 sectors fetched, IT 5d -5.12% — the move the app
+  could not previously see.
+
  all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

@@ -53,6 +53,33 @@ INDEX_FIELDS = {
     "^NSEBANK": "bank_nifty",
 }
 
+# Owner order 2026-09-09 ("fix it"): the app could not SEE a sector move.
+# Nifty IT fell 10% in six sessions and no screen in the app said so — the
+# only sector view was an equal-weight index built from the frozen 191-name
+# panel. These are the real NSE sector indices, every key VERIFIED live from
+# the sandbox on 2026-09-09 through the PUBLIC (tokenless) candle endpoint.
+# Keys that Upstox rejects with a 400 are deliberately absent rather than
+# guessed: Consumer Durables, Oil & Gas and Healthcare did not resolve, and
+# a wrong key would store another index's prices under a sector's name.
+SECTOR_INDEX_KEYS: dict[str, str] = {
+    "IT": "NSE_INDEX|Nifty IT",
+    "Bank": "NSE_INDEX|Nifty Bank",
+    "PSU Bank": "NSE_INDEX|Nifty PSU Bank",
+    "Fin Service": "NSE_INDEX|Nifty Fin Service",
+    "Auto": "NSE_INDEX|Nifty Auto",
+    "Pharma": "NSE_INDEX|Nifty Pharma",
+    "FMCG": "NSE_INDEX|Nifty FMCG",
+    "Metal": "NSE_INDEX|Nifty Metal",
+    "Energy": "NSE_INDEX|Nifty Energy",
+    "Realty": "NSE_INDEX|Nifty Realty",
+    "Infra": "NSE_INDEX|Nifty Infra",
+    "Media": "NSE_INDEX|Nifty Media",
+    "Midcap 100": "NSE_INDEX|NIFTY MIDCAP 100",
+    "Smallcap 100": "NSE_INDEX|NIFTY SMLCAP 100",
+    "Next 50": "NSE_INDEX|Nifty Next 50",
+    "Nifty 500": "NSE_INDEX|Nifty 500",
+}
+
 CONSTITUENT_LISTS = ("ind_nifty50list", "ind_nifty200list",
                      "ind_nifty500list")
 _CONSTITUENT_URL = "https://niftyindices.com/IndexConstituent/{name}.csv"
@@ -157,6 +184,70 @@ def fetch_index_tail(broker, last_iso: str) -> list[dict]:
             row[f"{prefix}_low"] = float(r["Low"])
             row[f"{prefix}_close"] = float(r["Close"])
     return [rows[d] for d in sorted(rows)]
+
+
+def fetch_sector_tail(broker, last_iso: str, days_back: int = 30) -> list[dict]:
+    """Daily closes for the real NSE sector indices strictly AFTER last_iso.
+
+    Rows are {date, sector, open, high, low, close}. Tokenless (public
+    candles). A sector whose fetch dies is simply absent from the result:
+    a missing sector reads DATA_NEEDED on the page, never a flat 0% move.
+
+    `last_iso` empty = seed `days_back` calendar days so the first run has
+    enough history to show a 5-day change instead of a blank card.
+    """
+    if broker is None:
+        return []
+    if last_iso:
+        start = (date.fromisoformat(last_iso) + timedelta(days=1)).isoformat()
+    else:
+        start = (date.today() - timedelta(days=days_back)).isoformat()
+    today = date.today().isoformat()
+    if start > today:
+        return []
+    out: list[dict] = []
+    for sector, key in SECTOR_INDEX_KEYS.items():
+        try:
+            df = broker.get_daily_candles(key, start, today)
+        except Exception as e:                                 # noqa: BLE001
+            log.warning("sector tail fetch failed for %s: %s", sector, e)
+            continue
+        if df is None or df.empty:
+            continue
+        for ts, r in df.iterrows():
+            d = ts.date().isoformat()
+            if last_iso and d <= last_iso:
+                continue
+            out.append({"date": d, "sector": sector,
+                        "open": float(r["Open"]), "high": float(r["High"]),
+                        "low": float(r["Low"]), "close": float(r["Close"])})
+    return out
+
+
+def sector_moves(rows: list) -> list[dict]:
+    """Latest close per sector with its 1-day and 5-day change, worst first.
+
+    Pure reduction over stored rows — no network, no state. A sector with
+    only one stored day reports its close and None for the changes; the
+    page prints a dash, never a 0% that would read as "flat".
+    """
+    by: dict[str, list] = {}
+    for r in rows or []:
+        s = str(r.get("sector") or "")
+        if s and r.get("close") is not None:
+            by.setdefault(s, []).append((str(r.get("date") or ""), float(r["close"])))
+    out = []
+    for s, xs in by.items():
+        xs.sort()
+        last_d, last_c = xs[-1]
+        def chg(n):
+            if len(xs) <= n or xs[-1 - n][1] <= 0:
+                return None
+            return round((last_c / xs[-1 - n][1] - 1) * 100, 2)
+        out.append({"sector": s, "close": round(last_c, 2), "asof": last_d,
+                    "chg_1d": chg(1), "chg_5d": chg(5), "days": len(xs)})
+    out.sort(key=lambda r: (r["chg_1d"] is None, r["chg_1d"] if r["chg_1d"] is not None else 0))
+    return out
 
 
 def extend_index_df(df, date_col: str = "trade_date"):

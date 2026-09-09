@@ -62,22 +62,58 @@ def _gate(picks, history, cfg, journal):
 def test_gate_defaults_and_knobs_exist():
     cfg = Config()
     assert cfg.breadth_gate_enabled is True
-    assert cfg.breadth_min_pct == 0.50
+    assert cfg.breadth_block_low == 0.40          # re-cut 2026-09-09
+    assert cfg.breadth_block_high == 0.65
     assert cfg.breadth_min_sample == 30
 
 
-def test_weak_breadth_blocks_and_journals():
+def test_the_superseded_single_threshold_knob_is_gone():
+    """breadth_min_pct described a rule the measurement retired. Leaving the
+    field would invite someone to 'tune' a knob nothing reads."""
+    import inspect
+    from trading import config as _c
+    src = "\n".join(ln for ln in inspect.getsource(_c).splitlines()
+                    if not ln.lstrip().startswith("#"))
+    assert "breadth_min_pct" not in src
+    assert not hasattr(Config(), "breadth_min_pct")
+
+
+def test_dead_band_blocks_and_journals():
+    """20 up / 20 down = 50% breadth, inside the measured 40-65% dead band."""
+    cfg = Config(mode="nifty200_momentum")
+    journal: list = []
+    picks = _gate([{"ticker": "X.NS"}], _hist(20, 20), cfg, journal)
+    assert picks == []
+    assert journal and journal[-1]["action"] == "BREADTH_BLOCKED"
+    assert "dead band" in journal[-1]["why"]
+
+
+def test_washed_out_tape_is_now_BUYABLE():
+    """THE BEHAVIOUR CHANGE (owner order 2026-09-09 "fix it"). 10 up / 30
+    down = 25%: the old rule blocked this, and measured on the engine's own
+    picks it was one of the best states to buy. Below the band, entries go."""
     cfg = Config(mode="nifty200_momentum")
     journal: list = []
     picks = _gate([{"ticker": "X.NS"}], _hist(10, 30), cfg, journal)
-    assert picks == []
-    assert journal and journal[-1]["action"] == "BREADTH_BLOCKED"
+    assert picks == [{"ticker": "X.NS"}]
+    assert not [e for e in journal if e.get("action") == "BREADTH_BLOCKED"]
 
 
 def test_strong_breadth_allows():
     cfg = Config(mode="nifty200_momentum")
     picks = _gate([{"ticker": "X.NS"}], _hist(30, 10), cfg, [])
     assert picks == [{"ticker": "X.NS"}]
+
+
+def test_the_band_is_the_measured_one_and_the_engine_reads_both_edges():
+    """A one-sided read would silently restore the retired rule."""
+    import inspect
+    from trading.engine import TradingEngine
+    src = "\n".join(ln for ln in
+                    inspect.getsource(TradingEngine._breadth_gate_blocks).splitlines()
+                    if not ln.lstrip().startswith("#"))
+    assert "breadth_block_low" in src and "breadth_block_high" in src
+    assert "lo <= breadth < hi" in src
 
 
 def test_thin_sample_fails_open():
@@ -119,7 +155,10 @@ def test_vix_reentry_bypasses_the_breadth_gate():
     from trading.paper import Portfolio
     cfg = Config(mode="nifty200_momentum", state_dir="/tmp/breadth_gate_tests")
     eng = TradingEngine(cfg=cfg, portfolio=Portfolio.fresh(cfg))
-    weak = _hist(10, 30)                     # 25% breadth — would normally block
+    # 50% breadth: inside the measured dead band, so the gate blocks here
+    # (25% would NOT block since the 2026-09-09 re-cut — a washed-out tape
+    # is buyable, which is exactly the state a VIX-crush entry arrives in).
+    weak = _hist(20, 20)
     assert eng._breadth_gate_blocks(weak, datetime(2026, 7, 27)) is True
     assert eng._breadth_gate_blocks(weak, datetime(2026, 7, 27),
                                     bypass=True) is False

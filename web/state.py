@@ -316,6 +316,19 @@ def _bootstrap() -> None:
         db.save_settings({"ocean_order_2026_08_26": True},
                          doc_id="migrations")
 
+    # Owner order 2026-09-09 ("fix it"): the breadth gate is a measured DEAD
+    # BAND (40-65%), not a "block below 50%" rule. Any stored breadth_min_pct
+    # from the old shape is dead config now; clear it so a Settings edit made
+    # under the superseded rule cannot linger, and clear any stored band
+    # values so the measured defaults rule on the first boot after the change.
+    if not db.load_settings(doc_id="migrations").get("breadth_band_2026_09_09"):
+        db.unset_settings_keys(["breadth_min_pct", "breadth_block_low",
+                                "breadth_block_high"])
+        _CFG.breadth_block_low = 0.40
+        _CFG.breadth_block_high = 0.65
+        db.save_settings({"breadth_band_2026_09_09": True},
+                         doc_id="migrations")
+
     # Apply mode preset (sets stops, target, etc. per chosen horizon)
     _CFG.apply_mode_preset()
     # Policy C (user-approved 2026-07-16): exits ON — pinned here so a stale

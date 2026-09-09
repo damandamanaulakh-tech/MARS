@@ -101,7 +101,9 @@ def test_breadth_panel_counts_the_engines_own_scan_panel():
         assert b["passing"] == 2 and b["pass_pct"] == 50.0
         assert b["abs_mom_pct"] == 50.0 and b["timing_pct"] == 25.0
         assert b["avg_score"] == 51.8
-        assert b["gate_min_pct"] == 50            # the real A3 gate threshold
+        # Re-cut 2026-09-09: the gate is a measured BAND, not one threshold.
+        # Both edges reach the page so its copy cannot drift from the rule.
+        assert (b["gate_band_low"], b["gate_band_high"]) == (40, 65)
     finally:
         p.scan_matrix = saved
 

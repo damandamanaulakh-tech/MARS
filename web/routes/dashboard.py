@@ -285,6 +285,7 @@ def dashboard(request: Request):
             # and ATR stop context. All real data — see web/market_panels.py.
             "index_strip": _panel(mp.index_strip),
             "breadth": _panel(mp.breadth_panel),
+            "sectors": _panel(mp.sector_panel),
             "events": _panel(mp.events_panel),
             "evidence": _panel(mp.evidence_panel),
             "horizons": _panel(mp.horizons_panel),

@@ -196,12 +196,39 @@ def breadth_panel() -> Optional[dict]:
         "floor": floor,
         "sectors": sectors,
         "gate_on": bool(getattr(cfg, "breadth_gate_enabled", False)),
-        "gate_min_pct": round(float(getattr(cfg, "breadth_min_pct", 0.5)) * 100),
+        # Re-cut 2026-09-09: the gate blocks a measured dead BAND, not
+        # everything under one line. Both edges go to the page so the copy
+        # cannot drift from the rule.
+        "gate_band_low": round(float(getattr(cfg, "breadth_block_low", 0.40)) * 100),
+        "gate_band_high": round(float(getattr(cfg, "breadth_block_high", 0.65)) * 100),
         # F3: the full-store reading the gate prefers while fresh. None when
         # never computed — the template then shows only the bucket numbers.
         "store": (p.breadth_store or None),
         "ts": (p.scan_matrix or {}).get("ts"),
     }
+
+
+def sector_panel(limit: int = 16) -> dict:
+    """Real NSE sector index moves, worst first (owner order 2026-09-09).
+
+    Reads ONLY the stored rows the daily job writes — no network on a page
+    render. Empty store = {} so the card hides rather than inventing a flat
+    market. Display only: the calibrated sector tripwires keep their own
+    equal-weight construction.
+    """
+    try:
+        from trading.data_refresh import sector_moves
+
+        from . import db
+        rows = sector_moves(db.load_sector_rows())
+    except Exception as e:
+        log.warning("sector_panel unavailable: %s", e)
+        return {}
+    if not rows:
+        return {}
+    asof = max((r["asof"] for r in rows), default="")
+    return {"rows": rows[:limit], "asof": asof, "n": len(rows),
+            "worst": rows[0], "best": rows[-1]}
 
 
 def events_panel(days: int = 45, limit: int = 6) -> list[dict]:

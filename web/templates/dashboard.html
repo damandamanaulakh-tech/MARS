@@ -386,6 +386,38 @@
 </div>
 {% endif %}
 
+{% if sectors and sectors.rows %}
+<!-- Real NSE sector indices (owner order 2026-09-09 "fix it": Nifty IT fell
+     10% in six sessions and no screen in the app said so). Display only. -->
+<div class="border border-line bg-white mb-6"><!-- sector_strip_marker -->
+  <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
+    <div class="font-bold">🧭 Sector moves <span class="text-xs font-normal text-ink-faint">worst first</span></div>
+    <div class="text-xs text-ink-faint">{{ sectors.n }} NSE sector indices · closes to {{ sectors.asof }}</div>
+  </div>
+  <div class="px-4 lg:px-6 py-4">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+      {% for s in sectors.rows %}
+      <div class="border border-line px-3 py-2">
+        <div class="text-xs text-ink-soft truncate">{{ s.sector }}</div>
+        <div class="text-lg font-black tabular-nums {% if s.chg_1d is none %}text-ink-faint{% elif s.chg_1d < 0 %}text-red-700{% else %}text-emerald-700{% endif %}">
+          {% if s.chg_1d is none %}—{% else %}{{ '%+.2f'|format(s.chg_1d) }}%{% endif %}
+        </div>
+        <div class="text-xs text-ink-faint tabular-nums">
+          5d {% if s.chg_5d is none %}—{% else %}{{ '%+.1f'|format(s.chg_5d) }}%{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="text-xs text-ink-faint mt-3">
+      Stored daily closes from the public Upstox candle feed, refreshed before the scan and after the close.
+      A dash means that sector has only one stored day yet, not a flat market.
+      Display only: nothing here buys, sells or moves a stop, and the calibrated sector tripwires
+      keep their own equal-weight construction so their measured evidence still holds.
+    </p>
+  </div>
+</div>
+{% endif %}
+
 <!-- Market breadth + What's coming (owner ask 2026-07-30, reference mockups).
      Since the F3 fix (2026-08-20) the A3 gate prefers the FULL-STORE 200DMA
      reading below; the score bands remain the day's scan-panel facts. -->
@@ -402,7 +434,7 @@
         <span class="font-bold tabular-nums">{{ (breadth.store.pct * 100) | round(1) }}%</span>
         of <span class="tabular-nums">{{ breadth.store.sample }}</span> stored names above their 200DMA
         <span class="text-xs text-ink-faint">· closes to {{ breadth.store.asof }} · this full-store reading is what the breadth gate
-          {% if breadth.gate_on %}uses while fresh (blocks new momentum buys at ≤{{ breadth.gate_min_pct }}%){% else %}would use — gate currently OFF{% endif %}
+          {% if breadth.gate_on %}uses while fresh (blocks new momentum buys only inside the measured dead band {{ breadth.gate_band_low }}–{{ breadth.gate_band_high }}%; below {{ breadth.gate_band_low }}% a washed-out tape is buyable){% else %}would use — gate currently OFF{% endif %}
           — ~±1pp sampling noise vs the old 50-name bucket's ±7pp</span>
       </div>
       {% endif %}
