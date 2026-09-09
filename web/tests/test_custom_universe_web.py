@@ -32,11 +32,14 @@ def test_settings_normalises_case_suffix_and_separators():
     cfg = state.cfg()
     old = cfg.custom_universe
     try:
+        # (was hfcl until 2026-09-09; NSE moved HFCL to the BE series so it
+        # no longer resolves and the refusal path would fire instead — the
+        # normalisation being tested here needs a name that IS tradeable.)
         r = _post_settings(_client(),
-                           custom_universe="tcs, reliance\nhfcl HFCL")
+                           custom_universe="tcs, reliance\nthermax THERMAX")
         assert r.status_code == 303 and "saved=ok" in r.headers["location"]
         assert tuple(cfg.custom_universe) == (
-            "TCS.NS", "RELIANCE.NS", "HFCL.NS")      # deduped, .NS added
+            "TCS.NS", "RELIANCE.NS", "THERMAX.NS")   # deduped, .NS added
     finally:
         _restore(old)
 
@@ -69,7 +72,9 @@ def test_settings_blank_restores_the_rotating_bucket():
 def test_settings_page_shows_the_editable_list():
     html = _client().get("/settings").text
     assert "custom_universe_marker" in html
-    assert "Custom Universe (50 names" in html
+    # derived — see the note in trading/tests/test_custom_universe.py
+    from trading.universes import OWNER_UNIVERSE_2026_08_20 as U
+    assert f"Custom Universe ({len(U)} names" in html
     assert "Blank the box to go back" in html
 
 

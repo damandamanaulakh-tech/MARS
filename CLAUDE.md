@@ -2464,6 +2464,37 @@ answering any "can the app see a fall coming" question.**
 - Live verification: 16/16 sectors fetched, IT 5d -5.12% — the move the app
   could not previously see.
 
+**UNIVERSE FILE REFRESHED (owner 2026-09-09: "push the fresh new 2400
+universe"), 785 trading + 346 web tests.** `data/upstox_nse_equities.csv`
+was frozen at the 2026-08-09 commit; re-run through the app's OWN
+`universe_refresh.refresh_universe()` against the live Upstox public master.
+- **2,428 → 2,648 names** (+280 new listings, −60 gone). The owner said
+  "2400"; the real current count is 2,648 — told them, did not force the
+  number. Verified before commit: 2,648 unique tickers AND 2,648 unique
+  instrument keys, zero malformed rows, 1,469 mis_allowed flags carried
+  from the old file, and the ampersand names (GVT&D, M&M) still resolve.
+- **HFCL MOVED TO THE BE (TRADE-TO-TRADE) SERIES** — found only because the
+  refresh made two tests fail. It sat in the owner's own 50-name list. This
+  is the MTARTECH case of 2026-08-20 exactly, and the owner already accepted
+  that rule, so the precedent was applied rather than a new decision taken:
+  HFCL is OUT of `OWNER_UNIVERSE_2026_08_20` (**now 49**), its sector entry
+  is KEPT so a held or hand-bought position still maps to Telecom, and it
+  lands on the BE/BZ series-watch card at the next 08:50 run. **Owner must
+  name a replacement if they want 50 back.** THE TRAP THIS AVOIDED: with
+  HFCL still in the list, the Settings box (which refuses any name not in
+  the universe file) would have rejected the owner's ENTIRE weekly universe
+  edit with "universe_unknown".
+- Two hardcoded counts in tests replaced with derived ones (`len(U50) + 1`,
+  `f"({len(U)} names"`) — a real market event should never surface as a
+  meaningless count mismatch. New pin
+  `test_the_t2t_names_stay_out_of_the_auto_scanned_list` covers MTARTECH and
+  HFCL together, so re-adding either needs NSE to move it back to EQ.
+- **NOT the same thing as the OHLCV store**: the file is the LIST (2,648
+  names); the app's Mongo `ohlcv` store held 573 of them at the 08-29 check
+  and grows only through the Friday 16:30 pull on the live box. A session
+  cannot push into their Mongo (no MONGO_URL here). The weekly 500-name
+  liquidity batch still ranks what the STORE holds and journals SHORT BY.
+
  all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
