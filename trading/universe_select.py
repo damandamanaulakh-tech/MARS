@@ -81,9 +81,17 @@ def select_liquid_universe(docs: Iterable[dict],
     """Rank stored names by median rupee turnover and take the top `target`.
 
     docs            — raw store docs {ticker, candles}, e.g. db.history_tails
-    always_include  — held names: they ride along whatever their rank, so a
-                      position can never fall out of its own scan universe
-                      (the same rule engine.scan_universe already applies).
+    always_include  — names that ride along whatever their rank. HELD names,
+                      so a position can never fall out of its own scan
+                      universe (the same rule engine.scan_universe applies),
+                      and since 2026-09-10 also WATCHLIST names, on the
+                      owner's order: "keep the entire watch list in new
+                      download on friday ... some current work done on watch
+                      list must be kept". A watched name is watched precisely
+                      because it is not a position yet, so dropping it on a
+                      turnover cut loses the reasoning the owner accumulated.
+                      (The return key stays `held_added` for compatibility;
+                      it means "carried in regardless of rank".)
 
     Returns {tickers, ranked, sample, judged, skipped_thin, skipped_illiquid,
     short_by} — `short_by` is how many names the target is missing, so the
