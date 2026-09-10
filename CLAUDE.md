@@ -27,9 +27,9 @@ uploads: audit them; several contained fabricated numbers/padded catalogs).
   (`strategies/nifty200_momentum.py`) + quality blend 35%.
 - Book (owner order 2026-07-30 "change the capital to 50 lack, 80 stocks,
   roughly 1-1.25 for each trade — change it now"; corrected same day
-  "1.25 lac, 125000, not percentage"): **₹50L capital, FIXED ₹1.25L per
-  new trade (`cfg.position_size_value=125000`), `max_positions 80` as
-  ceiling** — cash funds ~40 concurrent trades, rest of the slots open as
+  "1.25 lac, 125000, not percentage"): **[SUPERSEDED 2026-09-10 → ₹5 CRORE, slab ₹1.5L +
+  score at m=0.29, ceiling 222]** was ₹50L capital, FIXED ₹1.25L per
+  new trade, `max_positions 80` as ceiling — cash funds ~40 concurrent trades, rest of the slots open as
   capital grows. All sizing sites (risk.can_open, orders limit-fill,
   owner_buy) go through `cfg.position_notional()`; `max_position_pct
   0.025` is the fallback when the fixed value is 0. Boot migration v2
@@ -2494,6 +2494,137 @@ was frozen at the 2026-08-09 commit; re-run through the app's OWN
   and grows only through the Friday 16:30 pull on the live box. A session
   cannot push into their Mongo (no MONGO_URL here). The weekly 500-name
   liquidity batch still ranks what the STORE holds and journals SHORT BY.
+
+**THREE-REPO REVIEW + THE 2026-09-10 OWNER BATCH (owner: "review both repos on
+git named on ash08 & ash stock n then tell me" -> then a 9-item order, then
+A-D, then 6 answers). PR #102, 1,159 tests (28 new). READ THE REPO FINDINGS
+BEFORE COMPARING AM07 TO ANYTHING AGAIN.**
+- **Both sibling repos cloned and read** (public, `add_repo` then a shallow
+  clone; ASH08 8.7k lines/65 files/114 tests, AshStocks 15k lines/185 files).
+  **ASH08's score does not work**: `metrics.py` sets `quality = 100*n_bars/126`
+  — DATA COVERAGE, not company quality. Verified in their own committed
+  snapshot: **all 191 names carry quality = 100.0, one distinct value**. So
+  their live formula is `0.65*clip(50+mom6*200) + 35`, a constant 35 added to
+  everything. Their "floor 68" is really "6-month return above +0.385%" and
+  passes **92 of 191 (48%)**; a stock at exactly 0% 6m scores 67.5. The score
+  also SATURATES — 25 of 191 sit at exactly 100.00, so it cannot rank anything
+  up more than +25%. Their real filtering is the M6 rank<=25 gate, not the
+  score. Also found: sector cap protects nothing for unmapped names
+  (`_sector_open_count` returns 0 when segment is None; only ~84 of the N200
+  are mapped), Kelly sizes off a FROZEN `book_value` not live equity, and the
+  governor's headline 14.77x is EW internals, ZERO costs, ends 2022, with all
+  four FII flags `NOT WIRED` — which their own `infinity_gaps.py` states
+  honestly. **ASH08 contains no backtest at all.**
+- **AshStocks' python brain IS AM07's formula — measured, Spearman rho =
+  +1.000** over the 191 panel; their SELECT set is a strict subset of ours
+  (only-AshStocks = 0 names). Adopting it adds nothing. Their LIVE rank is
+  something else again (`SEL_MOMENTUM_20_TOP10`, 20-session momentum, no
+  floor, rho +0.22 vs ours) — a genuinely uncorrelated second opinion. Three
+  different scoring paths coexist in that repo (python brain 0.65/0.35, a
+  server patch 0.58/0.32/0.10 candle, and the live 20-day rank); which one
+  runs depends on which patch is applied. Their `validation-evidence.v2.1
+  .json` INDEPENDENTLY REJECTED the owner's 0.213 damage cluster on a
+  three-way chronological split (train -0.0353 / validation -0.0042 /
+  **holdout +0.0113, wrong sign**, `SIGN_REVERSAL_ACROSS_TIME_SPLITS`) — the
+  same conclusion our 2026-09-09 pre-drop run reached. **Their pre-rise
+  pattern (compression + volume ignition, lift 1.24 train / 1.37 test) is
+  our T12W_0005 inside-bar cluster.** Two builds, different data, the same
+  one entry pattern survives and everything else fails.
+- **THE BEST PIECE IN ANY OF THE THREE REPOS is AshStocks' measured Kelly**
+  (`lib/stock-selection-engine.mjs`): f = p-(1-p)/b from its OWN closed
+  trades, Beta prior of 25W/25L, returns clipped +/-12%, costs subtracted,
+  confidence ramp min(1, n/300), `noPositiveEdgeBehavior: block_new_entries`,
+  and Kelly only ever CAPS a flat base. Owner ordered it adopted.
+**WHAT SHIPPED (all owner-ordered; nothing self-initiated):**
+1. **MARKET-HOURS GATE — and the hole was real.** `catchup_scan_if_missed`
+   gated on `is_trading_day()`, the DAY and never the CLOCK, and fires ~2 min
+   after EVERY boot: a Render restart at 21:00 ran a full scan that could BUY
+   at prices nobody could trade. `calendars.is_market_open()` (09:15-15:30
+   IST) is now the one predicate, read by engine AND `web/market_gate.py`
+   (source-pinned so they cannot disagree). Reading is never gated — the
+   owner asked to keep the advisory running at any hour. **Their own buttons
+   ARE gated ("yes all block") — this deliberately overrides the 2026-08-04
+   lesson about not blocking the owner, because they were asked and answered
+   in writing.** Resting limit orders may WAIT overnight, never FILL.
+   `SB_IGNORE_MARKET_HOURS=1` in both conftests only; a test pins the
+   production default and that it never reaches render.yaml.
+2. **30-MIN IN-SESSION PASS** (`scheduler._session_refresh`), stops AND
+   targets on the same clock — owner approved the symmetric version. 15:35
+   becomes MARK-ONLY and journals EXIT_DUE_MARKET_CLOSED. **The -5% stop now
+   checks ~13x/day instead of ~2x. UNTESTED live — expect more stops firing
+   on intraday dips that used to recover by the close.**
+3. **CAPITAL Rs 50L -> Rs 5 CRORE, ceiling 80 -> 222** (a CEILING, owner's
+   word; 20 sectors x 12 = 240 so it fits under the sector cap untouched).
+4. **SLAB SIZING supersedes fixed** (owner: "no flat size to follow / we can
+   put 150000 slab as minimum and rest on the score basis"). `sizing_mode =
+   "slab"`: Kelly on the live floor at **m = 0.29** (their pick, "prime
+   number"), floored at Rs 1,50,000. A score AT the floor still has zero
+   estimated edge and is SKIPPED, never opened at the slab. Measured at 20%
+   vol on Rs 5 Cr: 63 -> slab, 65 -> 3.4L, 68 -> 6.8L, 72 -> 11.4L, 90 ->
+   25L cap. m=0.29 = 49.6% of max growth / 1.68% halving risk / **6.9x error
+   budget** before 2x-Kelly. `trading/measured_kelly.py` carries the
+   AshStocks estimator + `growth_vs_ruin`/`growth_ladder`.
+   **THE REASON FILTER IS THE IMPORTANT HALF**: owner said "no cap on closed
+   trades, i have already more than 100" and the COUNT gate is duly off — but
+   SQUARE_OFF (the 45 stale intraday tags), OWNER_SELL, OWNER_CLOSE_ALL,
+   OWNER_SECTOR_EXIT, KILL_SWITCH, DRAWDOWN_LADDER and RETAG_EXITS are
+   EXCLUDED and the by-reason breakdown is returned for the screen. Those
+   measure the owner and a tagging bug, not the strategy.
+5. **HORIZONS WERE CROSSED AND IT WAS NOT COSMETIC.** `short` held 7 days
+   while `swing` held 60 — the app's short was SHORTER than its swing, the
+   opposite of the owner's meaning, so every trade ever tagged either ran on
+   the wrong horizon. Now intraday 1 / swing 20 / short 63 / positional 252.
+6. **k x ATR TARGETS** (`trading/targets.py`, owner picked "C- k x ATR").
+   **k is anchored to a MEASUREMENT: median ATR = 2.50% of price over the
+   committed 191 panel** (p10 1.89, p90 3.48), so k = old_target/2.50% and
+   every owner-decided target is reproduced for the median name — momentum
+   k=8 -> +20%, Node 12 UNCHANGED. Only `short` moves (6% -> 12.5%) because
+   its HORIZON moved. **MY FIRST CUT ANCHORED k TO AN ESTIMATE** (that ATR ~
+   daily sigma, 1.26%) and would have put the momentum target at 33-55%,
+   silently overturning an owner decision. Anchor a constant to a
+   measurement, never an estimate — recorded in the module.
+7. **ROTATION NOW FIRES (item 7).** It required BOTH a funded scan pick AND a
+   cash shortfall; with the breadth band producing zero picks most days it
+   returned at its first line EVERY DAY, while the dashboard card — which
+   reads the WATCHLIST — said to rotate. That disagreement is what the owner
+   saw. Two triggers now (owner: "combinaton of a & b"): always off the
+   watchlist via `_watchlist_candidates` (same `scan_matrix` rows the card
+   reads), plus a hard trigger at **cash < 5% of equity**. It will not sell a
+   real position to buy something below the entry floor.
+8. **UNIVERSE TARGET 500 -> 1200, MEASURED.** A random 150-name sample of the
+   2,648-name file, priced from LIVE Upstox candles: only **48.3% clear the
+   Rs 5 crore median turnover `risk.passes_liquidity` demands to BUY** ->
+   **~1,279 of 2,648 names are tradeable at all**. 1,200 is not a compromise
+   for the 512MB box, it is the size of the tradeable market. Owner asked
+   whether to drop from 2,400 and the answer was measured, not guessed.
+**BUG FOUND WHILE WIRING:** `_hydrate_portfolio_from_mongo` defaulted
+`capital_base` to a HARDCODED Rs 50,00,000 — right when written, wrong the
+moment the book moved. A legacy mirror doc would read "base 50L vs configured
+5Cr" and `sync_capital` would have injected **Rs 4.6 CRORE of phantom cash**
+on the first restart. Reads the live config now; verified by running the
+hydrate path against a legacy doc. Same fault class as the 25L fallback.
+**BASE RATES 1/3/6/9/12 MONTHS MEASURED (item 4), 22,749 observations — and
+the result is uncomfortable, so quote it honestly:** at **1 month the score
+band tells you nothing** (above 200DMA: <45 -> +3.8%, 45-55 -> +1.5%, 55-62
+-> +0.7%, 62-70 -> +0.9%, 70+ -> +1.2% — flat or backwards). At 12 months the
+BUY band (62-70, +16.6%) BEATS the strong band (70+, +11.2%). **The score
+sorts risk, not return.** Above-200DMA beats below at every band and horizon,
+so the absolute-momentum gate earns its place. The `<45` rows are
+survivorship-inflated — never quote them as an edge. NOT yet on a screen.
+**STILL OPEN from this batch:** item B's scan half (config says 1,200 but the
+daily scan still reads the 49-name list; needs the Mongo OHLCV store filled —
+573 of 2,648 — the compute is already proven by the Node-10 precompute doing
+~2,700 names in 0.1s/87MB) · the sector-by-sector progress strip · item 8's
+Friday LIST refresh (owner clarified 2026-09-10: "universe means the stocks
+app will analysis for trade — do not even think or touch or dlt the years
+data", which removes the replace-vs-merge risk entirely) · item 4 onto a
+screen · **item 5 (the three-formula combination) is HELD BY OWNER
+INSTRUCTION until every other item is wired.**
+**WORKFLOW FAILED A THIRD TIME.** The 8-agent audit hit the StructuredOutput
+retry cap on ALL EIGHT agents — 1.2M tokens, zero output — with a schema that
+was already flat (strings + arrays of strings). 2026-07-30, 2026-08-29, now
+this. **Stop reaching for the Workflow tool on this repo.** Doing it by hand
+took less time and found more, all three times.
 
  all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,

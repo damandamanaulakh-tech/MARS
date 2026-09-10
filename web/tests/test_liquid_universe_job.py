@@ -48,19 +48,21 @@ def test_job_rebuilds_the_universe_and_persists_it(monkeypatch):
         # Owner ask 2026-09-04 ("where is details for new batch"): the story
         # is kept on the portfolio for /scan, not only in the journal.
         b = p.universe_batch
-        assert b["count"] == 2 and b["target"] == 500
+        assert b["count"] == 2 and b["target"] == cfg.universe_target_size
         assert set(b["added"]) == {"BIG.NS", "MID.NS"}
-        assert b["short_by"] == 498 and b["skipped_illiquid"] == 1
+        assert (b["short_by"] == cfg.universe_target_size - 2
+                and b["skipped_illiquid"] == 1)
         assert "UNIVERSE_BATCH" in _own(p, n0)
         why = next(e["why"] for e in p.decision_journal[n0:]
                    if e.get("action") == "UNIVERSE_BATCH")
-        assert "turnover" in why and "target 500" in why
+        assert "turnover" in why
+        assert f"target {cfg.universe_target_size}" in why
     finally:
         cfg.custom_universe = old
 
 
 def test_a_short_list_says_so_in_the_journal(monkeypatch):
-    """The store is still filling — a 2-name universe must not read as 500."""
+    """The store is still filling — a 1-name universe must not read as full."""
     monkeypatch.setattr("web.db.is_connected", lambda: True)
     monkeypatch.setattr("web.db.save_settings", lambda d, doc_id="default": None)
     monkeypatch.setattr("web.db.history_tails", lambda rows: [
@@ -72,7 +74,7 @@ def test_a_short_list_says_so_in_the_journal(monkeypatch):
         scheduler.refresh_liquid_universe("test")
         why = next(e["why"] for e in p.decision_journal[n0:]
                    if e.get("action") == "UNIVERSE_BATCH")
-        assert "SHORT BY 499" in why
+        assert f"SHORT BY {cfg.universe_target_size - 1}" in why
     finally:
         cfg.custom_universe = old
 

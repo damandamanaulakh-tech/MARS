@@ -8,7 +8,7 @@ from datetime import datetime
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from .. import auth, state
+from .. import auth, market_gate, state
 from ..templating import templates
 from trading.paper import PaperPosition
 
@@ -283,6 +283,12 @@ async def sell_position(request: Request, ticker: str):
         return RedirectResponse(f"/positions?error=need_price&t={ticker}",
                                 status_code=303)
 
+    # Owner order 2026-09-10: no trades outside market hours, their own
+    # buttons included (asked directly, answered "yes all block").
+    _blocked = market_gate.trading_blocked(state.cfg())
+    if _blocked:
+        return market_gate.blocked_redirect("/positions", _blocked)
+
     now = datetime.utcnow()
     eng = state.engine()
     eng._close(ticker, float(price), "OWNER_SELL", now)
@@ -325,6 +331,12 @@ def close_all_positions(request: Request):
     user = auth.current_user(request)
     if not user or user.get("role") != "owner":
         return RedirectResponse("/positions?error=owner_only", status_code=303)
+
+    # Owner order 2026-09-10: no trades outside market hours — their
+    # own buttons included ("yes all block").
+    _blocked = market_gate.trading_blocked(state.cfg())
+    if _blocked:
+        return market_gate.blocked_redirect("/positions", _blocked)
 
     p = state.portfolio()
     eng = state.engine()
@@ -386,6 +398,12 @@ async def sector_exit(request: Request):
     user = auth.current_user(request)
     if not user or user.get("role") != "owner":
         return RedirectResponse("/positions?error=owner_only", status_code=303)
+
+    # Owner order 2026-09-10: no trades outside market hours — their
+    # own buttons included ("yes all block").
+    _blocked = market_gate.trading_blocked(state.cfg())
+    if _blocked:
+        return market_gate.blocked_redirect("/positions", _blocked)
 
     form = await request.form()
     sector = (form.get("sector") or "").strip()

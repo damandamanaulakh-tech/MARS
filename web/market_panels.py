@@ -231,6 +231,82 @@ def sector_panel(limit: int = 16) -> dict:
             "worst": rows[0], "best": rows[-1]}
 
 
+def coverage_panel() -> dict:
+    """Sector-by-sector: how much of the tradeable universe the app actually
+    READ today. Owner ask 2026-09-10, their words: "what i felt system is not
+    reading all 2400 stocks every time, that is the flaw ... we can do sector
+    wise and on dashboard after doing each sector's each share it show show
+    data".
+
+    The honest answer to "is it reading everything" is a count, not a
+    reassurance. Three numbers per sector:
+      universe  — names on the current scan list
+      scanned   — names that actually got a score in today's scan matrix
+      passing   — names that cleared the live entry floor
+
+    WHY THE GAP IS USUALLY REAL AND NOT A BUG: the scan list is rebuilt
+    weekly as the top N by median rupee turnover from the names the Mongo
+    OHLCV store holds, and that store is still filling (573 of 2,648 at the
+    2026-08-29 check). A name with no stored history cannot be scored. The
+    panel says so with a number instead of hiding it.
+
+    Reads stored state only — no network on a page render. Returns {} when
+    no scan has run, so the card hides rather than showing a row of zeros.
+    """
+    try:
+        from . import state
+        cfg, p = state.cfg(), state.portfolio()
+        matrix = getattr(p, "scan_matrix", None) or {}
+        rows = matrix.get("rows") or {}
+        if not rows:
+            return {}
+        universe = list(getattr(cfg, "custom_universe", ()) or ())
+        if not universe:
+            # Rotating-bucket mode: the day's bucket IS the universe, so the
+            # only honest denominator is what was scanned.
+            universe = list(rows.keys())
+        floor = float(getattr(cfg, "min_score_to_enter", 62.0))
+        sector_of = getattr(cfg, "sector_map", {}) or {}
+
+        buckets: dict = {}
+        for t in universe:
+            sec = sector_of.get(t, "Unknown")
+            b = buckets.setdefault(sec, {"sector": sec, "universe": 0,
+                                         "scanned": 0, "passing": 0})
+            b["universe"] += 1
+            row = rows.get(t)
+            if not row:
+                continue
+            b["scanned"] += 1
+            try:
+                if float(row.get("score")) >= floor:
+                    b["passing"] += 1
+            except (TypeError, ValueError):
+                pass
+        out = sorted(buckets.values(), key=lambda r: (-r["universe"], r["sector"]))
+        for r in out:
+            r["pct"] = round(r["scanned"] / r["universe"] * 100, 1) if r["universe"] else 0.0
+        tot_u = sum(r["universe"] for r in out)
+        tot_s = sum(r["scanned"] for r in out)
+        return {
+            "rows": out,
+            "universe": tot_u,
+            "scanned": tot_s,
+            "passing": sum(r["passing"] for r in out),
+            "pct": round(tot_s / tot_u * 100, 1) if tot_u else 0.0,
+            "target": int(getattr(cfg, "universe_target_size", 0) or 0),
+            "floor": floor,
+            "ts": matrix.get("ts", ""),
+            # Named so the page can say WHY the list is short of target
+            # instead of leaving the owner to guess.
+            "short_by": max(0, int(getattr(cfg, "universe_target_size", 0) or 0)
+                            - tot_u),
+        }
+    except Exception as e:
+        log.warning("coverage_panel unavailable: %s", e)
+        return {}
+
+
 def events_panel(days: int = 45, limit: int = 6) -> list[dict]:
     """Next market-moving dates from the curated calendars (RBI MPC, Budget,
     elections, expiries, festivals). The engine already halts entries before

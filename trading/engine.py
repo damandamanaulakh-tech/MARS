@@ -26,6 +26,7 @@ from .data import fetch_daily
 from .quote_router import fetch_quotes as routed_fetch_quotes
 from .exits import check_exit
 from .paper import ClosedTrade, PaperPosition, Portfolio
+from .calendars import is_market_open, market_state
 from .candles import candle_confirmation
 from .risk import RiskState, can_open
 from .scoring import (
@@ -353,6 +354,9 @@ class TradingEngine:
                 "timing_diag": timing_diag,
                 "reasoning": reasoning,
                 "last_close": float(history[t]["Close"].iloc[-1]),
+                # Carried so _target_for can read the name's own ATR without
+                # a second fetch. Never serialised into the portfolio.
+                "history": history[t],
             })
         ranked.sort(key=lambda r: -r["score"])
 
@@ -584,6 +588,32 @@ class TradingEngine:
                 ) or {}
             except Exception as e:
                 log.warning("live fill quotes unavailable — prior close: %s", e)
+
+        # OWNER ORDER 2026-09-10: "trade are prohibited from now after market
+        # hours ... yes all block, but i can run the advisery to review buy,
+        # watch and block list". Everything above this line is READ-ONLY —
+        # scoring, gates, picks, the scan matrix, the journal — and still runs
+        # at any hour so the owner can review. Nothing below it may trade.
+        #
+        # This closes the real hole: catchup_scan_if_missed gated on
+        # is_trading_day(), the DAY and never the CLOCK, and fires ~2 minutes
+        # after every boot — so a Render restart at 21:00 opened positions at
+        # prices nobody could have traded at.
+        if not self._trading_allowed(now):
+            state = market_state(now)
+            self.portfolio.last_scan = now.isoformat()
+            self._journal_once_a_day("MARKET_CLOSED_NO_ENTRY", now, {
+                "market_state": state,
+                "picks_held_back": [pk["ticker"] for pk in picks],
+                "why": (f"Market is {state.replace('_', ' ')} — {len(picks)} "
+                        f"pick(s) scored and shown for review, none bought. "
+                        f"Owner order 2026-09-10: no trades outside "
+                        f"09:15-15:30 IST on a trading day."),
+            })
+            for pk in picks:
+                skipped.append({"ticker": pk["ticker"],
+                                "reason": f"market_{state}"})
+            picks = []
 
         # OWNER ORDER 2026-09-04: rotation executes. Runs BEFORE the opening
         # loop so the cash it frees is there when can_open counts it.
@@ -997,11 +1027,33 @@ class TradingEngine:
         history = fetch_daily(tickers, period="1y")
         bench = fetch_daily([cfg.benchmark], period="6mo").get(cfg.benchmark)
 
+        # OWNER ORDER 2026-09-10: no trades outside 09:15-15:30 IST, and the
+        # 30-minute in-session pass now carries stops AND targets (owner: "A -
+        # OK", both on the same clock). So a closed-market refresh MARKS the
+        # book — cash, equity, P&L, journal all update, screens stay honest —
+        # and fires nothing. Exits are not lost, they moved INSIDE the session
+        # where they can actually be filled.
+        #
+        # This is a real change to when a stop can fire. It used to fire at
+        # 15:35, five minutes after the close, on a price nobody could trade.
+        marking_only = not self._trading_allowed(now)
+        if marking_only:
+            self._journal_once_a_day("MARKET_CLOSED_MARK_ONLY", now, {
+                "market_state": market_state(now),
+                "positions": len(tickers),
+                "why": (f"Market {market_state(now).replace('_', ' ')} — book "
+                        f"marked, no exits fired. Stops and targets run on the "
+                        f"in-session pass every "
+                        f"{int(getattr(cfg, 'intraday_refresh_minutes', 30))} "
+                        f"minutes."),
+            })
+
         # OWNER ORDER 2026-08-11 danger layer (C then auto B): the strict-
         # calibration-VERIFIED danger tripwires guard HELD names. Sell side
         # only; runs before the exit loop so a tightened stop is live today.
         try:
-            self._danger_pass(prices, history, now)
+            if not marking_only:
+                self._danger_pass(prices, history, now)
         except Exception:
             log.exception("danger layer pass failed")
             self.portfolio.decision_journal.append({
@@ -1060,7 +1112,19 @@ class TradingEngine:
             if ticker in history:
                 current_score, _ = compute_score(ticker, history[ticker], bench, history, cfg)
             should_exit, reason = check_exit(pos, price, current_score, cfg, now)
-            if should_exit:
+            if should_exit and marking_only:
+                # Owner order 2026-09-10: outside 09:15-15:30 the rule is SEEN
+                # and RECORDED, never executed — a fill after the close is a
+                # price nobody could get. It fires on the next in-session pass.
+                self.portfolio.decision_journal.append({
+                    "ts": now.isoformat(), "action": "EXIT_DUE_MARKET_CLOSED",
+                    "ticker": ticker, "rule": reason,
+                    "price": round(float(price), 2),
+                    "why": (f"{reason} is due on {ticker} at ₹{price:,.2f}, but "
+                            f"the market is {market_state(now).replace('_', ' ')}. "
+                            f"It will fire on the next in-session pass."),
+                })
+            elif should_exit:
                 self._close(ticker, price, reason, now)
                 exits.append(ticker)
             elif ticker not in held_today:
@@ -1083,7 +1147,8 @@ class TradingEngine:
                 })
 
         # F15: pyramid — add tranches to winners (opt-in, cfg.pyramid_enabled).
-        if getattr(cfg, "pyramid_enabled", False):
+        # A pyramid add is a BUY; the market-hours rule covers it.
+        if getattr(cfg, "pyramid_enabled", False) and not marking_only:
             try:
                 from .pyramid import pyramid_plan, apply_pyramid
                 for ticker in list(self.portfolio.positions.keys()):
@@ -1111,7 +1176,8 @@ class TradingEngine:
         # disabled (buy-and-hold). AUDIT FIX A2: only names with a REAL quote
         # are closed; an unpriced name stays open (visible above) instead of
         # being force-filled at its entry price.
-        if self.risk.kill_switch and not getattr(cfg, "disable_exits", False):
+        if (self.risk.kill_switch and not getattr(cfg, "disable_exits", False)
+                and not marking_only):
             for ticker in list(self.portfolio.positions.keys()):
                 price = prices.get(ticker)
                 if not price or price <= 0:
@@ -1132,7 +1198,7 @@ class TradingEngine:
         self.drawdown_gov.update(self.portfolio.equity(prices))
         self.portfolio.dd_peak_equity = float(self.drawdown_gov.peak_equity)
         cut = self.drawdown_gov.forced_cut
-        if cut > 0 and self.portfolio.positions:
+        if cut > 0 and self.portfolio.positions and not marking_only:
             # AUDIT FIX A2: rank and cut only names with a real quote — an
             # unpriced position can neither be ranked honestly nor filled.
             priced = [t for t in self.portfolio.positions
@@ -1208,10 +1274,64 @@ class TradingEngine:
             reasoning=pick["reasoning"],
             mode=getattr(self.cfg, "mode", ""),
             stop_price=round(fill_price * (1 + self.cfg.stop_loss_pct), 2),
-            target_price=round(fill_price * (1 + self.cfg.take_profit_pct), 2),
+            # OWNER ORDER 2026-09-10 ("C- k x ATR"): the target is k average
+            # days of range away, per horizon, not a flat percentage — a quiet
+            # name gets a nearer target than a wild one. Falls back to the
+            # mode's fixed percentage when the ATR cannot be computed; the
+            # diagnostic in the BUY journal says which was used, so a screen
+            # can never show an ATR target that was really the old number.
+            target_price=self._target_for(pick, fill_price),
             # the tag is the Ocean slot counter (max 8) and the audit trail
             tags=(["ocean"] if pick.get("ocean") else []),
         )
+
+    def _watchlist_candidates(self, held: dict) -> list:
+        """Top-scored not-held names from the last scan, best first.
+
+        The SAME rows the dashboard rotation card reads
+        (`portfolio.scan_matrix`), so the screen and the engine can never
+        disagree about what is worth rotating into — the disagreement the
+        owner reported on 2026-09-10. Names below the live entry floor are
+        excluded: rotation must never sell a real position to buy something
+        the entry gate would have refused.
+        """
+        rows = (getattr(self.portfolio, "scan_matrix", None) or {}).get("rows") or {}
+        floor = float(getattr(self.cfg, "min_score_to_enter", 62.0))
+        block = set(getattr(self.cfg, "ticker_blocklist", ()) or ())
+        out = []
+        for tkr, row in rows.items():
+            if tkr in held or tkr in block:
+                continue
+            try:
+                score = float(row.get("score"))
+            except (TypeError, ValueError):
+                continue
+            if score < floor:
+                continue
+            out.append({"ticker": tkr, "score": score,
+                        "reasoning": row.get("reasoning") or "watchlist rotation",
+                        "source": "watchlist"})
+        out.sort(key=lambda r: -r["score"])
+        return out[:10]
+
+    def _target_for(self, pick: dict, fill_price: float) -> float:
+        """k x ATR target for a new position (owner order 2026-09-10).
+
+        `pick` carries the scan's own history frame under "history" when the
+        caller has one; without it the fallback is the mode's fixed percentage
+        — never an invented range.
+        """
+        from .targets import target_price_for
+        df = pick.get("history")
+        try:
+            price, diag = target_price_for(
+                getattr(self.cfg, "mode", ""), float(fill_price), df,
+                float(self.cfg.take_profit_pct))
+        except Exception:
+            log.exception("ATR target failed — mode percentage used")
+            return round(float(fill_price) * (1 + self.cfg.take_profit_pct), 2)
+        pick["target_diag"] = diag
+        return price
 
     def _danger_pass(self, prices: dict, history: dict, now: datetime) -> None:
         """Mode C (alerts, first 7 days) then mode B (auto per-stock defence).
@@ -1333,14 +1453,34 @@ class TradingEngine:
         held = self.portfolio.positions
         fresh = [pk for pk in (picks or [])
                  if pk.get("ticker") and pk["ticker"] not in held]
-        if not fresh or not held:
+        if not held:
             return []
 
-        # What the fresh picks need, by the SAME sizing call the opening loop
-        # makes, against what cash can spend after the regime reserve.
+        # OWNER ORDER 2026-09-10, answering why this never fired: "Rotation is
+        # combinaton of a & b, but for b there is simple trigger point when
+        # cash is below 5%, rest all the time rotaiton will be done as per a-
+        # adding & rotating from watch list".
+        #
+        # WHAT WAS WRONG. The 2026-09-04 cut required BOTH a funded scan pick
+        # AND a cash shortfall. On this book the breadth band and the score
+        # floor mean most days produce zero picks, and cash is plentiful — so
+        # both conditions were false and the branch returned at its first line
+        # every single day. Worse, the dashboard card calls
+        # rotation_suggestions() directly against the WATCHLIST, so the screen
+        # could say "rotate X" while the engine, needing something else
+        # entirely, did nothing. That disagreement is what the owner saw.
+        #
+        # Now there are two independent triggers:
+        #   (a) ALWAYS — a near-target name rotates into the best watchlist
+        #       candidate, whether or not cash is short. This is the one that
+        #       makes the card and the engine agree.
+        #   (b) CASH BELOW 5% — a hard trigger: when the book is nearly fully
+        #       deployed, rotate enough to fund what is waiting.
         from .sizing import position_notional_for
         eq = self.portfolio.cash + sum(
             float(p.qty) * float(p.entry_price) for p in held.values())
+        reserve = float(getattr(cfg, "cash_reserve_pct", 0.0) or 0.0)
+        spendable = self.portfolio.cash - eq * reserve
         need = 0.0
         for pk in fresh:
             if pk.get("ocean"):
@@ -1348,10 +1488,42 @@ class TradingEngine:
             else:
                 need += float(position_notional_for(
                     cfg, eq, score=pk.get("score"), close=None)[0] or 0)
-        reserve = float(getattr(cfg, "cash_reserve_pct", 0.0) or 0.0)
-        shortfall = need - (self.portfolio.cash - eq * reserve)
-        if shortfall <= 0:
+        shortfall = need - spendable
+
+        # (b) the owner's cash trigger, independent of whether a pick exists.
+        cash_floor = float(getattr(cfg, "rotation_cash_trigger_pct", 0.05) or 0.0)
+        cash_low = eq > 0 and (self.portfolio.cash / eq) < cash_floor
+
+        # (a) the watchlist candidates, used whenever the scan produced no
+        # funded pick of its own. These are scored, not-held names — the same
+        # rows the dashboard card reads, so the two can no longer disagree.
+        if not fresh:
+            fresh = self._watchlist_candidates(held)
+            if not fresh:
+                return []
+            # Rotation into a watchlist name is one-for-one: free exactly what
+            # the best candidate needs, never a fire sale.
+            need = float(position_notional_for(
+                cfg, eq, score=fresh[0].get("score"), close=None)[0] or 0)
+            shortfall = need - spendable
+
+        if shortfall <= 0 and not cash_low:
             return []
+        if cash_low and shortfall <= 0:
+            # Cash is under the floor but the waiting pick is affordable.
+            # Free one ticket's worth so the book is not left with nothing to
+            # act on tomorrow.
+            shortfall = need if need > 0 else float(
+                position_notional_for(cfg, eq, score=fresh[0].get("score"),
+                                      close=None)[0] or 0)
+            self._journal_once_a_day("ROTATION_CASH_TRIGGER", now, {
+                "cash": round(self.portfolio.cash, 2),
+                "cash_pct": round(self.portfolio.cash / eq * 100, 2),
+                "floor_pct": round(cash_floor * 100, 2),
+                "why": (f"Cash is {self.portfolio.cash / eq * 100:.1f}% of the "
+                        f"book, under the {cash_floor * 100:.0f}% floor — "
+                        f"owner's rotation trigger (2026-09-10)."),
+            })
 
         candidates = [t for t, p in held.items()
                       if "owner_pick" not in (getattr(p, "tags", None) or [])]
@@ -1560,6 +1732,38 @@ class TradingEngine:
                    for e in self.portfolio.decision_journal[-60:]):
             self.portfolio.decision_journal.append(
                 {"ts": now.isoformat(), "action": action, "why": why})
+
+    # --- market-hours gate (owner order 2026-09-10) -----------------------
+    def _trading_allowed(self, now: Optional[datetime] = None) -> bool:
+        """Can a position be opened or closed RIGHT NOW?
+
+        One predicate, one place. `cfg.market_hours_only` exists so tests and
+        backtests (which replay closed days by definition) are not gated, and
+        so the owner can switch the rule off from Settings if they ever want
+        the old behaviour back — but it defaults ON per their order.
+        """
+        if not bool(getattr(self.cfg, "market_hours_only", True)):
+            return True
+        return is_market_open(now)
+
+    def _journal_once_a_day(self, action: str, now: datetime,
+                            fields: dict) -> None:
+        """Append `action` at most once per calendar day.
+
+        The window is the last 60 entries, the same bound _ocean_journal_once
+        uses. NOTE for future tests: a repeated same-day run against a
+        persistent state dir will therefore SKIP the second append — count
+        only your own test's appends, never a tail slice of the journal (the
+        2026-08-24 fault class).
+        """
+        today_iso = now.date().isoformat()
+        if any(e.get("action") == action
+               and str(e.get("ts", "")).startswith(today_iso)
+               for e in self.portfolio.decision_journal[-60:]):
+            return
+        entry = {"ts": now.isoformat(), "action": action}
+        entry.update(fields)
+        self.portfolio.decision_journal.append(entry)
 
     def _ocean_picks(self, regime, history: dict, universe, now: datetime) -> List[dict]:
         """Ocean dip candidates behind the owner-approved crash guard

@@ -8,7 +8,7 @@ import threading
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
-from .. import auth, state
+from .. import auth, market_gate, state
 from ..templating import templates
 
 
@@ -725,6 +725,13 @@ def owner_buy(request: Request, ticker: str = Form(...),
     user = auth.current_user(request)
     if not user or user.get("role") != "owner":
         return RedirectResponse("/scan?error=owner_only", status_code=303)
+    # Owner order 2026-09-10: no trades outside market hours, their own BUY
+    # button included ("After Hours yes all block"). A RESTING limit order is
+    # different and is left alone — it is an instruction for the next
+    # session, not a trade now; it fills on an in-session price pass.
+    _blocked = market_gate.trading_blocked(state.cfg())
+    if _blocked and (order_type or "market").strip().lower() != "limit":
+        return market_gate.blocked_redirect("/scan", _blocked)
     from datetime import datetime
 
     from trading.quote_router import fetch_quotes

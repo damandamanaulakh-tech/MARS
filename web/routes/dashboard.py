@@ -286,6 +286,9 @@ def dashboard(request: Request):
             "index_strip": _panel(mp.index_strip),
             "breadth": _panel(mp.breadth_panel),
             "sectors": _panel(mp.sector_panel),
+            # Owner ask 2026-09-10: "system is not reading all 2400
+            # stocks every time" — answer it with a count, per sector.
+            "coverage": _panel(mp.coverage_panel),
             "events": _panel(mp.events_panel),
             "evidence": _panel(mp.evidence_panel),
             "horizons": _panel(mp.horizons_panel),

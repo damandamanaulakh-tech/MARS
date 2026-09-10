@@ -143,6 +143,20 @@ def start_if_enabled() -> None:
             day_of_week="mon-fri", hour=15, minute=35,
             id="eod_refresh",
         )
+        # OWNER ORDER 2026-09-10: price + exits + rotation every 30 minutes
+        # inside the session. `minute="*/30"` over hours 9-15 gives 09:00,
+        # 09:30, ... 15:30; the pass no-ops before 09:15 via is_market_open.
+        _mins = 30
+        try:
+            from . import state as _st
+            _mins = max(5, int(getattr(_st.cfg(), "intraday_refresh_minutes", 30)))
+        except Exception:
+            pass
+        _SCHED.add_job(
+            _session_refresh, "cron",
+            day_of_week="mon-fri", hour="9-15", minute=f"*/{_mins}",
+            id="session_refresh", replace_existing=True,
+        )
         # Node 10: nightly register precompute over the full store — after
         # the close and the 15:35 refresh, when the box is otherwise idle.
         _SCHED.add_job(
@@ -172,12 +186,24 @@ def catchup_scan_if_missed(reason: str = "catchup") -> bool:
     import threading
     from datetime import datetime as _dt
 
-    from trading.calendars import is_trading_day
+    from trading.calendars import is_market_open, is_trading_day
 
     if (not daily_enabled()
             or os.environ.get("SB_DISABLE_CATCHUP") == "1"
             or not is_trading_day()):
         return False
+    # OWNER ORDER 2026-09-10: "trade are prohibited from now after market
+    # hours". THIS was the hole. The guard above reads the DAY and never the
+    # CLOCK, and this job fires ~2 minutes after EVERY boot — so a Render
+    # restart at 21:00 on a Tuesday, or the owner logging in at night, ran a
+    # full multi-mode scan that could open positions at prices nobody could
+    # have traded. The scan still RUNS outside hours (they asked to keep
+    # reviewing buy/watch/block lists); engine.scan simply opens nothing and
+    # journals MARKET_CLOSED_NO_ENTRY. This line makes the intent explicit
+    # and keeps the log honest about which it was.
+    if not is_market_open():
+        log.info("[catchup:%s] market closed — scan will score and show, "
+                 "but open nothing (owner order 2026-09-10)", reason)
     from . import state
     p = state.portfolio()
     last = (p.last_scan or "")[:10]
@@ -1232,6 +1258,30 @@ def _mark_weekly_block_done() -> None:
         log.exception("could not record the weekly block completion")
 
 
+def _watchlist_names(p) -> set:
+    """Every name the app is actively watching, from both watch surfaces.
+
+    `trigger_watch["watchlist"]` is the owner's own 112-trigger gate result;
+    `news_watch["triggered"]` is a stock a news event named. Both are display
+    surfaces, but the NAMES are work the owner accumulated and must survive a
+    universe rebuild. Defensive about shape: these dicts are persisted and
+    hydrated from Mongo, so a partial doc must degrade to "no watchlist"
+    rather than raise inside the Friday block.
+    """
+    out: set = set()
+    for doc, key in ((getattr(p, "trigger_watch", None), "watchlist"),
+                     (getattr(p, "news_watch", None), "triggered")):
+        if not isinstance(doc, dict):
+            continue
+        names = doc.get(key)
+        if isinstance(names, dict):
+            names = list(names.keys())
+        if not isinstance(names, (list, tuple, set)):
+            continue
+        out |= {str(t) for t in names if t}
+    return out
+
+
 def refresh_liquid_universe(where: str = "weekly") -> dict:
     """Rebuild the tradeable universe as the top-N names by rupee turnover.
 
@@ -1274,10 +1324,27 @@ def refresh_liquid_universe(where: str = "weekly") -> dict:
     try:
         target = int(getattr(cfg, "universe_target_size", DEFAULT_TARGET) or
                      DEFAULT_TARGET)
+        # OWNER ORDER 2026-09-10, item 8: "you add keep the entire watch list
+        # in new download on friday (x+watch list =2400), so some current work
+        # done on watch list must be kept ... also in future i can track the n
+        # see why its in watch and check many other parameter".
+        #
+        # THE GAP THIS CLOSES. always_include carried HELD names only, so a
+        # name the trigger layer had flagged WATCH — or one the news module
+        # had marked TRIGGER — dropped out of the scanned universe the moment
+        # it fell below the turnover cut, taking its accumulated reasoning
+        # with it. The owner watches names precisely because they are not
+        # positions yet; losing them on a Friday is losing the work.
+        #
+        # Their clarification the same day settles the other half: "universe
+        # means the stocks app will analysis for trade - do not even think or
+        # touch or dlt the years data". Nothing here reads or writes stored
+        # candles; this rebuilds the LIST only.
+        keep = _watchlist_names(p)
         res = select_liquid_universe(
             db.history_tails(40), target=target,
             blocklist=getattr(cfg, "ticker_blocklist", ()) or (),
-            always_include=list(p.positions.keys()))
+            always_include=sorted(set(p.positions.keys()) | keep))
         picked = res["tickers"]
         if not picked:
             _journal("UNIVERSE_BATCH_FAILED",
@@ -1287,6 +1354,7 @@ def refresh_liquid_universe(where: str = "weekly") -> dict:
                      f"{res.get('sample', 0)} names.")
             return res
         before = list(getattr(cfg, "custom_universe", ()) or ())
+        picked_set = set(picked)
         cfg.custom_universe = tuple(picked)
         db.save_settings({"custom_universe": list(picked)})
         added = sorted(set(picked) - set(before))
@@ -1303,7 +1371,21 @@ def refresh_liquid_universe(where: str = "weekly") -> dict:
             "skipped_illiquid": res["skipped_illiquid"],
             "added": added, "dropped": dropped,
             "held_added": res.get("held_added", []),
+            # Owner order 2026-09-10 item 8: which watched names were carried
+            # through the rebuild, so the owner can SEE their work survived
+            # rather than trusting that it did.
+            "watchlist_kept": sorted(keep & picked_set),
+            # Carried = in the universe but NOT by rank, i.e. it would have
+            # been dropped without the owner's rule. `picked` is already the
+            # FINAL list (top-N plus always_include), so the ones added
+            # outside the rank are exactly res["held_added"].
+            "watchlist_carried": sorted(keep & set(res.get("held_added", ()))),
         }
+        carried = sorted(keep & set(res.get("held_added", ())))
+        kept_note = ("" if not keep else
+                     f" Watchlist kept: {len(keep)} name(s), "
+                     f"{len(carried)} of them carried in below the turnover "
+                     f"cut so their accumulated reasoning survives.")
         note = ("" if not res["short_by"] else
                 f" SHORT BY {res['short_by']}: only {res['judged']} of the "
                 f"{res['sample']} stored names cleared the liquidity floor, "
@@ -1312,6 +1394,7 @@ def refresh_liquid_universe(where: str = "weekly") -> dict:
                  f"[{where}] Tradeable universe rebuilt by median rupee "
                  f"turnover: {len(picked)} names (target {target}). "
                  f"{len(added)} added, {len(dropped)} dropped. "
+                 f"{kept_note}"
                  f"{res['skipped_thin']} skipped for thin history, "
                  f"{res['skipped_illiquid']} below the Rs 1 crore floor."
                  + note,
@@ -1502,8 +1585,43 @@ def _weekly_history_topup() -> None:
     _mark_weekly_block_done()
 
 
+def _session_refresh() -> None:
+    """Every `cfg.intraday_refresh_minutes` inside the session (owner order
+    2026-09-10, "A - instead of 20 u can do in 30").
+
+    Updates prices, fires stops AND targets on the same clock, and runs
+    rotation — which can then open a fresh position with the freed cash.
+
+    WHY STOPS TOO, stated because it is a real change: firing targets every
+    30 minutes while stops waited for the 15:35 pass would take profits fast
+    and losses slow, which is the classic way to lose money. The owner
+    approved the symmetric version ("A- OK"). The -5% stop is now checked
+    about thirteen times a day instead of twice, so intraday dips that used to
+    recover by the close will now sell. UNTESTED live; the window judges it.
+
+    engine.refresh() is itself gated on market hours, so this is safe to fire
+    at any clock — but the job is registered in-session only so a closed
+    market costs nothing.
+    """
+    from trading.calendars import is_market_open
+    if not is_market_open():
+        return
+    from . import state
+    try:
+        state.engine().refresh()
+    except Exception as e:
+        log.exception("session refresh failed: %s", e)
+
+
 def _eod_refresh() -> None:
-    """15:35 IST: mark all positions, fire exits, journal HOLD decisions."""
+    """15:35 IST: mark all positions and journal HOLD decisions.
+
+    NOTE since 2026-09-10: this runs five minutes AFTER the close, so it no
+    longer fires exits — engine.refresh() marks only outside 09:15-15:30.
+    Exits moved to _session_refresh, inside the session, where a fill is a
+    price that could actually have been got. The pass still marks the book,
+    keeps the equity curve, and carries the two index refreshes below.
+    """
     from trading.calendars import is_trading_day
     if not is_trading_day():
         return

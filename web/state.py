@@ -58,9 +58,17 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.risk_day_killed = bool(doc.get("risk_day_killed", False))
     # Legacy mirror docs predate capital_base. Owner order 2026-08-30
     # ("remove the 25 Lacs thing from the entire history"): the fallback is
-    # the LIVE capital, so a pre-capital_base doc can no longer resurrect the
-    # superseded 25L book on a restart.
-    p.capital_base = float(doc.get("capital_base", 50_00_000.0) or 50_00_000.0)
+    # the LIVE capital, so a pre-capital_base doc can no longer resurrect a
+    # superseded book size on a restart.
+    #
+    # FIXED 2026-09-10: this was HARDCODED to Rs 50,00,000, which was the live
+    # capital when the line was written and stopped being it the moment the
+    # owner raised the book to Rs 5 crore. A legacy doc would then have read
+    # as "base 50L vs configured 5Cr" and sync_capital would have injected a
+    # phantom +4.5 crore of cash. Read the live config — the same fault the
+    # 25L fallback caused, one book size later.
+    _live_base = float(getattr(p.cfg, "starting_capital", 0.0) or 0.0)
+    p.capital_base = float(doc.get("capital_base") or _live_base)
     p.dd_peak_equity = float(doc.get("dd_peak_equity", 0.0) or 0.0)
     p.loss_day = doc.get("loss_day")
     p.loss_count = int(doc.get("loss_count", 0) or 0)
@@ -327,6 +335,37 @@ def _bootstrap() -> None:
         _CFG.breadth_block_low = 0.40
         _CFG.breadth_block_high = 0.65
         db.save_settings({"breadth_band_2026_09_09": True},
+                         doc_id="migrations")
+
+    # OWNER BATCH 2026-09-10. Capital Rs 50L -> Rs 5 crore, ceiling 80 -> 222,
+    # and the SLAB sizing model (Rs 1.5 lakh floor, score-driven above it, at
+    # m = 0.29). Stored overrides from the fixed-size era would otherwise pin
+    # the old numbers on the live box, so they are unset rather than left to
+    # win — save_settings is a $set merge and cannot delete on its own.
+    #
+    # The cash move itself is NOT done here: _PORTFOLIO does not exist yet at
+    # this point in the boot (it loads further down), and the existing
+    # sync_capital call after it already moves cash by the delta and journals
+    # CAPITAL_ADJUST. This migration only has to make sure the CONFIG says
+    # Rs 5 crore before that call runs, and that no stored override from the
+    # fixed-size era survives to overwrite it.
+    if not db.load_settings(doc_id="migrations").get("owner_batch_2026_09_10"):
+        db.unset_settings_keys([
+            "starting_capital", "max_positions", "sizing_mode",
+            "kelly_fraction", "position_slab_value", "position_size_value",
+            "universe_target_size", "market_hours_only",
+            "intraday_refresh_minutes", "rotation_cash_trigger_pct",
+        ])
+        _CFG.starting_capital = 5_00_00_000.0
+        _CFG.max_positions = 222
+        _CFG.sizing_mode = "slab"
+        _CFG.position_slab_value = 150_000.0
+        _CFG.kelly_fraction = 0.29
+        _CFG.universe_target_size = 1200
+        _CFG.market_hours_only = True
+        _CFG.intraday_refresh_minutes = 30
+        _CFG.rotation_cash_trigger_pct = 0.05
+        db.save_settings({"owner_batch_2026_09_10": True},
                          doc_id="migrations")
 
     # Apply mode preset (sets stops, target, etc. per chosen horizon)

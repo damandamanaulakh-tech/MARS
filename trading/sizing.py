@@ -101,6 +101,44 @@ def position_notional_for(cfg, equity: float, score: Optional[float] = None,
     fixed rupee size. Degrading to fixed is deliberate: a path that cannot
     estimate an edge must not guess one."""
     mode = str(getattr(cfg, "sizing_mode", "fixed")).lower()
+
+    # ---- SLAB MODEL (owner order 2026-09-10) -------------------------------
+    # "no flat size to follow / so we can put 150000 slab as minimum and rest
+    # on the score basis and your arithmetic".
+    #
+    # Size = Kelly on the live entry floor at the owner's m, floored at the
+    # slab. Two deliberate behaviours, both stated to them:
+    #   * a score AT the entry floor carries zero estimated edge, so it is
+    #     SKIPPED (0.0) rather than opened at the slab — the slab is a floor
+    #     under a real bet, never a reason to take a bet with no edge;
+    #   * the slab only bites just above the floor (at 20% vol, scores 63-64);
+    #     above that the score drives everything.
+    if mode == "slab" and score is not None and close is not None:
+        notional, diag = kelly_notional(cfg, equity, score, close)
+        slab = float(getattr(cfg, "position_slab_value", 0.0) or 0.0)
+        if notional <= 0:
+            return 0.0, {**diag, "mode": "slab",
+                         "reason": "no_estimated_edge_at_or_below_floor"}
+        raw = notional
+        if slab > 0 and notional < slab:
+            notional = slab
+        return notional, {**diag, "mode": "slab", "slab": slab,
+                          "kelly_notional": round(raw, 0),
+                          "slab_applied": bool(slab > 0 and raw < slab),
+                          "notional": round(notional, 0)}
+    if mode == "slab":
+        # No score or no price history: cannot estimate an edge, so do not
+        # guess one. The slab alone is the honest fallback, and the diagnostic
+        # says which input was missing.
+        slab = float(getattr(cfg, "position_slab_value", 0.0) or 0.0)
+        if slab > 0:
+            return slab, {"mode": "slab", "notional": slab, "slab": slab,
+                          "reason": ("no_score" if score is None
+                                     else "no_price_history")}
+        return cfg.position_notional(equity), {
+            "mode": "fixed", "notional": cfg.position_notional(equity),
+            "reason": "slab_unset"}
+
     if mode in ("kelly", "half_kelly") and score is not None and close is not None:
         notional, diag = kelly_notional(cfg, equity, score, close)
         if notional > 0:
