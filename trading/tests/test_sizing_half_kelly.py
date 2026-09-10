@@ -35,24 +35,50 @@ def _cfg(**kw):
 
 # ---- the config the owner chose ----------------------------------------
 
-def test_live_config_is_fixed_at_the_owners_number():
-    """REVERTED 2026-08-04 (owner: "still u r making 30000 positions"). Kelly
-    sizes Rs 20k-60k just above the 62 floor; the owner had ordered a FIXED
-    Rs 1.25 lakh per trade and their number wins. Kelly stays selectable and
-    its maths stays tested below."""
+def test_live_config_is_the_slab_model():
+    """SUPERSEDES the fixed-size revert of 2026-08-04.
+
+    Owner order 2026-09-10: "no flat size to follow / so we can put 150000
+    slab as minimum and rest on the score basis and your arithmetic". The
+    2026-08-04 complaint that Kelly opened Rs 20k-60k trades is answered by
+    the SLAB, not by a flat size: nothing opens below Rs 1.5 lakh, and above
+    that the score drives it. On the Rs 5 crore book the same score that
+    used to produce Rs 62k now produces several lakh.
+    """
     cfg = _cfg(sizing_mode=Config.sizing_mode)     # the real shipped default
-    assert cfg.sizing_mode == "fixed"
-    assert cfg.position_size_value == 125_000.0
-    n, diag = position_notional_for(cfg, 50_00_000.0, score=65.0, close=_close())
-    assert n == 125_000.0                     # not Kelly's Rs 62k
-    assert diag["mode"] == "fixed"
+    assert cfg.sizing_mode == "slab"
+    assert cfg.position_slab_value == 150_000.0
+    # Just above the floor the SLAB holds — this is the 2026-08-04 complaint
+    # made structurally impossible.
+    n, diag = position_notional_for(cfg, 5_00_00_000.0, score=63.0,
+                                    close=_close())
+    assert n >= 150_000.0
+    assert diag["mode"] == "slab"
+    # A score AT the floor has zero estimated edge and is SKIPPED, never
+    # opened at the slab — the slab is a floor under a real bet.
+    n0, diag0 = position_notional_for(cfg, 5_00_00_000.0,
+                                      score=cfg.min_score_to_enter,
+                                      close=_close())
+    assert n0 == 0.0 and "no_estimated_edge" in diag0["reason"]
+    # Well above the floor the score drives it, far above the slab.
+    n2, _ = position_notional_for(cfg, 5_00_00_000.0, score=72.0,
+                                  close=_close())
+    assert n2 > n >= 150_000.0
 
 
 def test_the_kelly_knobs_keep_their_owner_approved_values():
     cfg = _cfg()
-    assert cfg.kelly_fraction == 0.5          # 75% of max growth, 12.5% ruin
+    # m = 0.29, owner's pick 2026-09-10 ("0.29 (prime number)"). Measured:
+    # keeps 49.6% of maximum growth for a 1.68% chance of ever halving the
+    # book, with a 6.9x error budget before the bet reaches 2x-Kelly.
+    assert cfg.kelly_fraction == 0.29
     assert cfg.kelly_ic == 0.05               # the assumption, named
     assert cfg.kelly_max_pct == 0.05          # hard ceiling per name
+    from trading.measured_kelly import growth_vs_ruin
+    g = growth_vs_ruin(cfg.kelly_fraction)
+    assert g["growth_kept_pct"] == 49.6
+    assert g["halving_risk_pct"] == 1.68
+    assert g["error_budget_x"] == 6.9
 
 
 # ---- the maths ---------------------------------------------------------
@@ -66,9 +92,13 @@ def test_size_is_half_kelly_of_equity():
     sigma = close.pct_change().dropna().tail(63).std() * math.sqrt(252)
     z = (80.0 - cfg.min_score_to_enter) / 30.0
     mu = 0.05 * sigma * z
-    expected_f = min(0.05, 0.5 * mu / sigma ** 2)
+    # Reads the LIVE fraction rather than a literal 0.5 — the owner moved it
+    # to 0.29 on 2026-09-10 and a future move is a config decision, not a
+    # test failure. What is pinned is that the maths uses cfg.kelly_fraction.
+    expected_f = min(0.05, cfg.kelly_fraction * mu / sigma ** 2)
     assert notional == pytest.approx(expected_f * equity, rel=1e-9)
-    assert diag["mode"] == "half_kelly"
+    assert diag["mode"] == ("half_kelly" if cfg.kelly_fraction == 0.5
+                            else f"kelly_{cfg.kelly_fraction:g}")
     assert diag["ic_assumed"] == 0.05
     assert diag["floor"] == cfg.min_score_to_enter
 

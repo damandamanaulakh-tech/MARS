@@ -61,7 +61,13 @@ def test_regime_reserve_shrinks_the_slots_like_the_gate_does():
 
 
 def test_position_ceiling_binds_when_cash_does_not():
-    p, cfg = _book(cash=50_000_000.0, n_positions=78)
+    # Ceiling raised 80 -> 222 on the owner's order 2026-09-10, so the book
+    # has to be that much fuller before the ceiling is what binds. Derived
+    # from cfg, not hardcoded: a future ceiling change is a config decision,
+    # not a test failure.
+    from trading.config import Config
+    n = Config(state_dir="/tmp/sb_slots_test").max_positions - 2
+    p, cfg = _book(cash=50_000_000.0, n_positions=n)
     s = slot_view(p, cfg)
     assert s.free == 2 and s.limiting == "max_positions"
 

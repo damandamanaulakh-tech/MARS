@@ -143,6 +143,20 @@ def start_if_enabled() -> None:
             day_of_week="mon-fri", hour=15, minute=35,
             id="eod_refresh",
         )
+        # OWNER ORDER 2026-09-10: price + exits + rotation every 30 minutes
+        # inside the session. `minute="*/30"` over hours 9-15 gives 09:00,
+        # 09:30, ... 15:30; the pass no-ops before 09:15 via is_market_open.
+        _mins = 30
+        try:
+            from . import state as _st
+            _mins = max(5, int(getattr(_st.cfg(), "intraday_refresh_minutes", 30)))
+        except Exception:
+            pass
+        _SCHED.add_job(
+            _session_refresh, "cron",
+            day_of_week="mon-fri", hour="9-15", minute=f"*/{_mins}",
+            id="session_refresh", replace_existing=True,
+        )
         # Node 10: nightly register precompute over the full store — after
         # the close and the 15:35 refresh, when the box is otherwise idle.
         _SCHED.add_job(
@@ -172,12 +186,24 @@ def catchup_scan_if_missed(reason: str = "catchup") -> bool:
     import threading
     from datetime import datetime as _dt
 
-    from trading.calendars import is_trading_day
+    from trading.calendars import is_market_open, is_trading_day
 
     if (not daily_enabled()
             or os.environ.get("SB_DISABLE_CATCHUP") == "1"
             or not is_trading_day()):
         return False
+    # OWNER ORDER 2026-09-10: "trade are prohibited from now after market
+    # hours". THIS was the hole. The guard above reads the DAY and never the
+    # CLOCK, and this job fires ~2 minutes after EVERY boot — so a Render
+    # restart at 21:00 on a Tuesday, or the owner logging in at night, ran a
+    # full multi-mode scan that could open positions at prices nobody could
+    # have traded. The scan still RUNS outside hours (they asked to keep
+    # reviewing buy/watch/block lists); engine.scan simply opens nothing and
+    # journals MARKET_CLOSED_NO_ENTRY. This line makes the intent explicit
+    # and keeps the log honest about which it was.
+    if not is_market_open():
+        log.info("[catchup:%s] market closed — scan will score and show, "
+                 "but open nothing (owner order 2026-09-10)", reason)
     from . import state
     p = state.portfolio()
     last = (p.last_scan or "")[:10]
@@ -1502,8 +1528,43 @@ def _weekly_history_topup() -> None:
     _mark_weekly_block_done()
 
 
+def _session_refresh() -> None:
+    """Every `cfg.intraday_refresh_minutes` inside the session (owner order
+    2026-09-10, "A - instead of 20 u can do in 30").
+
+    Updates prices, fires stops AND targets on the same clock, and runs
+    rotation — which can then open a fresh position with the freed cash.
+
+    WHY STOPS TOO, stated because it is a real change: firing targets every
+    30 minutes while stops waited for the 15:35 pass would take profits fast
+    and losses slow, which is the classic way to lose money. The owner
+    approved the symmetric version ("A- OK"). The -5% stop is now checked
+    about thirteen times a day instead of twice, so intraday dips that used to
+    recover by the close will now sell. UNTESTED live; the window judges it.
+
+    engine.refresh() is itself gated on market hours, so this is safe to fire
+    at any clock — but the job is registered in-session only so a closed
+    market costs nothing.
+    """
+    from trading.calendars import is_market_open
+    if not is_market_open():
+        return
+    from . import state
+    try:
+        state.engine().refresh()
+    except Exception as e:
+        log.exception("session refresh failed: %s", e)
+
+
 def _eod_refresh() -> None:
-    """15:35 IST: mark all positions, fire exits, journal HOLD decisions."""
+    """15:35 IST: mark all positions and journal HOLD decisions.
+
+    NOTE since 2026-09-10: this runs five minutes AFTER the close, so it no
+    longer fires exits — engine.refresh() marks only outside 09:15-15:30.
+    Exits moved to _session_refresh, inside the session, where a fill is a
+    price that could actually have been got. The pass still marks the book,
+    keeps the equity curve, and carries the two index refreshes below.
+    """
     from trading.calendars import is_trading_day
     if not is_trading_day():
         return

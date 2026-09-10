@@ -70,7 +70,10 @@ class Config:
     # not percentage"): Rs 50L paper capital, FIXED Rs 1.25L per new trade,
     # 80 positions as the ceiling. At 50L the cash funds ~40 concurrent
     # 1.25L trades; the remaining slots open as capital grows.
-    starting_capital: float = 50_00_000.0
+    # OWNER ORDER 2026-09-10: "i want to raise our app capital to 5 Cr".
+    # Was Rs 50,00,000. Boot migration moves cash by the delta and
+    # journals CAPITAL_ADJUST — see Portfolio.sync_capital.
+    starting_capital: float = 5_00_00_000.0
     cash_reserve_pct: float = 0.0             # deploy 100% — no idle cash reserve (user setting)
     # ------------------------------------------------------------------
     # ENTRY VALUE POLICY — the whole of it, in one place.
@@ -101,18 +104,45 @@ class Config:
     #       user-approved 2026-07-11; a trade smaller than this is SKIPPED,
     #       not shrunk. It is a dust guard, never a target size.
     #
-    # So the honest one-line rule is: a normal entry is Rs 1.25 lakh, an
-    # Ocean entry is that plus 35%, and nothing below Rs 25,000 ever opens.
-    # "At least Rs 1 lakh" is true of Everest ONLY, and is not a global rule.
-    # Every sizing site goes through sizing.position_notional_for(), so the
-    # knobs cannot disagree at runtime. Guard test: test_entry_value_policy.
+    # SUPERSEDED 2026-09-10 by the SLAB MODEL below. The three numbers above
+    # are kept as the history of how the book was sized to that date.
+    #
+    # ---- THE SLAB MODEL (owner order 2026-09-10) ---------------------
+    # Their words: "no flat size to follow / so we can put 150000 slab as
+    # minimum and rest on the score basis and your arithmetic".
+    #
+    #   Rs 1,50,000     position_slab_value — the MINIMUM a trade opens at.
+    #                   Not a target and not a fixed size: it is the floor
+    #                   under a score-driven number.
+    #   score-driven    above the slab the size is Grinold/Kelly on the LIVE
+    #                   entry floor (see sizing.py), so a name sitting exactly
+    #                   at the floor carries zero estimated edge and is
+    #                   SKIPPED rather than opened at the slab.
+    #   m = 0.29        kelly_fraction — owner's pick, "0.29 (prime number)".
+    #                   Measured: keeps 49.6% of maximum growth for a 1.68%
+    #                   risk of ever halving the book, and leaves a 6.9x
+    #                   error budget before the bet reaches 2x-Kelly, where
+    #                   growth is zero and ruin certain. (0.25 -> 43.8%/0.78%
+    #                   /8.0x; 0.50 -> 75%/12.5%/4.0x.)
+    #   Rs 25,00,000    kelly_max_pct 5% of a Rs 5 Cr book — the hard ceiling.
+    #
+    # Ocean keeps its own ticket (Everest + 35%) and the Rs 25,000 dust guard
+    # still skips anything smaller. Every sizing site goes through
+    # sizing.position_notional_for(), so the knobs cannot disagree at runtime.
+    # Guard test: test_entry_value_policy.
     # ------------------------------------------------------------------
-    # Fixed rupee size per new trade (owner's number). 0 = fall back to
-    # max_position_pct sizing. All sizing sites go through
-    # position_notional() so the two knobs can never disagree.
-    position_size_value: float = 125_000.0
-    max_position_pct: float = 0.025           # fallback: 2.5% of 50L = 1.25L
-    max_positions: int = 80
+    position_size_value: float = 125_000.0    # history; slab model supersedes
+    # The minimum a trade opens at under the slab model. Score drives the
+    # rest. 0 disables the slab and falls back to position_size_value.
+    position_slab_value: float = 150_000.0
+    max_position_pct: float = 0.025           # fallback when both are 0
+    # OWNER ORDER 2026-09-10: "for 500 position doesnt mean 100000 for each
+    # i given a different meaning of 500 to system have a upper ceiling we
+    # can reduce to 222". A CEILING, not a target — the slab model funds far
+    # fewer than 222 on a Rs 5 Cr book and that is the intent.
+    # Measured: 20 sectors x max_sector_positions 12 = 240, so 222 fits under
+    # the sector cap without loosening it.
+    max_positions: int = 222
     # Sizing. "fixed" = the owner's own number, position_size_value above.
     #
     # REVERTED to fixed 2026-08-04 (owner: "still u r making 30000 positions").
@@ -122,10 +152,24 @@ class Config:
     # each. Kelly was adopted from a question I asked, not from an instruction
     # they wrote; their number wins. "half_kelly" is still selectable in
     # Settings, and the maths stays in trading/sizing.py and the /lens page.
-    sizing_mode: str = "fixed"                # "fixed" | "half_kelly"
-    kelly_fraction: float = 0.5               # NEVER above 1.0 — see the doc
+    # OWNER ORDER 2026-09-10: "no flat size to follow". "slab" is the live
+    # mode — score-driven size on a Rs 1.5 lakh floor. "fixed" and
+    # "half_kelly" stay selectable; the maths for all three is in sizing.py.
+    sizing_mode: str = "slab"                 # "slab" | "fixed" | "half_kelly"
+    kelly_fraction: float = 0.29              # owner's m, 2026-09-10
     kelly_ic: float = 0.05                    # ASSUMED information coefficient
     kelly_max_pct: float = 0.05               # hard ceiling: 5% of equity/name
+    # Measured Kelly from the book's OWN closed trades (AshStocks design,
+    # adopted on the owner's order 2026-09-10). It never RAISES a size — it
+    # is a ceiling that can only cut, so a bad estimate shrinks the book and
+    # can never blow it up. See trading/measured_kelly.py.
+    measured_kelly_enabled: bool = True
+    # Owner order 2026-09-10: "no cap on closed trades, i have already more
+    # than 100 in that". The count gate is off; what remains is the REASON
+    # filter, which is not negotiable arithmetic — an OWNER_SELL or a stale
+    # SQUARE_OFF measures the owner and a tagging bug, not the strategy.
+    measured_kelly_min_trades: int = 0
+    measured_kelly_full_confidence: int = 300
     # P1: momentum mode scans the FULL NSE universe via rotating buckets
     # (engine.scan); set False to fall back to the Nifty-200-only scan.
     full_universe_scan: bool = True
@@ -142,7 +186,14 @@ class Config:
     # scheduler.refresh_liquid_universe rebuilds custom_universe every Friday
     # as the top N stored names by MEDIAN RUPEE TURNOVER — retiring the
     # hand-typed 50-name list as the source, which is what went stale.
-    universe_target_size: int = 500
+    # RAISED 2026-09-10 (owner: "B- 1200 Ok") after measurement: a random
+    # 150-name sample of the 2,648-name NSE file, priced from live Upstox
+    # candles, put only 48.3% above the Rs 5 crore median turnover that
+    # risk.passes_liquidity demands to BUY -> about 1,279 of 2,648 names
+    # are tradeable at all. 1,200 is not a compromise for the box; it is
+    # the size of the tradeable market. The rest can be scanned forever
+    # and never bought.
+    universe_target_size: int = 1200
     # User instruction 2026-07-21: names the engine must NEVER scan or buy,
     # even though they are currently listed (distress/junk the owner bans).
     # Held positions are exempt so exits still work if one is ever held.
@@ -278,6 +329,27 @@ class Config:
     # F7 (user-approved 2026-07-11): never open dust positions — a position
     # whose notional is below this is skipped (IDEA-12-shares problem).
     min_position_value: float = 25000.0
+    # ---- market hours + in-session refresh (owner order 2026-09-10) ----
+    # "trade are prohibited from now after market hours ... yes all block,
+    # but i can run the advisery to review buy, watch and block list".
+    # Scoring, gates, picks, news, triggers and every screen keep running at
+    # any hour; only OPENING and CLOSING a position is gated. Off = the old
+    # behaviour, which let a 21:00 Render restart buy through the boot
+    # catch-up. Backtests set this False (they replay closed days by design).
+    market_hours_only: bool = True
+    # "A- instead of 20 u can do in 30, it will just update the price, and if
+    # any prices match target match, rotation comes it will do and accordingly
+    # it will add new position" -> then "A- OK" to running the STOP on the
+    # same clock. Stops and targets are symmetric by design: firing targets
+    # every 30 minutes while stops waited for 15:35 would take profits fast
+    # and losses slow. This makes the -5% stop far more sensitive than the
+    # twice-a-day check it replaces; UNTESTED live, the window judges it.
+    intraday_refresh_minutes: int = 30
+    # OWNER ORDER 2026-09-10: "for b there is simple trigger point when cash
+    # is below 5%, rest all the time rotaiton will be done as per a - adding &
+    # rotating from watch list". Below this share of equity in cash, rotation
+    # frees a ticket even when the waiting pick is already affordable.
+    rotation_cash_trigger_pct: float = 0.05
     # F15 (Chityy pyramid maps): add to a WINNING position in tranches.
     # Default OFF — opt-in from Settings so it can't surprise the live book;
     # add pyramid_add_pct of the ORIGINAL notional each time the position is

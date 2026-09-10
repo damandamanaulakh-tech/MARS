@@ -121,6 +121,79 @@ def is_trading_day(today: Optional[date] = None) -> bool:
     return today.weekday() < 5 and today not in NSE_FIXED_HOLIDAYS
 
 
+# --- market hours (owner order 2026-09-10: "trade are prohibited from now
+# after market hours ... yes all block, but i can run the advisery to review
+# buy, watch and block list, for trade hours") -------------------------------
+#
+# THE HOLE THIS CLOSES. Every automatic entry path gated on is_trading_day(),
+# which reads the DAY and never the CLOCK. catchup_scan_if_missed fires ~2
+# minutes after EVERY boot, so a Render restart at 21:00 on a Tuesday ran a
+# full multi-mode scan that could open positions — hours after the close, on
+# prices nobody could have traded at.
+#
+# The session window is NSE's own: 09:15-15:30 IST. The two scheduled jobs
+# that run outside it by design (15:25 square-off is inside; 15:35 mark-and-
+# exit is not) are handled at their own call sites, not here — this helper
+# only answers the question it is named for.
+MARKET_OPEN_IST = (9, 15)
+MARKET_CLOSE_IST = (15, 30)
+
+
+def _ist_now(now: Optional[datetime] = None) -> datetime:
+    """Current time in IST. `now` may be naive (assumed already IST) or aware."""
+    if now is not None:
+        return now if now.tzinfo is None else now.astimezone(_IST)
+    try:
+        return datetime.now(_IST)
+    except Exception:                                   # pragma: no cover
+        return datetime.now()
+
+
+try:                                                    # stdlib since 3.9
+    from zoneinfo import ZoneInfo
+    _IST = ZoneInfo("Asia/Kolkata")
+except Exception:                                       # pragma: no cover
+    from datetime import timezone as _tz
+    _IST = _tz(timedelta(hours=5, minutes=30))
+
+
+def is_market_open(now: Optional[datetime] = None) -> bool:
+    """True only inside NSE's continuous session: a trading day, 09:15-15:30 IST.
+
+    Used to gate every AUTOMATIC path that can open or close a position.
+    Read-only work — scanning, scoring, the advisory, news, triggers — is
+    never gated on this: the owner asked to keep reviewing buy/watch/block
+    lists outside hours, and reading nothing costs nothing.
+    """
+    # SB_IGNORE_MARKET_HOURS=1 — for tests and backtests ONLY, which replay
+    # closed days by definition and run at whatever wall-clock hour CI wakes
+    # up. Set in the test conftests, never in render.yaml. Same escape-hatch
+    # pattern as SB_DISABLE_CATCHUP and SB_LOGIN_DELAY_SEC. A guard test
+    # asserts production config never sets it and that the default is gated.
+    import os
+    if os.environ.get("SB_IGNORE_MARKET_HOURS") == "1":
+        return True
+    t = _ist_now(now)
+    if not is_trading_day(t.date()):
+        return False
+    hhmm = (t.hour, t.minute)
+    return MARKET_OPEN_IST <= hhmm <= MARKET_CLOSE_IST
+
+
+def market_state(now: Optional[datetime] = None) -> str:
+    """'open' | 'closed_holiday' | 'pre_open' | 'after_close' — for screens
+    and journal lines, so a blocked trade always says WHY it was blocked."""
+    t = _ist_now(now)
+    if not is_trading_day(t.date()):
+        return "closed_holiday"
+    hhmm = (t.hour, t.minute)
+    if hhmm < MARKET_OPEN_IST:
+        return "pre_open"
+    if hhmm > MARKET_CLOSE_IST:
+        return "after_close"
+    return "open"
+
+
 # --- F&O monthly expiry ---
 def fno_monthly_expiry(year: int, month: int) -> date:
     """Last TUESDAY of the given month (display only — expiry never halts).

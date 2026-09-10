@@ -11,21 +11,29 @@ def _p(tmp_path, capital=50_00_000.0):
     return cfg, Portfolio.fresh(cfg)
 
 
-def test_new_book_spec_is_50l_80_at_fixed_1_25_lakh():
-    """Owner 2026-07-30, corrected same day: '1.25 lac, 125000, not
-    percentage' — a FIXED rupee size per trade."""
+def test_new_book_spec_is_5cr_222_on_the_slab_model():
+    """SUPERSEDES the 50L/80/fixed-1.25L spec of 2026-07-30.
+
+    Owner order 2026-09-10: "i want to raise our app capital to 5 Cr and
+    positions to 500" -> then "for 500 position doesnt mean 100000 for each
+    ... have a upper ceiling we can reduce to 222", and "no flat size to
+    follow / so we can put 150000 slab as minimum and rest on the score
+    basis and your arithmetic".
+    """
     cfg = Config()
-    assert cfg.starting_capital == 50_00_000.0
-    assert cfg.max_positions == 80
+    assert cfg.starting_capital == 5_00_00_000.0         # Rs 5 crore
+    assert cfg.max_positions == 222                      # a CEILING, not a target
+    assert cfg.position_slab_value == 150_000.0          # the minimum a trade opens at
+    assert cfg.sizing_mode == "slab"
+    # 222 fits UNDER the sector cap without loosening it: 20 sectors x 12.
+    from collections import Counter
+    sectors = len(set(cfg.sector_map.values()))
+    assert cfg.max_positions <= sectors * cfg.max_sector_positions
+    # The old fixed value survives as the fallback when the slab is off.
     assert cfg.position_size_value == 125_000.0
-    assert cfg.position_notional() == 125_000.0          # fixed value wins
-    assert cfg.position_notional(base=99_00_000.0) == 125_000.0
-    # 0 falls back to pct sizing
+    assert cfg.position_notional() == 125_000.0
     cfg.position_size_value = 0.0
-    assert abs(cfg.position_notional() - 50_00_000.0 * 0.025) < 1e-6
-    # guardrail sanity: cash funds ~40 concurrent 1.25L trades; even the
-    # full 80-slot ceiling at 1.25L keeps risk-at-stop under the heat cap
-    assert 80 * 125_000.0 * 0.05 / 50_00_000.0 < Config().max_portfolio_heat_pct
+    assert abs(cfg.position_notional() - 5_00_00_000.0 * 0.025) < 1e-6
 
 
 def test_sizing_sites_use_the_fixed_value():

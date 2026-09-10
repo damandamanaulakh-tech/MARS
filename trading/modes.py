@@ -3,10 +3,17 @@
 Same AM 07 scoring engine, four different "personalities" via weight +
 exit + timing presets:
 
-  intraday   — 5-min bars, VWAP/ORB-driven, square-off by 3:25 PM IST
-  short      — 1-7 day holds, momentum + breakout heavy
-  swing      — 1-8 week holds, the default that's running today
-  positional — 1-6 month holds, fundamentals weighted higher
+  intraday   — same day, square-off by 3:25 PM IST
+  swing      — 2-4 weeks   (20 sessions)
+  short      — 1-3 months  (63 sessions)
+  positional — 1-12 months (252 sessions)
+
+HORIZONS REMAPPED 2026-09-10 on the owner's order: "app should buy the stock
+under there Horizon of intraday, Swing for 2-4 Weeks, Short 1-3 months, Long
+1-12 Months or when it hit target, and all Horizon have target formula".
+Before this, `short` held 7 days and `swing` held 60 — the app's short was
+SHORTER than its swing, the opposite of what those words mean to the owner.
+Targets are now k x ATR per horizon (see ATR_TARGET_K), not fixed percentages.
 
 Each preset overrides AM07_WEIGHTS and exit thresholds. The engine reads
 `cfg.mode` and applies the preset at scoring time.
@@ -145,14 +152,19 @@ PRESETS: dict[str, ModePreset] = {
         take_profit_pct=0.06,
         trailing_stop_pct=-0.04,
         score_decay_exit=45.0,
-        max_hold_days=7,
+        # HORIZON REMAP 2026-09-10 (owner: "Short 1-3 months"). Was 7 days —
+        # the app's "short" was SHORTER than its own "swing" (60 days), i.e.
+        # the two names were swapped against the owner's meaning, so every
+        # trade ever tagged short or swing ran on the wrong horizon.
+        max_hold_days=63,            # 3 months of sessions
         min_score_to_enter=70.0,
         breakout_threshold_pct=0.015,
         volume_confirm_ratio=1.3,
         square_off_time=None,
         description=(
-            "1-7 day holds. Daily bars, tighter exits than swing. "
-            "Captures momentum bursts that don't survive past a week."
+            "1-3 month holds (owner's horizon, 2026-09-10). Daily bars. "
+            "Target is k x ATR, so a quiet name gets a nearer target than a "
+            "wild one."
         ),
     ),
     "swing": ModePreset(
@@ -163,12 +175,14 @@ PRESETS: dict[str, ModePreset] = {
         take_profit_pct=0.10,
         trailing_stop_pct=-0.08,
         score_decay_exit=45.0,        # loosened from 50 to match lower entry bar
-        max_hold_days=60,
+        # HORIZON REMAP 2026-09-10 (owner: "Swing for 2-4 Weeks"). Was 60
+        # days — see the note on `short` above; the two were swapped.
+        max_hold_days=20,             # 4 weeks of sessions
         min_score_to_enter=60.0,      # was 70 — too strict, gave only 6 trades / 2yr
         breakout_threshold_pct=0.03,  # was 0.02 — allow 3% off the 20-day high
         volume_confirm_ratio=1.2,     # was 1.3 — slightly looser volume confirm
         square_off_time=None,
-        description="Default. 1-8 week holds. Daily bars. Tuned for more entries (target 30-60 trades/yr).",
+        description="2-4 week holds (owner's horizon, 2026-09-10). Daily bars. Target is k x ATR.",
     ),
     "positional": ModePreset(
         name="positional",
@@ -178,7 +192,9 @@ PRESETS: dict[str, ModePreset] = {
         take_profit_pct=0.25,
         trailing_stop_pct=-0.12,
         score_decay_exit=45.0,
-        max_hold_days=180,
+        # Owner's "Long 1-12 Months" horizon (2026-09-10): 12 months of
+        # sessions, up from 180 calendar days.
+        max_hold_days=252,
         min_score_to_enter=68.0,
         breakout_threshold_pct=0.03,
         volume_confirm_ratio=1.2,

@@ -163,6 +163,12 @@ def process_open_orders(engine, now: datetime = None) -> list:
                    if o.get("status") == "open"]
     if not open_orders:
         return []
+    # Owner order 2026-09-10: a fill is a trade. A resting order may WAIT
+    # outside market hours — that is the point of resting — but it may not
+    # execute against a price the market is not making. The 15:25 expiry pass
+    # still runs; an unfilled day order still dies on time.
+    if not engine._trading_allowed(now):
+        return []
     now = now or datetime.utcnow()
     from .quote_router import fetch_quotes
     tickers = sorted({o["ticker"] for o in open_orders})
