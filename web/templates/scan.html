@@ -38,6 +38,21 @@
   </div>
 </div>
 
+<div class="bg-white border border-line mb-6"><!-- multi_formula_card_marker -->
+  <div class="px-4 lg:px-6 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
+    <span class="text-xs tracking-widest text-ink-faint uppercase">🔬 Three formulas on every stock</span>
+    <span class="text-[10px] {% if multi_gate_on %}text-amber-800 font-semibold{% else %}text-ink-faint{% endif %}">
+      {% if multi_gate_on %}FILTER IS ON — a pick must clear ASH08 68 and AshSt 70 too{% else %}display only — AM07 decides; filter is OFF in Settings{% endif %}
+    </span>
+  </div>
+  <div class="px-4 lg:px-6 py-3 text-xs text-ink-faint space-y-1">
+    <div><span class="font-semibold text-ink">AM07</span> — the score that buys. Holdout 4.17% vs ASH08 3.87% and the 20-day rule 3.51% (top 30/month under the live −5%/+20% bracket).</div>
+    <div><span class="font-semibold text-ink">ASH08 (68)</span> — its “quality” leg is really data coverage, so the 68 floor means “6-month return above +0.385%”. It passes 97% of our candidates; no threshold beat chance on the training half.</div>
+    <div><span class="font-semibold text-ink">AshSt (70)</span> — measured <span class="font-semibold">identical</span> to AM07 (Spearman +1.000), so this column is our own score against their higher floor, not a second opinion.</div>
+    <div class="pt-1">Measured over 23,507 observations, chosen on 2014–2020 and read on 2020–2026 — <span class="font-mono">research/ash_formula_study/</span>.</div>
+  </div>
+</div>
+
 {% if universe_batch %}
 <div class="bg-white border border-line mb-6"><!-- universe_batch_marker -->
   <div class="px-4 lg:px-6 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
@@ -361,6 +376,8 @@
         <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">#</th>
         <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Ticker</th>
         <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Score</th>
+        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap"
+            title="The same stock judged by three formulas: AM07 (our floor), ASH08 (floor 68) and AshStocks (floor 70). AshStocks' formula measured identical to ours — Spearman +1.000 — so its number is our score against their higher bar. Display only unless the Three-Formula Filter is switched on in Settings.">Formulas</th>
         <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Last Close</th>
         <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Timing</th>
         <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap"
@@ -373,7 +390,7 @@
       {% for p in picks %}
       {% if slots and loop.index == slots.free + 1 %}
       <tr class="border-b border-line bg-amber-50/60"><!-- slot_divider_marker -->
-        <td colspan="{% if user and user.role == 'owner' %}8{% else %}7{% endif %}" class="px-3 lg:px-6 py-2 text-xs text-amber-800 font-semibold">
+        <td colspan="{% if user and user.role == 'owner' %}9{% else %}8{% endif %}" class="px-3 lg:px-6 py-2 text-xs text-amber-800 font-semibold">
           ── beyond today's cash: the {{ picks | length - slots.free }} pick{{ '' if picks | length - slots.free == 1 else 's' }} below can't be funded at ₹{{ slots.per_trade | inr(0) }} each — shown, not hidden ──
         </td>
       </tr>
@@ -383,6 +400,17 @@
         <td class="px-3 lg:px-6 py-3 font-semibold whitespace-nowrap">{{ p.ticker }}
           <a href="/chart/{{ p.ticker }}" title="candle chart" class="ml-1 no-underline">📈</a></td>
         <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap {% if p.score is not none and p.score is number and p.score >= 75 %}font-bold{% endif %}">{% if p.score is not none and p.score is number %}{{ p.score | round(2) }}{% else %}—{% endif %}</td>
+        <td class="px-3 lg:px-6 py-3 whitespace-nowrap text-xs"><!-- multi_formula_cell_marker -->
+          {% set mf = p.multi %}
+          {% if mf and mf.rows %}
+            {% for key, label in [('ash08', 'ASH08'), ('ashstocks', 'AshSt')] %}
+            {% set r = mf.rows.get(key) %}
+            {% if r %}
+            <span class="tabular-nums {% if r['pass'] %}text-emerald-700 font-semibold{% else %}text-ink-faint{% endif %}" title="{{ label }} floor {{ r.floor | round(0) | int }}{% if r.score is none %} — not enough history for this formula to judge the name. Not a fail.{% endif %}">{{ label }} {% if r.score is not none %}{{ r.score }}{{ ' PASS' if r['pass'] else ' fail' }}{% else %}—{% endif %}</span>{% if not loop.last %}<span class="text-ink-faint"> · </span>{% endif %}
+            {% endif %}
+            {% endfor %}
+          {% else %}<span class="text-ink-faint" title="Not enough history for the outside formulas to judge this name. Not a fail.">—</span>{% endif %}
+        </td>
         <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap">₹{{ p.last_close | inr(2) }}</td>
         <td class="px-3 lg:px-6 py-3 uppercase text-xs tracking-widest whitespace-nowrap {% if p.timing_pass %}text-emerald-700{% else %}text-ink-faint{% endif %}">
           {% if p.timing_pass %}YES{% else %}no{% endif %}

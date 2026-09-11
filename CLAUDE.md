@@ -2680,8 +2680,80 @@ TOUCHING THE UNIVERSE, THE SCAN'S HISTORY PATH, OR THE FRIDAY BLOCK.**
   already written the comment-stripping helper ten lines above.** Strip
   comment lines BEFORE asserting on source. F1 test, /positions hunt,
   DAILY_SCHEDULER guard, the watchlist pin, now this.
-- Still open: item 5 (three-formula combination), held by owner instruction
-  until everything else is wired — which it now is.
+- ~~Still open: item 5~~ **ITEM 5 CLOSED 2026-09-11 — MEASURED FIRST, THEN
+  WIRED AS THE OWNER ORDERED.**
+
+**ITEM 5 — THE THREE-FORMULA VIEW (owner: "go with ash formula wiring" ->
+"go with these formula" [with their 3-column table on screen] -> "ash08 68").
+PRs #105 (the measurement) and #106 (the wire). 838 trading + 371 web tests.
+research/ash_formula_study/summary.md IS THE RECORD — read it before ever
+proposing an outside formula again.**
+- **MEASURED FIRST** (their own item-5 terms were discuss -> confirm ->
+  wire): 23,507 observations, 191x12y panel, 146 month-end points,
+  PRODUCTION scoring functions, train <= 2020-06-30 / test after, outcome
+  under the LIVE -5%/+20%/200d bracket (close basis, first touch).
+- **AshStocks' python brain IS AM07's formula — Spearman +1.000.** Its
+  momentum is `50 + avg(r6/v6, r12/v12)*25` and its quality
+  `(low-vol + liquidity)/2`: the same arithmetic as our momentum_score and
+  quality_score. So `multi_formula.evaluate` DELIBERATELY reads our own
+  score for the AshStocks column instead of re-implementing it, and a test
+  pins that — re-implementing would make two things out of one and let them
+  drift. All it contributes is a higher FLOOR (70 vs our 62).
+- **ASH08's "quality" is DATA COVERAGE** (`100*n_bars/126`, constant 100.0
+  across all 191 names in its own snapshot), so its floor of 68 solves to
+  **"6-month return above +0.385%"** = AM07's absolute-momentum gate with a
+  rounding difference. It passes **97.0%** of our candidates (removes 334 of
+  11,233). Every threshold was negative on train; the one positive test row
+  (>=80, +0.16) reads -0.16 in train and would never have been selected.
+  Choosing by the holdout destroys the holdout (the T12W_0040 lesson).
+- **AshStocks' LIVE rule (SEL_MOMENTUM_20_TOP10) measured NEGATIVE in BOTH
+  halves: -0.77 train, -0.45 test.** Its INVERSE is a clean monotone
+  gradient holding out of sample (+0.49/+0.50 at the bottom quartile) with a
+  legible mechanism — a name up ~17% in 20 days hits the -5% stop **68.4%**
+  of the time vs **63.4%** for one that eased back. NOT WIRED: positive in
+  only 7 of 12 years, month-level median edge +0.08 train / **-0.04 test**,
+  helps in under half of test months, and as a hard filter it cuts
+  candidates from a median of **76 to 11 per month**.
+- **Combining adds nothing**: every blend of the three ranks within
+  +/-0.09pp of AM07 alone. Ranked alone, top 30/month: AM07 2.57/**4.17**,
+  ASH08 2.69/3.87, 20-day 2.00/3.51 — AM07 wins the holdout, ASH08 wins
+  train only. **Fifth independent failure of an entry-side signal here.**
+- **WHAT SHIPPED** (owner said go twice after being shown the above —
+  their decision, taken and built): **`trading/multi_formula.py`** (PURE,
+  same contract as internals.py: no network, no config mutation, no
+  engine/risk/orders/danger import, test-pinned) computes the ASH08 (floor
+  **68**, their number) and AshStocks (floor 70) verdicts. Computed ONCE in
+  `engine.scan` where the history is already in hand, stored on
+  `scan_matrix.rows[t]["multi"]` and on `last_scan_picks` — pages cost one
+  dict lookup and no refetch. New **Formulas column** on /scan + a
+  **🔬 card** carrying the evidence beside the verdicts (a formula shown
+  without its record invites trust it has not earned) that states whether it
+  is SHOWING or GATING.
+- **THE FILTER IS A SWITCH, DEFAULT OFF** (`cfg.multi_formula_gate`,
+  Settings row names the measurement). The owner owns the switch; the
+  measurement owns the default. ON => a pick must clear the outside floors
+  too; every removed name lands on `last_scan_skipped` AND journals
+  **MULTI_FORMULA_BLOCKED** (a gate that silently shrinks the buy list is
+  the lying-screen class). **FAILS OPEN on DATA_NEEDED** — a short history
+  is not evidence against a stock, and blocking on it would quietly shrink
+  the money universe. A crash in the view costs the columns, never the scan.
+- **THREE BUGS IN MY OWN FIRST CUT, all caught before push:** (1) the gate
+  used `skipped` and `now` at line ~475 when both are bound ~line 548 — an
+  UnboundLocalError on EVERY scan; fixed by collecting locally and
+  reporting where both exist. (2) My page test asserted `AshSt 71.0 fail`
+  when 71.0 >= 70.0 is a PASS — **the test was wrong, not the code**; read
+  the render before believing the assertion. (3) The engine fixture could
+  never prove "it still buys" because the smooth synthetic series never
+  prints a candle structure (`candle_wait_no_pattern`) and the dead regime
+  feed brakes via C7 — both neutralised in the fixture so the assertion is
+  real, not vacuous (the Node 10 weak-assertion lesson).
+- **GUARD TESTS MADE SELF-MAINTAINING**: `test_scan_institutional.py`
+  hardcoded colspan 8/7 and column count 8, so the new column broke them —
+  a meaningless failure saying nothing about soundness (the same class as
+  the 2026-09-09 hardcoded universe counts). Both now DERIVE the invariant
+  (colspan == owner `<th>` count, viewer == owner - 1, head `<td>` == row
+  `<td>`), and I **verified they still fail on a deliberately skewed
+  colspan** before keeping them.
 
  all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,

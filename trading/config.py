@@ -240,6 +240,17 @@ class Config:
     # per-stock defence (mode B): 1 fire = tighten stop to -2.5% off price,
     # 2+ fires = exit half. Sell side ONLY - never entries (F-006).
     danger_layer_enabled: bool = True
+    # OWNER ORDER 2026-09-11 ("go with these formula" / "ash08 68"): every
+    # scanned stock now shows the ASH08 (floor 68) and AshStocks (floor 70)
+    # verdicts beside AM07's own. That display is ALWAYS on.
+    # This switch is the FILTER half — when True a pick must clear those
+    # outside floors too. It defaults OFF on the evidence
+    # (research/ash_formula_study/, 23,507 observations): ASH08's floor
+    # removes 3% of our candidates because its "quality" leg is really data
+    # coverage, and AshStocks' live 20-day rule measured NEGATIVE in both
+    # halves (-0.77 train / -0.45 test). The owner owns the switch; the
+    # measurement owns the default.
+    multi_formula_gate: bool = False
     # OWNER ORDER 2026-09-04 ("skipper exit suggestion is there but not
     # executed — make it happen"): the F6 rotation suggester now EXECUTES.
     # At the scan, a position >= rotation_min_progress of the way to its
