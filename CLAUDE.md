@@ -2626,6 +2626,63 @@ was already flat (strings + arrays of strings). 2026-07-30, 2026-08-29, now
 this. **Stop reaching for the Workflow tool on this repo.** Doing it by hand
 took less time and found more, all three times.
 
+**THE 49-vs-1200 ROOT CAUSE — THE SCAN NEVER READ THE STORE (2026-09-11,
+owner: "why system still stucking at 49 and rest of things when its decided
+that 1200 is the count why new stocks n not listed in that yet and why its
+follow old" -> "go"). PR #103, 1,189 tests (17 new). READ THIS BEFORE
+TOUCHING THE UNIVERSE, THE SCAN'S HISTORY PATH, OR THE FRIDAY BLOCK.**
+- **`fetch_daily` fetched EVERY name from the Upstox network, one request at
+  a time, and never touched the Mongo OHLCV store at all.** MEASURED LIVE:
+  **1.77s per name**, times the five modes in the 09:20 rotation -> ~7 min
+  for the owner's 49 names, ~50 min for 340, **~3 HOURS for 1,200**. That is
+  why the universe could never grow, and **why filling the store would not
+  have helped: nothing read it.** I had told the owner the day before that
+  this was "a data problem, wait for the store to fill" — WRONG, and only
+  found because they pushed back. Their question was the fix.
+- **MEMORY WAS NEVER THE CONSTRAINT.** Measured: 1,200 two-year frames =
+  **+15 MB**, 2,648 = **+32 MB** on the 512MB box. The Settings 60-name cap
+  comment claiming a 2,400-name list "would OOM" was never measured. The
+  real cost was always the per-name FETCH.
+- **B — `fetch_daily` IS NOW STORE-FIRST.** One batched `db.history_docs`
+  query ($in + $slice, new), then Upstox for what the store lacks or holds
+  STALE (`data.STORE_MAX_AGE_DAYS = 5`, ASSUMED, calendar-derived), then
+  yfinance. **Network fallback BOUNDED** (`MAX_NETWORK_FALLBACK = 120`) so
+  the 09:20 window always closes; names it could not cover are journaled
+  **SCAN_COVERAGE_SHORT** — a 1,200-name universe reading as fully scanned
+  when 170 were seen is the lying-screen class. A stale doc is never used
+  (costs a fetch, never a wrong score). **Backtests locked out of the store**
+  (it holds today's bars = leak). Reader unset / Mongo down = EXACTLY the
+  pre-2026-09-11 behaviour. Injected at boot (`state` -> `data.set_history_
+  store(db.history_docs)`), so trading/ still never imports web.db.
+  **MEASURED AFTER: 1,200 names in 2.8s** (was ~3 hours).
+- **A — THE UNIVERSE REBUILD HAD NEVER RUN ONCE.** `refresh_liquid_universe`
+  sat AFTER the ~61-minute OHLCV pull — the exact position that cost five
+  other feeds a week each and that I moved THEM out of on 2026-08-29,
+  **leaving this one in** — and unlike its two post-pull neighbours (breadth,
+  register precompute) it has NO daily counterpart, so a pull cut short by a
+  container restart meant the list was never rebuilt at all. **EVIDENCE, from
+  the live box not from memory: /healthz `history_tickers` read 573 on
+  2026-08-29 and the SAME 573 on 2026-09-11** — twelve days, zero names —
+  while `custom_universe` stayed the hand-typed 49. Now runs BEFORE the pull
+  (it ranks whatever the store already holds; it never needed the pull to
+  have just finished) AND again after, to pick up what the pull landed.
+- **C — THE PULL IS TIME-BOUNDED AND RESUMABLE.** `top_up_history` gained
+  `max_fetches` / `time_budget_s` (call site: `SB_TOPUP_BUDGET_S`, default
+  2400s) and returns `remaining`/`stopped`/`elapsed_s`. It saves each name as
+  it goes, so a bounded run always FINISHES and the next resumes. **New
+  ledger key `weekly_block_remaining`**: while it is above zero the block is
+  due the NEXT trading day, not in seven — otherwise a pull that stopped on
+  its budget would stamp "done" and leave the store short for a week, i.e.
+  the same bug in a new costume.
+- **MY SOURCE-PIN FAULT CLASS REPEATED A FIFTH TIME**, caught before commit:
+  a new guard test grepped for `"import web"` and matched the explanatory
+  COMMENT saying trading/ must not import web.db — **in a file where I had
+  already written the comment-stripping helper ten lines above.** Strip
+  comment lines BEFORE asserting on source. F1 test, /positions hunt,
+  DAILY_SCHEDULER guard, the watchlist pin, now this.
+- Still open: item 5 (three-formula combination), held by owner instruction
+  until everything else is wired — which it now is.
+
  all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
