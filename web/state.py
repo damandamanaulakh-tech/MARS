@@ -392,6 +392,17 @@ def _bootstrap() -> None:
     except Exception:
         log.exception("data_refresh reader attach failed")
 
+    # 2026-09-11 (owner: "why system still stucking at 49"): the scan reads
+    # the OHLCV store FIRST and only falls back to the network for what the
+    # store lacks or holds stale. Without this reader every name was fetched
+    # one request at a time — ~3 hours for a 1,200-name universe, which is
+    # why the universe could never grow. Same injection pattern as above.
+    try:
+        from trading import data as _tdata
+        _tdata.set_history_store(db.history_docs)
+    except Exception:
+        log.exception("history store reader attach failed")
+
     # Load portfolio: prefer Mongo (survives restarts), fall back to JSON
     _PORTFOLIO = Portfolio.load_or_fresh(_CFG)
     persisted = db.load_portfolio()

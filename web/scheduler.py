@@ -1201,6 +1201,12 @@ def refresh_breadth_store(where: str = "manual") -> dict:
 # day/month guards already use. Written only AFTER the block finishes — the
 # guard-set-before-the-work fault this file has been bitten by before.
 WEEKLY_BLOCK_KEY = "weekly_block_date"
+# How many names the bounded OHLCV pull still owes (2026-09-11). While
+# this is above zero the block is due again the NEXT trading day, not
+# in seven — otherwise a pull that stops on its time budget would stamp
+# "done" and leave the store short for a week, which is the shape of
+# the bug this whole round is fixing.
+WEEKLY_BLOCK_LEFT_KEY = "weekly_block_remaining"
 
 
 def weekly_block_due(today=None) -> tuple[bool, str]:
@@ -1230,6 +1236,14 @@ def weekly_block_due(today=None) -> tuple[bool, str]:
     except Exception:
         log.exception("weekly block ledger unreadable")
         last_iso = None
+    try:
+        left = int((db.load_settings(doc_id="data_refresh")
+                    or {}).get(WEEKLY_BLOCK_LEFT_KEY) or 0)
+    except Exception:
+        left = 0
+    if left > 0:
+        return True, (f"the OHLCV pull still owes {left} name(s) — it stopped "
+                      f"on its time budget, so it resumes today")
     if not last_iso:
         return True, "the weekly data block has no recorded completion yet"
     try:
@@ -1247,12 +1261,18 @@ def weekly_block_due(today=None) -> tuple[bool, str]:
             f"({last}) — Friday's run did not complete")
 
 
-def _mark_weekly_block_done() -> None:
-    """Record completion. Only reached after the block's own sequence ran."""
+def _mark_weekly_block_done(remaining: int = 0) -> None:
+    """Record completion, and what the bounded pull still owes.
+
+    `remaining > 0` keeps the block due tomorrow instead of in seven days —
+    the pull is incremental, so an unfinished store is a reason to run again,
+    not a failure to report.
+    """
     from datetime import date as _date
     try:
         from . import db
-        db.save_settings({WEEKLY_BLOCK_KEY: _date.today().isoformat()},
+        db.save_settings({WEEKLY_BLOCK_KEY: _date.today().isoformat(),
+                          WEEKLY_BLOCK_LEFT_KEY: int(remaining or 0)},
                          doc_id="data_refresh")
     except Exception:
         log.exception("could not record the weekly block completion")
@@ -1506,6 +1526,7 @@ def _weekly_history_topup() -> None:
     # SEBI). Measured on the live box 2026-08-28: the store held
     # 573 of 2,428 names after two full-scope Fridays — the pull was not
     # finishing, so those five were the ones paying for it.
+    _topup_remaining = 0
     _journal("DATA_REFRESH_WEEKLY_START",
              f"Weekly data block started ({why}): short feeds first, then "
              f"the full-universe OHLCV top-up.")
@@ -1519,6 +1540,18 @@ def _weekly_history_topup() -> None:
         ("constituents snapshot", _monthly_constituents_snapshot),
         ("fundamentals refresh", _monthly_fundamentals_refresh),
         ("SEBI orders", _weekly_sebi_refresh),
+        # MOVED IN FRONT OF THE PULL 2026-09-11 (owner: "why system still
+        # stucking at 49"). It used to sit AFTER the ~hour-long OHLCV pull,
+        # the exact position that cost five other feeds a week each and that
+        # I moved THEM out of on 2026-08-29 — and unlike its two remaining
+        # post-pull neighbours it has NO daily counterpart, so a pull cut
+        # short by a container restart meant the universe was never rebuilt
+        # at all. Measured evidence it never ran: the live store sat at 573
+        # names for twelve days while custom_universe stayed the hand-typed
+        # 49. It ranks whatever the store ALREADY holds and never needed the
+        # pull to have just finished, so nothing is lost by running first —
+        # the list is simply one pull behind, which beats never.
+        ("liquidity universe", lambda: refresh_liquid_universe("weekly")),
     ):
         _run_weekly_step(_label, _fn, _journal)
 
@@ -1541,16 +1574,30 @@ def _weekly_history_topup() -> None:
             log.exception("weekly top-up: universe file unreadable — "
                           "refreshing stored+held only")
         keys = to_instrument_keys(sorted(tickers))
+        # BOUNDED (2026-09-11): 40 minutes, then stop and finish the block.
+        # The store lacked 2,075 of the universe's names and the pull needs
+        # ~1.8s each — over an hour in one go, on a box that restarts on
+        # every deploy, so it never completed and everything sequenced after
+        # it never ran. Each run now saves what it fetched and the next run
+        # resumes; the ledger below records a real completion either way.
         summ = top_up_history(
             broker, keys,
             load_doc=db.load_history_doc,
             save_doc=db.save_history_doc,
             today=date.today(),
+            time_budget_s=float(os.environ.get("SB_TOPUP_BUDGET_S", "2400")),
         )
+        _left = summ.get("remaining", 0)
+        _topup_remaining = _left
         _journal("DATA_REFRESH_WEEKLY",
                  f"Weekly OHLCV top-up: {summ['ok']} refreshed, "
                  f"{summ['skipped_fresh']} already fresh, "
-                 f"{summ['failed']} failed of {summ['total']}.")
+                 f"{summ['failed']} failed of {summ['total']} "
+                 f"in {summ.get('elapsed_s', 0)}s."
+                 + (f" STOPPED on the {summ.get('stopped')} with {_left} "
+                    f"name(s) left — the next run resumes from there, and "
+                    f"the names already saved stay saved."
+                    if _left else " Complete."))
         log.info("[fri 16:30] weekly history top-up: %s", summ)
     except Exception as e:
         log.exception("weekly history top-up failed: %s", e)
@@ -1567,11 +1614,12 @@ def _weekly_history_topup() -> None:
         ("breadth store", lambda: refresh_breadth_store("post-topup")),
         # Node 10: refresh the precomputed register view over the store.
         ("register precompute", lambda: run_register_precompute("post-topup")),
-        # Owner order 2026-08-30: the weekly 500-name batch, ranked on the
-        # store the pull just refreshed. Isolated like its neighbours, so a
-        # crashed pull leaves last week's list standing rather than emptying
-        # the universe.
-        ("liquidity universe", lambda: refresh_liquid_universe("weekly")),
+        # The universe rebuild runs a SECOND time here, now that the pull has
+        # added names: the pre-pull run guarantees it happens at all, this one
+        # picks up whatever the pull just landed. Idempotent — same ranking
+        # over a larger store.
+        ("liquidity universe (post-pull)",
+         lambda: refresh_liquid_universe("post-topup")),
     ):
         _run_weekly_step(_label, _fn, _journal)
 
@@ -1582,7 +1630,13 @@ def _weekly_history_topup() -> None:
     # whenever a handful of names failed. A block that never reaches here —
     # a crash, or a container restart mid-run — leaves no stamp, so the next
     # trading day picks it up. That is the owner's Monday rule.
-    _mark_weekly_block_done()
+    #
+    # The ONE thing the ledger does take from the pull is its REMAINDER
+    # (2026-09-11): the pull is now time-bounded, so "the sequence ran" and
+    # "the store is full" are different facts. A remainder keeps the block
+    # due tomorrow rather than in seven days, so the store fills over
+    # consecutive evenings instead of needing one uninterrupted hour.
+    _mark_weekly_block_done(_topup_remaining)
 
 
 def _session_refresh() -> None:

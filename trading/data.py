@@ -30,6 +30,43 @@ YF_THREADS: int | bool = int(os.environ.get("YF_THREADS", "4"))
 
 _HISTORY_BROKER = None  # UpstoxClient or None; set by web/state on attach
 
+# ---------- store-first history (owner fault report 2026-09-11) -------------
+# "why system still stucking at 49 ... when its decided that 1200 is the
+# count". THE ROOT CAUSE, measured: `fetch_daily` fetched EVERY name from the
+# Upstox network, one request at a time, and never read the Mongo OHLCV store
+# at all. At 1.77s per name (measured live) and five modes in the 09:20
+# rotation that is ~7 minutes for the owner's 49 names, ~50 minutes for 340,
+# and ~3 HOURS for 1,200. The universe could not grow past a few dozen names
+# no matter how full the store got — filling the store did not even help,
+# because nothing read it. Memory was never the constraint either: 1,200
+# two-year frames measure +15 MB, 2,648 measure +32 MB on a 512 MB box.
+#
+# So the store is consulted FIRST and the network only covers what the store
+# lacks or holds stale. trading/ must not import web.db, so the reader is
+# INJECTED at boot — the same pattern flows.set_store_reader and
+# data_refresh use. Reader missing or failing = the exact pre-2026-09-11
+# behaviour, network for everything.
+_HISTORY_STORE = None
+
+# A stored frame is used when its last bar is no older than this many
+# CALENDAR days. ASSUMED, and chosen for the calendar rather than measured:
+# the scan runs at 09:20 before the close, so the newest bar it can ever
+# want is yesterday's; a Monday morning after a long weekend is 4 days
+# behind. 5 gives that one day of slack. A name staler than this is fetched,
+# so the tolerance can only cost network time, never correctness.
+STORE_MAX_AGE_DAYS = 5
+
+# How many names ONE fetch_daily call may fall back to the network for.
+# Without this, the first scan after the universe grows would try to fetch
+# every missing name and run for an hour inside the 09:20 window. Bounded,
+# the scan always finishes; the names it could not cover are REPORTED, never
+# silently dropped, and the off-hours top-up closes the gap.
+MAX_NETWORK_FALLBACK = 120
+
+# What the last fetch_daily actually did — read by the engine so the scan
+# journal can state its own coverage instead of implying it saw everything.
+LAST_FETCH_STATS: Dict[str, object] = {}
+
 # AUDIT FIX B12 (2026-08-09): this module kept its own PRIVATE copy of the
 # index-key map and it had already drifted — ^CNX200 and ^BSESN were missing,
 # which is the structural reason the Nifty-200 backtest benchmark could never
@@ -52,6 +89,63 @@ def set_history_broker(client) -> None:
     """Attach/detach the Upstox client used for historical candles."""
     global _HISTORY_BROKER
     _HISTORY_BROKER = client
+
+
+def set_history_store(reader) -> None:
+    """Inject the batch OHLCV-store reader: (tickers, rows) -> {ticker: doc}.
+
+    web/state wires db.history_docs at boot. trading/ never imports web.db.
+    """
+    global _HISTORY_STORE
+    _HISTORY_STORE = reader
+
+
+def history_store():
+    return _HISTORY_STORE
+
+
+def _from_store(tickers: list[str], period: str) -> Dict[str, pd.DataFrame]:
+    """Frames the STORE can serve, fresh enough to scan on.
+
+    A stale doc is left out rather than returned — the caller then fetches
+    it, so "stale" costs a network call and never a wrong score. A doc that
+    cannot be rebuilt into a frame is skipped the same way.
+    """
+    if _HISTORY_STORE is None or not tickers:
+        return {}
+    if is_backtest_mode():
+        # The store holds today's bars; a backtest as-of a past date must
+        # never see them. Backtests use fetch_daily_range, but the guard
+        # stands so a future caller cannot leak the future in through here.
+        return {}
+    from .history_store import records_to_df
+    from_ts = pd.Timestamp(_period_to_from_date(period))
+    # One bar per calendar day at most; ask for the window plus slack so a
+    # long history is trimmed server-side instead of shipped whole.
+    rows = int((pd.Timestamp.today() - from_ts).days) + 10
+    try:
+        docs = _HISTORY_STORE(list(tickers), rows) or {}
+    except Exception as e:
+        log.warning("history store read failed — network for all: %s", e)
+        return {}
+    cutoff = (pd.Timestamp.today()
+              - pd.Timedelta(days=STORE_MAX_AGE_DAYS)).strftime("%Y-%m-%d")
+    out: Dict[str, pd.DataFrame] = {}
+    for t, doc in docs.items():
+        end = str((doc or {}).get("end") or "")
+        if not end or end < cutoff:
+            continue                      # stale -> let the network serve it
+        try:
+            df = records_to_df(doc)
+        except Exception:
+            continue
+        if df is None or df.empty:
+            continue
+        df = df[df.index >= from_ts]
+        if df.empty:
+            continue
+        out[t] = df
+    return out
 
 
 def history_broker():
@@ -131,20 +225,55 @@ def _fetch_daily_upstox(tickers: list[str], period: str) -> Dict[str, pd.DataFra
 def fetch_daily(tickers: list[str], period: str = "6mo") -> Dict[str, pd.DataFrame]:
     """{ticker: daily OHLCV DataFrame} for the requested period.
 
-    Upstox-first when a login is attached (Yahoo blocks cloud IPs with 429);
-    yfinance only for whatever Upstox couldn't serve."""
+    ORDER since 2026-09-11 (owner: "why system still stucking at 49"):
+      1. the Mongo OHLCV store, for every name it holds fresh enough — ONE
+         batched query, no network, milliseconds;
+      2. Upstox for what the store lacks or holds stale, BOUNDED to
+         MAX_NETWORK_FALLBACK names so the 09:20 window always closes;
+      3. yfinance for whatever Upstox could not serve (429-blocked on
+         Render, so this is a last resort, not a plan).
+
+    Names beyond the fallback bound are LEFT OUT and counted in
+    LAST_FETCH_STATS — the caller reports them. Returning a half-covered
+    universe silently would be the lying-screen fault class: the scan would
+    look like it had seen 1,200 names when it had seen 170.
+    """
+    global LAST_FETCH_STATS
     if isinstance(tickers, str):
         tickers = [tickers]
-    out: Dict[str, pd.DataFrame] = _fetch_daily_upstox(tickers, period)
-    tickers = [t for t in tickers if t not in out]
-    if not tickers:
-        return out
-    raw = yf.download(
-        tickers, period=period, interval="1d",
-        progress=False, auto_adjust=True, group_by="ticker", threads=YF_THREADS,
-    )
-    out.update(_parse_yf_multi(raw, tickers))
-    del raw
+    asked = list(dict.fromkeys(tickers))
+
+    out: Dict[str, pd.DataFrame] = _from_store(asked, period)
+    from_store = len(out)
+
+    missing = [t for t in asked if t not in out]
+    capped = 0
+    if missing and _HISTORY_STORE is not None and len(missing) > MAX_NETWORK_FALLBACK:
+        capped = len(missing) - MAX_NETWORK_FALLBACK
+        missing = missing[:MAX_NETWORK_FALLBACK]
+
+    from_upstox = from_yahoo = 0
+    if missing:
+        up = _fetch_daily_upstox(missing, period)
+        from_upstox = len(up)
+        out.update(up)
+        rest = [t for t in missing if t not in up]
+        if rest:
+            raw = yf.download(
+                rest, period=period, interval="1d", progress=False,
+                auto_adjust=True, group_by="ticker", threads=YF_THREADS,
+            )
+            yh = _parse_yf_multi(raw, rest)
+            from_yahoo = len(yh)
+            out.update(yh)
+            del raw
+
+    LAST_FETCH_STATS = {
+        "asked": len(asked), "covered": len(out),
+        "from_store": from_store, "from_upstox": from_upstox,
+        "from_yahoo": from_yahoo, "not_fetched_cap": capped,
+        "uncovered": [t for t in asked if t not in out][:50],
+    }
     return out
 
 

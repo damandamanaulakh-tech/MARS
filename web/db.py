@@ -501,6 +501,38 @@ def history_tails(rows: int):
         return
 
 
+def history_docs(tickers, rows: int = 0) -> dict:
+    """{ticker: doc} for the NAMED tickers, in ONE query.
+
+    Added 2026-09-11 for the scan's store-first read (owner: "why system
+    still stucking at 49"). `history_tails` streams EVERY stored name, which
+    is right for breadth but wrong here — the scan wants a named subset.
+    One find() with an $in filter and, when `rows` is set, a $slice
+    projection so the server trims each candles array to its tail.
+
+    Mongo down or query failure returns {} — the caller then falls back to
+    the network, exactly as it behaved before the store was consulted.
+    """
+    if not _CONNECTED or _DB is None:
+        return {}
+    names = [str(t) for t in (tickers or []) if t]
+    if not names:
+        return {}
+    proj = {"ticker": 1, "end": 1, "start": 1, "candles": 1}
+    if rows and int(rows) > 0:
+        proj["candles"] = {"$slice": -int(rows)}
+    out: dict = {}
+    try:
+        for doc in _DB.ohlcv.find({"ticker": {"$in": names}}, proj):
+            t = doc.get("ticker")
+            if t:
+                out[t] = doc
+    except Exception as e:
+        log.warning("Mongo history_docs failed: %s", e)
+        return {}
+    return out
+
+
 def list_history_meta() -> list:
     """Lightweight index of what's stored: ticker, n, start, end (no candles)."""
     if not _CONNECTED or _DB is None:
