@@ -130,6 +130,10 @@ def scan_view(request: Request, error: str | None = None):
             # Owner ask 2026-09-04: this week's batch, on the screen they buy
             # from. Rebuilt Friday 16:30 IST; Monday only if Friday is missed.
             "universe_batch": p.universe_batch or {},
+            # OWNER ORDER 2026-09-11: the card states whether the three-formula
+            # filter is merely showing or actually gating, so the screen can
+            # never imply a control it isn't exercising.
+            "multi_gate_on": bool(getattr(cfg, "multi_formula_gate", False)),
             "next_rebuild": _next_friday().isoformat(),
             "skipped": p.last_scan_skipped or [],
             "opened": p.last_scan_opened or [],

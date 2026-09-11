@@ -15,6 +15,7 @@ lookup can never take down /scan.
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from web.routes import scan_routes
@@ -65,18 +66,37 @@ def test_pledge_is_surfaced():
     assert "promoter_pledged" in cell and "pledged" in cell
 
 
-def test_slot_divider_spans_the_widened_table():
-    """The funnel divider must still cover every column, or the row breaks."""
-    tpl = _TPL.read_text()
-    seg = tpl.split("slot_divider_marker")[1].split("</tr>")[0]
-    assert "colspan=\"{% if user and user.role == 'owner' %}8{% else %}7{% endif %}\"" in seg
-
-
-def test_header_and_body_column_counts_agree():
-    """Count <th> in the picks table against <td> in its row."""
-    tpl = _TPL.read_text()
+def _picks_table(tpl: str):
     block = tpl.split("💺")[-1] if "💺" in tpl else tpl
     head = block.split("<thead")[-1].split("</thead>")[0]
     body = block.split("<tbody")[-1].split("</tbody>")[0]
     row = body.split("slot_divider_marker")[-1].split("</tr>")[1]
-    assert head.count("<th") == row.count("<td") == 8
+    return head, row
+
+
+def test_slot_divider_spans_the_widened_table():
+    """The funnel divider must cover every column, or the row breaks.
+
+    DERIVED, not pinned to a literal: this file used to hardcode 8/7 and so
+    failed the moment the three-formula column landed (2026-09-11) — a
+    meaningless failure that says nothing about whether the table is sound.
+    The real invariant is that the colspan equals the owner column count,
+    and the viewer's is exactly one less (Buy is owner-only).
+    """
+    tpl = _TPL.read_text()
+    head, _ = _picks_table(tpl)
+    seg = tpl.split("slot_divider_marker")[1].split("</tr>")[0]
+    m = re.search(r"colspan=\"\{% if user and user\.role == 'owner' %\}"
+                  r"(\d+)\{% else %\}(\d+)\{% endif %\}\"", seg)
+    assert m, "slot divider colspan is no longer the owner/viewer expression"
+    owner_cols, viewer_cols = int(m.group(1)), int(m.group(2))
+    assert owner_cols == head.count("<th")
+    assert viewer_cols == owner_cols - 1
+
+
+def test_header_and_body_column_counts_agree():
+    """Count <th> in the picks table against <td> in its row — the skew is
+    what matters, not the absolute number."""
+    head, row = _picks_table(_TPL.read_text())
+    assert head.count("<th") == row.count("<td")
+    assert head.count("<th") >= 8       # sanity: the table did not collapse

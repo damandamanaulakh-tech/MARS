@@ -371,6 +371,18 @@ class TradingEngine:
                 score, components = compute_score(t, history[t], bench, history, cfg)
                 reasoning = reasoning_text(components, score)
             timing_pass, timing_diag = timing_ok(history[t], cfg)
+            # OWNER ORDER 2026-09-11 ("go with these formula" / "ash08 68"):
+            # every scanned name carries the ASH08 and AshStocks verdicts
+            # beside our own. Computed HERE, where the history is already in
+            # hand, so the pages cost one dict lookup and no refetch. Pure
+            # function; a failure costs the extra columns, never the scan.
+            try:
+                from .multi_formula import evaluate as _mf_evaluate
+                multi = _mf_evaluate(history[t]["Close"], score,
+                                     cfg.min_score_to_enter)
+            except Exception:
+                log.exception("multi-formula view failed for %s", t)
+                multi = None
             ranked.append({
                 "ticker": t,
                 "score": score,
@@ -378,6 +390,7 @@ class TradingEngine:
                 "timing_pass": timing_pass,
                 "timing_diag": timing_diag,
                 "reasoning": reasoning,
+                "multi": multi,
                 "last_close": float(history[t]["Close"].iloc[-1]),
                 # Carried so _target_for can read the name's own ATR without
                 # a second fetch. Never serialised into the portfolio.
@@ -440,12 +453,33 @@ class TradingEngine:
                         "has switched the brake off (2026-08-09 order) — "
                         "momentum entries proceed under all other gates."),
             })
+        # OWNER-SWITCHED three-formula filter (2026-09-11). DEFAULT OFF: the
+        # committed measurement (research/ash_formula_study/) says ASH08's
+        # floor removes 3% of our candidates and AshStocks' live rule scored
+        # negative in both halves, so the evidence sets the default and the
+        # owner sets the switch. Fails open on unjudgeable names.
+        def _multi_blocks(r: dict) -> Optional[str]:
+            if not getattr(cfg, "multi_formula_gate", False):
+                return None
+            from .multi_formula import gate_blocks
+            return gate_blocks(r.get("multi"))
+
+        # Collected here, reported below: `skipped` and `now` are not bound
+        # until the entry section further down this method.
+        multi_blocked: List[dict] = []
         if everest_ok or vix_reentry or brake_off:
-            everest_picks = [
-                r for r in ranked
-                if r["score"] >= cfg.min_score_to_enter and r["timing_pass"]
-                and _abs_mom_ok(r["ticker"])
-            ]
+            everest_picks = []
+            for r in ranked:
+                if not (r["score"] >= cfg.min_score_to_enter
+                        and r["timing_pass"] and _abs_mom_ok(r["ticker"])):
+                    continue
+                blocked = _multi_blocks(r)
+                if blocked:
+                    multi_blocked.append({
+                        "ticker": r["ticker"], "reason": blocked,
+                        "score": round(float(r["score"]), 1)})
+                    continue
+                everest_picks.append(r)
 
         # Node 9, moved up 2026-08-26: the canonical damage reading now
         # computes BEFORE pick assembly so Ocean's rail 2 reads TODAY'S
@@ -511,6 +545,18 @@ class TradingEngine:
         skipped: List[dict] = []
         now = datetime.utcnow()
         prices = {r["ticker"]: r["last_close"] for r in ranked}
+
+        # The owner's three-formula filter, if they have switched it on: say
+        # on the page AND in the journal which names it removed, and why. A
+        # gate that silently shrinks the buy list is the lying-screen class.
+        for b in multi_blocked:
+            skipped.append({"ticker": b["ticker"], "reason": b["reason"]})
+            self._journal_once_a_day(
+                "MULTI_FORMULA_BLOCKED", now,
+                {"ticker": b["ticker"],
+                 "why": (f"{b['ticker']} cleared AM07 ({b['score']} >= "
+                         f"{cfg.min_score_to_enter:g}) but the owner's "
+                         f"three-formula filter is ON and {b['reason']}.")})
 
         # Node 9: `canonical` was computed earlier this scan (moved before
         # pick assembly 2026-08-26 so Ocean's rail 2 reads today's panel);
@@ -893,6 +939,7 @@ class TradingEngine:
                 "candles": history[r["ticker"]][["Open", "High", "Low", "Close"]].tail(20).values.tolist(),
                 "candle": _candle_label(r["ticker"]),
                 "structures": _all_structures(r["ticker"]),
+                "multi": r.get("multi"),
                 "opened": r["ticker"] in opened,
             }
             for r in ranked[:50]
@@ -920,6 +967,7 @@ class TradingEngine:
                     "abs_mom": bool(_abs_mom_ok(r["ticker"])),
                     "candle": _candle_label(r["ticker"]),
                     "structures": _all_structures(r["ticker"]),
+                    "multi": r.get("multi"),
                     "outcome": ("opened" if r["ticker"] in opened
                                 else skip_by_t.get(r["ticker"], "")),
                 }
