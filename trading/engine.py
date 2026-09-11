@@ -159,7 +159,32 @@ class TradingEngine:
         cfg = self.cfg
         universe, history_period = self.scan_universe(history_period)
         history = fetch_daily(universe, period=history_period)
+        # 2026-09-11: fetch_daily is store-first and BOUNDS its network
+        # fallback, so a scan can legitimately cover fewer names than it
+        # asked for while the store fills. Say so in the journal rather than
+        # letting a 1,200-name universe read as fully scanned when 170 names
+        # were seen — the lying-screen fault class. Captured before the
+        # benchmark fetch below overwrites the stats.
+        from .data import LAST_FETCH_STATS as _fs
+        cover = dict(_fs)
         bench = fetch_daily([cfg.benchmark], period=history_period).get(cfg.benchmark)
+        if cover.get("asked") and cover.get("covered", 0) < cover["asked"]:
+            self._journal_once_a_day("SCAN_COVERAGE_SHORT", datetime.utcnow(), {
+                "asked": cover["asked"], "covered": cover["covered"],
+                "from_store": cover.get("from_store"),
+                "from_network": (cover.get("from_upstox", 0)
+                                 + cover.get("from_yahoo", 0)),
+                "not_fetched_cap": cover.get("not_fetched_cap"),
+                "why": (f"Scanned {cover['covered']} of {cover['asked']} names "
+                        f"({cover.get('from_store', 0)} from the stored "
+                        f"history, "
+                        f"{cover.get('from_upstox', 0) + cover.get('from_yahoo', 0)}"
+                        f" fetched). "
+                        + (f"{cover['not_fetched_cap']} were left for the "
+                           f"off-hours top-up so the scan window could close."
+                           if cover.get("not_fetched_cap") else
+                           "The rest had no usable history.")),
+            })
 
         # v4: regime-aware. If Ocean is the active engine (panic/correction),
         # Everest is dormant. Either way we score everything so the UI shows

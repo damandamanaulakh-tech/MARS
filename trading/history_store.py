@@ -18,6 +18,7 @@ add delisted names later to kill that bias.
 from __future__ import annotations
 
 import logging
+import time
 from datetime import date, timedelta
 from typing import Callable, Optional
 
@@ -120,7 +121,9 @@ def records_to_df(doc: dict) -> Optional[pd.DataFrame]:
 def top_up_history(broker, ticker_to_key: dict[str, str],
                    load_doc: Callable[[str], Optional[dict]],
                    save_doc: Callable[[dict], None],
-                   today: date, fresh_within_days: int = 4) -> dict:
+                   today: date, fresh_within_days: int = 4,
+                   max_fetches: int = 0,
+                   time_budget_s: float = 0.0) -> dict:
     """Weekly freshness pass (owner order 2026-07-27: "renewed every week").
 
     For each ticker, download only the RECENT candles (1 paginated year is
@@ -133,8 +136,25 @@ def top_up_history(broker, ticker_to_key: dict[str, str],
     fresh").
     """
     ok = skipped = failed = 0
+    remaining = 0
     fresh_cutoff = (today - timedelta(days=fresh_within_days)).isoformat()
-    for ticker, key in ticker_to_key.items():
+    started = time.monotonic()
+    stopped = ""
+    items = list(ticker_to_key.items())
+    for i, (ticker, key) in enumerate(items):
+        # BOUNDED RUNS (2026-09-11, owner: "why system still stucking at 49").
+        # The pull needed ~61 uninterrupted minutes for the 2,075 names the
+        # store lacked, on a box that restarts on every deploy — so it never
+        # finished, and everything sequenced behind it never ran. A bounded
+        # run always FINISHES: it saves each name as it goes, so the next run
+        # skips what is already fresh and carries on from there. Progress
+        # becomes incremental instead of all-or-nothing.
+        if max_fetches and ok + failed >= max_fetches:
+            stopped, remaining = "fetch_cap", len(items) - i
+            break
+        if time_budget_s and (time.monotonic() - started) >= time_budget_s:
+            stopped, remaining = "time_budget", len(items) - i
+            break
         try:
             doc = load_doc(ticker)
             if doc and doc.get("end") and doc["end"] >= fresh_cutoff:
@@ -153,4 +173,6 @@ def top_up_history(broker, ticker_to_key: dict[str, str],
             log.warning("weekly top-up failed for %s: %s", ticker, e)
             failed += 1
     return {"ok": ok, "skipped_fresh": skipped, "failed": failed,
-            "total": len(ticker_to_key)}
+            "total": len(ticker_to_key), "remaining": remaining,
+            "stopped": stopped,
+            "elapsed_s": round(time.monotonic() - started, 1)}

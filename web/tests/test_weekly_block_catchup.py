@@ -117,9 +117,12 @@ def test_completion_is_stamped_only_after_the_block_ran(monkeypatch):
     src = inspect.getsource(scheduler._weekly_history_topup)
     body = "\n".join(ln for ln in src.splitlines()
                      if not ln.lstrip().startswith("#"))
-    assert body.count("_mark_weekly_block_done()") == 1
+    # Signature gained the pull's REMAINDER on 2026-09-11 (a bounded pull
+    # that stops early must keep the block due tomorrow, not in seven days),
+    # so pin the CALL rather than a literal empty-argument form.
+    assert body.count("_mark_weekly_block_done(") == 1
     # it must come after the post-topup recomputes, i.e. last in the function
-    assert body.rstrip().endswith("_mark_weekly_block_done()")
+    assert body.rstrip().endswith("_mark_weekly_block_done(_topup_remaining)")
 
 
 def test_cron_is_registered_mon_fri_not_fri_only():
