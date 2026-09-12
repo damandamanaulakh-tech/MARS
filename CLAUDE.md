@@ -2754,6 +2754,26 @@ proposing an outside formula again.**
   (colspan == owner `<th>` count, viewer == owner - 1, head `<td>` == row
   `<td>`), and I **verified they still fail on a deliberately skewed
   colspan** before keeping them.
+- **OWNER CLOSED ALL THREE OPEN ASKS 2026-09-12: "forget about HFCl, branch
+  n placeholders". NEVER RE-RAISE ANY OF THEM:**
+  1. **HFCL replacement — dropped.** `OWNER_UNIVERSE_2026_08_20` stays at
+     **49 names**. NSE moved HFCL to the BE/T2T series so the tradeable
+     filter excludes it (the MTARTECH precedent); the owner does not want a
+     50th name substituted. The sector entry stays mapped so a held or
+     hand-bought position still resolves to Telecom, and the T2T guard test
+     stands. Do not propose a replacement.
+  2. **Branch `port/stock-session-round1` — dropped.** It stays on GitHub.
+     The session git proxy 403s any push but the designated branch, so
+     deletion was only ever an owner tap; they have declined it. Stop
+     listing it.
+  3. **"Remove placeholders" — dropped.** This was a Phase-2 leftover
+     waiting on the owner to name a screen. They have withdrawn it; there
+     is no placeholder backlog. Do not go hunting for one.
+  **The 2026-09-10 nine-item batch and item 5 are now fully closed with
+  nothing outstanding.** Next owner-facing work is the 60-day paper window
+  under the live settings (Rs 5 crore, slab sizing at m=0.29, ceiling 222,
+  -5%/+20% with the trail live, 30-minute in-session exit checks,
+  market-hours gate, breadth BAND 0.40-0.65).
 
  all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
