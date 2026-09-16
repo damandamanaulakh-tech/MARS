@@ -2775,6 +2775,99 @@ proposing an outside formula again.**
   -5%/+20% with the trail live, 30-minute in-session exit checks,
   market-hours gate, breadth BAND 0.40-0.65).
 
+**BACKTEST REVIEW + BRICS CHECK + SCAN LIST 49 -> 83 (2026-09-12..16).
+1,213 tests. READ THE BACKTEST FINDINGS BEFORE QUOTING ANY /backtest NUMBER.**
+- **THE BACKTEST IS NOT TESTING THE APP** (owner: "check last 2 days back
+  test / mostly negative / review, do not change anything"). Four divergences
+  found in code, none of them disclosed on the page except the first four
+  live-gate items it already lists:
+  1. **It runs `cfg.universe` (192 large caps), NOT the traded list.** Only
+     **19 of the 49** live names overlapped; 30 had never been backtested at
+     all and are not in the committed panel either.
+  2. **Flat +20% targets.** `_try_open_positions` sets
+     `fill * (1 + cfg.take_profit_pct)`, but the live engine has used
+     **k x ATR per stock** (`engine._target_for` -> targets.py) since
+     2026-09-10. Same shared `check_exit`, different target fed in. MY
+     divergence — k was anchored to a measurement but the exit study was
+     never re-run with per-stock targets.
+  3. **Exits checked once daily on the close; live checks every 30 minutes.**
+     An intraday dip through -5% that recovers by the close = no stop in the
+     backtest, a REAL stop live. The live app stops out more than any
+     backtest shows.
+  4. **Flat-slab sizing.** The backtest calls `can_open` without a close
+     series, so `position_notional_for` returns the Rs 1.5L slab for EVERY
+     score; the live engine DOES pass the series (engine.py ~line 830), so
+     the real ladder is 62.5 -> 1.5L, 68 -> 4.04L, 72 -> 6.73L, 90 -> 18.85L.
+  Also unmodelled and NOT in the page's warning list: ocean, danger layer,
+  rotation exits.
+- **WHY THE RESULT LOOKED WEAK — MEASURED, AND IT IS NOT THE STRATEGY.**
+  2024 window, same names/rules, only the money settings differing:
+  live (Rs 5 Cr + slab) **+4.18%** vs legacy (Rs 50L + fixed 1.25L)
+  **+15.72%**, Nifty +8.75%. Instrumented `can_open`: live deployed a
+  **median 26.6% of equity** (106 positions), legacy **100%** (49).
+  **Return ratio 0.27 == deployment ratio 0.27.** The engine earns a quarter
+  because it is running on a quarter. Max DD -3.30 vs -14.66 is the same
+  fact from the other side — idle cash cannot fall. Fully deployed, the
+  recipe roughly matches or beats Nifty in 3 of 5 windows (2020-21 alpha
+  +0.36, 2022-23 +0.01, 2024 +6.96).
+  **The real binding constraint is the SECTOR CAP** (`max_sector_positions
+  = 12`): refused **892 times** in that run vs 755 opens. The 222 ceiling
+  never bound once.
+  **MY EARLIER ANSWER WAS WRONG AND I CORRECTED IT TO THE OWNER**: I first
+  said the negative result was the documented 2024-26 cold stretch. True of
+  the default window (page defaults to today-2y) but NOT the main cause.
+  Measure before explaining.
+- **BRICS SUMMIT CHECK (owner: "there is brick summit ... check online ...
+  which companies are getting anything ... stocks must be listed in
+  universe").** 18th BRICS summit, New Delhi, 12-13 Sep 2026, New Delhi
+  Declaration adopted. **NO Indian listed company was named as receiving a
+  contract, order or MoU** — outcomes are government-to-government (customs
+  agreement, counter-terrorism plan, agri research platform, health/TCIM,
+  iBRICS sovereign-capital summit). Naming "beneficiary stocks" would have
+  been inventing the link. NSE/BSE were CLOSED Mon 14 Sep; trading resumed
+  Tue 15th, so no market reaction existed when asked. Nifty last closed
+  23,398.10 on 11 Sep, fifth straight weekly fall.
+  Coverage measured: every theme name was ALREADY in the 2,648 universe
+  file (it is the whole NSE) — the gap was the **49-name scan list**, which
+  had **zero** names in defence, shipbuilding, EV battery, green hydrogen
+  and no pharma majors, and was 21-of-49 concentrated in Metal + Auto.
+- **REAL DATA GAP FOUND: LTIMindtree (LTIM) is absent from the universe
+  file** — the only miss in a 30-name Nifty-50 sample (LT, LTF, LTFOODS all
+  present, so not a prefix-filter bug). It cannot be scanned or bought.
+  NOT yet investigated; owner was told.
+- **SCAN LIST 49 -> 83 (owner order 2026-09-16: "add defence, shipbuilding,
+  pharma names to the scan list").** 14 defence + 3 shipbuilding yards +
+  17 pharma. **Every name screened through the production gate
+  `risk_v2.passes_liquidity` on LIVE tokenless Upstox candles before being
+  added** — all cleared the Rs 5 Cr 5-day rupee-turnover bar (HAL 643 Cr/day
+  down to SYNGENE 13 Cr/day; evidence committed at
+  research/universe_add_2026-09-16.csv). The THERMAX lesson: a name the
+  entry gate can never pass is decoration.
+  Every added name got a REAL sector (PR #68 lesson — unmapped names all
+  count as ONE "Unknown" sector and jam the cap). **"Defence" is a NEW
+  sector label**; shipbuilding yards went to Capital Goods (no yard bucket
+  in the 19-sector vocabulary); **SCI stays Logistics** — it is a shipping
+  LINE, not a builder. `APOLLO.NS` is Apollo MICRO SYSTEMS (defence
+  electronics), verified against the file's name column — not Tyres or
+  Hospitals.
+  Sector counts now exceed the cap in two places (Pharma 20, Defence 14 vs
+  cap 12) — that is fine and deliberate: the cap limits HELD positions, not
+  how many are scanned.
+- **TRAP CAUGHT BEFORE SHIPPING: the Settings universe box capped at a
+  hardcoded 60**, so with the list at 83 the owner saving their own live
+  universe would have been rejected "universe_too_big". **A guard must never
+  refuse the state the app is already running.** The cap is now DERIVED
+  (`settings_routes._universe_paste_cap` = max(100, cfg.universe_target_size)
+  = 1,200); its OOM premise died on 2026-09-11 when fetch_daily went
+  store-first (1,200 frames = +15MB, 2.8s). Template message truth-passed.
+- **THREE HARDCODED-COUNT TESTS MADE SELF-MAINTAINING** (same fault class as
+  the colspan and universe counts): `test_every_name_is_unique_and_tradeable`
+  no longer pins 49 (it was 50, then 49, now 83 — each an ordinary event);
+  `test_settings_refuses_more_than_sixty_names` repointed to refuse the WHOLE
+  universe file instead of 80 names, plus a new twin asserting a scannable
+  list is ACCEPTED. New pins: every scanned name carries a sector; one
+  unmistakable name per ordered theme.
+
  all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

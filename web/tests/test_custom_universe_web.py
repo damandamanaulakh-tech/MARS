@@ -169,19 +169,44 @@ def test_disconnect_keeps_the_history_client(monkeypatch):
 # External review fixes (PR #68)
 # ---------------------------------------------------------------------------
 
-def test_settings_refuses_more_than_sixty_names():
-    """A pasted 2,400-name list would have the scan download 2y for every
-    name daily — an OOM on the 512MB box. The design is 50; cap 60."""
+def test_settings_still_refuses_an_absurd_paste():
+    """The cap survives, but its SIZE is no longer 60.
+
+    The original premise — a big paste means the scan downloads 2 years for
+    every name daily, OOMing the 512MB box — died on 2026-09-11 when
+    fetch_daily became store-first (measured: 1,200 two-year frames = +15MB,
+    2.8s). The cap now tracks cfg.universe_target_size, so this pins the
+    behaviour that still matters: the WHOLE universe file is refused and
+    nothing is written.
+    """
     import csv
     with open("data/upstox_nse_equities.csv", newline="") as f:
-        many = [r["ticker"].replace(".NS", "")
-                for r in csv.DictReader(f)][:80]
+        everything = [r["ticker"].replace(".NS", "") for r in csv.DictReader(f)]
     cfg = state.cfg()
     old = cfg.custom_universe
     try:
-        r = _post_settings(_client(), custom_universe=", ".join(many))
+        r = _post_settings(_client(), custom_universe=", ".join(everything))
         assert "saved=universe_too_big" in r.headers["location"]
         assert tuple(cfg.custom_universe) == tuple(old)   # untouched
+    finally:
+        _restore(old)
+
+
+def test_settings_accepts_a_list_the_engine_could_actually_scan():
+    """The other half, and the trap of 2026-09-16: with a hardcoded cap of
+    60 the owner's own 83-name scan list would have been rejected back at
+    them. A list inside the app's universe target must save."""
+    import csv
+    with open("data/upstox_nse_equities.csv", newline="") as f:
+        names = [r["ticker"].replace(".NS", "")
+                 for r in csv.DictReader(f)][:80]
+    cfg = state.cfg()
+    old = cfg.custom_universe
+    try:
+        r = _post_settings(_client(), custom_universe=", ".join(names))
+        assert "universe_too_big" not in r.headers["location"], \
+            "a scannable list must not be refused as too big"
+        assert len(cfg.custom_universe) == len(names)
     finally:
         _restore(old)
 
