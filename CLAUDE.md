@@ -2868,6 +2868,80 @@ proposing an outside formula again.**
   list is ACCEPTED. New pins: every scanned name carries a sector; one
   unmistakable name per ordered theme.
 
+**THE EXIT DRAIN — THE ENGINE READ THE SESSION 5h30m LATE (owner 2026-09-16:
+"how all positons got exist / no new position are getting added" -> "go").
+PR #109 MERGED, 1,233 tests (860 trading + 373 web). READ THIS BEFORE
+TOUCHING ANY CLOCK, GATE OR SCHEDULED JOB.**
+- **ROOT CAUSE, and it was MINE from the 2026-09-10 market-hours gate.** Every
+  `now` in the engine is `datetime.utcnow()` — NAIVE UTC — but
+  `calendars._ist_now` documents a naive datetime as "assumed already IST" and
+  passes it straight through. IST is UTC+5:30, so the 09:15-15:30 window was
+  read 5h30m late. MEASURED: real 09:20 IST (the daily scan) -> engine handed
+  03:50 -> **CLOSED** · 09:15-14:45 CLOSED · 14:45-15:30 OPEN · **15:35 EOD
+  pass OPEN** · **21:00 OPEN**. So for six days the 09:20 scan believed the
+  market was shut and **bought nothing** (the owner's "no new position" half),
+  every morning exit was deferred with EXIT_DUE_MARKET_CLOSED and they **all
+  fired together after 14:45** (the "all positions exit" half), and the
+  post-close/overnight passes traded freely — the exact INVERSION of their
+  "trade are prohibited after market hours" order.
+- **Fixed at the ENGINE boundary** (`TradingEngine._ist` / `_market_state` /
+  `_trading_allowed`), NOT in calendars: `is_market_open()` with no argument is
+  correct (real IST clock) and its naive-means-IST contract is pinned by
+  existing tests, so converting there would break every honest caller. All 6
+  `market_state(now)` sites route through `_market_state`.
+- **THE TEST THAT LET IT SHIP**: the old guard asserted only that the STRING
+  "is_market_open" appears in `_trading_allowed`'s source. **A name in the
+  source is not a behaviour** — the fault-mask class again (Node 10, the
+  /dashboard-404 pin). The new test walks a real trading day through the
+  engine. Anything that gates on a clock needs a clock test, not a grep.
+- **THREE CONTRIBUTING FAULTS, also fixed:**
+  1. **The breadth gate guarded MOMENTUM ONLY** while the 09:20 job runs FIVE
+     passes — so in the dead band the one pass that holds 200 days was blocked
+     while **swing (floor 60, LOWER than momentum's 62)**, short and intraday
+     kept buying; intraday is force-closed at 15:25 the same day BY DESIGN and
+     swing sells at 20 days. Now covers every pass. **Only momentum pulls 2y**;
+     the other four pull 6mo and `compute_breadth` drops any ticker under 200
+     bars, so their own read is (None, 0) and the extension ALONE would have
+     been a no-op for exactly the passes it must cover — momentum runs first,
+     caches the day's reading on `portfolio.breadth_today` (persisted
+     JSON+Mongo both ways), the rest read it. One market reading per day, not
+     one per pass. **HONEST LIMIT: the breadth study measured MOMENTUM picks
+     only; the band on the other four is the owner's reasoned order, NOT a
+     measured result.** The 2026-09-09 re-cut is untouched (below 40% still
+     buyable) and the VIX bypass still wins.
+  2. **Rotation sold when the engine had refused to buy** — it runs after the
+     breadth and market-hours gates empty the pick list, then falls back to the
+     watchlist and sells a near-target winner to fund a name that will not be
+     bought. It also never honoured the market-hours order (refresh() did via
+     marking_only; this branch did not). Both closed (`entries_blocked` kills
+     the watchlist fallback; market-hours guard at the top); a real funded pick
+     — ocean is gate-exempt — still rotates.
+  3. **The danger layer's 2.5% leash overrode the owner's -5% stop.**
+     `TIGHTEN_PCT` is an **ASSUMED** number (no measurement in the repo backs
+     it, unlike the 12 tripwires' 1.6-4.1x lifts), it sets `custom_levels` so
+     the stop never returns to -5%, and it predates the 30-minute in-session
+     pass which took stop checking from ~2/day to ~13. The LEASH WIDTH is now
+     floored at `cfg.stop_loss_pct` (reads cfg, so it follows the owner). Still
+     trails a winner up; can no longer be narrower than the risk they accepted.
+     `danger.describe()` takes the leash ACTUALLY applied so the journal and
+     phone alert cannot name a stop that was never set.
+- **RULED OUT BY ARITHMETIC, stated so it is never re-asked:** KILL_SWITCH
+  needs a Rs 10,00,000 single-day loss and DRAWDOWN_LADDER Rs 50,00,000 off
+  peak on the Rs 5 Cr book — both larger than the whole deployed amount.
+  Neither fired. **The book emptied one position at a time, not in one event.**
+- **EXPECT FEWER TRADES, NOT MORE** — the buys that were happening were ones
+  that could not stay. Breadth last read 48.2%, inside the 40-65% band, so the
+  book may stay quiet until it clears; the difference is the 09:20 scan can now
+  actually buy when it does.
+- **MY PROCESS FAILURE THIS ROUND, recorded because the owner called it:** I
+  answered their first report with a mechanism story and told them to go search
+  their own journal ("why i get excuses only"). Then I named the breadth/mode
+  asymmetry as the main cause — **incomplete**; the clock was the root, and I
+  only found it because I wrote a test that used a real timestamp. Measure
+  before explaining (the 2026-09-12 backtest lesson), and when the owner cannot
+  see their own data from where you are, say that in one sentence and then do
+  the work anyway — do not hand it back to them.
+
  all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
