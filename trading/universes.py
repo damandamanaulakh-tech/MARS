@@ -322,6 +322,42 @@ CUSTOM_UNIVERSE_SECTOR_MAP: dict = {
     "UNOMINDA.NS": "Auto",
     "APLAPOLLO.NS": "Metal",       # steel tubes
     "JSL.NS": "Metal",             # stainless steel
+    # --- OWNER ORDER 2026-09-16 ("add defence, shipbuilding, pharma names
+    # to the scan list"), after the BRICS-summit review showed the scanned
+    # list had ZERO names in those three themes. Every one of these cleared
+    # trading.risk_v2.passes_liquidity on LIVE Upstox candles before being
+    # added — a name the entry gate can never pass is decoration on the
+    # screen and nothing else (the THERMAX lesson, 2026-09-08).
+    # "Defence" is a NEW sector label here; every other name keeps the
+    # existing 19-sector vocabulary (Pharma = the healthcare bucket).
+    "HAL.NS": "Defence",           # Hindustan Aeronautics
+    "BEL.NS": "Defence",           # Bharat Electronics
+    "BDL.NS": "Defence",           # Bharat Dynamics
+    "SOLARINDS.NS": "Defence",     # Solar Industries — explosives/munitions
+    "PARAS.NS": "Defence",         # Paras Defence and Space Technologies
+    "DATAPATTNS.NS": "Defence",    # Data Patterns India
+    "ZENTEC.NS": "Defence",        # Zen Technologies — simulators
+    "BEML.NS": "Defence",
+    "ASTRAMICRO.NS": "Defence",    # Astra Microwave
+    "APOLLO.NS": "Defence",        # Apollo MICRO SYSTEMS (not Tyres/Hospitals)
+    "CYIENTDLM.NS": "Defence",     # Cyient DLM — defence electronics mfg
+    "UNIMECH.NS": "Defence",       # Unimech Aerospace
+    "DYNAMATECH.NS": "Defence",    # Dynamatic Technologies — aero components
+    "IDEAFORGE.NS": "Defence",     # ideaForge — drones
+    # Shipbuilding sits in Capital Goods: the yards are heavy engineering and
+    # the 19-sector vocabulary has no yard bucket. SCI (Shipping Corp) is
+    # already in the list as Logistics and is NOT moved — it is a shipping
+    # line, not a builder.
+    "COCHINSHIP.NS": "Capital Goods",
+    "GRSE.NS": "Capital Goods",    # Garden Reach Shipbuilders
+    "MAZDOCK.NS": "Capital Goods",  # Mazagon Dock
+    # Pharma (healthcare bucket, APOLLOHOSP/FORTIS precedent)
+    "SUNPHARMA.NS": "Pharma", "DRREDDY.NS": "Pharma", "CIPLA.NS": "Pharma",
+    "TORNTPHARM.NS": "Pharma", "LUPIN.NS": "Pharma", "AUROPHARMA.NS": "Pharma",
+    "DIVISLAB.NS": "Pharma", "ZYDUSLIFE.NS": "Pharma", "ALKEM.NS": "Pharma",
+    "MANKIND.NS": "Pharma", "GLENMARK.NS": "Pharma", "LAURUSLABS.NS": "Pharma",
+    "BIOCON.NS": "Pharma", "GRANULES.NS": "Pharma", "PPLPHARMA.NS": "Pharma",
+    "IPCALAB.NS": "Pharma", "NATCOPHARM.NS": "Pharma",
 }
 
 OWNER_UNIVERSE_2026_08_20: tuple = (
@@ -346,4 +382,23 @@ OWNER_UNIVERSE_2026_08_20: tuple = (
     # --- metal (8) — "... & Metal is growing" ---
     "TATASTEEL.NS", "JSWSTEEL.NS", "HINDALCO.NS", "JINDALSTEL.NS",
     "VEDL.NS", "NATIONALUM.NS", "APLAPOLLO.NS", "JSL.NS",
+    # --- defence (14) — OWNER ORDER 2026-09-16 ---
+    # The BRICS-summit review (2026-09-14) found the scanned list held ZERO
+    # defence, shipbuilding or pharma names while all three sat in the
+    # universe file. Owner: "add defence, shipbuilding, pharma names to the
+    # scan list". Each name below was screened on LIVE Upstox candles through
+    # trading.risk_v2.passes_liquidity — the engine's own entry gate — and
+    # every one cleared the Rs 5 Cr 5-day rupee-turnover bar. Screening
+    # output: research/universe_add_2026-09-16.csv.
+    "HAL.NS", "BEL.NS", "BDL.NS", "SOLARINDS.NS", "PARAS.NS",
+    "DATAPATTNS.NS", "ZENTEC.NS", "BEML.NS", "ASTRAMICRO.NS", "APOLLO.NS",
+    "CYIENTDLM.NS", "UNIMECH.NS", "DYNAMATECH.NS", "IDEAFORGE.NS",
+    # --- shipbuilding (3) — the yards. SCI is already above as Logistics
+    # (a shipping line, not a builder) and is deliberately not duplicated.
+    "COCHINSHIP.NS", "GRSE.NS", "MAZDOCK.NS",
+    # --- pharma (17) ---
+    "SUNPHARMA.NS", "DRREDDY.NS", "CIPLA.NS", "TORNTPHARM.NS", "LUPIN.NS",
+    "AUROPHARMA.NS", "DIVISLAB.NS", "ZYDUSLIFE.NS", "ALKEM.NS",
+    "MANKIND.NS", "GLENMARK.NS", "LAURUSLABS.NS", "BIOCON.NS",
+    "GRANULES.NS", "PPLPHARMA.NS", "IPCALAB.NS", "NATCOPHARM.NS",
 )

@@ -74,6 +74,17 @@ PRESET_OWNED_FIELDS = [
 ]
 
 
+def _universe_paste_cap(cfg) -> int:
+    """How many names the Settings universe box will accept.
+
+    DERIVED from the app's own universe target so the guard can never refuse
+    the list the engine is already scanning. Floors at 100 so a small
+    configured target still leaves the owner room to paste a bigger list.
+    """
+    target = int(getattr(cfg, "universe_target_size", 0) or 0)
+    return max(100, target)
+
+
 def _trail_warning() -> dict | None:
     """None when the trailing stop can actually fire; otherwise the numbers."""
     cfg = state.cfg()
@@ -242,12 +253,23 @@ async def settings_save(request: Request):
         if not names:
             cfg.custom_universe = ()
             overrides["custom_universe"] = []
-        elif len(names) > 60:
-            # CODEX REVIEW FIX (PR #68): unbounded, a pasted 2,400-name list
-            # would have had the scan download 2 years × every name daily —
-            # an OOM on the 512 MB box. The design is 50; 60 leaves slack.
+        elif len(names) > _universe_paste_cap(cfg):
+            # The cap exists because an unbounded paste once meant the scan
+            # downloaded 2 years x every name daily (PR #68). That premise
+            # died on 2026-09-11 when fetch_daily became STORE-FIRST:
+            # measured, 1,200 two-year frames cost +15 MB and 2.8 s, 2,648
+            # cost +32 MB — the 512 MB box is not the constraint it was.
+            #
+            # It is now DERIVED from cfg.universe_target_size (1,200) rather
+            # than the old hardcoded 60, which the owner's own list would
+            # have breached the moment it grew: the 2026-09-16 defence /
+            # shipbuilding / pharma order took it to 83, and a 60-cap would
+            # have rejected the live list back at the owner as
+            # "universe_too_big". A guard must never refuse the state the
+            # app is already running.
             return RedirectResponse(
-                f"/settings?saved=universe_too_big&n={len(names)}",
+                f"/settings?saved=universe_too_big&n={len(names)}"
+                f"&cap={_universe_paste_cap(cfg)}",
                 status_code=303)
         else:
             try:

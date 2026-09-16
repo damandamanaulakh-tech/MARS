@@ -29,18 +29,49 @@ def _universe_file() -> set:
 
 
 def test_every_name_is_unique_and_tradeable():
-    """49 since 2026-09-09, and the count is the LESS important half.
+    """The count is the LESS important half, so it is no longer pinned.
 
-    NSE moved HFCL to the BE (trade-to-trade) series, so the refreshed
-    universe file no longer carries it — the same fact that kept MTARTECH
-    out on 2026-08-20. What must never break is the second assertion: every
-    auto-scanned name resolves in the tradeable file. A name that silently
-    stops resolving would be scanned, scored and possibly bought against an
-    instrument the app's own T2T rule excludes."""
-    assert len(U50) == 49 and len(set(U50)) == 49
+    It was 50, then 49 when NSE moved HFCL to the BE (trade-to-trade)
+    series, then 83 when the owner ordered defence, shipbuilding and pharma
+    added (2026-09-16). A hardcoded number turns each of those ordinary
+    events into a meaningless test failure — the same fault as the
+    hardcoded colspan (2026-09-11) and the hardcoded universe counts
+    (2026-09-09).
+
+    What must never break: no duplicates, and every auto-scanned name
+    resolves in the tradeable file. A name that silently stops resolving
+    would be scanned, scored and possibly bought against an instrument the
+    app's own T2T rule excludes."""
+    assert len(set(U50)) == len(U50), "duplicate names in the scanned list"
+    assert len(U50) >= 40, "the scanned list collapsed"
     known = _universe_file()
     missing = [t for t in U50 if t not in known]
     assert not missing, f"not in the tradeable universe file: {missing}"
+
+
+def test_every_scanned_name_carries_a_sector():
+    """PR #68's lesson, re-pinned as the list grows: risk.can_open counts
+    every "Unknown" position as ONE sector for max_sector_positions, so a
+    single unmapped name would jam the cap against unrelated companies."""
+    cfg = Config()
+    cfg.apply_mode_preset()
+    unmapped = [t for t in U50 if cfg.sector_map.get(t, "Unknown") == "Unknown"]
+    assert not unmapped, f"no sector mapping for: {unmapped}"
+
+
+def test_the_owner_ordered_themes_are_actually_present():
+    """Owner order 2026-09-16, after the BRICS review found the scanned list
+    had zero names in any of the three. Pins one unmistakable name per
+    theme rather than a count, so the list can grow or be pruned freely."""
+    for name in ("HAL.NS", "BEL.NS",              # defence
+                 "COCHINSHIP.NS", "MAZDOCK.NS",   # shipbuilding yards
+                 "SUNPHARMA.NS", "CIPLA.NS"):     # pharma
+        assert name in U50, f"{name} missing from the scanned list"
+    # SCI is a shipping LINE, not a builder — it stays Logistics.
+    cfg = Config()
+    cfg.apply_mode_preset()
+    assert cfg.sector_map.get("SCI.NS") == "Logistics"
+    assert cfg.sector_map.get("APOLLO.NS") == "Defence"   # Micro Systems
 
 
 def test_the_t2t_names_stay_out_of_the_auto_scanned_list():

@@ -100,3 +100,27 @@ def test_header_and_body_column_counts_agree():
     head, row = _picks_table(_TPL.read_text())
     assert head.count("<th") == row.count("<td")
     assert head.count("<th") >= 8       # sanity: the table did not collapse
+
+
+def test_the_universe_paste_cap_never_refuses_the_live_list():
+    """The trap caught on 2026-09-16: the Settings box capped the universe
+    at a hardcoded 60 while the owner's own scanned list had grown to 83, so
+    saving their live list would have been rejected as "universe_too_big".
+
+    A guard must never refuse the state the app is already running. The cap
+    is derived from cfg.universe_target_size now, and this pins both halves:
+    the live list fits, and an absurd paste is still refused.
+    """
+    from trading.config import Config
+    from trading.universes import OWNER_UNIVERSE_2026_08_20 as U
+    from web.routes.settings_routes import _universe_paste_cap
+
+    cfg = Config()
+    cfg.apply_mode_preset()
+    cap = _universe_paste_cap(cfg)
+    assert cap >= len(U), (
+        f"Settings would reject the app's own {len(U)}-name scan list "
+        f"(cap {cap})")
+    assert cap >= len(cfg.custom_universe or ())
+    # still a guard, not an open door
+    assert cap < 5000
