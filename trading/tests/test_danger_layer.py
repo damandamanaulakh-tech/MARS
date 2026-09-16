@@ -161,14 +161,26 @@ def test_auto_mode_exits_half_on_two_fires(tmp_path, monkeypatch):
 
 
 def test_auto_mode_tighten_on_single_fire(tmp_path, monkeypatch):
+    """UPDATED 2026-09-16 to the new truth (owner order): the leash is floored
+    at the owner's own stop width.
+
+    This used to pin 120 x 0.975 = 117 — danger.TIGHTEN_PCT, an ASSUMED -2.5%
+    that no measurement in this repo backs, overriding the -5% the owner
+    decided. Since the 30-minute in-session pass (2026-09-10) that leash is
+    checked ~13 times a day instead of ~2, and a 2.5% leash checked that often
+    in a falling market sells almost anything. The tighten still works — the
+    stop goes 95 -> 114 on a winner at 120 — it just cannot be narrower than
+    the risk they accepted.
+    """
     eng = _engine(tmp_path, start_days_ago=10)
     one = list(danger.VERIFIED)[:1]
     monkeypatch.setattr(danger, "evaluate_stock", lambda df, ext=None: one)
-    # winner at 120 with the entry stop still at 95: tighten pulls it to 117
     prices = {"CRASH.NS": 120.0}
     eng._danger_pass(prices, {"CRASH.NS": _calm()}, datetime.utcnow())
     pos = eng.portfolio.positions["CRASH.NS"]
-    assert pos.stop_price == round(120.0 * 0.975, 2)
+    leash = max(abs(danger.TIGHTEN_PCT), abs(eng.cfg.stop_loss_pct))
+    assert pos.stop_price == round(120.0 * (1 - leash), 2) == 114.0
+    assert pos.stop_price > 95.0, "it must still TIGHTEN, just not past -5%"
     assert pos.custom_levels is True                # survives boot retag
     assert pos.qty == 100
 

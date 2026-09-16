@@ -121,6 +121,7 @@ class Portfolio:
     news_watch: dict = field(default_factory=dict)     # 📰 news verdict per stock (display only, never blocks)
     universe_batch: dict = field(default_factory=dict)  # 📦 this week's liquidity batch: what came in/out (owner ask 2026-09-04)
     breadth_store: dict = field(default_factory=dict)  # F3: full-store breadth reading {pct, sample, asof} the A3 gate prefers over the noisy bucket sample
+    breadth_today: dict = field(default_factory=dict)  # the day's scan-bucket breadth, computed once by the first pass that CAN (momentum pulls 2y; the other four pull 6mo and cannot see a 200DMA) and reused by the rest — one market reading per day, not one per mode
     option_chain: dict = field(default_factory=dict)   # Node 8: daily chain snapshot {asof, rows, history} (display/triggers only; needs the daily login)
     register_market: dict = field(default_factory=dict)  # Node 10: nightly full-store register market view {asof, sample, rows} (/register reads, never computes)
     damage_store: dict = field(default_factory=dict)     # Node 9: canonical tail_down3_5d reading from the scan panel (FII-08/09 read it; IFR journals it beside its own)
@@ -236,6 +237,7 @@ class Portfolio:
                 "news_watch": self.news_watch,                 # 📰 news verdict per stock
                 "universe_batch": self.universe_batch,         # 📦 weekly batch details
                 "breadth_store": self.breadth_store,           # F3 full-store breadth
+                "breadth_today": self.breadth_today,           # the day's shared bucket reading
                 "option_chain": self.option_chain,             # Node 8 chain snapshot
                 "register_market": self.register_market,       # Node 10 precompute
                 "damage_store": self.damage_store,             # Node 9 canonical damage
@@ -285,6 +287,7 @@ class Portfolio:
             p.news_watch = dict(data.get("news_watch", {}))
             p.universe_batch = dict(data.get("universe_batch", {}) or {})
             p.breadth_store = dict(data.get("breadth_store", {}))
+            p.breadth_today = dict(data.get("breadth_today", {}) or {})
             p.option_chain = dict(data.get("option_chain", {}))
             p.register_market = dict(data.get("register_market", {}))
             p.damage_store = dict(data.get("damage_store", {}) or {})

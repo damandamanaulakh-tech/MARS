@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
 import pandas as pd
@@ -508,9 +508,11 @@ class TradingEngine:
         # exists exactly for fallen markets, where breadth is always low —
         # gating it here would mean Ocean could never buy at all; its own
         # four rails are its gate. Exits are never touched.
+        entries_blocked = False
         if picks and self._breadth_gate_blocks(history, now, n_picks=len(picks),
                                                bypass=vix_reentry):
             picks = []
+            entries_blocked = True
         picks = picks + ocean_picks
 
         # v4: HALT NEW ENTRIES around known binary events (elections, RBI, Budget).
@@ -671,7 +673,7 @@ class TradingEngine:
         # after every boot — so a Render restart at 21:00 opened positions at
         # prices nobody could have traded at.
         if not self._trading_allowed(now):
-            state = market_state(now)
+            state = self._market_state(now)
             self.portfolio.last_scan = now.isoformat()
             self._journal_once_a_day("MARKET_CLOSED_NO_ENTRY", now, {
                 "market_state": state,
@@ -689,7 +691,8 @@ class TradingEngine:
         # OWNER ORDER 2026-09-04: rotation executes. Runs BEFORE the opening
         # loop so the cash it frees is there when can_open counts it.
         try:
-            rotated_out = self._rotation_exits(picks, now)
+            rotated_out = self._rotation_exits(
+                picks, now, entries_blocked=entries_blocked)
         except Exception as e:
             log.exception("rotation exits failed — picks proceed on cash as-is: %s", e)
             rotated_out = []
@@ -1112,9 +1115,9 @@ class TradingEngine:
         marking_only = not self._trading_allowed(now)
         if marking_only:
             self._journal_once_a_day("MARKET_CLOSED_MARK_ONLY", now, {
-                "market_state": market_state(now),
+                "market_state": self._market_state(now),
                 "positions": len(tickers),
-                "why": (f"Market {market_state(now).replace('_', ' ')} — book "
+                "why": (f"Market {self._market_state(now).replace('_', ' ')} — book "
                         f"marked, no exits fired. Stops and targets run on the "
                         f"in-session pass every "
                         f"{int(getattr(cfg, 'intraday_refresh_minutes', 30))} "
@@ -1194,7 +1197,7 @@ class TradingEngine:
                     "ticker": ticker, "rule": reason,
                     "price": round(float(price), 2),
                     "why": (f"{reason} is due on {ticker} at ₹{price:,.2f}, but "
-                            f"the market is {market_state(now).replace('_', ' ')}. "
+                            f"the market is {self._market_state(now).replace('_', ' ')}. "
                             f"It will fire on the next in-session pass."),
                 })
             elif should_exit:
@@ -1473,15 +1476,34 @@ class TradingEngine:
             if reading.action == "NONE":
                 continue
             pos = self.portfolio.positions[ticker]
+            # OWNER ORDER 2026-09-16: the danger layer may tighten a stop, but
+            # never tighter than the stop the owner chose.
+            #
+            # WHY. danger.TIGHTEN_PCT is -2.5% off the LIVE price and is an
+            # ASSUMED number — no measurement anywhere in this repo backs it,
+            # unlike the 12 tripwires themselves (lift 1.6-4.1x, strict
+            # labels). It also predates the 30-minute in-session pass
+            # (2026-09-10), which took stop checking from ~2 times a day to
+            # ~13. A 2.5% leash checked 13 times a day in a five-week decline
+            # sells almost anything, and because the tighten sets
+            # custom_levels the position never gets its -5% back.
+            #
+            # The LEASH LENGTH is floored at the owner's own stop width, so
+            # this still trails a winner up (the stop rises with the price) but
+            # can no longer be narrower than the risk they accepted. Reads
+            # cfg, so if they ever set -3% the floor follows them.
+            leash = max(abs(float(danger.TIGHTEN_PCT)),
+                        abs(float(getattr(cfg, "stop_loss_pct", -0.05))))
             entry = {
                 "ts": now.isoformat(), "ticker": ticker,
                 "fired": reading.fired, "price": round(price, 2),
-                "why": danger.describe(reading, auto),
+                "leash_pct": round(leash * 100, 2),
+                "why": danger.describe(reading, auto, leash_pct=leash),
             }
             if reading.action == "ALERT":
                 entry["action"] = "DANGER_ALERT"
             elif reading.action == "TIGHTEN":
-                new_stop = round(price * (1 + danger.TIGHTEN_PCT), 2)
+                new_stop = round(price * (1 - leash), 2)
                 if new_stop > (pos.stop_price or 0):
                     pos.stop_price = new_stop
                     pos.custom_levels = True   # survives boot retag
@@ -1491,13 +1513,15 @@ class TradingEngine:
                     entry["action"] = "DANGER_ALERT"
                     entry["why"] += " (existing stop already tighter)"
             elif reading.action == "EXIT_HALF":
-                self._exit_half(ticker, price, danger.describe(reading, auto),
+                self._exit_half(ticker, price,
+                                danger.describe(reading, auto, leash_pct=leash),
                                 now)
                 entry["action"] = "DANGER_EXIT_HALF"
             self.portfolio.decision_journal.append(entry)
         self.portfolio.save()
 
-    def _rotation_exits(self, picks: list, now: datetime) -> list:
+    def _rotation_exits(self, picks: list, now: datetime,
+                        entries_blocked: bool = False) -> list:
         """OWNER ORDER 2026-09-04 ("skipper exit suggestion is there but not
         executed — make it happen"): the F6 rotation suggester EXECUTES.
 
@@ -1527,6 +1551,42 @@ class TradingEngine:
         fresh = [pk for pk in (picks or [])
                  if pk.get("ticker") and pk["ticker"] not in held]
         if not held:
+            return []
+
+        # FIX 1 of 2 (owner order 2026-09-16). Rotation is a SALE, and the
+        # owner's 2026-09-10 order was "yes all block" outside 09:15-15:30 IST.
+        # refresh() honoured that via marking_only; this branch never did — it
+        # sits AFTER the market-hours gate in scan(), which only empties the
+        # pick list and then falls through to here. The catch-up scan fires ~2
+        # minutes after every boot, so a Render restart at 21:00 could sell the
+        # owner's position at a price nobody could have got.
+        if not self._trading_allowed(now):
+            self._journal_once_a_day("ROTATION_MARKET_CLOSED", now, {
+                "market_state": self._market_state(now),
+                "why": (f"Rotation stood down — market is "
+                        f"{self._market_state(now).replace('_', ' ')}. A rotation is "
+                        f"a sale, and sales outside 09:15-15:30 IST are blocked "
+                        f"(owner order 2026-09-10)."),
+            })
+            return []
+
+        # FIX 2 of 2. Rotation exists to FUND A BUY. When the breadth gate has
+        # just refused every entry, there is no buy to fund — yet the watchlist
+        # fallback below would still find scored names and sell a near-target
+        # winner to chase one the engine will not purchase today. That is the
+        # drain the owner reported: positions leave, nothing arrives.
+        #
+        # Deliberately narrow: a real funded pick still rotates normally. Ocean
+        # is exempt from the breadth gate, so an ocean pick reaching here IS a
+        # buy that will happen, and rotation may fund it.
+        if entries_blocked and not fresh:
+            self._journal_once_a_day("ROTATION_STOOD_DOWN", now, {
+                "why": ("Rotation stood down — the breadth gate blocked every "
+                        "entry this scan, so there is nothing to fund. Selling "
+                        "a near-target position to chase a name the engine has "
+                        "refused to buy today would shrink the book for "
+                        "nothing."),
+            })
             return []
 
         # OWNER ORDER 2026-09-10, answering why this never fired: "Rotation is
@@ -1738,10 +1798,35 @@ class TradingEngine:
         and was worth +0.02pp on the holdout, i.e. nothing. See the ENTRY
         BREADTH BAND note in config.py for the numbers and the holdout.
 
-        Exits are never touched. Momentum mode only — the other modes' history
-        windows are too short for a 200DMA and the study only covered
-        momentum. Fail-open on thin samples or errors, so a data hiccup can
-        never freeze buying by accident.
+        Exits are never touched. Fail-open on thin samples or errors, so a data
+        hiccup can never freeze buying by accident.
+
+        EVERY MODE, not just momentum (owner order 2026-09-16, after reporting
+        "how all positions got exit / no new position are getting added").
+
+        WHY IT HAD TO CHANGE. The gate used to return False for any mode but
+        nifty200_momentum, and the 09:20 job runs five passes. So in the dead
+        band the ONE pass that holds for 200 days was blocked while swing
+        (floor 60 — LOWER than momentum's 62), short and intraday kept buying.
+        Intraday positions are force-closed at 15:25 the same day BY DESIGN and
+        swing sells at 20 days, so the book filled with names that could not
+        stay and emptied again. The owner saw positions leaving and nothing
+        arriving; that asymmetry is what they were looking at.
+
+        HONEST LIMIT, because it matters: the breadth study measured MOMENTUM
+        picks only. Applying the same 40-65% band to swing/short/positional/
+        intraday is the owner's reasoned order, not a measured result — if the
+        tape is too weak to buy a 200-day hold it is too weak to buy a 20-day
+        one. Nothing re-measures it; say so if asked.
+
+        THE READING IS ONE NUMBER PER DAY, NOT ONE PER MODE. Only momentum
+        pulls 2y of history; the other four pull 6mo, and compute_breadth drops
+        every ticker with fewer than 200 bars — so their own bucket read is
+        (None, 0) and, alone, this gate would have stayed a no-op for exactly
+        the passes it now has to cover. Momentum runs FIRST in the rotation, so
+        whichever pass can compute the reading caches it on
+        portfolio.breadth_today and the rest read that. Market breadth is a
+        property of the market, not of the pass looking at it.
         """
         cfg = self.cfg
         # Owner decision 2026-07-27 ("yes — we cant wait for recovery, that
@@ -1752,8 +1837,7 @@ class TradingEngine:
         # guards every normal bull/neutral day.
         if bypass:
             return False
-        if cfg.mode != "nifty200_momentum" or not getattr(
-                cfg, "breadth_gate_enabled", False):
+        if not getattr(cfg, "breadth_gate_enabled", False):
             return False
         try:
             # F3 FIX (owner order 2026-08-20: "fix F3"): PREFER the
@@ -1778,7 +1862,29 @@ class TradingEngine:
             else:
                 from .regime import compute_breadth
                 breadth, sample = compute_breadth(history)
-                source = f"scan bucket sample ({sample} names, ±7pp noise)"
+                if breadth is not None and sample > 0:
+                    source = f"scan bucket sample ({sample} names, ±7pp noise)"
+                    # Cache for the passes that cannot see a 200DMA (6mo
+                    # history). Written only on a real reading — a miss must
+                    # never overwrite a good one with an empty dict.
+                    self.portfolio.breadth_today = {
+                        "pct": float(breadth), "sample": int(sample),
+                        "asof": now.date().isoformat(),
+                        "mode": getattr(cfg, "mode", ""),
+                        "ts": now.isoformat(),
+                    }
+                else:
+                    # This pass's own history is too short (every mode but
+                    # momentum pulls 6mo). Reuse today's reading rather than
+                    # failing open and letting the short-horizon passes buy
+                    # into a tape momentum was just blocked from.
+                    cached = getattr(self.portfolio, "breadth_today", None) or {}
+                    if cached.get("asof") == now.date().isoformat():
+                        breadth = float(cached.get("pct"))
+                        sample = int(cached.get("sample") or 0)
+                        source = (f"today's {cached.get('mode') or 'scan'} "
+                                  f"reading ({sample} names) — this pass holds "
+                                  f"only 6mo of history, too short for a 200DMA")
             lo = float(getattr(cfg, "breadth_block_low", 0.40))
             hi = float(getattr(cfg, "breadth_block_high", 0.65))
             if (breadth is not None
@@ -1786,7 +1892,9 @@ class TradingEngine:
                     and lo <= breadth < hi):
                 self.portfolio.decision_journal.append({
                     "ts": now.isoformat(), "action": "BREADTH_BLOCKED",
-                    "why": (f"Breadth gate: {breadth*100:.1f}% above their "
+                    "mode": getattr(cfg, "mode", ""),
+                    "why": (f"Breadth gate [{getattr(cfg, 'mode', '?')}]: "
+                            f"{breadth*100:.1f}% above their "
                             f"200DMA sits in the measured dead band "
                             f"{lo*100:.0f}-{hi*100:.0f}% — {source}. "
                             f"{n_picks} pick(s) held back; exits unaffected. "
@@ -1807,6 +1915,46 @@ class TradingEngine:
                 {"ts": now.isoformat(), "action": action, "why": why})
 
     # --- market-hours gate (owner order 2026-09-10) -----------------------
+    #: IST is UTC+5:30. See _ist() — this is the whole of the 2026-09-16 fault.
+    _IST_OFFSET = timedelta(hours=5, minutes=30)
+
+    def _ist(self, now: Optional[datetime]) -> Optional[datetime]:
+        """Convert the engine's `now` to IST before asking the calendar.
+
+        THE 2026-09-16 FAULT, and it inverted the owner's own order. Every
+        `now` inside this engine is `datetime.utcnow()` — NAIVE UTC. But
+        `calendars._ist_now` documents a naive datetime as "assumed already
+        IST" and passes it straight through, so the whole 09:15-15:30 session
+        was read 5h30m late. Measured:
+
+            real 09:20 IST (the daily scan) -> engine passed 03:50 -> CLOSED
+            real 09:15-14:45 IST            -> CLOSED
+            real 14:45-15:30 IST            -> OPEN
+            real 15:35 IST (the EOD pass)   -> OPEN
+            real 21:00 IST                  -> OPEN
+
+        So since 2026-09-10 the 09:20 scan believed the market was shut and
+        bought NOTHING, every exit due in the morning was deferred with
+        EXIT_DUE_MARKET_CLOSED and they all fired together in the last 45
+        minutes, and the post-close passes traded freely — the exact opposite
+        of "trade are prohibited after market hours". That is what the owner
+        reported as "how all positons got exist / no new position are getting
+        added".
+
+        The fix lives HERE, not in calendars: `is_market_open()` with no
+        argument is correct (real IST clock) and its naive-means-IST contract
+        is pinned by tests, so moving the conversion there would break every
+        honest caller. Every naive `now` reaching this engine is UTC.
+        """
+        if now is None or now.tzinfo is not None:
+            return now
+        return now + self._IST_OFFSET
+
+    def _market_state(self, now: Optional[datetime] = None) -> str:
+        """market_state() on the engine's clock — see _ist(). A journal line
+        that names the wrong session is the lying-screen class."""
+        return market_state(self._ist(now))
+
     def _trading_allowed(self, now: Optional[datetime] = None) -> bool:
         """Can a position be opened or closed RIGHT NOW?
 
@@ -1817,7 +1965,7 @@ class TradingEngine:
         """
         if not bool(getattr(self.cfg, "market_hours_only", True)):
             return True
-        return is_market_open(now)
+        return is_market_open(self._ist(now))
 
     def _journal_once_a_day(self, action: str, now: datetime,
                             fields: dict) -> None:
