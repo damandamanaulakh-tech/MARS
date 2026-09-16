@@ -205,7 +205,19 @@ def auto_mode_active(alerts_start_iso: str, today_iso: str) -> bool:
         return False
 
 
-def describe(reading: DangerReading, auto: bool) -> str:
+def describe(reading: DangerReading, auto: bool,
+             leash_pct: float | None = None) -> str:
+    """`leash_pct` is the stop width the caller ACTUALLY applied, as a positive
+    fraction. Since 2026-09-16 the engine floors the leash at the owner's own
+    stop width (TIGHTEN_PCT is an assumed -2.5%; their stop is -5%), so a
+    message hardcoding TIGHTEN_PCT would name a stop that was never set — the
+    lying-screen class. Omitted (research//triggers callers) = the module's
+    own number."""
+    used = abs(float(leash_pct)) if leash_pct else abs(TIGHTEN_PCT)
+    return _describe(reading, auto, used)
+
+
+def _describe(reading: DangerReading, auto: bool, used: float) -> str:
     # The label basis rides in every message: the panel-fed tripwires cleared
     # the main +/-10% bar, the OHLCV ones the strict +/-15% bar.
     what = ", ".join(f"{n} (lift {VERIFIED[t]['lift']}x, leads "
@@ -213,12 +225,12 @@ def describe(reading: DangerReading, auto: bool) -> str:
                      for t, n in zip(reading.fired, reading.names))
     if reading.action == "ALERT":
         would = ("EXIT HALF" if len(reading.fired) >= 2
-                 else f"tighten stop to {TIGHTEN_PCT:+.1%} off price")
+                 else f"tighten stop to -{used:.1%} off price")
         return (f"DANGER (alert week): {what} fired on {reading.ticker}. "
                 f"Auto mode would {would}. No action taken yet.")
     if reading.action == "TIGHTEN":
         return (f"DANGER: {what} fired on {reading.ticker} — stop tightened "
-                f"to {TIGHTEN_PCT:+.1%} off the live price (calibrated "
+                f"to -{used:.1%} off the live price (calibrated "
                 "tripwire, sell-side only).")
     if reading.action == "EXIT_HALF":
         return (f"DANGER: {len(reading.fired)} verified tripwires fired on "
