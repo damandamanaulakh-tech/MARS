@@ -891,9 +891,33 @@ def attach_chain(sx: StockExternals, summary: Optional[dict],
     return sx
 
 
+#: What the PRODUCTION trigger pass and the /triggers page load — every
+#: source EXCEPT the delivery file. MEASURED 2026-09-24 on the owner's report
+#: that the box is "hitting 512+": `_load_delivery` streams the 3.5M-row
+#: delivery_daily_2019_2026.csv.gz in 400k-row chunks and peaks at **+153 MB**
+#: for one batch (boot is 114 MB; the whole 1,200-name scan is +72 MB; the
+#: rest of the trigger panels together are +41 MB). It ran once a day inside
+#: run_trigger_layer AND on every single /triggers/<stock> page tap.
+#:
+#: What it bought: the delivery ratio behind T12W_0060 — calibrated
+#: **REJECTED** on 2026-08-13 (lift 0.992 over 59,195 windows, firing on 22%
+#: of all days) — and register items that read a file frozen at 2026-08-07
+#: (nsearchives blocks the cloud IP; Colab is the only refresh path), i.e. a
+#: seven-week-old number wearing today's date. 153 MB for a rejected trigger
+#: on stale data is the "unwanted" the owner asked to lay off.
+#:
+#: Consumers already handle the absence: an unloaded source reads
+#: DATA_NEEDED, never a quiet False (test_missing_names_the_panels...). The
+#: research scripts (calibration, sector-heat study) still pass tail=0 and the
+#: full source set explicitly, so nothing measured is affected.
+PROD_SOURCES: tuple[str, ...] = tuple(
+    s for s in PanelSet.ALL_SOURCES if s != "delivery")
+
+
 def prepare(tickers: list[str],
             news: Optional[dict[str, dict]] = None,
-            chain: Optional[dict] = None) -> ExternalData:
+            chain: Optional[dict] = None,
+            sources: tuple[str, ...] = PanelSet.ALL_SOURCES) -> ExternalData:
     """Load every external panel once for this batch of tickers.
 
     Called at the start of a trigger-layer run (scheduler) or for a single
@@ -902,9 +926,13 @@ def prepare(tickers: list[str],
     `news` is the stored `portfolio.news_watch["rows"]` — pass it and the nine
     news-fed triggers compute; omit it and they stay DATA_NEEDED, exactly as
     before the news module existed.
+
+    `sources` narrows what is loaded; production callers pass PROD_SOURCES
+    (see the note above it). The default stays ALL_SOURCES so research code
+    that never named its sources is byte-identical.
     """
     tickers = [t for t in dict.fromkeys(tickers) if t]
-    ps = PanelSet(tickers)
+    ps = PanelSet(tickers, sources=sources)
     ed = ExternalData(sources=dict(ps.sources), asof=dict(ps.asof))
     c_rows = (chain or {}).get("rows") or {}
     c_hist = (chain or {}).get("history") or {}

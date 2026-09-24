@@ -168,6 +168,10 @@ def trigger_detail(request: Request, ticker: str):
                 [ticker],
                 news=({ticker: news_detail} if news_detail else None),
                 chain=(state.portfolio().option_chain or None),
+                # One stock, but the delivery source streams the whole
+                # 3.5M-row file regardless (+153 MB peak, measured
+                # 2026-09-24) — a page tap must not cost a third of the box.
+                sources=external_panels.PROD_SOURCES,
             ).for_ticker(ticker)
         except Exception:
             ext = None
