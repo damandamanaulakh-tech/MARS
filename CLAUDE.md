@@ -3187,6 +3187,44 @@ ENGINE'S BROKER, OR ANY "connected" LABEL.**
   coincidentally detaching in tests — now sets `eng.broker = None`
   explicitly. Model the state you assert; do not inherit it.
 
+**BUY DESK (owner order 2026-09-24 20:50 IST: "add the shortlist and
+recomenderd to buy in app / use upto 2.5 cr" -> options card -> "m saying
+buy the stocks from listed by app, use upto 2.5 cr of capital amount,
+bypass the market hours filter for this only for now one time" / Shortlist
+= "Cleared floor + momentum + liquidity"). `web/buy_desk.py` +
+`POST /scan/buy-desk` + the 🛒 card on /scan (buy_desk_marker). A session
+cannot reach the live book, so the one-time buy is a BUTTON the owner taps.**
+- **Shortlist** = last scan-matrix rows with score >= the MATRIX's own
+  floor, abs_mom True, outcome not `liquidity_*`, not held, not
+  blocklisted; ranked by score, capped 60. The engine's own hesitations
+  (candle wait, breadth, sector cap, correlation, timing) are deliberately
+  NOT applied — "buy the stocks listed by app". Card names the scan mode and
+  floor it read (the page shows the LAST rotation pass's matrix; abs_mom is
+  trivially True outside momentum, so the shortlist is only as momentum as
+  the matrix is — said on the card).
+- **Recommended** = the shortlist filled in score order through the live
+  slab ladder (`sizing.position_notional_for` with the STORED close series
+  via `candle_chart.load_ohlcv`, cfg switched to `nifty200_momentum` — a
+  shallow COPY for the page preview, the real cfg for the POST exactly as
+  the owner ticket does) until the budget (default ₹2,50,00,000) is spent.
+  Remainder below the slab = stop, never a dust position. Past the budget =
+  shown greyed, never hidden.
+- **Execution** = `engine._open` (same path as the 09:20 scan and the owner
+  ticket), live quotes via the router, `slippage_price` like an engine fill,
+  tags owner_pick + buy_desk (decay never auto-sells; stop/target/trail
+  still protect), a name with no quote is SKIPPED AND REPORTED (never an
+  invented fill). Journals OWNER_BATCH_BUY {budget, spent, opened, skipped,
+  market_hours_bypassed}; the card shows the last run. Gates NOT applied on
+  purpose, matching the owner-ticket precedent: `risk.can_open` (sector
+  cap, heat, ceiling) — the owner's call, their book.
+- **Market-hours bypass is a CHECKBOX on the form ("this order only"),
+  journaled; no config changed** — their words "for now one time".
+- Preview qty uses the top-50 picks' last scan close (the page fetches no
+  quotes); a shortlist name outside the top 50 shows "no scan close" and is
+  priced live at tap time. 10 new tests (web/tests/test_buy_desk_2026_09_24
+  .py). Money impact: up to the typed budget of PAPER capital, only when
+  the owner taps.
+
  all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

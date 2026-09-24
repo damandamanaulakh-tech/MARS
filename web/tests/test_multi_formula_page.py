@@ -95,9 +95,13 @@ def test_the_header_count_still_matches_the_row_count():
     break the funnel line the owner reads. Same guard as the institutional
     column added 2026-08-29."""
     body = _render().text
-    head = body.split("<tbody>")[0]
-    # the picks table is the last thead before the picks tbody
-    assert head.count("<th") >= 9
+    # The picks table is the one whose rows carry the Formulas cell. Anchor on
+    # it, not on "the first <tbody> on the page": the Buy Desk card
+    # (2026-09-24) put another table above it and this guard counted that
+    # one instead — a meaningless failure saying nothing about the funnel.
+    before = body[:body.index("multi_formula_cell_marker")]
+    thead = before[before.rfind("<thead"):]
+    assert thead.count("<th") >= 9
     assert 'colspan="9"' in body or 'colspan="{% if' not in body
 
 

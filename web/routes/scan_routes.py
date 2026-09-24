@@ -99,6 +99,14 @@ def scan_view(request: Request, error: str | None = None):
     # pledge, two quarters, 193 symbols) — but only inside /register, which
     # is not the screen the owner buys from. Nothing is fetched here.
     holdings = _institutional(picks)
+    # OWNER ORDER 2026-09-24: the shortlist + recommended-to-buy card, sized
+    # to a rupee budget. Preview sizes at the scan's own last close (this page
+    # fetches no quotes); the BUY uses the live quote at tap time.
+    buy_desk = None
+    try:
+        buy_desk = _buy_desk_preview(p, cfg, picks)
+    except Exception:
+        log.exception("buy desk preview failed")
     # F8: sector counts of the scanned picks
     sector_counts = Counter(cfg.sector_map.get(pk.get("ticker"), "Unknown")
                             for pk in picks)
@@ -126,6 +134,7 @@ def scan_view(request: Request, error: str | None = None):
             "preset_target": round(_momentum_preset().take_profit_pct * 100, 1),
             "picks": picks,
             "slots": slots,
+            "buy_desk": buy_desk,
             "custom_universe_n": len(getattr(cfg, "custom_universe", ()) or ()),
             # Owner ask 2026-09-04: this week's batch, on the screen they buy
             # from. Rebuilt Friday 16:30 IST; Monday only if Friday is missed.
@@ -812,6 +821,91 @@ def owner_buy(request: Request, ticker: str = Form(...),
         cfg.mode = orig_mode
         cfg.apply_mode_preset()
     return RedirectResponse("/positions", status_code=303)
+
+
+def _desk_close_loader():
+    """Close series from the STORED history (Mongo first, repo zip second) —
+    what the slab ladder needs; no network."""
+    def _close_of(ticker: str):
+        from ..candle_chart import load_ohlcv
+        df = load_ohlcv(ticker, tail=300)
+        if df is None or "Close" not in df:
+            return None
+        return df["Close"].dropna()
+    return _close_of
+
+
+def _buy_desk_preview(p, cfg, picks) -> dict:
+    """Shortlist + budget plan for the card. Sizing runs on a COPY of cfg
+    switched into the desk mode so the page never mutates the live config
+    (the POST switches the real cfg exactly as the owner ticket does)."""
+    import copy
+
+    from .. import buy_desk
+    sl = buy_desk.shortlist(p, cfg)
+    last_close = {pk.get("ticker"): pk.get("last_close") for pk in (picks or [])}
+    view = copy.copy(cfg)
+    view.mode = buy_desk.DESK_MODE
+    view.apply_mode_preset()
+    pl = buy_desk.plan(p, view, sl["rows"], buy_desk.DEFAULT_BUDGET_RS,
+                       last_close, _desk_close_loader())
+    return {"shortlist": sl, "plan": pl,
+            "default_budget": buy_desk.DEFAULT_BUDGET_RS,
+            "last_run": buy_desk.last_run(p)}
+
+
+@router.post("/scan/buy-desk")
+def owner_buy_desk(request: Request, budget: str = Form(""),
+                   bypass_market_hours: str = Form("")):
+    """OWNER ORDER 2026-09-24: buy the app's shortlist up to a rupee budget
+    in one tap, with a ONE-TIME market-hours bypass when the box is ticked.
+    Same execution path as every other buy (engine._open), live quotes,
+    slippage as an engine fill, no invented fills, everything journaled."""
+    user = auth.current_user(request)
+    if not user or user.get("role") != "owner":
+        return RedirectResponse("/scan?error=owner_only", status_code=303)
+    from datetime import datetime
+
+    from trading.quote_router import LAST_SOURCES, fetch_quotes
+
+    from .. import buy_desk
+
+    cfg = state.cfg()
+    bypass = (bypass_market_hours or "").strip() == "1"
+    _blocked = market_gate.trading_blocked(cfg)
+    if _blocked and not bypass:
+        return market_gate.blocked_redirect("/scan", _blocked)
+    try:
+        budget_rs = _parse_pos_float(budget) or buy_desk.DEFAULT_BUDGET_RS
+    except ValueError:
+        return RedirectResponse("/scan?error=bad_ticket", status_code=303)
+
+    eng = state.engine()
+    p = state.portfolio()
+    sl = buy_desk.shortlist(p, cfg)
+    if not sl["rows"]:
+        return RedirectResponse("/scan?error=buy_desk_empty", status_code=303)
+    tickers = [r["ticker"] for r in sl["rows"]]
+    prices = fetch_quotes(tickers, upstox_client=eng.broker) or {}
+    sources = {t: LAST_SOURCES.get(t) for t in tickers}
+
+    orig_mode = getattr(cfg, "mode", buy_desk.DESK_MODE)
+    try:
+        cfg.mode = buy_desk.DESK_MODE
+        cfg.apply_mode_preset()
+        pl = buy_desk.plan(p, cfg, sl["rows"], budget_rs, prices,
+                           _desk_close_loader())
+        summary = buy_desk.execute(
+            eng, p, cfg, pl["rows"], datetime.utcnow(),
+            budget_rs=budget_rs, market_hours_bypassed=bool(_blocked and bypass),
+            price_sources=sources)
+        p.save()
+    finally:
+        cfg.mode = orig_mode
+        cfg.apply_mode_preset()
+    if not summary["opened"]:
+        return RedirectResponse("/scan?error=buy_desk_nothing", status_code=303)
+    return RedirectResponse("/positions?buy_desk=1", status_code=303)
 
 
 @router.post("/scan/order/cancel")
