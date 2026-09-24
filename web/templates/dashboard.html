@@ -4,6 +4,17 @@
 
 <div class="text-xs tracking-widest text-ink-faint uppercase mb-3">MASTER / OWNER VIEW</div>
 
+{% if db_status and db_status.connected and db_status.write_error %}
+<!-- 2026-09-24 (owner: "issue is at mongo 513 MB on 512 plan"): a database
+     that answers reads but refuses writes was shown as healthy green while
+     every save was lost. Never again. -->
+<div data-db-write-error="1" class="bg-red-600 text-white px-4 lg:px-6 py-4 mb-6">
+  <div class="font-bold text-base lg:text-lg">⛔ Database is REFUSING WRITES — the book is NOT being saved</div>
+  <div class="text-sm text-red-100 mt-1">Every trade, journal line and login since {{ (db_status.write_error_at or '')[:16] }} lives only in this process's memory. A restart or a Render edit rolls the book back to the last saved copy. Database said: <span class="font-mono">{{ db_status.write_error }}</span></div>
+  <div class="text-sm text-red-100 mt-1">Fix: free space on the Atlas cluster (the free tier counts every database on it, see /healthz → mongo → cluster), then tap Refresh Prices — the next save clears this.</div>
+</div>
+{% endif %}
+
 {% if upstox_notice %}
 <!-- 2026-09-24: the Upstox callback's outcome, finally shown. Before this the
      ?upstox_error=... it redirected with was read by nothing. -->
@@ -105,8 +116,8 @@
     Quotes: {% if quote_source.source == 'upstox' %}<span class="text-emerald-700 normal-case tracking-normal font-semibold">Upstox real-time</span>{% else %}<span class="normal-case tracking-normal text-amber-700">~1-min delayed public candles — <a href="/upstox/login" class="underline">log in</a> for real-time ticks</span>{% endif %}
   </span>
   <span class="flex items-center gap-2">
-    <span class="inline-block w-2 h-2 rounded-full {% if db_status.connected %}bg-emerald-500{% else %}bg-slate-400{% endif %}"></span>
-    Storage: {% if db_status.connected %}<span class="text-emerald-700 normal-case tracking-normal font-semibold">MongoDB ({{ db_status.db }})</span>{% else %}<span class="normal-case tracking-normal">JSON on disk</span>{% endif %}
+    <span class="inline-block w-2 h-2 rounded-full {% if db_status.connected and not db_status.write_error %}bg-emerald-500{% elif db_status.connected %}bg-red-500{% else %}bg-slate-400{% endif %}"></span>
+    Storage: {% if db_status.connected and db_status.write_error %}<span class="text-red-700 normal-case tracking-normal font-semibold" title="{{ db_status.write_error }}">MongoDB ({{ db_status.db }}) — WRITES REFUSED, book not being saved</span>{% elif db_status.connected %}<span class="text-emerald-700 normal-case tracking-normal font-semibold">MongoDB ({{ db_status.db }})</span>{% else %}<span class="normal-case tracking-normal">JSON on disk</span>{% endif %}
   </span>
   <a href="/settings#mode" class="flex items-center gap-2 hover:text-ink">
     <span class="inline-block w-2 h-2 rounded-full bg-ink"></span>

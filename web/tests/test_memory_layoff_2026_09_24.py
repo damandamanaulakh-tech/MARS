@@ -97,8 +97,13 @@ def test_liquidity_rebuild_always_includes_the_owner_list(monkeypatch):
 
     def fake_select(docs, target, blocklist, always_include):
         seen["always"] = set(always_include)
-        picked = sorted(set(always_include))[:5]
-        return {"tickers": picked, "sample": 5, "judged": 5, "short_by": 0,
+        # The store must rank at least one name of its OWN: the empty-store
+        # guard (PR #112) reads picked minus always_include, and a fake that
+        # returns only always-include names trips it — this test then passed
+        # only by inheriting an earlier test's universe_batch. Found 2026-09-24
+        # when it ran alone.
+        picked = sorted(set(always_include))[:5] + ["STORE1.NS", "STORE2.NS"]
+        return {"tickers": picked, "sample": 7, "judged": 7, "short_by": 0,
                 "skipped_thin": 0, "skipped_illiquid": 0,
                 "held_added": [], "ranked": []}
 
