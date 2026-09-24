@@ -676,19 +676,38 @@ def load_settings(doc_id: str = "default") -> dict:
 
 # ---------- upstox token persistence ----------
 
-def save_upstox_token(token_doc: dict, doc_id: str = "default") -> None:
+#: The reason the LAST token save did not land, or None. Read by the OAuth
+#: callback so a failed save is journaled and shown on the dashboard instead
+#: of surfacing days later as "token EXPIRED" (owner 2026-09-24: "still red").
+LAST_TOKEN_SAVE_ERROR: Optional[str] = None
+
+
+def save_upstox_token(token_doc: dict, doc_id: str = "default") -> bool:
     """Persist Upstox access token + user metadata to Mongo so it survives
-    Render restarts. Token still expires at 03:30 IST Upstox-side."""
+    Render restarts. Token still expires at 03:30 IST Upstox-side.
+
+    Returns True only when the write landed. 2026-09-24: this used to return
+    nothing and log a warning on failure, so the callback could not know the
+    engine would re-read YESTERDAY's token a line later — the owner saw a
+    green "Upstox: <name>" pill beside a red "token EXPIRED" bar after every
+    successful login. The failure is now a value the caller must handle.
+    """
+    global LAST_TOKEN_SAVE_ERROR
     if not _CONNECTED or _DB is None:
-        return
+        LAST_TOKEN_SAVE_ERROR = "mongo_disconnected"
+        return False
     try:
         _DB.upstox_token.replace_one(
             {"_id": doc_id},
             {**token_doc, "_id": doc_id},
             upsert=True,
         )
+        LAST_TOKEN_SAVE_ERROR = None
+        return True
     except Exception as e:
+        LAST_TOKEN_SAVE_ERROR = f"{type(e).__name__}: {str(e)[:160]}"
         log.warning("Mongo save_upstox_token failed: %s", e)
+        return False
 
 
 def load_upstox_token(doc_id: str = "default") -> Optional[dict]:

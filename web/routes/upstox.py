@@ -69,6 +69,48 @@ def _client_from_session(request: Request) -> Optional[UpstoxClient]:
     return client
 
 
+#: What each callback outcome means, in the owner's words — rendered by the
+#: dashboard. 2026-09-24: the callback had ALWAYS redirected with
+#: ?upstox_error=... but nothing on the dashboard read it, so a failed
+#: connect looked exactly like "nothing happened".
+CONNECT_NOTICES = {
+    "token_exchange_failed": ("error",
+        "Upstox refused to exchange the login code for a token. Usually the "
+        "API secret in Render no longer matches the app on Upstox's developer "
+        "page. The journal line UPSTOX_CONNECT_FAILED carries Upstox's reply."),
+    "state_mismatch": ("error",
+        "The login came back with a different security state than this browser "
+        "started with (two login tabs open?). Start Connect again from here."),
+    "no_code": ("error",
+        "Upstox sent the browser back without a login code — the login was "
+        "cancelled or declined on Upstox's side."),
+    "access_denied": ("error",
+        "Upstox reported access denied for this login."),
+    "config_missing": ("error",
+        "UPSTOX_API_KEY / UPSTOX_API_SECRET / UPSTOX_REDIRECT_URI are not all "
+        "set in Render, so the app cannot start a login."),
+    "token_not_persisted": ("warn",
+        "Connected — the engine has today's token and quotes are live for this "
+        "run. But the token could NOT be saved to the database, so a restart "
+        "will need a fresh login. The journal line UPSTOX_CONNECTED carries "
+        "the database error."),
+}
+
+
+def _journal_connect_failed(reason: str, detail: str) -> None:
+    try:
+        from datetime import datetime as _dt
+        p = app_state.portfolio()
+        p.decision_journal.append({
+            "ts": _dt.utcnow().isoformat(), "action": "UPSTOX_CONNECT_FAILED",
+            "reason": reason, "detail": detail,
+            "why": f"Upstox login did not complete: {reason} — {detail}",
+        })
+        p.save()
+    except Exception:                                         # noqa: BLE001
+        log.exception("could not journal UPSTOX_CONNECT_FAILED")
+
+
 @router.get("/upstox/login")
 def login(request: Request):
     """Redirect the user to Upstox's authorization dialog."""
@@ -99,6 +141,7 @@ def callback(
 
     if error or not code:
         log.info("Upstox callback declined: error=%s code=%s", error, code)
+        _journal_connect_failed(error or "no_code", "Upstox returned no code")
         return RedirectResponse(
             f"/?upstox_error={error or 'no_code'}", status_code=303,
         )
@@ -107,15 +150,18 @@ def callback(
     expected_state = request.session.pop("upstox_oauth_state", None)
     if state and expected_state and state != expected_state:
         log.warning("Upstox callback state mismatch")
+        _journal_connect_failed("state_mismatch", "OAuth state did not match")
         return RedirectResponse("/?upstox_error=state_mismatch", status_code=303)
 
     try:
         client = UpstoxClient.from_env()
         body = client.exchange_code(code)
     except UpstoxConfigError:
+        _journal_connect_failed("config_missing", "UPSTOX_* env vars missing")
         return RedirectResponse("/?upstox_error=config_missing", status_code=303)
     except UpstoxAuthError as e:
         log.warning("Upstox token exchange failed: %s", e)
+        _journal_connect_failed("token_exchange_failed", str(e)[:200])
         return RedirectResponse("/?upstox_error=token_exchange_failed", status_code=303)
 
     user_name = body.get("user_name") or body.get("email") or "Upstox"
@@ -131,9 +177,35 @@ def callback(
     request.session["upstox_user_name"] = user_name
     request.session["upstox_connected_at"] = client.connected_at
     # Mongo (survives Render restart, accessible from any browser)
-    db.save_upstox_token(token_doc)
-    # Hot-attach to the running engine so refresh() starts using Upstox quotes
-    app_state.refresh_broker_attachment()
+    persisted = db.save_upstox_token(token_doc)
+    # Hot-attach to the running engine — IN MEMORY, from the client that just
+    # did the exchange. 2026-09-24 (owner: "still red, fix it"): this used to
+    # be refresh_broker_attachment(), which re-READ the token from Mongo; on
+    # the live box that read handed back yesterday's document after every
+    # login, so the engine kept a dead token and the dashboard said EXPIRED
+    # beside a green "Upstox: <name>" pill. The engine now gets the token the
+    # owner just fetched, whatever the database did.
+    app_state.attach_broker_client(client)
+    # A journal line per connect, with the save result — the one place the
+    # owner can read what happened (a log warning is not visible to them).
+    try:
+        from datetime import datetime as _dt
+        p = app_state.portfolio()
+        entry = {
+            "ts": _dt.utcnow().isoformat(), "action": "UPSTOX_CONNECTED",
+            "user": user_name, "persisted": bool(persisted),
+            "why": (f"Upstox login by {user_name}; token attached to the engine"
+                    + (" and saved for restarts."
+                       if persisted else
+                       f" but NOT saved to Mongo ({db.LAST_TOKEN_SAVE_ERROR}) "
+                       "— a restart will need a fresh login.")),
+        }
+        if not persisted:
+            entry["error"] = db.LAST_TOKEN_SAVE_ERROR
+        p.decision_journal.append(entry)
+        p.save()
+    except Exception:                                         # noqa: BLE001
+        log.exception("could not journal UPSTOX_CONNECTED")
     # If today's 09:20 scan never completed (token was dead / deploy restart),
     # this login IS the unblock — run the missed scan now, in the background.
     try:
@@ -152,6 +224,10 @@ def callback(
                    args=("upstox_connect",), daemon=True).start()
     except Exception:
         pass
+    if not persisted:
+        return RedirectResponse(
+            "/?upstox_connected=1&upstox_warn=token_not_persisted",
+            status_code=303)
     return RedirectResponse("/?upstox_connected=1", status_code=303)
 
 

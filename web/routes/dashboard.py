@@ -237,10 +237,23 @@ def dashboard(request: Request):
                       "Remove that variable, or set it to 1, to turn the "
                       "automatic 09:20 IST scan back on.")
 
+    # 2026-09-24: the OAuth callback always redirected here with the outcome
+    # in the URL, and this page never read it — a failed connect looked like
+    # nothing happened. Now every outcome the callback can report is shown.
+    from .upstox import CONNECT_NOTICES
+    upstox_notice = None
+    code = (request.query_params.get("upstox_error")
+            or request.query_params.get("upstox_warn"))
+    if code:
+        level, text = CONNECT_NOTICES.get(
+            code, ("error", f"Upstox login did not complete ({code})."))
+        upstox_notice = {"level": level, "code": code, "text": text}
+
     return templates.TemplateResponse(
         request, "dashboard.html",
         {
             "user": user,
+            "upstox_notice": upstox_notice,
             "scan_flags": (p.scan_matrix or {}).get("flags") or {},
             "filings": (p.filings or [])[:12],
             "active": "dashboard",

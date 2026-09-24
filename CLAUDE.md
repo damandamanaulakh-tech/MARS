@@ -3115,6 +3115,66 @@ READ THIS BEFORE ADDING ANY FILE LOAD TO A SCHEDULED JOB OR A PAGE.**
   mtime again, exactly as the 09-24 status note warned — not refresh
   evidence.
 
+**THE "UPSTOX NOT CONNECTING" LOOP (2026-09-24 evening, owner: "system is
+not getting logged on upstox / keep asking password n rotating there / not
+opening final dashboard" -> URL `?upstox_connected=1` -> screenshot ->
+"still red, fix it"). READ THIS BEFORE TOUCHING THE OAUTH CALLBACK, THE
+ENGINE'S BROKER, OR ANY "connected" LABEL.**
+- **THE HANDSHAKE NEVER FAILED.** Every login reached the dashboard with
+  `upstox_connected=1`, and the header pill read the owner's name in green
+  (that pill reads the browser COOKIE). Beside it: the red "token EXPIRED"
+  bar, "no live quote / Reconnect Upstox" on all four index cards, and the
+  Quotes chip saying "log in for real-time". Those three read the ENGINE's
+  broker object. Two parts of one page disagreed about one token.
+- **ROOT CAUSE, code-verified and reproduced:** the callback saved the token
+  to Mongo and then `refresh_broker_attachment()` had the engine READ IT
+  BACK. Reproduced locally with a working store: fresh callback -> engine
+  NEW, 8.9 h left, no red bar. On the live box that read handed back
+  YESTERDAY's document after every login (the owner reconnected on ONE
+  stable process and it stayed red -> the write is not landing, reason
+  unknown from outside: `save_upstox_token` was log-only). The stale engine
+  then called the index quotes with the dead token -> 401 -> the cards
+  printed a **Reconnect Upstox link -> the owner reconnected -> same
+  result**. That link WAS the "rotating".
+- **THREE LYING-SCREEN FAULTS underneath, all mine:** the callback had
+  ALWAYS redirected with `?upstox_error=...` and NO page read it (a failed
+  connect looked like nothing happened) · a valid token whose quote Upstox
+  refused rendered as "Reconnect" · the save failure was a warning in a log
+  the owner cannot see.
+- **WHAT SHIPPED (owner: "still red, fix it"):** `state.attach_broker_client`
+  — the engine gets the token IN MEMORY from the client that did the
+  exchange; Mongo is only for surviving a restart · `db.save_upstox_token`
+  returns bool + `LAST_TOKEN_SAVE_ERROR`; a failed save journals
+  UPSTOX_CONNECTED{persisted:False,error} and lands the owner on an AMBER
+  notice ("connected for this run, restart needs a fresh login, see the
+  journal") · `state._heal_stale_broker()` in `engine()` and
+  `quote_source_status()`: an expired/missing engine token re-reads Mongo
+  and attaches a FRESHER document (covers a Render deploy overlap: login
+  on the old process, dashboard on the new — the lazy attach used to fire
+  only on None, never on expired) · every callback outcome journaled
+  (UPSTOX_CONNECTED / UPSTOX_CONNECT_FAILED with Upstox's reply) and
+  rendered by the dashboard (`CONNECT_NOTICES`, `data-upstox-notice`) ·
+  index cards: connected + no tick = "connected · Upstox returned no tick
+  (rate limit / outage)" with the public ~1-min candle as the number; the
+  Reconnect link appears ONLY when the router itself says unhealthy. Card
+  "connected" = `quote_source_status().healthy`, the SAME verdict as the red
+  bar, so they cannot disagree again. Money path untouched. 1,265 tests
+  (405 web + 860 trading), 13 new in
+  web/tests/test_upstox_stale_engine_2026_09_24.py.
+- **OPEN: WHY the live Mongo write fails is still unknown** — the next login
+  journals the error text (UPSTOX_CONNECTED.error). Read it before
+  theorising. Atlas is at 68 MB of 512, so it is not the space quota.
+- **Also learned, tell the owner once:** nothing in Render takes a token —
+  the app only uses UPSTOX_API_KEY/SECRET/REDIRECT_URI and the daily OAuth
+  login; every Render env edit RESTARTS the app (watched one at 18:29 IST
+  while they were logging in). "i changed the token and added fresh" in
+  Render does nothing but restart.
+- **TEST LEAK the fix exposed:** the callback now leaves the engine
+  connected in-process (intended), so `test_dashboard_prints_a_dash_and_a_
+  reconnect_link_when_offline` — which relied on the old Mongo round trip
+  coincidentally detaching in tests — now sets `eng.broker = None`
+  explicitly. Model the state you assert; do not inherit it.
+
  all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

@@ -4,6 +4,16 @@
 
 <div class="text-xs tracking-widest text-ink-faint uppercase mb-3">MASTER / OWNER VIEW</div>
 
+{% if upstox_notice %}
+<!-- 2026-09-24: the Upstox callback's outcome, finally shown. Before this the
+     ?upstox_error=... it redirected with was read by nothing. -->
+<div data-upstox-notice="{{ upstox_notice.code }}"
+     class="px-4 lg:px-6 py-3 mb-6 text-sm border {% if upstox_notice.level == 'warn' %}bg-amber-100 border-amber-400 text-amber-900{% else %}bg-red-100 border-red-400 text-red-900{% endif %}">
+  <span class="font-bold">{% if upstox_notice.level == 'warn' %}⚠ Upstox connected, with a warning{% else %}✕ Upstox login did not complete{% endif %}</span>
+  — {{ upstox_notice.text }}
+</div>
+{% endif %}
+
 {% if quote_source and not quote_source.healthy %}
 <!-- FIX: login-fragility — loud banner when Upstox is down so a missed
      morning login can never silently starve the scan. -->
@@ -53,8 +63,10 @@
       {% endif %}
     </div>
     <div class="text-[10px] mt-1.5 tabular-nums {% if ix.live %}text-ink-faint{% else %}text-amber-800{% endif %}">
-      {% if ix.live and ix.delayed %}~1 min delayed · Upstox public candle (login = real-time){% if ix.hist_asof %} · grey line to {{ ix.hist_asof }}{% endif %}
+      {% if ix.live and ix.delayed and ix.connected %}connected · Upstox returned no tick just now (rate limit / outage) · ~1 min delayed public candle{% if ix.hist_asof %} · grey line to {{ ix.hist_asof }}{% endif %}
+      {% elif ix.live and ix.delayed %}~1 min delayed · Upstox public candle (login = real-time){% if ix.hist_asof %} · grey line to {{ ix.hist_asof }}{% endif %}
       {% elif ix.live %}live · Upstox{% if ix.hist_asof %} · grey line = stored shape to {{ ix.hist_asof }}{% endif %}
+      {% elif ix.connected %}connected · no quote returned right now (Upstox rate limit / outage) — not a login problem
       {% else %}<a href="/upstox/login" class="underline font-semibold">Reconnect Upstox</a> for the live level{% endif %}
     </div>
   </div>

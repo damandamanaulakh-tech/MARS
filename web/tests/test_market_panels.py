@@ -72,9 +72,19 @@ def test_index_symbols_resolve_to_upstox_instrument_keys():
 
 
 def test_dashboard_prints_a_dash_and_a_reconnect_link_when_offline():
-    with patch("trading.quote_router.fetch_quotes", return_value={}), \
-         patch("web.db.is_connected", return_value=False):
-        page = _owner().get("/").text
+    # "Offline" = NO broker on the engine. Stated explicitly since 2026-09-24:
+    # the OAuth callback now attaches the token in memory and an earlier
+    # test's login would otherwise leave this process connected.
+    from web import state
+    eng = state.engine()
+    prev = eng.broker
+    eng.broker = None
+    try:
+        with patch("trading.quote_router.fetch_quotes", return_value={}), \
+             patch("web.db.is_connected", return_value=False):
+            page = _owner().get("/").text
+    finally:
+        eng.broker = prev
     assert "no live quote" in page
     assert "Reconnect Upstox" in page
     assert "74,243" not in page and "23,366" not in page   # the stale levels
