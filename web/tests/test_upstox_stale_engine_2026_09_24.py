@@ -149,6 +149,9 @@ def test_callback_hands_the_engine_the_token_in_memory_even_when_the_save_fails(
     assert "Data source DEGRADED" not in page
     assert 'data-upstox-notice="token_not_persisted"' in page
     assert "could NOT be saved" in page
+    # the database's own words are ON the bar — the owner's screenshot
+    # (19:15 IST) showed a bar that pointed at a CSV-only journal line
+    assert "Database said: OperationFailure: simulated write refusal" in page
     assert "Upstox: MANPREET KAUR" in page
 
     acts = _journal_actions()
