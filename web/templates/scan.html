@@ -288,6 +288,14 @@
 <div class="bg-emerald-50 border border-emerald-300 text-emerald-900 p-3 mb-4 text-sm">
   ✅ Order cancelled.
 </div>
+{% elif error == 'buy_desk_empty' %}
+<div class="bg-amber-50 border border-amber-300 text-amber-900 p-3 mb-4 text-sm"><!-- buy_desk_msg_marker -->
+  🛒 Buy Desk: the last scan has <strong>no name</strong> that cleared the floor, momentum and liquidity — nothing to buy. Run a scan first.
+</div>
+{% elif error == 'buy_desk_nothing' %}
+<div class="bg-amber-50 border border-amber-300 text-amber-900 p-3 mb-4 text-sm"><!-- buy_desk_msg_marker -->
+  🛒 Buy Desk: <strong>nothing opened</strong> — every shortlisted name was skipped (no live quote, no estimated edge, or cash short). The reasons are in the card below.
+</div>
 {% elif error in ('owner_only','blocklisted','already_held','no_quote','insufficient_cash','bad_ticket') %}
 <div class="bg-amber-50 border border-amber-300 text-amber-900 p-3 mb-4 text-sm">
   🟢 BUY not placed:
@@ -346,6 +354,88 @@
     </tbody>
   </table>
   </div>
+</div>
+{% endif %}
+
+{% if buy_desk and user and user.role == 'owner' %}
+<!-- ============ BUY DESK (owner order 2026-09-24: shortlist + recommended, sized to a budget) ============ -->
+{% set bd = buy_desk %}
+<div class="bg-white border border-line mb-4"><!-- buy_desk_marker -->
+  <div class="px-4 lg:px-6 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
+    <div>
+      <span class="font-bold">🛒 Buy Desk — shortlist &amp; recommended</span>
+      <span class="text-xs text-ink-faint ml-2">
+        {{ bd.shortlist.total }} name{{ '' if bd.shortlist.total == 1 else 's' }} cleared floor {{ bd.shortlist.floor | round(0) | int }} + momentum + liquidity
+        {% if bd.shortlist.mode %}· scan mode {{ bd.shortlist.mode }}{% endif %}
+        {% if bd.shortlist.asof %}· scan {{ bd.shortlist.asof[:16] }}{% endif %}
+        {% if bd.shortlist.truncated %}· first {{ bd.shortlist.rows | length }} shown{% endif %}
+      </span>
+    </div>
+    <form method="post" action="/scan/buy-desk" class="flex flex-wrap items-center gap-2 text-xs"
+          onsubmit="return confirm('Buy the RECOMMENDED list now, up to ₹' + this.budget.value + ' of paper capital, at live quotes?' + (this.bypass_market_hours.checked ? ' Market hours will be IGNORED for this one order.' : ''));">
+      <label class="flex items-center gap-1">Budget ₹
+        <input name="budget" value="{{ bd.default_budget | int }}" inputmode="numeric" class="border border-line px-2 py-1 w-32 tabular-nums">
+      </label>
+      <label class="flex items-center gap-1 text-amber-800" title="Owner order 2026-09-24: bypass the market-hours filter for this only, one time. Journaled as such. Nothing else changes.">
+        <input type="checkbox" name="bypass_market_hours" value="1"> ignore market hours (this order only)
+      </label>
+      <button class="px-4 py-2 bg-emerald-700 text-white font-semibold tracking-wide whitespace-nowrap hover:bg-emerald-800">🟢 Buy the recommended list</button>
+    </form>
+  </div>
+  <div class="px-4 lg:px-6 py-2 text-xs text-ink-faint">
+    Sizes are the live slab ladder (score-driven, same arithmetic as the engine), filled in score order until the budget is spent.
+    Preview qty uses each name's last scan close; the buy uses the live quote at tap time, slippage applied like an engine fill.
+    A name with no live quote is skipped and reported, never filled at a made-up price. Nothing here buys by itself.
+  </div>
+  {% if bd.plan.rows %}
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+      <tr>
+        <th class="text-left px-3 lg:px-6 py-2">#</th>
+        <th class="text-left px-3 lg:px-6 py-2">Ticker</th>
+        <th class="text-left px-3 lg:px-6 py-2">Score</th>
+        <th class="text-left px-3 lg:px-6 py-2">Ladder size</th>
+        <th class="text-left px-3 lg:px-6 py-2">Qty @ last close</th>
+        <th class="text-left px-3 lg:px-6 py-2">Engine said</th>
+        <th class="text-left px-3 lg:px-6 py-2">Desk</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% set ns = namespace(cum=0.0, divided=false) %}
+      {% for r in bd.plan.rows %}
+      {% if not r.recommended and not ns.divided and ns.cum > 0 %}
+      {% set ns.divided = true %}
+      <tr class="border-b border-line bg-amber-50/60"><!-- buy_desk_divider_marker -->
+        <td colspan="7" class="px-3 lg:px-6 py-2 text-xs text-amber-800 font-semibold">── recommended above: ₹{{ bd.plan.planned_total | inr(0) }} of the ₹{{ bd.plan.budget | inr(0) }} budget · below: shown, not funded ──</td>
+      </tr>
+      {% endif %}
+      {% if r.recommended %}{% set ns.cum = ns.cum + r.cost %}{% endif %}
+      <tr class="border-b border-line last:border-0 {% if not r.recommended %}opacity-60{% endif %}">
+        <td class="px-3 lg:px-6 py-2 text-ink-faint">{{ loop.index }}</td>
+        <td class="px-3 lg:px-6 py-2 font-semibold whitespace-nowrap">{{ r.ticker }} <a href="/chart/{{ r.ticker }}" class="ml-1 no-underline">📈</a></td>
+        <td class="px-3 lg:px-6 py-2 tabular-nums">{{ r.score | round(1) }}</td>
+        <td class="px-3 lg:px-6 py-2 tabular-nums">{% if r.notional %}₹{{ r.notional | inr(0) }}{% else %}—{% endif %}</td>
+        <td class="px-3 lg:px-6 py-2 tabular-nums">{% if r.qty %}{{ r.qty }} × ₹{{ r.price | inr(2) }} = ₹{{ r.cost | inr(0) }}{% elif r.price %}—{% else %}<span class="text-ink-faint" title="Not in the top-50 picks list, so no scan close here; the buy prices it live.">no scan close</span>{% endif %}</td>
+        <td class="px-3 lg:px-6 py-2 font-mono text-xs text-ink-soft">{{ r.outcome or 'passed all gates' }}</td>
+        <td class="px-3 lg:px-6 py-2 text-xs whitespace-nowrap">{% if r.recommended %}<span class="text-emerald-700 font-bold">RECOMMENDED</span>{% else %}<span class="text-ink-faint">{{ r.reason }}</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="px-4 lg:px-6 py-4 text-sm text-ink-faint">No name in the last scan cleared the floor, momentum and liquidity. Run a scan first.</div>
+  {% endif %}
+  {% if bd.last_run %}
+  <div class="px-4 lg:px-6 py-3 border-t border-line text-xs"><!-- buy_desk_last_run_marker -->
+    <span class="font-semibold">Last Buy Desk run {{ bd.last_run.ts[:16] }}:</span>
+    {{ bd.last_run.opened | length }} opened for ₹{{ bd.last_run.spent | inr(0) }} of ₹{{ bd.last_run.budget | inr(0) }}
+    {% if bd.last_run.market_hours_bypassed %}· <span class="text-amber-800">market hours bypassed (one time)</span>{% endif %}
+    {% if bd.last_run.opened %}· {% for o in bd.last_run.opened %}{{ o.ticker }} {{ o.qty }}@₹{{ o.price | inr(2) }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+    {% if bd.last_run.skipped %}· skipped: {% for s in bd.last_run.skipped %}{{ s.ticker }} ({{ s.reason }}){% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+  </div>
+  {% endif %}
 </div>
 {% endif %}
 
