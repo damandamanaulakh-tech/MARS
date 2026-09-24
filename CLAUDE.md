@@ -3089,6 +3089,32 @@ READ THIS BEFORE ADDING ANY FILE LOAD TO A SCHEDULED JOB OR A PAGE.**
   chain burst is the mechanism; if it is an error page or a badge, the
   symptom is still needed.
 
+**FIRST LIVE /healthz AFTER PR #112 (2026-09-24 12:25Z = 17:55 IST, owner:
+"chk healthz after deploy") — read from the box, not from memory:**
+- **MONGO IS NOT THE 512.** `mongo.data_mb 68 + index_mb 0` of the Atlas
+  M0 512 MB cap; `ohlcv` is 65 MB of it (1,458 docs), `portfolio` 1 MB,
+  every other collection rounds to 0. The 12 collections listed sum to
+  exactly `objects 7,109`, so nothing is hidden below the top-12 cut — and
+  **there is NO `journal_archive` collection on the live DB** (the journal
+  lives inside the portfolio doc). The append-only trim question is MOOT;
+  never raise it. The "512+" the owner saw was RAM, full stop.
+- **THE SCAN READS 443 NAMES** (`scan_universe {count 443, target 1200,
+  last_rebuild 2026-09-21}`), not the 83 I reported that morning and not
+  1,200. Rebuilt on MONDAY 09-21 = the Friday-miss catch-up fired as
+  designed. 1,458 stored → 443 selected: the liquidity ranking drops
+  sub-Rs-1-crore names and too-thin history ("not judged"), so the list is
+  bounded by what the store holds AND clears the turnover cut. The 09-25
+  Friday block ranks again with whatever the pull has landed since.
+- `memory {rss 146, peak 145}` MiB = a fresh post-deploy process (peak ≈
+  rss); the first request timed out at 60 s with zero bytes (deploy/cold
+  start), the next answered in 14.6 s, login in 0.5 s. Boot on Render is
+  ~30 MiB above the sandbox's 114 (Mongo hydration). The daily chain's
+  real peak is tomorrow's 09:20 reading — take it before claiming the
+  layoff worked.
+- `readiness` all green; `universe.file_date 2026-09-24` = the deploy's
+  mtime again, exactly as the 09-24 status note warned — not refresh
+  evidence.
+
  all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
