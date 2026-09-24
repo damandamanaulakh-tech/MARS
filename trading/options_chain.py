@@ -32,6 +32,7 @@ import it (boundary-tested).
 from __future__ import annotations
 
 import logging
+import os
 from datetime import date, datetime
 from typing import Optional
 
@@ -50,6 +51,17 @@ MIN_PATTERN_DAYS = 5
 #: per-ticker (date, pcr, skew) rows kept on the portfolio = the 15-day
 #: candle the owner described. Bounded RAM.
 HISTORY_KEEP = 15
+
+#: Daily-job scope cap and pacing (2026-09-24, owner: "upstox login issue as
+#: well / its hitting 512+ / layoff unwanted"). The job used to cover the
+#: whole scanned universe — ~1,200 names since the liquidity rebuild — at two
+#: authenticated calls each, fired the moment the owner logged in. Upstox
+#: allows 1,000 calls per 30 minutes. 120 names x 2 calls, 0.25 s apart, is
+#: ~240 calls in ~30 s: inside the limit with room for the FII pull that
+#: fires beside it. SB_CHAIN_PACE_S=0 in the test conftests only (the same
+#: escape-hatch pattern as SB_IGNORE_MARKET_HOURS); production never sets it.
+OPTION_CHAIN_MAX_TICKERS = 120
+OPTION_CHAIN_PACE_S = float(os.environ.get("SB_CHAIN_PACE_S", "0.25"))
 #: a stored snapshot older than this many days is not "today's chain".
 MAX_AGE_DAYS = 2
 
@@ -176,7 +188,8 @@ def is_fresh(asof: str, today: Optional[date] = None,
 
 
 def snapshot_universe(broker, tickers: list, key_of, today: date,
-                      include_index: bool = True) -> dict:
+                      include_index: bool = True,
+                      pace_s: float = 0.0) -> dict:
     """Fetch + summarize the chain for every F&O name in `tickers` (plus the
     NIFTY index under '^NSEI' unless `include_index` is False — the owner's
     one-stock "read the chain now" button, 2026-09-08, reads only the
@@ -186,13 +199,21 @@ def snapshot_universe(broker, tickers: list, key_of, today: date,
     `key_of(ticker)` -> instrument key or None. Names without option
     contracts are recorded once as not-F&O (absence of an options market is
     not an error). A summarize miss counts as failed — visible, not padded.
+
+    `pace_s` sleeps between names. Each name costs TWO authenticated calls
+    (contracts, then chain) and Upstox allows 1,000 per 30 minutes; the
+    daily job passes 0.25 s so a full OPTION_CHAIN_MAX_TICKERS pass stays
+    well inside that. Default 0.0 keeps the one-stock button instant.
     """
+    import time as _time
     rows: dict = {}
     no_fo: list = []
     failed: list = []
     targets = ([("^NSEI", "NSE_INDEX|Nifty 50")] if include_index else []) + [
         (t, key_of(t)) for t in tickers]
-    for ticker, ik in targets:
+    for i, (ticker, ik) in enumerate(targets):
+        if pace_s and i:
+            _time.sleep(pace_s)
         if not ik:
             no_fo.append(ticker)
             continue

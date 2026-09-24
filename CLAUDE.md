@@ -3056,6 +3056,38 @@ READ THIS BEFORE ADDING ANY FILE LOAD TO A SCHEDULED JOB OR A PAGE.**
   STORE ranked (`picked − always_include`), not the union. FAULT CLASS: a
   guard that tests a variable whose meaning an upstream change just widened.
   When you add to a union, re-read every `if not <union>` below it.
+- **"UPSTOX LOGIN ISSUE AS WELL" (same message, mid-turn). THE SYMPTOM WAS
+  NOT GIVEN; the code-side investigation is recorded so nobody re-chases
+  the dead ends.** RULED OUT, each verified: `token_expires_at_ist` is
+  UTC-consistent on both sides (connected_at is utcnow, expiry is computed
+  and compared in UTC — NOT the 2026-09-16 clock class) · the client NEVER
+  clears the token on a 401/429 (only /upstox/disconnect and the 03:30 IST
+  expiry end a session — rate limits cannot log the owner out) ·
+  `_client_from_session` falls back to Mongo, so the badge agrees across
+  devices and restarts. **FOUND AND BOUNDED: the login-time burst.** The
+  OAuth callback fires three daemon threads at once — the catch-up scan
+  (5 modes × the scanned universe), the option-chain snapshot, and the FII
+  pull. The chain job's scope was custom_universe + held = **~1,200 names
+  since the liquidity rebuild, at TWO authenticated calls each = ~2,400 in
+  one burst** against Upstox's 1,000-per-30-minute limit: the back ~1,900
+  silently 429'd while the box hammered for twenty minutes beside the scan,
+  at its memory ceiling, at the exact moment the owner was watching the page
+  after logging in. Now: scope = held + today's picks + the trigger/news
+  watchlist + the owner's hand-ordered list (what the chain actually informs
+  — T12W_0102 on held/watched names, W-022/W-007 per stock on the register),
+  capped `OPTION_CHAIN_MAX_TICKERS = 120`, paced `OPTION_CHAIN_PACE_S =
+  0.25` s between names (~240 calls in ~30 s). `SB_CHAIN_PACE_S=0` in the two
+  test conftests only, the SB_IGNORE_MARKET_HOURS pattern; production never
+  sets it. The one-stock "read the chain now" button is untouched (pace
+  default 0, `include_index=False`). **NOTED, NOT CHANGED — by the owner's
+  own order:** `_daily_multi_mode_scan` has no once-per-day guard (trading
+  day, degraded halt, rotation lock only), so a login BEFORE 09:20 runs the
+  full advisory scan at login and 09:20 runs it again. The 09:15 gate means
+  the early one only scores and shows ("keep the advisory running at any
+  hour", 2026-09-10); it costs memory twice, at different times. If the
+  owner's symptom is "the app goes dead right after I log in", that plus the
+  chain burst is the mechanism; if it is an error page or a badge, the
+  symptom is still needed.
 
  all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,

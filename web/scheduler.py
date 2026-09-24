@@ -613,13 +613,31 @@ def run_option_chain_snapshot(where: str = "manual") -> dict:
                          "read DATA_NEEDED today.")
             return {}
         from trading.brokers.upstox_instruments import to_instrument_keys
-        from trading.options_chain import HISTORY_KEEP, snapshot_universe
+        from trading.options_chain import (HISTORY_KEEP, OPTION_CHAIN_MAX_TICKERS,
+                                           OPTION_CHAIN_PACE_S, snapshot_universe)
         cfg = state.cfg()
-        tickers = sorted(set(getattr(cfg, "custom_universe", ()) or ())
-                         | set(p.positions.keys()))
+        # SCOPE BOUNDED 2026-09-24 (owner: "upstox login issue as well / its
+        # hitting 512+ / layoff unwanted"). This used to be custom_universe +
+        # held = ~1,200 names since the liquidity rebuild, i.e. TWO
+        # authenticated calls per name = ~2,400 in one burst, fired at the
+        # moment of login beside the 5-mode scan and the FII pull. Upstox
+        # allows 1,000 calls per 30 minutes: the back ~1,900 silently 429'd
+        # while the box hammered for twenty minutes at its memory ceiling.
+        #
+        # The chain informs T12W_0102 on a held or watched name, and W-022 /
+        # W-007 per stock on the register — none of that needs the whole
+        # scanned universe. Scope = held + today's picks + the trigger/news
+        # watchlist + the owner's hand-ordered list, capped, paced.
+        from trading.universes import OWNER_UNIVERSE_2026_08_20 as _OWNER
+        wanted = (set(p.positions.keys())
+                  | {pk.get("ticker") for pk in (p.last_scan_picks or [])
+                     if pk.get("ticker")}
+                  | _watchlist_names(p)
+                  | set(_OWNER))
+        tickers = sorted(wanted)[:OPTION_CHAIN_MAX_TICKERS]
         keys = to_instrument_keys(tickers)
         snap = snapshot_universe(broker, tickers, keys.get,
-                                 _date.today())
+                                 _date.today(), pace_s=OPTION_CHAIN_PACE_S)
         if not snap["rows"]:
             _journal("OPTION_CHAIN_FAILED",
                      f"Option-chain snapshot returned nothing "
