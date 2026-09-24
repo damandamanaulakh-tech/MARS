@@ -41,17 +41,26 @@ def test_job_rebuilds_the_universe_and_persists_it(monkeypatch):
     old = cfg.custom_universe
     n0 = len(p.decision_journal)
     try:
+        from trading.universes import OWNER_UNIVERSE_2026_08_20 as OWNER
         res = scheduler.refresh_liquid_universe("test")
-        assert set(cfg.custom_universe) == {"BIG.NS", "MID.NS"}
-        assert set(saved["custom_universe"]) == {"BIG.NS", "MID.NS"}
+        # 2026-09-24: the hand-ordered list rides along beside held and
+        # watched names, so the universe is the store's ranking PLUS them.
+        assert set(cfg.custom_universe) == {"BIG.NS", "MID.NS"} | set(OWNER)
+        assert set(saved["custom_universe"]) == {"BIG.NS", "MID.NS"} | set(OWNER)
         assert res["skipped_illiquid"] == 1
         # Owner ask 2026-09-04 ("where is details for new batch"): the story
         # is kept on the portfolio for /scan, not only in the journal.
         b = p.universe_batch
-        assert b["count"] == 2 and b["target"] == cfg.universe_target_size
+        assert b["count"] == 2 + len(OWNER) and b["target"] == cfg.universe_target_size
+        # the owner names were already in the previous list, so they are not
+        # "added"; and short_by counts what the STORE ranked, not the rule
         assert set(b["added"]) == {"BIG.NS", "MID.NS"}
         assert (b["short_by"] == cfg.universe_target_size - 2
                 and b["skipped_illiquid"] == 1)
+        # every hand-ordered name is in, and — with a store that ranks only
+        # BIG/MID — every one of them got there by rule, not by turnover
+        assert b["owner_list_kept"] == len(OWNER)
+        assert set(b["owner_list_carried"]) == set(OWNER)
         assert "UNIVERSE_BATCH" in _own(p, n0)
         why = next(e["why"] for e in p.decision_journal[n0:]
                    if e.get("action") == "UNIVERSE_BATCH")

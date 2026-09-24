@@ -613,13 +613,31 @@ def run_option_chain_snapshot(where: str = "manual") -> dict:
                          "read DATA_NEEDED today.")
             return {}
         from trading.brokers.upstox_instruments import to_instrument_keys
-        from trading.options_chain import HISTORY_KEEP, snapshot_universe
+        from trading.options_chain import (HISTORY_KEEP, OPTION_CHAIN_MAX_TICKERS,
+                                           OPTION_CHAIN_PACE_S, snapshot_universe)
         cfg = state.cfg()
-        tickers = sorted(set(getattr(cfg, "custom_universe", ()) or ())
-                         | set(p.positions.keys()))
+        # SCOPE BOUNDED 2026-09-24 (owner: "upstox login issue as well / its
+        # hitting 512+ / layoff unwanted"). This used to be custom_universe +
+        # held = ~1,200 names since the liquidity rebuild, i.e. TWO
+        # authenticated calls per name = ~2,400 in one burst, fired at the
+        # moment of login beside the 5-mode scan and the FII pull. Upstox
+        # allows 1,000 calls per 30 minutes: the back ~1,900 silently 429'd
+        # while the box hammered for twenty minutes at its memory ceiling.
+        #
+        # The chain informs T12W_0102 on a held or watched name, and W-022 /
+        # W-007 per stock on the register — none of that needs the whole
+        # scanned universe. Scope = held + today's picks + the trigger/news
+        # watchlist + the owner's hand-ordered list, capped, paced.
+        from trading.universes import OWNER_UNIVERSE_2026_08_20 as _OWNER
+        wanted = (set(p.positions.keys())
+                  | {pk.get("ticker") for pk in (p.last_scan_picks or [])
+                     if pk.get("ticker")}
+                  | _watchlist_names(p)
+                  | set(_OWNER))
+        tickers = sorted(wanted)[:OPTION_CHAIN_MAX_TICKERS]
         keys = to_instrument_keys(tickers)
         snap = snapshot_universe(broker, tickers, keys.get,
-                                 _date.today())
+                                 _date.today(), pace_s=OPTION_CHAIN_PACE_S)
         if not snap["rows"]:
             _journal("OPTION_CHAIN_FAILED",
                      f"Option-chain snapshot returned nothing "
@@ -1361,12 +1379,33 @@ def refresh_liquid_universe(where: str = "weekly") -> dict:
         # touch or dlt the years data". Nothing here reads or writes stored
         # candles; this rebuilds the LIST only.
         keep = _watchlist_names(p)
+        # OWNER ORDER 2026-09-16 ("add defence, shipbuilding, pharma names to
+        # the scan list") meets OWNER ORDER 2026-09-24 ("update scan to
+        # 1200"). Both stand: the liquidity rebuild fills the list to the
+        # 1,200 target, and the names the owner put on the list BY HAND ride
+        # along whatever their turnover rank — the same rule held and watched
+        # names already get. Without this line the first Friday after 09-16
+        # could silently drop a hand-ordered defence or pharma name that
+        # ranked below the cut, and "why is HAL not scanned" would have had
+        # no visible answer.
+        from trading.universes import OWNER_UNIVERSE_2026_08_20 as _OWNER
+        owner_list = set(_OWNER)
         res = select_liquid_universe(
             db.history_tails(40), target=target,
             blocklist=getattr(cfg, "ticker_blocklist", ()) or (),
-            always_include=sorted(set(p.positions.keys()) | keep))
+            always_include=sorted(set(p.positions.keys()) | keep | owner_list))
         picked = res["tickers"]
-        if not picked:
+        # THE GUARD MUST READ WHAT THE STORE CONTRIBUTED, not the union.
+        # Caught by test_an_empty_result_never_empties_the_universe the day
+        # the owner list joined always_include (2026-09-24): with 83 names
+        # always riding along, `picked` is never empty, so on a Friday when
+        # Mongo answers nothing the rebuild would have REPLACED a ~1,200-name
+        # universe with those 83 — the exact "emptied the universe" failure
+        # this branch exists to prevent, at 83 instead of 0. "Nothing ranked"
+        # = every name in the result got there by rule, none by turnover.
+        always = set(p.positions.keys()) | keep | owner_list
+        ranked_by_store = [t for t in picked if t not in always]
+        if not ranked_by_store:
             _journal("UNIVERSE_BATCH_FAILED",
                      "Weekly liquidity universe produced NO names — the "
                      "previous list stands rather than emptying the "
@@ -1395,6 +1434,13 @@ def refresh_liquid_universe(where: str = "weekly") -> dict:
             # through the rebuild, so the owner can SEE their work survived
             # rather than trusting that it did.
             "watchlist_kept": sorted(keep & picked_set),
+            # The hand-ordered list (2026-09-16) is protected the same way;
+            # this is how many of those names are in today's universe (all
+            # of them, unless one left the tradeable file) and how many rode
+            # in BELOW the turnover cut on the owner's rule alone.
+            "owner_list_kept": len(owner_list & picked_set),
+            "owner_list_carried": sorted(
+                owner_list & set(res.get("held_added", ()))),
             # Carried = in the universe but NOT by rank, i.e. it would have
             # been dropped without the owner's rule. `picked` is already the
             # FINAL list (top-N plus always_include), so the ones added
@@ -1836,11 +1882,22 @@ def _daily_multi_mode_scan() -> None:
 
 
 def _daily_universe_topup() -> None:
-    """Merge fresh daily candles into the Mongo store for the owner's custom
-    universe + held names. Daily counterpart of the Friday job, bounded to
-    ~50 names so it is cheap; skips names already fresh to yesterday. Only
-    runs when a custom universe is set — the rotating full-NSE mode keeps
-    the weekly cadence (2,700 names daily would not fit the 512 MB box)."""
+    """Merge fresh daily candles into the Mongo store for the scanned
+    universe + held names, so tomorrow's 09:20 scan reads the store instead
+    of the network. Daily counterpart of the Friday job; skips names already
+    fresh to yesterday. Only runs when a custom universe is set — the
+    rotating full-NSE mode keeps the weekly cadence.
+
+    SCALE, truth-passed 2026-09-24: this used to say "bounded to ~50 names".
+    Since the liquidity rebuild (2026-08-30, target 1,200 since 2026-09-10)
+    writes the scanned list into cfg.custom_universe, this pass covers up to
+    ~1,200 names, one Upstox fetch each (~1.8 s), so ~35 minutes on a full
+    day. It is TIME, not memory — each name is loaded, merged and saved
+    before the next, so the working set stays one frame deep. It is also
+    load-bearing: fetch_daily treats a stored doc older than
+    data.STORE_MAX_AGE_DAYS as stale and falls back to the network, which is
+    capped at MAX_NETWORK_FALLBACK names per scan — without this pass the
+    scan would journal SCAN_COVERAGE_SHORT every day between Fridays."""
     from datetime import date, datetime as _dt
 
     from . import db, state
@@ -1943,8 +2000,13 @@ def run_trigger_layer(where: str = "manual") -> dict:
         ext_batch = None
         try:
             from trading import external_panels
-            ext_batch = external_panels.prepare(tickers, news=news_rows,
-                                                chain=chain)
+            # PROD_SOURCES = everything but the delivery file (owner
+            # 2026-09-24, "hitting 512+ / layoff unwanted"): that one stream
+            # peaked at +153 MB per run for a REJECTED trigger on data frozen
+            # at 2026-08-07. See the note on PROD_SOURCES for the numbers.
+            ext_batch = external_panels.prepare(
+                tickers, news=news_rows, chain=chain,
+                sources=external_panels.PROD_SOURCES)
         except Exception as e:
             log.warning("[triggers] external panels unavailable: %s", e)
 

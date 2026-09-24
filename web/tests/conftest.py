@@ -18,6 +18,7 @@ os.environ.setdefault("SB_LOGIN_DELAY_SEC", "0")
 # runs. Off under tests, ON in production; test_market_hours.py pins that the
 # production default is gated and that this variable is nowhere in render.yaml.
 os.environ.setdefault("SB_IGNORE_MARKET_HOURS", "1")
+os.environ.setdefault("SB_CHAIN_PACE_S", "0")      # no sleeps between chain names in tests
 
 
 @pytest.fixture(autouse=True)

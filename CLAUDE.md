@@ -2976,6 +2976,119 @@ pending in git; two open items answered from the LIVE box, not from memory.**
   the repo copy by any restart. Do not read a stale file_date as a broken
   refresh job, and do not "fix" the job on that evidence alone.
 
+**THE 512 ROUND (owner 2026-09-24: "update scan to 1200 / also chk mongo /
+its hitting 512 + / need to layoff unwanted"). MEASURED FIRST, then cut.
+READ THIS BEFORE ADDING ANY FILE LOAD TO A SCHEDULED JOB OR A PAGE.**
+- **THE RAM PICTURE, measured on this box (MiB):** boot **114** · one
+  1,200-name scan pass **+72** (frames 26 + scoring/candles/multi 45) ·
+  trigger-layer panels resident for the process lifetime **+41** (tail-420
+  panel + F&O + deals caches are never evicted) · register precompute peak
+  **+87** (16:45) · the 30-min danger pass, cache-warm, **+7** · and the
+  **DELIVERY STREAM +153 peak** — `_load_delivery` chunks the 3.5M-row
+  delivery_daily_2019_2026.csv.gz 400k rows at a time and that is the
+  working set. It ran once a day inside run_trigger_layer AND on EVERY
+  /triggers/<stock> page tap (one stock still streams the whole file). Stacked
+  in the 09:20 chain that is ~380 before heap fragmentation or an overlapping
+  30-min pass; the live box cold-started twice in one day (24 s, 44 s) on an
+  "always-on" plan, which is what an OOM kill looks like from outside.
+- **THE LAYOFF: `external_panels.PROD_SOURCES` = ALL_SOURCES minus
+  "delivery"**, passed by the daily trigger pass and the per-stock page
+  (`prepare(..., sources=)` passthrough; default unchanged so research
+  scripts regenerate byte-identical). What it cost: the delivery ratio behind
+  **T12W_0060 — calibrated REJECTED** (lift 0.992, fires 22% of days) — and
+  register items reading a file **frozen at 2026-08-07** (nsearchives blocks
+  cloud; Colab is the only refresh). Those now read DATA_NEEDED, never a
+  quiet False. The danger layer already loaded panel+index only — untouched,
+  test-pinned on the CALL not the docstring. **The 41 MB of resident caches
+  were LEFT alone**: the danger pass reads them every 30 minutes and a
+  reload is 4.7 s; evicting saves 41 MB for 13 reloads a day — not worth it
+  at this size. Revisit only if the number on /healthz says so.
+- **"UPDATE SCAN TO 1200" — IT WAS ALREADY THE MECHANISM, and my morning
+  status was WRONG about the live value.** `refresh_liquid_universe` writes
+  the liquidity-ranked list INTO `cfg.custom_universe` and saves it to
+  Mongo; the "83" I reported that morning was the LOCAL dataclass default,
+  not the live override. On the live box, with 1,458 stored names and the
+  Friday block completing since PR #103, the scan has very likely read
+  ~1,000+ names since mid-September — which is exactly WHEN the 512 started.
+  A session cannot see the live value; **/healthz now carries
+  `scan_universe` {count, target, last_rebuild, rebuild_count}** so this can
+  never be misreported again. What DID change: **the owner's hand-ordered
+  83 (2026-09-16: defence, shipbuilding, pharma) now ride in
+  `always_include`** beside held + watched names — without that, the first
+  Friday after 09-16 could silently drop a hand-ordered name that ranked
+  below the turnover cut, and the two standing orders would have fought
+  over one field. `universe_batch` records `owner_list_kept` /
+  `owner_list_carried`.
+- **"CHK MONGO" — could NOT be sized from code, so it is INSTRUMENTED, not
+  guessed.** Estimates: ohlcv ~70 MB (191×12y at 226 KB each = 44, plus
+  1,267 new names at 1y = 27 — top-up fetches `years=1` for a new name),
+  `journal_archive` is the only APPEND-ONLY collection but the scan writes no
+  per-ticker lines so it grows ~100-300 entries/day, backtests store
+  summaries only, fundamentals ~11 MB. Nothing reached 512 on paper. **New
+  `db.storage_stats()`** (read-only, dbStats + collStats in MB, largest
+  collection first, never raises) is on **/healthz as `mongo`** — `data_mb +
+  index_mb` is what Atlas counts against the M0 512 MB cap. The FIRST live
+  read of that block answers the question; do not theorise past it. If
+  `journal_archive` is the culprit, note the standing rule "journal
+  append-only" — trimming it is an OWNER decision.
+- **/healthz also carries `memory` {rss_mb, peak_mb}** (MiB both, /proc
+  statm + ru_maxrss) so Render's 512 is visible without the dashboard.
+- **`_daily_universe_topup` docstring truth-passed**: it said "bounded to
+  ~50 names"; it covers up to ~1,200 (one fetch each, ~35 min, TIME not
+  memory — one frame deep) and is **load-bearing**: fetch_daily treats a
+  doc older than STORE_MAX_AGE_DAYS as stale and network fallback is capped
+  at 120/scan, so without this pass SCAN_COVERAGE_SHORT would journal daily
+  between Fridays. NOT cut.
+- **THREE OF MY OWN TEST BUGS caught before commit, two of them THE
+  documented fault class again:** a "delivery not in source" pin tripped on
+  `externals_for`'s DOCSTRING (my stripper removes `#` lines, not
+  docstrings — pin the CALL, `sources=("panel","index")`); the docstring pin
+  tripped on my OWN truth-pass note quoting "~50" (split on the marker,
+  assert the operative paragraph — the same lesson as the F1 test, the
+  DAILY_SCHEDULER guard and the /positions hunt); and a `save_settings`
+  lambda that missed the `doc_id=` kwarg the boot migrations pass.
+- **A REAL REGRESSION IN MY OWN CHANGE, caught by an EXISTING guard test
+  (`test_an_empty_result_never_empties_the_universe`), fixed before commit:**
+  once the 83 owner names joined `always_include`, `picked` could never be
+  empty, so the "store returned nothing → previous list stands" guard never
+  fired — on a Friday when Mongo answered nothing the rebuild would have
+  REPLACED a ~1,200-name universe with the 83. The guard now reads what the
+  STORE ranked (`picked − always_include`), not the union. FAULT CLASS: a
+  guard that tests a variable whose meaning an upstream change just widened.
+  When you add to a union, re-read every `if not <union>` below it.
+- **"UPSTOX LOGIN ISSUE AS WELL" (same message, mid-turn). THE SYMPTOM WAS
+  NOT GIVEN; the code-side investigation is recorded so nobody re-chases
+  the dead ends.** RULED OUT, each verified: `token_expires_at_ist` is
+  UTC-consistent on both sides (connected_at is utcnow, expiry is computed
+  and compared in UTC — NOT the 2026-09-16 clock class) · the client NEVER
+  clears the token on a 401/429 (only /upstox/disconnect and the 03:30 IST
+  expiry end a session — rate limits cannot log the owner out) ·
+  `_client_from_session` falls back to Mongo, so the badge agrees across
+  devices and restarts. **FOUND AND BOUNDED: the login-time burst.** The
+  OAuth callback fires three daemon threads at once — the catch-up scan
+  (5 modes × the scanned universe), the option-chain snapshot, and the FII
+  pull. The chain job's scope was custom_universe + held = **~1,200 names
+  since the liquidity rebuild, at TWO authenticated calls each = ~2,400 in
+  one burst** against Upstox's 1,000-per-30-minute limit: the back ~1,900
+  silently 429'd while the box hammered for twenty minutes beside the scan,
+  at its memory ceiling, at the exact moment the owner was watching the page
+  after logging in. Now: scope = held + today's picks + the trigger/news
+  watchlist + the owner's hand-ordered list (what the chain actually informs
+  — T12W_0102 on held/watched names, W-022/W-007 per stock on the register),
+  capped `OPTION_CHAIN_MAX_TICKERS = 120`, paced `OPTION_CHAIN_PACE_S =
+  0.25` s between names (~240 calls in ~30 s). `SB_CHAIN_PACE_S=0` in the two
+  test conftests only, the SB_IGNORE_MARKET_HOURS pattern; production never
+  sets it. The one-stock "read the chain now" button is untouched (pace
+  default 0, `include_index=False`). **NOTED, NOT CHANGED — by the owner's
+  own order:** `_daily_multi_mode_scan` has no once-per-day guard (trading
+  day, degraded halt, rotation lock only), so a login BEFORE 09:20 runs the
+  full advisory scan at login and 09:20 runs it again. The 09:15 gate means
+  the early one only scores and shows ("keep the advisory running at any
+  hour", 2026-09-10); it costs memory twice, at different times. If the
+  owner's symptom is "the app goes dead right after I log in", that plus the
+  chain burst is the mechanism; if it is an error page or a badge, the
+  symptom is still needed.
+
  all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

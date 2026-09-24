@@ -9,3 +9,4 @@ test_market_hours.py pins that the shipped default is gated.
 import os
 
 os.environ.setdefault("SB_IGNORE_MARKET_HOURS", "1")
+os.environ.setdefault("SB_CHAIN_PACE_S", "0")      # no sleeps between chain names in tests

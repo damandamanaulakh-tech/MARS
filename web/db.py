@@ -122,6 +122,53 @@ def status() -> dict:
     }
 
 
+def storage_stats(top: int = 12) -> Optional[dict]:
+    """Atlas storage in MB — read-only, sizes only, never raises.
+
+    OWNER ASK 2026-09-24 ("chk mongo / its hitting 512 +"): the free Atlas
+    tier is capped at 512 MB and nothing in the app could say how close it
+    was — a session cannot reach the owner's cluster, and estimating from
+    code put the OHLCV store at ~70 MB with nothing else large, which does
+    not explain a 512. So the number itself goes on /healthz, where both the
+    owner and a session can read it without a login.
+
+    `data_mb` + `index_mb` is what Atlas counts against the M0 limit;
+    `storage_mb` is on-disk after compression and is shown for completeness.
+    Collections are listed largest-first so the culprit, when there is one,
+    is the first row. None when Mongo is offline or the command is refused.
+    """
+    if not _CONNECTED or _DB is None:
+        return None
+    try:
+        scale = 1024 * 1024
+        d = _DB.command("dbStats", scale=scale)
+        out = {
+            "data_mb": round(float(d.get("dataSize", 0)), 1),
+            "index_mb": round(float(d.get("indexSize", 0)), 1),
+            "storage_mb": round(float(d.get("storageSize", 0)), 1),
+            "objects": int(d.get("objects", 0)),
+            "collections": [],
+        }
+        rows = []
+        for name in _DB.list_collection_names():
+            try:
+                c = _DB.command("collStats", name, scale=scale)
+                rows.append({
+                    "name": name,
+                    "data_mb": round(float(c.get("size", 0)), 1),
+                    "index_mb": round(float(c.get("totalIndexSize", 0)), 1),
+                    "count": int(c.get("count", 0)),
+                })
+            except Exception:
+                continue
+        rows.sort(key=lambda r: -(r["data_mb"] + r["index_mb"]))
+        out["collections"] = rows[:max(1, int(top))]
+        return out
+    except Exception as e:
+        log.warning("Mongo storage_stats failed: %s", e)
+        return None
+
+
 # ---------- portfolio ----------
 
 def save_portfolio(doc: dict, doc_id: str = "default") -> None:

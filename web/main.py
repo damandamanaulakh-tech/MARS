@@ -113,5 +113,45 @@ def healthz() -> dict:
     # Readiness is booleans + the names of any unset variables, never their
     # values — safe on an unauthenticated endpoint, and it means a
     # misconfigured deploy is visible from outside instead of only in logs.
+    # OWNER ASK 2026-09-24 ("update scan to 1200 / chk mongo / its hitting
+    # 512 +"): both 512s — Render's RAM and Atlas's free-tier storage — were
+    # invisible from outside, and so was the size of the list the scan
+    # actually reads (a session only ever saw the local default). All three
+    # go here. Sizes and counts only; nothing here leaks a value.
+    memory = None
+    try:
+        import resource
+        peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0  # KiB -> MiB
+        rss = None
+        try:
+            with open("/proc/self/statm") as fh:       # Linux (Render)
+                rss = (int(fh.read().split()[1]) * os.sysconf("SC_PAGE_SIZE")
+                       / (1024.0 * 1024.0))            # MiB, same unit as peak
+        except Exception:
+            pass
+        memory = {"rss_mb": round(rss, 0) if rss is not None else None,
+                  "peak_mb": round(peak, 0)}
+    except Exception:
+        pass
+    scan_universe = None
+    try:
+        cfg = state.cfg()
+        custom = tuple(getattr(cfg, "custom_universe", ()) or ())
+        batch = getattr(state.portfolio(), "universe_batch", None) or {}
+        scan_universe = {
+            "count": len(custom),
+            "target": int(getattr(cfg, "universe_target_size", 0) or 0),
+            "last_rebuild": (str(batch.get("ts") or "")[:10] or None),
+            "rebuild_count": batch.get("count"),
+        }
+    except Exception:
+        pass
+    mongo = None
+    try:
+        mongo = db.storage_stats()
+    except Exception:
+        pass
     return {"ok": True, "db": state.db_status(), "history_tickers": hist,
-            "universe": universe, "readiness": readiness.status()}
+            "universe": universe, "scan_universe": scan_universe,
+            "memory": memory, "mongo": mongo,
+            "readiness": readiness.status()}
