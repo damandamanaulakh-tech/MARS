@@ -2942,6 +2942,40 @@ TOUCHING ANY CLOCK, GATE OR SCHEDULED JOB.**
   see their own data from where you are, say that in one sentence and then do
   the work anyway — do not hand it back to them.
 
+**STATUS CHECK 2026-09-24 (owner: "chk pending and push") — nothing was
+pending in git; two open items answered from the LIVE box, not from memory.**
+- **THE STORE IS GROWING AT LAST: /healthz `history_tickers` = 1,458** (was
+  573 on both 2026-08-29 and 2026-09-11 — twelve days frozen). PR #103's
+  fix is doing what it was built to do: the universe rebuild moved BEFORE
+  the OHLCV pull and the pull became time-bounded + resumable, so each run
+  now lands names instead of dying mid-way and stamping "done".
+- **LTIM CLOSED — the gap is UPSTREAM AT UPSTOX, not our code.** The
+  2026-09-16 note flagged LTIMindtree as absent from the universe file and
+  left it uninvestigated. Checked the exact master `universe_refresh` reads
+  (`assets.upstox.com/.../NSE.json.gz`, **78,160 rows**): **ZERO** rows carry
+  LTIM as a trading_symbol (only substring noise — EMULTIMQ, ALLTIME, BTML)
+  and **ZERO** carry MINDTREE in the name. The `complete.json.gz` master
+  agrees. So this is not a T2T exclusion, not a prefix-filter bug, and not
+  ours to fix: the broker's own instrument feed does not list the stock, so
+  the app cannot scan, price or buy it. **Do not hand-write an instrument
+  key to force it in** — an invented key is the fabricated-data class.
+  Re-check only if Upstox adds it.
+- **STILL OPEN, confirmed live today:** the scan reads the **83-name** owner
+  list while `universe_target_size` is **1,200** (item B's scan half). The
+  original blocker was the store, and that blocker has largely lifted
+  (1,458 names) — this is now an owner decision, not a data wait.
+  Also open, unchanged and unordered: the sector-by-sector progress strip ·
+  the measured 1/3/6/9/12-month base rates are still on no screen · the
+  three correctable backtest divergences (universe, k x ATR targets, exit
+  cadence) offered 2026-09-12 and awaiting their word · F-012's two
+  contradictory scheduler docstrings · F-013 (196MB tree).
+- **`/healthz` "file_date" CANNOT answer "did the 08:50 universe refresh
+  run".** It is the file's **mtime**, and on Render that tracks the last
+  DEPLOY (the image carries the checked-out file), so it read 2026-09-16 —
+  the PR #110 merge — eight days on. A refreshed file is also wiped back to
+  the repo copy by any restart. Do not read a stale file_date as a broken
+  refresh job, and do not "fix" the job on that evidence alone.
+
  all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
