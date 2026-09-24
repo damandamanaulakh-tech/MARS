@@ -52,13 +52,18 @@ def index_strip(bars: int = 60) -> list[dict]:
     live: dict[str, float] = {}
     prev_close: dict[str, float] = {}
     delayed_syms: set = set()
+    connected = False
     try:
         from trading.quote_router import fetch_quotes
         from . import state
         eng = state.engine()
         broker = getattr(eng, "broker", None)
         symbols = [sym for _l, _c, _v, sym in _INDICES]
-        if broker is not None and broker.is_connected():
+        # "connected" = a token the router calls healthy (present AND not
+        # past its 03:30 IST expiry) — the same verdict the red bar uses, so
+        # a card and the bar can never disagree about the login.
+        connected = bool(state.quote_source_status().get("healthy"))
+        if connected and broker is not None:
             from trading.brokers.upstox_instruments import INDEX_KEYS
             for sym in symbols:
                 key = INDEX_KEYS.get(sym)
@@ -74,14 +79,20 @@ def index_strip(bars: int = 60) -> list[dict]:
                     live[sym] = float(lp)
                 if pc:
                     prev_close[sym] = float(pc)
-        else:
-            # No login: the router now serves PUBLIC ~1-minute-delayed
-            # intraday candles (owner complaint 2026-08-26 "you r like far
-            # away") — real numbers, labelled delayed on the card.
-            live = {k: v for k, v in fetch_quotes(symbols).items() if v}
+        # No login, an expired token, OR a connected token Upstox refused a
+        # tick for (rate limit, outage): the PUBLIC ~1-minute-delayed
+        # intraday candle carries the number, labelled delayed on the card
+        # (owner complaint 2026-08-26 "you r like far away"). 2026-09-24:
+        # the connected path used to have NO fallback — a refused tick left
+        # the card blank with a "Reconnect Upstox" link, and the owner
+        # reconnected in a loop while the token was fine the whole time.
+        missing = [s for s in symbols if s not in live]
+        if missing:
+            delayed = {k: v for k, v in fetch_quotes(missing).items() if v}
             from trading.quote_router import LAST_SOURCES
-            delayed_syms = {k for k in live
+            delayed_syms = {k for k in delayed
                             if LAST_SOURCES.get(k) == "upstox_1min_delayed"}
+            live.update(delayed)
     except Exception as e:                     # never take the page down
         log.warning("index_strip live fetch failed: %s", e)
 
@@ -131,6 +142,9 @@ def index_strip(bars: int = 60) -> list[dict]:
             "live": is_live,
             # ~1-minute-delayed public candle, not a tick — card says so
             "delayed": sym in delayed_syms,
+            # the login is fine; the card must never send the owner back to
+            # the Upstox login when the token is valid
+            "connected": connected,
             "last": last,                       # None => template shows "—"
             "chg": chg, "pct": round(pct, 2) if pct is not None else None,
             "up": bool(chg is not None and chg >= 0),

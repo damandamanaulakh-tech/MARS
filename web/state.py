@@ -599,12 +599,73 @@ def recent_candles(ticker: str = "^NSEI", bars: int = 40) -> list[dict]:
     return out
 
 
+def attach_broker_client(client) -> None:
+    """Hand the engine a client the OAuth callback just built — the token
+    goes to the engine IN MEMORY, never via a Mongo round trip.
+
+    OWNER FAULT 2026-09-24 ("upstox is not getting connected ... still
+    red"): the callback used to save the token to Mongo and then have the
+    engine READ IT BACK. On the live box that read returned yesterday's
+    document after every fresh login (the write was not landing), so the
+    engine ran on a dead token — red "token EXPIRED" bar, "no live quote"
+    on every index card, a Reconnect link that repeated the whole loop —
+    while the browser cookie proudly showed the owner's name. Mongo is for
+    surviving a restart; the running process gets the token directly.
+    """
+    with _LOCK:
+        if _ENGINE is None:
+            _bootstrap()
+        assert _ENGINE is not None
+        _ENGINE.attach_broker(client)
+        try:
+            from trading import data as trading_data
+            trading_data.set_history_broker(client)
+        except Exception:                                     # noqa: BLE001
+            log.exception("history broker attach failed")
+
+
+def _broker_is_stale(broker) -> bool:
+    """None, or a token whose 03:30 IST expiry has passed."""
+    if broker is None:
+        return True
+    try:
+        hours = broker.hours_until_expiry()
+    except Exception:                                         # noqa: BLE001
+        return False
+    return hours is not None and hours <= 0
+
+
+def _heal_stale_broker() -> None:
+    """If the engine's token is missing or expired but Mongo holds a FRESHER
+    one, attach that. One cheap find_one, and only while stale.
+
+    Covers the case the in-memory attach cannot: a Render redeploy overlaps
+    two processes for a moment, the login lands on the old one, and the new
+    one booted with the previous day's document. Before this the new process
+    kept the dead token for its whole life (the lazy attach in engine() only
+    ever fired when the broker was None, never when it was expired).
+    Caller holds _LOCK.
+    """
+    if _ENGINE is None or not _broker_is_stale(_ENGINE.broker):
+        return
+    doc = db.load_upstox_token()
+    if not doc or not doc.get("access_token"):
+        return
+    current = getattr(_ENGINE.broker, "connected_at", None)
+    if _ENGINE.broker is not None and doc.get("connected_at") == current:
+        return                                  # same dead token, nothing fresher
+    _attach_broker_if_persisted()
+
+
 def quote_source_status() -> dict:
     """Reports whether the engine is currently sourcing quotes from Upstox or yfinance."""
     from trading.quote_router import status as router_status
     if _ENGINE is None:
         return {"source": "yfinance", "reason": "engine_not_initialised"}
-    return router_status(_ENGINE.broker)
+    with _LOCK:
+        _heal_stale_broker()
+        broker = _ENGINE.broker
+    return router_status(broker)
 
 
 def reload_config() -> None:
@@ -645,7 +706,7 @@ def engine() -> TradingEngine:
         assert _ENGINE is not None
         # Lazy auto-attach: if the engine has no broker but Mongo has a
         # token, attach on demand. This handles the case where Upstox was
-        # connected *after* the engine bootstrapped.
-        if _ENGINE.broker is None:
-            _attach_broker_if_persisted()
+        # connected *after* the engine bootstrapped. 2026-09-24: also when
+        # the broker it holds is EXPIRED and Mongo has a fresher one.
+        _heal_stale_broker()
         return _ENGINE
