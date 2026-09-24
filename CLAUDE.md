@@ -3161,9 +3161,21 @@ ENGINE'S BROKER, OR ANY "connected" LABEL.**
   bar, so they cannot disagree again. Money path untouched. 1,265 tests
   (405 web + 860 trading), 13 new in
   web/tests/test_upstox_stale_engine_2026_09_24.py.
-- **OPEN: WHY the live Mongo write fails is still unknown** — the next login
-  journals the error text (UPSTOX_CONNECTED.error). Read it before
-  theorising. Atlas is at 68 MB of 512, so it is not the space quota.
+- **CONFIRMED LIVE 19:15 IST (owner screenshot 2, after the PR #114
+  deploy): red bar GONE, "Upstox: MANPREET KAUR" green, all four index
+  cards live (Nifty 23,063.10), Quotes chip "Upstox real-time" — AND the
+  amber bar: "token could NOT be saved to the database".** So the engine
+  half is fixed and the write really is failing on the live box. Portfolio
+  writes work (17 positions survived the 12:59 restart), so it is specific
+  to the `upstox_token` write. **MY MISTAKE in that bar: it pointed the
+  owner at "the journal line UPSTOX_CONNECTED" — which exists only as a CSV
+  download on /reports.** Fixed same evening: the bar prints `Database
+  said: <LAST_TOKEN_SAVE_ERROR>` itself, and the callback retries the save
+  once after `db.ensure_connected()` (a 60 s reconnect-cooldown flap must
+  not cost a re-login). **NEXT LOGIN'S AMBER BAR NAMES THE ERROR — read it
+  before theorising.** Atlas is at 68 MB of 512, so it is not the space
+  quota. Consequence until fixed: every Render restart (incl. every env
+  edit) needs a fresh Upstox login; the engine works between restarts.
 - **Also learned, tell the owner once:** nothing in Render takes a token —
   the app only uses UPSTOX_API_KEY/SECRET/REDIRECT_URI and the daily OAuth
   login; every Render env edit RESTARTS the app (watched one at 18:29 IST

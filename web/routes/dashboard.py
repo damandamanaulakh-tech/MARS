@@ -247,6 +247,13 @@ def dashboard(request: Request):
     if code:
         level, text = CONNECT_NOTICES.get(
             code, ("error", f"Upstox login did not complete ({code})."))
+        # Owner screenshot 2026-09-24 19:15 IST: the amber bar told them to
+        # go find a journal line — which only exists as a CSV download. The
+        # database's own words belong ON the bar (this is the owner's
+        # authenticated page; /healthz stays value-free).
+        from .. import db as _db
+        if code == "token_not_persisted" and _db.LAST_TOKEN_SAVE_ERROR:
+            text = f"{text} Database said: {_db.LAST_TOKEN_SAVE_ERROR}"
         upstox_notice = {"level": level, "code": code, "text": text}
 
     return templates.TemplateResponse(

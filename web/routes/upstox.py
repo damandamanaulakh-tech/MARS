@@ -178,6 +178,15 @@ def callback(
     request.session["upstox_connected_at"] = client.connected_at
     # Mongo (survives Render restart, accessible from any browser)
     persisted = db.save_upstox_token(token_doc)
+    if not persisted:
+        # One retry after a reconnect attempt — a link that flapped a moment
+        # ago (the C1 reconnect logic keeps a 60 s cooldown) must not cost the
+        # owner a re-login after the next restart when it heals a second later.
+        try:
+            db.ensure_connected()
+        except Exception:                                     # noqa: BLE001
+            pass
+        persisted = db.save_upstox_token(token_doc)
     # Hot-attach to the running engine — IN MEMORY, from the client that just
     # did the exchange. 2026-09-24 (owner: "still red, fix it"): this used to
     # be refresh_broker_attachment(), which re-READ the token from Mongo; on
