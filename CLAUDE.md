@@ -3250,34 +3250,45 @@ save lands and the banner clears. LESSON: a connection that answers reads
 but refuses writes must never render green; a log-only save is a lie.
 
 **FRIDAY 09:20 CHECK-IN 2026-09-25 (owner order 2026-09-24: "chk 09:20
-tomorrow"). The session's own check-in fired 10:00 IST but this container
-had restarted and only resumed at 15:33 IST — the LATE reading is the
-session's fault, not the app's. Read from the live box:**
-- `memory rss 149 / peak 148` at 15:33 IST (152/151 by 15:53). **peak ≈
-  rss ⇒ the process that ran the 09:20 chain is GONE; the one answering
-  booted AFTER it.** So the delivery-layoff peak (PR #112) is STILL
-  unmeasured — the only fact is that the process restarted at least once
-  since 21:21 IST yesterday (peak 211 then). Why (OOM kill, Render
-  restart, an env edit) cannot be read from outside; Render's event log
-  is the owner's screen. A process that booted after 09:20 on a trading
-  day and shows +2 MB over boot also means the boot catch-up did NOT
-  score a scan in it — either it judged today's scan already done (which
-  needs a save that LANDED) or a gate stopped it; the journal answers,
-  needs the owner's login.
+tomorrow"). Read from the live box at 10:03 IST, three minutes after the
+session's own check-in fired:**
+- `memory rss 149 / peak 148`. **peak ≈ rss ⇒ the process that ran the
+  09:20 chain is GONE; the one answering booted AFTER it.** So the
+  delivery-layoff peak (PR #112) is STILL unmeasured — the only fact is
+  that the process restarted at least once since 21:21 IST yesterday
+  (peak 211 then), and again between 09:20 and 10:03 IST if the chain ran
+  at all. Why (OOM kill, Render restart, an env edit) cannot be read from
+  outside; Render's Events tab is the owner's screen. A process that
+  booted after 09:20 on a trading day and sits +2 MB over boot also means
+  the boot catch-up did NOT score a scan in it — either it judged today's
+  scan already done (which needs a save that LANDED) or a gate stopped
+  it; the journal answers, needs the owner's login.
 - **Consequence stated plainly:** while Atlas refuses writes, every
   restart rolls the book back to the last copy that landed — so
   yesterday's Buy Desk buys survived ONLY if the owner freed cluster
-  space before that restart. Merging PR #117 (15:34 IST) restarts the
-  app again, but the pre-merge peak already proved a restart had
-  happened, so the merge cost nothing that was not already gone.
+  space before that restart. PR #117 merged 10:04 IST; the pre-merge
+  peak already proved a restart had happened, so the merge cost nothing
+  that was not already gone.
+- **THE #117 DEPLOY HAD NOT LANDED 6 HOURS AFTER THE MERGE.** /healthz at
+  15:43, 15:53 and 16:07 IST still answered WITHOUT the `mongo.cluster`
+  key (memory 152/151 — the same process as 10:03). Every earlier deploy
+  this week was serving within ~10 minutes. Auto-deploy paused, a failed
+  build, or a boot Render refused and kept the old build serving — only
+  the Render Events tab says which; a session cannot see it. Until it
+  lands, the cluster hog is still unnamed and the ⛔ writes-refused
+  banner does not exist on the live app.
 - `scan_universe 443 / 1200, last_rebuild 2026-09-21` (unchanged; today's
   16:30 block rebuilds) · `history_tickers 1,458` · app db 68 MB (ohlcv
   65) · readiness all green · `universe.file_date 2026-09-24` = deploy
   mtime again, not refresh evidence.
-- **Harness note for the next session:** a foreground `timeout … until
-  grep` wait returns instantly here (sleep is blocked) — poll in a
-  BACKGROUND task and act on its completion notification; two waits this
-  round "completed with no output" and proved nothing.
+- **Harness notes for the next session:** (1) a foreground `timeout …
+  until grep` wait returns instantly here (sleep is blocked) — poll in a
+  BACKGROUND task and act on its completion notification. (2) **The
+  container can be PAUSED for hours between two tool calls** (Firecracker
+  snapshot: uptime stood at 34 min while GitHub stamped the #117 merge
+  04:34Z and PR #118's creation 10:35Z). After any long gap, re-read the
+  clock and the live box before trusting a "just measured" number — this
+  round's first draft mislabelled a 10:03 IST reading as 15:33 IST.
 
  all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
