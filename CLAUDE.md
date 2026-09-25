@@ -3225,6 +3225,30 @@ cannot reach the live book, so the one-time buy is a BUTTON the owner taps.**
   .py). Money impact: up to the typed budget of PAPER capital, only when
   the owner taps.
 
+**THE ATLAS QUOTA — THE REAL "512" (owner 2026-09-24 21:40 IST: "issue is
+at mongo / 513 MB on 512 plan / lets fix that first"). READ THIS BEFORE
+TRUSTING ANY "MongoDB connected" GREEN.** The Atlas FREE tier refuses EVERY
+write past 512 MB, CLUSTER-WIDE. That is the "Database said" behind the
+token save failing — and, far worse, `save_portfolio` is log-only on
+failure, so **every book save since the quota tripped has been silently
+lost; each restart rolled the book back to the last copy that landed**
+(the 17-position book the owner saw was the boot copy; the day's Buy Desk
+buys and journal live only in process memory until the cluster has room).
+The app's own db measures **68 MB** (/healthz mongo), so ~445 MB sits in
+ANOTHER database on the same cluster — most likely the retired
+sourceborn-engine app's — which the app could not see. SHIPPED:
+`db._cluster_sizes` lists every non-system database with data+index MB on
+/healthz (`mongo.cluster`, hog first) · `db.LAST_WRITE_ERROR/_AT` set by
+`save_portfolio`, cleared by the next success, on `db.status()` and
+/healthz · dashboard STORAGE chip goes RED "WRITES REFUSED, book not being
+saved" and a top ⛔ banner prints the database's words + the fix. The FIX
+ITSELF is an OWNER action in the Atlas UI (Browse Collections → the other
+database → drop, or delete its big collections); a session cannot reach
+the cluster. Until then: DO NOT restart or edit Render (a restart discards
+the unsaved book). After freeing space: tap Refresh Prices — the next
+save lands and the banner clears. LESSON: a connection that answers reads
+but refuses writes must never render green; a log-only save is a lie.
+
  all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,

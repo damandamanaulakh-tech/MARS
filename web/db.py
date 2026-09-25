@@ -119,6 +119,10 @@ def status() -> dict:
         "url_set": bool(os.environ.get("MONGO_URL")),
         "degraded": mongo_expected() and not _CONNECTED,
         "boot_degraded": _BOOT_DEGRADED,
+        # a connection that answers reads but refuses writes is NOT healthy:
+        # the book is not being saved (2026-09-24, Atlas over quota)
+        "write_error": LAST_WRITE_ERROR,
+        "write_error_at": LAST_WRITE_ERROR_AT,
     }
 
 
@@ -163,20 +167,76 @@ def storage_stats(top: int = 12) -> Optional[dict]:
                 continue
         rows.sort(key=lambda r: -(r["data_mb"] + r["index_mb"]))
         out["collections"] = rows[:max(1, int(top))]
+        # OWNER 2026-09-24 21:40 IST: "issue is at mongo 513 MB on 512 plan".
+        # This db measures 68 MB, so the rest sits in ANOTHER database on the
+        # same cluster (the free-tier cap counts the whole cluster). List
+        # every database with its logical size so the hog is named here.
+        out["cluster"] = _cluster_sizes(scale)
+        out["last_write_error"] = LAST_WRITE_ERROR
         return out
     except Exception as e:
         log.warning("Mongo storage_stats failed: %s", e)
         return None
 
 
+def _cluster_sizes(scale: int) -> Optional[dict]:
+    """Logical size (data + indexes) of EVERY database on the cluster —
+    what Atlas counts against the 512 MB free-tier cap. Read-only; None when
+    the user lacks listDatabases (then only the app's own db is known)."""
+    if _CLIENT is None:
+        return None
+    try:
+        rows = []
+        for name in _CLIENT.list_database_names():
+            if name in ("admin", "local", "config"):
+                continue
+            try:
+                s = _CLIENT[name].command("dbStats", scale=scale)
+                rows.append({
+                    "name": name,
+                    "data_mb": round(float(s.get("dataSize", 0)), 1),
+                    "index_mb": round(float(s.get("indexSize", 0)), 1),
+                    "storage_mb": round(float(s.get("storageSize", 0)), 1),
+                    "collections": int(s.get("collections", 0)),
+                })
+            except Exception:                                 # noqa: BLE001
+                rows.append({"name": name, "data_mb": None, "index_mb": None,
+                             "storage_mb": None, "collections": None,
+                             "note": "dbStats refused"})
+        rows.sort(key=lambda r: -((r["data_mb"] or 0) + (r["index_mb"] or 0)))
+        total = round(sum((r["data_mb"] or 0) + (r["index_mb"] or 0) for r in rows), 1)
+        return {"databases": rows, "total_mb": total,
+                "note": "data_mb + index_mb per database is what the Atlas "
+                        "free tier counts against 512 MB, cluster-wide."}
+    except Exception as e:                                    # noqa: BLE001
+        log.warning("Mongo cluster sizes failed: %s", e)
+        return None
+
+
 # ---------- portfolio ----------
 
+#: The reason the LAST book save was refused, or None — set by
+#: save_portfolio, cleared by the next success. 2026-09-24: Atlas refused
+#: every write for hours ("over your space quota") and the only trace was a
+#: log line; the dashboard's STORAGE chip stayed green and each restart
+#: rolled the book back to the last copy that had landed. Read by /healthz
+#: and db.status() so a refused write is visible from outside.
+LAST_WRITE_ERROR: Optional[str] = None
+LAST_WRITE_ERROR_AT: Optional[str] = None
+
+
 def save_portfolio(doc: dict, doc_id: str = "default") -> None:
+    global LAST_WRITE_ERROR, LAST_WRITE_ERROR_AT
     if not _CONNECTED or _DB is None:
         return
     try:
         _DB.portfolio.replace_one({"_id": doc_id}, {**doc, "_id": doc_id}, upsert=True)
+        LAST_WRITE_ERROR = None
+        LAST_WRITE_ERROR_AT = None
     except Exception as e:
+        from datetime import datetime as _dt
+        LAST_WRITE_ERROR = f"{type(e).__name__}: {str(e)[:200]}"
+        LAST_WRITE_ERROR_AT = _dt.utcnow().isoformat()
         log.warning("Mongo save_portfolio failed: %s", e)
 
 
