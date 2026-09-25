@@ -3249,6 +3249,36 @@ the unsaved book). After freeing space: tap Refresh Prices — the next
 save lands and the banner clears. LESSON: a connection that answers reads
 but refuses writes must never render green; a log-only save is a lie.
 
+**FRIDAY 09:20 CHECK-IN 2026-09-25 (owner order 2026-09-24: "chk 09:20
+tomorrow"). The session's own check-in fired 10:00 IST but this container
+had restarted and only resumed at 15:33 IST — the LATE reading is the
+session's fault, not the app's. Read from the live box:**
+- `memory rss 149 / peak 148` at 15:33 IST (152/151 by 15:53). **peak ≈
+  rss ⇒ the process that ran the 09:20 chain is GONE; the one answering
+  booted AFTER it.** So the delivery-layoff peak (PR #112) is STILL
+  unmeasured — the only fact is that the process restarted at least once
+  since 21:21 IST yesterday (peak 211 then). Why (OOM kill, Render
+  restart, an env edit) cannot be read from outside; Render's event log
+  is the owner's screen. A process that booted after 09:20 on a trading
+  day and shows +2 MB over boot also means the boot catch-up did NOT
+  score a scan in it — either it judged today's scan already done (which
+  needs a save that LANDED) or a gate stopped it; the journal answers,
+  needs the owner's login.
+- **Consequence stated plainly:** while Atlas refuses writes, every
+  restart rolls the book back to the last copy that landed — so
+  yesterday's Buy Desk buys survived ONLY if the owner freed cluster
+  space before that restart. Merging PR #117 (15:34 IST) restarts the
+  app again, but the pre-merge peak already proved a restart had
+  happened, so the merge cost nothing that was not already gone.
+- `scan_universe 443 / 1200, last_rebuild 2026-09-21` (unchanged; today's
+  16:30 block rebuilds) · `history_tickers 1,458` · app db 68 MB (ohlcv
+  65) · readiness all green · `universe.file_date 2026-09-24` = deploy
+  mtime again, not refresh evidence.
+- **Harness note for the next session:** a foreground `timeout … until
+  grep` wait returns instantly here (sleep is blocked) — poll in a
+  BACKGROUND task and act on its completion notification; two waits this
+  round "completed with no output" and proved nothing.
+
  all 8 now built (ticket +
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
