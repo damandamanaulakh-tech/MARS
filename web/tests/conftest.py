@@ -19,6 +19,7 @@ os.environ.setdefault("SB_LOGIN_DELAY_SEC", "0")
 # production default is gated and that this variable is nowhere in render.yaml.
 os.environ.setdefault("SB_IGNORE_MARKET_HOURS", "1")
 os.environ.setdefault("SB_CHAIN_PACE_S", "0")      # no sleeps between chain names in tests
+os.environ.setdefault("SB_SKIP_UPSTOX_PREFLIGHT", "1")  # tests never GET Upstox's dialog
 
 
 @pytest.fixture(autouse=True)

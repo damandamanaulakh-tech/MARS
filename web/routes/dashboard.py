@@ -254,6 +254,17 @@ def dashboard(request: Request):
         from .. import db as _db
         if code == "token_not_persisted" and _db.LAST_TOKEN_SAVE_ERROR:
             text = f"{text} Database said: {_db.LAST_TOKEN_SAVE_ERROR}"
+        # 2026-09-26: Upstox's own words + the redirect_uri the app sent, so
+        # the owner can hold it against the developer page line by line.
+        from .upstox import LAST_APP_REJECTION as _rej
+        if code == "app_rejected" and _rej:
+            text = (f"{text} Upstox said: {_rej.get('code')} "
+                    f"{_rej.get('message')}. The app sent redirect_uri = "
+                    f"{_rej.get('redirect_uri')} with an API key ending "
+                    f"…{_rej.get('client_id_tail')}. On upstox.com → Developer "
+                    f"Apps, the app with that key must list exactly that "
+                    f"redirect URL (same https, same path, no trailing slash, "
+                    f"no spaces).")
         upstox_notice = {"level": level, "code": code, "text": text}
 
     return templates.TemplateResponse(

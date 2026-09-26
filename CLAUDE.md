@@ -3323,6 +3323,46 @@ fixed (owner asked for diagnosis; fix awaits their word):**
    Verified NOT the cause: OAuth handshake/callback code (every failure
    path journals + renders a red banner since PR #114), cookie flags
    (Secure+lax, 30d), Upstox endpoints/expiry maths.
+
+**THE SCREENSHOT + THE FIX (owner 2026-09-26: screenshot of the browser on
+`api-v2.upstox.com/login/authori…` printing raw JSON `UDAPI100016 Invalid
+Credentials` at 08:01 IST → "Review and fix").** The error is UPSTOX'S,
+raised BEFORE our callback is ever reached — the browser never came back.
+- MEASURED from the sandbox the same day: an unknown client_id, or a
+  registered-looking key with an unregistered redirect_uri, answers 401
+  JSON **UDAPI100068** ("Check your client_id and redirect_uri") on BOTH
+  api.upstox.com and api-v2.upstox.com; an empty key = UDAPI1013. The
+  owner's **UDAPI100016** is the deeper check on the v2 host. Upstox's
+  own community threads on exactly this code: staff answers were (a)
+  redirect URI mismatch invisible to the eye (localhost vs 127.0.0.1, a
+  trailing slash) and (b) twice "we've resolved the issue on our end" —
+  i.e. also an Upstox-side incident class. Login worked on 09-24 19:15
+  IST, so something changed after: a Render env edit (a pasted trailing
+  space/newline in UPSTOX_REDIRECT_URI or _API_KEY is invisible in
+  Render's box) or an edit on Upstox's developer app page — or Upstox.
+- SHIPPED (the owner's "Review and fix"): `UpstoxClient.from_env` STRIPS
+  all three values (whitespace is never part of a key or URL) ·
+  `UpstoxClient.check_app_registration()` = a server-side GET of the very
+  dialog URL, follow-redirects; an error DOCUMENT is a rejection, a login
+  page is a pass, network trouble is NOT a rejection (fail open — the
+  browser gets its own try) · `/upstox/login` runs it first and on a
+  rejection lands the owner on `/?upstox_error=app_rejected` with a bar
+  that prints Upstox's code + message, the exact redirect_uri the app
+  sent and the last 4 chars of the key, journals UPSTOX_CONNECT_FAILED
+  {app_rejected}; `upstox_routes.LAST_APP_REJECTION` holds it ·
+  `SB_SKIP_UPSTOX_PREFLIGHT=1` in both conftests only (tests must never
+  GET Upstox's dialog — the 2026-08-26 live-endpoint lesson), pinned out
+  of render.yaml · **`state.reload_config` now carries the engine's broker
+  across the rebuild** (bug 1 of the morning diagnosis; behavioural test:
+  login → reload → still `ok`, plus the real `/settings/mode` route).
+  Money path untouched. Tests: trading/tests/test_upstox_app_check_
+  2026_09_26.py (6) + web/tests/test_upstox_app_rejected_2026_09_26.py (8).
+- STILL TRUE AND SAID TO THE OWNER: none of this reaches the live app
+  until Render deploys main again (nothing since PR #116), and the
+  redirect/key comparison on Upstox's developer page is theirs to do.
+  Live box at 20:08 IST Sat: still the old build, same process, memory
+  `rss 261 / peak 261` — up from 224 at 13:03 with no market jobs on a
+  Saturday; note the creep, do not explain it yet.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never

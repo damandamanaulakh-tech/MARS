@@ -79,15 +79,62 @@ class UpstoxClient:
 
     @classmethod
     def from_env(cls) -> "UpstoxClient":
-        api_key = os.environ.get("UPSTOX_API_KEY")
-        api_secret = os.environ.get("UPSTOX_API_SECRET")
-        redirect_uri = os.environ.get("UPSTOX_REDIRECT_URI")
+        # 2026-09-26: values are STRIPPED. Upstox matches client_id and
+        # redirect_uri byte-for-byte against the developer app, and a Render
+        # env box pastes a trailing space or newline without showing it —
+        # the dialog then answers "Invalid Credentials" with nothing on our
+        # side to say why. Whitespace is never part of a key or a URL.
+        api_key = (os.environ.get("UPSTOX_API_KEY") or "").strip()
+        api_secret = (os.environ.get("UPSTOX_API_SECRET") or "").strip()
+        redirect_uri = (os.environ.get("UPSTOX_REDIRECT_URI") or "").strip()
         if not (api_key and api_secret and redirect_uri):
             raise UpstoxConfigError(
                 "Missing one or more env vars: "
                 "UPSTOX_API_KEY, UPSTOX_API_SECRET, UPSTOX_REDIRECT_URI"
             )
         return cls(api_key=api_key, api_secret=api_secret, redirect_uri=redirect_uri)
+
+    def check_app_registration(self, state: Optional[str] = None,
+                               timeout: float = 8.0) -> Optional[dict]:
+        """Ask Upstox's dialog, server-side, whether it accepts this app's
+        client_id + redirect_uri BEFORE the owner's browser is sent there.
+
+        Owner screenshot 2026-09-26 08:01 IST: the browser sat on
+        api-v2.upstox.com showing raw JSON — {"errorCode":"UDAPI100016",
+        "message":"Invalid Credentials"} — and nothing in the app could read
+        or explain it, because the redirect had already left our server.
+        Measured from the sandbox the same day: an unknown client_id or a
+        redirect_uri the app has not registered answers 401 JSON UDAPI100068
+        on BOTH hosts; a registered app answers a login page (HTML / 302).
+
+        Returns a dict {code, message, host} when Upstox answered with an
+        error document, else None. Network trouble is None too — the
+        pre-flight must never be the reason a login cannot start; the
+        browser gets its own try.
+        """
+        url = self.authorization_url(state=state)
+        try:
+            r = httpx.get(url, follow_redirects=True, timeout=timeout)
+        except httpx.HTTPError as e:                              # noqa: BLE001
+            log.warning("Upstox app pre-flight skipped (network): %s", e)
+            return None
+        body = r.text or ""
+        if not body.lstrip().startswith("{"):
+            return None                              # a login page, not an error
+        try:
+            data = r.json()
+        except ValueError:
+            return None
+        if not isinstance(data, dict) or data.get("status") != "error":
+            return None
+        errs = data.get("errors") or []
+        first = errs[0] if errs and isinstance(errs[0], dict) else {}
+        return {
+            "code": first.get("errorCode") or first.get("error_code") or "",
+            "message": first.get("message") or "Upstox rejected the app",
+            "host": str(r.url.host) if getattr(r, "url", None) else "",
+            "http_status": r.status_code,
+        }
 
     # ---------- OAuth flow ----------
 

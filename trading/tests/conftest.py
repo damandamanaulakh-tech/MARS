@@ -10,3 +10,4 @@ import os
 
 os.environ.setdefault("SB_IGNORE_MARKET_HOURS", "1")
 os.environ.setdefault("SB_CHAIN_PACE_S", "0")      # no sleeps between chain names in tests
+os.environ.setdefault("SB_SKIP_UPSTOX_PREFLIGHT", "1")  # tests never GET Upstox's dialog

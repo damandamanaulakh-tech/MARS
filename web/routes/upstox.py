@@ -14,7 +14,9 @@ cookie. Phase 4 moves it to MongoDB so it survives server restarts.
 from __future__ import annotations
 
 import logging
+import os
 import secrets
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Request
@@ -89,12 +91,23 @@ CONNECT_NOTICES = {
     "config_missing": ("error",
         "UPSTOX_API_KEY / UPSTOX_API_SECRET / UPSTOX_REDIRECT_URI are not all "
         "set in Render, so the app cannot start a login."),
+    "app_rejected": ("error",
+        "Upstox refused to open its login page for this app — the API key in "
+        "Render and the redirect URL registered on Upstox's developer page for "
+        "that key do not match each other. Nothing about your Upstox password "
+        "or PIN is involved; the browser never got that far."),
     "token_not_persisted": ("warn",
         "Connected — the engine has today's token and quotes are live for this "
         "run. But the token could NOT be saved to the database, so a restart "
         "will need a fresh login. The journal line UPSTOX_CONNECTED carries "
         "the database error."),
 }
+
+
+#: The last pre-flight rejection Upstox gave this process — read by the
+#: dashboard so the bar can print Upstox's code + message and the
+#: redirect_uri the app sent. None once a pre-flight passes again.
+LAST_APP_REJECTION: Optional[dict] = None
 
 
 def _journal_connect_failed(reason: str, detail: str) -> None:
@@ -125,6 +138,29 @@ def login(request: Request):
     # CSRF protection: store a random state in the session, verify on callback
     state = secrets.token_urlsafe(16)
     request.session["upstox_oauth_state"] = state
+    # 2026-09-26 (owner screenshot: raw Upstox JSON "UDAPI100016 Invalid
+    # Credentials" on api-v2.upstox.com, nothing readable anywhere in the
+    # app): ask Upstox first, from here, whether it accepts this app at all.
+    # A rejection lands the owner on the dashboard with Upstox's own words
+    # AND the exact redirect_uri the app sent, so the two values that must
+    # match can be compared without guessing. SB_SKIP_UPSTOX_PREFLIGHT=1 is
+    # for the test suites only (they must never GET Upstox's dialog).
+    global LAST_APP_REJECTION
+    if os.environ.get("SB_SKIP_UPSTOX_PREFLIGHT") != "1":
+        rej = client.check_app_registration(state=state)
+        if rej:
+            LAST_APP_REJECTION = {
+                **rej, "redirect_uri": client.redirect_uri,
+                "client_id_tail": client.api_key[-4:],
+                "ts": datetime.utcnow().isoformat(),
+            }
+            log.warning("Upstox app pre-flight rejected: %s", LAST_APP_REJECTION)
+            _journal_connect_failed(
+                "app_rejected",
+                f"{rej.get('code')} {rej.get('message')} on {rej.get('host')} "
+                f"— redirect_uri sent: {client.redirect_uri}")
+            return RedirectResponse("/?upstox_error=app_rejected", status_code=303)
+        LAST_APP_REJECTION = None
     return RedirectResponse(client.authorization_url(state=state), status_code=303)
 
 
