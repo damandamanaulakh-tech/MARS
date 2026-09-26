@@ -676,7 +676,17 @@ def reload_config() -> None:
             _bootstrap()
             return
         _CFG.apply_mode_preset()
+        # 2026-09-26 (owner: "still upstox not connecting"): the rebuilt
+        # engine used to start with NO broker, so the token the login had
+        # just handed the engine in memory was dropped by any Settings save
+        # or the dashboard mode switch; the next read healed from Mongo,
+        # which holds a stale document while the Atlas quota refuses writes
+        # — red "token EXPIRED" minutes after a green login. The broker is
+        # the owner's session, not configuration: carry it across.
+        broker = _ENGINE.broker if _ENGINE is not None else None
         _ENGINE = TradingEngine(_CFG, _PORTFOLIO)
+        if broker is not None:
+            _ENGINE.attach_broker(broker)
 
 
 def db_status() -> dict:
