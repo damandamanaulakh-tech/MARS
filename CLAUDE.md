@@ -3363,6 +3363,26 @@ raised BEFORE our callback is ever reached — the browser never came back.
   Live box at 20:08 IST Sat: still the old build, same process, memory
   `rss 261 / peak 261` — up from 224 at 13:03 with no market jobs on a
   Saturday; note the creep, do not explain it yet.
+
+**WHY RENDER "STOPPED DEPLOYING" — FOUND FROM THE OWNER'S EVENTS LOG
+(2026-09-26 evening, owner: "render events show deploy failed / Uvicorn
+running on http://0.0.0.0:10000 / HEAD / HTTP/1.1 405 Method Not Allowed /
+just first find the error and show me").** The app BOOTED fine every time;
+Render then probed the new process with **`HEAD /`**, a FastAPI GET route
+answers HEAD with **405**, Render marked the deploy failed and kept the
+old build serving. MEASURED locally: `HEAD /` 405, `HEAD /healthz` 405,
+`GET /` 303, `GET /healthz` 200. So #117, #118/#119 and #120 all built,
+all booted, all "failed" on this one probe — three merged fixes that never
+reached the live app while I reported "Render is not deploying" without
+knowing why. FIX (PR #121): `@app.head("/")` → 200 empty body (liveness
+only, no auth state, no data) and `/healthz` on `methods=["GET","HEAD"]`;
+GET behaviour unchanged; tests pin all four + render.yaml's
+`healthCheckPath: /healthz`. OWNER-SIDE: keep the Render dashboard's
+Health Check Path on `/healthz` (a probe on `/` was never in render.yaml).
+Not known: why the probe started failing only after #116 — Render's probe
+method/path changed, or the dashboard setting did; the fix answers both.
+LESSON: "not deploying" is never a diagnosis — the Events log had the
+one line all along, and I could not read it from here. Ask for it first.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never

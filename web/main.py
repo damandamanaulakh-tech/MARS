@@ -86,7 +86,25 @@ def service_worker():
                         media_type="application/javascript")
 
 
-@app.get("/healthz")
+# 2026-09-26 — THE FAILED DEPLOYS. Render's Events log for every deploy
+# since PR #116 ended with:
+#     INFO: Uvicorn running on http://0.0.0.0:10000
+#     INFO: 127.0.0.1:49914 - "HEAD / HTTP/1.1" 405 Method Not Allowed
+# Render probes the new process with a HEAD request; a FastAPI GET route
+# does not answer HEAD (measured: HEAD / and HEAD /healthz both 405), so
+# the probe failed, Render marked the deploy failed and kept the old build
+# serving — three merged fixes never reached the live app. Both paths now
+# answer HEAD with 200 and no body. HEAD / carries no data (no body, no
+# auth state), it is a liveness answer only; GET / still redirects to
+# login. render.yaml's healthCheckPath is /healthz — keep the Render
+# dashboard's Health Check Path on /healthz too.
+@app.head("/", include_in_schema=False)
+def root_head():
+    from fastapi.responses import Response
+    return Response(status_code=200)
+
+
+@app.api_route("/healthz", methods=["GET", "HEAD"])
 def healthz() -> dict:
     """For Render's health checks. history_tickers = stored OHLCV count so
     bulk-download completion is externally verifiable (a count leaks nothing);
