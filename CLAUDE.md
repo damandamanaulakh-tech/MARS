@@ -3398,7 +3398,8 @@ one line all along, and I could not read it from here. Ask for it first.
   (cache them in a background thread; `/healthz` answers from the cache
   in milliseconds and never touches `_LOCK` or Mongo). NOT built —
   needs the next log line first, and the owner's word.
-- **01:41 → 02:12 IST Sun 09-27: the live app answered NOTHING** — every
+- **01:41 → 03:08 IST Sun 09-27 (still silent at the last check): the
+  live app answered NOTHING** — every
   `/healthz` and `HEAD /` timed out at 60-120 s with zero bytes for over
   30 minutes (a 20-probe poll got no reply at all). At 01:00 it still
   answered with the OLD build. Either the old process is wedged (memory
