@@ -3383,6 +3383,21 @@ Not known: why the probe started failing only after #116 — Render's probe
 method/path changed, or the dashboard setting did; the fix answers both.
 LESSON: "not deploying" is never a diagnosis — the Events log had the
 one line all along, and I could not read it from here. Ask for it first.
+- **AFTER THE MERGE (01:00 IST Sun 09-27): the #121 deploy had NOT landed
+  21 minutes later either** — live `HEAD /` still 405, no `mongo.cluster`
+  key, and the process had restarted AGAIN (`rss 195 / peak 210`, down
+  from peak 261 at 20:08 IST). Two readings from this evening that may
+  matter for the NEXT Events log: (a) at ~19:05Z all three of my requests
+  to the live app timed out at 60 s with zero bytes — the app HANGS at
+  times, and a probe that hangs fails the same way a 405 does; (b) the
+  failures began exactly with #117, whose `_cluster_sizes` runs dbStats
+  on EVERY database on the cluster inside `/healthz` — on a fresh process
+  the first `/healthz` already took 14.6 s (09-24 note) and 4.7 s warm.
+  If the next Events log shows the deploy failing on the health check
+  rather than a 405, the fix is to take Mongo stats OFF the probe path
+  (cache them in a background thread; `/healthz` answers from the cache
+  in milliseconds and never touches `_LOCK` or Mongo). NOT built —
+  needs the next log line first, and the owner's word.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never
