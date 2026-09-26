@@ -3290,7 +3290,39 @@ session's own check-in fired:**
   clock and the live box before trusting a "just measured" number — this
   round's first draft mislabelled a 10:03 IST reading as 15:33 IST.
 
- all 8 now built (ticket +
+**"STILL UPSTOX NOT CONNECTING" — DIAGNOSIS 2026-09-26 13:00 IST (owner:
+"Still upstox not connecting / Diagnos the issue"). Symptom text not given;
+three layers found, one of them a REAL CODE BUG, reproduced, NOT yet
+fixed (owner asked for diagnosis; fix awaits their word):**
+1. **`state.reload_config()` REBUILDS THE ENGINE WITHOUT ITS BROKER.**
+   `_ENGINE = TradingEngine(_CFG, _PORTFOLIO)` — the fresh in-memory token
+   from the login (PR #114's `attach_broker_client`) is dropped; the next
+   `engine()`/`quote_source_status()` heals from Mongo, which holds a STALE
+   document while the Atlas quota refuses writes → red "token EXPIRED" /
+   "not connected" again. REPRODUCED in the sandbox: after login `ok`,
+   after reload `no_upstox_token`. Callers: the DASHBOARD MODE QUICK-SWITCH
+   (settings_routes ~190, posts and lands back on `/`), Settings save
+   (~373), Settings reset (~221), universe purge (positions ~520). So:
+   login → green → tap a mode or save Settings → red. Harmless before the
+   quota tripped (Mongo then held the fresh doc); fatal since. FIX = carry
+   `_ENGINE.broker` across the rebuild in `reload_config` (2 lines) + a
+   test that logs in, reloads, and asserts `healthy` stays True.
+2. **Render has NOT deployed main since PR #116** (Thu 09-24 21:10 IST).
+   #117 (10:04 IST Fri) and #118 (16:10 IST Fri) both absent from the live
+   box at 13:03 IST Saturday — /healthz still has no `mongo.cluster` key.
+   Every earlier deploy served within ~10 min. So the ⛔ writes-refused
+   banner, the cluster hog listing and the amber "Database said" fix do NOT
+   exist on the live app; a session cannot see Render's Events tab.
+3. **The process keeps restarting and every restart forgets the token**
+   while the quota stands (token save refused): Fri 10:03 IST peak 148,
+   Fri 16:07 peak 151, Sat 13:03 IST `rss 224 / peak 223` — a different
+   process again, and `scan_universe.last_rebuild` STILL 2026-09-21, i.e.
+   Friday's 16:30 rebuild either never ran or its save was refused and
+   died with the process. Each restart = "log in again" = looks like
+   "still not connecting".
+   Verified NOT the cause: OAuth handshake/callback code (every failure
+   path journals + renders a red banner since PR #114), cookie flags
+   (Secure+lax, 30d), Upstox endpoints/expiry maths.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never
