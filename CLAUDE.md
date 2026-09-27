@@ -3410,6 +3410,11 @@ one line all along, and I could not read it from here. Ask for it first.
   and the HTTP/2 request being SENT — Render's edge accepts the
   connection and nothing behind it ever answers. So the fault is the
   service (wedged process or no healthy instance), not the network.**
+  **STILL SILENT AT 18:18 IST SUN — 16.5 HOURS.** Four more 2.4-hour
+  polls (08:31→10:56, 10:58→13:22 [cut by a sandbox container restart],
+  13:24→15:49, 15:51→18:16 IST) got zero replies; every fresh 90 s probe
+  in between timed out. No owner message all day. Monday 09:15 IST opens
+  with the app DOWN unless the owner acts in Render before then.
   At 01:00 it still answered with the OLD build. Either the old process is wedged (memory
   had been climbing all day between restarts) or Render is stuck
   mid-deploy. A session cannot restart it; Render's dashboard (Events /
