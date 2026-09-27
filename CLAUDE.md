@@ -3402,8 +3402,15 @@ one line all along, and I could not read it from here. Ask for it first.
   THREE HOURS): the live app answered NOTHING** — every
   `/healthz` and `HEAD /` timed out at 60-120 s with zero bytes; a 20-probe
   poll and then a 40-probe hour-long poll (03:09→04:29 IST) got no reply
-  at all. At 01:00 it still
-  answered with the OLD build. Either the old process is wedged (memory
+  at all. **Still silent at 08:31 IST Sun (over SIX AND A HALF HOURS):
+  two more polls (04:32→06:02, 06:03→08:28 IST, one probe every 3-4 min)
+  got nothing; `/login` also times out. RULED OUT the sandbox: control
+  probes to upstox/github/render.com answer in <1 s through the same
+  proxy, and a verbose probe shows TLS to `CN=onrender.com` completing
+  and the HTTP/2 request being SENT — Render's edge accepts the
+  connection and nothing behind it ever answers. So the fault is the
+  service (wedged process or no healthy instance), not the network.**
+  At 01:00 it still answered with the OLD build. Either the old process is wedged (memory
   had been climbing all day between restarts) or Render is stuck
   mid-deploy. A session cannot restart it; Render's dashboard (Events /
   Logs / Manual Deploy / Restart) is the only lever. Read the Events tab
