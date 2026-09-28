@@ -177,6 +177,14 @@ def eng(tmp_path, monkeypatch):
         lambda tickers, upstox_client=None: {
             t: float(frames[t]["Close"].iloc[-1])
             for t in tickers if t in frames})
+    # The v4 macro-event halt reads the REAL calendar and blocks every new
+    # entry within 3 days of an RBI MPC / Budget / election date. On
+    # 2026-09-28 CI ran inside the 2026-10-01 RBI window and the two
+    # "scan opens CRASH.NS" claims failed with halt_pre_rbi_mpc_2026-10-01
+    # — a calendar fact, not a code fault. Off here (own tests in
+    # test_calendars.py) so the rails under test are Ocean's, not the date's.
+    monkeypatch.setattr("trading.calendars.is_system_event_within",
+                        lambda *a, **k: None)
     # deterministic: danger internals have their own tests
     monkeypatch.setattr("trading.danger.evaluate_stock", lambda df, ext=None: [])
     ocean._fund_cache.clear()

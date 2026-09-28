@@ -65,6 +65,15 @@ def _engine(tmp_path, monkeypatch, gate: bool):
             sizing_multiplier_everest=1.0, sizing_multiplier_ocean=0.0,
             reasoning="test fixture")
     monkeypatch.setattr("trading.regime.fetch_regime", fake_regime)
+    # The v4 macro-event halt reads the REAL calendar (RBI MPC / Budget /
+    # election within 3 days blocks every new entry). On 2026-09-28 CI ran
+    # inside the 2026-10-01 RBI window and this file's "it still buys"
+    # claims failed with reason halt_pre_rbi_mpc_2026-10-01 — a calendar
+    # fact, not a code fault. The halt has its own tests in
+    # test_calendars.py; here it is off so the claim under test is the
+    # three-formula switch and nothing date-dependent.
+    monkeypatch.setattr("trading.calendars.is_system_event_within",
+                        lambda *a, **k: None)
     monkeypatch.setattr("trading.engine.fetch_daily", fake_fetch_daily)
     monkeypatch.setattr(
         "trading.engine.routed_fetch_quotes",

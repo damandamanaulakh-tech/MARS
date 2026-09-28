@@ -16,8 +16,13 @@ def test_fii_csv_fallback_loads_committed_data():
 
 
 def test_get_flows_never_none_with_committed_csv():
-    # live NSE 403s from cloud -> must still return the CSV
-    assert get_flows() is not None
+    # live NSE 403s from cloud -> must still return the CSV.
+    # max_age_days=0 is the documented research opt-out of the 45-day
+    # staleness guard: the committed CSV ends 2026-08-06, so from 2026-09-20
+    # the default call returns None wherever the live NSE feed is blocked
+    # (this sandbox) and passes only where it answers (GitHub CI) — a test
+    # that read the real calendar and the network, not the CSV path it names.
+    assert get_flows(max_age_days=0) is not None
 
 
 def test_regime_accepts_fii_and_flags_selling():
