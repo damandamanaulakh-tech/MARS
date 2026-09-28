@@ -3415,6 +3415,16 @@ one line all along, and I could not read it from here. Ask for it first.
   13:24→15:49, 15:51→18:16 IST) got zero replies; every fresh 90 s probe
   in between timed out. No owner message all day. Monday 09:15 IST opens
   with the app DOWN unless the owner acts in Render before then.
+  **MONDAY 09-28 OPENED WITH THE APP DOWN.** Still silent at 09:41 IST
+  (32 hours since 01:41 IST Sun): polls 18:19→20:43, 20:45→23:09,
+  23:11→01:36, 02:20→04:46 (after a second sandbox restart), 04:48→07:12
+  and 07:14→09:39 IST all zero replies; every fresh 90 s probe timed
+  out. **So today's 08:50 universe refresh, 09:20 five-mode scan, the
+  30-minute in-session exit passes and the danger layer did NOT run** —
+  whatever the book holds is unguarded until Render serves a process
+  again. Still no owner message since the 09-26 evening Events-log
+  paste. Nothing in the repo can change this; the levers are Render
+  (Events / Manual Deploy / Restart) and Atlas (drop the hog database).
   At 01:00 it still answered with the OLD build. Either the old process is wedged (memory
   had been climbing all day between restarts) or Render is stuck
   mid-deploy. A session cannot restart it; Render's dashboard (Events /
