@@ -168,13 +168,30 @@ def start_if_enabled() -> None:
     if daily and os.environ.get("SB_DISABLE_CATCHUP") != "1":
         # Deploy-restart healing: if the process boots after a missed 09:20
         # (deploys kill in-flight jobs), run the day's scan once, 2 min in.
-        from datetime import datetime as _dt, timedelta as _td
+        #
+        # 2026-09-28 (owner's Render log: 'Run time of job ... was missed by
+        # 5:28:00' on EVERY boot): the run_date used to be a NAIVE
+        # datetime.now(), which on Render is the UTC clock; APScheduler reads
+        # a naive run_date in the scheduler's own timezone (IST), so the job
+        # was born 5h28m overdue, past the 300 s grace, and DROPPED — this
+        # catch-up had never once run on Render. Same clock class as the
+        # 2026-09-16 exit drain. The clock must be IST-AWARE; a test pins it.
+        from datetime import timedelta as _td
         _SCHED.add_job(lambda: catchup_scan_if_missed("startup"), "date",
-                       run_date=_dt.now() + _td(seconds=120),
+                       run_date=startup_catchup_run_date(ist, _td(seconds=120)),
                        id="startup_catchup")
 
     _SCHED.start()
     log.info("Schedulers started (intraday=%s, daily=%s)", intraday, daily)
+
+
+def startup_catchup_run_date(tz, delay):
+    """The boot catch-up's fire time: `delay` from NOW on the scheduler's
+    OWN clock (tz-aware). Never a naive datetime — APScheduler reads a naive
+    run_date in the scheduler's timezone, and on Render the naive clock is
+    UTC, so the job would be born 5h28m in the past and discarded."""
+    from datetime import datetime as _dt
+    return _dt.now(tz) + delay
 
 
 def catchup_scan_if_missed(reason: str = "catchup") -> bool:
