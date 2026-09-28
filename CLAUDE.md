@@ -3457,6 +3457,39 @@ one line all along, and I could not read it from here. Ask for it first.
   BEFORE touching code: the next log line decides between "405 again
   (health-check path is `/`)" and "probe timeout (make `/healthz`
   cached)".
+- **THE OWNER PASTED THE RENDER LOG (Mon 09-28 ~17:30 IST: "what are
+  these failures" → "fix it"). TWO FAILURES, ONE FIXED IN CODE:**
+  1. **`Run time of job "start_if_enabled.<locals>.<lambda>" was missed
+     by 5:28:00` on EVERY boot = the boot catch-up scan has NEVER run on
+     Render.** `run_date=_dt.now() + 120s` was a NAIVE datetime; Render's
+     container clock is UTC; APScheduler reads a naive run_date in the
+     scheduler's OWN timezone (IST) → born 5h28m overdue → past the 300 s
+     grace → DROPPED. REPRODUCED locally under TZ=UTC (exact message).
+     Same clock class as the 2026-09-16 exit drain. The login catch-up
+     (direct call from the OAuth callback) was never affected; every cron
+     job is IST-aware and fine. FIX: `scheduler.startup_catchup_run_date
+     (tz, delay)` = `datetime.now(ist) + delay`; four tests in
+     web/tests/test_startup_catchup_clock_2026_09_28.py — a real IST
+     scheduler under a UTC process clock must RUN the job (EVENT_JOB_
+     EXECUTED, no MISSED), the old naive line is pinned as DROPPED, and a
+     comment-stripped source pin. Any future `add_job(..., "date")` must
+     use a tz-aware run_date — only one exists today.
+  2. **The 16-minute restart loop is Render's health check, not the
+     code.** Pattern: startup complete → 14m13s → "Shutting down" (a
+     graceful SIGTERM, not a crash) → reboot, six times in the paste.
+     DECISIVE FACT: the session's poll hit `/healthz` every 3 min across
+     that whole window and the log shows NOT ONE access-log line — no
+     request reaches the process. Render routes traffic only to an
+     instance that passed its health check and restarts one that keeps
+     failing; an instance that never passes gets no traffic at all. That
+     is the whole outage since 01:41 IST Sun: the old serving instance
+     died, its replacement never passed the check, and nothing has been
+     routed since. The check the owner's Events log showed is `HEAD /`
+     → 405 (fixed on main by PR #121, unreachable until a build with it
+     goes live). OWNER ACTIONS asked: Render → Settings → Health Check
+     Path must be `/healthz`; Events → which commit is Live + the newest
+     deploy's failure line; Manual Deploy → latest commit. A restart of
+     the SAME build cannot end the loop.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never
