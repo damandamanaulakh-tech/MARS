@@ -3425,6 +3425,31 @@ one line all along, and I could not read it from here. Ask for it first.
   again. Still no owner message since the 09-26 evening Events-log
   paste. Nothing in the repo can change this; the levers are Render
   (Events / Manual Deploy / Restart) and Atlas (drop the hog database).
+- **CI WENT RED ON A DOCS-ONLY PR THE SAME MORNING (PR #128, 09:42 IST)
+  — AND IT WAS THE CALENDAR, NOT THE CODE.** Four "the scan still buys"
+  tests (test_multi_formula_gate ×2, test_ocean_guard ×2) failed with
+  skip reason `halt_pre_rbi_mpc_2026-10-01`: `engine.scan` calls
+  `calendars.is_system_event_within(days=3)` on the REAL date, and the
+  v4 macro-event halt blocks EVERY new entry within 3 days of an RBI MPC /
+  Budget / election date. 09-28 is inside the 2026-10-01 RBI window.
+  Reproduced locally at 09:44 IST; the same tests were green on Sunday.
+  FIX = test-only: both fixtures now stub `is_system_event_within` to
+  None (the halt keeps its own tests in test_calendars.py); no engine
+  line changed. FAULT CLASS: a fixture that lets production read the real
+  clock or calendar (the SB_IGNORE_MARKET_HOURS family) — a green suite
+  on Sunday says nothing about Monday. **LIVE CONSEQUENCE, say it when
+  the app returns: the engine will open NO new positions on 09-28, 09-29,
+  09-30 or 10-01 by design (RBI MPC halt), whatever the scan shows;
+  exits, stops and the danger layer still run. "No new position this
+  week" is the calendar, not a fault — check the journal for
+  `halt_pre_rbi_mpc` before investigating.** Same class, found by the
+  clean-state full run: `test_get_flows_never_none_with_committed_csv`
+  called `get_flows()` with the default 45-day staleness guard while the
+  committed CSV ends 2026-08-06 — None since 09-20 wherever NSE blocks
+  the live feed (this sandbox; the earlier "1 failed, 1297 passed" flake
+  was this), green only where NSE answers (GitHub). Now asks
+  `max_age_days=0`, the documented opt-out, so it tests the CSV path it
+  names. Suite: 1,298 green from a clean state dir at 09:49 IST Monday.
   At 01:00 it still answered with the OLD build. Either the old process is wedged (memory
   had been climbing all day between restarts) or Render is stuck
   mid-deploy. A session cannot restart it; Render's dashboard (Events /
