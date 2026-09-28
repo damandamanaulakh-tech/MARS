@@ -3490,6 +3490,40 @@ one line all along, and I could not read it from here. Ask for it first.
      Path must be `/healthz`; Events → which commit is Live + the newest
      deploy's failure line; Manual Deploy → latest commit. A restart of
      the SAME build cannot end the loop.
+  **PR #129 MERGED 17:35 IST (75d3459) and RENDER DEPLOYED IT** — the
+  owner's next log paste (12:06-12:08Z): build OK, `Started server
+  process [57]`, startup complete 12:07:48Z, then **`127.0.0.1 "HEAD /"
+  200 OK`** (the #121 probe fix, live at last) and **NO "was missed by
+  5:28:00" line** (the catch-up fix, live). Then `Shutting down` at
+  12:08:14Z — 26 s later; that stamp matches the OLD loop's cadence
+  exactly (11:53:22 boot + ~40 s startup + 14m13s), so it is most likely
+  the previous instance being retired, but the paste ends there and the
+  lines AFTER 12:08:14Z decide it.
+  **THE OUTAGE, SEEN FROM A SECOND VANTAGE: RENDER'S EDGE ANSWERS `503
+  Service Unavailable, Retry-After: 5` on `/healthz` AND `/login`**
+  (WebFetch, a different network path from the sandbox proxy; the proxy
+  turns the same 503 into a zero-byte hang on HTTP/2 AND HTTP/1.1 — so
+  every "timed out, 0 bytes" reading since Sat 01:41 IST was this 503).
+  503+Retry-After from the edge = "no healthy instance to route to". At
+  12:15-12:22Z, 8-14 min after [57] passed `HEAD /`, the edge still said
+  503 — so passing that probe was not enough for the edge to route.
+  Whether [57] was itself retired, or the configured Health Check Path
+  is `/healthz` and it timed out (cold /healthz took 14.6 s on 09-24
+  BEFORE #117 added `_cluster_sizes` dbStats over every database), only
+  the post-12:08Z log + the dashboard setting can say. **NOT a lock
+  hang: `state._LOCK` is held only by the getters/_bootstrap, never by
+  the scan — /healthz cannot block behind the catch-up scan** (checked
+  before assuming the new fix made it worse).
+  Circumstantial, NOT claimed as cause: status.render.com lists "Build
+  and deploy failures in Oregon" (Sep 25 18:26-18:38Z) and "Upstream AWS
+  instability, Oregon" (Sep 27 01:24-03:01Z, "all services except the
+  free web tier recovered"). Our silence began 20:11Z Sep 26 — five
+  hours BEFORE the second incident opened; the plan is starter, the
+  region is not stated in render.yaml.
+  OPEN ASKS to the owner: the Render log after 12:08:14Z; Settings →
+  Health Check Path value. If the check is `/healthz` and it times out,
+  the fix is the cached /healthz (Mongo stats off the probe path) already
+  designed above — needs their word.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never
