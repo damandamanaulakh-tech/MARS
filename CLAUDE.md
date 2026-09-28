@@ -3524,6 +3524,32 @@ one line all along, and I could not read it from here. Ask for it first.
   Health Check Path value. If the check is `/healthz` and it times out,
   the fix is the cached /healthz (Mongo stats off the probe path) already
   designed above — needs their word.
+  **THE DECIDING LOG ARRIVED (owner paste, the #130 deploy, 12:49-13:08Z)
+  → "go" → CACHED /healthz SHIPPED.** The sequence: build OK → `Started
+  server process [57]` 12:50:42 → `HEAD / 200` 12:51:02 (the PORT probe)
+  → **`Shutting down` 12:56:28, `Finished server process [57]`** → **`==>
+  Timed Out` 13:07:59**. So the NEW process is killed ~5 min after boot
+  and the deploy fails on the health check, every time since #117.
+  **MY 09-26 DIAGNOSIS WAS WRONG ON THE 405**: `HEAD / 405` was Render's
+  port-detection probe — it printed 405 on the old build too and THOSE
+  deploys succeeded; PR #121 fixed a non-fault. The real check is GET
+  /healthz, which since #112 ran dbStats+collStats per request and since
+  #117 dbStats on EVERY cluster database (4.7 s warm / 14.6 s cold
+  measured live BEFORE #117); Render's check gives up sooner → no instance
+  ever passed → once the last pre-#117 instance died Sat night, 503 from
+  the edge for two days. FIX: `web/health_stats.py` — the Mongo reads
+  (list_history_meta count + storage_stats incl. cluster sizes) run in ONE
+  daemon thread on a 60 s timer (`SB_HEALTH_STATS_INTERVAL_S`), started at
+  app startup with the first compute IN the thread; `/healthz` copies the
+  snapshot and answers from memory, adding `stats {asof, age_s, pending,
+  elapsed_s, error}` so a stale number is visibly stale and a failed
+  refresh keeps the old numbers + names the error. PROBE-PATH RULE, source-
+  pinned (docstring+comments stripped): the handler names no db call.
+  Tests web/tests/test_healthz_probe_path_2026_09_28.py (7): a 5 s hanging
+  stats function cannot slow the probe (<1 s), refresh→page round trip,
+  error keeps old numbers, timer thread refreshes on its own, startup
+  starts the thread, source pin, render.yaml path pin. main.py's 405
+  comment truth-passed. Money path untouched.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never

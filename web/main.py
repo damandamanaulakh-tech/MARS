@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import readiness, scheduler
+from . import health_stats, readiness, scheduler
 from .routes import (
     auth, dashboard, positions, scan_routes, settings_routes,
     upstox, backtest_routes, regime_routes,
@@ -76,6 +76,9 @@ app.include_router(register_routes.router)
 @app.on_event("startup")
 def _on_startup() -> None:
     scheduler.start_if_enabled()
+    # Mongo statistics for /healthz run on a timer in their own thread; the
+    # health probe answers from memory (see web/health_stats.py).
+    health_stats.start()
 
 
 @app.get("/sw.js")
@@ -86,18 +89,17 @@ def service_worker():
                         media_type="application/javascript")
 
 
-# 2026-09-26 — THE FAILED DEPLOYS. Render's Events log for every deploy
-# since PR #116 ended with:
+# 2026-09-26 — Render's Events log for every deploy since PR #116 showed:
 #     INFO: Uvicorn running on http://0.0.0.0:10000
 #     INFO: 127.0.0.1:49914 - "HEAD / HTTP/1.1" 405 Method Not Allowed
-# Render probes the new process with a HEAD request; a FastAPI GET route
-# does not answer HEAD (measured: HEAD / and HEAD /healthz both 405), so
-# the probe failed, Render marked the deploy failed and kept the old build
-# serving — three merged fixes never reached the live app. Both paths now
-# answer HEAD with 200 and no body. HEAD / carries no data (no body, no
-# auth state), it is a liveness answer only; GET / still redirects to
-# login. render.yaml's healthCheckPath is /healthz — keep the Render
-# dashboard's Health Check Path on /healthz too.
+# and this route was added so that probe answers 200. CORRECTED 2026-09-28
+# from a fuller log: that HEAD is Render's PORT-DETECTION probe, it printed
+# 405 on the old build too and those deploys succeeded — it was never the
+# failure. The deploys were ending `==> Timed Out` because the real health
+# check, GET /healthz, ran Mongo statistics slower than Render's timeout
+# (see web/health_stats.py). HEAD / stays: liveness only, no body, no auth
+# state; GET / still redirects to login. render.yaml's healthCheckPath is
+# /healthz — keep the Render dashboard's Health Check Path on /healthz too.
 @app.head("/", include_in_schema=False)
 def root_head():
     from fastapi.responses import Response
@@ -109,12 +111,17 @@ def healthz() -> dict:
     """For Render's health checks. history_tickers = stored OHLCV count so
     bulk-download completion is externally verifiable (a count leaks nothing);
     universe = size + last-refresh date of the NSE master (proof the daily
-    auto-refresh ran, visible without login)."""
-    from . import db, state
-    try:
-        hist = len(db.list_history_meta())
-    except Exception:
-        hist = None
+    auto-refresh ran, visible without login).
+
+    PROBE-PATH RULE (2026-09-28): nothing below touches Mongo. The stored
+    count and the storage sizes come from web/health_stats.py's snapshot,
+    refreshed on a timer in its own thread — a slow cluster made every
+    deploy since PR #117 time out on this very page and took the app off
+    the air for two days. `stats` names the snapshot's age so a stale
+    number is visible as stale."""
+    from . import state
+    stats = health_stats.snapshot()
+    hist = stats.get("history_tickers")
     universe = None
     try:
         import os
@@ -164,12 +171,12 @@ def healthz() -> dict:
         }
     except Exception:
         pass
-    mongo = None
-    try:
-        mongo = db.storage_stats()
-    except Exception:
-        pass
+    mongo = stats.get("mongo")
     return {"ok": True, "db": state.db_status(), "history_tickers": hist,
             "universe": universe, "scan_universe": scan_universe,
             "memory": memory, "mongo": mongo,
+            "stats": {"asof": stats.get("asof"), "age_s": stats.get("age_s"),
+                      "pending": stats.get("pending"),
+                      "elapsed_s": stats.get("elapsed_s"),
+                      "error": stats.get("error")},
             "readiness": readiness.status()}
