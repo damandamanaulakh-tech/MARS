@@ -1,0 +1,259 @@
+# Pre-fall indication framework — measured on the Jun–Sep 2026 slide
+
+Owner ask (2026-09-29): "the framework for pre fall indications so i can
+incorporate in the code in future … no code writing but share the pre fall
+indications parameter … may be we can find few new parameters, some
+corrections in existing formula which can make roadmap of pre fall for
+this crash."
+
+This is a DESIGN document. No code, no config, no behaviour change. Every
+number below was computed on 2026-09-29 from live tokenless Upstox daily
+candles (242 stocks = the committed 191-name panel + the 83-name owner
+list; 17 indices), the NSDL FII archive, Yahoo (Brent, US 10y, USDINR)
+and tradingeconomics (India 10y). Scratch scripts: `crash_idx.py`,
+`crash_stocks.py`, `prefall_params.py` (session scratchpad, not
+committed — the numbers are what matter and they are all here).
+
+Rule that governs everything below: **a parameter enters the money path
+only after the owner's REQUIRES_15Y_BACKTEST test on the committed
+191×12y panel with a train/test split.** The 2026-09-09 pre-drop study
+already rejected 24 of 25 candidates on the holdout, INCLUDING breadth
+divergence and distribution days. The parameters marked NEW here were not
+in that study. Expect most to fail; the point is to find the two or three
+that do not, and to test the LADDER (several gauges in sequence with a
+confirmation step), which was never tested either.
+
+---
+
+## 1. What this fall actually was (corrected)
+
+| Date | Nifty | Event |
+|---|---|---|
+| 2026-01-02 | 26,328.55 | 52-week high |
+| 2026-06-17 | — | Close below 200DMA. **Never reclaimed since.** |
+| 2026-07-06 | 24,430 | June–July high |
+| 2026-07-24 | 23,767 | July dip low |
+| **2026-08-03** | **24,774.30** | Rally high. 200DMA that day = 24,776.32. **Stopped 2 points under the 200DMA and reversed.** A lower high vs January (−5.9%). |
+| 08-04 → 09-11 | −5.5% | The grind: 28 sessions, 20 red, none worse than −0.86% |
+| 09-15 / 09-24 / 09-28 | −1.19 / −1.64 / −1.56% | The break. 22,780 = −8.05% from the rally high, −13.5% from January, −6.6% under the 200DMA |
+
+India VIX: 10.4 to 13.6 through the whole period; its 120-day p90 is
+18.67. **No fear gauge moved.** This was not a shock; it was a failed
+reclaim followed by distribution. Shock gauges (VIX, the damage cluster,
+the danger tripwires, IFR's −3% day) are the wrong instruments for it and
+they duly said nothing until the break.
+
+---
+
+## 2. Timeline — when each gauge first tripped
+
+"From rally high" = Nifty vs the 3 Aug close on that day. Trips before
+3 Aug fired in the JULY dip and were then RESET by the 3 Aug rally; that
+whipsaw is the central design problem (see §5).
+
+| First trip | Gauge | Reading | Nifty from rally high |
+|---|---|---|---|
+| 06-17 | Close below 200DMA (regime CORRECTION) | — | (before) |
+| 07-20 | Distribution days ≥ 6 of 25 | 6 | −6.6% (July dip) |
+| 07-23 | Breadth decay: stocks >20DMA fell ≥25 pts from 20d max | 69→38% | −8.0% (July dip) |
+| 07-23 | Sectors above own 50DMA ≤ 6 of 12; above 20DMA ≤ 3 | 6 / 3 | −8.0% (July dip) |
+| 07-23 | US 10y +25 bp in 20 sessions | 4.47→4.69 | (July dip) |
+| 07-16, 07-23 | USDINR at a 120-day high (rupee low) | ~95.6 | (July dip) |
+| **08-03** | **Failed reclaim: rally closes within 0.5% of the 200DMA from below, next day reverses** | 24,774 vs 24,776 | 0.0% |
+| 08-03 | Leader reversal: top-3 sectors of last 25d (IT +17.3, Realty +11.5, Auto +10.4) are all ≤0 over the next 10d | IT −2.9, Realty −0.5, Auto 0.0 | 0.0% (known 10 days later) |
+| 08-10 → 08-17 | Owner's dbi (dispersion ÷ \|EW return\|, 5d) above its 250d p90 (12.2) while Nifty within 3% of its rally high | 19 → 28 | −4.8 to −5.6% vs Jan; −0.8 to −2.0% vs 3 Aug |
+| 08-18/19 | Breadth decay ≥25 pts again (69 → 43%) | 43% | −2.5% |
+| 08-27 | A/D line makes a 20-day low while Nifty within 3% of rally high | −1,078 | −2.8% |
+| 08-27 | Down-volume days: up-vol/down-vol < 0.5 on 3 of last 10 | 0.26 / 0.33 / 0.47 | −2.8% |
+| 08-27 | Small-cap divergence: SML100 20d return ≥ +5 pp over Nifty while Nifty < 200DMA | +5.0 pp | −2.8% |
+| 08-31 | New 52w lows ≥ 10 | 11 | −2.8% |
+| 09-01 | Sectors above own 20DMA ≤ 2 of 12 | 2 | −2.9% |
+| 09-07 | Names down ≥10% in 20d ≥ 8% of panel | 8.7% | −4.0% |
+| 09-09 | Distribution days = 7 of 25 | 7 | −5.4% |
+| 09-10 | Stocks above 50DMA < 35% | 35% | −5.2% |
+| 09-11 | New lows > new highs on 3 consecutive days | 19 vs 3 | −5.5% |
+| 09-15 | Danger tripwires fire on 4.5% of the panel (11 of 242) | 11 | −6.7% (the break) |
+| 09-15 | Brent peaks at 108.75 (+25% since 3 Aug) | 108.75 | −6.7% |
+| ~09-22 | FII 10-day net ≤ −10,000 Cr | −14,781 | −5.8% |
+| never | Damage cluster tail_down3_5d above its OWN 250d p90 (0.70) | max 0.66 | — |
+| never | India VIX above 120d p90 (18.67) | max 13.6 | — |
+| unknown | India 10y +25 bp in 20 sessions (the 09-09 study's one survivor) | +21 bp over the past month to 7.17% | DATA_NEEDED: no daily series reachable; committed file ends 2026-06-08 |
+
+FII cash (NSDL, report-date shifted): +12,460 Cr in the run-up (Jul 1 →
+Aug 3), −588 Cr in the grind (5-day minimum −15,116 around Aug 31 →
+Sep 4), −13,711 Cr in the 9 sessions since Sep 12. **Flows followed the
+fall; they did not lead it.**
+
+---
+
+## 3. The parameter set
+
+Columns: ID · name · formula · data the app already stores (Y/N) · what
+it read here · evidence status · proposed role. Roles: STATE (sets the
+regime), WARN (stop adding), REDUCE (cut exposure), BREAK (confirms the
+fall has started), ADD (re-entry).
+
+### A. Structure
+
+| ID | Name | Formula | Stored | This episode | Evidence | Role |
+|---|---|---|---|---|---|---|
+| PF-01 | Failed reclaim | Nifty below 200DMA ≥ 20 sessions; a rally close within 0.5% of the 200DMA from below; the next 3 sessions close lower than that rally close. | Y (index_daily + regime) | 3 Aug: 24,774 vs 24,776, reversed 4 Aug | **NEW — not in the 09-09 study** | STATE → WARN |
+| PF-02 | Lower-high count | Each swing high (20-day max) below the previous swing high while the 52w high is > 120 sessions old. | Y | Jan 26,328 → Jul 6 24,430 → Aug 3 24,774 (lower than Jan, higher than Jul 6 — a bear-market bounce) | NEW | STATE |
+
+**Correction to the existing regime module:** `regime.classify` knows only
+above/below 200DMA and the 52w-high distance. It has no EVENT for the
+reclaim attempt failing, which is the single most informative moment in
+this whole episode. CORRECTION has been true since 17 June; a flag that
+is true for 100 days carries no timing.
+
+### B. Participation (breadth)
+
+| ID | Name | Formula | Stored | This episode | Evidence | Role |
+|---|---|---|---|---|---|---|
+| PF-03 | Breadth decay | % of panel above its 20DMA, drop from its own 20-session max ≥ 25 points, while Nifty is within 3% of its 20-session high. | Y (scan panel / store) | 69 → 43% by Aug 19 with Nifty −2.5% | NEW (the study tested LEVEL divergence, which failed; this is the RATE) | WARN |
+| PF-04 | Intermediate breadth | % above 50DMA < 50% (warn) / < 35% (reduce). | Y | 49% Aug 24; 35% Sep 10 | untested | WARN / REDUCE |
+| PF-05 | New lows | 52w new lows ≥ 10 of the panel (warn); new lows > new highs 3 consecutive days (reduce). | Y | 11 on Aug 31; 19 vs 3 on Sep 11 | untested | WARN / REDUCE |
+| PF-06 | Sector participation | Count of the 12 sector indices above their own 50DMA ≤ 6 (warn) / ≤ 3 (reduce); above 20DMA ≤ 2 = reduce. | Y (sector_index store) | 6 on Jul 23; 5 on Sep 1; 2 on Sep 8 | NEW | WARN / REDUCE |
+| PF-07 | Casualty share | % of panel down ≥ 10% over 20 sessions ≥ 8%. | Y | 8.7% on Sep 7 | untested | REDUCE |
+| PF-08 | A/D line lower low near the high | Cumulative (advances − declines) makes a 20-session low while Nifty is within 3% of its rally high. | Y | Aug 27 at −2.8% | NEW (classic, but never measured here) | WARN |
+
+**Correction to the breadth gate:** the live gate is a LEVEL band on the
+200DMA count (block inside 0.40–0.65). Through this whole grind that
+reading sat at 59–64% and blocked entries — correctly, but only because
+the band happened to cover it. The 200DMA count is the slowest breadth
+ruler there is (it fell from 64% to 49% over five weeks while the 20DMA
+count fell from 69% to 23%). For a pre-fall gauge the 20DMA and 50DMA
+counts and their RATE of change are the rulers; the 200DMA level stays as
+the entry band it was measured for.
+
+### C. Volume
+
+| ID | Name | Formula | Stored | This episode | Evidence | Role |
+|---|---|---|---|---|---|---|
+| PF-09 | Distribution days | Nifty down ≥ 0.2% on panel volume higher than the prior day; count over 25 sessions ≥ 6. Index volume is 0 on Upstox, so the panel's summed volume is the proxy. | Y | 6 on Jul 20; 7 on Sep 9 | **REJECTED on the 12y holdout (0.55 / 0.84 lift = below chance)** | none — listed so it is not re-proposed |
+| PF-10 | Down-volume days | Up-volume ÷ down-volume < 0.5 on ≥ 3 of the last 10 sessions. | Y | Aug 19 0.26, Aug 27 0.33, Aug 26 0.47 → tripped Aug 27 | NEW | WARN |
+
+### D. Leadership and rotation
+
+| ID | Name | Formula | Stored | This episode | Evidence | Role |
+|---|---|---|---|---|---|---|
+| PF-11 | Leader reversal | The top-3 sectors by trailing 25-session return all return ≤ 0 over the next 10 sessions. Known with a 10-day lag by construction. | Y | Aug 3 leaders IT/Realty/Auto → −2.9 / −0.5 / 0.0% | NEW | WARN |
+| PF-12 | Small-cap divergence | SML100 20-session return minus Nifty 20-session return ≥ +5 pp while Nifty < 200DMA. | Y | +5.0 pp on Aug 27; SML100 peaked Sep 8, five weeks after Nifty | NEW | WARN |
+| PF-13 | No shelter | FMCG and Pharma both below their 50DMA while Nifty < 200DMA (defensives not defending). | Y | FMCG −9.8% in the grind; Pharma held (+0.4%) — half-tripped | NEW | REDUCE (confirming, not leading) |
+
+### E. Dispersion — the owner's own gauge, re-purposed
+
+| ID | Name | Formula | Stored | This episode | Evidence | Role |
+|---|---|---|---|---|---|---|
+| PF-14 | Churn under a flat index | dbi (cross-sectional dispersion ÷ \|equal-weight return\|, 5-day mean — the PX-01 definition recovered 2026-08-11) above its 250-session p90 (12.2 here) while Nifty is within 3% of its 20-session high. | Y (register PX-01/05 already computes dbi) | 19 → 28 on Aug 10–17, index flat: money rotating OUT of names while the index hid it | NEW as a timing gauge (PX-01 is display-only today) | WARN |
+
+### F. Macro
+
+| ID | Name | Formula | Stored | This episode | Evidence | Role |
+|---|---|---|---|---|---|---|
+| PF-15 | India 10y | +25 bp in 20 sessions. | **N** (file ends 2026-06-08; tradingeconomics answers the current level only) | +21 bp over the past month to 7.17% (+62 bp YoY) — near the line, NOT confirmable daily | the 09-09 study's ONLY holdout survivor (1.75 train / 3.78 test, ~6 events in 12y, lead 10–16 d) | WARN (weak; needs a daily feed) |
+| PF-16 | US 10y | +25 bp in 20 sessions. | N (Yahoo ^TNX works from the sandbox) | tripped Jul 23; 4.47 → 5.24% Jul → Sep | untested | WARN (context) |
+| PF-17 | Oil shock | Brent +20% over 40 sessions. | N (Yahoo BZ=F works) | tripped Mar 2 (earlier shock); +25% Aug 3 → Sep 11, peak 108.75 on the break day | untested; India is an importer, so the sign is right | WARN (context) |
+| PF-18 | Rupee | USDINR at a 120-session high. | Y (usdinr_daily.csv, W-025) | Jul 16, Jul 23 | untested | WARN (context) |
+
+### G. Flows
+
+| ID | Name | Formula | Stored | This episode | Evidence | Role |
+|---|---|---|---|---|---|---|
+| PF-19 | FII 10-day net | ≤ −10,000 Cr. | Y (fii_daily) | −14,781 Cr, reached ~Sep 22, AFTER the break | **all 7 FII signals failed the holdout (2026-08-25 study)**; here it lagged | none as a lead; confirmation only |
+
+### H. Shock gauges already in the app — and the corrections they need
+
+| Gauge | What it read | Correction |
+|---|---|---|
+| Damage cluster `tail_down3_5d` vs static 0.213 | 0.23–0.66 EVERY day since July; 36 of 38 days > 0.213 since Aug 3. On this 242-name panel the normal level is 0.2–0.5 and its own p90 is 0.70. | The 0.213 was the p90 of a 1996–2024 broad-market file; it is not the p90 of the live panel. As a MARKET gauge use the live panel's rolling 250-day q90 (the `q90_cluster` half already exists) and drop the static line. Even so it never tripped here (0.66 < 0.70): it is a shock detector, and this was not a shock. Keep it as Ocean's rail R2 only. |
+| Danger tripwires (12, per stock) | 0–6 fires/day before the break; 11 (4.5% of the panel) on Sep 15; 0 on Sep 28. | Per-stock by design and coincident by measurement. NEW panel-level use: share of the scanned panel firing ≥ 4% in one session = BREAK confirmation (stage 4 below). Not a lead. |
+| India VIX / VIX-crush | 10.4–13.6 the whole way; p90 18.67 never approached. | No correction possible — a grind does not print fear. VIX-crush re-entry has nothing to crush in this shape; the ADD side must have a breadth-based washout rule too (PF-A2). |
+| IFR (any single −3% day in 5) | same class as the damage cluster | same correction: shock only |
+| Sector strip (1d / 5d moves) | showed IT −5% in 5d on Sep 9, i.e. late | add PF-06 (participation count) and PF-11 (leader reversal) beside the moves |
+| Regime CORRECTION | true since Jun 17 | add PF-01 / PF-02 events |
+
+### I. The ADD side (re-entry)
+
+| ID | Name | Formula | Evidence | Role |
+|---|---|---|---|---|
+| PF-A1 | VIX crush | VIX ≤ 75% of its 120d spike peak after a spike above the p90 | measured +2.3 pp (v4), wired | ADD |
+| PF-A2 | Breadth washout | % above 200DMA < 40% (the U: measured buyable on the engine's own picks, +1.61 pp holdout, 2026-09-09) AND a reclaim day: % above 20DMA rises ≥ 15 points in one session from below 20%. | first half measured and wired (the band); the reclaim-day half is NEW | ADD |
+| PF-A3 | Casualty peak | PF-07 above 15% then falling for 3 sessions. | NEW | ADD (confirming) |
+
+Today (Sep 28 close): 41.1% above 200DMA, 19% above 20DMA, casualties
+19.4%. PF-A2's first half is one point from tripping; the reclaim day has
+not come.
+
+---
+
+## 4. The ladder — roadmap of this crash, stage by stage
+
+Stages are entered on COUNTS of gauges, never on one, because single
+gauges whipsawed here (see §5). The action column is what the ladder is
+FOR; the sizes (how much to cut) are the owner's numbers and must come
+from the backtest, not from this document.
+
+| Stage | Entered when | Date here | Nifty then | Action (proposed, to be measured) |
+|---|---|---|---|---|
+| 0 CORRECTION | Nifty < 200DMA | Jun 17 | 24,0xx | Existing regime; brake OFF by owner order 2026-08-09. No change. |
+| 1 WARN | Stage 0 AND ≥ 2 of {PF-03, PF-06, PF-10, PF-14, PF-15/16} | **Jul 23** (PF-03 + PF-06 + PF-16) — then the Aug 3 rally reset PF-03/PF-06 | 23,870 | Freeze NEW Everest entries (today: breadth band did this by accident). No selling. |
+| 2 CONFIRMED | PF-01 failed reclaim OR (Stage 1 AND PF-11 leader reversal) | **Aug 3–4** (PF-01) ; Aug 13 (PF-11 known) | 24,774 → 24,615 | Tighten every Everest stop to the owner's number (proposal: −3% off live, never loosened — the danger layer's mechanism, market-level trigger). No new entries at all. |
+| 3 DISTRIBUTION | Stage 2 AND ≥ 3 of {PF-04 warn, PF-05 warn, PF-08, PF-10, PF-12} | **Aug 27–31** (PF-08, PF-10, PF-12 on Aug 27; PF-05 on Aug 31) | 24,091 → 24,080 (−2.8%) | REDUCE: exit the weakest half of Everest by score progress; keep owner_pick names (their rule). The −5.5% grind and the −8% total were still ahead. |
+| 4 BREAK | ≥ 2 of {PF-04 reduce, PF-05 reduce, PF-07, danger share ≥ 4%} | **Sep 7–11** (PF-07 Sep 7, PF-04 Sep 10, PF-05 Sep 11); danger share Sep 15 | 23,779 → 23,398 | Exit remaining Everest except owner_pick; Ocean rails stay as they are (R1 VIX knife is irrelevant here, R2 damage is not tripped, R3/R4 per stock). |
+| 5 WASHOUT / ADD | PF-A1 or PF-A2 or PF-A3 | not yet (41% vs 40%; no reclaim day) | 22,780 | Re-enable Everest entries; Ocean at its own ticket. |
+
+What the ladder would have done with the −8%: stopped adding on Jul 23
+(and missed the +4.2% rally into Aug 3 — the cost), tightened on Aug 4,
+cut half on Aug 27–31 at about −2.8% from the rally high, cut the rest
+Sep 7–11 at about −4 to −5.5%. Whether that is better than the current
+"hold to −5% per stock" is EXACTLY the backtest question; on one episode
+it is, and one episode is not evidence.
+
+---
+
+## 5. The whipsaw problem — why a ladder and not a switch
+
+Every breadth gauge that tripped on Jul 23–24 was reset by the rally into
+Aug 3 (20DMA breadth went 38% → 69%, sectors above 50DMA 6 → 11, new highs
+19, new lows 0). A switch that sold on Jul 24 would have sold the low of
+the July dip and watched a 4% rally. That rally was the trap: it was a
+bear-market bounce INTO a falling 200DMA, and the only gauge that said so
+in real time was PF-01 (the failed reclaim) on Aug 3–4.
+
+Design consequences:
+
+1. Stage 1 is "stop adding", never "sell". Being early costs nothing when
+   the book is not being added to.
+2. Stage 2 requires the STRUCTURE gauge (PF-01) or a lagged confirmation
+   (PF-11). Structure does not whipsaw on a 4% bounce.
+3. Stage 3 requires three independent families (participation, volume,
+   rotation), not three breadth cousins that move together.
+4. Every stage must be re-armable: after Stage 5 the ladder returns to
+   Stage 0 with counts cleared, so a new slide starts a new count.
+
+---
+
+## 6. What must happen before any of this touches money
+
+1. **Pre-register** the parameter formulas and thresholds above (they are
+   the pre-registration; do not tune them on this episode any further).
+2. Run them on the committed 191×12y panel + index_daily_15y.csv with the
+   2020-06-30 train/test split the other studies used. Label = Nifty
+   forward-20 return ≤ −5% (the pre-drop study's label) AND, separately,
+   the ENGINE'S OWN PICKS' forward-20 return (the breadth re-cut's label,
+   which is the one that actually matters for the book).
+3. Score each PF alone (lift, lead time, false-alarm rate), then the
+   ladder as a whole (return and drawdown of a book that follows it vs the
+   live "-5% per stock" exits), episode-counted so 2020 cannot dominate.
+4. Report the holdout numbers whatever they say. The 09-09 study says the
+   base rate for "leading" gauges is failure; a ladder that only matches
+   the current exits is a reason to keep the current exits.
+5. Only then: the owner's word, and one PR per stage, each with the
+   measured numbers in the PR body.
+
+Data gaps that block a full test today: a daily India 10y series after
+2026-06-08 (PF-15); the sector index history before 2026-09-09 (PF-06/11
+can be rebuilt from the equal-weight panel sectors, as T12W_0094 does);
+US 10y and Brent daily history (Yahoo reachable from the sandbox, not
+committed).
