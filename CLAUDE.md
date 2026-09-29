@@ -3550,6 +3550,24 @@ one line all along, and I could not read it from here. Ask for it first.
   error keeps old numbers, timer thread refreshes on its own, startup
   starts the thread, source pin, render.yaml path pin. main.py's 405
   comment truth-passed. Money path untouched.
+  **#131 MERGED 18:12Z Mon (379ce04) — AND THE EDGE STILL ANSWERED 503 AT
+  04:33Z TUE 09-29 (10:03 IST, second market open with the app down;
+  58 h since Sat 01:41 IST).** Probed at 18:15, 18:27, 18:31, 18:45,
+  19:11, 20:13Z and 04:33Z: `503 Retry-After: 5` every time; three
+  background polls (75 s and 3 min cadence) got no reply. So EITHER
+  Render never ran the 379ce04 deploy (queue / auto-deploy stalled) OR
+  the new build booted and the check STILL fails — which would mean the
+  dashboard's Health Check Path is not `/healthz` (a `GET /` check gets
+  303 → fail) or something the log will name. A session cannot tell
+  which; the owner's Render deploy log for 379ce04 + the Health Check
+  Path value decide it. Checked and ruled out meanwhile: no Mongo write
+  sits under `state._LOCK` (only `db.load_upstox_token` READS inside
+  `refresh_broker_attachment`/`_heal_stale_broker`, 3 s server-selection
+  cap), so `/healthz`'s `state.cfg()` cannot block for minutes. NEXT
+  LEVER if the path turns out to be `/`: make unauthenticated `GET /`
+  answer 200 (serve the login page at `/` instead of a 303) — needs the
+  owner's word, not built. RBI-MPC halt still covers 09-29..10-01, so no
+  entries were lost to the outage today; exits/stops/danger were.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never
