@@ -3597,6 +3597,46 @@ one line all along, and I could not read it from here. Ask for it first.
   2026-09-29` = deploy mtime, as always. The boot catch-up (fixed in #129)
   fired ~11:17 IST inside the RBI-MPC halt → scores/shows, opens nothing.
   Owner still has to log in to Upstox (token doc is from before 03:30).
+**PRE-FALL SYMPTOMS MEASURED (owner 2026-09-29: "Market crashed from few
+days / Find the pre crash symptoms n tell me here"). Read-only; nothing
+built. All from live tokenless Upstox candles (242 names = 191 panel + 83
+owner list, 17 indices), NSDL FII archive, Yahoo macro, tradingeconomics.**
+- SHAPE: not a crash, a grind then a break. Nifty peaked 24,774 on 08-03,
+  slid -5.5% to 09-11 in 28 sessions (20 red, none worse than -0.86%) =
+  the slow-grind signature that measured BELOW chance as a predictor
+  (09-09 study), then -1.19 (09-15) / -1.64 (09-24) / -1.56 (09-28) →
+  22,780 = -8.05% from peak, -6.6% under 200DMA, -13.5% off 52w high.
+  India VIX 10.4-12.3 the whole grind, 13.6 now — NO fear signal at all.
+- WHAT MOVED FIRST (dates): breadth. At the 08-03 peak >200DMA 63.9% /
+  >50DMA 66.8% / >20DMA 69.4%, 19 new 52w highs, 0 lows. By 08-28 (Nifty
+  only -2.4%) >20DMA 38.8, >50DMA 49.4; by 09-11 (-5.5%) >200DMA 48.5,
+  >50DMA 30.2, >20DMA 23.1, 19 lows vs 3 highs, 8.7% of names already
+  -10% in 20d. Decliners beat advancers 20 of 28 grind sessions; heavy
+  down-volume days (upV/dnV 0.26 08-19, 0.33 08-27, 0.22 09-10).
+  Distribution days 4 → 7 (of 25) by 09-09. Leadership reversal: the
+  run-up leaders (IT +17.3, Realty +11.5, Auto +10.4 Jun29→Aug03) were
+  the grind's worst (IT -8.8, Realty -7.1, Auto -6.4); FMCG -9.8 (no
+  defensive shelter); small caps +1.6% in the grind (SML100 peaked 09-08,
+  a month after Nifty) then caught down; banks/financials held the grind
+  and led the sharp leg (Bank -3.8, PSU -3.9, FinServ -3.4).
+- MACRO: India-specific. S&P +0.7%/flat, US VIX flat. Brent +17% Jul→Aug03
+  and +25% Aug03→Sep11 (~$105), rupee 95.96; US 10y 4.72→5.24%; India 10y
+  7.17% on 09-29, +21bp over the past month, +62bp YoY (the study's one
+  survivor was +25bp/20d — near the line, NOT confirmable: no daily series
+  reachable, committed file ends 2026-06-08 at 6.95%). Gold +7.8% in the
+  grind then -5.4%. FII (NSDL, report-date shifted): +12,460 Cr run-up,
+  -588 Cr grind (5d min -15,116 around 08-31), -13,711 Cr in the 9
+  sessions since 09-12 (7 sell days) — accelerated WITH the fall.
+- THE APP'S OWN GAUGES: damage cluster tail_down3_5d read 0.23-0.66 on
+  every day since July (36 of 38 days > 0.213 since 08-03, window q90
+  0.69) — at 0.213 it is permanently ON for this panel, no information;
+  danger tripwires 0-6 fires/day pre-break, 11 on 09-15 (coincident), 0 on
+  09-28; breadth band 0.40-0.65 had the full-panel reading INSIDE it every
+  day from 08-03 (63.9) to now (41.1), so momentum entries were blocked
+  through the whole grind by the gate as designed; regime CORRECTION since
+  08-04 (brake OFF by owner order 08-09). Told the owner: breadth was the
+  visible lead in THIS episode, and the 12-year study still says it does
+  not lead reliably — do not wire a new gate on one episode.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never
