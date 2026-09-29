@@ -3568,6 +3568,35 @@ one line all along, and I could not read it from here. Ask for it first.
   answer 200 (serve the login page at `/` instead of a 303) — needs the
   owner's word, not built. RBI-MPC halt still covers 09-29..10-01, so no
   entries were lost to the outage today; exits/stops/danger were.
+  **BACK UP 11:19 IST TUE 09-29 (05:49Z) — ~58 h after it went silent.**
+  First live `/healthz` on the #131 build, read from the box: **200 in
+  0.6 s** (`HEAD /` 200, `/login` 200). `stats.elapsed_s 13.04` = the
+  Mongo statistics compute takes **13 s on the live cluster** — the
+  measured confirmation that the pre-#131 page could never pass Render's
+  check; on the probe path it now costs nothing. `memory rss 200 / peak
+  205`. `db.write_error None` → **Atlas writes are landing again.**
+  **THE HOG IS NAMED: `ashstock` 301 MB** (the owner's OTHER app's
+  database on the same cluster), then `test` 10, `site_control` 9,
+  **`sourceborn` 4**, `sourceborn_sburr` 2, `AM07` 0, `G07` 0 = **327 MB
+  cluster-wide of 512**, so the quota is clear with ~185 MB headroom.
+  **THE OWNER'S "i dltd few files" DELETED OUR OHLCV STORE**: `ohlcv`
+  is 1 MB / **102 docs** (was 65 MB / **1,458** on 09-24);
+  `history_tickers 102`. The 12-year 191-name panel that seeded it is
+  NOT lost — it is committed in the repo (data/history_upstox_export_
+  2026-07-19.zip) and /backtest's Download-History re-imports it; the
+  1,267 newer names refill through the Friday block's time-bounded pull
+  (~1,350 names per 2,400 s run) and the daily custom+held top-up. UNTIL
+  THEN: `fetch_daily` is store-first with a 120-name network cap per
+  scan, so a 443-name scan will journal **SCAN_COVERAGE_SHORT** (real,
+  not a fault), the F3 breadth store falls back to the bucket (fail-safe
+  by design), and the register precompute's MIN_NAMES=150 guard stores
+  nothing. `scan_universe 443 / 1200, last_rebuild 2026-09-21` — the
+  weekly block is due TODAY 16:30 IST (>= 7 days): its pre-pull rebuild
+  ranks the 102-name store (+ the 83 owner names + held, always_include),
+  the post-pull rebuild picks up what the pull lands. `universe.file_date
+  2026-09-29` = deploy mtime, as always. The boot catch-up (fixed in #129)
+  fired ~11:17 IST inside the RBI-MPC halt → scores/shows, opens nothing.
+  Owner still has to log in to Upstox (token doc is from before 03:30).
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never
