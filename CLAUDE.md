@@ -3601,7 +3601,30 @@ one line all along, and I could not read it from here. Ask for it first.
 days / Find the pre crash symptoms n tell me here"). Read-only; nothing
 built. All from live tokenless Upstox candles (242 names = 191 panel + 83
 owner list, 17 indices), NSDL FII archive, Yahoo macro, tradingeconomics.**
-- SHAPE: not a crash, a grind then a break. Nifty peaked 24,774 on 08-03,
+- CORRECTION (same day, after dating the structure): the 52w HIGH was
+  26,328 on 2026-01-02; Nifty closed BELOW its 200DMA on 2026-06-17 and
+  never reclaimed it; the 08-03 "peak" was a RALLY that closed 24,774.30
+  vs a 200DMA of 24,776.32 — 2 points under — and reversed = a FAILED
+  RECLAIM at a lower high. The July dip (low 23,767 on 07-24) tripped
+  most breadth gauges first and the 08-03 rally RESET them (whipsaw).
+- FRAMEWORK WRITTEN (owner: "framework for pre fall indications … no code
+  writing … few new parameters, corrections in existing formula, roadmap
+  of pre fall for this crash"): **docs/PREFALL_FRAMEWORK_2026-09-29.md**
+  — 19 parameters PF-01..19 + 3 ADD-side (each: formula, stored Y/N,
+  first-trip date here, evidence status, role), corrections to the
+  existing gauges (damage 0.213 is always-on for the live panel → own
+  rolling q90; danger tripwires → panel-share ≥4% as BREAK confirmation;
+  regime needs a failed-reclaim EVENT; breadth gate's 200DMA level is the
+  slowest ruler, the 20/50DMA RATE leads), a 6-stage LADDER with the
+  dates each stage would have entered here (Jul 23 warn → Aug 3-4
+  confirmed → Aug 27-31 distribution → Sep 7-11 break → washout not yet),
+  and the pre-registered test plan (191×12y, split 2020-06-30, both
+  labels, episode-counted) that must run BEFORE any of it touches money.
+  NEW parameters not in the 09-09 study: failed reclaim, breadth DECAY
+  rate, sector participation count, leader reversal, small-cap
+  divergence, A/D lower low near the high, down-volume days, dbi churn
+  under a flat index. Nothing wired.
+- SHAPE: not a crash, a grind then a break. Nifty's rally topped 24,774 on 08-03,
   slid -5.5% to 09-11 in 28 sessions (20 red, none worse than -0.86%) =
   the slow-grind signature that measured BELOW chance as a predictor
   (09-09 study), then -1.19 (09-15) / -1.64 (09-24) / -1.56 (09-28) →
