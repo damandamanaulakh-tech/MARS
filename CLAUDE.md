@@ -3701,6 +3701,39 @@ normal. Framework stage 4 BREAK; PF-A2 first half (breadth <40) now
 true, reclaim day not yet. Upstox daily endpoint serves today's bar only
 via a SHORT-range request for ~an hour after posting (long-range
 responses lag); intraday candles vanish at midnight.**
+**RBI NOT A SHOW-STOPPER + UNIVERSE REFRESH + 90 MARKET-IMPACT NAMES
+(owner order 2026-09-30 00:30 IST: "do not consider the RBI as show
+stopper, and refresh the universe, add stock getting impacted with this
+market RBI and other impacts in market"). Money impact stated before the
+build: entries can open from the next 09:20 scan if the other gates
+allow (breadth read 38% = below the band) and the scan list grows.**
+- **RBI MPC never halts entries.** `calendars.HALT_EXEMPT_EVENT_TYPES =
+  ("expiry", "rbi_mpc")`; `is_system_event_within` skips both. RBI days
+  stay in `upcoming_events` (What's Coming panel). Budget + election
+  results still halt. Dashboard/risk copy truth-passed. The RBI dates
+  themselves CORRECTED to the published FY27 calendar (decision days
+  Feb 6 / Apr 8 / Jun 5 / Aug 5 / Oct 7 / Dec 4 2026, Feb 5 2027; the
+  rest of 2027 removed = DATA_NEEDED). Tests pin: RBI never returned by
+  the halt, dates == published list, no weekend dates.
+- **Universe file refreshed** through the app's own `refresh_universe()`:
+  2,648 → 2,678 (+67 listings, −37 gone); every owner-list name still
+  present; HFCL/MTARTECH still out (T2T).
+- **Owner list 83 → 173** (`OWNER_UNIVERSE_2026_08_20`, the
+  always_include set the Friday rebuild keeps): 11 banks, 15 NBFC/
+  insurance, 11 realty/cement, 2 two-wheelers, 3 crude producers, 16
+  crude consumers, 10 IT exporters, 10 defensives, 2 gold/jewellery, 10
+  power/capex PSUs. EVERY name screened live through
+  `risk_v2.passes_liquidity` on 2026-09-30 — all cleared; evidence
+  research/universe_add_2026-09-30.csv. TATAMOTORS, TATAMTRDVR, HPCL,
+  ZOMATO are ABSENT from the Upstox master and were NOT added (no
+  invented keys). 9 new sector-map entries (PRESTIGE/PHOENIXLTD/BRIGADE
+  Construction, APOLLOTYRE/BALKRISIND Auto, MGL Energy, LTTS/KPITTECH
+  IT, KALYANKJIL Consumer); sector counts above the 12-cap are fine —
+  the cap limits HELD names. Theme pin test extended (one name per leg
+  + the four absent names asserted out).
+- Reminder that still stands: the live app SLEEPS when idle (free-tier
+  behaviour) — none of this runs at 09:20 unless a process is awake;
+  09:10 IST session probe armed as the stopgap, plan change is the fix.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never

@@ -65,8 +65,18 @@ def test_the_owner_ordered_themes_are_actually_present():
     theme rather than a count, so the list can grow or be pruned freely."""
     for name in ("HAL.NS", "BEL.NS",              # defence
                  "COCHINSHIP.NS", "MAZDOCK.NS",   # shipbuilding yards
-                 "SUNPHARMA.NS", "CIPLA.NS"):     # pharma
+                 "SUNPHARMA.NS", "CIPLA.NS",      # pharma
+                 # 2026-09-30 "add stock getting impacted with this market
+                 # RBI and other impacts": rate-sensitives, crude, rupee,
+                 # defensives, gold, power/capex — one name per leg.
+                 "SBIN.NS", "BAJFINANCE.NS", "DLF.NS", "ULTRACEMCO.NS",
+                 "ONGC.NS", "IOC.NS", "INFY.NS", "HINDUNILVR.NS",
+                 "TITAN.NS", "NTPC.NS"):
         assert name in U50, f"{name} missing from the scanned list"
+    # Names the Upstox master does not carry were NOT added on 2026-09-30
+    # (an invented instrument key is the fabricated-data class).
+    for absent in ("TATAMOTORS.NS", "HPCL.NS", "ZOMATO.NS"):
+        assert absent not in U50
     # SCI is a shipping LINE, not a builder — it stays Logistics.
     cfg = Config()
     cfg.apply_mode_preset()

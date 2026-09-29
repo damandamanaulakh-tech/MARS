@@ -358,6 +358,13 @@ CUSTOM_UNIVERSE_SECTOR_MAP: dict = {
     "MANKIND.NS": "Pharma", "GLENMARK.NS": "Pharma", "LAURUSLABS.NS": "Pharma",
     "BIOCON.NS": "Pharma", "GRANULES.NS": "Pharma", "PPLPHARMA.NS": "Pharma",
     "IPCALAB.NS": "Pharma", "NATCOPHARM.NS": "Pharma",
+    # 2026-09-30 market-impact additions not covered by the Nifty-200 map
+    "PRESTIGE.NS": "Construction", "PHOENIXLTD.NS": "Construction",
+    "BRIGADE.NS": "Construction",
+    "APOLLOTYRE.NS": "Auto", "BALKRISIND.NS": "Auto",
+    "MGL.NS": "Energy",
+    "LTTS.NS": "IT", "KPITTECH.NS": "IT",
+    "KALYANKJIL.NS": "Consumer",
 }
 
 OWNER_UNIVERSE_2026_08_20: tuple = (
@@ -401,4 +408,47 @@ OWNER_UNIVERSE_2026_08_20: tuple = (
     "AUROPHARMA.NS", "DIVISLAB.NS", "ZYDUSLIFE.NS", "ALKEM.NS",
     "MANKIND.NS", "GLENMARK.NS", "LAURUSLABS.NS", "BIOCON.NS",
     "GRANULES.NS", "PPLPHARMA.NS", "IPCALAB.NS", "NATCOPHARM.NS",
+    # --- market-impact names (90) — OWNER ORDER 2026-09-30 ---
+    # "refresh the universe, add stock getting impacted with this market
+    # RBI and other impacts in market". The September 2026 slide was driven
+    # by an expected RBI hike, Brent above $100, a rupee past 96 and FII
+    # selling, so the impacted sectors are: rate-sensitives (banks, NBFCs,
+    # insurers, realty, cement, two-wheelers), crude producers and
+    # consumers, rupee-sensitive IT exporters, defensives, gold/jewellery
+    # and rate-sensitive power/capex PSUs. Every name screened on LIVE
+    # Upstox candles through trading.risk_v2.passes_liquidity (the entry
+    # gate) on 2026-09-30 — all cleared; the four candidates absent from
+    # the Upstox master (TATAMOTORS, TATAMTRDVR, HPCL, ZOMATO) were NOT
+    # added. Screening output: research/universe_add_2026-09-30.csv.
+    # rate-sensitive: banks (11)
+    "SBIN.NS", "KOTAKBANK.NS", "AXISBANK.NS", "INDUSINDBK.NS",
+    "BANKBARODA.NS", "PNB.NS", "CANBK.NS", "FEDERALBNK.NS", "IDFCFIRSTB.NS",
+    "AUBANK.NS", "UNIONBANK.NS",
+    # rate-sensitive: NBFC / insurance (15)
+    "BAJFINANCE.NS", "BAJAJFINSV.NS", "SHRIRAMFIN.NS", "CHOLAFIN.NS",
+    "LICHSGFIN.NS", "PFC.NS", "RECLTD.NS", "MUTHOOTFIN.NS", "MANAPPURAM.NS",
+    "M&MFIN.NS", "SBILIFE.NS", "HDFCLIFE.NS", "ICICIGI.NS", "LICI.NS",
+    "JIOFIN.NS",
+    # rate-sensitive: realty / cement (11)
+    "DLF.NS", "GODREJPROP.NS", "OBEROIRLTY.NS", "PRESTIGE.NS",
+    "PHOENIXLTD.NS", "BRIGADE.NS", "ULTRACEMCO.NS", "SHREECEM.NS",
+    "AMBUJACEM.NS", "ACC.NS", "DALBHARAT.NS",
+    # rate-sensitive: two-wheelers (2)
+    "BAJAJ-AUTO.NS", "HEROMOTOCO.NS",
+    # crude: producers (3) and consumers (16)
+    "ONGC.NS", "OIL.NS", "GAIL.NS",
+    "IOC.NS", "BPCL.NS", "INDIGO.NS", "ASIANPAINT.NS", "BERGEPAINT.NS",
+    "MRF.NS", "APOLLOTYRE.NS", "BALKRISIND.NS", "PIDILITIND.NS",
+    "PETRONET.NS", "IGL.NS", "MGL.NS", "SRF.NS", "DEEPAKNTR.NS", "UPL.NS",
+    # rupee: IT exporters (10)
+    "INFY.NS", "HCLTECH.NS", "WIPRO.NS", "TECHM.NS", "PERSISTENT.NS",
+    "COFORGE.NS", "MPHASIS.NS", "LTTS.NS", "KPITTECH.NS", "TATAELXSI.NS",
+    # defensives (10)
+    "HINDUNILVR.NS", "ITC.NS", "NESTLEIND.NS", "BRITANNIA.NS", "DABUR.NS",
+    "MARICO.NS", "GODREJCP.NS", "COLPAL.NS", "TATACONSUM.NS", "VBL.NS",
+    # gold / jewellery (2)
+    "TITAN.NS", "KALYANKJIL.NS",
+    # rate-sensitive power / capex PSUs (10)
+    "NTPC.NS", "POWERGRID.NS", "TATAPOWER.NS", "COALINDIA.NS", "BHEL.NS",
+    "LT.NS", "SIEMENS.NS", "ABB.NS", "ADANIPORTS.NS", "ADANIENT.NS",
 )
