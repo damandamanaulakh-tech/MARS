@@ -3660,6 +3660,47 @@ owner list, 17 indices), NSDL FII archive, Yahoo macro, tradingeconomics.**
   08-04 (brake OFF by owner order 08-09). Told the owner: breadth was the
   visible lead in THIS episode, and the 12-year study still says it does
   not lead reliably — do not wire a new gate on one episode.
+**THE APP SLEEPS WHEN IDLE — CONFIRMED 2026-09-30 00:22 IST (17-minute
+idle test from the sandbox: warm probe 0.4 s, after 17 idle minutes the
+next request took 53 s and answered from a BRAND-NEW process — stats
+pending, rss 142 = boot). Every "restart" seen on 09-29 (16:29, 18:19,
+19:25, 00:03 IST) was a cold start on MY probe; the 16:30 weekly block
+never ran because no process was alive at 16:30. render.yaml says
+`plan: starter` but the Render DASHBOARD plan rules; free tier spins
+down after 15 min without inbound traffic and cron jobs inside the
+process die with it. CONSEQUENCE: 09:20 scan, 30-min exit passes,
+danger layer, 15:25/15:35, 16:30 block and 16:45 precompute run ONLY
+while someone is hitting the app. The 09-24 "cold-started twice on an
+always-on plan (OOM?)" note was this. OWNER ACTION: Render → Settings →
+Instance Type → Starter. Stopgap used: scheduled session probes at
+09:10 IST to wake it before the scan. Do not read a fresh process as a
+crash again — check stats.age_s first.**
+**RBI MPC DATES IN calendars.py ARE WRONG (found 2026-09-30 while
+researching): RBI's published FY27 calendar (press release 2026-03-23,
+prid 62422) = Apr 6-8, Jun 3-5, Aug 3-5, Oct 5-7, Dec 2-4, Feb 3-5 2027
+(decision on the last day). The app carries Feb 5 / Apr 3 / Jun 6 /
+Aug 8 (a Saturday) / Oct 1 / Dec 5 and an invented 2027 list — the
+fabricated-calendar class. The 3-day entry halt therefore fired
+09-29..10-01 for nothing and would leave 10-05..07 unguarded. Fix
+proposed to the owner (six dates + drop 2027 as DATA_NEEDED), NOT
+shipped — awaits their word. Money impact stated: entries allowed
+10-01/10-02 if gates open, blocked 10-05..07.**
+**WEDNESDAY 09-30 SHEET (owner: "what the system says for tomorrow /
+add more parameters and define assumptions"): Tue close 22,716.20
+(-0.28%, low 22,570 at 09:35, closed at 0.80 of the range); breadth
+>200DMA on the 242 panel 38.0% (BELOW the 40% band edge → buyable once
+the halt lifts), >20DMA 16%, >50DMA 17%, new lows 33 vs 1 high, 20.2%
+of names -10% in 20d, damage 0.65 (R2 blocks Ocean), VIX 13.64, RSI14
+27.0, close -1.9 sd below the 20DMA, ATR14 223 pts. Overnight: US
+Tuesday session S&P -1.1% / Nasdaq -1.5% live at 00:16 IST, US 10y
+5.27%, Brent ~$103.6 (-1.6%; Yahoo's -9.75% is the Nov→Dec contract
+roll, NOT a crash — never quote a front-month change across an expiry).
+Base rates (15y): 2 down closes below 200DMA at a 120d low (n=52) →
+next day median +0.38%, up 58%; next-day range after a -1.5% day ~1.7x
+normal. Framework stage 4 BREAK; PF-A2 first half (breadth <40) now
+true, reclaim day not yet. Upstox daily endpoint serves today's bar only
+via a SHORT-range request for ~an hour after posting (long-range
+responses lag); intraday candles vanish at midnight.**
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never
