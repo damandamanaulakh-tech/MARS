@@ -3718,7 +3718,7 @@ allow (breadth read 38% = below the band) and the scan list grows.**
 - **Universe file refreshed** through the app's own `refresh_universe()`:
   2,648 → 2,678 (+67 listings, −37 gone); every owner-list name still
   present; HFCL/MTARTECH still out (T2T).
-- **Owner list 83 → 173** (`OWNER_UNIVERSE_2026_08_20`, the
+- **Owner list 82 → 172** (`OWNER_UNIVERSE_2026_08_20`, the
   always_include set the Friday rebuild keeps): 11 banks, 15 NBFC/
   insurance, 11 realty/cement, 2 two-wheelers, 3 crude producers, 16
   crude consumers, 10 IT exporters, 10 defensives, 2 gold/jewellery, 10
