@@ -33,22 +33,34 @@ class CalendarEvent:
 # --- RBI Monetary Policy Committee (MPC) dates ---
 # Source: https://www.rbi.org.in/Scripts/MonetaryPolicy.aspx
 # Updated annually. Next ~12 months listed below.
+# CORRECTED 2026-09-30. The previous list (Feb 5 / Apr 3 / Jun 6 / Aug 8 —
+# a Saturday — / Oct 1 / Dec 5, plus a full invented 2027 row) matched NO
+# published RBI schedule: the fabricated-calendar class, and it fired the
+# entry halt on 2026-09-29..10-01 for a meeting that sits on Oct 5-7.
+# Dates below are the DECISION day (last day of each meeting) from RBI's
+# own FY2026-27 calendar, press release 2026-03-23 (prid 62422): Apr 6-8,
+# Jun 3-5, Aug 3-5, Oct 5-7, Dec 2-4, Feb 3-5 2027. Feb 6 2026 is FY2025-26's
+# last meeting (Feb 4-6). Nothing beyond Feb 2027 is published: the rest of
+# 2027 is DATA_NEEDED, not guessed — add it when RBI publishes FY2027-28.
 RBI_MPC_DATES_2026 = [
-    date(2026, 2, 5),
-    date(2026, 4, 3),
-    date(2026, 6, 6),
-    date(2026, 8, 8),
-    date(2026, 10, 1),
-    date(2026, 12, 5),
+    date(2026, 2, 6),
+    date(2026, 4, 8),
+    date(2026, 6, 5),
+    date(2026, 8, 5),
+    date(2026, 10, 7),
+    date(2026, 12, 4),
 ]
 RBI_MPC_DATES_2027 = [
-    date(2027, 2, 6),
-    date(2027, 4, 7),
-    date(2027, 6, 4),
-    date(2027, 8, 6),
-    date(2027, 10, 1),
-    date(2027, 12, 3),
+    date(2027, 2, 5),
 ]
+
+# Event types that are SHOWN on the calendar but never halt entries.
+#   expiry  — routine monthly F&O expiry (see is_system_event_within).
+#   rbi_mpc — OWNER ORDER 2026-09-30: "do not consider the RBI as show
+#             stopper". The RBI decision stays on the What's-Coming panel and
+#             in upcoming_events(); it no longer blocks the 09:20 scan.
+#             Budget and election results still halt.
+HALT_EXEMPT_EVENT_TYPES: tuple = ("expiry", "rbi_mpc")
 
 # --- Union Budget ---
 # Always Feb 1 (since 2017); manually-confirmed exception years marked.
@@ -336,12 +348,13 @@ def is_system_event_within(days: int = 5, today: Optional[date] = None) -> Optio
 
     F&O monthly expiry is system-wide but ROUTINE — halting entries for 3 days
     before every expiry wrongly benched the engine ~4 trading days a month, so
-    expiry is excluded here. Genuine binary events (rate decisions, Budget,
-    election results) still halt.
+    expiry is excluded here. RBI MPC decisions are excluded by OWNER ORDER
+    (2026-09-30, "do not consider the RBI as show stopper"). Budget and
+    election results still halt. The exempt set is HALT_EXEMPT_EVENT_TYPES.
     """
     upcoming = upcoming_events(today, lookahead_days=days)
     for ev in upcoming:
-        if ev.impact == "system_wide" and ev.event_type != "expiry":
+        if ev.impact == "system_wide" and ev.event_type not in HALT_EXEMPT_EVENT_TYPES:
             return ev
     return None
 

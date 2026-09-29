@@ -1,6 +1,6 @@
 """Calendar overlay tests — no network."""
 
-from datetime import date
+from datetime import date, timedelta
 
 from trading.calendars import (
     CalendarEvent, fno_monthly_expiry,
@@ -43,10 +43,38 @@ def test_upcoming_events_includes_budget():
 
 
 def test_is_system_event_within_window():
-    # 2 days before RBI MPC on Feb 5 -> within 5d window
-    ev = is_system_event_within(days=5, today=date(2026, 2, 3))
+    """Budget still halts: 2 days before the 2026-02-01 Budget."""
+    ev = is_system_event_within(days=5, today=date(2026, 1, 30))
     assert ev is not None
-    assert ev.event_type in {"rbi_mpc", "budget", "expiry"}
+    assert ev.event_type == "budget"
+
+
+def test_rbi_mpc_never_halts_entries_owner_order_2026_09_30():
+    """OWNER ORDER 2026-09-30: "do not consider the RBI as show stopper".
+    The decision day still appears in upcoming_events (What's Coming) but
+    is_system_event_within must never return it."""
+    from trading.calendars import HALT_EXEMPT_EVENT_TYPES, RBI_MPC_DATES_2026
+    assert "rbi_mpc" in HALT_EXEMPT_EVENT_TYPES
+    for d in RBI_MPC_DATES_2026:
+        for back in (0, 1, 3):
+            ev = is_system_event_within(days=3, today=d - timedelta(days=back))
+            assert ev is None or ev.event_type != "rbi_mpc", (d, back, ev)
+    shown = [e for e in upcoming_events(today=date(2026, 10, 1), lookahead_days=10)
+             if e.event_type == "rbi_mpc"]
+    assert shown and shown[0].event_date == date(2026, 10, 7)
+
+
+def test_rbi_mpc_dates_are_the_published_fy27_calendar():
+    """RBI press release 2026-03-23 (prid 62422): Apr 6-8, Jun 3-5, Aug 3-5,
+    Oct 5-7, Dec 2-4 2026, Feb 3-5 2027 — decision on the last day. The
+    old list (Oct 1, a Saturday Aug 8, an invented 2027) was the
+    fabricated-calendar class; nothing unpublished may return."""
+    from trading.calendars import RBI_MPC_DATES_2026, RBI_MPC_DATES_2027
+    assert RBI_MPC_DATES_2026 == [date(2026, 2, 6), date(2026, 4, 8), date(2026, 6, 5),
+                                  date(2026, 8, 5), date(2026, 10, 7), date(2026, 12, 4)]
+    assert RBI_MPC_DATES_2027 == [date(2027, 2, 5)]
+    for d in RBI_MPC_DATES_2026 + RBI_MPC_DATES_2027:
+        assert d.weekday() < 5, f"{d} is a weekend — not a real decision day"
 
 
 def test_is_system_event_returns_none_when_clear():

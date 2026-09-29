@@ -106,7 +106,7 @@
     <li>• Spread: skip stuck-at-circuit stocks and wide bid-ask spreads</li>
     <li>• Correlation: reject candidates with &gt; 85% return correlation to any open position</li>
     <li>• Daily kill switch: −2% day loss halts all new entries (checked at scan time and 15:35)</li>
-    <li>• Calendar: 3-day halt before elections / RBI MPC / Budget (real dates only — no guessed events)</li>
+    <li>• Calendar: 3-day halt before elections / Budget (real dates only — no guessed events). RBI MPC days are shown, never a halt (owner order 2026-09-30)</li>
     <li>• Sector caps: max {{ cfg.max_sector_positions }} names AND max {{ (cfg.max_sector_exposure_pct * 100) | round(0) | int }}% of equity per sector</li>
     <li>• Drawdown ladder: -8% no-add / -10% cut half / -15% mostly cash / -20% halt</li>
   </ul>
