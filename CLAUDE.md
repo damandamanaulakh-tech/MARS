@@ -3734,6 +3734,38 @@ allow (breadth read 38% = below the band) and the scan list grows.**
 - Reminder that still stands: the live app SLEEPS when idle (free-tier
   behaviour) — none of this runs at 09:20 unless a process is awake;
   09:10 IST session probe armed as the stopgap, plan change is the fix.
+**SHEET-VS-TAPE CHECK 2026-09-30 (owner: "compare your response vs reality
+n share the gaps" -> "update the framework with these gaps"). Docs only:
+docs/PREFALL_FRAMEWORK_2026-09-29.md §7.** The Wednesday trader sheet
+scored against the 12:27 IST tape: EVERY directional assumption missed
+(weak open -0.3..-0.7 -> actual -0.23 then green; "wide day 1.7x ATR" ->
+half the ATR, because I conditioned on Monday's -1.56% not Tuesday's
+-0.28%; "Pharma+Metal leadership" -> Pharma the worst sector next day);
+EVERY level/state reading held (pivots, VIX, breadth 39.2% <40, no
+reclaim day = no ADD trigger). The US "-1.1%/-1.5%" I quoted was a
+mid-session print; it closed -0.16/-0.09. Seven rules added (R1 no
+direction lean on sheets; R2 US closes only after the bell; R3 name the
+day a base rate is conditioned on; R4 one-day sector move != leadership;
+R5-R7) + PF-20 unconfirmed bounce (up-vol/down-vol <1 on an up day).
+Also CONFIRMED that morning: the app slept ~09:46-12:10 IST and missed
+four 30-min exit passes; 09:20 chain peak 291 MiB; store refilled 102 ->
+487 names. RBI halt stale line in the 09:10 trigger prompt was already
+superseded by #136 (live, universe.count 2678).
+**14:29 IST SECOND READ 2026-09-30 (owner: "Market slips again. Review
+it again with all new n old and add more parameters" -> "Ship all").
+Framework §8 (same PR #137).** The 12:27 bounce failed: high 22,809 at
+12:49 -> 22,643 at 14:29, outside-day down close at 0.04 of range, R1
+touched and rejected, S1/Tue low intact. Damage cluster 0.719 = first
+reading above the live panel's own q90 (~0.70) this episode. PF-20
+(unconfirmed bounce) tripped at 12:27 and the bounce then failed.
+EIGHT NEW PARAMETERS PF-21..28 (intraday participation family, all from
+the public 30-min candles, all WARN/untested): failed intraday rally,
+midday reversal share (117 of 153 gainers), morning gain given up (31%),
+weak closers (40.5%), below prior low (22.3%), fresh 20d lows (22.7%),
+three-day losers (21.5%), bank-vs-tape split. PF-21 base rate on the
+15y Nifty file: n=16/13 episodes, next-day median +0.19% up 62%, 20d
++3.85% up 75% — a count, not an edge, recorded for the pre-registered
+test. Ladder stage 4 unchanged; no ADD trigger. Nothing wired.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never
