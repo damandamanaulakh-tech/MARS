@@ -3751,6 +3751,21 @@ Also CONFIRMED that morning: the app slept ~09:46-12:10 IST and missed
 four 30-min exit passes; 09:20 chain peak 291 MiB; store refilled 102 ->
 487 names. RBI halt stale line in the 09:10 trigger prompt was already
 superseded by #136 (live, universe.count 2678).
+**14:29 IST SECOND READ 2026-09-30 (owner: "Market slips again. Review
+it again with all new n old and add more parameters" -> "Ship all").
+Framework §8 (same PR #137).** The 12:27 bounce failed: high 22,809 at
+12:49 -> 22,643 at 14:29, outside-day down close at 0.04 of range, R1
+touched and rejected, S1/Tue low intact. Damage cluster 0.719 = first
+reading above the live panel's own q90 (~0.70) this episode. PF-20
+(unconfirmed bounce) tripped at 12:27 and the bounce then failed.
+EIGHT NEW PARAMETERS PF-21..28 (intraday participation family, all from
+the public 30-min candles, all WARN/untested): failed intraday rally,
+midday reversal share (117 of 153 gainers), morning gain given up (31%),
+weak closers (40.5%), below prior low (22.3%), fresh 20d lows (22.7%),
+three-day losers (21.5%), bank-vs-tape split. PF-21 base rate on the
+15y Nifty file: n=16/13 episodes, next-day median +0.19% up 62%, 20d
++3.85% up 75% — a count, not an edge, recorded for the pre-registered
+test. Ladder stage 4 unchanged; no ADD trigger. Nothing wired.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never

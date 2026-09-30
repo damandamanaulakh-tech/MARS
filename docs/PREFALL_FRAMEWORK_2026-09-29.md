@@ -332,3 +332,104 @@ it a shelter — it was the worst sector the next day. PF-13 stays on its
 | New 52w highs / lows | 2 / 12 |
 | FII | Monday −5,538 Cr (NSDL); Tuesday not yet published (T+1 evening) |
 | Ladder stage | 4 BREAK, unchanged; PF-A2 first half true (39.2 < 40), reclaim day not met; PF-20 tripped |
+
+---
+
+## 8. Second read of 2026-09-30 at 14:29 IST — the bounce failed; PF-21..28 added
+
+Owner (14:30 IST): "Market slips again. Review it again with all new n old
+and add more parameters" → "Ship all". Same sources as §7 (Upstox public
+1-minute index candles, 30-minute candles on the 242-name panel, Yahoo,
+tradingeconomics, NSDL). State readings only (rule R1).
+
+### 8.1 What changed between 12:27 and 14:29 IST
+
+| | 12:27 | 14:29 |
+|---|---|---|
+| Nifty | 22,752 (+0.16%) | 22,643 (−0.32%), a new day low |
+| Day high | 22,772 | 22,809 at 12:49, then −167 pts |
+| Shape | bounce | outside-day down close: high above Tuesday's high, close below Tuesday's close, closed at 0.04 of the range |
+| Hourly path | | +0.38 / −0.35 / +0.17 / +0.31 / −0.36 / −0.26 |
+| R1 22,790 | untouched | touched and rejected |
+| S1 22,606 / Tue low 22,570 | | both intact (37 / 73 pts above) |
+| Range vs ATR-14 | 0.50× | 0.78× — a normal day, not a wide one |
+
+### 8.2 Old parameters, 14:29 values
+
+| Gauge | Reading | Note |
+|---|---|---|
+| Breadth >200 / 50 / 20 DMA | 37.6 / 18.9 / 16.4% | 200DMA breadth unchanged from Tuesday; below the 40% band edge |
+| PF-03 breadth decay (20DMA, 6 sessions) | 38.8 → 30.2 → 32.2 → 18.6 → 16.4 → 16.4 | flat at the floor, no reclaim |
+| Adv / dec | 132 / 106 | more names up than down while the cap-weighted index fell |
+| Up-vol ÷ down-vol | 0.68 | worse than 12:27 (0.91) |
+| New 52w highs / lows | 3 / 18 | |
+| PF-07 casualties (−10% in 20d) | 15.7% | easing from 20.2% |
+| Damage cluster tail_down3_5d | **0.719** | first reading above the live panel's own q90 (~0.70) this episode; a shock gauge reporting damage done |
+| India VIX | 13.47 | no fear |
+| RSI-14 / Bollinger z | 28.8 / −1.89 | |
+| Consecutive down closes | 3 | |
+| Distance to 200DMA | −7.1% | |
+| PF-11 leaders (25 sessions) | Pharma +2.3, Metal −3.2, Media −3.9 | the "best" sector was the worst today (−1.24%) |
+| PF-12 small-cap divergence | +2.0 pp (SML100 vs Nifty, 20d); SML100 +0.83% today | |
+| PF-13 no shelter | Pharma −1.24%, FMCG −0.50% | tripped |
+| PF-15 India 10y | 7.15%, +20 bp over the month | near the +25 bp line, not over; Sep bond outflow ₹10,200 Cr (largest of FY) |
+| PF-17 Brent | Dec ~$96, flat; Nov expired at $105 | |
+| PF-19 FII | Mon −5,538 Cr; Tue unpublished (T+1) | |
+| PF-20 unconfirmed bounce | tripped at 12:27; the bounce then failed | first live confirmation of the parameter's purpose |
+| PF-09 distribution days | 9 of 25 | REJECTED gauge, listed only |
+| A/D line, cumulative 30 sessions | −1,088 | last 10: +116, +97, −9, −61, +101, −173, +33, −198, −108, +26 |
+| Sector participation (EW, n≥4) | 9 of 14 sectors UP | Construction +1.9, Defence +1.3, Auto +1.1; Pharma −1.8, FMCG −0.9 |
+
+Concentration note: the afternoon fall was hospitals (Fortis −7.4%, Max
+−7.1%, Apollo −6.5%), pharma and FMCG, while banks, PSU banks and small
+caps held green. The reason for the hospital-chain move is DATA_NEEDED
+(the news pass runs at 09:20; this was an afternoon move).
+
+### 8.3 New parameters PF-21..28 (intraday participation family)
+
+All computable from the public 30-minute candles the app already reads;
+all NEW and untested; all WARN/confirming, never a sell.
+
+| ID | Name | Formula | 2026-09-30 14:29 | Role |
+|---|---|---|---|---|
+| PF-21 | Failed intraday rally | Index high > prior high AND close < prior close AND close in the bottom 15% of the day range, while < 200DMA and RSI-14 < 35 | **tripped** | WARN (exhaustion marker; base rate in 8.4) |
+| PF-22 | Midday reversal share | Names above the prior close at 12:30 that are below their 12:30 print at the read | 117 of 153 morning gainers (76%) | WARN |
+| PF-23 | Morning gain given up | Open > prior close AND now < open | 75 of 242 (31%) | WARN |
+| PF-24 | Weak closers | Names closing in the bottom quarter of their own day range | 40.5% | WARN |
+| PF-25 | Below prior day's low | Share of names now below yesterday's low | 22.3% | WARN |
+| PF-26 | Fresh 20-day lows | Share of names at a new 20-session low | 22.7% | WARN |
+| PF-27 | Three-day losers | Share of names down three sessions running | 21.5% | WARN |
+| PF-28 | Bank-vs-tape split | Bank Nifty and PSU Bank up while Nifty, Pharma and FMCG fall (rate-sensitives bid into an RBI decision, broad tape not) | Bank +0.94 / PSU +1.04 vs Nifty −0.32 | context |
+
+Thresholds for PF-22..27 are deliberately NOT set here: they need the
+pre-registered test (§6). Today's values are the first recorded points.
+
+### 8.4 PF-21 base rate, measured on 15 years of Nifty (data/index_daily_15y.csv)
+
+Condition = today's shape (rule R3: the day it applies to is the session
+AFTER the failed-rally bar). n = 16 bars, 13 separate episodes (2015-06,
+2015-08, 2016-02, 2018-10 ×2, 2022-05 ×3, 2022-06, 2023-03, 2024-12,
+2025-03).
+
+| Horizon | Median | p25 / p75 | Up | All-days median |
+|---|---|---|---|---|
+| Next day | +0.19% | −0.52 / +0.92 | 62% | +0.06% |
+| 5 days | +1.07% | −0.49 / +2.69 | 69% | +0.34% |
+| 20 days | +3.85% | +0.67 / +5.28 | 75% | +1.04% |
+
+Reading: in a market already this oversold, this bar has more often marked
+exhaustion than the start of a new leg. Sixteen instances is a count, not
+an edge; it is recorded so the pre-registered test can judge it, and it is
+NOT a direction call for tomorrow.
+
+### 8.5 Ladder reading at 14:29 IST
+
+Stage 4 BREAK, unchanged. PF-A2: breadth < 40% true; reclaim day not met
+(20DMA breadth flat at 16.4%). No ADD trigger. The new fact of the day is
+the damage cluster crossing its own q90 (0.719 vs ~0.70) — and it reports
+damage already done, consistent with §3H.
+
+App state: momentum entries allowed by the breadth band (37.6 < 40) and
+RBI no longer halts; positions stand on the −5% stop and k×ATR target.
+The service slept from ~12:12 to the 15:20 IST wake, so no 30-minute stop
+check ran during the afternoon slide (rule R7).
