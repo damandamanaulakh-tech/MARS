@@ -3766,6 +3766,17 @@ three-day losers (21.5%), bank-vs-tape split. PF-21 base rate on the
 15y Nifty file: n=16/13 episodes, next-day median +0.19% up 62%, 20d
 +3.85% up 75% — a count, not an edge, recorded for the pre-registered
 test. Ladder stage 4 unchanged; no ADD trigger. Nothing wired.
+**CLOSE 2026-09-30 (framework §8.6, PR #138):** Nifty 22,620.45 (-0.42%),
+low 22,595 at 14:43 (brief dip through S1 22,606), close-loc 0.12, range
+0.96x ATR; 4th straight down close. Breadth >200/50/20DMA 37.1/17.2/13.0
+(20DMA breadth new episode low), up/down vol 0.55, new lows 20, damage
+0.727 (> own q90), PF-24 weak closers 46.7%, PF-26 fresh 20d lows 28.1%.
+PF-21 stands at the close. Stage 4 BREAK, no ADD trigger. PR #137
+MERGED 14:45 IST on the owner's "Merge now" (main 29360ad). App woken by
+probes at 09:11/12:10/14:50/15:22 IST; 15:25 + 15:35 passes ran on a
+live process (peak 219 MiB); the morning and early-afternoon 30-min stop
+checks did not (asleep). 16:25 IST wake armed for the 16:30 weekly block
+(trig_015XstGT35hNgtrPRphvJT5h), which then re-arms Thu 09:10.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never

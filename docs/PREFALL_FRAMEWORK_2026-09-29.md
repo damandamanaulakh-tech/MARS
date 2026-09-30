@@ -433,3 +433,36 @@ App state: momentum entries allowed by the breadth band (37.6 < 40) and
 RBI no longer halts; positions stand on the −5% stop and k×ATR target.
 The service slept from ~12:12 to the 15:20 IST wake, so no 30-minute stop
 check ran during the afternoon slide (rule R7).
+
+### 8.6 Close, 2026-09-30 (addendum written 15:50 IST from the last public candles)
+
+| Gauge | 14:29 read | Close |
+|---|---|---|
+| Nifty | 22,643 (−0.32%) | **22,620.45 (−0.42%)**; day low 22,595 at 14:43, a brief dip through S1 22,606; close at 0.12 of the range; range 214 pts = 0.96× ATR-14 |
+| Bank Nifty / VIX | +0.94% / 13.47 | +0.69% / 13.46 |
+| Sectors | | Pharma −1.84, Metal −1.53, FMCG −0.63; Realty +1.64, Bank +0.69, Media +2.65 |
+| Breadth >200 / 50 / 20 DMA | 37.6 / 18.9 / 16.4% | **37.1 / 17.2 / 13.0%** (20DMA breadth at a new low for the episode) |
+| Adv / dec | 132 / 106 | 120 / 116 |
+| Up-vol ÷ down-vol | 0.68 | **0.55** |
+| New 52w highs / lows | 3 / 18 | 3 / 20 |
+| Damage cluster tail_down3_5d | 0.719 | **0.727** (above the panel's own q90 ~0.70) |
+| PF-22 midday reversal share | 117 of 153 | 110 of 153 |
+| PF-23 morning gain given up | 31.0% | 35.1% |
+| PF-24 weak closers (bottom quarter of own range) | 40.5% | **46.7%** |
+| PF-25 below prior day's low | 22.3% | 26.0% |
+| PF-26 fresh 20-day lows | 22.7% | **28.1%** |
+| PF-27 three-day losers | 21.5% | 24.8% |
+| PF-28 bank-vs-tape split | +0.94 vs −0.32 | +0.69 vs −0.42, still split |
+| Sector participation (EW, n≥4) | 9 of 14 up | 8 of 14 up |
+| Consecutive down closes (Nifty) | 3 | **4** |
+
+Panel figures are from the last 30-minute candle (15:00–15:30 bar, stamped
+15:15 IST). PF-21 (failed intraday rally) stands at the close: high above
+Tuesday's high, close below Tuesday's close, bottom 15% of range, RSI < 35
+below the 200DMA. Ladder stage 4 BREAK, unchanged; PF-A2 first half true
+(37.1% < 40), reclaim day not met (20DMA breadth fell, did not jump).
+
+Machine note (rule R7): the service was woken by session probes at 09:11,
+12:10, 14:50 and 15:22 IST and slept between them; the 15:25 square-off and
+15:35 pass ran on a live process (memory 167 → 220 MiB while they ran); the
+30-minute stop checks between 09:46–12:10 and 12:12–14:50 IST did not.
