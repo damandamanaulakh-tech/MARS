@@ -3734,6 +3734,23 @@ allow (breadth read 38% = below the band) and the scan list grows.**
 - Reminder that still stands: the live app SLEEPS when idle (free-tier
   behaviour) — none of this runs at 09:20 unless a process is awake;
   09:10 IST session probe armed as the stopgap, plan change is the fix.
+**SHEET-VS-TAPE CHECK 2026-09-30 (owner: "compare your response vs reality
+n share the gaps" -> "update the framework with these gaps"). Docs only:
+docs/PREFALL_FRAMEWORK_2026-09-29.md §7.** The Wednesday trader sheet
+scored against the 12:27 IST tape: EVERY directional assumption missed
+(weak open -0.3..-0.7 -> actual -0.23 then green; "wide day 1.7x ATR" ->
+half the ATR, because I conditioned on Monday's -1.56% not Tuesday's
+-0.28%; "Pharma+Metal leadership" -> Pharma the worst sector next day);
+EVERY level/state reading held (pivots, VIX, breadth 39.2% <40, no
+reclaim day = no ADD trigger). The US "-1.1%/-1.5%" I quoted was a
+mid-session print; it closed -0.16/-0.09. Seven rules added (R1 no
+direction lean on sheets; R2 US closes only after the bell; R3 name the
+day a base rate is conditioned on; R4 one-day sector move != leadership;
+R5-R7) + PF-20 unconfirmed bounce (up-vol/down-vol <1 on an up day).
+Also CONFIRMED that morning: the app slept ~09:46-12:10 IST and missed
+four 30-min exit passes; 09:20 chain peak 291 MiB; store refilled 102 ->
+487 names. RBI halt stale line in the 09:10 trigger prompt was already
+superseded by #136 (live, universe.count 2678).
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never

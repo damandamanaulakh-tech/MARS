@@ -257,3 +257,78 @@ Data gaps that block a full test today: a daily India 10y series after
 can be rebuilt from the equal-weight panel sectors, as T12W_0094 does);
 US 10y and Brent daily history (Yahoo reachable from the sandbox, not
 committed).
+
+---
+
+## 7. Sheet-vs-tape check, 2026-09-30 — the gaps and the rules they add
+
+Owner ask (2026-09-30, market open): "compare your response vs reality n
+share the gaps" → "update the framework with these gaps". The response
+was the Wednesday trader sheet written at 00:16 IST on 2026-09-29/30
+(Tuesday close 22,716.20; levels, overnight inputs, seven labelled
+assumptions). Reality = the live tape at 12:27 IST on 2026-09-30 from
+tokenless Upstox 1-minute (indices) and 30-minute (242-name panel)
+candles, Yahoo closes and the Indian press.
+
+### 7.1 Scorecard
+
+| Item | Sheet | Tape at 12:27 IST | Verdict |
+|---|---|---|---|
+| US close | S&P −1.1% / Nasdaq −1.5% (read at 2:45 pm ET, session open) | closed −0.16% / −0.09% | **Wrong input.** The session recovered after the reading. |
+| GIFT Nifty 08:30 | DATA_NEEDED; flip level 22,750 | 22,991 | Flip condition met. The sheet's own rule said drop the weak-open view. |
+| Brent | ~$103.6 | Dec contract ~$96, flat; Nov expired at $105 | Sources disagree on whether a real pullback occurred (press says yes). DATA_NEEDED. |
+| Nikkei | futures +0.6% | cash +1.94% | Understated. |
+| 1. Weak open −0.3 to −0.7% | assumed | open −0.23%, low 22,660 in the first minute, green by 10:00 | **Missed.** |
+| 2. Gap-down does not fill (34% do) | base rate | filled within minutes; Nifty +0.16% | Minority case happened. Base rate stands. |
+| 3. Bounce lean +0.38%, wide day 1.7× ATR | base rates | +0.16%; range 112 pts = **half** the 223 ATR | **My error.** The 1.7× rule is conditioned on a −1.5% prior day. Monday was −1.56%; Tuesday −0.28%. Wrong day. |
+| 4. Engine opens nothing (RBI halt) | assumed | RBI halt removed by owner order the same night (PR #136) | Superseded. |
+| 5. Exits run only if the app is awake | stated | app slept ~09:46–12:10 IST; the 10:15 / 10:45 / 11:15 / 11:45 stop passes did not run | **Confirmed system gap.** |
+| 6. Pharma + Metal leadership = first buy signal | watch | Pharma **−1.27% (worst sector)**, Metal −0.22%; leaders PSU Bank +1.72%, Bank +1.35%, IT +1.06%, Media +3.45% | **Missed.** One day's rotation read as leadership; Tuesday's leaders were Wednesday's laggards. |
+| Pivots S1 22,606 / P 22,680 / R1 22,790 | measured | low 22,660 held above S1; high 22,772 stalled 18 pts under R1 | Held. |
+| VIX 13.64, no fear premium | measured | 13.11 (−3.9%) | Held. |
+| Breadth >200DMA 37.6–38.0% (below the 40% band edge) | measured | 39.2%, still below | Held. |
+| Breadth >20DMA 16.4%; reclaim day needs +15 pts | measured | 20.2% (+3.8 pts) → **no ADD trigger** | Held. |
+| Adv/dec, up-vol/down-vol | not on the sheet | 154 / 84 advancing, median stock +0.54%, **up-vol ÷ down-vol 0.91** — volume did not confirm the advance | Added below (PF-20). |
+| New 52w highs / lows | 1 / 33 (Tue) | 2 / 12 | Held (fewer lows, no highs = bounce, not turn). |
+
+Pattern: **every miss was a direction call; every hold was a level, a
+state reading or a trigger condition.** That is the 12-year result of
+this project again (2026-09-09 pre-drop study: 24 of 25 leading candidates
+failed the holdout): the data reads the market's STATE, it does not
+predict its DIRECTION.
+
+### 7.2 Rules added to the framework
+
+| # | Rule | Why |
+|---|---|---|
+| R1 | **A daily sheet carries levels, state readings and trigger conditions only. No open/close lean, no "expect weak/strong".** | Every directional assumption on 2026-09-30 missed; every state reading held. |
+| R2 | **Overnight US numbers are closes only.** The US cash session closes 01:30 IST (00:30 IST in US summer time). A reading before that is a mid-session print and must be labelled "session open — not a close". | The −1.1% / −1.5% read at 2:45 pm ET became −0.16% / −0.09% at the bell. |
+| R3 | **A base rate is conditioned on a specific prior day. Name the day it applies to before quoting it.** "Range 1.7× normal after a −1.5% day" applies to the session AFTER the −1.5% day, not two days later. | The wide-day call was two days late and inverted (actual range 0.5× ATR). |
+| R4 | **One day's sector move is rotation, not leadership.** PF-11 already uses a 25-session window for leaders; never shortcut it to yesterday's winners. A sector that led on a down day is as likely to lag next day as to lead. | Pharma/Metal led Tuesday, were worst/flat Wednesday; banks and IT (Tuesday's laggards) led. |
+| R5 | **The ADD trigger (PF-A2) is a state condition and it worked: no reclaim day, no add.** Keep the +15-point 20DMA jump as the reclaim definition; a +3.8-point drift with up-vol/down-vol below 1 is a bounce. | 20DMA breadth 16.4 → 20.2 on 0.91 up/down volume. |
+| R6 | **Levels from pivots and ATR are arithmetic, not forecasts, and they held. Keep them.** | Low held above S1, high stalled under R1, within the ATR band. |
+| R7 | **A sheet is only as good as the machine that acts on it.** While the live service sleeps when idle, stop checks between wake probes do not run; a sheet that says "exits run only if awake" is describing a broken guard, not a plan. | Four 30-minute exit passes missed on 2026-09-30. Owner action: Render Instance Type → Starter. |
+
+### 7.3 Parameter added
+
+| ID | Name | Formula | Stored | 2026-09-30 | Evidence | Role |
+|---|---|---|---|---|---|---|
+| PF-20 | Unconfirmed bounce | Nifty up on the day AND panel up-volume ÷ down-volume < 1.0 AND % above 20DMA rises < 15 points. | Y (panel volumes) | Nifty +0.16%, up/down vol 0.91, 20DMA breadth +3.8 pts → **tripped** | NEW, untested | Do NOT treat the day as PF-A2's reclaim day. Confirming, never a sell. |
+
+PF-13 (No shelter) correction: Pharma's Tuesday gain (+0.6%) did not make
+it a shelter — it was the worst sector the next day. PF-13 stays on its
+50DMA definition; a one-day gain never flips it.
+
+### 7.4 Readings at 12:27 IST, 2026-09-30 (for the timeline in §2)
+
+| Gauge | Value |
+|---|---|
+| Nifty | open 22,665 (−0.23%), low 22,660 at 09:16, high 22,772 at 10:23, last 22,752.50 (+0.16%); range 112 pts |
+| Bank Nifty | +1.35% (the day's engine); PSU Bank +1.72% |
+| India VIX | 13.11 |
+| Breadth >200 / 50 / 20 DMA | 39.2% / 18.5% / 20.2% (n = 237–238) |
+| Adv / dec | 154 / 84; ≥ +3%: 24 names; ≤ −3%: 5 names |
+| Up-vol ÷ down-vol | 0.91 |
+| New 52w highs / lows | 2 / 12 |
+| FII | Monday −5,538 Cr (NSDL); Tuesday not yet published (T+1 evening) |
+| Ladder stage | 4 BREAK, unchanged; PF-A2 first half true (39.2 < 40), reclaim day not met; PF-20 tripped |
