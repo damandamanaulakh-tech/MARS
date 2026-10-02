@@ -3777,6 +3777,30 @@ probes at 09:11/12:10/14:50/15:22 IST; 15:25 + 15:35 passes ran on a
 live process (peak 219 MiB); the morning and early-afternoon 30-min stop
 checks did not (asleep). 16:25 IST wake armed for the 16:30 weekly block
 (trig_015XstGT35hNgtrPRphvJT5h), which then re-arms Thu 09:10.
+**WEEKLY BLOCK RAN WED 09-30 16:30 IST — THE SCAN UNIVERSE IS 1,205 (read
+from the live box via the 16:25-17:30 keep-alive loop):** pre-pull rebuild
+16:31 (443 -> 444), time-bounded pull 16:33 -> 17:11 landed 487 -> 2,233
+stored names (~46 names/min, finished inside the 2,400 s budget), post-pull
+rebuild 17:11 -> **scan_universe 1,205 / target 1,200, last_rebuild
+2026-09-30**; 16:45 register precompute peak **326 MiB** (the box's
+highest measured peak so far; rss settled 321); writes landing throughout.
+So Monday 10-05 09:20 is the FIRST five-mode scan over ~1,205 names on
+the 512 MB box — take its peak before claiming anything (PR #112's
+delivery layoff is the only thing that has been measured). A session
+cannot push into their Mongo; the store filled itself through the
+block, as designed since PR #103.
+**THU 10-01 WAS UNATTENDED.** The session container paused from ~17:35
+IST Wed to 10:42 IST Fri, so no wake probe fired Thursday; the 09:10
+re-arm failed on resume ("run_once_at in past"). Whether Thursday's
+09:20 scan, exits and danger passes ran depends on whether the owner's
+own visits kept a process alive — the journal answers, needs their
+login. Fri 10-02 = Gandhi Jayanti, NSE closed (calendars.py line 117),
+nothing scheduled runs by design. Mon 10-05 09:10 wake armed
+(trig_01BBAKMgHTFJhMrMLro84R3F) and chains forward (15:20 -> next 09:10).
+RBI MPC decision Wed 10-07 — shown, never a halt (PR #136).
+HARNESS: a scheduled wake cannot protect a day the container sleeps
+through; Render Instance Type -> Starter remains the only real fix and
+has been asked for four times.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never
