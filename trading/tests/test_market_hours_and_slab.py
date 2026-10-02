@@ -357,12 +357,11 @@ def test_a_closed_market_marks_the_book_but_fires_no_exit(tmp_path, monkeypatch)
     assert not p.trades, "no ClosedTrade may be booked outside hours"
 
 
-def test_rotation_now_fires_off_the_watchlist(tmp_path, monkeypatch):
-    """ITEM 7. Before 2026-09-10 this branch returned at its first line every
-    day: it needed BOTH a funded scan pick AND a cash shortfall, and on this
-    book the breadth band means most days produce zero picks. The dashboard
-    card meanwhile read the WATCHLIST — so the screen said "rotate X" while
-    the engine did nothing. That disagreement is what the owner reported."""
+def test_rotation_fires_on_the_cash_trigger_for_a_real_pick(tmp_path, monkeypatch):
+    """ITEM 7 (2026-09-10) and audit F-7 (2026-10-02). Cash under the 5%
+    floor plus a pick THIS scan will buy: the near-target name rotates out.
+    (The 2026-09-10 version rotated for a watchlist row the scan had refused;
+    F-7 removed that — see test_audit_items_f5_f12_2026_10_02.py.)"""
     from trading.paper import PaperPosition
     eng, cfg, p = _engine(tmp_path, cash=1_000.0)      # cash under the 5% floor
     p.positions["OLD.NS"] = PaperPosition(
@@ -370,11 +369,11 @@ def test_rotation_now_fires_off_the_watchlist(tmp_path, monkeypatch):
         entry_date=datetime(2026, 8, 1), sector="IT", peak_price=119.0,
         entry_score=70.0, reasoning="fixture", mode="nifty200_momentum",
         stop_price=95.0, target_price=120.0)           # 95% of the way there
-    p.scan_matrix = {"rows": {"NEW.NS": {"score": 85.0, "reasoning": "fresh"}}}
     monkeypatch.setattr("trading.engine.routed_fetch_quotes",
                         lambda t, upstox_client=None: {"OLD.NS": 119.0})
     monkeypatch.setattr(eng, "_trading_allowed", lambda now=None: True)
-    rotated = eng._rotation_exits([], datetime(2026, 9, 10, 11, 0))
+    rotated = eng._rotation_exits([{"ticker": "NEW.NS", "score": 85.0}],
+                                  datetime(2026, 9, 10, 11, 0))
     assert rotated == ["OLD.NS"], "a near-target name must rotate out"
     assert p.trades and p.trades[-1].reason == "ROTATION_EXIT"
 

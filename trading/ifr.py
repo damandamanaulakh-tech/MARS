@@ -19,6 +19,9 @@ window. Snapshot exposes which fired for the Risk Dashboard + journal.
 
 from __future__ import annotations
 
+import json
+import logging
+import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Optional
@@ -40,6 +43,44 @@ THROTTLE_MULTIPLIER = 0.50     # cut sizing by 50% when any signal fires
 # Active-window: once a signal fires, treat the next N days as "risk-on"
 # (i.e. still throttled even if a single subsequent reading dips below the threshold)
 ACTIVE_DAYS_AFTER_FIRE = 22
+
+log = logging.getLogger(__name__)
+
+# AUDIT F-5 (owner: "go for next", 2026-10-02): FROZEN thresholds.
+#
+# WHAT WAS WRONG. Both thresholds were a quantile of the very window being
+# read (p90 / p85 of the ~2 years the scan had loaded), so the throttle fired
+# at a fixed rate whatever the market did: on a random-walk panel of the same
+# size and volatility it was active 76% of days. It also read every scanned
+# name, so the reading moved with the universe (49 names, then 443, then
+# 1,205 small and mid caps) rather than with the market.
+#
+# NOW. The thresholds are measured ONCE on the committed 191-name x 12-year
+# panel by scripts/ifr_frozen_thresholds.py (p90 of the down-tail share,
+# p85 of the damage ratio — the same percentiles as before, frozen), and the
+# live reading is taken over the SAME reference names, so the number and its
+# threshold describe one panel. Measured: thresholds 0.484 / 0.631, nearly
+# identical on 2014-2020 and 2020-2026; random-walk active rate 76% -> 0%.
+# Missing file = the old rolling rule, logged — never a silent change.
+FROZEN_FILE = os.path.join(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))), "research", "ifr_frozen_2026-10-02",
+    "thresholds.json")
+MIN_REFERENCE_NAMES = 30
+
+
+def _load_frozen() -> Optional[dict]:
+    try:
+        with open(FROZEN_FILE) as f:
+            d = json.load(f)
+        return {"cluster": float(d["cluster_threshold_p90"]),
+                "ratio": float(d["ratio_threshold_p85"]),
+                "tickers": frozenset(d["tickers"])}
+    except Exception as e:                                # noqa: BLE001
+        log.error("IFR frozen thresholds unavailable (%s) — rolling rule", e)
+        return None
+
+
+FROZEN = _load_frozen()
 
 
 @dataclass
@@ -111,13 +152,16 @@ def compute_market_tail_down3_5d(history: Dict[str, pd.DataFrame]) -> pd.Series:
         if "Close" not in df.columns or len(df) < TAIL_WINDOW + 2:
             continue
         counts = _per_stock_down_tail_count(df["Close"])
-        # boolean: did this stock have any down-tail day in last 5?
-        per_stock.append((counts > 0).astype(int).rename(ticker))
+        # boolean: did this stock have any down-tail day in last 5? A day the
+        # name has no reading stays empty — it is not "undamaged".
+        per_stock.append((counts > 0).astype(float)
+                         .where(counts.notna()).rename(ticker))
     if not per_stock:
         return pd.Series(dtype=float)
-    panel = pd.concat(per_stock, axis=1)
-    # market-wide ratio: % of stocks with at least one down-tail day in window
-    return panel.mean(axis=1)
+    panel = pd.concat(per_stock, axis=1, sort=True)
+    # market-wide ratio: % of stocks with at least one down-tail day in window,
+    # over the names that have a reading that day
+    return panel.mean(axis=1, skipna=True)
 
 
 def compute_market_tail_up3_5d(history: Dict[str, pd.DataFrame]) -> pd.Series:
@@ -128,11 +172,12 @@ def compute_market_tail_up3_5d(history: Dict[str, pd.DataFrame]) -> pd.Series:
         if "Close" not in df.columns or len(df) < TAIL_WINDOW + 2:
             continue
         counts = _per_stock_up_tail_count(df["Close"])
-        per_stock.append((counts > 0).astype(int).rename(ticker))
+        per_stock.append((counts > 0).astype(float)
+                         .where(counts.notna()).rename(ticker))
     if not per_stock:
         return pd.Series(dtype=float)
-    panel = pd.concat(per_stock, axis=1)
-    return panel.mean(axis=1)
+    panel = pd.concat(per_stock, axis=1, sort=True)
+    return panel.mean(axis=1, skipna=True)
 
 
 def compute_tail_damage_ratio(down: pd.Series, up: pd.Series) -> pd.Series:
@@ -162,21 +207,33 @@ def check_damage_cluster(history: Dict[str, pd.DataFrame],
     now = now or datetime.utcnow()
     today_iso = now.date().isoformat()
 
-    market_series = compute_market_tail_down3_5d(history)
+    frozen = FROZEN
+    if frozen is not None:
+        history = {t: df for t, df in (history or {}).items()
+                   if t in frozen["tickers"]}
+        thin = len(history) < MIN_REFERENCE_NAMES
+    else:
+        thin = False
+    market_series = (pd.Series(dtype=float) if thin
+                     else compute_market_tail_down3_5d(history))
     if market_series.empty or len(market_series) < CLUSTER_WINDOW + 30:
         # Not enough data to make a call — assume normal (no throttle).
         return IFRSnapshot(
             fired_today=False, active=False, sizing_multiplier=1.0,
             tail_down3_5d_today=0.0, threshold_value=0.0,
             fires_in_window=0, last_fire_date=last_fire_date,
-            reason="insufficient history",
+            reason=(f"insufficient reference panel ({len(history)} of the "
+                    f"{len(frozen['tickers'])} reference names loaded, need "
+                    f"{MIN_REFERENCE_NAMES})" if thin
+                    else "insufficient history"),
             ratio_today=0.0, ratio_threshold=0.0,
             ratio_fired_today=False, ratio_last_fire_date=ratio_last_fire_date,
             ratio_active=False, which_fired=(),
         )
 
     # ---- Signal 1: DAMAGE_CLUSTER ----
-    thresh = float(market_series.quantile(TAIL_PERCENTILE))
+    thresh = (frozen["cluster"] if frozen is not None
+              else float(market_series.quantile(TAIL_PERCENTILE)))
     today_value = float(market_series.iloc[-1])
     is_above = (market_series > thresh).astype(int)
     fires_in_window = int(is_above.rolling(CLUSTER_WINDOW).sum().iloc[-1])
@@ -188,7 +245,8 @@ def check_damage_cluster(history: Dict[str, pd.DataFrame],
     if ratio_series.empty:
         ratio_today_val = 0.0; ratio_thresh = 0.0; ratio_fired_today = False
     else:
-        ratio_thresh = float(ratio_series.quantile(RATIO_PERCENTILE))
+        ratio_thresh = (frozen["ratio"] if frozen is not None
+                        else float(ratio_series.quantile(RATIO_PERCENTILE)))
         ratio_today_val = float(ratio_series.iloc[-1])
         ratio_fired_today = ratio_today_val > ratio_thresh
 

@@ -1366,6 +1366,7 @@ def refresh_liquid_universe(where: str = "weekly") -> dict:
     from datetime import datetime as _dt
 
     from . import db, state
+    from trading import universe_select as _us
     from trading.universe_select import DEFAULT_TARGET, select_liquid_universe
 
     cfg, p = state.cfg(), state.portfolio()
@@ -1487,7 +1488,8 @@ def refresh_liquid_universe(where: str = "weekly") -> dict:
                  f"{len(added)} added, {len(dropped)} dropped. "
                  f"{kept_note}"
                  f"{res['skipped_thin']} skipped for thin history, "
-                 f"{res['skipped_illiquid']} below the Rs 1 crore floor."
+                 f"{res['skipped_illiquid']} below the Rs "
+                 f"{_us.MIN_TURNOVER / 1e7:.0f} crore entry-gate floor."
                  + note,
                  added=added[:25], dropped=dropped[:25],
                  sample=res["sample"], short_by=res["short_by"])

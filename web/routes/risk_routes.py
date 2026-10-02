@@ -34,7 +34,8 @@ def risk_view(request: Request):
     except AttributeError:
         dd = None
     try:
-        cl = eng.loss_tracker.snapshot()
+        cl = eng.loss_tracker.snapshot(
+            open_positions=len(eng.portfolio.positions))
     except AttributeError:
         cl = None
 

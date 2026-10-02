@@ -34,10 +34,18 @@ DEFAULT_TARGET = 500
 # Bars of history a name needs before its liquidity is judged. A fortnight
 # of trading; fewer and one quiet week decides the rank.
 MIN_BARS = 10
-# Rupee-turnover floor, matched to the live entry gate (Rs 1 crore median).
-# A name below this could never pass risk.passes_liquidity anyway, so
-# carrying it in the universe would only waste a scan slot.
-MIN_TURNOVER = 1_00_00_000.0
+# Rupee-turnover floor = the live entry gate's own bar.
+#
+# AUDIT F-11 (2026-10-02): this said "matched to the live entry gate (Rs 1
+# crore)" while risk_v2.passes_liquidity refuses any buy under Rs 5 crore —
+# so names between Rs 1 and 5 crore were scanned every day and could never
+# be bought. The bar is now READ from LiquidityRules, so the two cannot drift
+# apart again. The statistic stays a 20-day MEDIAN on purpose (one block-deal
+# day must not lift a thin name in); the entry gate's 5-day mean still
+# decides each buy.
+from .risk_v2 import LiquidityRules as _LiquidityRules
+
+MIN_TURNOVER = float(_LiquidityRules().min_rupee_volume_5d_cr) * 1_00_00_000.0
 
 
 def _median(values: list[float]) -> float:

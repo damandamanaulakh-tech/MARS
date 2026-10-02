@@ -12,6 +12,7 @@ A typical day:
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
@@ -698,7 +699,7 @@ class TradingEngine:
         # loop so the cash it frees is there when can_open counts it.
         try:
             rotated_out = self._rotation_exits(
-                picks, now, entries_blocked=entries_blocked)
+                picks, now, entries_blocked=entries_blocked, history=history)
         except Exception as e:
             log.exception("rotation exits failed — picks proceed on cash as-is: %s", e)
             rotated_out = []
@@ -735,7 +736,9 @@ class TradingEngine:
                 })
                 continue
             # v5: consecutive-loss halt
-            if self.loss_tracker.halted(today=now.date()):
+            if self.loss_tracker.halted(
+                    today=now.date(),
+                    open_positions=len(self.portfolio.positions)):
                 skipped.append({
                     "ticker": pick["ticker"],
                     "reason": "consecutive_loss_halt",
@@ -890,7 +893,9 @@ class TradingEngine:
                 dd_mult = float(getattr(self.drawdown_gov,
                                         "sizing_multiplier", 1.0) or 1.0)
                 throttle = min(ifr_mult, dd_mult)
-                qty = int(qty * throttle)
+                qty = self._throttled_qty(
+                    qty, throttle, fill,
+                    float(getattr(cfg, "position_slab_value", 0) or 0))
                 min_val = float(getattr(cfg, "min_position_value", 0) or 0)
                 if qty > 0 and min_val > 0 and qty * fill < min_val:
                     skipped.append({
@@ -1362,34 +1367,19 @@ class TradingEngine:
             tags=(["ocean"] if pick.get("ocean") else []),
         )
 
-    def _watchlist_candidates(self, held: dict) -> list:
-        """Top-scored not-held names from the last scan, best first.
+    @staticmethod
+    def _throttled_qty(qty: int, throttle: float, fill: float,
+                       slab: float) -> int:
+        """Apply the IFR / drawdown size throttle to an approved quantity.
 
-        The SAME rows the dashboard rotation card reads
-        (`portfolio.scan_matrix`), so the screen and the engine can never
-        disagree about what is worth rotating into — the disagreement the
-        owner reported on 2026-09-10. Names below the live entry floor are
-        excluded: rotation must never sell a real position to buy something
-        the entry gate would have refused.
-        """
-        rows = (getattr(self.portfolio, "scan_matrix", None) or {}).get("rows") or {}
-        floor = float(getattr(self.cfg, "min_score_to_enter", 62.0))
-        block = set(getattr(self.cfg, "ticker_blocklist", ()) or ())
-        out = []
-        for tkr, row in rows.items():
-            if tkr in held or tkr in block:
-                continue
-            try:
-                score = float(row.get("score"))
-            except (TypeError, ValueError):
-                continue
-            if score < floor:
-                continue
-            out.append({"ticker": tkr, "score": score,
-                        "reasoning": row.get("reasoning") or "watchlist rotation",
-                        "source": "watchlist"})
-        out.sort(key=lambda r: -r["score"])
-        return out[:10]
+        AUDIT F-5 (2026-10-02): a throttle shrinks a bet, it never takes it
+        below the owner's minimum ticket. The slab (owner order 2026-09-10,
+        "150000 slab as minimum") was being halved to Rs 75,000 AFTER the risk
+        check had approved it. Never more than the approved quantity."""
+        out = int(qty * throttle)
+        if throttle < 1.0 and slab > 0 and fill > 0 and qty * fill >= slab:
+            out = max(out, min(int(qty), int(math.ceil(slab / fill))))
+        return out
 
     def _target_for(self, pick: dict, fill_price: float) -> float:
         """k x ATR target for a new position (owner order 2026-09-10).
@@ -1522,7 +1512,8 @@ class TradingEngine:
         self.portfolio.save()
 
     def _rotation_exits(self, picks: list, now: datetime,
-                        entries_blocked: bool = False) -> list:
+                        entries_blocked: bool = False,
+                        history: Optional[dict] = None) -> list:
         """OWNER ORDER 2026-09-04 ("skipper exit suggestion is there but not
         executed — make it happen"): the F6 rotation suggester EXECUTES.
 
@@ -1573,9 +1564,10 @@ class TradingEngine:
 
         # FIX 2 of 2. Rotation exists to FUND A BUY. When the breadth gate has
         # just refused every entry, there is no buy to fund — yet the watchlist
-        # fallback below would still find scored names and sell a near-target
-        # winner to chase one the engine will not purchase today. That is the
-        # drain the owner reported: positions leave, nothing arrives.
+        # fallback (removed by audit F-7, 2026-10-02) would still find scored
+        # names and sell a near-target winner to chase one the engine will not
+        # purchase today. That is the drain the owner reported: positions
+        # leave, nothing arrives. Kept for its distinct journal line.
         #
         # Deliberately narrow: a real funded pick still rotates normally. Ocean
         # is exempt from the breadth gate, so an ocean pick reaching here IS a
@@ -1590,56 +1582,64 @@ class TradingEngine:
             })
             return []
 
-        # OWNER ORDER 2026-09-10, answering why this never fired: "Rotation is
-        # combinaton of a & b, but for b there is simple trigger point when
-        # cash is below 5%, rest all the time rotaiton will be done as per a-
-        # adding & rotating from watch list".
+        # OWNER ORDER 2026-09-10: "Rotation is combinaton of a & b, but for b
+        # there is simple trigger point when cash is below 5%, rest all the
+        # time rotaiton will be done as per a- adding & rotating from watch
+        # list".
+        #   (a) a near-target name rotates into a name the engine is ADDING;
+        #   (b) cash under 5% of the book is a hard trigger to free a ticket.
         #
-        # WHAT WAS WRONG. The 2026-09-04 cut required BOTH a funded scan pick
-        # AND a cash shortfall. On this book the breadth band and the score
-        # floor mean most days produce zero picks, and cash is plentiful — so
-        # both conditions were false and the branch returned at its first line
-        # every single day. Worse, the dashboard card calls
-        # rotation_suggestions() directly against the WATCHLIST, so the screen
-        # could say "rotate X" while the engine, needing something else
-        # entirely, did nothing. That disagreement is what the owner saw.
-        #
-        # Now there are two independent triggers:
-        #   (a) ALWAYS — a near-target name rotates into the best watchlist
-        #       candidate, whether or not cash is short. This is the one that
-        #       makes the card and the engine agree.
-        #   (b) CASH BELOW 5% — a hard trigger: when the book is nearly fully
-        #       deployed, rotate enough to fund what is waiting.
+        # AUDIT F-7 (owner: "go for next", 2026-10-02). Two faults:
+        #   1. When the scan produced no pick, (a) fell back to the last scan's
+        #      watchlist rows — names scored above the floor but REFUSED by
+        #      this scan's own gates (timing, absolute momentum, regime). The
+        #      opening loop below only ever buys `picks`, so a near-target
+        #      winner was sold to fund a name nobody would buy. Every name the
+        #      scan would really add is already IN `picks` (selection has no
+        #      top-N cap), so "adding from the watch list" means exactly this
+        #      scan's picks — rotation now funds only those.
+        #   2. The cash need was sized with no price history, so every ticket
+        #      read as the Rs 1.5 lakh slab while the real slab-Kelly ticket
+        #      for a strong score can be Rs 4-13 lakh. The need now uses each
+        #      pick's own history — the same inputs the opening loop sizes on.
         from .sizing import position_notional_for
         eq = self.portfolio.cash + sum(
             float(p.qty) * float(p.entry_price) for p in held.values())
         reserve = float(getattr(cfg, "cash_reserve_pct", 0.0) or 0.0)
         spendable = self.portfolio.cash - eq * reserve
-        need = 0.0
-        for pk in fresh:
-            if pk.get("ocean"):
-                need += float(getattr(cfg, "ocean_position_value", 0) or 0)
-            else:
-                need += float(position_notional_for(
-                    cfg, eq, score=pk.get("score"), close=None)[0] or 0)
-        shortfall = need - spendable
 
-        # (b) the owner's cash trigger, independent of whether a pick exists.
+        def _close_of(pk: dict):
+            frame = pk.get("history")
+            if frame is None and history:
+                frame = history.get(pk.get("ticker"))
+            try:
+                return frame["Close"].dropna() if frame is not None else None
+            except Exception:
+                return None
+
+        def _ticket(pk: dict) -> float:
+            if pk.get("ocean"):
+                return float(getattr(cfg, "ocean_position_value", 0) or 0)
+            return float(position_notional_for(
+                cfg, eq, score=pk.get("score"), close=_close_of(pk))[0] or 0)
+
+        # (b) the owner's cash trigger.
         cash_floor = float(getattr(cfg, "rotation_cash_trigger_pct", 0.05) or 0.0)
         cash_low = eq > 0 and (self.portfolio.cash / eq) < cash_floor
 
-        # (a) the watchlist candidates, used whenever the scan produced no
-        # funded pick of its own. These are scored, not-held names — the same
-        # rows the dashboard card reads, so the two can no longer disagree.
         if not fresh:
-            fresh = self._watchlist_candidates(held)
-            if not fresh:
-                return []
-            # Rotation into a watchlist name is one-for-one: free exactly what
-            # the best candidate needs, never a fire sale.
-            need = float(position_notional_for(
-                cfg, eq, score=fresh[0].get("score"), close=None)[0] or 0)
-            shortfall = need - spendable
+            if cash_low:
+                self._journal_once_a_day("ROTATION_NOTHING_TO_FUND", now, {
+                    "cash_pct": round(self.portfolio.cash / eq * 100, 2),
+                    "why": (f"Cash is {self.portfolio.cash / eq * 100:.1f}% of "
+                            f"the book, under the {cash_floor * 100:.0f}% "
+                            f"rotation trigger, but this scan has no pick to "
+                            f"buy — nothing is sold to fund a name the engine "
+                            f"is not buying (audit F-7, 2026-10-02)."),
+                })
+            return []
+        need = sum(_ticket(pk) for pk in fresh)
+        shortfall = need - spendable
 
         if shortfall <= 0 and not cash_low:
             return []
@@ -1647,9 +1647,7 @@ class TradingEngine:
             # Cash is under the floor but the waiting pick is affordable.
             # Free one ticket's worth so the book is not left with nothing to
             # act on tomorrow.
-            shortfall = need if need > 0 else float(
-                position_notional_for(cfg, eq, score=fresh[0].get("score"),
-                                      close=None)[0] or 0)
+            shortfall = need if need > 0 else _ticket(fresh[0])
             self._journal_once_a_day("ROTATION_CASH_TRIGGER", now, {
                 "cash": round(self.portfolio.cash, 2),
                 "cash_pct": round(self.portfolio.cash / eq * 100, 2),
@@ -1779,7 +1777,7 @@ class TradingEngine:
         })
         # v5: feed the consecutive-loss tracker
         try:
-            self.loss_tracker.record_close(now.date(), net_pnl)
+            self.loss_tracker.record_close(now.date(), net_pnl, reason=reason)
             # AUDIT FIX C11: persist so a restart can't forget the halt
             self.portfolio.loss_day = (self.loss_tracker.today.isoformat()
                                        if self.loss_tracker.today else None)

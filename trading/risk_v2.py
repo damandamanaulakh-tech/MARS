@@ -14,6 +14,7 @@ Critical fixes:
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Optional
@@ -257,30 +258,66 @@ def dynamic_cash_reserve_pct(regime_name: Optional[str], floor: float = 0.20) ->
 # 6. CONSECUTIVE LOSS HALT
 # ============================================================================
 
+# AUDIT F-10 (owner: "go for next", 2026-10-02). Two losing closes in one
+# day halted ALL entries whatever the book size — on a 222-position ceiling,
+# two ordinary -5% stops on a 100-name book stopped the whole engine for the
+# day — and it counted closes that are no verdict on the strategy at all
+# (owner sells, kill switch, drawdown ladder, retag, square-off).
+#
+# Now: only strategy exits count (the SAME classification the measured-Kelly
+# estimator uses, trading/measured_kelly.classify — one definition, not two;
+# an unrecognised reason still counts, the conservative side), and the limit
+# grows with the book: max(2, ceil(10% of the day's book)).
+# LOSS_HALT_BOOK_FRACTION is ASSUMED — no study in this repo measured it; 2
+# stays the floor so a small book behaves exactly as before.
+LOSS_HALT_BOOK_FRACTION = 0.10
+
+
+def counts_toward_loss_halt(reason: Optional[str]) -> bool:
+    """True when a losing close should count toward the daily halt."""
+    if reason is None:
+        return True
+    from .measured_kelly import classify
+    return classify(reason) != "excluded"
+
+
 @dataclass
 class ConsecutiveLossTracker:
     today: Optional[date] = None
     losses_today: int = 0
-    max_consecutive: int = 2  # halt at 2 losers in a day
+    max_consecutive: int = 2  # the floor: halt at 2 losers on a small book
+    book_size: int = 0        # open positions + today's counted losers
 
-    def record_close(self, exit_date: date, net_pnl: float) -> None:
+    def limit(self, book_size: Optional[int] = None) -> int:
+        n = self.book_size if book_size is None else int(book_size)
+        return max(int(self.max_consecutive),
+                   int(math.ceil(LOSS_HALT_BOOK_FRACTION * max(0, n))))
+
+    def record_close(self, exit_date: date, net_pnl: float,
+                     reason: Optional[str] = None) -> None:
         """Call when a position closes. Resets count on a new day."""
         if self.today != exit_date:
             self.today = exit_date
             self.losses_today = 0
-        if net_pnl < 0:
+        if net_pnl < 0 and counts_toward_loss_halt(reason):
             self.losses_today += 1
 
-    def halted(self, today: Optional[date] = None) -> bool:
+    def halted(self, today: Optional[date] = None,
+               open_positions: Optional[int] = None) -> bool:
+        if open_positions is not None:
+            # the book the day started with: still open + already lost
+            self.book_size = int(open_positions) + int(self.losses_today)
         today = today or self.today
         if today != self.today:
             return False
-        return self.losses_today >= self.max_consecutive
+        return self.losses_today >= self.limit()
 
-    def snapshot(self) -> dict:
+    def snapshot(self, open_positions: Optional[int] = None) -> dict:
+        if open_positions is not None:
+            self.book_size = int(open_positions) + int(self.losses_today)
         return {
             "today": self.today.isoformat() if self.today else None,
             "losses_today": self.losses_today,
-            "max_allowed": self.max_consecutive,
+            "max_allowed": self.limit(),
             "halted": self.halted(),
         }
