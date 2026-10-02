@@ -96,6 +96,18 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
         return
     original_save = Portfolio.save
 
+    def _archive_trade_overflow(self: Portfolio) -> None:
+        """AUDIT M-10: move closed trades beyond TRADES_DOC_CAP to the
+        `trades` archive, and trim the book ONLY when that write succeeded.
+        Mongo down = keep everything in the book; the doc grows a little
+        until the next save that can archive. A trade is never lost."""
+        from trading.paper import TRADES_DOC_CAP
+        if len(self.trades) <= TRADES_DOC_CAP or not db.is_connected():
+            return
+        overflow = self.trades[:-TRADES_DOC_CAP]
+        if db.archive_trades([t.to_dict() for t in overflow]):
+            self.trades = self.trades[-TRADES_DOC_CAP:]
+
     def _save_with_mirror(self: Portfolio) -> None:
         # Durable-archive the journal overflow BEFORE original_save trims RAM,
         # so the full append-only trail survives in Mongo (journal_archive)
@@ -109,6 +121,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             # archives now spill to a local JSONL and replay on reconnect.
             if not db.archive_journal(overflow):
                 _spill_journal_overflow(self, overflow)
+        _archive_trade_overflow(self)
         original_save(self)
         if not db.is_connected():
             return

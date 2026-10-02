@@ -28,3 +28,31 @@ def _no_network_quotes(monkeypatch):
         "trading.quote_router.fetch_quotes",
         lambda tickers, upstox_client=None: {},
     )
+
+
+class _UpstoxNoNetwork:
+    """Audit T-2 (2026-10-02): a web test reached the LIVE Upstox option
+    endpoint (401 in the log) — an earlier test leaves the engine "logged
+    in" with a fake token, and run_trigger_layer then ran the real chain
+    snapshot. The Upstox client's own HTTP calls are blocked for every web
+    test; a test that needs them mocks `trading.brokers.upstox.httpx.get`
+    itself (monkeypatching over this) or hands the engine a fake broker."""
+
+    def __init__(self, real):
+        self._real = real
+
+    def __getattr__(self, name):
+        return getattr(self._real, name)
+
+    def _blocked(self, *a, **k):
+        raise self._real.ConnectError("network blocked in tests (audit T-2)")
+
+    get = _blocked
+    post = _blocked
+
+
+@pytest.fixture(autouse=True)
+def _no_upstox_network(monkeypatch):
+    import httpx
+    import trading.brokers.upstox as up
+    monkeypatch.setattr(up, "httpx", _UpstoxNoNetwork(httpx))

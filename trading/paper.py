@@ -20,6 +20,11 @@ log = logging.getLogger(__name__)
 JOURNAL_RAM_CAP = 5000
 SCAN_HISTORY_RAM_CAP = 500
 REGIME_HISTORY_RAM_CAP = 200
+# AUDIT M-10 (2026-10-02): closed trades kept in the ONE Mongo portfolio
+# document (16 MB limit). Older ones move to the `trades` archive collection
+# (web/state.py save wrapper), and only after that write succeeds — a trade
+# is never trimmed without a durable copy. ~400 bytes each, so 5,000 is ~2 MB.
+TRADES_DOC_CAP = 5000
 EQUITY_HISTORY_RAM_CAP = 5000  # (ts, equity) points; appended every refresh
 
 

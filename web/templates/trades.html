@@ -6,6 +6,7 @@
   <div>
     <h1 class="font-black text-3xl lg:text-5xl tracking-tight">Closed Trades</h1>
     <p class="text-ink-soft mt-2">{{ total }} trades · Win rate {{ win_rate | round(1) }}% · Net P&L ₹{{ net_total | inr }} ({{ '%+.2f' % net_pct_of_capital }}% of capital)</p>
+    {% if archived_trades %}<p class="text-xs text-amber-800 mt-1"><!-- trades_archived_marker -->These figures cover the newest {{ total }} closed trades. {{ archived_trades }} older ones were moved to the trades archive to keep the book's record small — nothing is deleted, and all of them are in the trades CSV on Reports.</p>{% endif %}
   </div>
 </div>
 
