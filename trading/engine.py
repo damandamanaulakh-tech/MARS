@@ -277,6 +277,7 @@ class TradingEngine:
         # "kill_switch_active". No live quotes -> can't measure honestly ->
         # leave it to refresh (never trip a halt on entry-price marks).
         held_now = list(self.portfolio.positions.keys())
+        held_px: dict = {}
         if held_now:
             try:
                 held_px = routed_fetch_quotes(held_now, upstox_client=self.broker)
@@ -568,6 +569,11 @@ class TradingEngine:
         skipped: List[dict] = []
         now = datetime.utcnow()
         prices = {r["ticker"]: r["last_close"] for r in ranked}
+        # AUDIT S-9: the book's equity (drawdown governor, sizing, equity
+        # curve) is marked at the freshest price per held name — the live
+        # quotes fetched at the top of this scan, else the stored close —
+        # not at yesterday's scan close or the entry price.
+        marks = self._freshest_marks(held_px, history, fallback=prices)
 
         # The owner's three-formula filter, if they have switched it on: say
         # on the page AND in the journal which names it removed, and why. A
@@ -628,7 +634,7 @@ class TradingEngine:
         prev_dd_level = self.drawdown_gov.active_level
         # The scan reads the governor's halt/sizing; it never cuts (the cut
         # belongs to refresh). See _update_drawdown for the persisted peak.
-        self._update_drawdown(prices, now, cut_allowed=False)
+        self._update_drawdown(prices, now, cut_allowed=False, marks=marks)
         # v5: notify on drawdown level escalation
         if self.drawdown_gov.active_level != prev_dd_level:
             try:
@@ -702,17 +708,15 @@ class TradingEngine:
                                 "reason": f"market_{state}"})
             picks = []
 
-        # OWNER ORDER 2026-09-04: rotation executes. Runs BEFORE the opening
-        # loop so the cash it frees is there when can_open counts it.
-        try:
-            rotated_out = self._rotation_exits(
-                picks, now, entries_blocked=entries_blocked, history=history)
-        except Exception as e:
-            log.exception("rotation exits failed — picks proceed on cash as-is: %s", e)
-            rotated_out = []
-        if rotated_out:
-            picks = [pk for pk in picks if pk["ticker"] not in rotated_out]
-
+        # AUDIT S-4 (owner: "go for next", 2026-10-02): the entry gates run in
+        # TWO passes. Pass 1 (below) applies every gate that can refuse a pick
+        # — macro halt, earnings blackout, chop, drawdown and loss halts,
+        # already held, stale data, liquidity, correlation, candle. Rotation
+        # then funds ONLY the picks that cleared all of them, and pass 2 sizes
+        # and opens. Before this, rotation ran first and could sell a
+        # near-target position for a pick a later gate refused (on an RBI or
+        # Budget week every pick is refused).
+        cleared: list = []
         for pick in picks:
             if binary_event is not None:
                 skipped.append({
@@ -827,6 +831,21 @@ class TradingEngine:
                             "reason": f"candle_wait_{candle_why}",
                         })
                         continue
+            cleared.append(pick)
+
+        # OWNER ORDER 2026-09-04: rotation executes. Runs BEFORE the opening
+        # pass so the cash it frees is there when can_open counts it, and
+        # AFTER the gates (S-4) so it only ever funds a pick that will buy.
+        try:
+            rotated_out = self._rotation_exits(
+                cleared, now, entries_blocked=entries_blocked, history=history)
+        except Exception as e:
+            log.exception("rotation exits failed — picks proceed on cash as-is: %s", e)
+            rotated_out = []
+        if rotated_out:
+            cleared = [pk for pk in cleared if pk["ticker"] not in rotated_out]
+
+        for pick in cleared:
             live_px = live_fill_px.get(pick["ticker"])
             if live_px and live_px > 0:
                 # 2026-08-26: the router can now serve a ~1-minute-delayed
@@ -840,7 +859,7 @@ class TradingEngine:
             else:
                 raw_fill, pick["fill_source"] = pick["last_close"], "prev_close"
             fill = slippage_price(raw_fill, "BUY", cfg)
-            current_eq = self.portfolio.equity(prices)
+            current_eq = self.portfolio.equity(marks)
             # Owner order 2026-07-30: size by ½-Kelly off this stock's own
             # estimated edge and volatility instead of a flat rupee amount.
             # Falls back to the fixed size when history is missing, and every
@@ -1046,7 +1065,7 @@ class TradingEngine:
             "skipped_count": len(skipped),
             "top_score": float(ranked[0]["score"]) if ranked else 0.0,
         })
-        self._record_equity(prices, now)
+        self._record_equity(marks, now)
         self.portfolio.save()
 
         return ScanResult(ts=now, ranked=ranked, picks=picks, opened=opened, skipped=skipped)
@@ -1165,7 +1184,12 @@ class TradingEngine:
         # baseline stays pinned at starting_capital forever and the "-2% daily"
         # halt becomes "-2% since inception", force-closing the whole book on
         # an ordinary drawdown.
-        current_eq = self.portfolio.equity(prices)
+        # AUDIT S-9: a held name with no live quote is marked at its latest
+        # stored close (or entry, if it was bought after that close) for the
+        # BOOK's equity — kill switch, drawdown governor, equity curve. Exits
+        # and cuts still act only on real quotes (`prices`), never on marks.
+        marks = self._freshest_marks(prices, history)
+        current_eq = self.portfolio.equity(marks)
         self._roll_risk_day(current_eq, now)
         if self.risk.check_kill_switch(current_eq):
             # Persist the trip so a mid-day restart can't forget the halt.
@@ -1301,11 +1325,12 @@ class TradingEngine:
         # the book falls -10% / -15% / -20% from its peak. Runs EVEN in hold
         # mode. Rules (owner order 2026-10-02) live in _update_drawdown.
         exits.extend(self._update_drawdown(prices, now,
-                                           cut_allowed=not marking_only))
+                                           cut_allowed=not marking_only,
+                                           marks=marks))
 
-        self._record_equity(prices, now)
+        self._record_equity(marks, now)
         self.portfolio.save()
-        summary = self._summary_dict(prices)
+        summary = self._summary_dict(marks)
         summary["exits_this_refresh"] = exits
         return summary
 
@@ -2171,7 +2196,8 @@ class TradingEngine:
         return c
 
     def _update_drawdown(self, prices: Dict[str, float], now: datetime,
-                         *, cut_allowed: bool) -> List[str]:
+                         *, cut_allowed: bool,
+                         marks: Optional[Dict[str, float]] = None) -> List[str]:
         """Update the drawdown governor and, when allowed, run the ladder cut.
 
         Persisted peak (2026-07-31): the governor is rebuilt on every boot
@@ -2202,7 +2228,9 @@ class TradingEngine:
         saved = float(getattr(self.portfolio, "dd_peak_equity", 0.0) or 0.0)
         if saved > 0:
             gov.peak_equity = saved
-        gov.update(self.portfolio.equity(prices))
+        # S-9: equity on the freshest marks; the cut below still ranks and
+        # fills only on real quotes (`prices`).
+        gov.update(self.portfolio.equity(marks if marks is not None else prices))
 
         level = gov.active_level if gov.active_level in order else "normal"
         done = getattr(self.portfolio, "dd_cut_level", "normal") or "normal"
@@ -2259,6 +2287,41 @@ class TradingEngine:
 
         self.portfolio.dd_peak_equity = float(gov.peak_equity)
         return closed
+
+    def _freshest_marks(self, live: Optional[Dict[str, float]],
+                        history: Optional[dict],
+                        fallback: Optional[Dict[str, float]] = None
+                        ) -> Dict[str, float]:
+        """AUDIT S-9 (2026-10-02): the freshest price per HELD name, for
+        marking the book — live quote, else the latest stored close, else
+        `fallback`, else (Portfolio.equity's own default) the entry price.
+
+        A stored close dated BEFORE the entry day is older than the fill
+        itself, so the entry price stays the mark for a name bought today.
+        Marks value the book; they never fire an exit or fill a trade."""
+        marks: Dict[str, float] = {}
+        for t, pos in self.portfolio.positions.items():
+            fb = (fallback or {}).get(t)
+            if fb and fb > 0:
+                marks[t] = float(fb)
+            frame = (history or {}).get(t)
+            if frame is None:
+                continue
+            try:
+                c = frame["Close"].dropna()
+                bar_day = c.index[-1].date()
+                close = float(c.iloc[-1])
+            except Exception:
+                continue
+            entry_day = pos.entry_date.date() if hasattr(pos.entry_date, "date") else None
+            if close > 0 and (entry_day is None or bar_day >= entry_day):
+                marks[t] = close
+            elif t in marks and entry_day is not None and bar_day < entry_day:
+                del marks[t]
+        for t, px in (live or {}).items():
+            if t in self.portfolio.positions and px and float(px) > 0:
+                marks[t] = float(px)
+        return marks
 
     def _record_equity(self, prices: Dict[str, float], now: datetime) -> None:
         eq = self.portfolio.equity(prices)

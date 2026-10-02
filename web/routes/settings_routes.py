@@ -174,6 +174,34 @@ def settings_push_toggle(request: Request, action: str):
     return RedirectResponse("/settings", status_code=303)
 
 
+def _mode_busy() -> bool:
+    """AUDIT S-6 (2026-10-02): a Settings save during the 09:20 rotation used
+    to change the shared Config underneath a running scan pass — and the
+    rotation restores the mode it STARTED with when it ends, so a mode switch
+    made mid-rotation was silently undone. True while either a scan pass holds
+    the mode lock or the rotation loop is between passes."""
+    try:
+        from .. import scheduler
+        if scheduler._ROTATION_LOCK.locked():
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _under_mode_lock(body, *args, busy_url: str):
+    """Run a Settings change while holding the shared mode lock. Async
+    routes run on the event loop, so this never WAITS — a scan in progress
+    returns the owner to a 'busy, nothing changed' notice at once."""
+    from trading.modes import MODE_LOCK
+    if _mode_busy() or not MODE_LOCK.acquire(blocking=False):
+        return RedirectResponse(busy_url, status_code=303)
+    try:
+        return body(*args)
+    finally:
+        MODE_LOCK.release()
+
+
 @router.post("/settings/mode")
 async def settings_mode_quick_switch(request: Request):
     """One-button mode switch from the Dashboard chip row."""
@@ -181,6 +209,11 @@ async def settings_mode_quick_switch(request: Request):
     if not user or user.get("role") != "owner":
         return RedirectResponse("/?error=owner_only", status_code=303)
     form = await request.form()
+    return _under_mode_lock(_mode_switch_body, form,
+                            busy_url="/settings?saved=busy")
+
+
+def _mode_switch_body(form):
     new_mode = form.get("mode")
     if new_mode in {m[0] for m in MODE_CHOICES}:
         cfg = state.cfg()
@@ -197,6 +230,10 @@ async def settings_reset_to_defaults(request: Request):
     user = auth.current_user(request)
     if not user or user.get("role") != "owner":
         return RedirectResponse("/settings?saved=denied", status_code=303)
+    return _under_mode_lock(_reset_body, busy_url="/settings?saved=busy")
+
+
+def _reset_body():
     # Build a fresh Config to read defaults; copy over editable fields.
     from trading.config import Config as _Config
     defaults = _Config()
@@ -228,6 +265,11 @@ async def settings_save(request: Request):
     if not user or user.get("role") != "owner":
         return RedirectResponse("/settings?saved=denied", status_code=303)
     form = await request.form()
+    return _under_mode_lock(_settings_save_body, form,
+                            busy_url="/settings?saved=busy")
+
+
+def _settings_save_body(form):
     cfg = state.cfg()
     cfg_fields = {f.name: f.type for f in fields(cfg)}
     overrides: dict = {}

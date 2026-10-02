@@ -11,6 +11,10 @@
 
 {% if saved == 'ok' %}
 <div class="mb-6 px-4 py-3 border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm">✓ Saved.{% if db_status.connected %} Persisted to MongoDB.{% else %} (In-memory only — set MONGO_URL to persist.){% endif %}</div>
+{% elif saved == 'busy' %}
+<div class="mb-6 px-4 py-3 border border-amber-200 bg-amber-50 text-amber-900 text-sm"><!-- settings_busy_marker -->
+  ⏳ A scan is running right now, so <strong>nothing was saved</strong> — changing settings while the engine is mid-scan could leave it on the wrong stops or targets. Save again in a few minutes.
+</div>
 {% elif saved == 'denied' %}
 <div class="mb-6 px-4 py-3 border border-red-200 bg-red-50 text-red-800 text-sm">Owner role required to save changes.</div>
 {% elif saved == 'reset' %}

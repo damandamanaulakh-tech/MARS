@@ -81,8 +81,13 @@ def test_two_rotations_cannot_run_at_once():
     assert "_ROTATION_LOCK.acquire(blocking=False)" in src
     body = src.split("def _daily_multi_mode_scan")[1]
     assert "finally:" in body and "_ROTATION_LOCK.release()" in body
-    assert "cfg.mode = original_mode" in body.split("finally:")[-1], \
+    after_loop = body.split("for m in _DAILY_MODE_ORDER")[1]
+    # the restore sits in the loop's outer finally (nested since audit S-6,
+    # whose own finally releases the mode lock held across the rotation)
+    outer = after_loop.split("    finally:\n        # AUDIT FIX C3")[1]
+    assert "cfg.mode = original_mode" in outer, \
         "the mode restore is not in a finally — an escape leaves cfg poisoned"
+    assert "MODE_LOCK.release()" in outer.split("finally:")[-1]
 
 
 def test_mode_lock_exists_and_rotation_uses_it():

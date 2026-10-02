@@ -3912,6 +3912,30 @@ for next"), 1,329 tests (18 new, 14 verified to FAIL on the old code).**
   earnings growth has a 6h cache + 3-fail/30-min breaker.
 - **F-9 measured Kelly = OWNER DECISION** (wire = "no edge -> block all
   entries" could stop buying entirely; remove = drop their 09-10 order).
+**AUDIT S-4/S-6/S-7/S-9 FIXED 2026-10-02 (owner: "go for next"), 1,391
+tests (14 new, 13 fail on old code). The money rows of the audit are DONE.**
+- **S-4**: scan runs ALL entry gates first (`cleared` list), rotation funds
+  only cleared picks, then the sizing/open pass. A Budget/election halt week
+  can no longer sell a near-target winner for a refused pick.
+- **S-6**: `modes.holding_mode_lock(timeout)` / `MODE_LOCK_WAIT_S=30`. The
+  09:20 rotation holds MODE_LOCK for the WHOLE loop incl. the restore (it
+  released between passes while cfg.mode held the last category). Also
+  locked: 14:30 top-up, manual scan thread, intraday tick, 30-min + 15:35
+  refresh, `orders._fill` (now `_fill` -> `_fill_locked`), owner BUY, Buy
+  Desk, Refresh button (wait 30 s -> `/scan?error=scan_busy`). Settings
+  routes are ASYNC (event loop) so they never wait: non-blocking acquire +
+  refuse while `scheduler._ROTATION_LOCK` is held -> `/settings?saved=busy`.
+  LOCK ORDER: MODE_LOCK before state._LOCK, never the reverse. Expect owner
+  taps during the 09:20 rotation to say "scan running" for its duration.
+- **S-7**: `_check_pending_orders("session")` after every 30-min refresh and
+  ("top-up-skip") on the 14:30 over-60% skip path.
+- **S-9**: `engine._freshest_marks(live, history, fallback)` — live > latest
+  stored close > fallback > entry; a close dated before the entry day never
+  replaces the fill; only held names. Used for book equity in scan and
+  refresh (kill switch, drawdown governor, equity curve, sizing). Exits and
+  ladder cuts still use real quotes only.
+- Remaining audit rows: display F-14..F-18, S-11..S-14 (S-14 part done),
+  Mongo M-1..M-12, files R-1..R-11, tests T-2; F-9 owner decision.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never
