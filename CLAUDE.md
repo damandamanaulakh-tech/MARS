@@ -3820,6 +3820,34 @@ composite makes two UNTIMED Yahoo .info calls per held name (hangs in the
 sandbox; earnings one has no cache/breaker). Mongo: cluster 387/512 MB,
 ashstock +6.4 MB/day → full ~10-21; pwoi_daily never written; trades/
 journal_archive code dead. Files: 117 of 747 not needed (~147 MB).
+**AUDIT ITEMS 1-3 FIXED 2026-10-02 (owner: "fix 1 to 3 and merge" -> "go
+for next"), 1,329 tests (18 new, 14 verified to FAIL on the old code).**
+- **F-1 exit ruler**: `scoring.score_for_mode(mode, ...)` is the ONE scorer
+  for the backtest AND the live exit pass; refresh re-scores each position on
+  its OWN mode (blank legacy mode = momentum, matching retag). The backtest
+  always did this — every exit study incl. Node 12 measured the blend, so
+  live now matches the evidence. TRAP CAUGHT before shipping: refresh loaded
+  `period="1y"` (~248-252 trading days) and momentum_score needs 252 — on
+  the short side EVERY momentum position would have scored 0 and been sold
+  for decay. Now `2y`, and `missing=None` keeps the entry score when the
+  ruler cannot read. Swing/short/positional/intraday still judge on the
+  composite.
+- **F-2 Ocean**: `ocean` tag exempt from SCORE_DECAY and the trail-tighten
+  (entry score 100+%below is on no comparable scale). Stop/target/trail/
+  max-hold untouched.
+- **F-3 ladder**: `engine._update_drawdown` (both scan and refresh): each
+  level cuts ONCE (`portfolio.dd_cut_level`, persisted JSON+Mongo both
+  ways); a recovery re-arms; an empty book in a halting drawdown resets its
+  peak (DRAWDOWN_PEAK_RESET — that state was permanent before);
+  `sync_capital` moves `dd_peak_equity` by the capital delta. The SAVED
+  peak is now the source of truth (old restore only ever RAISED it, so a
+  reset could never have stuck). If the live book is already in a cutting
+  drawdown at deploy, it cuts ONCE on the first pass (the old code cut every
+  pass).
+- Old pin `test_engine_restores_the_peak_before_updating_the_governor`
+  repointed at the helper. Test gotcha recorded: the pre-fix engine imported
+  compute_score under its own name, so stubbing only trading.scoring let the
+  old code pass — stub BOTH names when proving a fix against old code.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never

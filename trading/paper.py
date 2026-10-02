@@ -146,6 +146,10 @@ class Portfolio:
     # drawdown was 0 and the governor's throttles/halts were disabled until a
     # new peak formed. Persisting the peak makes the governor survive restarts.
     dd_peak_equity: float = 0.0
+    # The drawdown level whose ladder cut already ran (owner order 2026-10-02):
+    # each level cuts ONCE. Persisted, or a restart would cut the same level
+    # again on its first pass.
+    dd_cut_level: str = "normal"
     last_save: Optional[str] = None
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
@@ -175,6 +179,11 @@ class Portfolio:
             })
             return None
         self.cash += delta
+        # The drawdown peak moves with the capital (owner order 2026-10-02):
+        # a capital cut must not read as a drawdown (it could trip the
+        # ladder and sell the book), and a top-up must not hide a real one.
+        if self.dd_peak_equity > 0:
+            self.dd_peak_equity = max(0.0, self.dd_peak_equity + delta)
         old = self.capital_base
         self.capital_base = target
         note = (f"Paper capital {old:,.0f} -> {target:,.0f} "
@@ -249,6 +258,7 @@ class Portfolio:
                 "danger_alerts_start": self.danger_alerts_start,  # danger layer C->B clock
                 "capital_base": self.capital_base,   # capital the cash is synced to
                 "dd_peak_equity": self.dd_peak_equity,  # drawdown-governor peak
+                "dd_cut_level": self.dd_cut_level,      # ladder level already cut
                 "loss_day": self.loss_day,               # 2-loss halt state
                 "loss_count": self.loss_count,
                 "last_save": datetime.utcnow().isoformat(),
@@ -307,6 +317,7 @@ class Portfolio:
             p.capital_base = float(data.get("capital_base", 0.0)
                                    or cfg.starting_capital)
             p.dd_peak_equity = float(data.get("dd_peak_equity", 0.0) or 0.0)
+            p.dd_cut_level = str(data.get("dd_cut_level") or "normal")
             p.loss_day = data.get("loss_day")
             p.loss_count = int(data.get("loss_count", 0) or 0)
             p.last_save = data.get("last_save")

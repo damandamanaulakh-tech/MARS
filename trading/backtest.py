@@ -165,25 +165,15 @@ def _slice_to_date(df: pd.DataFrame, date) -> Optional[pd.DataFrame]:
 def _score_for_mode(cfg, ticker, hist, bench_as_of, history_as_of):
     """Score a ticker with the SAME scorer the live engine uses for this mode.
 
-    nifty200_momentum -> momentum_score (6m+12m sharpe); every other mode ->
-    AM07 compute_score. Without this the backtest replayed a different
-    strategy than what actually trades live. Returns (score, components).
+    nifty200_momentum -> momentum_score (6m+12m sharpe) blended with quality;
+    every other mode -> AM07 compute_score. One implementation,
+    scoring.score_for_mode, now serves the backtest AND the live exit pass,
+    so the two can never judge a position on different rulers again.
+    Returns (score, components).
     """
-    if getattr(cfg, "mode", "") == "nifty200_momentum":
-        try:
-            from .strategies.nifty200_momentum import momentum_score
-            from .quality import quality_score, blend_scores
-            s = momentum_score(hist["Close"])
-            if s is None:
-                return 0.0, {"nifty200_momentum": 0.0}
-            # C1: same momentum+quality blend as the live engine, so the
-            # backtest proves the strategy that actually trades.
-            q = quality_score(hist["Close"], hist.get("Volume"))
-            blended = blend_scores(float(s), q, getattr(cfg, "quality_blend_pct", 0.0))
-            return blended, {"momentum": float(s), "quality": q}
-        except ImportError:
-            pass
-    return compute_score(ticker, hist, bench_as_of, history_as_of, cfg)
+    from .scoring import score_for_mode
+    return score_for_mode(getattr(cfg, "mode", ""), ticker, hist,
+                          bench_as_of, history_as_of, cfg)
 
 
 def _regime_allows_entries(bench_as_of) -> bool:

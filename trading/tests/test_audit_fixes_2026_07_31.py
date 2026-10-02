@@ -129,13 +129,17 @@ def test_mongo_mirror_carries_the_peak_both_ways():
 
 
 def test_engine_restores_the_peak_before_updating_the_governor():
+    # 2026-10-02: both governor call sites now go through ONE helper,
+    # engine._update_drawdown, so the order is pinned there.
     src = Path("trading/engine.py").read_text()
-    update = src.find("self.drawdown_gov.update(")
+    body = src.split("def _update_drawdown")[1].split("\n    def ")[0]
+    update = body.find("gov.update(")
     assert update != -1
-    before, after = src[:update], src[update:]
+    before, after = body[:update], body[update:]
     assert "dd_peak_equity" in before[-1200:], \
         "the persisted peak must be restored BEFORE update(), not after"
-    assert "dd_peak_equity" in after[:600], "the new peak is never saved back"
+    assert "self.portfolio.dd_peak_equity = float(gov.peak_equity)" in after, \
+        "the new peak is never saved back"
 
 
 # ------------------------------------------------------- 3. trail reachability
