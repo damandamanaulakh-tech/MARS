@@ -1,10 +1,11 @@
 # SOURCEBORN AM07 — The Owner's Brief (simple language)
 
-*Read this one page and you know your app. Updated 2026-08-09 (audit truth pass — six money facts had gone stale).*
+*Read this one page and you know your app. Updated 2026-10-02 (sizing truth pass — the capital and trade size had gone stale since 2026-09-10).*
 
 ## What this app is
 
-A robot stock-picker that trades **paper money only** (₹50L practice capital —
+A robot stock-picker that trades **paper money only** (₹5 crore practice capital
+since 2026-09-10, ₹50L before that —
 a hard lock in the code means it can never place a real order without your
 explicit approval and a rebuild). It watches the whole NSE market, buys the
 strongest stocks by a tested recipe, sells them by fixed rules, and writes
@@ -30,17 +31,31 @@ are impossible now.
 
 1. **Buy strength:** rank stocks by how strongly they've risen over 6 and 12
    months, adjusted for how wildly they swing, and buy above score 62 (your
-   floor, 2026-07-30). Each new trade is a FIXED **₹1.25 lakh** (your order:
-   "1.25 lac, 125000, not percentage"), up to 80 slots as the book grows.
+   floor, 2026-07-30). **Trade size = the slab rule (your order 2026-09-10,
+   "150000 slab as minimum and rest on the score basis", m = 0.29):**
+   size = the larger of **₹1,50,000** and 0.29 × Kelly × equity, where Kelly
+   comes from the score above 62 and the stock's own swing; a score AT 62
+   is skipped; no trade above 5% of the book (₹25 lakh). Up to 222 slots.
+   On ₹5 crore at a typical swing: 63 → ₹1.5L · 65 → ₹3.9L · 68 → ₹7.8L ·
+   72 → ₹13.1L · 80 → ₹23.5L. (This is NOT ½-Kelly — ½-Kelly ran only
+   2026-07-30 → 08-04; the old fixed ₹1,25,000 ran 08-04 → 09-10.)
+   **Measured-Kelly check (your order 2026-10-02, "write it"):** at every
+   scan the app reads its OWN closed trades (stops, targets, trails, decay,
+   max-hold, rotation, danger — never your own sells, square-offs, the kill
+   switch or the drawdown ladder). If they show NO edge after costs, the
+   scan opens nothing new; if they show an edge, each new trade is capped
+   at the size that record supports (never below ₹1,50,000, never raised).
+   The reading is on the Risk page; Settings switches it off. Your own BUY
+   button and the Buy Desk are never blocked by it.
    Each stock must also be rising on its own (not just "least bad").
    **What a trade is worth, all three cases:** a normal (Everest) entry is
-   **₹1,25,000**; an **Ocean** dip-engine entry is **₹1,68,750 — 35% MORE than a
+   the slab ladder above — **at least ₹1,50,000** (₹1,25,000 under the old
+   fixed rule, still selectable in Settings); an **Ocean** dip-engine entry is **₹1,68,750 — 35% MORE than a
    normal trade** (your order 2026-08-30, replacing the half size you
    approved on 2026-08-26; max 8 Ocean slots, so at most ₹13.5L in the
    dip engine at once); and **nothing below ₹25,000 ever
    opens** — that is a dust guard from 2026-07-11, and a trade that small
-   is skipped outright, not shrunk to fit. So "at least ₹1 lakh" describes
-   Everest only, not every trade the book can make.
+   is skipped outright, not shrunk to fit.
 2. **Sell by rails, not feelings:** every position carries **−5% stop /
    +20% target** from day one (your calls: stop 2026-07-26; target raised
    +12→+20 on 2026-08-24 — you picked "Switch to D" after both exit

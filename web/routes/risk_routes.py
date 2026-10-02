@@ -72,6 +72,26 @@ def risk_view(request: Request):
         "window_days": ACTIVE_DAYS_AFTER_FIRE,
     } if (cluster or ratio) else None
 
+    # AUDIT F-9 (owner: "F9- write it", 2026-10-02): the same reading the
+    # 09:20 scan acts on, recomputed from the book's closed trades (pure, no
+    # network), so the owner sees the numbers before they move a rupee. Not
+    # engine._measured_kelly: a page view must never write the journal.
+    mk = None
+    mk_cap = None
+    try:
+        from trading.measured_kelly import live_clip_pct, measure
+        if bool(getattr(cfg, "measured_kelly_enabled", False)):
+            mk = measure(
+                eng.portfolio.trades,
+                fraction=float(getattr(cfg, "kelly_fraction", 0.29) or 0.29),
+                min_trades=int(getattr(cfg, "measured_kelly_min_trades", 0) or 0),
+                full_confidence=int(getattr(
+                    cfg, "measured_kelly_full_confidence", 300) or 300),
+                clip_pct=live_clip_pct())
+            mk_cap = eng._measured_kelly_cap(mk, cfg, equity)
+    except Exception:
+        mk = None
+
     return templates.TemplateResponse(
         request, "risk.html",
         {
@@ -82,5 +102,8 @@ def risk_view(request: Request):
             "ifr": ifr,
             "cfg": cfg,
             "equity": equity,
+            "mk": mk,
+            "mk_cap": mk_cap,
+            "mk_on": bool(getattr(cfg, "measured_kelly_enabled", False)),
         },
     )

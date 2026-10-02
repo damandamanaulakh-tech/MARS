@@ -65,7 +65,10 @@ def test_the_owners_manual_states_all_three_sizes():
     """APP_BRIEF is the owner's manual. Before this fix it named Rs 1.25
     lakh and never mentioned Ocean's own ticket size at all."""
     brief = (ROOT / "docs" / "APP_BRIEF.md").read_text()
-    for token in ("1,25,000", "1,68,750", "25,000"):
+    # 2026-10-02: Everest is the slab ladder (at least Rs 1,50,000) since
+    # 2026-09-10; the old fixed Rs 1,25,000 is still named as the Settings
+    # alternative.
+    for token in ("1,50,000", "1,25,000", "1,68,750", "25,000"):
         assert token in brief, token
 
 

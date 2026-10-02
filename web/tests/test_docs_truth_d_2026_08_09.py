@@ -15,16 +15,22 @@ def _brief() -> str:
 
 
 def test_app_brief_capital_matches_config():
+    # 2026-10-02: this pin used to assert "₹50L" was in the brief — it was
+    # pinning a stale number (capital went to Rs 5 crore on 2026-09-10).
     cfg = Config()
-    assert f"₹{int(cfg.starting_capital / 1_00_000)}L" in _brief().replace(
-        "₹50L", f"₹{int(cfg.starting_capital / 1_00_000)}L")
-    assert "₹50L" in _brief()
+    assert cfg.starting_capital == 5_00_00_000
+    assert "₹5 crore practice capital" in _brief()
     assert "₹25L practice capital" not in _brief()
 
 
 def test_app_brief_sizing_matches_the_owners_order():
+    cfg = Config()
     b = _brief()
-    assert "₹1.25 lakh" in b
+    assert cfg.sizing_mode == "slab" and cfg.kelly_fraction == 0.29
+    assert cfg.position_slab_value == 150_000
+    assert "₹1,50,000" in b and "m = 0.29" in b
+    assert "Each new trade is a FIXED" not in b        # superseded 2026-09-10
+    assert "Measured-Kelly check" in b
     assert "3.3%" not in b
     assert "top ~25-30" not in b
 

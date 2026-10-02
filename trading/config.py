@@ -163,6 +163,9 @@ class Config:
     # adopted on the owner's order 2026-09-10). It never RAISES a size — it
     # is a ceiling that can only cut, so a bad estimate shrinks the book and
     # can never blow it up. See trading/measured_kelly.py.
+    # AUDIT F-9 (owner: "F9- write it", 2026-10-02): WIRED — until then this
+    # switch was on and nothing called the estimator. engine.scan reads it:
+    # no measured edge blocks new scan entries, a measured edge caps size.
     measured_kelly_enabled: bool = True
     # Owner order 2026-09-10: "no cap on closed trades, i have already more
     # than 100 in that". The count gate is off; what remains is the REASON

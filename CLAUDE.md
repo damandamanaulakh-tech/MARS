@@ -4008,6 +4008,34 @@ tests (9 new, all fail on old code).**
   ran only 07-30 -> 08-04). F-9 is the separate measured-Kelly safety
   check from closed trades — wire (cap / block on no edge) or remove;
   awaits their word.
+**F-9 WIRED + OWNER CLOSINGS 2026-10-02 (owner: "F9- write it / M2- ok /
+M1 yes do not take it up but in stock selection there is 3 formula keep
+them intact"). EVERY ROW OF docs/AUDIT_2026-10-02.md IS NOW CLOSED.**
+- `engine._measured_kelly(now)` (one reading per scan from
+  `portfolio.trades`; crash -> None = check skipped, never a block) +
+  `engine._measured_kelly_cap(mk, cfg, equity)` = max(fraction x equity,
+  slab) under slab sizing. NO_POSITIVE_EDGE -> every new SCAN entry refused
+  `measured_kelly_no_edge` in the GATE pass (so rotation can't sell for it),
+  MEASURED_KELLY_BLOCKED journaled once a day; ACTIVE -> notional capped,
+  BUY journal `sizing.measured_kelly` {status, usable, fraction, cap,
+  wanted, capped}; NO_SAMPLE -> nothing. Owner BUY button + Buy Desk NOT
+  gated. /risk card (measured_kelly_marker, page never writes the journal),
+  Settings row `measured_kelly_enabled`.
+- **Clip raised**: `measure(clip_pct=)` + `measured_kelly.live_clip_pct()` =
+  max(12, momentum preset target x 100) = 20. At 12 every +20% target exit
+  read +12% and the payoff ratio came out 40% short. The live book's real
+  reading is unknown from a session — /risk shows it; if it says BLOCKED,
+  the scan buys nothing until the record shows an edge or the owner flips
+  the switch.
+- APP_BRIEF sizing truth-passed (it still said FIXED Rs 1.25 lakh / 80
+  slots / Rs 50L): now Rs 5 crore, slab ladder at m = 0.29, the measured
+  check. Two doc pins that ASSERTED the stale "₹50L" / "₹1.25 lakh" were
+  rewritten to the live config — a pin that guards a stale fact is the
+  fault-mask class.
+- **THREE-FORMULA VIEW STAYS INTACT (owner, 2026-10-02):** AM07 / ASH08
+  (floor 68) / AshStocks (floor 70) in `trading/multi_formula.py`, the
+  Formulas column and 🔬 card on /scan, the `multi_formula_gate` switch.
+  Never remove or merge it. M-1 (ashstock) closed for good; M-2 "ok".
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never
