@@ -3777,6 +3777,77 @@ probes at 09:11/12:10/14:50/15:22 IST; 15:25 + 15:35 passes ran on a
 live process (peak 219 MiB); the morning and early-afternoon 30-min stop
 checks did not (asleep). 16:25 IST wake armed for the 16:30 weekly block
 (trig_015XstGT35hNgtrPRphvJT5h), which then re-arms Thu 09:10.
+**WEEKLY BLOCK RAN WED 09-30 16:30 IST — THE SCAN UNIVERSE IS 1,205 (read
+from the live box via the 16:25-17:30 keep-alive loop):** pre-pull rebuild
+16:31 (443 -> 444), time-bounded pull 16:33 -> 17:11 landed 487 -> 2,233
+stored names (~46 names/min, finished inside the 2,400 s budget), post-pull
+rebuild 17:11 -> **scan_universe 1,205 / target 1,200, last_rebuild
+2026-09-30**; 16:45 register precompute peak **326 MiB** (the box's
+highest measured peak so far; rss settled 321); writes landing throughout.
+So Monday 10-05 09:20 is the FIRST five-mode scan over ~1,205 names on
+the 512 MB box — take its peak before claiming anything (PR #112's
+delivery layoff is the only thing that has been measured). A session
+cannot push into their Mongo; the store filled itself through the
+block, as designed since PR #103.
+**THU 10-01 WAS UNATTENDED.** The session container paused from ~17:35
+IST Wed to 10:42 IST Fri, so no wake probe fired Thursday; the 09:10
+re-arm failed on resume ("run_once_at in past"). Whether Thursday's
+09:20 scan, exits and danger passes ran depends on whether the owner's
+own visits kept a process alive — the journal answers, needs their
+login. Fri 10-02 = Gandhi Jayanti, NSE closed (calendars.py line 117),
+nothing scheduled runs by design. Mon 10-05 09:10 wake armed
+(trig_01BBAKMgHTFJhMrMLro84R3F) and chains forward (15:20 -> next 09:10).
+RBI MPC decision Wed 10-07 — shown, never a halt (PR #136).
+HARNESS: a scheduled wake cannot protect a day the container sleeps
+through; Render Instance Type -> Starter remains the only real fix and
+has been asked for four times.
+**DEEP AUDIT 2026-10-02 (owner: "recheck the entire files… flaws in
+formulas… sequence… make table of all items… mongo… everywhere").
+docs/AUDIT_2026-10-02.md IS THE RECORD — READ-ONLY, nothing changed; every
+fix awaits the owner's word.** Top money-path items, hand-verified:
+F-1 momentum positions are bought on the blend (floor 62) but sold on the AM07
+composite (decay floor 40) — MEASURED on the 191 panel: 26.5% of 2,981
+entry-qualifying stock-dates already read composite < 40, 64% tighten the
+trail · F-2 Ocean buys read composite ~37 by construction (sold on the next
+pass) · F-3 drawdown ladder recuts every refresh (40 names → 0 in 7 passes),
+peak never resets · F-4 vix_crush_ok true on 63% of all days (339 with no
+spike) and bypasses the breadth band · F-6 check_exit reads trail/decay/
+max-hold from the LIVE cfg, so swing/short ride momentum's 200 days · F-9
+measured_kelly switched on, never called · S-1 daily top-up runs AFTER the
+09:20 scans · S-2 boot retag wipes k×ATR targets · S-3 sector count cap treats
+all ~950 unmapped scan names as ONE sector (max 12 held) · S-15 exit-pass
+composite makes two UNTIMED Yahoo .info calls per held name (hangs in the
+sandbox; earnings one has no cache/breaker). Mongo: cluster 387/512 MB,
+ashstock +6.4 MB/day → full ~10-21; pwoi_daily never written; trades/
+journal_archive code dead. Files: 117 of 747 not needed (~147 MB).
+**AUDIT ITEMS 1-3 FIXED 2026-10-02 (owner: "fix 1 to 3 and merge" -> "go
+for next"), 1,329 tests (18 new, 14 verified to FAIL on the old code).**
+- **F-1 exit ruler**: `scoring.score_for_mode(mode, ...)` is the ONE scorer
+  for the backtest AND the live exit pass; refresh re-scores each position on
+  its OWN mode (blank legacy mode = momentum, matching retag). The backtest
+  always did this — every exit study incl. Node 12 measured the blend, so
+  live now matches the evidence. TRAP CAUGHT before shipping: refresh loaded
+  `period="1y"` (~248-252 trading days) and momentum_score needs 252 — on
+  the short side EVERY momentum position would have scored 0 and been sold
+  for decay. Now `2y`, and `missing=None` keeps the entry score when the
+  ruler cannot read. Swing/short/positional/intraday still judge on the
+  composite.
+- **F-2 Ocean**: `ocean` tag exempt from SCORE_DECAY and the trail-tighten
+  (entry score 100+%below is on no comparable scale). Stop/target/trail/
+  max-hold untouched.
+- **F-3 ladder**: `engine._update_drawdown` (both scan and refresh): each
+  level cuts ONCE (`portfolio.dd_cut_level`, persisted JSON+Mongo both
+  ways); a recovery re-arms; an empty book in a halting drawdown resets its
+  peak (DRAWDOWN_PEAK_RESET — that state was permanent before);
+  `sync_capital` moves `dd_peak_equity` by the capital delta. The SAVED
+  peak is now the source of truth (old restore only ever RAISED it, so a
+  reset could never have stuck). If the live book is already in a cutting
+  drawdown at deploy, it cuts ONCE on the first pass (the old code cut every
+  pass).
+- Old pin `test_engine_restores_the_peak_before_updating_the_governor`
+  repointed at the helper. Test gotcha recorded: the pre-fix engine imported
+  compute_score under its own name, so stubbing only trading.scoring let the
+  old code pass — stub BOTH names when proving a fix against old code.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never

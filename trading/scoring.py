@@ -290,3 +290,46 @@ def reasoning_text(components: Dict[str, float], total: float) -> str:
     if not drivers:
         return f"Score {total:.1f}/100. All factors at/near neutral."
     return f"Score {total:.1f}/100. Top drivers: {drivers}."
+
+
+# The trade category a position was BOUGHT under decides which ruler judges it
+# later. A blank position mode is a legacy position from before modes were
+# recorded; exits.retag_positions_per_mode treats those as momentum, and the
+# engine's exit pass passes them in as momentum. This function itself treats
+# only an exact match as momentum, so the backtest's behaviour is unchanged.
+MOMENTUM_MODE = "nifty200_momentum"
+
+
+def score_for_mode(mode: str, ticker: str, hist: pd.DataFrame,
+                   bench, history: Dict, cfg: Config,
+                   missing=0.0) -> Tuple[float, Dict]:
+    """Score a name with the SAME ruler its trade category buys on.
+
+    nifty200_momentum -> momentum_score blended with quality (the entry
+    score the 09:20 scan ranks on); every other category -> the AM07
+    composite. Shared by the backtest and by the live exit pass.
+
+    OWNER ORDER 2026-10-02 ("fix 1 to 3"): the live exit pass used to judge
+    EVERY position on the composite, so a momentum position bought at a
+    blend of 62+ was then sold for score decay when a different number
+    fell below 40. Measured on the committed 191-name panel: 26.5% of the
+    2,981 stock-dates good enough to BUY already read composite < 40. The
+    backtest — and therefore every exit study, Node 12 included — has
+    always re-scored momentum positions on the blend; live now matches it.
+    `missing` is returned when momentum cannot be computed (under ~1 year of
+    bars). The backtest keeps its historical 0.0; the live exit pass passes
+    None so a short history can never read as a collapsed score and sell.
+    Returns (score, components)."""
+    if mode == MOMENTUM_MODE:
+        try:
+            from .strategies.nifty200_momentum import momentum_score
+            from .quality import quality_score, blend_scores
+        except ImportError:
+            return compute_score(ticker, hist, bench, history, cfg)
+        s = momentum_score(hist["Close"])
+        if s is None:
+            return missing, {MOMENTUM_MODE: missing}
+        q = quality_score(hist["Close"], hist.get("Volume"))
+        blended = blend_scores(float(s), q, getattr(cfg, "quality_blend_pct", 0.0))
+        return blended, {"momentum": float(s), "quality": q}
+    return compute_score(ticker, hist, bench, history, cfg)

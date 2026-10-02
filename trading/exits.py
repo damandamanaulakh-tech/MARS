@@ -74,10 +74,20 @@ def check_exit(
     # target, trailing and max-hold still protect the position; only the
     # score judgement is theirs, not the engine's.
     owner_pick = "owner_pick" in (getattr(position, "tags", None) or [])
+    # OWNER ORDER 2026-10-02 ("fix 1 to 3"): an Ocean dip buy is bought BECAUSE
+    # it has fallen (>=30% under its 200DMA, weekly RSI < 25). Its momentum
+    # and relative-strength readings are near zero by construction, so any
+    # score check would sell it on the next 30-minute pass — measured: a
+    # candidate clearing every Ocean rule scored 36.8 against the decay floor
+    # of 40. Its entry score (100 + % below the 200DMA) is also on a scale no
+    # current score can be compared with, so the trail-tighten is skipped
+    # too. The stop, target, trailing stop and max-hold still protect it.
+    ocean = "ocean" in (getattr(position, "tags", None) or [])
+    score_exempt = owner_pick or ocean
 
     if getattr(cfg, "disable_exits", False):
         position.peak_price = max(position.peak_price, current_price)
-        if current_score < cfg.score_decay_exit and not owner_pick:
+        if current_score < cfg.score_decay_exit and not score_exempt:
             return True, "SCORE_DECAY"
         return False, ""
 
@@ -110,12 +120,12 @@ def check_exit(
     if peak > entry:
         trail_ret = (current_price - peak) / peak
         trail_pct = cfg.trailing_stop_pct
-        if current_score < (position.entry_score - 15.0):
+        if not ocean and current_score < (position.entry_score - 15.0):
             trail_pct = cfg.trailing_stop_pct * 0.6  # e.g. -8% -> -4.8%
         if trail_ret <= trail_pct:
             return True, "TRAILING_STOP"
 
-    if current_score < cfg.score_decay_exit and not owner_pick:
+    if current_score < cfg.score_decay_exit and not score_exempt:
         return True, "SCORE_DECAY"
 
     if now is not None:

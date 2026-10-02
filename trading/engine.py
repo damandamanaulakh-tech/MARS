@@ -30,7 +30,8 @@ from .calendars import is_market_open, market_state
 from .candles import candle_confirmation
 from .risk import RiskState, can_open
 from .scoring import (
-    compute_hot_sectors, compute_score, reasoning_text, set_scoring_context,
+    MOMENTUM_MODE, compute_hot_sectors, compute_score, reasoning_text,
+    score_for_mode, set_scoring_context,
 )
 from .timing import timing_ok
 
@@ -604,17 +605,10 @@ class TradingEngine:
             pass
 
         # v5: Update drawdown governor with current equity
-        current_equity = self.portfolio.equity(prices)
         prev_dd_level = self.drawdown_gov.active_level
-        # FIXED 2026-07-31: the governor is rebuilt on every boot with
-        # peak_equity=0, so after any Render restart the measured drawdown was
-        # 0 and every throttle/halt it controls was disabled until a new peak
-        # formed. Restore the persisted peak before updating, and save it after.
-        saved_peak = float(getattr(self.portfolio, "dd_peak_equity", 0.0) or 0.0)
-        if saved_peak > self.drawdown_gov.peak_equity:
-            self.drawdown_gov.peak_equity = saved_peak
-        self.drawdown_gov.update(current_equity)
-        self.portfolio.dd_peak_equity = float(self.drawdown_gov.peak_equity)
+        # The scan reads the governor's halt/sizing; it never cuts (the cut
+        # belongs to refresh). See _update_drawdown for the persisted peak.
+        self._update_drawdown(prices, now, cut_allowed=False)
         # v5: notify on drawdown level escalation
         if self.drawdown_gov.active_level != prev_dd_level:
             try:
@@ -1100,7 +1094,11 @@ class TradingEngine:
             return self._summary_dict({p.ticker: p.entry_price for p in self.portfolio.positions.values()})
 
         now = datetime.utcnow()
-        history = fetch_daily(tickers, period="1y")
+        # 2y, not 1y: the momentum ruler needs 252 bars and one calendar
+        # year is only ~248-252 trading days — on the short side every
+        # momentum position would have scored nothing (owner order
+        # 2026-10-02, exits judged on the entry ruler).
+        history = fetch_daily(tickers, period="2y")
         bench = fetch_daily([cfg.benchmark], period="6mo").get(cfg.benchmark)
 
         # OWNER ORDER 2026-09-10: no trades outside 09:15-15:30 IST, and the
@@ -1183,10 +1181,21 @@ class TradingEngine:
                                 "instrument mapping."),
                     })
                 continue
-            # Recompute the score for score-decay check
+            # Recompute the score for the score-decay / trail-tighten check on
+            # the SAME ruler the position was bought on (owner order
+            # 2026-10-02). A momentum position used to be re-scored on the
+            # AM07 composite here, while it was bought on the momentum +
+            # quality blend — a different number, sold on a different floor.
             current_score = pos.entry_score
             if ticker in history:
-                current_score, _ = compute_score(ticker, history[ticker], bench, history, cfg)
+                rescored, _ = score_for_mode(
+                    getattr(pos, "mode", "") or MOMENTUM_MODE,
+                    ticker, history[ticker], bench, history, cfg,
+                    missing=None)
+                # Too little history to score = no evidence of decay; the
+                # position keeps its entry score rather than reading 0.
+                if rescored is not None:
+                    current_score = rescored
             should_exit, reason = check_exit(pos, price, current_score, cfg, now)
             if should_exit and marking_only:
                 # Owner order 2026-09-10: outside 09:15-15:30 the rule is SEEN
@@ -1261,32 +1270,11 @@ class TradingEngine:
                 self._close(ticker, price, "KILL_SWITCH", now)
                 exits.append(ticker)
 
-        # P1/F3: drawdown-ladder crash brake. forced_cut was computed but never
-        # executed anywhere — wire it: sell the worst positions until the cut
-        # fraction is met. Runs EVEN in hold mode (buy-and-hold still needs a
-        # crash exit; -10% peak-to-trough = cut half, -15% = 80%, -20% = all).
-        # AUDIT FIX C11 (2026-08-09): the persisted drawdown peak was
-        # restored only in scan() — a post-restart refresh() measured 0%
-        # drawdown until the next scan. Restore before, save after, here too.
-        _saved_peak = float(getattr(self.portfolio, "dd_peak_equity", 0.0) or 0.0)
-        if _saved_peak > self.drawdown_gov.peak_equity:
-            self.drawdown_gov.peak_equity = _saved_peak
-        self.drawdown_gov.update(self.portfolio.equity(prices))
-        self.portfolio.dd_peak_equity = float(self.drawdown_gov.peak_equity)
-        cut = self.drawdown_gov.forced_cut
-        if cut > 0 and self.portfolio.positions and not marking_only:
-            # AUDIT FIX A2: rank and cut only names with a real quote — an
-            # unpriced position can neither be ranked honestly nor filled.
-            priced = [t for t in self.portfolio.positions
-                      if prices.get(t) and prices[t] > 0]
-            by_pnl = sorted(
-                priced,
-                key=lambda t: prices[t] / self.portfolio.positions[t].entry_price,
-            )
-            n_close = max(1, int(len(self.portfolio.positions) * cut))
-            for ticker in by_pnl[:n_close]:
-                self._close(ticker, prices[ticker], "DRAWDOWN_LADDER", now)
-                exits.append(ticker)
+        # P1/F3: drawdown-ladder crash brake — sells the worst positions when
+        # the book falls -10% / -15% / -20% from its peak. Runs EVEN in hold
+        # mode. Rules (owner order 2026-10-02) live in _update_drawdown.
+        exits.extend(self._update_drawdown(prices, now,
+                                           cut_allowed=not marking_only))
 
         self._record_equity(prices, now)
         self.portfolio.save()
@@ -2124,6 +2112,96 @@ class TradingEngine:
                     f"Kill switch re-armed at "
                     f"{self.cfg.daily_loss_halt_pct * 100:.1f}% of that."),
         })
+
+    def _update_drawdown(self, prices: Dict[str, float], now: datetime,
+                         *, cut_allowed: bool) -> List[str]:
+        """Update the drawdown governor and, when allowed, run the ladder cut.
+
+        Persisted peak (2026-07-31): the governor is rebuilt on every boot
+        with peak 0, so the peak lives on the portfolio (JSON + Mongo). The
+        SAVED value is the source of truth — it is the only place a capital
+        change or a reset can move it, and the governor writes it straight
+        back after every update, so the two only differ when one of those
+        has just happened.
+
+        OWNER ORDER 2026-10-02 ("fix 1 to 3") — three faults in the old code:
+        1. The cut fired on EVERY refresh while the level held, so "cut half"
+           halved the book, then halved the rest on the next 30-minute pass,
+           and so on: a 40-name book was empty in 7 passes (~3.5 hours).
+           Now each level cuts ONCE; `portfolio.dd_cut_level` records which
+           level already cut (persisted, so a restart cannot cut again). A
+           worse level cuts again; a recovery re-arms the ladder.
+        2. An empty book in a halting drawdown could never recover — cash
+           does not grow back to the old peak — so new entries stayed halted
+           for good. When the book is empty and the level halts entries, the
+           peak resets to today's equity (journaled DRAWDOWN_PEAK_RESET).
+        3. A Starting-Capital change moved cash but not the peak, so it read
+           as a drawdown (or a hidden cushion). paper.sync_capital now moves
+           the peak by the same amount.
+        Returns the tickers the cut closed."""
+        from .risk_v2 import DRAWDOWN_LEVELS
+        order = ["normal"] + [name for _, name, _, _ in DRAWDOWN_LEVELS]
+        gov = self.drawdown_gov
+        saved = float(getattr(self.portfolio, "dd_peak_equity", 0.0) or 0.0)
+        if saved > 0:
+            gov.peak_equity = saved
+        gov.update(self.portfolio.equity(prices))
+
+        level = gov.active_level if gov.active_level in order else "normal"
+        done = getattr(self.portfolio, "dd_cut_level", "normal") or "normal"
+        if done not in order:
+            done = "normal"
+        if order.index(level) < order.index(done):
+            # Recovered to a milder level: a later re-escalation cuts again.
+            done = level
+            self.portfolio.dd_cut_level = level
+
+        closed: List[str] = []
+        cut = gov.forced_cut
+        if (cut_allowed and cut > 0 and self.portfolio.positions
+                and order.index(level) > order.index(done)):
+            # AUDIT FIX A2: rank and cut only names with a real quote — an
+            # unpriced position can neither be ranked honestly nor filled.
+            priced = [t for t in self.portfolio.positions
+                      if prices.get(t) and prices[t] > 0]
+            by_pnl = sorted(
+                priced,
+                key=lambda t: prices[t] / self.portfolio.positions[t].entry_price,
+            )
+            n_close = max(1, int(len(self.portfolio.positions) * cut))
+            for ticker in by_pnl[:n_close]:
+                self._close(ticker, prices[ticker], "DRAWDOWN_LADDER", now)
+                closed.append(ticker)
+            if closed:
+                # Only a cut that actually sold marks the level done; with no
+                # quotes at all it is retried on the next pass.
+                self.portfolio.dd_cut_level = level
+                self.portfolio.decision_journal.append({
+                    "ts": now.isoformat(), "action": "DRAWDOWN_LADDER_CUT",
+                    "level": level, "cut_fraction": cut,
+                    "closed": closed,
+                    "drawdown_pct": round(gov.snapshot()["drawdown_pct"], 2),
+                    "why": (f"Drawdown reached '{level}'. This level cuts "
+                            f"once; the next cut needs a deeper level."),
+                })
+
+        if not self.portfolio.positions and gov.halt_new_entries:
+            old_peak = gov.peak_equity
+            eq = self.portfolio.equity(prices)
+            gov.peak_equity = eq
+            gov.update(eq)
+            self.portfolio.dd_cut_level = "normal"
+            self.portfolio.decision_journal.append({
+                "ts": now.isoformat(), "action": "DRAWDOWN_PEAK_RESET",
+                "old_peak": round(old_peak, 2), "new_peak": round(eq, 2),
+                "why": ("The book is empty, so its equity is all cash and can "
+                        "never climb back to the old peak — the entry halt "
+                        "would have been permanent. Peak reset to today's "
+                        "equity; the ladder measures from here."),
+            })
+
+        self.portfolio.dd_peak_equity = float(gov.peak_equity)
+        return closed
 
     def _record_equity(self, prices: Dict[str, float], now: datetime) -> None:
         eq = self.portfolio.equity(prices)
