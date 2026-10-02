@@ -3936,6 +3936,31 @@ tests (14 new, 13 fail on old code). The money rows of the audit are DONE.**
   ladder cuts still use real quotes only.
 - Remaining audit rows: display F-14..F-18, S-11..S-14 (S-14 part done),
   Mongo M-1..M-12, files R-1..R-11, tests T-2; F-9 owner decision.
+**AUDIT DISPLAY ROWS F-14..F-18 + S-11..S-14 FIXED 2026-10-02 (owner: "go
+for next"), 1,411 tests (22 new, 18 fail on old code).**
+- **F-14**: `slots.slot_view(p, cfg, picks=, close_of=)` sizes each pick via
+  `position_notional_for` (no-score fallback = the slab, not the old 1.25L);
+  `SlotView.cut/sizes/ladder/divider_row`; /scan passes stored closes
+  (`_desk_close_loader`). Old fixed-arithmetic pins now say sizing_mode=fixed.
+- **F-15**: `fii_flow_score` = clip(50 + net/5000*40, 10, 90) — no jumps;
+  scoring tide comment corrected to +-16.
+- **F-16**: relabel only (score unchanged, test-pinned).
+- **F-17**: `engine.mode_cfg(mode)` (also used by `_exit_cfg`);
+  `_open(..., cfg=)` / `_target_for(..., cfg=)`; limit fill = min(slippage
+  price, limit) on a momentum copy; fill_source "limit_order". NOT done:
+  owner BUY button still fills at the raw quote (flagged to owner).
+- **F-18**: `Config.trail_is_reachable(stop=, target=)` +
+  `exits.trail_reach(pos, cfg)`; Settings card (trail_dead_marker).
+- **S-11**: `portfolio.momentum_shortlist` {ts, mode, score_floor, top,
+  rows{score, abs_mom, timing, liq, liq_why, outcome, c}} written only by the
+  momentum pass, rows >= floor, persisted JSON+Mongo both ways; Buy Desk
+  reads it (liq must be True; None counted "not judged"), falls back to the
+  scan matrix with an amber label.
+- **S-12**: BUY journal `target` {price, source, k, atr, ...}.
+- **S-13**: `scheduler._watch_scope(p)` = held, momentum top, momentum rows,
+  then the old lists. **S-14**: docstrings truth-passed.
+- Remaining audit rows: Mongo M-1..M-12, files R-1..R-11, tests T-2; F-9
+  owner decision.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never

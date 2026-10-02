@@ -4,8 +4,11 @@ want to do, then it must have that too").
 
 Market orders fill immediately through the engine's normal entry path.
 Limit orders rest here (portfolio.pending_orders) and are checked
-whenever the engine looks at live prices — the 09:20 scan passes, the
-14:30 top-up, every 5-min intraday tick, and any manual scan run. Day
+after the 09:20 scan passes, on every 30-minute in-session pass, at
+14:30 (whether or not the top-up scan itself runs), and after any manual
+scan run. (Audit S-14, 2026-10-02: this used to name a "5-min intraday
+tick" — that job only exists when the intraday scheduler is switched on,
+which it is not on the live app.) Day
 validity like a real broker: whatever is still open at the 15:25
 square-off expires. Every placement, fill, cancel and expiry is
 journaled — append-only, as ever. Paper book only, always.
@@ -97,73 +100,84 @@ def _fill(engine, o: dict, price: float, now: datetime) -> None:
                      "ticker": tkr, "order_id": o["id"], "why": o["note"]})
         return
 
-    # AUDIT S-6: the mode swap below runs under the shared mode lock, so a
-    # fill can never interleave with a scan pass flipping the same Config.
+    # AUDIT S-6: held under the shared mode lock so a fill never interleaves
+    # with a scan pass (it reads cash and the book the pass is changing).
+    # Since F-17 the fill itself no longer flips cfg.mode.
     from .modes import holding_mode_lock
     with holding_mode_lock():
         _fill_locked(engine, o, price, now)
 
 
 def _fill_locked(engine, o: dict, price: float, now: datetime) -> None:
+    """AUDIT F-17 (owner: "go for next", 2026-10-02), two changes:
+
+    1. NO MODE FLIP. The fill used to set the SHARED cfg.mode to momentum and
+       put it back afterwards; it now works on a momentum COPY
+       (`engine.mode_cfg`) and hands that copy to `engine._open`, so the
+       live config is never touched.
+    2. SAME SLIPPAGE AS EVERY ENGINE FILL, never above the limit. Engine and
+       Buy Desk fills pay `slippage_price` (5 bps); limit fills paid
+       nothing, so they looked slightly better than any other trade. A limit
+       order still can never fill above its own limit — the slipped price is
+       capped there.
+    """
+    from .costs import slippage_price
     p = engine.portfolio
-    cfg = engine.cfg
+    cfg = engine.mode_cfg("nifty200_momentum")
     tkr = o["ticker"]
-    orig_mode = getattr(cfg, "mode", "nifty200_momentum")
+    quote = float(price)
+    fill = min(slippage_price(quote, "BUY", cfg), float(o["limit_price"]))
+    qty = o["qty"]
+    if not qty:
+        marks = {pos.ticker: pos.entry_price for pos in p.positions.values()}
+        # AUDIT FIX A11 (2026-08-09): the one shared sizing entry point —
+        # with no score/history it resolves to the owner's fixed rupee
+        # amount under every sizing mode (a manual order is the owner's
+        # own number), and manual fills can never drift from engine sizing.
+        from .sizing import position_notional_for
+        notional, _diag = position_notional_for(cfg, p.equity(marks))
+        qty = int(notional // fill)
+    if qty < 1 or qty * fill > p.cash:
+        o["status"] = "cancelled"
+        o["note"] = "insufficient cash when limit touched"
+        _journal(p, {"ts": now.isoformat(), "action": "OWNER_ORDER_CANCELLED",
+                     "ticker": tkr, "order_id": o["id"], "why": o["note"]})
+        return
+    # AUDIT FIX A4 (2026-08-09): carry the real scan score when one
+    # exists (score 0.0 made refresh's score-decay auto-sell the owner's
+    # deliberate pick), and tag the position owner_pick so the decay
+    # exit never judges it. Stop/target/trail/max-hold still apply.
+    score = 0.0
+    components: dict = {}
     try:
-        cfg.mode = "nifty200_momentum"
-        cfg.apply_mode_preset()
-        qty = o["qty"]
-        if not qty:
-            marks = {pos.ticker: pos.entry_price for pos in p.positions.values()}
-            # AUDIT FIX A11 (2026-08-09): the one shared sizing entry point —
-            # with no score/history it resolves to the owner's fixed rupee
-            # amount under every sizing mode (a manual order is the owner's
-            # own number), and manual fills can never drift from engine sizing.
-            from .sizing import position_notional_for
-            notional, _diag = position_notional_for(cfg, p.equity(marks))
-            qty = int(notional // price)
-        if qty < 1 or qty * price > p.cash:
-            o["status"] = "cancelled"
-            o["note"] = "insufficient cash when limit touched"
-            _journal(p, {"ts": now.isoformat(), "action": "OWNER_ORDER_CANCELLED",
-                         "ticker": tkr, "order_id": o["id"], "why": o["note"]})
-            return
-        # AUDIT FIX A4 (2026-08-09): carry the real scan score when one
-        # exists (score 0.0 made refresh's score-decay auto-sell the owner's
-        # deliberate pick), and tag the position owner_pick so the decay
-        # exit never judges it. Stop/target/trail/max-hold still apply.
-        score = 0.0
-        components: dict = {}
-        try:
-            row = ((p.scan_matrix or {}).get("rows") or {}).get(tkr) or {}
-            score = float(row.get("score") or 0.0)
-            components = dict(row.get("c") or {})
-        except Exception:
-            pass
-        pick = {"ticker": tkr, "score": score, "components": components,
-                "timing_pass": True,
-                "reasoning": (f"OWNER LIMIT ORDER {o['id']} filled @ ₹{price:.2f} "
-                              f"(limit ₹{o['limit_price']:.2f}) — owner's call, "
-                              "regime halt overridden by owner.")}
-        engine._open(pick, qty, float(price), now)
-        p.positions[tkr].tags.append("owner_pick")
-        note = apply_custom_levels(p.positions[tkr], o["stop_pct"], o["target_pct"])
-        if note:
-            p.positions[tkr].reasoning += f" Custom levels: {note}."
-        o["status"] = "filled"
-        o["filled_price"] = round(float(price), 2)
-        o["filled_qty"] = qty
-        o["filled_ts"] = now.isoformat()
-        _journal(p, {
-            "ts": now.isoformat(), "action": "OWNER_ORDER_FILLED",
-            "ticker": tkr, "order_id": o["id"], "qty": qty,
-            "price": round(float(price), 2),
-            "why": (f"Limit ₹{o['limit_price']:.2f} touched — bought {qty} "
-                    f"@ ₹{price:.2f}." + (f" {note}." if note else "")),
-        })
-    finally:
-        cfg.mode = orig_mode
-        cfg.apply_mode_preset()
+        row = ((p.scan_matrix or {}).get("rows") or {}).get(tkr) or {}
+        score = float(row.get("score") or 0.0)
+        components = dict(row.get("c") or {})
+    except Exception:
+        pass
+    pick = {"ticker": tkr, "score": score, "components": components,
+            "timing_pass": True,
+            "fill_source": "limit_order",
+            "reasoning": (f"OWNER LIMIT ORDER {o['id']} filled @ ₹{fill:.2f} "
+                          f"(quote ₹{quote:.2f}, limit ₹{o['limit_price']:.2f}) "
+                          "— owner's call, regime halt overridden by owner.")}
+    engine._open(pick, qty, fill, now, cfg=cfg)
+    p.positions[tkr].tags.append("owner_pick")
+    note = apply_custom_levels(p.positions[tkr], o["stop_pct"], o["target_pct"])
+    if note:
+        p.positions[tkr].reasoning += f" Custom levels: {note}."
+    o["status"] = "filled"
+    o["filled_price"] = round(fill, 2)
+    o["filled_qty"] = qty
+    o["filled_ts"] = now.isoformat()
+    _journal(p, {
+        "ts": now.isoformat(), "action": "OWNER_ORDER_FILLED",
+        "ticker": tkr, "order_id": o["id"], "qty": qty,
+        "price": round(fill, 2), "quote": round(quote, 2),
+        "why": (f"Limit ₹{o['limit_price']:.2f} touched at ₹{quote:.2f} — "
+                f"bought {qty} @ ₹{fill:.2f} (after the usual slippage, never "
+                f"above the limit)." + (f" {note}." if note else "")),
+    })
 
 
 def process_open_orders(engine, now: datetime = None) -> list:

@@ -54,11 +54,23 @@ DESK_MODE = "nifty200_momentum"
 def shortlist(portfolio, cfg) -> dict:
     """The names the app listed that cleared floor + momentum + liquidity.
 
-    Reads the last scan's matrix (score, abs_mom flag, outcome). The floor is
-    the matrix's OWN floor — the one those scores were judged against — so
-    the desk can never re-judge yesterday's scores with today's setting.
+    AUDIT S-11 (owner: "go for next", 2026-10-02): reads the MOMENTUM pass's
+    own record (`portfolio.momentum_shortlist`, written by engine.scan) — the
+    shared scan matrix is overwritten by every pass and positional runs last,
+    so the desk had been reading positional scores. Liquidity is the entry
+    gate's own verdict stored per row; a name with no verdict is left out and
+    counted, never assumed liquid (the old rule read "no liquidity_* outcome"
+    as cleared, but a pass stopped early never reaches the liquidity gate).
+    Falls back to the last scan matrix, said on the card, when no momentum
+    record exists yet (first boot after this change).
+
+    The floor is the record's OWN floor — the one those scores were judged
+    against — so the desk never re-judges yesterday's scores with today's
+    setting.
     """
-    m = portfolio.scan_matrix or {}
+    ms = getattr(portfolio, "momentum_shortlist", None) or {}
+    use_momentum = bool(ms.get("rows") is not None and ms.get("ts"))
+    m = ms if use_momentum else (portfolio.scan_matrix or {})
     rows = m.get("rows") or {}
     try:
         floor = float(m.get("score_floor") or cfg.min_score_to_enter)
@@ -67,6 +79,7 @@ def shortlist(portfolio, cfg) -> dict:
     held = set(portfolio.positions.keys())
     block = set(getattr(cfg, "ticker_blocklist", ()) or ())
     out = []
+    not_judged = 0
     for t, r in rows.items():
         score = r.get("score")
         if score is None:
@@ -80,7 +93,13 @@ def shortlist(portfolio, cfg) -> dict:
             continue
         if not r.get("abs_mom", True):
             continue
-        if outcome.startswith("liquidity_"):
+        if use_momentum:
+            if r.get("liq") is None:
+                not_judged += 1
+                continue
+            if not r.get("liq"):
+                continue
+        elif outcome.startswith("liquidity_"):
             continue
         if t in held or t in block:
             continue
@@ -93,6 +112,8 @@ def shortlist(portfolio, cfg) -> dict:
     out.sort(key=lambda x: (-x["score"], x["ticker"]))
     return {
         "mode": m.get("mode"), "floor": floor, "asof": m.get("ts"),
+        "source": "momentum_pass" if use_momentum else "last_scan_matrix",
+        "liquidity_not_judged": not_judged,
         "total": len(out), "rows": out[:MAX_NAMES],
         "truncated": max(0, len(out) - MAX_NAMES),
     }

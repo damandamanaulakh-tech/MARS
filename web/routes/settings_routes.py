@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import fields
 
 from fastapi import APIRouter, Form, Request
@@ -12,6 +13,7 @@ from ..templating import templates
 
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 
 MODE_CHOICES = [
@@ -85,6 +87,24 @@ def _universe_paste_cap(cfg) -> int:
     return max(100, target)
 
 
+def _dead_trail_positions() -> list[dict]:
+    """AUDIT F-18 (2026-10-02): held positions whose OWN stop and target
+    (k x ATR since 2026-09-10) leave the trail no room to fire, each judged
+    on its own mode's trail. Display only."""
+    from trading.exits import trail_reach
+    out: list[dict] = []
+    try:
+        eng = state.engine()
+        for pos in list(state.portfolio().positions.values()):
+            mode = getattr(pos, "mode", "") or "nifty200_momentum"
+            r = trail_reach(pos, eng.mode_cfg(mode))
+            if not r["live"]:
+                out.append(r)
+    except Exception:
+        log.exception("per-position trail check failed")
+    return out
+
+
 def _trail_warning() -> dict | None:
     """None when the trailing stop can actually fire; otherwise the numbers."""
     cfg = state.cfg()
@@ -137,6 +157,7 @@ def settings_view(request: Request, saved: str | None = None):
             "active": "settings",
             "groups": _grouped(),
             "trail_warn": _trail_warning(),
+            "trail_dead": _dead_trail_positions(),
             "preset_fields": PRESET_OWNED_FIELDS,
             "modes": MODE_CHOICES,
             "current_mode": getattr(cfg, "mode", "swing"),

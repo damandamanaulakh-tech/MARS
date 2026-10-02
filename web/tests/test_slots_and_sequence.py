@@ -37,7 +37,10 @@ def _with_picks(n: int, cash: float):
 def test_scan_shows_the_funnel_and_divides_at_the_fundable_line():
     """3 slots of cash, 6 picks: the card says 3, the divider names the 3
     beyond cash, and nothing is hidden."""
-    p, old = _with_picks(6, cash=3 * 125_000.0 + 500.0)
+    # Sized on the live ladder (audit F-14): the fixture picks have no stored
+    # history, so each costs the slab — three slabs plus change is 3 slots.
+    slab = state.cfg().position_slab_value
+    p, old = _with_picks(6, cash=3 * slab + 500.0)
     try:
         html = _client().get("/scan").text
         assert "slot_funnel_marker" in html

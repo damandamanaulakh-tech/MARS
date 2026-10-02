@@ -275,10 +275,18 @@ def dii_net_last_n_days(flows: Optional[list[FlowReading]], n: int = 5) -> Optio
 
 def fii_flow_score(fii_5d_net: Optional[float], days: int = 5) -> float:
     """Score the FII net flow, calibrated on a 5-day sum:
-       > +5000 Cr = very bullish (90)
-       0 to +5000 Cr = mildly bullish (60-75)
-       -5000 to 0 = mildly bearish (30-50)
-       < -5000 Cr = very bearish (10)
+       >= +5000 Cr = very bullish (90)
+       <= -5000 Cr = very bearish (10)
+       in between  = a straight line through 0 Cr = neutral (50)
+
+    AUDIT F-15 (owner: "go for next", 2026-10-02): this used to be four
+    steps that jumped at the joins — -1 Cr scored 40, 0 scored 50, +1 Cr
+    scored 60, and -4,999 Cr scored 30 while -5,000 Cr scored 10. A one-crore
+    difference could swing the composite's catalyst tilt by 4-8 points. The
+    two documented end-points (+-5,000 Cr -> 90 / 10) and neutral zero are
+    kept; only the jumps are gone. Feeds the catalyst tilt of the composite
+    (swing / short / positional / intraday scores); momentum entries never
+    read it.
 
     `days` = how many days the sum actually covers (2026-07-31). The live NSE
     endpoint returns ONE day, the archive can give five; scaling to a 5-day
@@ -288,18 +296,9 @@ def fii_flow_score(fii_5d_net: Optional[float], days: int = 5) -> float:
         return 50.0
     if days and days > 0 and days != 5:
         fii_5d_net = fii_5d_net * (5.0 / days)
-    if fii_5d_net == 0:
-        # AUDIT FIX B9 (2026-08-09): a genuine 0.0 net flow used to score 40
-        # (mildly bearish) — the exact zero-reads-as-bearish pattern the FII
-        # parser bug burned the owner with. Zero flow is NEUTRAL.
-        return 50.0
-    if fii_5d_net > 5000:
-        return 90.0
-    if fii_5d_net > 0:
-        return 60.0 + min(15.0, fii_5d_net / 5000 * 15.0)
-    if fii_5d_net > -5000:
-        return 40.0 + max(-10.0, fii_5d_net / 5000 * 10.0)
-    return 10.0
+    # Zero flow is NEUTRAL (audit fix B9, 2026-08-09) — the line passes
+    # through 50 at zero by construction.
+    return float(max(10.0, min(90.0, 50.0 + float(fii_5d_net) / 5000.0 * 40.0)))
 
 
 def flow_status(max_age_days: int = MAX_FLOW_AGE_DAYS) -> dict:

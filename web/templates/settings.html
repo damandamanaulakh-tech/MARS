@@ -50,6 +50,15 @@
   no longer implied to be protecting you.
 </div>
 {% endif %}
+{% if trail_dead %}
+<div class="mb-6 px-4 py-3 border border-amber-300 bg-amber-50 text-amber-900 text-sm"><!-- trail_dead_marker -->
+  ⚠ <strong>{{ trail_dead | length }} held position{{ '' if trail_dead | length == 1 else 's' }}
+  where the trailing stop cannot fire.</strong> Each trade carries its own target (k × ATR since
+  10 Sep), and for these the target sits inside the zone where the trail would need the peak:
+  <span class="font-mono">{% for r in trail_dead %}{{ r.ticker }} (target +{{ r.target_pct }}%, trail {{ r.trail_pct }}% needs a +{{ r.need_pct }}% peak){% if not loop.last %} · {% endif %}{% endfor %}</span>.
+  The target or the stop closes these first. Nothing was changed — display only.
+</div>
+{% endif %}
 {% if preset_fields %}
 <div class="mb-6 px-4 py-3 border border-line bg-white text-xs text-ink-soft">
   <strong>Note:</strong> these fields default from the <strong>mode preset</strong>:

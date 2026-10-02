@@ -429,7 +429,8 @@ class Config:
     # every apply_mode_preset() so a Settings edit finally sticks.
     preset_overrides: dict = field(default_factory=dict)
 
-    def trail_is_reachable(self) -> tuple[bool, float]:
+    def trail_is_reachable(self, stop: float | None = None,
+                           target: float | None = None) -> tuple[bool, float]:
         """(is the trailing stop practically live?, peak % it would need).
 
         Surfaced 2026-07-31 because the app advertised a trailing stop that,
@@ -438,10 +439,15 @@ class Config:
         Node 12 (owner order 2026-08-24) moved the bracket to -5%/+20%,
         where the -15% trail arms above +17.65% and is genuinely live; the
         Settings banner now only appears if a future edit deadens it
-        again. This method just reports; it never changes an exit."""
-        stop = float(self.stop_loss_pct)
+        again. This method just reports; it never changes an exit.
+
+        AUDIT F-18 (2026-10-02): `stop` / `target` (fractions of entry) let a
+        caller ask about ONE position's own levels — since 2026-09-10 each
+        target is k x ATR, so a quiet name's target can sit below the
+        +17.65% the trail needs even while the mode's +20% reads live."""
+        stop = float(self.stop_loss_pct if stop is None else stop)
         trail = float(self.trailing_stop_pct)
-        target = float(self.take_profit_pct)
+        target = float(self.take_profit_pct if target is None else target)
         if trail >= 0 or trail <= -1:
             return False, 0.0
         need_peak = (1.0 + stop) / (1.0 + trail) - 1.0

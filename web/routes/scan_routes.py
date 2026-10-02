@@ -90,7 +90,9 @@ def scan_view(request: Request, error: str | None = None):
     slots = None
     try:
         from trading.slots import slot_view
-        slots = slot_view(p, cfg)
+        # Audit F-14: each pick sized on the live slab ladder, from its own
+        # score and STORED close history (no network on a page render).
+        slots = slot_view(p, cfg, picks=picks, close_of=_desk_close_loader())
     except Exception:
         log.exception("slot view failed")
     # ADOPTED 2026-08-29 (owner order "go ... 2") from the AshStocks review:
@@ -368,8 +370,10 @@ _PARAM_DEFS: dict[str, dict] = {
         "knob": "trading/scoring.py score_relative_strength · weight: trading/modes.py WEIGHTS"},
     "vol_adj_upside": {
         "title": "Volatility-adjusted upside",
-        "what": "Recent gains per unit of wobble — smooth risers over wild swingers.",
-        "rule": "0–100; 62+ = pass (the live floor).",
+        "what": "Recent gains per unit of wobble — smooth risers over wild swingers. "
+                "Exactly: the last month's return divided by the stock's ANNUAL "
+                "volatility (so not a Sharpe ratio, which would compare like with like).",
+        "rule": "0–100 (50 = flat month; a month's gain equal to a year's volatility = 100); 62+ = pass (the live floor).",
         "knob": "trading/scoring.py score_vol_adj_upside · weight: trading/modes.py WEIGHTS"},
     "short_interest": {
         "title": "Short interest (futures-OI proxy)",

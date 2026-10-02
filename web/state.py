@@ -42,6 +42,7 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.last_scan_skipped = list(doc.get("last_scan_skipped", []))
     p.last_scan_opened = list(doc.get("last_scan_opened", []))
     p.scan_matrix = dict(doc.get("scan_matrix", {}))
+    p.momentum_shortlist = dict(doc.get("momentum_shortlist", {}) or {})
     p.last_regime = doc.get("last_regime")
     p.last_ifr_fire_date = doc.get("last_ifr_fire_date")
     p.last_ifr_ratio_fire_date = doc.get("last_ifr_ratio_fire_date")
@@ -126,9 +127,13 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "last_ifr_ratio_fire_date": self.last_ifr_ratio_fire_date,
             "regime_history": self.regime_history[-200:],
             "scan_history": self.scan_history[-500:],
-            "decision_journal": self.decision_journal,   # full, never truncated
+            # the recent tail: save() trims RAM to JOURNAL_RAM_CAP (5,000)
+            # lines after archiving the overflow to journal_archive above
+            # (audit S-14: this said "full, never truncated")
+            "decision_journal": self.decision_journal,
             "virtual_book": self.virtual_book,
             "scan_matrix": self.scan_matrix,
+            "momentum_shortlist": getattr(self, "momentum_shortlist", {}) or {},
             "pending_orders": self.pending_orders[-200:],
             "filings": self.filings[:100],
             "risk_day": self.risk_day,
