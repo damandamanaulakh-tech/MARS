@@ -112,22 +112,31 @@ AM07_HAVE: dict[str, str] = {
     "A-01": "momentum/returns core", "A-02": "candles.py gap logic",
     "A-03": "lens_v2.atr / candles", "A-04": "candles.py body logic",
     "A-05": "candles.py wick logic", "A-06": "candles.py wick logic",
-    "B-01": "signals/technicals.py sma + ma_stack_score",
-    "B-02": "signals/technicals.py ema",
-    "B-04": "signals/technicals.py rsi",
-    "B-05": "signals/technicals.py macd",
-    "B-06": "signals/technicals.py bollinger/52w-high proximity (partial)",
+    "B-01": "signals/technicals.py sma + ma_stack_score"
+            " — library helper only, no screen computes it",
+    "B-02": "signals/technicals.py ema"
+            " — library helper only, no screen computes it",
+    "B-04": "signals/technicals.py rsi"
+            " — library helper only, no screen computes it",
+    "B-05": "signals/technicals.py macd"
+            " — library helper only, no screen computes it",
+    "B-06": "signals/technicals.py bollinger/52w-high proximity (partial)"
+            " — library helper only, no screen computes it",
     "C-01": "volume-expansion lane / candles volume ratio",
     "C-02": "lens_v2.atr + market_panels.atr_panel",
     "D-01": "risk.py sector caps",
     "F-01": "AM07 composite (exit ruler)",
-    "H-08": "signals/technicals.py beta_vs_benchmark",
-    "H-13": "signals/technicals.py adx",
-    "H-23": "engines Everest/Ocean (Ocean parked)",
+    "H-08": "signals/technicals.py beta_vs_benchmark"
+            " — library helper only, no screen computes it",
+    "H-13": "signals/technicals.py adx (live: the engine's Nifty "
+             "chop gate)",
+    "H-23": "engines Everest/Ocean (Ocean live behind the crash "
+             "guard since 2026-08-26)",
     "H-24": "modes.PRESETS nifty200_momentum (LIVE)",
     "H-26": "cfg.blacklisted_sectors mechanism (EMPTY — register's "
             "\"['Metal'] live\" claim is stale, audit removed it)",
-    "W-008": "signals/technicals.py beta_vs_benchmark",
+    "W-008": "signals/technicals.py beta_vs_benchmark"
+            " — library helper only, no screen computes it",
     "W-023": "regime.py India VIX level",
     "W-024": "regime.py vix_crush (120d spike vs current)",
     "VIX-01": "regime panic/correction entry block (variant)",

@@ -1,9 +1,12 @@
-"""Alerts — send notifications via Slack webhook (and optional email).
+"""Alerts — send notifications via Slack webhook.
 
 Env vars:
   SLACK_WEBHOOK_URL — Slack incoming webhook for posting messages
-  ALERT_EMAIL_TO    — optional recipient email
-  SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS — optional SMTP config
+  ALERT_EMAIL_TO + SMTP_HOST — read ONLY for the /alerts status card.
+                    No code sends email: the unused sender (and an
+                    unused kill-switch Slack notifier) were deleted
+                    2026-10-02 (audit R-10). The kill switch reaches the
+                    owner's phone through web/push_ntfy.py.
 
 Each alert kind has a dedupe key so the same drawdown-level escalation
 isn't shouted on every scan. We track recent fingerprints in memory.
@@ -13,10 +16,8 @@ from __future__ import annotations
 
 import logging
 import os
-import smtplib
 import time
 from dataclasses import dataclass, field
-from email.mime.text import MIMEText
 from typing import Optional
 
 import httpx
@@ -59,32 +60,6 @@ def send_slack(text: str, fingerprint: Optional[str] = None) -> AlertResult:
         return AlertResult(sent=False, error=str(e))
 
 
-def send_email(subject: str, body: str, fingerprint: Optional[str] = None) -> AlertResult:
-    to = os.environ.get("ALERT_EMAIL_TO", "").strip()
-    host = os.environ.get("SMTP_HOST", "").strip()
-    if not to or not host:
-        return AlertResult(sent=False, error="email not configured")
-    if fingerprint and not _should_send(f"email:{fingerprint}"):
-        return AlertResult(sent=False, error="deduped")
-    port = int(os.environ.get("SMTP_PORT", "587"))
-    user = os.environ.get("SMTP_USER", "")
-    pw = os.environ.get("SMTP_PASS", "")
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"] = user or "sourceborn-am07@localhost"
-    msg["To"] = to
-    try:
-        with smtplib.SMTP(host, port, timeout=10) as s:
-            s.starttls()
-            if user and pw:
-                s.login(user, pw)
-            s.send_message(msg)
-        return AlertResult(sent=True, channels=["email"])
-    except Exception as e:
-        log.warning("Email alert failed: %s", e)
-        return AlertResult(sent=False, error=str(e))
-
-
 def notify_drawdown(level: str, dd_pct: float, peak: float, current: float) -> AlertResult:
     """Fired by the engine when DrawdownGovernor crosses a new level."""
     if level in ("normal", "watchful"):
@@ -104,11 +79,6 @@ def notify_regime_switch(prev: str, new: str, reasoning: str) -> AlertResult:
         f"{reasoning}"
     )
     return send_slack(text, fingerprint=f"regime:{new}")
-
-
-def notify_kill_switch(reason: str) -> AlertResult:
-    text = f":rotating_light: *AM07 KILL SWITCH FIRED*\nReason: {reason}"
-    return send_slack(text, fingerprint=f"kill:{reason}")
 
 
 def alerts_status() -> dict:

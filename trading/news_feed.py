@@ -328,13 +328,6 @@ def _weak_token(ticker: str) -> Optional[str]:
     return None
 
 
-def _accept_phrases(ticker: str) -> tuple[str, ...]:
-    """All phrases the matcher knows for this stock (strong first, then the
-    context-gated single token). Kept for callers that only list them."""
-    weak = _weak_token(ticker)
-    return _strong_phrases(ticker) + ((weak,) if weak else ())
-
-
 def mentions_company(title: str, ticker: str) -> bool:
     low = title.lower()
     for p in _strong_phrases(ticker):

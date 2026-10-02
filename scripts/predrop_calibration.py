@@ -12,11 +12,11 @@ Lead = sessions from fire-start to the first close <= -5% (median).
 """
 import io, os, sys, zipfile, warnings
 warnings.filterwarnings("ignore")
-sys.path.insert(0, "/home/user/AM07")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root (R-3)
 import numpy as np, pandas as pd
 from trading.config import Config
 
-R = "/home/user/AM07/data"
+R = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")  # repo-relative (R-3)
 OUT = os.path.dirname(os.path.abspath(__file__))
 SPLIT = pd.Timestamp("2020-07-01")
 H = 20

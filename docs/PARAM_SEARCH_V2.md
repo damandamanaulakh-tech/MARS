@@ -3,7 +3,7 @@
 > **CORRECTION (same day, v2.1):** the panel contains ~4,476 corrupt prints
 > (found by a third-party data-quality audit, confirmed here). After surgical
 > repair the verdict is **4/5 windows positive, avg OOS alpha +9.3pp**
-> (was 5/5, +10.5) — see `docs/REVIEW_AI_BACKTEST_SUITE.md` and
+> (was 5/5, +10.5) — see `docs/archive/REVIEW_AI_BACKTEST_SUITE.md` and
 > `docs/param_search_v2_1_results.json`. v2.1 supersedes the numbers below.
 
 Walk-forward momentum search over the committed 1991→2024 adjusted-close

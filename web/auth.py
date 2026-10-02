@@ -63,10 +63,3 @@ def require_user(request: Request) -> dict:
     if not user:
         raise HTTPException(status_code=401, detail="Login required")
     return user
-
-
-def require_owner(request: Request) -> dict:
-    user = require_user(request)
-    if user.get("role") != "owner":
-        raise HTTPException(status_code=403, detail="Owner only")
-    return user

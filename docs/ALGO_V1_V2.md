@@ -52,7 +52,7 @@ they cross.
 | 2 | Rotating bucket | deterministic ~50/day slice, so the whole market is covered over ~48 days at 512 MB | 2,393 → ~50 |
 | 3 | Liquidity floor | ≥ ₹1 Cr median daily turnover | drops illiquid |
 | 4 | Blocklist | `ticker_blocklist` never scanned or bought | drops banned |
-| 5 | Score | 6m+12m volatility-adjusted momentum, rank-blended, **35% quality blend** | ranks |
+| 5 | Score | 6m+12m volatility-adjusted momentum as an absolute score (50 + 25 × avg(r6/σ6, r12/σ12), clipped 0-100 — no ranking step; corrected 2026-10-02, audit R-11), **35% quality blend** | scores |
 | 6 | Score floor | `score ≥ 62` to be eligible | drops weak |
 | 7 | Absolute-momentum gate | own 6-month return must be **positive** | drops "least-bad faller" |
 | 8 | Regime brake | correction (Nifty < 200DMA) blocks new buys… | can drop **all** |

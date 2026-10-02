@@ -63,9 +63,9 @@ def test_app_brief_rotation_matches_the_scheduler():
 
 
 def test_status_boards_carry_supersession_banners():
-    assert "FROZEN BOARD" in Path("docs/WORK_LIST.md").read_text()
-    assert "FOSSIL" in Path("docs/STATUS_BOARD.md").read_text()
-    assert "SUPERSEDED" in Path("docs/APP_REVIEW.md").read_text()
+    assert "FROZEN BOARD" in Path("docs/archive/WORK_LIST.md").read_text()
+    assert "FOSSIL" in Path("docs/archive/STATUS_BOARD.md").read_text()
+    assert "SUPERSEDED" in Path("docs/archive/APP_REVIEW.md").read_text()
 
 
 def test_algo_doc_discloses_the_parameter_drift():

@@ -23,7 +23,9 @@ tokens. **Verify against code — never trust a narrative** (incl. other AIs'
 uploads: audit them; several contained fabricated numbers/padded catalogs).
 
 ## THE FINAL SET (evidence-earned; user approved; LIVE as of 2026-07-21)
-- Signal: **6m+12m vol-adjusted momentum, rank-blended**
+- Signal: **6m+12m vol-adjusted momentum, an ABSOLUTE score** —
+  50 + 25 × average(r6/σ6, r12/σ12), clipped 0-100; no ranking step
+  (R-11 truth-pass 2026-10-02; "rank-blended" was wrong)
   (`strategies/nifty200_momentum.py`) + quality blend 35%.
 - Book (owner order 2026-07-30 "change the capital to 50 lack, 80 stocks,
   roughly 1-1.25 for each trade — change it now"; corrected same day
@@ -3978,6 +3980,34 @@ tests (9 new, all fail on old code).**
   no change (CSV has July). **T-2**: web conftest `_no_upstox_network`
   blocks `trading.brokers.upstox.httpx` get/post in web tests.
 - Remaining: files R-1..R-11; F-9 owner decision; M-1/M-2/M-12 owner actions.
+**AUDIT FILE ROWS R-2..R-11 DONE 2026-10-02 (owner: "go for next").**
+- R-2/R-3 scripts parse and run repo-relative (predrop_calibration.py had
+  the same /home/user path) · R-4 four byte-identical "(1)" CSVs deleted
+  (RELIANCE/SBIN "(1)" are the ONLY copies — kept) · R-5 duplicate 2018
+  N200 snapshot deleted · R-6 Procfile deleted (render.yaml starts the app)
+  · R-9 12 superseded boards -> docs/archive/ (+README) · R-11 signal
+  wording truth-passed (absolute score, not a rank).
+- R-10: deleted alerts.send_email/notify_kill_switch, data.fetch_quote/
+  fetch_market_cap_cr, external_panels.reset_caches, news_feed.
+  _accept_phrases, auth.require_owner, market_gate.reason_text,
+  register_routes._group_of, and technicals golden_cross_active/rsi_score/
+  macd_score/adx_trend_score/obv_trend_score. **ONLY `adx` from
+  technicals.py runs in production** (engine Nifty chop gate + backtest);
+  the helpers /register names (sma, ema, ma_stack_score, rsi, macd,
+  bollinger*, 52w-high, beta) are kept and their AM07_HAVE labels now say
+  "library helper only, no screen computes it" — they had read as live
+  capability. H-23 label no longer says "Ocean parked".
+- R-7/R-8 kept as record (owner-supplied data; owner keeps the full-
+  universe zip). R-1 = F-9.
+- **OWNER ANSWERS 2026-10-02: M-1 "forget about Ashstock, its a different
+  app and operated separately" — NEVER RAISE ASHSTOCK AGAIN.** M-2 = the
+  other Atlas databases (test, site_control, sourceborn_sburr, AM07, G07)
+  belong to no code here; owner's call. M-12 (Render Starter) "will
+  consider". **F-9 CLARIFIED TO THE OWNER**: the shipped size formula is
+  slab sizing at m = 0.29 (owner pick 2026-09-10), NOT ½-Kelly (½-Kelly
+  ran only 07-30 -> 08-04). F-9 is the separate measured-Kelly safety
+  check from closed trades — wire (cap / block on no edge) or remove;
+  awaits their word.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never
@@ -4047,4 +4077,4 @@ claim done without repo/render proof (audit 2026-07-16 is binding).
 3. Lineage: session 01Nv6gRydiFC8aj8exkhyDNx built the app; this session
    (01EuCaxUby4fJoChwFQ5XEtV) = searches v1-v4, final set, fixes; full
    history in git log + docs/. Drive folders inventoried in
-   docs/DRIVE_VERIFICATION_2026-07-18.md.
+   docs/archive/DRIVE_VERIFICATION_2026-07-18.md.

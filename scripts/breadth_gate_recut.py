@@ -13,21 +13,24 @@ a holdout, and never choose the setting by the holdout.
 """
 import io, os, sys, warnings, zipfile
 warnings.filterwarnings("ignore")
-sys.path.insert(0, "/home/user/AM07")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root (R-3)
 import numpy as np, pandas as pd
 from trading.config import Config
 from trading.quality import blend_scores, quality_score
 from trading.strategies.nifty200_momentum import momentum_score
 
 OUT = os.path.dirname(os.path.abspath(__file__))
-R = "/home/user/AM07/data"
+R = os.path.join(os.path.dirname(OUT), "data")   # repo-relative (R-3)
 SPLIT = pd.Timestamp("2020-07-01")
 H, STEP = 20, 5
 cfg = Config(mode="nifty200_momentum"); cfg.apply_mode_preset()
 FLOOR = cfg.min_score_to_enter
 print("live floor", FLOOR, "blend", cfg.quality_blend_pct,
       "breakout thr", cfg.breakout_threshold_pct, "lookback",
-      cfg.breadth_gate_enabled, cfg.breadth_min_pct)
+      cfg.breadth_gate_enabled,
+      # audit R-3 (2026-10-02): breadth_min_pct was deleted by this very
+      # study's outcome (2026-09-09); the live rule is the band below.
+      cfg.breadth_block_low, cfg.breadth_block_high)
 
 z = zipfile.ZipFile(f"{R}/history_upstox_export_2026-07-19.zip")
 CL, VO = {}, {}
