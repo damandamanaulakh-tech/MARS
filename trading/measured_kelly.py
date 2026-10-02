@@ -145,12 +145,19 @@ class KellyReading:
 
 def measure(trades: Iterable[Any], fraction: float = 0.29,
             min_trades: int = 0,
-            full_confidence: int = FULL_CONFIDENCE) -> KellyReading:
+            full_confidence: int = FULL_CONFIDENCE,
+            clip_pct: Optional[float] = None) -> KellyReading:
     """Measure Kelly from closed trades. Pure.
 
     `fraction` is the owner's m. `min_trades` 0 honours their "no cap on
     closed trades" — the sample gate is off, the reason filter is not.
+    `clip_pct` overrides CLIP_PCT. AUDIT F-9 (2026-10-02): the engine passes
+    the live momentum target (+20%), because a +20% TAKE_PROFIT is the
+    design's normal win, not an outlier — clipped at 12% every target exit
+    would read as +12%, understating the payoff ratio by 40% and pushing the
+    check toward a wrongful "no edge" block.
     """
+    clip = float(CLIP_PCT if clip_pct is None else clip_pct) / 100.0
     by_reason: dict = {}
     usable: list = []
     excluded = unknown = 0
@@ -169,7 +176,7 @@ def measure(trades: Iterable[Any], fraction: float = 0.29,
         if r is None:
             unknown += 1
             continue
-        usable.append(max(-CLIP_PCT / 100.0, min(CLIP_PCT / 100.0, r)))
+        usable.append(max(-clip, min(clip, r)))
 
     n = len(usable)
     wins = [r for r in usable if r > 0]
@@ -217,6 +224,18 @@ def measure(trades: Iterable[Any], fraction: float = 0.29,
               f"{fraction} and {conf*100:.0f}% confidence the cap is "
               f"{applied*100:.2f}% of equity per name."),
     )
+
+
+def live_clip_pct() -> float:
+    """The clip the live check uses: the larger of CLIP_PCT and the momentum
+    preset's target (+20% since the owner's Node 12 pick). Reads the preset
+    table only — no config mutation, no engine import."""
+    try:
+        from .modes import PRESETS
+        tp = float(PRESETS["nifty200_momentum"].take_profit_pct) * 100.0
+    except Exception:
+        tp = 0.0
+    return max(CLIP_PCT, tp)
 
 
 def growth_vs_ruin(m: float) -> dict:

@@ -64,6 +64,35 @@
 </div>
 {% endif %}
 
+{% if mk_on %}
+<div class="bg-white border border-line p-4 lg:p-6 mb-6
+            {% if mk and mk.block_new_entries %}border-l-4 border-l-red-600{% elif mk and mk.status == 'ACTIVE' %}border-l-4 border-l-emerald-500{% else %}border-l-4 border-l-slate-300{% endif %}"
+     data-measured-kelly="measured_kelly_marker">
+  <div class="text-xs tracking-widest text-ink-faint uppercase mb-2">MEASURED KELLY (from your own closed trades)</div>
+  {% if not mk %}
+  <div class="font-black text-xl lg:text-2xl tracking-tight text-ink-faint">NOT READ</div>
+  <div class="mt-2 text-sm text-ink-faint">The reading could not be computed on this page. The scan skips the check when it cannot compute it (it never blocks on a failure).</div>
+  {% else %}
+  <div class="font-black text-xl lg:text-2xl tracking-tight">
+    {% if mk.block_new_entries %}<span class="text-red-700">NO MEASURED EDGE — NEW SCAN ENTRIES BLOCKED</span>
+    {% elif mk.status == 'ACTIVE' %}<span class="text-emerald-700">EDGE MEASURED — SIZE CAP ₹{{ mk_cap|inr }} PER NEW TRADE</span>
+    {% else %}<span class="text-ink-soft">NOT ENOUGH EXITS YET — NO CAP, NO BLOCK</span>{% endif %}
+  </div>
+  <div class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+    <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">Exits used</div><div class="tabular-nums font-bold">{{ mk.usable }}</div></div>
+    <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">Left out</div><div class="tabular-nums font-bold">{{ mk.excluded + mk.unknown }}</div></div>
+    <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">Win rate</div><div class="tabular-nums font-bold">{% if mk.raw_win_rate is not none %}{{ "%.0f%%"|format(mk.raw_win_rate * 100) }}{% else %}—{% endif %}</div></div>
+    <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">Payoff (avg win ÷ avg loss)</div><div class="tabular-nums font-bold">{% if mk.payoff_ratio is not none %}{{ "%.2f"|format(mk.payoff_ratio) }}{% else %}—{% endif %}</div></div>
+  </div>
+  <div class="mt-2 text-sm text-ink-soft">{{ mk.note }}</div>
+  {% endif %}
+  <div class="mt-2 text-xs text-ink-faint">
+    Counts strategy exits only (stop, target, trail, max-hold, decay, rotation, danger) — never your own sells, square-offs, the kill switch or the drawdown ladder.
+    The cap never goes below the ₹{{ cfg.position_slab_value|inr }} slab and never raises a size. Your own BUY button and the Buy Desk are not blocked by it.
+  </div>
+</div>
+{% endif %}
+
 {% if ifr %}
 <div class="bg-white border border-line p-4 lg:p-6 mb-6
             {% if ifr.active %}border-l-4 border-l-amber-500{% else %}border-l-4 border-l-emerald-500{% endif %}">

@@ -716,8 +716,17 @@ class TradingEngine:
         # and opens. Before this, rotation ran first and could sell a
         # near-target position for a pick a later gate refused (on an RBI or
         # Budget week every pick is refused).
+        # AUDIT F-9 (owner: "F9- write it", 2026-10-02): the measured-Kelly
+        # check runs. One reading per scan, from the book's OWN closed trades
+        # (trading/measured_kelly.py). NO_POSITIVE_EDGE blocks every new scan
+        # entry; ACTIVE caps each new entry's size; NO_SAMPLE does nothing.
+        mk = self._measured_kelly(now) if picks else None
         cleared: list = []
         for pick in picks:
+            if mk is not None and mk.block_new_entries:
+                skipped.append({"ticker": pick["ticker"],
+                                "reason": "measured_kelly_no_edge"})
+                continue
             if binary_event is not None:
                 skipped.append({
                     "ticker": pick["ticker"],
@@ -886,6 +895,18 @@ class TradingEngine:
             else:
                 notional_arg = (kelly_notional_rs
                                 if size_diag.get("mode") != "fixed" else None)
+                cap_rs = self._measured_kelly_cap(mk, cfg, current_eq)
+                if cap_rs is not None:
+                    want = (notional_arg if notional_arg is not None
+                            else float(cfg.position_notional()))
+                    size_diag = dict(size_diag)
+                    size_diag["measured_kelly"] = {
+                        "status": mk.status, "usable": mk.usable,
+                        "fraction": mk.fraction, "cap": round(cap_rs, 0),
+                        "wanted": round(float(want), 0),
+                        "capped": bool(want > cap_rs)}
+                    if want > cap_rs:
+                        notional_arg = cap_rs
             ok, reason, qty = can_open(
                 self.risk, self.portfolio.cash, current_eq,
                 self.portfolio.positions, pick["ticker"], fill, cfg,
@@ -2088,6 +2109,57 @@ class TradingEngine:
         if not bool(getattr(self.cfg, "market_hours_only", True)):
             return True
         return is_market_open(self._ist(now))
+
+    def _measured_kelly(self, now: datetime):
+        """The measured-Kelly reading for this scan, or None when switched off.
+
+        AUDIT F-9 (owner: "F9- write it", 2026-10-02). Reads the closed trades
+        held in the book (the newest TRADES_DOC_CAP; older ones are archived
+        in Mongo, which trading/ never imports). A crash in the estimator
+        reads as None — the check can only cut or stop buying, so a broken
+        check must not stop buying on its own. A block is journaled once a
+        day with the numbers that caused it.
+        """
+        cfg = self.cfg
+        if not bool(getattr(cfg, "measured_kelly_enabled", False)):
+            return None
+        try:
+            from .measured_kelly import live_clip_pct, measure
+            r = measure(
+                self.portfolio.trades,
+                fraction=float(getattr(cfg, "kelly_fraction", 0.29) or 0.29),
+                min_trades=int(getattr(cfg, "measured_kelly_min_trades", 0) or 0),
+                full_confidence=int(getattr(
+                    cfg, "measured_kelly_full_confidence", 300) or 300),
+                clip_pct=live_clip_pct())
+        except Exception as e:
+            log.exception("measured Kelly failed — check skipped: %s", e)
+            return None
+        if r.block_new_entries:
+            self._journal_once_a_day("MEASURED_KELLY_BLOCKED", now, {
+                "usable": r.usable, "excluded": r.excluded,
+                "win_rate": r.raw_win_rate, "payoff": r.payoff_ratio,
+                "kelly": r.raw_kelly, "why": r.note})
+        return r
+
+    @staticmethod
+    def _measured_kelly_cap(mk, cfg, equity: float):
+        """Rupee ceiling per new entry, or None when the check does not cap.
+
+        The cap is fraction x equity, never below the slab: the owner's
+        Rs 1.5 lakh is a stated MINIMUM ("150000 slab as minimum"), so the
+        measured cap trims the score ladder above it and never opens a trade
+        smaller than the slab. Under fixed sizing the floor is the dust guard
+        (min_position_value) instead.
+        """
+        if mk is None or mk.status != "ACTIVE" or not mk.fraction:
+            return None
+        cap = float(mk.fraction) * float(equity)
+        if str(getattr(cfg, "sizing_mode", "")) == "slab":
+            floor = float(getattr(cfg, "position_slab_value", 0) or 0)
+        else:
+            floor = float(getattr(cfg, "min_position_value", 0) or 0)
+        return max(cap, floor)
 
     def _journal_once_a_day(self, action: str, now: datetime,
                             fields: dict) -> None:
