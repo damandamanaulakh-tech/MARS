@@ -13,7 +13,7 @@ from typing import Dict, Optional
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
-from .. import auth, state as app_state
+from .. import auth, db, state as app_state
 from ..templating import templates
 
 
@@ -52,10 +52,14 @@ def _generate_all() -> Dict[str, Optional[str]]:
         ("today_picks", lambda: write_picks_csv(portfolio)),
         ("positions",   lambda: write_positions_csv(portfolio, prices,
                                                      price_source=price_source)),
-        ("trades",      lambda: write_trades_csv(portfolio)),
+        # Audit M-5 / M-10: the archives are read here so a line or a trade
+        # that left the book is still in the owner's download.
+        ("trades",      lambda: write_trades_csv(portfolio,
+                                                 archived=db.list_trades())),
         ("equity",      lambda: write_equity_csv(portfolio)),
         ("skipped",     lambda: write_skipped_csv(portfolio)),
-        ("decision_journal", lambda: write_journal_csv(portfolio)),
+        ("decision_journal", lambda: write_journal_csv(
+            portfolio, archived=db.list_journal_archive())),
     ]
     for name, fn in writers:
         try:

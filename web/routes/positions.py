@@ -199,6 +199,13 @@ def trades_view(request: Request):
     gross_loss = sum(t.net_pnl for t in p.trades if t.net_pnl < 0)
     total_capital_used = sum(r["capital_used"] for r in rows)
     net_pct_of_capital = net_total / starting_capital * 100
+    # Audit M-10: once the book reaches the cap, older trades live in the
+    # Mongo archive. Asked only then, so an ordinary render costs no query.
+    from trading.paper import TRADES_DOC_CAP
+    archived = 0
+    if total >= TRADES_DOC_CAP:
+        from .. import db
+        archived = db.count_archived_trades()
 
     return templates.TemplateResponse(
         request, "trades.html",
@@ -216,6 +223,7 @@ def trades_view(request: Request):
             "total": total,
             "win_rate": win_rate,
             "net_total": net_total,
+            "archived_trades": archived,
         },
     )
 

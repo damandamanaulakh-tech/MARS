@@ -3961,6 +3961,23 @@ for next"), 1,411 tests (22 new, 18 fail on old code).**
   then the old lists. **S-14**: docstrings truth-passed.
 - Remaining audit rows: Mongo M-1..M-12, files R-1..R-11, tests T-2; F-9
   owner decision.
+**AUDIT MONGO ROWS + T-2 DONE 2026-10-02 (owner: "go for next"), 1,420
+tests (9 new, all fail on old code).**
+- **M-3**: /healthz `market_info_shape` {fii, dii: {day, shape}} — key
+  names/types/list lengths of the newest stored Upstox payload, NO values
+  (`db.market_info_shape`, `db._shape`, computed in health_stats). NEXT:
+  read it from the live box and fix `data_refresh.map_market_fii/dii`.
+- **M-4/M-10**: `paper.TRADES_DOC_CAP = 5000`; `state._archive_trade_overflow`
+  (inside the save wrapper) -> `db.archive_trades` (UpdateOne upserts, id =
+  ticker|entry|exit|qty|reason) trims ONLY on success. `db.list_trades()`
+  oldest-first; `db.count_archived_trades()`. Trades CSV prepends the
+  archive; /trades shows trades_archived_marker once the cap is reached.
+- **M-5**: `db.list_journal_archive()` oldest-first -> journal CSV.
+- **M-9**: `history_docs` filters `_id` (indexed). **M-8**: loader feeds M-3.
+- **M-6** self-heals, **M-7** kept on purpose (forward PIT record), **M-11**
+  no change (CSV has July). **T-2**: web conftest `_no_upstox_network`
+  blocks `trading.brokers.upstox.httpx` get/post in web tests.
+- Remaining: files R-1..R-11; F-9 owner decision; M-1/M-2/M-12 owner actions.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never

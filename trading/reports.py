@@ -59,7 +59,17 @@ def write_positions_csv(portfolio: Portfolio, prices: dict,
     return path
 
 
-def write_trades_csv(portfolio: Portfolio) -> str:
+def write_trades_csv(portfolio: Portfolio, archived=()) -> str:
+    """All closed trades, oldest first. `archived` = trades already moved
+    out of the book to the Mongo `trades` archive (audit M-10), as
+    ClosedTrade.to_dict() rows; they come first, then the book's own."""
+    from .paper import ClosedTrade
+    older = []
+    for d in archived or ():
+        try:
+            older.append(ClosedTrade.from_dict(d))
+        except Exception:
+            continue
     path = os.path.join(_ensure_dir(portfolio), "trades.csv")
     with open(path, "w", newline="") as f:
         w = csv.writer(f)
@@ -69,7 +79,7 @@ def write_trades_csv(portfolio: Portfolio) -> str:
             "net_pnl", "net_pct", "hold_days", "reason", "sector",
             "entry_score", "reasoning", "entry_notes", "tags",
         ])
-        for t in portfolio.trades:
+        for t in older + list(portfolio.trades):
             net_pct = (t.exit_price / t.entry_price - 1) * 100 if t.entry_price else 0
             hold = (t.exit_date.date() - t.entry_date.date()).days
             w.writerow([
@@ -96,11 +106,13 @@ def write_equity_csv(portfolio: Portfolio) -> str:
     return path
 
 
-def write_journal_csv(portfolio: Portfolio) -> str:
+def write_journal_csv(portfolio: Portfolio, archived=()) -> str:
     """Full decision journal — every BUY / SELL / HOLD / RESET with context.
-    The compare-and-learn record: why we bought, why we sold, why we kept."""
+    The compare-and-learn record: why we bought, why we sold, why we kept.
+    `archived` = lines that left the in-RAM cap for the Mongo
+    journal_archive (audit M-5), oldest first; they precede the book's own."""
     path = os.path.join(_ensure_dir(portfolio), "decision_journal.csv")
-    entries = portfolio.decision_journal or []
+    entries = list(archived or ()) + list(portfolio.decision_journal or [])
     cols = [
         "ts", "action", "ticker", "qty", "price", "entry_price", "exit_price",
         "notional", "net_pnl", "net_pct", "hold_days", "exit_reason",

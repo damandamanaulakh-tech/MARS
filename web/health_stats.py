@@ -35,6 +35,10 @@ _LOCK = threading.Lock()
 _SNAPSHOT: dict = {
     "history_tickers": None,   # stored OHLCV count (db.list_history_meta)
     "mongo": None,             # db.storage_stats() — sizes only
+    # audit M-3: STRUCTURE of the newest stored Upstox FII/DII payloads (key
+    # names, types, list lengths — never a number), so the mapper that has
+    # never produced a row can be fixed against what Upstox really sends.
+    "market_info_shape": None,
     "asof": None,              # ISO UTC of the last successful compute
     "elapsed_s": None,         # how long that compute took
     "error": None,             # last compute error text, cleared on success
@@ -54,6 +58,11 @@ def compute() -> dict:
         out["error"] = None
     except Exception as e:                                    # noqa: BLE001
         out["error"] = f"{type(e).__name__}: {str(e)[:160]}"
+    try:
+        out["market_info_shape"] = {k: db.market_info_shape(k)
+                                    for k in ("fii", "dii")}
+    except Exception:                                         # noqa: BLE001
+        out["market_info_shape"] = None       # a probe, never the page's error
     out["elapsed_s"] = round(time.monotonic() - t0, 3)
     return out
 
@@ -67,6 +76,7 @@ def refresh() -> dict:
         if got.get("error") is None:
             _SNAPSHOT["history_tickers"] = got.get("history_tickers")
             _SNAPSHOT["mongo"] = got.get("mongo")
+            _SNAPSHOT["market_info_shape"] = got.get("market_info_shape")
             _SNAPSHOT["asof"] = datetime.now(timezone.utc).isoformat()
         _SNAPSHOT["error"] = got.get("error")
         _SNAPSHOT["elapsed_s"] = got.get("elapsed_s")
@@ -117,5 +127,6 @@ def start(interval: Optional[float] = None) -> bool:
 def _reset_for_tests() -> None:
     """Forget the snapshot (the thread, if any, keeps running)."""
     with _LOCK:
-        for k in ("history_tickers", "mongo", "asof", "elapsed_s", "error"):
+        for k in ("history_tickers", "mongo", "market_info_shape", "asof",
+                  "elapsed_s", "error"):
             _SNAPSHOT[k] = None

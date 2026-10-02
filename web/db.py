@@ -253,26 +253,66 @@ def load_portfolio(doc_id: str = "default") -> Optional[dict]:
         return None
 
 
-# ---------- closed trades ----------
+# ---------- closed-trade archive ----------
+#
+# AUDIT M-4 + M-10 (owner: "go for next", 2026-10-02). The `trades`
+# collection had writer and reader code with no caller, while every closed
+# trade lived in the ONE portfolio document — the only uncapped list in it,
+# heading for Mongo's 16 MB document limit. The collection is now the
+# overflow archive: the save wrapper (web/state.py) moves trades beyond
+# trading.paper.TRADES_DOC_CAP here and trims the book only after the
+# archive write succeeded, so a closed trade is never lost.
 
-def append_trade(trade_doc: dict) -> None:
+def _trade_key(d: dict) -> str:
+    """Deterministic id, so a save that dies between the archive write and
+    the trim re-archives the same trades without duplicating them."""
+    return (f"{d.get('ticker')}|{d.get('entry_date')}|{d.get('exit_date')}|"
+            f"{d.get('qty')}|{d.get('reason')}")
+
+
+def archive_trades(trade_docs: list) -> bool:
+    """Upsert closed-trade dicts (ClosedTrade.to_dict()) into the archive.
+    True when every row is stored (or there is nothing to store)."""
+    if not trade_docs:
+        return True
     if not _CONNECTED or _DB is None:
-        return
+        return False
     try:
-        _DB.trades.insert_one(trade_doc)
+        from pymongo import UpdateOne
+        ops = [UpdateOne({"_id": _trade_key(d)},
+                         {"$setOnInsert": {**dict(d), "_id": _trade_key(d)}},
+                         upsert=True)
+               for d in trade_docs]
+        _DB.trades.bulk_write(ops, ordered=False)
+        return True
     except Exception as e:
-        log.warning("Mongo append_trade failed: %s", e)
+        log.warning("Mongo archive_trades failed: %s", e)
+        return False
 
 
-def list_trades(limit: int = 1000) -> list:
+def list_trades(limit: int = 0) -> list:
+    """Archived closed trades, OLDEST first (the order the CSV wants).
+    `limit` > 0 keeps the newest N. [] when Mongo is down."""
     if not _CONNECTED or _DB is None:
         return []
     try:
-        cur = _DB.trades.find({}, {"_id": 0}).sort("exit_date", -1).limit(limit)
-        return list(cur)
+        cur = _DB.trades.find({}, {"_id": 0}).sort("exit_date", -1)
+        if limit and limit > 0:
+            cur = cur.limit(int(limit))
+        return list(reversed(list(cur)))
     except Exception as e:
         log.warning("Mongo list_trades failed: %s", e)
         return []
+
+
+def count_archived_trades() -> int:
+    if not _CONNECTED or _DB is None:
+        return 0
+    try:
+        return int(_DB.trades.count_documents({}, maxTimeMS=2000))
+    except Exception as e:
+        log.warning("Mongo count_archived_trades failed: %s", e)
+        return 0
 
 
 # ---------- backtest archive ----------
@@ -457,8 +497,9 @@ def save_market_info_raw(kind: str, day: str, payload) -> bool:
 
 
 def load_market_info_raw(kind: str) -> Optional[dict]:
-    """Newest archived market-info payload of one kind (e.g. the FDA
-    newsroom items). None when Mongo is down or nothing stored."""
+    """Newest archived market-info payload of one kind ("fii" / "dii").
+    None when Mongo is down or nothing stored. Used by
+    `market_info_shape` for the /healthz shape probe (audit M-3)."""
     if not _CONNECTED or _DB is None:
         return None
     try:
@@ -467,6 +508,30 @@ def load_market_info_raw(kind: str) -> Optional[dict]:
     except Exception as e:
         log.warning("Mongo load_market_info_raw failed: %s", e)
         return None
+
+
+def _shape(v, depth: int = 0):
+    """Structure only — key names, types, list lengths — never a value."""
+    if depth > 5:
+        return "..."
+    if isinstance(v, dict):
+        return {str(k): _shape(x, depth + 1) for k, x in list(v.items())[:40]}
+    if isinstance(v, list):
+        return {"list_len": len(v),
+                "first": _shape(v[0], depth + 1) if v else None}
+    return type(v).__name__
+
+
+def market_info_shape(kind: str) -> Optional[dict]:
+    """AUDIT M-3 (2026-10-02): the Upstox FII/DII mapper has never produced
+    a row from the payloads stored in the live database, and a session
+    cannot read that database. This exposes the STRUCTURE of the newest
+    stored payload — key names, types, list lengths, no numbers — so the
+    mapper can be fixed against what Upstox really sends."""
+    doc = load_market_info_raw(kind)
+    if not doc:
+        return None
+    return {"day": doc.get("day"), "shape": _shape(doc.get("payload"))}
 
 
 def save_pwoi_rows(rows: list) -> int:
@@ -630,8 +695,11 @@ def history_docs(tickers, rows: int = 0) -> dict:
         proj["candles"] = {"$slice": -int(rows)}
     out: dict = {}
     try:
-        for doc in _DB.ohlcv.find({"ticker": {"$in": names}}, proj):
-            t = doc.get("ticker")
+        # AUDIT M-9 (2026-10-02): filter on `_id`, which Mongo always
+        # indexes, not on the unindexed `ticker` field (a collection scan).
+        # Every writer stores _id == ticker (history_store builds the doc).
+        for doc in _DB.ohlcv.find({"_id": {"$in": names}}, proj):
+            t = doc.get("ticker") or doc.get("_id")
             if t:
                 out[t] = doc
     except Exception as e:
@@ -670,12 +738,15 @@ def archive_journal(entries: list) -> bool:
         return False
 
 
-def list_journal_archive(limit: int = 2000) -> list:
+def list_journal_archive(limit: int = 20000) -> list:
+    """Archived journal lines, OLDEST first, newest `limit` of them. Read by
+    the /reports decision-journal CSV (audit M-5, 2026-10-02 — it had no
+    caller, so lines that left the in-RAM cap could not be downloaded)."""
     if not _CONNECTED or _DB is None:
         return []
     try:
         cur = _DB.journal_archive.find({}, {"_id": 0}).sort("ts", -1).limit(limit)
-        return list(cur)
+        return list(reversed(list(cur)))
     except Exception as e:
         log.warning("Mongo list_journal_archive failed: %s", e)
         return []

@@ -175,6 +175,8 @@ def healthz() -> dict:
     return {"ok": True, "db": state.db_status(), "history_tickers": hist,
             "universe": universe, "scan_universe": scan_universe,
             "memory": memory, "mongo": mongo,
+            # audit M-3: structure only (key names / types / list lengths)
+            "market_info_shape": stats.get("market_info_shape"),
             "stats": {"asof": stats.get("asof"), "age_s": stats.get("age_s"),
                       "pending": stats.get("pending"),
                       "elapsed_s": stats.get("elapsed_s"),
