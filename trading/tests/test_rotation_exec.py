@@ -129,8 +129,13 @@ def test_a_position_below_the_progress_bar_is_left_alone(tmp_path, monkeypatch):
 
 
 def test_scan_runs_rotation_before_the_opening_loop():
-    """Order is the point: the freed cash must exist when can_open counts."""
+    """Order is the point: the freed cash must exist when can_open counts.
+    Since audit S-4 (2026-10-02) rotation also runs AFTER the gate pass, so
+    it funds only picks every gate has cleared (behaviour pinned in
+    test_audit_s4_s9_2026_10_02.py)."""
     src = "\n".join(ln for ln in
                     inspect.getsource(TradingEngine.scan).splitlines()
                     if not ln.lstrip().startswith("#"))
-    assert src.index("self._rotation_exits(") < src.index("for pick in picks:")
+    rot = src.index("self._rotation_exits(")
+    assert src.index("for pick in picks:") < rot < src.index("for pick in cleared:")
+    assert rot < src.index("can_open(")

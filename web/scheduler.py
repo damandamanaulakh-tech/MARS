@@ -375,9 +375,11 @@ def _intraday_tick() -> None:
     eng = state.engine()
     log.info("[%s] Intraday tick — scanning + refreshing",
              datetime.now().strftime("%H:%M:%S"))
+    from trading.modes import holding_mode_lock
     try:
-        eng.refresh()
-        eng.scan()
+        with holding_mode_lock():           # audit S-6
+            eng.refresh()
+            eng.scan()
     except Exception as e:
         log.exception("Intraday tick failed: %s", e)
     _check_pending_orders("intraday-tick")
@@ -450,11 +452,17 @@ def _deployment_topup_scan() -> None:
     deployed_pct = deployed / cfg.starting_capital * 100 if cfg.starting_capital else 0
     if deployed_pct >= DEPLOYMENT_TARGET_PCT:
         log.info("[14:30] Top-up skip: already %.0f%% deployed", deployed_pct)
+        # AUDIT S-7: skipping the top-up SCAN must not skip the owner's
+        # resting limit orders — they are the owner's trades, not the
+        # engine's, and the deployment target is the engine's rule.
+        _check_pending_orders("top-up-skip")
         return
     log.info("[14:30] Top-up scan: %.0f%% deployed < %.0f%% target",
              deployed_pct, DEPLOYMENT_TARGET_PCT)
+    from trading.modes import holding_mode_lock
     try:
-        res = eng.scan()
+        with holding_mode_lock():           # audit S-6
+            res = eng.scan()
         log.info("[14:30] Top-up result: %d opened, %d skipped",
                  len(res.opened), len(res.skipped))
     except Exception as e:
@@ -1725,8 +1733,12 @@ def _session_refresh() -> None:
     """Every `cfg.intraday_refresh_minutes` inside the session (owner order
     2026-09-10, "A - instead of 20 u can do in 30").
 
-    Updates prices, fires stops AND targets on the same clock, and runs
-    rotation — which can then open a fresh position with the freed cash.
+    Updates prices, fires stops AND targets on the same clock, then checks
+    the owner's resting limit orders (audit S-7, 2026-10-02 — before this
+    they were only checked after the 09:20 and 14:30 scans, so an order the
+    price touched at 11:00 waited hours, and above 60% deployed the 14:30
+    check never ran at all). Rotation is NOT run here; it runs inside the
+    scan, which is where the picks it funds come from (audit S-14).
 
     WHY STOPS TOO, stated because it is a real change: firing targets every
     30 minutes while stops waited for the 15:35 pass would take profits fast
@@ -1743,10 +1755,16 @@ def _session_refresh() -> None:
     if not is_market_open():
         return
     from . import state
+    from trading.modes import holding_mode_lock
     try:
-        state.engine().refresh()
+        # Audit S-6: the exit pass reads stop/target/leash values off the
+        # shared Config; it waits for a running scan pass rather than read
+        # another category's preset mid-rotation.
+        with holding_mode_lock():
+            state.engine().refresh()
     except Exception as e:
         log.exception("session refresh failed: %s", e)
+    _check_pending_orders("session")
 
 
 def _eod_refresh() -> None:
@@ -1762,8 +1780,10 @@ def _eod_refresh() -> None:
     if not is_trading_day():
         return
     from . import state
+    from trading.modes import holding_mode_lock
     try:
-        state.engine().refresh()
+        with holding_mode_lock():           # audit S-6
+            state.engine().refresh()
         log.info("[15:35] EOD refresh done")
     except Exception as e:
         log.exception("EOD refresh failed: %s", e)
@@ -1826,7 +1846,6 @@ def _daily_multi_mode_scan() -> None:
     from . import state
     eng = state.engine()
     cfg = state.cfg()
-    original_mode = getattr(cfg, "mode", "swing")
     from trading.calendars import is_trading_day
     if not is_trading_day():
         log.info("[09:20] NSE holiday — daily scan skipped")
@@ -1872,6 +1891,13 @@ def _daily_multi_mode_scan() -> None:
     summary = []
     import gc
     from trading.modes import MODE_LOCK
+    # AUDIT S-6 (2026-10-02): the lock is held for the WHOLE rotation, restore
+    # included. Releasing it between passes left cfg.mode on the previous
+    # pass's category, so an owner buy or the 30-minute exit pass that slipped
+    # in between read (and an owner buy restored) the wrong preset. Owner web
+    # actions wait up to 30 s and then say a scan is running.
+    MODE_LOCK.acquire()
+    original_mode = getattr(cfg, "mode", "swing")
     try:
         for m in _DAILY_MODE_ORDER:
             try:
@@ -1904,10 +1930,13 @@ def _daily_multi_mode_scan() -> None:
     finally:
         # AUDIT FIX C3: the restore is in a finally now — an escape mid-loop
         # used to leave cfg.mode stuck on whatever mode the loop died in.
-        with MODE_LOCK:
-            cfg.mode = original_mode
-            cfg.apply_mode_preset()
-        _ROTATION_LOCK.release()
+        try:
+            with MODE_LOCK:
+                cfg.mode = original_mode
+                cfg.apply_mode_preset()
+        finally:
+            MODE_LOCK.release()
+            _ROTATION_LOCK.release()
     _check_pending_orders("post-scan")
     # The daily store top-up ("all fresh", owner order 2026-08-20) now runs
     # BEFORE the scans above (audit item 8, 2026-10-02).

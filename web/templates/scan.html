@@ -288,6 +288,10 @@
 <div class="bg-emerald-50 border border-emerald-300 text-emerald-900 p-3 mb-4 text-sm">
   ✅ Order cancelled.
 </div>
+{% elif error == 'scan_busy' %}
+<div class="bg-amber-50 border border-amber-300 text-amber-900 p-3 mb-4 text-sm"><!-- scan_busy_marker -->
+  ⏳ A scan pass is running right now, so that action did not run — a buy or a price refresh while the engine is switching between categories could use the wrong stop or target. <strong>Nothing changed</strong>; tap again in a minute or two.
+</div>
 {% elif error == 'buy_desk_empty' %}
 <div class="bg-amber-50 border border-amber-300 text-amber-900 p-3 mb-4 text-sm"><!-- buy_desk_msg_marker -->
   🛒 Buy Desk: the last scan has <strong>no name</strong> that cleared the floor, momentum and liquidity — nothing to buy. Run a scan first.

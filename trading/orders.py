@@ -97,6 +97,17 @@ def _fill(engine, o: dict, price: float, now: datetime) -> None:
                      "ticker": tkr, "order_id": o["id"], "why": o["note"]})
         return
 
+    # AUDIT S-6: the mode swap below runs under the shared mode lock, so a
+    # fill can never interleave with a scan pass flipping the same Config.
+    from .modes import holding_mode_lock
+    with holding_mode_lock():
+        _fill_locked(engine, o, price, now)
+
+
+def _fill_locked(engine, o: dict, price: float, now: datetime) -> None:
+    p = engine.portfolio
+    cfg = engine.cfg
+    tkr = o["ticker"]
     orig_mode = getattr(cfg, "mode", "nifty200_momentum")
     try:
         cfg.mode = "nifty200_momentum"

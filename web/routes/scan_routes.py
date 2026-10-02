@@ -621,7 +621,11 @@ def scan_run(request: Request):
     def _run():
         global _SCAN_RUNNING, _LAST_SCAN_ERROR
         try:
-            state.engine().scan()
+            # AUDIT S-6: a manual scan reads the active mode's preset for the
+            # whole pass — hold the shared lock so nothing flips it mid-run.
+            from trading.modes import holding_mode_lock
+            with holding_mode_lock():
+                state.engine().scan()
             try:
                 from trading.orders import process_open_orders
                 process_open_orders(state.engine())
@@ -784,6 +788,11 @@ def owner_buy(request: Request, ticker: str = Form(...),
 
     # The position must carry MOMENTUM identity (tag, -12/+30 snapshot)
     # even if the dashboard currently sits in another mode.
+    # AUDIT S-6 (2026-10-02): the swap happens under the shared mode lock so a
+    # scan pass cannot flip the Config underneath it (or read it mid-swap).
+    from trading.modes import MODE_LOCK, MODE_LOCK_WAIT_S
+    if not MODE_LOCK.acquire(timeout=MODE_LOCK_WAIT_S):
+        return RedirectResponse("/scan?error=scan_busy", status_code=303)
     orig_mode = getattr(cfg, "mode", "nifty200_momentum")
     try:
         cfg.mode = "nifty200_momentum"
@@ -820,6 +829,7 @@ def owner_buy(request: Request, ticker: str = Form(...),
     finally:
         cfg.mode = orig_mode
         cfg.apply_mode_preset()
+        MODE_LOCK.release()
     return RedirectResponse("/positions", status_code=303)
 
 
@@ -889,6 +899,9 @@ def owner_buy_desk(request: Request, budget: str = Form(""),
     prices = fetch_quotes(tickers, upstox_client=eng.broker) or {}
     sources = {t: LAST_SOURCES.get(t) for t in tickers}
 
+    from trading.modes import MODE_LOCK, MODE_LOCK_WAIT_S
+    if not MODE_LOCK.acquire(timeout=MODE_LOCK_WAIT_S):     # audit S-6
+        return RedirectResponse("/scan?error=scan_busy", status_code=303)
     orig_mode = getattr(cfg, "mode", buy_desk.DESK_MODE)
     try:
         cfg.mode = buy_desk.DESK_MODE
@@ -903,6 +916,7 @@ def owner_buy_desk(request: Request, budget: str = Form(""),
     finally:
         cfg.mode = orig_mode
         cfg.apply_mode_preset()
+        MODE_LOCK.release()
     if not summary["opened"]:
         return RedirectResponse("/scan?error=buy_desk_nothing", status_code=303)
     return RedirectResponse("/positions?buy_desk=1", status_code=303)
@@ -980,8 +994,12 @@ def refresh(request: Request):
     if not auth.current_user(request):
         return RedirectResponse("/login", status_code=303)
     eng = state.engine()
+    from trading.modes import ModeBusy, MODE_LOCK_WAIT_S, holding_mode_lock
     try:
-        eng.refresh()
+        with holding_mode_lock(MODE_LOCK_WAIT_S):     # audit S-6
+            eng.refresh()
+    except ModeBusy:
+        return RedirectResponse("/scan?error=scan_busy", status_code=303)
     except Exception as e:
         return RedirectResponse(f"/?error={type(e).__name__}", status_code=303)
     return RedirectResponse("/", status_code=303)

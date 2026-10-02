@@ -21,7 +21,9 @@ Each preset overrides AM07_WEIGHTS and exit thresholds. The engine reads
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
+from typing import Optional
 
 import threading
 
@@ -31,6 +33,36 @@ import threading
 # held by the rotation for each mode's pass and best-effort acquired by the
 # owner buy paths, so a manual buy no longer interleaves a preset swap.
 MODE_LOCK = threading.RLock()
+
+# AUDIT S-6 (2026-10-02): the comment above promised the owner paths took the
+# lock; none did. Every scan pass, every exit pass and every owner action that
+# swaps or reads the active mode now holds it. A web request waits at most
+# this long for a running scan pass, then tells the owner it was busy instead
+# of hanging the page.
+MODE_LOCK_WAIT_S = 30.0
+
+
+class ModeBusy(RuntimeError):
+    """A scan pass held the mode lock for longer than the caller would wait."""
+
+
+@contextmanager
+def holding_mode_lock(timeout: Optional[float] = None):
+    """Hold MODE_LOCK for the block. `timeout=None` waits as long as it
+    takes (background jobs); a number raises ModeBusy if a scan pass still
+    holds it after that many seconds (web requests); 0 = do not wait."""
+    if timeout is None:
+        got = MODE_LOCK.acquire()
+    elif timeout > 0:
+        got = MODE_LOCK.acquire(timeout=timeout)
+    else:
+        got = MODE_LOCK.acquire(blocking=False)
+    if not got:
+        raise ModeBusy("a scan pass is running")
+    try:
+        yield
+    finally:
+        MODE_LOCK.release()
 
 
 # Top-level AM 07 weight presets per mode. All sum to 1.0.
