@@ -65,7 +65,7 @@ def test_the_escape_hatch_is_test_only_and_the_default_is_gated():
     reaches render.yaml the production gate is silently off."""
     import pathlib
     assert Config().market_hours_only is True
-    for f in ("render.yaml", "Procfile"):
+    for f in ("render.yaml",):    # Procfile deleted 2026-10-02 (audit R-6)
         p = pathlib.Path(f)
         if p.exists():
             assert "SB_IGNORE_MARKET_HOURS" not in p.read_text(), f

@@ -41,17 +41,6 @@ def trading_blocked(cfg=None) -> Optional[str]:
     return market_state()
 
 
-_HUMAN = {
-    "pre_open": "the market has not opened yet (opens 09:15 IST)",
-    "after_close": "the market has closed (closed 15:30 IST)",
-    "closed_holiday": "the market is closed today",
-}
-
-
-def reason_text(state: str) -> str:
-    return _HUMAN.get(state, "the market is closed")
-
-
 def blocked_redirect(page: str, state: str) -> RedirectResponse:
     """Send the owner back with a message that says WHY, never a bare error."""
     return RedirectResponse(f"{page}?error=market_closed&state={state}",

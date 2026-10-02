@@ -48,7 +48,7 @@ Back.Test.Claude, FII.DII.Nifty, FII). Rescued into version control:
   spreadsheet cells, not parameters), signal correlation/forward-return studies, top combo & pre-fall
   triggers, Q1 FII 20d stats, industry coverage, n200 live report,
   early-warning + data-format docs, and `master_30000_stock_list.csv`
-  (the file KEEP_DELETE.md marked absorbed but never landed).
+  (the file docs/archive/KEEP_DELETE.md marked absorbed but never landed).
 - `data/chityy/master_extended_chityy.csv` — REBUILT clean from
   `master_extended.xlsx` (31 rows x 59 cols); the old copy was corrupt
   (zero line breaks).

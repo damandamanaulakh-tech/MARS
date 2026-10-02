@@ -48,12 +48,6 @@ def _load_panel() -> tuple[dict, dict]:
     return panel, sector_map
 
 
-def _group_of(rid: str) -> str:
-    from trading.register_v4 import REGISTRY_BY_ID
-    row = REGISTRY_BY_ID.get(rid)
-    return (row or {}).get("Group", "")
-
-
 def _rows_for(readings: dict) -> list[dict]:
     from trading.register_v4 import REGISTRY_BY_ID
     out = []

@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 import os
 import threading
-from functools import lru_cache
 from typing import Dict
 
 log = logging.getLogger(__name__)
@@ -388,18 +387,6 @@ def fetch_daily_range(tickers: list[str], start: str, end: str) -> Dict[str, pd.
     return out
 
 
-def fetch_quote(ticker: str) -> float | None:
-    """Latest available close price for a single ticker (delayed ~15 min on NSE)."""
-    try:
-        t = yf.Ticker(ticker)
-        hist = t.history(period="2d", interval="1d", auto_adjust=True)
-        if hist.empty:
-            return None
-        return float(hist["Close"].iloc[-1])
-    except Exception:
-        return None
-
-
 def fetch_quotes(tickers: list[str]) -> Dict[str, float]:
     """Latest available close for many tickers in one call.
 
@@ -497,23 +484,6 @@ _EG_FAILS = 0
 _EG_BREAKER_UNTIL = 0.0
 _EG_BREAKER_AFTER = 3
 _EG_BREAKER_SECS = 1800.0
-
-
-@lru_cache(maxsize=512)
-def fetch_market_cap_cr(ticker: str) -> float | None:
-    """Market cap in ₹ Crores (1 Cr = 1e7). Cached for the session.
-
-    yfinance reports mcap in INR for .NS tickers, so we just divide by 1e7.
-    Returns None in backtest mode (no historical snapshot — leak risk).
-    """
-    if is_backtest_mode():
-        return None
-    try:
-        info = run_with_timeout(lambda: yf.Ticker(ticker).info) or {}
-        mc = info.get("marketCap")
-        return float(mc) / 1e7 if mc else None
-    except Exception:
-        return None
 
 
 def fetch_earnings_growth(ticker: str) -> float | None:

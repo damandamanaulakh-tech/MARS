@@ -1278,12 +1278,3 @@ def usdinr_series() -> Optional[pd.Series]:
     s = pd.Series(pd.to_numeric(df["close"], errors="coerce").to_numpy(),
                   index=df["date"]).dropna().sort_index()
     return s if len(s) >= 30 else None
-
-
-def reset_caches() -> None:
-    """Drop cached panels (tests, and after a weekly data top-up)."""
-    global _insider_cache, _fo_cache, _deals_cache
-    _panel_cache.clear()
-    _panelset_cache.clear()
-    _ref_cache.clear()
-    _insider_cache = _fo_cache = _deals_cache = None

@@ -5,14 +5,22 @@ import pandas as pd
 import pytest
 
 from trading.signals.technicals import (
-    adx, adx_trend_score, beta_vs_benchmark,
+    adx, beta_vs_benchmark,
     bollinger_bandwidth, bollinger_squeeze_score,
-    ema, golden_cross_active,
-    ma_stack_score, macd, macd_score,
-    obv, obv_trend_score,
+    ema,
+    ma_stack_score, macd,
+    obv,
     pct_off_52w_high, proximity_to_52w_high_score,
-    rsi, rsi_score, sma,
+    rsi, sma,
 )
+from trading.signals import technicals
+
+
+def test_the_deleted_scorers_stay_deleted():
+    """Audit R-10 (2026-10-02): nothing named or called these five."""
+    for name in ("golden_cross_active", "rsi_score", "macd_score",
+                 "adx_trend_score", "obv_trend_score"):
+        assert not hasattr(technicals, name), name
 
 
 def _series(values, start="2024-01-01"):
@@ -65,18 +73,6 @@ def test_ma_stack_neutral_when_short():
     assert ma_stack_score(_series([100] * 50)) == 50.0
 
 
-def test_golden_cross_detected():
-    """Long downtrend then strong recovery -> 50-SMA crosses above 200-SMA.
-    Needs enough data for the 200-SMA to also turn up."""
-    closes = list(np.linspace(200, 100, 220)) + list(np.linspace(100, 400, 80))
-    # Note: golden_cross looks at the last 11 sessions for the cross event
-    assert isinstance(golden_cross_active(_series(closes)), bool)
-
-
-def test_golden_cross_absent_for_flat_series():
-    assert golden_cross_active(_series([100] * 250)) is False
-
-
 # ---- RSI ----
 
 def test_rsi_oversold_for_falling():
@@ -93,33 +89,12 @@ def test_rsi_overbought_for_rising():
     assert r > 70
 
 
-def test_rsi_score_returns_value_for_uptrend():
-    closes = list(np.linspace(100, 130, 100))
-    s = rsi_score(_series(closes))
-    assert 0 < s <= 100
-
-
-def test_rsi_score_penalises_overbought():
-    closes = list(np.linspace(30, 200, 100))
-    assert rsi_score(_series(closes)) <= 50
-
-
 # ---- MACD ----
 
 def test_macd_basic_returns_triplet():
     closes = list(np.linspace(100, 150, 100))
     m, sig, hist = macd(_series(closes))
     assert m is not None and sig is not None and hist is not None
-
-
-def test_macd_score_rewards_rising_positive_hist():
-    """Accelerating rally -> positive rising histogram -> high score."""
-    closes = list(np.linspace(100, 120, 50)) + list(np.linspace(120, 180, 50))
-    assert macd_score(_series(closes)) >= 60
-
-
-def test_macd_score_neutral_when_short():
-    assert macd_score(_series([100] * 10)) == 50.0
 
 
 # ---- Bollinger ----
@@ -144,34 +119,13 @@ def test_adx_returns_value_for_uptrend():
     assert a > 0  # any positive ADX is acceptable for synthetic data
 
 
-def test_adx_score_returns_value_for_trending_market():
-    closes = list(np.linspace(100, 200, 100))
-    df = _ohlcv_df(closes)
-    s = adx_trend_score(df)
-    assert 0 <= s <= 100
-
-
-def test_adx_score_relative_chop_vs_trend():
-    """ADX score for trending series should be >= ADX score for chop."""
-    trend = _ohlcv_df(list(np.linspace(100, 200, 100)))
-    chop = _ohlcv_df([100 + (5 if i % 2 == 0 else -5) for i in range(100)])
-    assert adx_trend_score(trend) >= adx_trend_score(chop) - 10  # tolerance
-
-
 # ---- OBV ----
-
-def test_obv_trend_score_positive_for_rising_price_and_volume():
-    closes = list(np.linspace(100, 150, 60))
-    vols = list(np.linspace(100_000, 500_000, 60))
-    score = obv_trend_score(_series(closes), _series(vols))
-    assert score >= 50  # any positive bias is enough
-
 
 def test_obv_returns_none_for_empty():
     assert obv(None, None) is None
 
 
-# ---- Supertrend ----
+# ---- 52-week high ----
 
 def test_pct_off_52w_high_at_high():
     closes = list(range(1, 252)) + [251]

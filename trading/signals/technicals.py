@@ -15,6 +15,10 @@ with zero risk of lookahead.
 # is a maintained LIBRARY awaiting an owner order to wire; none feeds a live
 # score today. The fake "supertrend" (it had no band ratcheting and returned
 # "up" almost always) is deleted rather than left reading as capability.
+# AUDIT R-10 (2026-10-02): five scorers that nothing named or called
+# (golden_cross_active, rsi_score, macd_score, adx_trend_score,
+# obv_trend_score) are deleted. The helpers that stay are the ones the
+# /register page names as where an item would come from.
 
 
 from __future__ import annotations
@@ -61,19 +65,6 @@ def ma_stack_score(close: pd.Series) -> float:
     return max(0.0, min(100.0, score))
 
 
-def golden_cross_active(close: pd.Series, fast: int = 50, slow: int = 200) -> bool:
-    """True if fast SMA crossed above slow SMA in the last 10 sessions."""
-    if close is None or len(close.dropna()) < slow + 10:
-        return False
-    s_fast = close.rolling(fast).mean()
-    s_slow = close.rolling(slow).mean()
-    diff = (s_fast - s_slow).dropna()
-    if len(diff) < 11:
-        return False
-    last10 = diff.iloc[-11:]
-    return bool((last10.iloc[0] <= 0) and (last10.iloc[-1] > 0))
-
-
 # ---------------- RSI ----------------
 
 def rsi(close: pd.Series, length: int = 14) -> Optional[float]:
@@ -93,24 +84,6 @@ def rsi(close: pd.Series, length: int = 14) -> Optional[float]:
     return float(val.iloc[-1]) if not val.empty else None
 
 
-def rsi_score(close: pd.Series, length: int = 14) -> float:
-    """Bullish-zone score: rewards 50-70, penalises >75 (overbought) or <30 (weak)."""
-    r = rsi(close, length)
-    if r is None:
-        return 50.0
-    if 50 <= r <= 70:
-        return 80.0
-    if 40 <= r < 50:
-        return 60.0
-    if 70 < r <= 75:
-        return 70.0
-    if r > 75:
-        return 30.0   # overbought = exit zone, not entry
-    if r < 30:
-        return 20.0   # weak, unless Ocean engine
-    return 50.0
-
-
 # ---------------- MACD ----------------
 
 def macd(close: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9):
@@ -123,31 +96,6 @@ def macd(close: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9):
     signal_line = macd_line.ewm(span=signal, adjust=False).mean()
     hist = macd_line - signal_line
     return float(macd_line.iloc[-1]), float(signal_line.iloc[-1]), float(hist.iloc[-1])
-
-
-def macd_score(close: pd.Series) -> float:
-    """Reward positive + rising histogram; penalise negative + falling."""
-    if close is None or len(close.dropna()) < 35:
-        return 50.0
-    _, _, hist_last = macd(close)
-    if hist_last is None:
-        return 50.0
-    fast_ema = close.ewm(span=12, adjust=False).mean()
-    slow_ema = close.ewm(span=26, adjust=False).mean()
-    macd_line = fast_ema - slow_ema
-    signal_line = macd_line.ewm(span=9, adjust=False).mean()
-    hist_series = (macd_line - signal_line).dropna()
-    if len(hist_series) < 2:
-        return 50.0
-    hist_prev = float(hist_series.iloc[-2])
-    rising = hist_last > hist_prev
-    if hist_last > 0 and rising:
-        return 85.0
-    if hist_last > 0 and not rising:
-        return 60.0
-    if hist_last < 0 and rising:
-        return 45.0
-    return 25.0
 
 
 # ---------------- Bollinger ----------------
@@ -209,22 +157,6 @@ def adx(high: pd.Series, low: pd.Series, close: pd.Series, length: int = 14) -> 
     return float(val.iloc[-1]) if not val.empty else None
 
 
-def adx_trend_score(history: pd.DataFrame) -> float:
-    """Strong trend (ADX >= 25) gets high score; choppy gets penalised."""
-    if history is None or not {"High", "Low", "Close"}.issubset(history.columns):
-        return 50.0
-    a = adx(history["High"], history["Low"], history["Close"])
-    if a is None:
-        return 50.0
-    if a >= 40:
-        return 90.0
-    if a >= 25:
-        return 75.0
-    if a >= 20:
-        return 60.0
-    return 30.0
-
-
 # ---------------- OBV ----------------
 
 def obv(close: pd.Series, volume: pd.Series) -> Optional[pd.Series]:
@@ -237,20 +169,7 @@ def obv(close: pd.Series, volume: pd.Series) -> Optional[pd.Series]:
     return (sign * volume.fillna(0)).cumsum()
 
 
-def obv_trend_score(close: pd.Series, volume: pd.Series, lookback: int = 20) -> float:
-    """Score based on slope of OBV last N days. Positive slope = accumulation."""
-    o = obv(close, volume)
-    if o is None or len(o.dropna()) < lookback:
-        return 50.0
-    window = o.iloc[-lookback:].values
-    x = np.arange(len(window), dtype=float)
-    denom = float(np.abs(window).mean()) or 1.0
-    slope = np.polyfit(x, window, 1)[0] / denom
-    # Map slope to 0-100: +1% per bar -> 100, -1% per bar -> 0
-    return float(max(0.0, min(100.0, 50.0 + slope * 5000)))
-
-
-# ---------------- Supertrend (basic) ----------------
+# ---------------- 52-week high ----------------
 
 def pct_off_52w_high(close: pd.Series) -> Optional[float]:
     """Returns negative % (e.g., -3.5 = 3.5% off the 52w high)."""
