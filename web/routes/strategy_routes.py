@@ -22,7 +22,7 @@ COMPONENT_DESCRIPTIONS = {
     "earnings_growth":   ("yfinance quarterly YoY EPS growth", "live (snapshot only)"),
     "catalyst":          ("Claude-scored news sentiment over last 7-day headlines", "live (needs ANTHROPIC_API_KEY)"),
     "relative_strength": ("3M + 6M return vs Nifty 50 benchmark blend", "live"),
-    "vol_adj_upside":    ("Sharpe + Sortino-style return-to-vol blend", "live"),
+    "vol_adj_upside":    ("1-month return ÷ annual volatility (a return-to-vol ratio, not a Sharpe)", "live"),
     "short_interest":    ("Put-Call Ratio proxy — no free NSE source", "stubbed @ 50"),
     "analyst_revision":  ("yfinance consensus — LIVE since 2026-07-16, neutral 50 only when unfetchable", "live"),
     "breakout_quality":  ("Distance from 20-day + 50-day high blend", "live"),

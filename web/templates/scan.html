@@ -373,6 +373,8 @@
         {% if bd.shortlist.mode %}· scan mode {{ bd.shortlist.mode }}{% endif %}
         {% if bd.shortlist.asof %}· scan {{ bd.shortlist.asof[:16] }}{% endif %}
         {% if bd.shortlist.truncated %}· first {{ bd.shortlist.rows | length }} shown{% endif %}
+        {% if bd.shortlist.source == 'momentum_pass' %}· read from the momentum pass{% if bd.shortlist.liquidity_not_judged %} · {{ bd.shortlist.liquidity_not_judged }} left out: no history to judge liquidity{% endif %}
+        {% elif bd.shortlist.source %}· <span class="text-amber-800" title="No momentum-pass record yet (it is written by the next momentum scan). Until then the desk reads the last pass's matrix, which may be another category.">read from the last scan pass — no momentum record yet</span>{% endif %}
       </span>
     </div>
     <form method="post" action="/scan/buy-desk" class="flex flex-wrap items-center gap-2 text-xs"
@@ -448,14 +450,23 @@
 <div class="bg-white border border-line mb-4 px-4 lg:px-6 py-3 text-sm"><!-- slot_funnel_marker -->
   <span class="font-bold">💺 {{ slots.free }} slot{{ '' if slots.free == 1 else 's' }} fundable today</span>
   <span class="text-ink-soft">
+    {% if slots.ladder and slots.sizes %}
+    — ₹{{ slots.cash | inr(0) }} free cash
+    {% if slots.reserve_pct > 0 %} after the {{ (slots.reserve_pct * 100) | round(0) | int }}% regime reserve{% endif %}
+    funds the top {{ slots.free }} new trade{{ '' if slots.free == 1 else 's' }} at their own slab-ladder sizes
+    (₹{{ slots.sizes | min | inr(0) }}{% if slots.sizes | length > 1 %}–₹{{ slots.sizes | max | inr(0) }}{% endif %} each)
+    {% else %}
     — ₹{{ slots.cash | inr(0) }} free cash ÷ ₹{{ slots.per_trade | inr(0) }} per trade
     {% if slots.reserve_pct > 0 %} after the {{ (slots.reserve_pct * 100) | round(0) | int }}% regime reserve{% endif %}
+    {% endif %}
     = {{ slots.slots_by_cash }} by cash · {{ slots.slots_by_ceiling }} open under the {{ slots.max_positions }}-position cap
     ({{ slots.open_count }} held) · binding limit: <strong>{{ slots.limiting }}</strong>.
   </span>
   <div class="text-xs text-ink-faint mt-1">
-    Your funnel: the list below is ranked, and everything past slot {{ slots.free }} cannot be funded at today's cash —
-    shown, never hidden. Display only: <code>risk.can_open</code> stays the sole authority when a trade opens,
+    Your funnel: the list below is ranked, and everything past the divider cannot be funded at today's cash —
+    shown, never hidden. Each pick is sized the way the engine sizes it (score + stored price history; the
+    ₹{{ slots.per_trade | inr(0) }} slab when no history is stored). Held names and picks at or below the floor cost nothing.
+    Display only: <code>risk.can_open</code> stays the sole authority when a trade opens,
     and its equity uses live marks, so the count can differ by the day's unrealised P&amp;L.
   </div>
 </div>
@@ -482,14 +493,14 @@
     </thead>
     <tbody>
       {% for p in picks %}
-      {% if slots and loop.index == slots.free + 1 %}
+      {% if slots and loop.index == slots.divider_row + 1 %}
       <tr class="border-b border-line bg-amber-50/60"><!-- slot_divider_marker -->
         <td colspan="{% if user and user.role == 'owner' %}9{% else %}8{% endif %}" class="px-3 lg:px-6 py-2 text-xs text-amber-800 font-semibold">
-          ── beyond today's cash: the {{ picks | length - slots.free }} pick{{ '' if picks | length - slots.free == 1 else 's' }} below can't be funded at ₹{{ slots.per_trade | inr(0) }} each — shown, not hidden ──
+          ── beyond today's cash: the {{ picks | length - slots.divider_row }} pick{{ '' if picks | length - slots.divider_row == 1 else 's' }} below can't be funded at their ladder sizes — shown, not hidden ──
         </td>
       </tr>
       {% endif %}
-      <tr class="border-b border-line last:border-0 {% if slots and loop.index > slots.free %}opacity-50{% endif %}">
+      <tr class="border-b border-line last:border-0 {% if slots and loop.index > slots.divider_row %}opacity-50{% endif %}">
         <td class="px-3 lg:px-6 py-3 text-ink-faint whitespace-nowrap">{{ loop.index }}</td>
         <td class="px-3 lg:px-6 py-3 font-semibold whitespace-nowrap">{{ p.ticker }}
           <a href="/chart/{{ p.ticker }}" title="candle chart" class="ml-1 no-underline">📈</a></td>

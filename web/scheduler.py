@@ -2050,6 +2050,26 @@ def _morning_topup_job() -> None:
 TRIGGER_LAYER_MAX_TICKERS = 80    # bounded work on the 512 MB box
 
 
+def _watch_scope(p) -> list:
+    """Who the trigger layer and the news feed read, in priority order.
+
+    AUDIT S-13 (owner: "go for next", 2026-10-02): held names first (the
+    owner's own money), then the MOMENTUM pass's ranked top and its
+    floor-clearing rows (`portfolio.momentum_shortlist`). This used to read
+    `last_scan_picks` and the scan matrix, which every pass overwrites — and
+    positional runs last, so the 09:20 trigger/news pass was watching the
+    positional pass's names. Falls back to the old lists when no momentum
+    record exists yet. Callers de-duplicate and cap."""
+    ms = getattr(p, "momentum_shortlist", None) or {}
+    out = list(p.positions.keys())
+    if ms.get("ts"):
+        out += list(ms.get("top") or [])
+        out += list((ms.get("rows") or {}).keys())
+    out += [pk.get("ticker") for pk in (p.last_scan_picks or [])]
+    out += list(((p.scan_matrix or {}).get("rows") or {}).keys())
+    return out
+
+
 def run_trigger_layer(where: str = "manual") -> dict:
     """⚡ The owner's Pre-Rise/Fall trigger layer (wired on their order,
     2026-08-04: "wire it"). Runs AFTER the scan, over the day's scanned bucket
@@ -2065,9 +2085,7 @@ def run_trigger_layer(where: str = "manual") -> dict:
         from .candle_chart import load_ohlcv
         tickers: list[str] = []
         seen: set[str] = set()
-        for t in list(p.positions.keys()) \
-                + [pk.get("ticker") for pk in (p.last_scan_picks or [])] \
-                + list(((p.scan_matrix or {}).get("rows") or {}).keys()):
+        for t in _watch_scope(p):
             if t and t not in seen:
                 seen.add(t)
                 tickers.append(t)
@@ -2229,9 +2247,7 @@ def run_news_feed(where: str = "manual", limit: int = 60,
             tickers = []
             seen: set[str] = set()
             # held first — the owner's own money is the priority read
-            for t in list(p.positions.keys()) \
-                    + [pk.get("ticker") for pk in (p.last_scan_picks or [])] \
-                    + list(((p.scan_matrix or {}).get("rows") or {}).keys()):
+            for t in _watch_scope(p):
                 if t and t not in seen:
                     seen.add(t)
                     tickers.append(t)

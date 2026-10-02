@@ -16,6 +16,11 @@ from trading.slots import slot_view
 
 def _book(cash: float, n_positions: int = 0, entry: float = 100.0,
           qty: int = 1250, **cfg_kw) -> tuple:
+    # These arithmetic pins are the owner's FIXED-size funnel (their words,
+    # 2026-08-13). Since 2026-09-10 the live default is slab sizing, so the
+    # fixed pins say so explicitly; the slab ladder has its own tests below
+    # (audit F-14, 2026-10-02).
+    cfg_kw.setdefault("sizing_mode", "fixed")
     cfg = Config(state_dir="/tmp/sb_slots_test", **cfg_kw)
     p = Portfolio.fresh(cfg)
     p.cash = cash
@@ -93,3 +98,63 @@ def test_display_only_the_money_path_never_imports_slots():
         assert "from .slots" not in src and "import slots" not in src, (
             f"{name} must not import slots — slot sizing is the owner's "
             "display funnel; risk.can_open stays the sole authority")
+
+
+# --------------------------------------------------------------- audit F-14
+
+def _close(vol: float = 0.20, n: int = 400, seed: int = 3):
+    import numpy as np
+    import pandas as pd
+    rng = np.random.default_rng(seed)
+    r = rng.normal(0.0004, vol / np.sqrt(252), n)
+    return pd.Series(100 * np.cumprod(1 + r),
+                     index=pd.bdate_range("2025-01-01", periods=n))
+
+
+def test_slab_mode_without_picks_divides_by_the_slab_not_the_old_125k():
+    """The live default since 2026-09-10. The card used to divide by
+    cfg.position_notional() = Rs 1,25,000 and promise 20% too many slots."""
+    p, cfg = _book(cash=3_000_000.0, sizing_mode="slab")
+    s = slot_view(p, cfg)
+    assert s.per_trade == cfg.position_slab_value == 150_000.0
+    assert s.free == 20                         # not 24
+
+
+def test_each_pick_is_sized_at_its_own_score_on_the_ladder():
+    from trading.sizing import position_notional_for
+    # A Rs 5 crore book (4.5 Cr deployed, 50 L cash): Kelly's 5% cap is
+    # Rs 25 L here, so high scores size well above the slab.
+    p, cfg = _book(cash=5_000_000.0, n_positions=3, entry=100.0,
+                   qty=1_500_000, sizing_mode="slab")
+    base = 5_000_000.0 + 3 * 100.0 * 1_500_000
+    close = _close()
+    picks = [{"ticker": f"P{i}.NS", "score": sc}
+             for i, sc in enumerate((90.0, 80.0, 72.0, 68.0, 65.0, 63.0))]
+    s = slot_view(p, cfg, picks=picks, close_of=lambda t: close)
+    want = [position_notional_for(cfg, base, score=pk["score"],
+                                  close=close)[0] for pk in picks]
+    assert want[0] > 4 * cfg.position_slab_value, "fixture must be a big bet"
+    funded, spent = 0, 0.0
+    for w in want:
+        if spent + w > 5_000_000.0:
+            break
+        spent += w
+        funded += 1
+    assert s.free == funded and s.cut == funded
+    assert list(s.sizes) == [round(w, 0) for w in want[:funded]]
+    assert s.free < 5_000_000.0 // cfg.position_slab_value, \
+        "the ladder must fund fewer trades than cash / slab"
+
+
+def test_held_and_no_edge_rows_cost_nothing_and_do_not_move_the_line():
+    p, cfg = _book(cash=300_000.0, n_positions=1, sizing_mode="slab")
+    held = next(iter(p.positions))
+    floor = cfg.min_score_to_enter
+    picks = [{"ticker": held, "score": 99.0},              # owned already
+             {"ticker": "AT.NS", "score": floor},          # no edge, skipped
+             {"ticker": "A.NS", "score": floor + 5},       # slab 1.5L (no close)
+             {"ticker": "B.NS", "score": floor + 4},       # slab 1.5L
+             {"ticker": "C.NS", "score": floor + 3}]       # beyond cash
+    s = slot_view(p, cfg, picks=picks)
+    assert s.free == 2 and s.divider_row == 4
+    assert s.sizes == (150_000.0, 150_000.0)

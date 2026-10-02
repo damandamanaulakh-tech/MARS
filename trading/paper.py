@@ -121,6 +121,7 @@ class Portfolio:
     decision_journal: List[dict] = field(default_factory=list)  # append-only: why bought/sold/held
     virtual_book: Dict[str, dict] = field(default_factory=dict)  # F8: unbought YES picks, marked to market
     scan_matrix: dict = field(default_factory=dict)  # 🎹 full scan hit-map (overwritten each scan)
+    momentum_shortlist: dict = field(default_factory=dict)  # momentum pass's own record (audit S-11/S-13)
     trigger_watch: dict = field(default_factory=dict)  # ⚡ owner's trigger-layer daily result (display+watchlist only)
     news_watch: dict = field(default_factory=dict)     # 📰 news verdict per stock (display only, never blocks)
     universe_batch: dict = field(default_factory=dict)  # 📦 this week's liquidity batch: what came in/out (owner ask 2026-09-04)
@@ -247,6 +248,7 @@ class Portfolio:
                 "decision_journal": self.decision_journal,     # recent tail (full trail in Mongo journal_archive)
                 "virtual_book": self.virtual_book,             # F8 shadow book of unbought YES picks
                 "scan_matrix": self.scan_matrix,               # 🎹 one scan's hit-map, fixed size
+                "momentum_shortlist": self.momentum_shortlist,  # momentum pass record (S-11/S-13)
                 "trigger_watch": self.trigger_watch,           # ⚡ trigger-layer daily result
                 "news_watch": self.news_watch,                 # 📰 news verdict per stock
                 "universe_batch": self.universe_batch,         # 📦 weekly batch details
@@ -299,6 +301,7 @@ class Portfolio:
             p.decision_journal = list(data.get("decision_journal", []))
             p.virtual_book = dict(data.get("virtual_book", {}))
             p.scan_matrix = dict(data.get("scan_matrix", {}))
+            p.momentum_shortlist = dict(data.get("momentum_shortlist", {}) or {})
             p.trigger_watch = dict(data.get("trigger_watch", {}))
             p.news_watch = dict(data.get("news_watch", {}))
             p.universe_batch = dict(data.get("universe_batch", {}) or {})
@@ -375,4 +378,5 @@ class Portfolio:
         self.last_scan_skipped = []
         self.last_scan_opened = []
         self.scan_matrix = {}
+        self.momentum_shortlist = {}
         self.save()

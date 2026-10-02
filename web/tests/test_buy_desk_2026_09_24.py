@@ -54,12 +54,17 @@ def book():
     p.cash = 4_00_00_000.0
     p.last_scan_picks = [{"ticker": "TOP.NS", "score": 80.0, "last_close": 100.0,
                           "timing_pass": True, "reasoning": "fixture"}]
+    # These pins drive the desk through the scan matrix (the fallback since
+    # audit S-11); a momentum record left by another test would take over.
+    saved_ms = dict(getattr(p, "momentum_shortlist", {}) or {})
+    p.momentum_shortlist = {}
     try:
         yield p
     finally:
         p.scan_matrix, p.positions, p.cash = saved[0], saved[1], saved[2]
         del p.decision_journal[saved[3]:]
         p.last_scan_picks = saved[4]
+        p.momentum_shortlist = saved_ms
         p.save()
 
 

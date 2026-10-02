@@ -80,9 +80,14 @@ def test_limit_rests_then_fills_when_touched(monkeypatch):
         filled = ord_mod.process_open_orders(state.engine())
         assert filled == [o["id"]] and o["status"] == "filled"
         pos = p.positions["INFY.NS"]
-        assert pos.qty == 2 and pos.entry_price == 440.0
-        assert abs(pos.stop_price - 418.0) < 0.01     # −5% of fill
-        assert abs(pos.target_price - 484.0) < 0.01   # +10% of fill
+        # Audit F-17 (2026-10-02): the quote plus the same slippage every
+        # engine fill pays, never above the 450 limit.
+        from trading.costs import slippage_price
+        fill = slippage_price(440.0, "BUY", state.cfg())
+        assert 440.0 < fill <= 450.0
+        assert pos.qty == 2 and abs(pos.entry_price - fill) < 1e-9
+        assert abs(pos.stop_price - fill * 0.95) < 0.01     # −5% of fill
+        assert abs(pos.target_price - fill * 1.10) < 0.01   # +10% of fill
         assert any(e.get("action") == "OWNER_ORDER_FILLED"
                    for e in p.decision_journal)
     finally:

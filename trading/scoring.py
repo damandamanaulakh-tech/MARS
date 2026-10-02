@@ -96,7 +96,13 @@ def score_vol_adj_upside(close: pd.Series, cfg: Config) -> float:
     if ann_vol <= 0:
         return 50.0
     r = _ret_pct(close, cfg.momentum_lookback_days)
-    # Sharpe-like: return / vol. 1.0 ratio -> 100.
+    # AUDIT F-16 (2026-10-02): NOT a Sharpe ratio, and it was mislabelled as
+    # one. It is the last ~1-month return (%) divided by the ANNUAL
+    # volatility (%), so it reads about sqrt(12) smaller than a true monthly
+    # Sharpe. Relabelled, not rescaled: the number is a consistent ranking of
+    # names within one scan, and annualising it would move every swing /
+    # short / positional score the owner's presets were set against.
+    # Ratio 1.0 (a month's gain equal to a year's vol) -> 100.
     return _clip(50 + (r / ann_vol) * 50)
 
 
@@ -210,12 +216,13 @@ def compute_score(
         pass   # policy is bonus signal; never break scoring
 
     # v5: FII flow as a system-wide tide on catalyst score.
-    # +10000 Cr 5d -> +20 boost; -10000 -> -20 dampen.
+    # fii_flow_score runs 10..90, so the tide is +-16 at the +-5,000 Cr ends
+    # (the old "+-20 at +-10,000 Cr" note was never reachable).
     try:
         from .signals.flows import fii_flow_score
         fii_score = _SCORING_CONTEXT.get("fii_score")
         if fii_score is not None:
-            tide = (fii_score - 50.0) * 0.4   # ±20 swing
+            tide = (fii_score - 50.0) * 0.4   # ±16 swing
             components["catalyst"] = _clip(components["catalyst"] + tide)
     except Exception:
         pass

@@ -1016,6 +1016,17 @@ class TradingEngine:
                 for r in ranked
             },
         }
+        # AUDIT S-11 / S-13 (owner: "go for next", 2026-10-02): the scan
+        # matrix above is overwritten by every pass, and positional runs LAST
+        # — so the Buy Desk and the trigger/news scope read the positional
+        # pass, not momentum. The momentum pass keeps its own small record.
+        if getattr(cfg, "mode", "") == MOMENTUM_MODE:
+            try:
+                self._store_momentum_shortlist(ranked, history, skip_by_t, now,
+                                               _abs_mom_ok)
+            except Exception:
+                log.exception("momentum shortlist store failed")
+
         # Structural flags (owner-approved 2026-07-26): context markers from
         # the same history panel — display/journal only, never a gate.
         try:
@@ -1336,7 +1347,17 @@ class TradingEngine:
 
     # ---------- internals ----------
 
-    def _open(self, pick: dict, qty: int, fill_price: float, now: datetime) -> None:
+    def _open(self, pick: dict, qty: int, fill_price: float, now: datetime,
+              cfg: Optional[Config] = None) -> None:
+        """Book a new position. `cfg` is the trade category's config; the
+        engine's own (the live shared one) when not given. Audit F-17
+        (2026-10-02): an owner limit fill passes a momentum COPY here instead
+        of flipping the shared cfg.mode for the duration of the fill."""
+        cfg = cfg if cfg is not None else self.cfg
+        # Audit S-12 (2026-10-02): the target is computed BEFORE the BUY line
+        # so the line can carry how it was set (k, ATR, band) — it used to be
+        # computed after, and the journal never said.
+        target_price = self._target_for(pick, fill_price, cfg=cfg)
         notional = qty * fill_price
         self.portfolio.cash -= notional
         # WHY-BOUGHT journal entry — full decision context, never deleted
@@ -1350,7 +1371,7 @@ class TradingEngine:
             "score": round(pick.get("score", 0), 2),
             "components": {k: round(v, 1) for k, v in (pick.get("components") or {}).items()},
             "timing_pass": pick.get("timing_pass"),
-            "mode": getattr(self.cfg, "mode", "?"),
+            "mode": getattr(cfg, "mode", "?"),
             "regime": self.portfolio.last_regime,
             "drawdown_level": getattr(self.drawdown_gov, "active_level", "?"),
             "ifr_active": self.portfolio.last_ifr_fire_date is not None,
@@ -1363,21 +1384,23 @@ class TradingEngine:
             # Owner order 2026-07-30: how this size was decided (½-Kelly inputs
             # or "fixed"), so any trade's size can be re-derived later.
             "sizing": pick.get("size_diag") or {"mode": "fixed"},
+            "target": {"price": target_price,
+                       **(pick.get("target_diag") or {})},
             # P2: config snapshot so every decision stays reproducible after
             # settings change later.
             "config_snapshot": {
-                "stop_loss_pct": self.cfg.stop_loss_pct,
-                "take_profit_pct": self.cfg.take_profit_pct,
-                "cash_reserve_pct": self.cfg.cash_reserve_pct,
-                "sizing_mode": getattr(self.cfg, "sizing_mode", "fixed"),
-                "kelly_fraction": getattr(self.cfg, "kelly_fraction", 0.0),
-                "kelly_ic": getattr(self.cfg, "kelly_ic", 0.0),
-                "kelly_max_pct": getattr(self.cfg, "kelly_max_pct", 0.0),
-                "position_size_value": getattr(self.cfg, "position_size_value", 0.0),
-                "max_position_pct": self.cfg.max_position_pct,
-                "max_positions": self.cfg.max_positions,
-                "min_score_to_enter": self.cfg.min_score_to_enter,
-                "disable_exits": getattr(self.cfg, "disable_exits", False),
+                "stop_loss_pct": cfg.stop_loss_pct,
+                "take_profit_pct": cfg.take_profit_pct,
+                "cash_reserve_pct": cfg.cash_reserve_pct,
+                "sizing_mode": getattr(cfg, "sizing_mode", "fixed"),
+                "kelly_fraction": getattr(cfg, "kelly_fraction", 0.0),
+                "kelly_ic": getattr(cfg, "kelly_ic", 0.0),
+                "kelly_max_pct": getattr(cfg, "kelly_max_pct", 0.0),
+                "position_size_value": getattr(cfg, "position_size_value", 0.0),
+                "max_position_pct": cfg.max_position_pct,
+                "max_positions": cfg.max_positions,
+                "min_score_to_enter": cfg.min_score_to_enter,
+                "disable_exits": getattr(cfg, "disable_exits", False),
             },
         })
         # Snapshot the trade category + exit levels at entry so the position
@@ -1385,21 +1408,71 @@ class TradingEngine:
         # intraday/short/swing/positional, so the live cfg won't match later).
         self.portfolio.positions[pick["ticker"]] = PaperPosition(
             ticker=pick["ticker"], qty=qty, entry_price=fill_price,
-            entry_date=now, sector=self.cfg.sector_map.get(pick["ticker"], "Unknown"),
+            entry_date=now, sector=cfg.sector_map.get(pick["ticker"], "Unknown"),
             peak_price=fill_price, entry_score=pick["score"],
             reasoning=pick["reasoning"],
-            mode=getattr(self.cfg, "mode", ""),
-            stop_price=round(fill_price * (1 + self.cfg.stop_loss_pct), 2),
+            mode=getattr(cfg, "mode", ""),
+            stop_price=round(fill_price * (1 + cfg.stop_loss_pct), 2),
             # OWNER ORDER 2026-09-10 ("C- k x ATR"): the target is k average
             # days of range away, per horizon, not a flat percentage — a quiet
             # name gets a nearer target than a wild one. Falls back to the
             # mode's fixed percentage when the ATR cannot be computed; the
             # diagnostic in the BUY journal says which was used, so a screen
             # can never show an ATR target that was really the old number.
-            target_price=self._target_for(pick, fill_price),
+            target_price=target_price,
             # the tag is the Ocean slot counter (max 8) and the audit trail
             tags=(["ocean"] if pick.get("ocean") else []),
         )
+
+    def _store_momentum_shortlist(self, ranked: list, history: dict,
+                                  skip_by_t: dict, now: datetime,
+                                  abs_mom_ok) -> None:
+        """The momentum pass's own record for the Buy Desk and the trigger /
+        news scope (audit S-11 / S-13, 2026-10-02). Kept small on purpose —
+        only rows at or above the floor, plus the top 50 tickers in rank
+        order — because it rides in the portfolio document.
+
+        `liq` is the entry gate's own liquidity verdict
+        (`risk_v2.passes_liquidity`, same inputs as the gate) computed for
+        EVERY stored row. The old shortlist read "no liquidity_* outcome" as
+        "cleared liquidity", but a pass stopped earlier by the breadth band,
+        a halt or the market clock never reaches the liquidity gate, so an
+        illiquid name read as cleared. None = no history to judge."""
+        from .risk_v2 import passes_liquidity
+        cfg = self.cfg
+        floor = float(cfg.min_score_to_enter)
+        rows: dict = {}
+        for r in ranked:
+            t = r["ticker"]
+            if float(r["score"]) < floor:
+                continue
+            liq, why = None, "no_history"
+            h = history.get(t)
+            if h is not None:
+                try:
+                    liq, why = passes_liquidity(
+                        h["Close"], h["Volume"],
+                        last_high=float(h["High"].iloc[-1]),
+                        last_low=float(h["Low"].iloc[-1]),
+                        last_open=float(h["Open"].iloc[-1]),
+                        last_close=float(h["Close"].iloc[-1]))
+                except Exception:
+                    liq, why = None, "liquidity_check_failed"
+            rows[t] = {
+                "score": round(float(r["score"]), 1),
+                "abs_mom": bool(abs_mom_ok(t)),
+                "timing": bool(r["timing_pass"]),
+                "liq": liq, "liq_why": (why or "")[:60],
+                "outcome": skip_by_t.get(t, ""),
+                "c": {k: round(float(v), 1)
+                      for k, v in (r.get("components") or {}).items()},
+            }
+        self.portfolio.momentum_shortlist = {
+            "ts": now.isoformat(), "mode": MOMENTUM_MODE,
+            "score_floor": floor,
+            "top": [r["ticker"] for r in ranked[:50]],
+            "rows": rows,
+        }
 
     @staticmethod
     def _throttled_qty(qty: int, throttle: float, fill: float,
@@ -1415,7 +1488,8 @@ class TradingEngine:
             out = max(out, min(int(qty), int(math.ceil(slab / fill))))
         return out
 
-    def _target_for(self, pick: dict, fill_price: float) -> float:
+    def _target_for(self, pick: dict, fill_price: float,
+                    cfg: Optional[Config] = None) -> float:
         """k x ATR target for a new position (owner order 2026-09-10).
 
         `pick` carries the scan's own history frame under "history" when the
@@ -1423,14 +1497,16 @@ class TradingEngine:
         — never an invented range.
         """
         from .targets import target_price_for
+        cfg = cfg if cfg is not None else self.cfg
         df = pick.get("history")
         try:
             price, diag = target_price_for(
-                getattr(self.cfg, "mode", ""), float(fill_price), df,
-                float(self.cfg.take_profit_pct))
+                getattr(cfg, "mode", ""), float(fill_price), df,
+                float(cfg.take_profit_pct))
         except Exception:
             log.exception("ATR target failed — mode percentage used")
-            return round(float(fill_price) * (1 + self.cfg.take_profit_pct), 2)
+            pick["target_diag"] = {"source": "fixed", "reason": "atr_failed"}
+            return round(float(fill_price) * (1 + cfg.take_profit_pct), 2)
         pick["target_diag"] = diag
         return price
 
@@ -2184,11 +2260,19 @@ class TradingEngine:
         included). A blank legacy mode is momentum, matching retag. The
         stop and target already come from the position itself."""
         mode = getattr(pos, "mode", "") or "nifty200_momentum"
+        return self.mode_cfg(mode, cfg)
+
+    def mode_cfg(self, mode: str, cfg: Optional[Config] = None) -> Config:
+        """A config for one trade category, without touching the shared one.
+
+        The given (default: live) config when it is already in that mode;
+        otherwise a fresh shallow copy with the mode's preset applied (owner
+        per-mode Settings edits included). apply_mode_preset only assigns
+        scalar fields, so the shared config is never mutated, and nothing
+        cached can outlive a Settings edit."""
+        cfg = cfg if cfg is not None else self.cfg
         if mode == getattr(cfg, "mode", ""):
             return cfg
-        # A fresh shallow copy per position: apply_mode_preset only assigns
-        # scalar fields, so the shared config is never touched, and nothing
-        # cached can outlive a Settings edit.
         import copy
         c = copy.copy(cfg)
         c.mode = mode

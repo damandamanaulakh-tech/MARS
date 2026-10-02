@@ -145,3 +145,23 @@ def check_exit(
             return True, "MAX_HOLD"
 
     return False, ""
+
+
+def trail_reach(position, cfg: Config) -> dict:
+    """AUDIT F-18 (2026-10-02): can THIS position's trailing stop ever fire?
+
+    Uses the position's own snapshotted stop and target (the k x ATR target
+    since 2026-09-10, an owner's custom level, or a danger-tightened stop)
+    and the trail of the config handed in — pass the position's own mode
+    config. Report only; it changes no exit. Positions with no snapshot fall
+    back to the config's percentages, exactly as check_exit does."""
+    entry = float(position.entry_price or 0.0)
+    sp = float(getattr(position, "stop_price", 0.0) or 0.0)
+    tp = float(getattr(position, "target_price", 0.0) or 0.0)
+    stop = (sp / entry - 1.0) if (entry > 0 and sp > 0) else float(cfg.stop_loss_pct)
+    target = (tp / entry - 1.0) if (entry > 0 and tp > 0) else float(cfg.take_profit_pct)
+    live, need = cfg.trail_is_reachable(stop=stop, target=target)
+    return {"ticker": position.ticker, "live": bool(live),
+            "stop_pct": round(stop * 100, 2), "target_pct": round(target * 100, 2),
+            "trail_pct": round(float(cfg.trailing_stop_pct) * 100, 1),
+            "need_pct": round(need * 100, 2)}
