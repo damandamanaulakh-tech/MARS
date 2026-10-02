@@ -75,7 +75,7 @@
   {% else %}
   <div class="font-black text-xl lg:text-2xl tracking-tight">
     {% if mk.block_new_entries %}<span class="text-red-700">NO MEASURED EDGE — NEW SCAN ENTRIES BLOCKED</span>
-    {% elif mk.status == 'ACTIVE' %}<span class="text-emerald-700">EDGE MEASURED — SIZE CAP ₹{{ "{:,.0f}".format(mk_cap or 0) }} PER NEW TRADE</span>
+    {% elif mk.status == 'ACTIVE' %}<span class="text-emerald-700">EDGE MEASURED — SIZE CAP ₹{{ mk_cap|inr }} PER NEW TRADE</span>
     {% else %}<span class="text-ink-soft">NOT ENOUGH EXITS YET — NO CAP, NO BLOCK</span>{% endif %}
   </div>
   <div class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
@@ -88,7 +88,7 @@
   {% endif %}
   <div class="mt-2 text-xs text-ink-faint">
     Counts strategy exits only (stop, target, trail, max-hold, decay, rotation, danger) — never your own sells, square-offs, the kill switch or the drawdown ladder.
-    The cap never goes below the ₹{{ "{:,.0f}".format(cfg.position_slab_value) }} slab and never raises a size. Your own BUY button and the Buy Desk are not blocked by it.
+    The cap never goes below the ₹{{ cfg.position_slab_value|inr }} slab and never raises a size. Your own BUY button and the Buy Desk are not blocked by it.
   </div>
 </div>
 {% endif %}
