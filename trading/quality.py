@@ -41,7 +41,18 @@ def low_vol_score(close: pd.Series, lookback: int = 63) -> float:
 
 
 def liquidity_score(volume: Optional[pd.Series], lookback: int = 20) -> float:
-    """Chityy-style liquidity tiers on 20-day average volume."""
+    """Chityy-style liquidity tiers on 20-day average volume.
+
+    SHARE COUNT, deliberately kept (audit F-8, measured 2026-10-02 and NOT
+    changed). Ranking by rupee turnover is the correct liquidity measure and
+    the entry gate uses it — but here this number is a SCORE input, and
+    scripts/quality_liquidity_rupee.py measured the swap on the committed
+    191-name x 12-year panel with rupee tiers set at the same quantiles
+    (Rs 67 / 23 / 10 crore): entries got WORSE in both halves (mean 126-day
+    forward return 6.97% -> 6.45% train, 14.31% -> 13.74% test). The names
+    the swap would drop went on to +12.6% / +35.9%, the names it would add
+    +0.4% / +8.0%. Record: research/quality_liquidity_2026-10-02/. Do not
+    re-propose without new evidence."""
     if volume is None:
         return 50.0
     v = volume.dropna()

@@ -36,16 +36,44 @@ def _frame(n=300, start=100.0, drift=0.15, seed=1, crash_last=0):
     }, index=idx)
 
 
-def test_formula_is_exactly_the_register_inline_expression():
+def test_formula_matches_the_original_on_a_complete_panel():
+    """On a panel where every name has a price every day the audit F-13
+    change is invisible: the same numbers as the original inline formula."""
     rng = np.random.default_rng(7)
     closes = pd.DataFrame(
         100 * np.cumprod(1 + rng.normal(0, 0.02, (200, 12)), axis=0),
         index=pd.bdate_range(end="2026-08-21", periods=200),
         columns=[f"S{i}" for i in range(12)])
-    ours = internals.tail_down3_5d(closes)
-    register_inline = (closes.pct_change(3).rolling(5).min()
-                       <= -0.03).mean(axis=1)
-    pd.testing.assert_series_equal(ours, register_inline)
+    ours = internals.tail_down3_5d(closes).iloc[8:]
+    original = (closes.pct_change(3).rolling(5).min()
+                <= -0.03).mean(axis=1).iloc[8:]
+    pd.testing.assert_series_equal(ours, original)
+
+
+def test_an_unpriced_name_is_not_counted_as_undamaged():
+    """Audit F-13: 10 crashing names plus 10 crashing names with no price on
+    the last days read 0.5 under the old formula; the share is now taken over
+    names that have a reading."""
+    idx = pd.bdate_range(end="2026-08-21", periods=40)
+    falling = 100 * np.cumprod(np.r_[np.ones(30), np.full(10, 0.95)])
+    cols = {f"A{i}": falling for i in range(10)}
+    stale = falling.copy()
+    stale[-8:] = np.nan
+    cols.update({f"B{i}": stale for i in range(10)})
+    closes = pd.DataFrame(cols, index=idx)
+    assert internals.tail_down3_5d(closes).iloc[-1] == pytest.approx(1.0)
+    old = (closes.pct_change(3, fill_method=None).rolling(5).min()
+           <= -0.03).mean(axis=1)
+    assert old.iloc[-1] == pytest.approx(0.5)
+
+
+def test_the_register_fallback_uses_the_same_formula():
+    import inspect
+    from trading import register_v4
+    src = inspect.getsource(register_v4)
+    code = "\n".join(l for l in src.splitlines()
+                     if not l.strip().startswith("#"))
+    assert "pct_change(3).rolling(5).min()" not in code
 
 
 def test_damage_reading_fires_on_a_broken_tape_and_not_a_quiet_one():

@@ -232,8 +232,17 @@ def catchup_scan_if_missed(reason: str = "catchup") -> bool:
     from . import state
     p = state.portfolio()
     last = (p.last_scan or "")[:10]
+    last_live = (getattr(p, "last_scan_live", None) or "")[:10]
     today = _dt.utcnow().date().isoformat()
-    if last >= today:
+    # AUDIT S-5 (2026-10-02): a look-only scan before 09:15 (a boot or a
+    # login) used to stamp the day as done, so when the app then slept
+    # through 09:20 the catch-up skipped and no scan that could BUY ran that
+    # day. Done = a scan ran inside market hours today. Outside hours, any
+    # scan today is enough (it only scores and shows; re-running it on every
+    # boot would cost memory for nothing).
+    if last_live >= today:
+        return False
+    if not is_market_open() and last >= today:
         return False
     log.info("[catchup:%s] last_scan=%s < today — running missed multi-mode scan",
              reason, last or "never")

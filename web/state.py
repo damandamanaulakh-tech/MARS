@@ -37,6 +37,7 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.trades = [ClosedTrade.from_dict(t) for t in (doc.get("trades") or [])]
     p.equity_history = list(doc.get("equity_history", []))
     p.last_scan = doc.get("last_scan")
+    p.last_scan_live = doc.get("last_scan_live")
     p.last_scan_picks = list(doc.get("last_scan_picks", []))
     p.last_scan_skipped = list(doc.get("last_scan_skipped", []))
     p.last_scan_opened = list(doc.get("last_scan_opened", []))
@@ -116,6 +117,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "trades": [t.to_dict() for t in self.trades],
             "equity_history": self.equity_history,
             "last_scan": self.last_scan,
+            "last_scan_live": getattr(self, "last_scan_live", None),
             "last_scan_picks": self.last_scan_picks,
             "last_scan_skipped": self.last_scan_skipped,
             "last_scan_opened": self.last_scan_opened,

@@ -118,6 +118,11 @@ def records_to_df(doc: dict) -> Optional[pd.DataFrame]:
     return df
 
 
+# Fewer stored bars than this = the doc is still too short for the momentum
+# score's 252-bar look-back plus a margin, so the next refresh pulls two years.
+SHORT_DOC_BARS = 300
+
+
 def top_up_history(broker, ticker_to_key: dict[str, str],
                    load_doc: Callable[[str], Optional[dict]],
                    save_doc: Callable[[dict], None],
@@ -160,7 +165,14 @@ def top_up_history(broker, ticker_to_key: dict[str, str],
             if doc and doc.get("end") and doc["end"] >= fresh_cutoff:
                 skipped += 1
                 continue
-            new = download_ticker_history(broker, key, years=1, today=today)
+            # AUDIT S-10 (2026-10-02): a NEW name used to get one 366-day
+            # window (~248 bars) while the momentum score needs 252, so it
+            # sat out of the momentum pass until weeks of top-ups had
+            # accumulated. A new or still-short doc gets two windows; an
+            # established one keeps the cheap one-window refresh.
+            short = (not doc) or len(doc.get("candles") or []) < SHORT_DOC_BARS
+            new = download_ticker_history(broker, key,
+                                          years=2 if short else 1, today=today)
             if new is None or new.empty:
                 failed += 1
                 continue

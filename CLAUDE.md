@@ -3895,6 +3895,23 @@ for next"), 1,329 tests (18 new, 14 verified to FAIL on the old code).**
 - **F-11**: universe floor = LiquidityRules 5 Cr (was 1 Cr), median kept.
 - **F-12**: slab sizing returns 0 at/below the floor without history too;
   no-score owner tickets unchanged.
+**AUDIT F-13/S-5/S-8/S-10/S-15 FIXED + F-8 MEASURED-NOT-CHANGED 2026-10-02
+(owner: "go for next"), 1,377 tests (15 new, all fail on old code).**
+- **F-8 KEPT ON EVIDENCE**: rupee-turnover tiers for quality's liquidity leg
+  (quantile-matched, Rs 67/23/10 Cr) made entries WORSE both halves (fwd126
+  6.97->6.45 train, 14.31->13.74 test; dropped names +12.6/+35.9 vs added
+  +0.4/+8.0). Share count stays as a SCORE input; the entry GATE stays rupee.
+  research/quality_liquidity_2026-10-02/. Never re-propose without new data.
+- **F-13**: internals.tail_down3_5d averages over names WITH a reading (the
+  owner's file's `active` denominator); register fallback calls it.
+- **S-5**: `portfolio.last_scan_live` (in-hours scans only, JSON+Mongo both
+  ways); catch-up skips on it, or on any scan today while closed.
+- **S-8**: `engine._cache_breadth_today` runs even with no momentum picks.
+- **S-10**: new / <300-bar docs pull 2 years (`SHORT_DOC_BARS`).
+- **S-15**: `data.run_with_timeout` (8 s) wraps every Yahoo `.info`;
+  earnings growth has a 6h cache + 3-fail/30-min breaker.
+- **F-9 measured Kelly = OWNER DECISION** (wire = "no edge -> block all
+  entries" could stop buying entirely; remove = drop their 09-10 order).
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never

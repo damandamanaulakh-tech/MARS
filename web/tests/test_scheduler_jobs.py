@@ -77,13 +77,13 @@ def test_rotation_lock_refuses_a_second_concurrent_run(monkeypatch):
 
 def test_catchup_skips_when_todays_scan_already_ran(monkeypatch):
     p = state.portfolio()
-    old = p.last_scan
-    p.last_scan = datetime.utcnow().isoformat()
+    old, old_live = p.last_scan, p.last_scan_live
+    p.last_scan = p.last_scan_live = datetime.utcnow().isoformat()
     try:
         monkeypatch.setenv("SB_DISABLE_CATCHUP", "0")
         assert scheduler.catchup_scan_if_missed("test") is False
     finally:
-        p.last_scan = old
+        p.last_scan, p.last_scan_live = old, old_live
 
 
 def test_catchup_respects_the_disable_env(monkeypatch):

@@ -461,6 +461,44 @@ def is_backtest_mode() -> bool:
     return bool(getattr(_BT_LOCAL, "on", False))
 
 
+# AUDIT S-15 (2026-10-02): Yahoo `.info` calls had NO timeout. The live exit
+# pass scores every swing/short/positional position on the composite, which
+# asks Yahoo for the analyst rating and the earnings growth of each held name;
+# from this sandbox both calls hang indefinitely, and if Yahoo ever hangs
+# instead of refusing on Render the 30-minute exit pass stalls with them.
+# Every `.info` call now runs through run_with_timeout; a timeout is a failure
+# like any other (neutral-50 fallback, counted by the circuit breaker).
+YAHOO_INFO_TIMEOUT_S = 8.0
+_INFO_POOL = None
+
+
+def run_with_timeout(fn, timeout: float = YAHOO_INFO_TIMEOUT_S):
+    """Run fn() on a small worker pool and wait at most `timeout` seconds.
+    Raises TimeoutError past it. A hung call keeps its worker (Python cannot
+    kill a thread), which is why callers also keep a circuit breaker: after a
+    few failures nothing new is submitted at all."""
+    global _INFO_POOL
+    if _INFO_POOL is None:
+        from concurrent.futures import ThreadPoolExecutor
+        _INFO_POOL = ThreadPoolExecutor(max_workers=4,
+                                        thread_name_prefix="yahoo-info")
+    from concurrent.futures import TimeoutError as _FutTimeout
+    fut = _INFO_POOL.submit(fn)
+    try:
+        return fut.result(timeout=timeout)
+    except _FutTimeout:
+        fut.cancel()
+        raise TimeoutError(f"Yahoo info call exceeded {timeout:.0f}s")
+
+
+_EG_CACHE: dict = {}
+_EG_TTL = 6 * 3600.0
+_EG_FAILS = 0
+_EG_BREAKER_UNTIL = 0.0
+_EG_BREAKER_AFTER = 3
+_EG_BREAKER_SECS = 1800.0
+
+
 @lru_cache(maxsize=512)
 def fetch_market_cap_cr(ticker: str) -> float | None:
     """Market cap in ₹ Crores (1 Cr = 1e7). Cached for the session.
@@ -471,7 +509,7 @@ def fetch_market_cap_cr(ticker: str) -> float | None:
     if is_backtest_mode():
         return None
     try:
-        info = yf.Ticker(ticker).info
+        info = run_with_timeout(lambda: yf.Ticker(ticker).info) or {}
         mc = info.get("marketCap")
         return float(mc) / 1e7 if mc else None
     except Exception:
@@ -484,11 +522,28 @@ def fetch_earnings_growth(ticker: str) -> float | None:
     In backtest mode returns None — yfinance.info has no historical
     snapshot, so using it during replay would leak future data.
     """
+    global _EG_FAILS, _EG_BREAKER_UNTIL
     if is_backtest_mode():
         return None
+    import time as _time
+    now = _time.time()
+    hit = _EG_CACHE.get(ticker)
+    if hit and now - hit[0] < _EG_TTL:
+        return hit[1]
+    if now < _EG_BREAKER_UNTIL:
+        return None
     try:
-        info = yf.Ticker(ticker).info
+        info = run_with_timeout(lambda: yf.Ticker(ticker).info) or {}
         g = info.get("earningsQuarterlyGrowth")
-        return float(g) * 100 if g is not None else None
+        out = float(g) * 100 if g is not None else None
+        _EG_FAILS = 0
+        _EG_CACHE[ticker] = (now, out)
+        if len(_EG_CACHE) > 600:
+            _EG_CACHE.clear()
+        return out
     except Exception:
+        _EG_FAILS += 1
+        if _EG_FAILS >= _EG_BREAKER_AFTER:
+            _EG_BREAKER_UNTIL = now + _EG_BREAKER_SECS
+            _EG_FAILS = 0
         return None

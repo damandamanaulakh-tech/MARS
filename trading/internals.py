@@ -45,8 +45,18 @@ MAX_AGE_DAYS = 5             # consumers trust a stored reading this long
 
 def tail_down3_5d(closes: pd.DataFrame) -> pd.Series:
     """The owner's canonical damage series over a closes panel
-    (columns = tickers). Fraction 0..1 per date."""
-    return (closes.pct_change(3).rolling(5).min() <= -0.03).mean(axis=1)
+    (columns = tickers). Fraction 0..1 per date.
+
+    AUDIT F-13 (2026-10-02): the share is taken over the names that HAVE a
+    reading that day. `NaN <= -0.03` is False, so a name with no price (newly
+    listed, stale, a gap) used to count as "undamaged" in the denominator:
+    10 crashing + 10 crashing-but-unpriced names read 0.5 instead of 1.0.
+    The owner's own file divides by its `active` column, i.e. this rule. A
+    date where no name has a reading is empty (NaN), never a 0 that reads
+    as calm."""
+    worst = closes.pct_change(3, fill_method=None).rolling(5).min()
+    hit = (worst <= -0.03).astype(float).where(worst.notna())
+    return hit.mean(axis=1, skipna=True)
 
 
 def damage_reading(history: Dict[str, pd.DataFrame]) -> Optional[dict]:

@@ -1401,7 +1401,9 @@ def market_view(panel: dict[str, pd.DataFrame],
     except Exception:                                         # noqa: BLE001
         log.exception("register_v4: damage store read failed")
     if dmg_static is None and prices is not None and len(prices) >= 40:
-        tail = (prices.pct_change(3).rolling(5).min() <= -0.03).mean(axis=1) * 100
+        # one formula, one site (audit F-13): the canonical series
+        from trading.internals import tail_down3_5d as _tail
+        tail = _tail(prices) * 100
         tail = tail.dropna()
         if len(tail) >= 60:
             q90 = float(np.percentile(tail, 90))

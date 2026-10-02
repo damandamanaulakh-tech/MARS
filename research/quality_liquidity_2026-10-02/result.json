@@ -1,0 +1,43 @@
+{
+ "panel": "data/history_upstox_export_2026-07-19.zip",
+ "stock_months": 22324,
+ "old_tier_share": {
+  "90.0": 0.6334,
+  "70.0": 0.1936,
+  "55.0": 0.081,
+  "30.0": 0.0921
+ },
+ "rupee_cuts": [
+  673871679.0,
+  233184691.0,
+  98832327.0
+ ],
+ "rupee_cuts_crore": [
+  67.39,
+  23.32,
+  9.88
+ ],
+ "tier_agreement": 0.62,
+ "train": {
+  "stock_months": 9925,
+  "entries_old": 4016,
+  "entries_new": 3834,
+  "flipped_in": 79,
+  "flipped_out": 261,
+  "fwd126_flipped_in_mean_pct": 0.44,
+  "fwd126_flipped_out_mean_pct": 12.63,
+  "fwd126_all_entries_old_pct": 6.97,
+  "fwd126_all_entries_new_pct": 6.45
+ },
+ "test": {
+  "stock_months": 12399,
+  "entries_old": 6831,
+  "entries_new": 7022,
+  "flipped_in": 290,
+  "flipped_out": 99,
+  "fwd126_flipped_in_mean_pct": 8.01,
+  "fwd126_flipped_out_mean_pct": 35.94,
+  "fwd126_all_entries_old_pct": 14.31,
+  "fwd126_all_entries_new_pct": 13.74
+ }
+}
