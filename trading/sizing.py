@@ -127,6 +127,16 @@ def position_notional_for(cfg, equity: float, score: Optional[float] = None,
                           "slab_applied": bool(slab > 0 and raw < slab),
                           "notional": round(notional, 0)}
     if mode == "slab":
+        # AUDIT F-12 (2026-10-02): "a score at the floor is skipped" held only
+        # when price history came with it — without history a score of exactly
+        # 62 got the full slab (rotation sizing, any caller with a score but
+        # no frame). The floor rule does not need history, so it applies here
+        # too. A call with NO score (the owner's own manual ticket) is
+        # untouched: that is the owner's number, not a scored bet.
+        floor = float(getattr(cfg, "min_score_to_enter", 62.0))
+        if score is not None and float(score) <= floor:
+            return 0.0, {"mode": "slab", "floor": floor,
+                         "reason": "no_estimated_edge_at_or_below_floor"}
         # No score or no price history: cannot estimate an edge, so do not
         # guess one. The slab alone is the honest fallback, and the diagnostic
         # says which input was missing.

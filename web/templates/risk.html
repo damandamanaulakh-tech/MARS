@@ -57,6 +57,10 @@
   <div class="mt-2 text-sm {% if cl.halted %}text-red-700 font-bold{% else %}text-ink-faint{% endif %}">
     {% if cl.halted %}HALT ACTIVE — no new entries today.{% else %}OK — entries allowed.{% endif %}
   </div>
+  <div class="mt-1 text-xs text-ink-faint">
+    Counts losing strategy exits only (stop, decay, trail, max-hold, danger) — never your own sells, the kill switch or the drawdown ladder.
+    Limit = the larger of 2 or 10% of the day's book (the 10% is an assumed number, not measured).
+  </div>
 </div>
 {% endif %}
 

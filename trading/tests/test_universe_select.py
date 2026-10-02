@@ -8,7 +8,7 @@ complaint ("system still use old stocks").
 
 Pinned here: the ranking is rupee TURNOVER, not share count (a share-count
 ranking puts penny stocks on top); the median is used so one block-deal day
-cannot promote a thin name; names below the live Rs 1 crore entry floor are
+cannot promote a thin name; names below the live Rs 5 crore entry floor are
 dropped rather than carried; too little history is "not judged", never
 "illiquid"; held names always ride along; and a short list reports HOW short
 instead of passing for a full 500.
@@ -32,7 +32,7 @@ def test_target_is_the_owners_500():
 def test_ranking_is_by_rupee_turnover_not_share_count():
     """THE point of the measure. A penny stock trading ten million shares is
     Rs 3 crore; a Rs 4,000 stock trading fifty thousand is Rs 20 crore."""
-    penny = _doc("PENNY.NS", close=3.0, vol=10_000_000)      # Rs 3.0 Cr
+    penny = _doc("PENNY.NS", close=3.0, vol=20_000_000)      # Rs 6.0 Cr
     quality = _doc("QUALITY.NS", close=4000.0, vol=50_000)   # Rs 20.0 Cr
     res = select_liquid_universe([penny, quality], target=2)
     assert [r["ticker"] for r in res["ranked"]] == ["QUALITY.NS", "PENNY.NS"]
@@ -47,7 +47,7 @@ def test_median_ignores_a_single_block_deal_day():
 
 
 def test_names_below_the_live_entry_floor_are_dropped():
-    """Below Rs 1 crore a name could never pass risk.passes_liquidity, so
+    """Below Rs 5 crore a name could never pass risk.passes_liquidity, so
     carrying it in the universe would only waste a scan slot."""
     thinly = _doc("SMALL.NS", close=10.0, vol=50_000)        # Rs 5 lakh
     big = _doc("BIG.NS", close=500.0, vol=1_000_000)         # Rs 50 Cr

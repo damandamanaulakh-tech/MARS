@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from trading import ifr as _ifr
 from trading.ifr import (
     ACTIVE_DAYS_AFTER_FIRE,
     CLUSTER_MIN_FIRES,
@@ -19,6 +20,20 @@ from trading.ifr import (
     check_damage_cluster,
     compute_market_tail_down3_5d,
 )
+
+
+@pytest.fixture(autouse=True)
+def _synthetic_names_are_the_reference_panel(monkeypatch):
+    """Audit F-5 (2026-10-02): the live reading is taken over the frozen
+    reference panel only. These fixtures use made-up names (T0, T1, ...), so
+    they stand in for that panel here; the frozen THRESHOLDS stay the real
+    measured ones."""
+    assert _ifr.FROZEN is not None, "frozen thresholds file must load"
+    monkeypatch.setattr(_ifr, "FROZEN", {
+        **_ifr.FROZEN, "tickers": frozenset(f"T{i}" for i in range(200))})
+    # the 15-name fixtures below are smaller than the live 30-name minimum;
+    # test_a_thin_reference_panel_never_throttles pins that minimum itself
+    monkeypatch.setattr(_ifr, "MIN_REFERENCE_NAMES", 5)
 
 
 def _bars(n: int, slope: float = 0.0, jolts=None) -> pd.DataFrame:

@@ -3872,6 +3872,29 @@ for next"), 1,329 tests (18 new, 14 verified to FAIL on the old code).**
   written only after a completed pass; `_TOPUP_LOCK` makes 09:20 WAIT for a
   still-running 08:30 then skip). Removed the old post-scan call. Asleep at
   08:30 (free plan) = the 09:20 scans start ~35 min late on a full pull.
+**AUDIT F-5/F-7/F-10/F-11/F-12 FIXED 2026-10-02 (owner: "go for next"),
+1,363 tests (17 new, 16 fail on old code).**
+- **F-5 IFR**: thresholds FROZEN (research/ifr_frozen_2026-10-02/
+  thresholds.json, by scripts/ifr_frozen_thresholds.py through the
+  PRODUCTION ifr functions: p90 0.484 / p85 0.631, train vs test within
+  0.006) and the live reading taken over those 191 reference names only
+  (`ifr.FROZEN`, `MIN_REFERENCE_NAMES=30` else no throttle). Random walk:
+  active 76% -> 0%. NOT a big change on real data: active ~67% of real days
+  (was 64%) because ratio fires 15% of days x 22-day hold — the original
+  design numbers, untouched. Stale names now leave the denominator.
+  `engine._throttled_qty`: a throttle never cuts below the Rs 1.5L slab.
+  Node 9 step 3 (IFR on the owner's canonical formula) still NOT done.
+- **F-7 rotation**: funds ONLY this scan's picks (watchlist fallback deleted
+  with `_watchlist_candidates` — every watchlist name >= floor not in picks
+  had been REFUSED by this scan's own gates, since selection has no top-N
+  cap). Need sized with each pick's own history. Cash <5% and no pick =
+  ROTATION_NOTHING_TO_FUND, no sale. Owner's 09-10 (a)+(b) order kept in
+  meaning: (a) = rotate into names the engine is adding.
+- **F-10 loss halt**: counts `measured_kelly.classify != "excluded"` only;
+  limit max(2, ceil(10% of open+lost)) — 10% ASSUMED, shown on /risk.
+- **F-11**: universe floor = LiquidityRules 5 Cr (was 1 Cr), median kept.
+- **F-12**: slab sizing returns 0 at/below the floor without history too;
+  no-score owner tickets unchanged.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never
