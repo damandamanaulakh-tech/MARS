@@ -3848,6 +3848,30 @@ for next"), 1,329 tests (18 new, 14 verified to FAIL on the old code).**
   repointed at the helper. Test gotcha recorded: the pre-fix engine imported
   compute_score under its own name, so stubbing only trading.scoring let the
   old code pass — stub BOTH names when proving a fix against old code.
+**AUDIT ITEMS 4-8 FIXED 2026-10-02 (owner: "go for next"), 1,346 tests
+(17 new, 10 verified to FAIL on the old code).**
+- **F-4 VIX re-entry** = the TESTED rule now: `regime.vix_crush_ok(...,
+  since=episode_start)` with `regime.correction_episode_start(nifty)` (first
+  close of the current run below the 200-DMA). The v4 study took the peak
+  from the episode start (`vix.iloc[a:b].cummax()`); live took 120 days.
+  Measured: 59% -> 39% of correction days; the CURRENT 2026 episode is
+  unchanged (84/110 both ways, it opened with a 27.9 spike). Correction via
+  -12%-off-high without a below-200 run = no episode = no re-entry. Ocean
+  R1 keeps the 120-day form (rare override inside a fail-safe rail).
+- **F-6 per-mode exits**: `engine._exit_cfg(pos, cfg)` = a shallow copy with
+  the position's mode preset + owner per-mode overrides; the shared cfg is
+  never mutated (test-pinned). Expect swing positions older than 20 days and
+  short ones older than 63 to close MAX_HOLD on the first in-session pass.
+- **S-2 retag**: valid tag + existing target -> target kept (k x ATR);
+  blank/unknown/stale-intraday or target 0 -> preset target.
+- **S-3 sector cap**: "Unknown" exempt from the 12-name count cap (already
+  exempt from the capital cap). TRADE-OFF stated: unmapped names now have no
+  sector-diversification limit; deploy cap, heat and correlation still bind.
+- **S-1 top-up order**: `_morning_topup_job` 08:30 + `_topup_once_today`
+  called FIRST in the 09:20 job (ledger `daily_topup_date` in data_refresh,
+  written only after a completed pass; `_TOPUP_LOCK` makes 09:20 WAIT for a
+  still-running 08:30 then skip). Removed the old post-scan call. Asleep at
+  08:30 (free plan) = the 09:20 scans start ~35 min late on a full pull.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never

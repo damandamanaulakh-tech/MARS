@@ -419,19 +419,31 @@ class TradingEngine:
         vix_reentry = False
         if (regime is not None and not regime.everest_active
                 and getattr(cfg, "correction_vix_reentry", False)):
+            episode_start = None
             try:
-                from .regime import vix_crush_ok
-                vixd = fetch_daily(["^INDIAVIX"], period="1y").get("^INDIAVIX")
-                if vixd is not None and not vixd.empty:
-                    vix_reentry = vix_crush_ok(vixd["Close"])
+                from .regime import correction_episode_start, vix_crush_ok
+                # The v4 study measured the VIX peak from the START of the
+                # correction (Nifty's current run below its 200-DMA), not
+                # over a fixed window (owner order 2026-10-02, audit item 4).
+                nif = fetch_daily([cfg.benchmark], period="2y").get(cfg.benchmark)
+                if nif is not None and not nif.empty:
+                    episode_start = correction_episode_start(nif["Close"])
+                vixd = fetch_daily(["^INDIAVIX"], period="2y").get("^INDIAVIX")
+                if (episode_start is not None and vixd is not None
+                        and not vixd.empty):
+                    vix_reentry = vix_crush_ok(vixd["Close"],
+                                               since=episode_start)
             except Exception as e:
                 log.warning("VIX-crush check failed: %s", e)
             if vix_reentry:
                 self.portfolio.decision_journal.append({
                     "ts": now.isoformat(), "action": "CORRECTION_VIX_REENTRY",
+                    "episode_start": str(getattr(episode_start, "date",
+                                                 lambda: episode_start)()),
                     "why": ("Correction regime, but India VIX has crushed to "
-                            "<=75% of its recent spike peak — v4-tested "
-                            "V-recovery signal. Momentum entries re-enabled."),
+                            "<=75% of its peak since this correction began "
+                            "— the v4-tested V-recovery signal. Momentum "
+                            "entries re-enabled."),
                 })
 
         # Everest: usual momentum + timing rules. Active in bull/neutral —
@@ -1196,7 +1208,8 @@ class TradingEngine:
                 # position keeps its entry score rather than reading 0.
                 if rescored is not None:
                     current_score = rescored
-            should_exit, reason = check_exit(pos, price, current_score, cfg, now)
+            should_exit, reason = check_exit(
+                pos, price, current_score, self._exit_cfg(pos, cfg), now)
             if should_exit and marking_only:
                 # Owner order 2026-09-10: outside 09:15-15:30 the rule is SEEN
                 # and RECORDED, never executed — a fill after the close is a
@@ -2112,6 +2125,30 @@ class TradingEngine:
                     f"Kill switch re-armed at "
                     f"{self.cfg.daily_loss_halt_pct * 100:.1f}% of that."),
         })
+
+    def _exit_cfg(self, pos, cfg: Config) -> Config:
+        """The exit rules of the trade category this position was BOUGHT
+        under (owner order 2026-10-02, audit item 5).
+
+        check_exit reads the trailing stop, the decay floor and the max-hold
+        from the config it is handed. The exit pass used to hand it the LIVE
+        config — the owner's mode, momentum — so a swing trade (20-day hold)
+        or a short trade (63-day hold) was held up to momentum's 200 days
+        under momentum's trail. Each position now gets a copy of the config
+        with its own mode's preset applied (owner per-mode Settings edits
+        included). A blank legacy mode is momentum, matching retag. The
+        stop and target already come from the position itself."""
+        mode = getattr(pos, "mode", "") or "nifty200_momentum"
+        if mode == getattr(cfg, "mode", ""):
+            return cfg
+        # A fresh shallow copy per position: apply_mode_preset only assigns
+        # scalar fields, so the shared config is never touched, and nothing
+        # cached can outlive a Settings edit.
+        import copy
+        c = copy.copy(cfg)
+        c.mode = mode
+        c.apply_mode_preset()
+        return c
 
     def _update_drawdown(self, prices: Dict[str, float], now: datetime,
                          *, cut_allowed: bool) -> List[str]:

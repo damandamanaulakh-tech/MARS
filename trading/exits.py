@@ -28,13 +28,24 @@ def retag_positions_per_mode(portfolio, now: datetime | None = None) -> int:
         tag = (getattr(pos, "mode", "") or "").strip()
         stale_intraday = (tag == "intraday"
                           and pos.entry_date.date() < now.date())
-        if not tag or tag not in PRESETS or stale_intraday:
+        retagged = not tag or tag not in PRESETS or stale_intraday
+        if retagged:
             tag = "nifty200_momentum"
         preset = PRESETS[tag]
         new_stop = round(pos.entry_price * (1 + preset.stop_loss_pct), 2)
-        new_target = round(pos.entry_price * (1 + preset.take_profit_pct), 2)
         old_stop = getattr(pos, "stop_price", 0.0) or 0.0
         old_target = getattr(pos, "target_price", 0.0) or 0.0
+        # OWNER ORDER 2026-10-02 (audit item 6): since 2026-09-10 a target is
+        # k x ATR per stock, set at entry (engine._target_for). This retag
+        # runs on EVERY boot and used to overwrite it with the flat preset
+        # percentage — and the app restarts many times a day. A position
+        # whose category is still valid keeps the target it was opened with.
+        # Only a blank, unknown or stale-intraday tag (the case this retag
+        # exists for) or a missing target gets the preset target.
+        if retagged or old_target <= 0:
+            new_target = round(pos.entry_price * (1 + preset.take_profit_pct), 2)
+        else:
+            new_target = round(old_target, 2)
         if abs(new_stop - old_stop) < 0.01 and abs(new_target - old_target) < 0.01:
             continue
         pos.stop_price = new_stop

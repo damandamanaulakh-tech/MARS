@@ -84,13 +84,20 @@ def can_open(
         return False, "qty_zero", 0
 
     # Sector concentration
+    # OWNER ORDER 2026-10-02 (audit item 7): "Unknown" is not one real
+    # sector — it is every name the sector map does not cover, ~950 of the
+    # ~1,205 the scan reads since the 1,200-name universe. Counting them as
+    # one sector capped ALL unmapped names at 12 held positions at once. The
+    # capital cap below already exempted "Unknown" for the same reason; the
+    # count cap now does too. Mapped sectors keep the 12-name cap.
     target_sector = cfg.sector_map.get(ticker, "Unknown")
-    same_sector = sum(
-        1 for p in open_positions.values()
-        if cfg.sector_map.get(p.ticker, "Unknown") == target_sector
-    )
-    if same_sector >= cfg.max_sector_positions:
-        return False, "sector_cap_reached", 0
+    if target_sector != "Unknown":
+        same_sector = sum(
+            1 for p in open_positions.values()
+            if cfg.sector_map.get(p.ticker, "Unknown") == target_sector
+        )
+        if same_sector >= cfg.max_sector_positions:
+            return False, "sector_cap_reached", 0
 
     # P2: sector CAPITAL cap — a count cap alone lets 12 x 2.5% = 30% pile
     # into one sector. Shrink qty to fit the sector budget; reject if none.
