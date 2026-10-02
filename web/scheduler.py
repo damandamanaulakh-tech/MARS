@@ -91,6 +91,14 @@ def start_if_enabled() -> None:
         )
 
     if daily:
+        # 08:30 IST: top up the price store BEFORE the 09:20 scan (owner
+        # order 2026-10-02, audit item 8) — ~35 min for ~1,200 names, so it
+        # finishes before the scan reads the store.
+        _SCHED.add_job(
+            _morning_topup_job, "cron",
+            day_of_week="mon-fri", hour=8, minute=30,
+            id="morning_topup",
+        )
         # 08:50 IST: refresh the NSE universe master from Upstox's public
         # instrument file BEFORE the 09:20 scan — new listings enter the
         # rotation same day, delisted names drop (user ask 2026-07-21).
@@ -1821,6 +1829,13 @@ def _daily_multi_mode_scan() -> None:
         log.warning("[09:20] another multi-mode scan is already running — skipped")
         return
     log.info("[09:20] Daily multi-mode scan starting (target 60-70%% deployed)")
+    # OWNER ORDER 2026-10-02 (audit item 8): fresh bars FIRST. The top-up
+    # used to run after the passes below, so they scored on bars one trading
+    # day stale. Normally 08:30 already did it and this is one settings read.
+    try:
+        _topup_once_today("09:20")
+    except Exception:
+        log.exception("daily top-up failed before the scan")
     # F3: refresh the full-store breadth reading BEFORE the scans, so the A3
     # gate judges today's entries on ~2,700 names instead of the day's
     # ~50-name bucket. Isolated — a failure leaves the previous reading and
@@ -1883,16 +1898,8 @@ def _daily_multi_mode_scan() -> None:
             cfg.apply_mode_preset()
         _ROTATION_LOCK.release()
     _check_pending_orders("post-scan")
-    # OWNER ORDER 2026-08-20 ("all fresh"): with the custom 50-name universe
-    # live, top up the STORE for exactly those names every scan day —
-    # tokenless since F1 — so charts/triggers/news read today-fresh candles,
-    # not last Friday's. Runs BEFORE the trigger layer so the layer already
-    # sees the fresh bars. Isolated: a failure journals and cannot stop the
-    # trigger pass.
-    try:
-        _daily_universe_topup()
-    except Exception:
-        log.exception("daily custom-universe top-up failed")
+    # The daily store top-up ("all fresh", owner order 2026-08-20) now runs
+    # BEFORE the scans above (audit item 8, 2026-10-02).
     run_trigger_layer("09:20")
     _push_phone_alerts("09:20")
     log.info("[09:20] Daily multi-mode scan complete: %s", " · ".join(summary))
@@ -1900,8 +1907,10 @@ def _daily_multi_mode_scan() -> None:
 
 def _daily_universe_topup() -> None:
     """Merge fresh daily candles into the Mongo store for the scanned
-    universe + held names, so tomorrow's 09:20 scan reads the store instead
-    of the network. Daily counterpart of the Friday job; skips names already
+    universe + held names, so the 09:20 scan reads yesterday's close from the
+    store instead of the network. Runs at 08:30 and, if that did not
+    complete, first thing in the 09:20 job (audit item 8, 2026-10-02 — it
+    used to run AFTER the scans, a day late). Daily counterpart of the Friday job; skips names already
     fresh to yesterday. Only runs when a custom universe is set — the
     rotating full-NSE mode keeps the weekly cadence.
 
@@ -1921,14 +1930,14 @@ def _daily_universe_topup() -> None:
     cfg = state.cfg()
     custom = tuple(getattr(cfg, "custom_universe", ()) or ())
     if not custom:
-        return
+        return False
     eng = state.engine()
     from trading.data import history_broker
     broker = getattr(eng, "broker", None) or history_broker()
     if broker is None or not db.is_connected():
         log.info("[daily-topup] skipped: %s",
                  "no Upstox client" if broker is None else "Mongo offline")
-        return
+        return False
     try:
         from trading.brokers.upstox_instruments import to_instrument_keys
         from trading.history_store import top_up_history
@@ -1950,8 +1959,52 @@ def _daily_universe_topup() -> None:
                         f"{summ['failed']} FAILED of {summ['total']}."),
             })
             eng.portfolio.save()
+        return True
     except Exception as e:
         log.exception("daily universe top-up failed: %s", e)
+        return False
+
+
+DAILY_TOPUP_KEY = "daily_topup_date"
+# 09:20 WAITS on this while an 08:30 pass is still running, then finds the
+# ledger written and skips — never two pulls of the same names at once.
+_TOPUP_LOCK = threading.Lock()
+
+
+def _topup_once_today(where: str) -> None:
+    """Run the daily price top-up at most once per trading day (owner order
+    2026-10-02, audit item 8).
+
+    The top-up used to run AFTER the 09:20 scan passes, so every morning's
+    scan read bars that ended the day before yesterday's close — one
+    trading day stale. It now runs at 08:30 IST, and 09:20 calls this
+    again BEFORE the scans: when 08:30 already completed it, this is one
+    settings read; when the process was asleep at 08:30, the top-up runs
+    first and the scans start after it. The ledger is written only after a
+    pass completes, so a failed pass is retried by the next caller."""
+    from datetime import date
+    from . import db
+    with _TOPUP_LOCK:
+        today = date.today().isoformat()
+        try:
+            if db.is_connected() and (db.load_settings(doc_id="data_refresh")
+                                      .get(DAILY_TOPUP_KEY) == today):
+                return
+        except Exception:
+            pass
+        if _daily_universe_topup():
+            try:
+                db.save_settings({DAILY_TOPUP_KEY: today},
+                                 doc_id="data_refresh")
+            except Exception:
+                log.exception("[%s] could not record the daily top-up", where)
+
+
+def _morning_topup_job() -> None:
+    from trading.calendars import is_trading_day
+    if not is_trading_day():
+        return
+    _topup_once_today("08:30")
 
 
 TRIGGER_LAYER_MAX_TICKERS = 80    # bounded work on the 512 MB box

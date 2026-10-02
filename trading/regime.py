@@ -280,16 +280,52 @@ def _neutral_fallback(reason: str) -> RegimeReading:
     )
 
 
-def vix_crush_ok(vix_close, ratio: float = 0.75, window: int = 120) -> bool:
+def correction_episode_start(nifty_close, dma: int = 200):
+    """First date of the CURRENT run of Nifty closes below their 200-DMA,
+    or None when the latest close is not below it. This is the episode the
+    v4 correction study measured its VIX peak over."""
+    try:
+        s = nifty_close.dropna()
+    except AttributeError:
+        return None
+    if len(s) < dma:
+        return None
+    ma = s.rolling(dma).mean()
+    below = ((s < ma) & ma.notna()).to_numpy()
+    if not below[-1]:
+        return None
+    i = len(below) - 1
+    while i > 0 and below[i - 1]:
+        i -= 1
+    return s.index[i]
+
+
+def vix_crush_ok(vix_close, ratio: float = 0.75, window: int = 120,
+                 since=None) -> bool:
     """v4 correction-playbook rule (preregistered, tested on 10 episodes
     2015-2026): the fear spike is 'crushed' when VIX falls to <= 75% of
-    its recent peak — the tested signal that a correction's V-recovery
-    has begun (+24% COVID, +7.3% 2022, +2.0% current episode; harmless
-    in mild corrections where it simply never fires)."""
+    its peak — the tested signal that a correction's V-recovery has begun
+    (+24% COVID, +7.3% 2022, +2.0% current episode).
+
+    OWNER ORDER 2026-10-02 (audit item 4): the study took the peak from the
+    START OF THE CORRECTION EPISODE (scripts/param_search_v4_correction.py,
+    `vix.iloc[a:b].cummax()`). The live engine took it over a fixed 120
+    days, so a spike from BEFORE the correction counted, and the rule read
+    true on 59% of correction days instead of the tested 39% (measured on
+    the committed 15-year file). Pass `since` = the episode start to get
+    the tested rule. Without `since` the old 120-day window stands, for the
+    Ocean knife rail, which uses it only as a rare override."""
     try:
         v = vix_close.dropna()
     except AttributeError:
         return False
+    if since is not None:
+        cutoff = pd.Timestamp(since).date()
+        v = v[[d >= cutoff for d in v.index.date]]
+        if v.empty:
+            return False
+        peak = float(v.max())
+        return peak > 0 and float(v.iloc[-1]) <= ratio * peak
     if len(v) < 20:
         return False
     peak = float(v.tail(window).max())
