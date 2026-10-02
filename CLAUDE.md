@@ -3801,6 +3801,25 @@ RBI MPC decision Wed 10-07 — shown, never a halt (PR #136).
 HARNESS: a scheduled wake cannot protect a day the container sleeps
 through; Render Instance Type -> Starter remains the only real fix and
 has been asked for four times.
+**DEEP AUDIT 2026-10-02 (owner: "recheck the entire files… flaws in
+formulas… sequence… make table of all items… mongo… everywhere").
+docs/AUDIT_2026-10-02.md IS THE RECORD — READ-ONLY, nothing changed; every
+fix awaits the owner's word.** Top money-path items, hand-verified:
+F-1 momentum positions are bought on the blend (floor 62) but sold on the AM07
+composite (decay floor 40) — MEASURED on the 191 panel: 26.5% of 2,981
+entry-qualifying stock-dates already read composite < 40, 64% tighten the
+trail · F-2 Ocean buys read composite ~37 by construction (sold on the next
+pass) · F-3 drawdown ladder recuts every refresh (40 names → 0 in 7 passes),
+peak never resets · F-4 vix_crush_ok true on 63% of all days (339 with no
+spike) and bypasses the breadth band · F-6 check_exit reads trail/decay/
+max-hold from the LIVE cfg, so swing/short ride momentum's 200 days · F-9
+measured_kelly switched on, never called · S-1 daily top-up runs AFTER the
+09:20 scans · S-2 boot retag wipes k×ATR targets · S-3 sector count cap treats
+all ~950 unmapped scan names as ONE sector (max 12 held) · S-15 exit-pass
+composite makes two UNTIMED Yahoo .info calls per held name (hangs in the
+sandbox; earnings one has no cache/breaker). Mongo: cluster 387/512 MB,
+ashstock +6.4 MB/day → full ~10-21; pwoi_daily never written; trades/
+journal_archive code dead. Files: 117 of 747 not needed (~147 MB).
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never
