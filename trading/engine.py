@@ -527,6 +527,13 @@ class TradingEngine:
                                                bypass=vix_reentry):
             picks = []
             entries_blocked = True
+        elif not picks:
+            # S-8: no momentum pick today still owes the later passes a
+            # reading (a failure here only costs the cache, never the scan).
+            try:
+                self._cache_breadth_today(history, now)
+            except Exception as e:
+                log.warning("breadth cache failed: %s", e)
         picks = picks + ocean_picks
 
         # v4: HALT NEW ENTRIES around known binary events (elections, RBI, Budget).
@@ -916,6 +923,8 @@ class TradingEngine:
             opened.append(pick["ticker"])
 
         self.portfolio.last_scan = now.isoformat()
+        if self._trading_allowed(now):
+            self.portfolio.last_scan_live = now.isoformat()
 
         def _candle_label(tkr: str) -> str:
             # F17: record which candle pattern confirmed (or why waiting) so
@@ -1859,19 +1868,9 @@ class TradingEngine:
                 source = (f"full store ({sample} names, closes to "
                           f"{stored.get('asof')})")
             else:
-                from .regime import compute_breadth
-                breadth, sample = compute_breadth(history)
+                breadth, sample = self._cache_breadth_today(history, now)
                 if breadth is not None and sample > 0:
                     source = f"scan bucket sample ({sample} names, ±7pp noise)"
-                    # Cache for the passes that cannot see a 200DMA (6mo
-                    # history). Written only on a real reading — a miss must
-                    # never overwrite a good one with an empty dict.
-                    self.portfolio.breadth_today = {
-                        "pct": float(breadth), "sample": int(sample),
-                        "asof": now.date().isoformat(),
-                        "mode": getattr(cfg, "mode", ""),
-                        "ts": now.isoformat(),
-                    }
                 else:
                     # This pass's own history is too short (every mode but
                     # momentum pulls 6mo). Reuse today's reading rather than
@@ -1904,6 +1903,29 @@ class TradingEngine:
         except Exception as e:
             log.warning("breadth gate failed (fail-open): %s", e)
         return False
+
+    def _cache_breadth_today(self, history: dict, now: datetime):
+        """Compute the scan bucket's breadth and cache it on
+        portfolio.breadth_today for the passes that cannot see a 200DMA (they
+        pull only 6mo). Written only on a real reading — a miss must never
+        overwrite a good one. Returns (pct, sample) or (None, 0).
+
+        AUDIT S-8 (2026-10-02): this used to happen only INSIDE the gate, and
+        the gate is consulted only when the momentum pass has picks. On a day
+        momentum picked nothing, no reading was cached, so the swing, short,
+        positional and intraday passes read no breadth at all and fell open —
+        buying into a tape the band would have blocked."""
+        from .regime import compute_breadth
+        breadth, sample = compute_breadth(history)
+        if breadth is not None and sample > 0:
+            self.portfolio.breadth_today = {
+                "pct": float(breadth), "sample": int(sample),
+                "asof": now.date().isoformat(),
+                "mode": getattr(self.cfg, "mode", ""),
+                "ts": now.isoformat(),
+            }
+            return breadth, sample
+        return None, 0
 
     def _ocean_journal_once(self, now: datetime, action: str, why: str) -> None:
         today_iso = now.date().isoformat()

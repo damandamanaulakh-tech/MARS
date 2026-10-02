@@ -106,6 +106,10 @@ class Portfolio:
     trades: List[ClosedTrade] = field(default_factory=list)
     equity_history: List[tuple] = field(default_factory=list)  # (iso_ts, equity)
     last_scan: Optional[str] = None
+    # AUDIT S-5 (2026-10-02): stamped only by a scan that ran INSIDE market
+    # hours (one that could buy). `last_scan` is stamped by every scan, the
+    # look-only ones before 09:15 and after 15:30 included.
+    last_scan_live: Optional[str] = None
     last_scan_picks: List[dict] = field(default_factory=list)
     last_scan_skipped: List[dict] = field(default_factory=list)
     last_scan_opened: List[str] = field(default_factory=list)
@@ -231,6 +235,7 @@ class Portfolio:
                 "trades": [t.to_dict() for t in self.trades],
                 "equity_history": self.equity_history,
                 "last_scan": self.last_scan,
+                "last_scan_live": self.last_scan_live,
                 "last_scan_picks": self.last_scan_picks,
                 "last_scan_skipped": self.last_scan_skipped,
                 "last_scan_opened": self.last_scan_opened,
@@ -282,6 +287,7 @@ class Portfolio:
             p.trades = [ClosedTrade.from_dict(t) for t in data.get("trades", [])]
             p.equity_history = list(data.get("equity_history", []))
             p.last_scan = data.get("last_scan")
+            p.last_scan_live = data.get("last_scan_live")
             p.last_scan_picks = list(data.get("last_scan_picks", []))
             p.last_scan_skipped = list(data.get("last_scan_skipped", []))
             p.last_scan_opened = list(data.get("last_scan_opened", []))
@@ -364,6 +370,7 @@ class Portfolio:
         self.trades = []
         self.equity_history = []
         self.last_scan = None
+        self.last_scan_live = None
         self.last_scan_picks = []
         self.last_scan_skipped = []
         self.last_scan_opened = []

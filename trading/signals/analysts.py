@@ -62,7 +62,9 @@ def fetch_analyst_score(ticker: str) -> Optional[AnalystScore]:
     result: Optional[AnalystScore] = None
     try:
         import yfinance as yf
-        info = yf.Ticker(ticker).info or {}
+        # AUDIT S-15 (2026-10-02): bounded — a hang counts as a failure.
+        from trading.data import run_with_timeout
+        info = run_with_timeout(lambda: yf.Ticker(ticker).info) or {}
         mean = info.get("recommendationMean")
         n = int(info.get("numberOfAnalystOpinions") or 0)
         if mean is not None and n > 0:
