@@ -519,6 +519,17 @@ _PATTERN_FUNCS = {
 }
 
 
+def candle_gate_applies(cfg) -> bool:
+    """True when this category's entries must wait for a candle pattern.
+
+    The ONE predicate the live engine and the backtest both read, so the
+    two can never disagree (owner order 2026-10-04: off for momentum)."""
+    if not getattr(cfg, "candle_confirm_enabled", False):
+        return False
+    skip = tuple(getattr(cfg, "candle_confirm_skip_modes", ()) or ())
+    return getattr(cfg, "mode", None) not in skip
+
+
 def candle_confirmation(df: pd.DataFrame, cfg) -> tuple[bool, str]:
     """(confirmed?, which_pattern | why_not). Gate is cfg-driven."""
     if not getattr(cfg, "candle_confirm_enabled", False):

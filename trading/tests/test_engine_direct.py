@@ -84,10 +84,27 @@ def test_scan_never_buys_below_the_floor(eng):
 
 
 def test_kill_switch_blocks_every_scan_entry(eng):
-    eng.risk.kill_switch = True
+    """A switch tripped TODAY blocks every entry. (2026-10-04: this test
+    used to set the flag by hand on a fresh book, which the engine's daily
+    roll correctly clears at scan start — it only passed because the candle
+    gate happened to block the pick. Model the real state: tripped today.)"""
+    from datetime import datetime as _dt
+    eng.portfolio.risk_day = _dt.utcnow().date().isoformat()
+    eng.portfolio.risk_day_equity = eng.portfolio.cash
+    eng.portfolio.risk_day_killed = True
     eng.scan()
     assert eng.portfolio.last_scan_opened == []
     assert len(eng.portfolio.positions) == 0
+    assert any(s["reason"] == "kill_switch_active"
+               for s in eng.portfolio.last_scan_skipped)
+
+
+def test_a_switch_from_yesterday_resets_at_the_day_roll(eng):
+    """The daily halt is daily: yesterday's tripped flag does not carry over."""
+    eng.risk.kill_switch = True
+    eng.scan()
+    assert eng.risk.kill_switch is False
+
 
 
 def test_refresh_marks_positions_and_fires_the_stop(eng):

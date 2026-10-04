@@ -9,6 +9,17 @@
       Active mode: <strong>{{ current_mode|upper }}</strong> ·
       All weights sum to 100%. Each component scores 0-100 per stock.
     </p>
+    {% if momentum_mode %}
+    <p class="text-xs text-amber-700 mt-1" data-weights-note="momentum_composite_marker">
+      Momentum does not buy on this table — it ranks on 6m+12m momentum blended
+      with quality. These weights only judge momentum positions on the screens.
+    </p>
+    {% else %}
+    <p class="text-xs text-ink-faint mt-1">
+      These are the {{ current_mode }} weights the score uses (each category has
+      its own since 2026-10-04).
+    </p>
+    {% endif %}
   </div>
 </div>
 
