@@ -816,10 +816,11 @@ def run_market_fii_snapshot(where: str = "manual") -> bool:
 
     AUTH: the daily login token, or UPSTOX_ANALYTICS_TOKEN in Render (the
     owner can generate one on the Upstox Developer Apps page — that keeps
-    this feed alive even before the day's login). Response shape is
-    UNVERIFIED until the first authenticated call: the raw payload is
-    archived either way, the mappers refuse rows they can't prove, and a
-    shape miss journals instead of guessing.
+    this feed alive even before the day's login). The FII shape was
+    verified from the live stored payload on 2026-10-04 and the mappers
+    fixed to it (time_stamp in ms; DII needs data_type=NSE_EQ|CASH). The
+    raw payload is still archived either way, the mappers still refuse rows
+    they can't prove, and a shape miss journals instead of guessing.
     """
     import os
     from datetime import date as _date

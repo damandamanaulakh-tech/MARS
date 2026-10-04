@@ -33,7 +33,7 @@ import csv
 import io
 import logging
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Optional
 from urllib.parse import quote
@@ -366,7 +366,29 @@ def stored_pwoi_rows() -> list[dict]:
         return []
 
 
+_IST = timezone(timedelta(hours=5, minutes=30))
+
+
 def _row_date(row: dict) -> str:
+    """Trading date of one market-info row, ISO, or "" when unprovable.
+
+    FIXED 2026-10-04 (owner: "fix the FII feed reading too"): Upstox sends
+    `time_stamp` — Unix MILLISECONDS (verified from the live payload's shape
+    on /healthz and the API docs) — and this only looked for string date
+    fields, so EVERY real row was dropped and FII-04/05 never moved past the
+    committed panel. The stamp is IST midnight of the trading day
+    (1777487400000 = 2026-04-29T18:30Z = 2026-04-30 00:00 IST), so it is
+    read in IST: a UTC read would date every row one day early."""
+    ts = row.get("time_stamp")
+    if ts is not None and not isinstance(ts, bool):
+        try:
+            t = float(ts)
+            if t > 1e11:                       # milliseconds (the documented unit)
+                t /= 1000.0
+            if t > 1e9:                        # plausible epoch seconds (> 2001)
+                return datetime.fromtimestamp(t, _IST).date().isoformat()
+        except (TypeError, ValueError, OverflowError, OSError):
+            pass
     for k in ("date", "trade_date", "timestamp", "as_of_date"):
         v = row.get(k)
         if v:
@@ -388,12 +410,20 @@ def _row_num(row: dict, *keys: str) -> Optional[float]:
 def map_market_fii(payload) -> list[dict]:
     """Upstox /market/fii payload -> PWOI-shaped FII rows.
 
-    The response SHAPE is unverified until the first authenticated call
-    (the sandbox holds no token), so this maps DEFENSIVELY: a row enters
-    the store only when it carries a date AND index-futures long+short —
-    the two numbers FII-04/05 actually read. The raw payload is archived
-    separately so a shape miss loses nothing. Rows that don't qualify are
-    simply absent and the consumers keep the committed panel."""
+    SHAPE VERIFIED 2026-10-04 (live /healthz `market_info_shape` + the API
+    docs): {"NSE_FO|INDEX_FUTURES": [row, ...], "NSE_FO|STOCK_FUTURES":
+    [...], "NSE_FO|INDEX_OPTIONS": [...], "NSE_FO|STOCK_OPTIONS": [...]},
+    30 daily rows each, newest first; a row carries time_stamp (ms),
+    total_long/short_contracts and the four total_call/put_long/short
+    counts. Units are contracts, the same as the committed NSE panel
+    (FII stock-futures long ~3.5M there, ~4.0M in the docs' example).
+
+    A row enters the store only when it carries a date AND index-futures
+    long+short — the two numbers FII-04/05 read. Option legs fill the
+    panel's opt_* columns, and total_long/short (NSE's own sum of all six
+    long or short legs, checked on the committed 2026-08-07 row) are set
+    only when every leg is present — a partial sum would be a wrong
+    number, not a missing one."""
     segments: dict[str, list] = {}
     if isinstance(payload, dict):
         for k, v in payload.items():
@@ -423,15 +453,54 @@ def map_market_fii(payload) -> list[dict]:
                 rec["fut_idx_long"], rec["fut_idx_short"] = long_v, short_v
             elif "STOCK_FUT" in seg_name:
                 rec["fut_stk_long"], rec["fut_stk_short"] = long_v, short_v
-    # only rows carrying the index-futures legs qualify (FII-04/05's input)
-    return [r for d, r in sorted(out.items())
-            if "fut_idx_long" in r and "fut_idx_short" in r]
+            elif "INDEX_OPT" in seg_name or "STOCK_OPT" in seg_name:
+                pre = "opt_idx" if "INDEX_OPT" in seg_name else "opt_stk"
+                legs = {
+                    f"{pre}_call_long": _row_num(row, "total_call_long_contracts"),
+                    f"{pre}_put_long": _row_num(row, "total_put_long_contracts"),
+                    f"{pre}_call_short": _row_num(row, "total_call_short_contracts"),
+                    f"{pre}_put_short": _row_num(row, "total_put_short_contracts"),
+                }
+                if all(v is not None for v in legs.values()):
+                    rec.update(legs)
+    rows = []
+    for d, r in sorted(out.items()):
+        # only rows carrying the index-futures legs qualify (FII-04/05's input)
+        if "fut_idx_long" not in r or "fut_idx_short" not in r:
+            continue
+        longs = [r.get(k) for k in _PWOI_LONG_LEGS]
+        shorts = [r.get(k) for k in _PWOI_SHORT_LEGS]
+        if all(v is not None for v in longs + shorts):
+            r["total_long"], r["total_short"] = sum(longs), sum(shorts)
+        rows.append(r)
+    return rows
+
+
+# NSE's participant-OI "Total Long/Short" = the sum of these six legs —
+# verified on the committed FII row of 2026-08-07 (5,448,595 / 4,766,465).
+_PWOI_LONG_LEGS = ("fut_idx_long", "fut_stk_long", "opt_idx_call_long",
+                   "opt_idx_put_long", "opt_stk_call_long", "opt_stk_put_long")
+_PWOI_SHORT_LEGS = ("fut_idx_short", "fut_stk_short", "opt_idx_call_short",
+                    "opt_idx_put_short", "opt_stk_call_short",
+                    "opt_stk_put_short")
+
+
+# Above this a DII amount is rupees, not crore (see map_market_dii).
+_RUPEES_NOT_CRORE = 1_000_000.0
 
 
 def map_market_dii(payload) -> list[dict]:
-    """Upstox /market/dii payload -> [{date, dii_buy, dii_sell, dii_net}].
-    Same defensive posture; all-zero rows refused (a parse miss is not a
-    flat market — the 2026-07-31 NSE-parser lesson)."""
+    """Upstox /market/dii payload -> [{date, dii_buy, dii_sell, dii_net}]
+    in RUPEES CRORE, the unit every stored and committed flow row uses.
+
+    Payload shape (API docs, 2026-10-04): {"NSE_EQ|CASH": [row, ...]},
+    rows dated by time_stamp (ms). The docs call the amounts INR, but their
+    own FII example reads like crore (stock-futures buy 23,109.75), so the
+    unit is decided by size, not by the label: a DII day's gross buy is
+    thousands of crore, so a figure above 10 lakh can only be rupees (it
+    would be 10 lakh crore — more than a year of NSE cash turnover) and is
+    divided by 1e7; anything smaller is already crore. All-zero rows are
+    refused (a parse miss is not a flat market — the 2026-07-31 lesson)."""
     rows = payload if isinstance(payload, list) else []
     if isinstance(payload, dict):
         for v in payload.values():
@@ -450,8 +519,11 @@ def map_market_dii(payload) -> list[dict]:
             continue
         if buy == 0 and sell == 0:
             continue
-        out.append({"date": d, "dii_buy": buy, "dii_sell": sell,
-                    "dii_net": buy - sell})
+        if max(abs(buy), abs(sell)) > _RUPEES_NOT_CRORE:
+            buy, sell = buy / 1e7, sell / 1e7
+        out.append({"date": d, "dii_buy": round(buy, 2),
+                    "dii_sell": round(sell, 2),
+                    "dii_net": round(buy - sell, 2)})
     return sorted(out, key=lambda r: r["date"])
 
 
