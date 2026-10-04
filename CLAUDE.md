@@ -4143,6 +4143,15 @@ cash", picked "Momentum 40%, others 15%"). 1,508 tests.**
   (5) /strategy momentum note claimed an exit role it lost at F-1.
   (6) 7 leftover reviewer-name comments removed (the 08-30 claim was
   incomplete).
+- **VERIFIED BY REPLAY (2024-01, real engine code, NEW code):** opens
+  momentum 65 / intraday 27 / short 30 / swing 32 / positional 1 (OLD code
+  same month: 158 / 2 / 1 / 0 / 0). Positional is no longer cash-starved
+  (Rs 2.46 Cr free when its pass started) — its picks were mostly ALREADY
+  HELD by an earlier category (213 refusals; one stock can only be held
+  once) plus its strict 68 floor. Trade-off stated: the book ran ~50%
+  deployed (Rs 2.5-2.7 Cr cash at each pass) because the four smaller
+  shares did not fill. The measured-Kelly check also blocked 632 momentum
+  picks mid-month once the replay's own closed trades showed no edge.
 - STILL OPEN, flagged not changed: 30-min exit pass waits behind the 09:20
   rotation lock and APScheduler DROPS the waiting runs (max_instances 1);
   14:30 top-up scans only cfg.mode; filings job reads yesterday's picks;
