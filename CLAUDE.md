@@ -14,7 +14,7 @@ lives only there. App state (book/journal/history) lives in Mongo
 Atlas, not in any repo — repo moves never touch money or memory.
 
 ## What it is
-Live **paper-only** trading engine (₹50L paper capital), FastAPI + Mongo
+Live **paper-only** trading engine (₹5 crore paper capital since 2026-09-10), FastAPI + Mongo
 Atlas on Render starter (512MB always-on). Hard PAPER_ONLY lock in
 `trading/brokers/upstox.py:assert_paper_trading` — no live orders, ever,
 without explicit user approval. User is non-technical: simple language,
@@ -22,7 +22,23 @@ tables, direct, no hedging, no fake data (say DATA_NEEDED), mercy on
 tokens. **Verify against code — never trust a narrative** (incl. other AIs'
 uploads: audit them; several contained fabricated numbers/padded catalogs).
 
-## THE FINAL SET (evidence-earned; user approved; LIVE as of 2026-07-21)
+## FINAL SET V1.1 — LIVE since 2026-10-04 (owner: "also make these things as finale set V 1.1")
+**docs/FINAL_SET_V1_1.md IS THE RECORD** — every live money number read
+from code on 2026-10-04, pinned by web/tests/test_final_set_v1_1.py (a
+drift fails the suite). Any owner-ordered change to a pinned number = bump
+the page to V1.2 and update the pins in the same commit. Summary: ₹5 Cr ·
+slab ₹1.5L min + 0.29×Kelly, cap 5% · min trade ₹1.5L (round-up or skip) ·
+ceiling 222 · category shares momentum 40 / others 15 each · Ocean
+₹1,68,750 ×8 outside shares · measured-Kelly check ON · ~1,200-name
+weekly liquidity universe + 172 owner names · 5 categories at 09:20 AND
+14:30 (momentum, intraday, short, swing, positional) · floors 62/72/70/60/68
+· breadth band 40-65% · correction brake OFF · candle gate off for momentum
+· exits per position's own mode, targets k×ATR (momentum −5/+20/trail −15,
+200d) · exit check every 30 min incl. between scan categories · kill switch
+−2%/day · drawdown ladder −5/−8/−10/−15/−20 · danger layer 12 tripwires ON ·
+rotation ON at 90% · RBI days never halt.
+
+## FINAL SET V1.0 (2026-07-21) — SUPERSEDED by V1.1; history below, do not quote as live
 - Signal: **6m+12m vol-adjusted momentum, an ABSOLUTE score** —
   50 + 25 × average(r6/σ6, r12/σ12), clipped 0-100; no ranking step
   (R-11 truth-pass 2026-10-02; "rank-blended" was wrong)
@@ -95,11 +111,12 @@ uploads: audit them; several contained fabricated numbers/padded catalogs).
 
 ## Daily machine (all automatic; failures visible)
 03:30 Upstox token dies (user must log in once daily — the ONLY manual act;
-login triggers catch-up scan) · 08:50 universe refresh · 09:20 multi-mode
-scan, momentum FIRST (order since PR#9: momentum, short, swing, positional —
-intraday REMOVED from auto-rotation 2026-07-27, owner order; preset stays in
-Settings for manual use) · 14:30 top-up · 15:25 square-off intraday-tagged +
-expire owner limit orders · 15:35 refresh/exits · Friday 16:30 weekly OHLCV
+login triggers catch-up scan) · 08:30 store top-up · 08:50 universe refresh ·
+09:20 five-category rotation (momentum, intraday, short, swing, positional —
+all five since 2026-08-30) · every 30 min 09:15-15:30 exit check (also run
+between categories while a scan holds the lock, 2026-10-04) · 14:30 the same
+five-category rotation · 15:25 square-off intraday-tagged +
+expire owner limit orders · 15:35 marks only · Friday 16:30 weekly OHLCV
 top-up (merge, never replace) · SCAN_FAILED + SCAN_CATCHUP journaled;
 catch-up (refresh+scan) fires 2 min after every boot
 (`scheduler.catchup_scan_if_missed`; SB_DISABLE_CATCHUP=1 in tests).
