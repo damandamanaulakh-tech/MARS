@@ -23,7 +23,7 @@ COMPONENT_DESCRIPTIONS = {
     "catalyst":          ("Claude-scored news sentiment over last 7-day headlines", "live (needs ANTHROPIC_API_KEY)"),
     "relative_strength": ("3M + 6M return vs Nifty 50 benchmark blend", "live"),
     "vol_adj_upside":    ("1-month return ÷ annual volatility (a return-to-vol ratio, not a Sharpe)", "live"),
-    "short_interest":    ("Put-Call Ratio proxy — no free NSE source", "stubbed @ 50"),
+    "short_interest":    ("Futures open-interest proxy (OI up + price down = short build-up) — true short interest has no free NSE source; neutral 50 for non-F&O names or a stale panel", "proxy (live since 2026-08-23)"),
     "analyst_revision":  ("yfinance consensus — LIVE since 2026-07-16, neutral 50 only when unfetchable", "live"),
     "breakout_quality":  ("Distance from 20-day + 50-day high blend", "live"),
     "sector_alignment":  ("Sector-peer avg momentum + PIB policy boost", "live"),
@@ -35,12 +35,13 @@ def strategy_view(request: Request):
     if not auth.current_user(request):
         return RedirectResponse("/login", status_code=303)
     cfg = app_state.cfg()
-    try:
-        from trading.modes import get_weights
-        active_weights = get_weights(getattr(cfg, "mode", "swing"))
-    except ImportError:
-        from trading.config import AM07_WEIGHTS
-        active_weights = AM07_WEIGHTS
+    # 2026-10-04: show the weights the score REALLY uses (scoring.weights_for).
+    # This page used to print modes.get_weights(mode), which no scorer read —
+    # every category scored on the global weights until the owner ordered
+    # "use each category's weights". Momentum buys on its own blend, so for
+    # momentum the composite table is shown as the exit/display ruler only.
+    from trading.scoring import weights_for
+    active_weights = weights_for(getattr(cfg, "mode", "swing"))
 
     try:
         from trading.signals.policy import active_sector_boosts
@@ -88,6 +89,7 @@ def strategy_view(request: Request):
             "active": "strategy",
             "rows": rows,
             "current_mode": getattr(cfg, "mode", "swing"),
+            "momentum_mode": getattr(cfg, "mode", "") == "nifty200_momentum",
             "live_boosts": live_boosts,
             "sector_counts": sorted(sector_opens.items(), key=lambda kv: -kv[1]),
             "exit_counts": sorted(exit_reasons.items(), key=lambda kv: -kv[1]),

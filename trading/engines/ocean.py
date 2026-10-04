@@ -160,8 +160,15 @@ def survival_check(ticker: str) -> tuple[bool, list[str]]:
 # Four rails; every threshold traces to the owner's own evidence:
 #   R1 VIX knife  — v4 study: VIX-crush was the ONLY dip rule that tested
 #                   positive (+2.3pp); buying while VIX spikes is the knife.
-#   R2 damage     — their frozen p90 (0.213) on the canonical tail_down3_5d
-#                   store (Node 9); their prior calibration lift 1.91.
+#   R2 damage     — the canonical tail_down3_5d store (Node 9), judged
+#                   against the PANEL'S OWN rolling 90th percentile.
+#                   OWNER ORDER 2026-10-04 ("own-panel damage rule"): it
+#                   used the frozen 0.213 from the owner's 1996-2024 file,
+#                   which on our stock list is ON 84% of days (calm bull
+#                   days included) — measured on the committed 191-stock
+#                   panel, 2014-2026, with Ocean opening ZERO positions in
+#                   12 years. The own-panel line is ON ~10% of days. The
+#                   same correction is in docs/PREFALL_FRAMEWORK_2026-09-29.md.
 #   R3 reclaim    — their reclaim family: buy the turn, never the fall.
 #   R4 danger veto— the 12 calibration-VERIFIED tripwires.
 
@@ -192,8 +199,11 @@ def crash_guard_market(vix_close: Optional[pd.Series],
         from trading import internals
         if not internals.is_fresh(damage_store):
             return False, "damage_reading_missing_or_stale"
-        if damage_store.get("static_cluster"):
-            return False, "damage_cluster_0.213"
+        q90_cluster = damage_store.get("q90_cluster")
+        if q90_cluster is None:
+            return False, "damage_reading_unreadable"
+        if q90_cluster:
+            return False, "damage_cluster_own_q90"
     except Exception:
         return False, "damage_reading_unreadable"
     return True, "ok"

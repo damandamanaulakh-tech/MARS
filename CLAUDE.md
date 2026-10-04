@@ -4036,6 +4036,70 @@ them intact"). EVERY ROW OF docs/AUDIT_2026-10-02.md IS NOW CLOSED.**
   (floor 68) / AshStocks (floor 70) in `trading/multi_formula.py`, the
   Formulas column and 🔬 card on /scan, the `multi_formula_gate` switch.
   Never remove or merge it. M-1 (ashstock) closed for good; M-2 "ok".
+**SEQUENCE + BOTH-ENGINES CHECK 2026-10-04 (owner: "find the all app works
+in sequence or any flaw / make sure both engine works / ask me anyhting and
+fix"). MEASURED, then four questions, then fixed. 1,478 tests.**
+- **OCEAN HAD NEVER BOUGHT — 0 entries in 12 years** (committed 191-stock
+  panel, every day 2014-2026, production ocean functions). Funnel: 1,994
+  stock-days >=30% under the 200DMA with weekly RSI<25 -> 263 with climax
+  volume -> 22 with the reclaim bar -> 5 with fundamentals -> **0** with
+  rail R2, because the frozen 0.213 damage cluster is ON **84%** of days on
+  our list (calm 2024 bull days included; owner's 0.213 was the p90 of THEIR
+  1996-2024 broad panel). Owner picked "own-panel damage rule": R2 now reads
+  `damage_store["q90_cluster"]` (panel's own rolling 90th pct, ON ~9.7% of
+  days; missing key = blocked). HONEST RESULT, said to the owner: Ocean is
+  still RARE — on the panel the same funnel yields ~1 entry in 12 years
+  (climax + same-day reclaim + survival 71/191 are the real narrow points).
+  The panel is survivors, so dip-buy returns on it (82% win at 60d) are
+  INFLATED — never quote them as an edge. Real-code day replays: 2020-03-26
+  one candidate (BAJAJHLDNG) correctly blocked by the cluster in a crash.
+- **EVEREST WORKS**: 369 of 543 Fridays (2015-26) had >=1 pick clearing
+  score>=62, abs-mom, breadth band, candle and liquidity; the band blocked
+  30% of Fridays. Real-code replay 2024-01-05: 21 buys, **Rs 4.99 crore in
+  ONE morning**, 14 at the Rs 25L cap (5%), 50 more qualified picks
+  refused `qty_zero`. Owner on that: "there is formula for buying, 222 has
+  nothing to do, it's just a number - show me formula" — NO change; the
+  formula was shown (slab: max(Rs 1.5L, min(5% equity, 0.29 x 0.05 x
+  (score-62)/(30 x sigma) x equity)), skip at <=62; positions = picks
+  bought best-first until cash runs out, 222 is only a ceiling).
+- **PER-CATEGORY WEIGHTS WERE DEAD — now wired** (owner: "use each
+  category's weights"). `modes.WEIGHTS` had no reader; every category scored
+  on the global AM07_WEIGHTS (= the swing preset) while modes.py's docstring
+  claimed otherwise and /strategy DISPLAYED the unused preset.
+  `scoring.weights_for(mode)` (intraday/short/swing/positional -> own
+  preset; momentum/unknown -> globals); `compute_score(..., mode=)`;
+  `score_for_mode` passes its mode (so the exit ruler agrees with entry);
+  `reasoning_text(..., weights)`. Measured with the 4 outside feeds at 50:
+  pass rates intraday 4.4->10.9%, short 6.1->13.5%, swing unchanged,
+  positional 8.4->5.6%. /strategy shows `weights_for` + a momentum note
+  (momentum_composite_marker); stale "stubbed @ 50" short-interest label
+  fixed (futures-OI proxy since Node 7).
+- **CANDLE GATE OFF FOR MOMENTUM** (owner: "off for momentum").
+  `cfg.candle_confirm_skip_modes = ("nifty200_momentum",)` +
+  `candles.candle_gate_applies(cfg)` read by BOTH engine and backtest.
+  Evidence: the gate held back 65% of momentum picks; confirmed vs not, 60d:
+  train +1.4% vs +2.5% (worse), test +8.5% vs +7.9% — no measured benefit.
+  The pattern is still computed and shown; other four categories keep it.
+- **A TEST THAT HAD BEEN VACUOUS FOR MONTHS:**
+  `test_kill_switch_blocks_every_scan_entry` set `risk.kill_switch=True` on
+  a fresh day — the engine's daily roll correctly clears it at scan start —
+  and passed only because the candle gate blocked the fixture's pick. With
+  the gate off it bought. NOT an engine bug: rewritten to trip the switch
+  TODAY (risk_day + risk_day_killed) and assert `kill_switch_active`, plus a
+  twin pinning the daily reset. The swing candle test opens floor+timing so
+  the pick really REACHES the gate (the fixture's swing score was 54 < 60).
+- Engine page truth-pass: "half-size dips" + "0.213 damage cluster" were
+  stale (Ocean ticket Rs 1,68,750 since 08-30); now says Ocean is rare.
+- **LIVE BOX: the app NO LONGER SLEEPS** — 21-min idle test 2026-10-04
+  08:41->09:02Z, same process both reads (peak 159 MiB). The owner appears
+  to have moved Render to an always-on instance (M-12). Re-test before
+  claiming otherwise. Cluster 388 MB; app db 43 MB; store 2,233 names;
+  scan universe 1,205.
+- **NOT CHANGED, flagged to the owner, awaiting word:** measured Kelly pools
+  ALL five categories' exits into one edge (a losing intraday could block
+  momentum) · the 30-minute exit pass waits (no timeout) behind the 09:20
+  rotation's mode lock, so stop checks pause while the rotation runs —
+  live duration unknown (journal timestamps answer it).
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never

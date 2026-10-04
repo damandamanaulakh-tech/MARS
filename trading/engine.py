@@ -371,8 +371,10 @@ class TradingEngine:
                     f"MOM {ms:.0f} + QUALITY {q:.0f} (blend {int(b*100)}%) = {score:.0f}"
                 )
             else:
-                score, components = compute_score(t, history[t], bench, history, cfg)
-                reasoning = reasoning_text(components, score)
+                score, components = compute_score(t, history[t], bench, history,
+                                                  cfg, mode=cfg.mode)
+                from .scoring import weights_for as _wf
+                reasoning = reasoning_text(components, score, _wf(cfg.mode))
             timing_pass, timing_diag = timing_ok(history[t], cfg)
             # OWNER ORDER 2026-09-11 ("go with these formula" / "ash08 68"):
             # every scanned name carries the ASH08 and AshStocks verdicts
@@ -832,7 +834,8 @@ class TradingEngine:
                 # a capitulation-reversal bar rarely forms a textbook
                 # bullish structure, and double-gating would starve the
                 # engine the owner just approved.
-                if not pick.get("ocean"):
+                from .candles import candle_gate_applies
+                if not pick.get("ocean") and candle_gate_applies(cfg):
                     ok_candle, candle_why = candle_confirmation(tic_hist, cfg)
                     if not ok_candle:
                         skipped.append({
@@ -2191,8 +2194,9 @@ class TradingEngine:
         The 2026-07-27 park is superseded by the approval. What replaced
         the missing guard, all evidence-traced (engines/ocean.py):
         R1 VIX knife (v4's measured VIX-crush is the only tested dip
-        entry), R2 the owner's own 0.213 damage cluster on the canonical
-        store, R3 per-stock reclaim (no fresh 20d low, close above prior
+        entry), R2 the damage cluster on the canonical store judged against
+        the panel's own 90th percentile (2026-10-04; was the fixed 0.213,
+        ON 84% of days on our list), R3 per-stock reclaim (no fresh 20d low, close above prior
         high), R4 the 12 VERIFIED danger tripwires as a veto. Every block
         journals its rail; unknowable = blocked, never assumed safe.
         """

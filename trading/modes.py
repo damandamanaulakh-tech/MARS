@@ -15,8 +15,12 @@ Before this, `short` held 7 days and `swing` held 60 — the app's short was
 SHORTER than its swing, the opposite of what those words mean to the owner.
 Targets are now k x ATR per horizon (see ATR_TARGET_K), not fixed percentages.
 
-Each preset overrides AM07_WEIGHTS and exit thresholds. The engine reads
-`cfg.mode` and applies the preset at scoring time.
+Each preset overrides AM07_WEIGHTS and exit thresholds. The weights are
+read at scoring time by scoring.weights_for(mode) — for intraday, short,
+swing and positional. That was only true on paper until 2026-10-04 (owner:
+"use each category's weights"); before then every category scored with the
+global weights (= the swing preset). Momentum ranks on its own blend, not
+the composite, so its preset below is never used to buy.
 """
 
 from __future__ import annotations

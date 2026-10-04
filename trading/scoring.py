@@ -17,7 +17,7 @@ compute functions changed, as designed.
 
 from __future__ import annotations
 
-from typing import Dict, Tuple
+from typing import Optional, Dict, Tuple
 
 import numpy as np
 import pandas as pd
@@ -162,14 +162,36 @@ def _analyst_revision_score(ticker: str) -> float:
         return 50.0
 
 
+# OWNER ORDER 2026-10-04 ("use each category's weights"). modes.WEIGHTS has
+# carried a weight preset per category since the modes were built, and the
+# module docstring said "the engine reads cfg.mode and applies the preset at
+# scoring time" — but nothing ever did: every category scored with the global
+# AM07_WEIGHTS (which equal the swing preset), so intraday, short and
+# positional differed only by their pass marks. Swing is unchanged by this;
+# the other three now score on their own weights. Momentum does not use the
+# composite to buy (it ranks on the momentum+quality blend), so it and any
+# unknown mode keep the global weights.
+COMPOSITE_MODES = ("intraday", "short", "swing", "positional")
+
+
+def weights_for(mode: Optional[str]) -> Dict[str, float]:
+    """The composite weights a category scores with."""
+    if mode in COMPOSITE_MODES:
+        from .modes import WEIGHTS
+        return WEIGHTS[mode]
+    return AM07_WEIGHTS
+
+
 def compute_score(
     ticker: str,
     history: pd.DataFrame,
     benchmark: pd.DataFrame | None,
     universe_history: Dict[str, pd.DataFrame],
     cfg: Config,
+    mode: Optional[str] = None,
 ) -> Tuple[float, Dict[str, float]]:
-    """Return (total_score, per_component_scores) for one stock."""
+    """Return (total_score, per_component_scores) for one stock, weighted
+    by `mode`'s preset (default: cfg.mode)."""
     close = history["Close"]
     volume = history["Volume"]
     bench_close = benchmark["Close"] if benchmark is not None and not benchmark.empty else None
@@ -238,7 +260,8 @@ def compute_score(
     except Exception:
         pass
 
-    total = sum(components[k] * AM07_WEIGHTS[k] for k in AM07_WEIGHTS)
+    weights = weights_for(mode if mode is not None else getattr(cfg, "mode", None))
+    total = sum(components[k] * weights[k] for k in weights)
     return total, components
 
 
@@ -281,15 +304,17 @@ def compute_hot_sectors(
     return {s for s, _ in top}
 
 
-def reasoning_text(components: Dict[str, float], total: float) -> str:
+def reasoning_text(components: Dict[str, float], total: float,
+                   weights: Optional[Dict[str, float]] = None) -> str:
     """One-line explainability for a pick.
 
     AUDIT FIX B9: components sitting exactly at neutral 50 are excluded from
     "Top drivers" — a factor whose feed fell back to its neutral default
     (catalyst without a key, analyst unfetchable) must not be presented as a
     reason the stock was picked. A neutral factor drives nothing anyway."""
+    w = weights or AM07_WEIGHTS
     top = sorted(
-        [(k, v * AM07_WEIGHTS[k]) for k, v in components.items()
+        [(k, v * w.get(k, 0.0)) for k, v in components.items()
          if k not in STUB_COMPONENTS and v != 50.0],
         key=lambda x: -x[1],
     )[:3]
@@ -332,11 +357,11 @@ def score_for_mode(mode: str, ticker: str, hist: pd.DataFrame,
             from .strategies.nifty200_momentum import momentum_score
             from .quality import quality_score, blend_scores
         except ImportError:
-            return compute_score(ticker, hist, bench, history, cfg)
+            return compute_score(ticker, hist, bench, history, cfg, mode=mode)
         s = momentum_score(hist["Close"])
         if s is None:
             return missing, {MOMENTUM_MODE: missing}
         q = quality_score(hist["Close"], hist.get("Volume"))
         blended = blend_scores(float(s), q, getattr(cfg, "quality_blend_pct", 0.0))
         return blended, {"momentum": float(s), "quality": q}
-    return compute_score(ticker, hist, bench, history, cfg)
+    return compute_score(ticker, hist, bench, history, cfg, mode=mode)

@@ -47,13 +47,21 @@ are impossible now.
    at the size that record supports (never below ₹1,50,000, never raised).
    The reading is on the Risk page; Settings switches it off. Your own BUY
    button and the Buy Desk are never blocked by it.
+   **Momentum buys no longer wait for a candle pattern** (your order
+   2026-10-04, "off for momentum" — 12 years measured, the wait added
+   nothing). Intraday, short, swing and positional still wait, and each of
+   those four now scores with its OWN weights (same order; before, all four
+   used the swing weights).
    Each stock must also be rising on its own (not just "least bad").
    **What a trade is worth, all three cases:** a normal (Everest) entry is
    the slab ladder above — **at least ₹1,50,000** (₹1,25,000 under the old
    fixed rule, still selectable in Settings); an **Ocean** dip-engine entry is **₹1,68,750 — 35% MORE than a
    normal trade** (your order 2026-08-30, replacing the half size you
    approved on 2026-08-26; max 8 Ocean slots, so at most ₹13.5L in the
-   dip engine at once); and **nothing below ₹25,000 ever
+   dip engine at once — and Ocean only buys behind its four safety rails,
+   whose damage rule now uses the panel's own top-10% line (your order
+   2026-10-04; the fixed 0.213 was ON 84% of days, so Ocean had bought
+   nothing in 12 years of data); and **nothing below ₹25,000 ever
    opens** — that is a dust guard from 2026-07-11, and a trade that small
    is skipped outright, not shrunk to fit.
 2. **Sell by rails, not feelings:** every position carries **−5% stop /

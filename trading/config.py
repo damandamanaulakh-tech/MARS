@@ -215,9 +215,11 @@ class Config:
     # only engine able to open a position — and its picks skip the score
     # floor and the absolute-momentum gate. This flag is that missing park
     # switch. OWNER APPROVAL 2026-08-26 ("Approve as specced"): the crash
-    # guard is wired (engines/ocean.py — VIX knife rail, 0.213 damage rail,
-    # per-stock reclaim, danger veto) and Ocean now runs in PARALLEL with
-    # Everest at HALF size behind it. Default ON by that approval; the
+    # guard is wired (engines/ocean.py — VIX knife rail, damage rail on the
+    # panel's own 90th percentile since 2026-10-04, per-stock reclaim, danger
+    # veto) and Ocean now runs in PARALLEL with Everest behind it (ticket
+    # Rs 1,68,750 since 2026-08-30 — the "HALF size" of the approval is
+    # superseded). Default ON by that approval; the
     # Settings toggle still parks it.
     ocean_enabled: bool = True
     # Owner order 2026-08-30 ("when ocean activate it will use more in of
@@ -340,6 +342,14 @@ class Config:
                               "morning_doji_star")
     candle_breakout_lookback: int = 20
     candle_volume_mult: float = 1.5
+    # OWNER ORDER 2026-10-04 ("off for momentum"): categories whose entries do
+    # NOT wait for a candle pattern. Measured on the committed 191-stock panel
+    # (543 Fridays, 2015-2026): the gate held back 65% of momentum picks, and
+    # picks WITH a pattern did worse in 2015-2020 (+1.4% vs +2.5% over 60
+    # days) and about the same after (+8.5% vs +7.9%) — no measured benefit.
+    # The pattern is still computed and SHOWN; it just no longer blocks a
+    # momentum buy. The other four categories keep the gate.
+    candle_confirm_skip_modes: tuple = ("nifty200_momentum",)
     # F7 (user-approved 2026-07-11): never open dust positions — a position
     # whose notional is below this is skipped (IDEA-12-shares problem).
     min_position_value: float = 25000.0

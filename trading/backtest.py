@@ -499,7 +499,8 @@ def _try_open_positions(
         # backtests measure the same entry discipline.
         try:
             from .candles import candle_confirmation as _cc
-            if not _cc(hist, cfg)[0]:
+            from .candles import candle_gate_applies as _cga
+            if _cga(cfg) and not _cc(hist, cfg)[0]:
                 continue
         except Exception:
             pass
@@ -542,7 +543,9 @@ def _try_open_positions(
         if getattr(cfg, "mode", "") == "nifty200_momentum":
             reasoning = f"NIFTY200_MOMENTUM: 6m+12m sharpe {pick['score']:.1f}/100"
         else:
-            reasoning = reasoning_text(pick["components"], pick["score"])
+            from .scoring import weights_for as _wf
+            reasoning = reasoning_text(pick["components"], pick["score"],
+                                       _wf(getattr(cfg, "mode", None)))
         portfolio.positions[ticker] = PaperPosition(
             ticker=ticker, qty=qty, entry_price=fill,
             entry_date=datetime.combine(next_date, datetime.min.time()),
