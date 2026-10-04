@@ -40,6 +40,12 @@ def test_scan_shows_the_funnel_and_divides_at_the_fundable_line():
     # Sized on the live ladder (audit F-14): the fixture picks have no stored
     # history, so each costs the slab — three slabs plus change is 3 slots.
     slab = state.cfg().position_slab_value
+    # Pins the CASH arithmetic: on this Rs 4.5 lakh fixture book the category
+    # cash share (owner order 2026-10-04) would bind first — that rule is
+    # pinned in test_category_budgets_page_2026_10_04.py / the trading tests.
+    cfg = state.cfg()
+    budgets_were = cfg.category_budgets_enabled
+    cfg.category_budgets_enabled = False
     p, old = _with_picks(6, cash=3 * slab + 500.0)
     try:
         html = _client().get("/scan").text
@@ -52,6 +58,7 @@ def test_scan_shows_the_funnel_and_divides_at_the_fundable_line():
         for i in range(6):                      # every pick still on the page
             assert f"PK{i:02d}.NS" in html
     finally:
+        cfg.category_budgets_enabled = budgets_were
         p.last_scan_picks, p.cash = old
         p.save()
 

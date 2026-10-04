@@ -462,6 +462,12 @@
     = {{ slots.slots_by_cash }} by cash · {{ slots.slots_by_ceiling }} open under the {{ slots.max_positions }}-position cap
     ({{ slots.open_count }} held) · binding limit: <strong>{{ slots.limiting }}</strong>.
   </span>
+  {% if slots.category_left is not none %}
+  <div class="text-xs mt-1 {% if slots.budget_binds %}text-amber-800{% else %}text-ink-soft{% endif %}" data-category-budget="category_budget_slot_marker">
+    These picks are <strong>{{ slots.category }}</strong>, whose cash share has ₹{{ slots.category_left | inr(0) }} left
+    — each category spends only its own share (owner order 2026-10-04, momentum 40%, the other four 15% each; Risk page shows all five).
+  </div>
+  {% endif %}
   <div class="text-xs text-ink-faint mt-1">
     Your funnel: the list below is ranked, and everything past the divider cannot be funded at today's cash —
     shown, never hidden. Each pick is sized the way the engine sizes it (score + stored price history; the

@@ -38,8 +38,10 @@ def strategy_view(request: Request):
     # 2026-10-04: show the weights the score REALLY uses (scoring.weights_for).
     # This page used to print modes.get_weights(mode), which no scorer read —
     # every category scored on the global weights until the owner ordered
-    # "use each category's weights". Momentum buys on its own blend, so for
-    # momentum the composite table is shown as the exit/display ruler only.
+    # "use each category's weights". Momentum buys AND (since audit F-1) is
+    # judged for exits on its own momentum/quality blend, so for momentum the
+    # composite table is shown for reference only — it moves no momentum
+    # trade (copy corrected 2026-10-04; it claimed an exit role it lost).
     from trading.scoring import weights_for
     active_weights = weights_for(getattr(cfg, "mode", "swing"))
 

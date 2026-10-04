@@ -224,6 +224,10 @@ def run_backtest(
     from .universes_pit import PITUniverse
     pit = PITUniverse.from_dir(static_fallback=universe)
     universe_tags: set = set()
+    from .category_budget import share as _cb_share
+
+    def _category_share(c):
+        return _cb_share(c, getattr(c, "mode", None))
     _SURVIVORSHIP_WARNING = (
         "Survivorship bias: tests today's universe composition (delisted "
         "stocks missing). Estimated 2-4% CAGR inflation.")
@@ -233,7 +237,12 @@ def run_backtest(
         # survivorship-biased. Appended later only when PIT did NOT run.
         "LIVE-GATE GAP: this replay does not model the breadth gate, the "
         "VIX-crush re-entry, the spread gate or the IFR throttle — it tests "
-        "the core recipe, not the full live rulebook.",
+        "the core recipe, not the full live rulebook."
+        + (" It also runs ONE category with the whole book, while live each "
+           "category spends only its own cash share "
+           f"({cfg.mode}: {_category_share(cfg) * 100:.0f}% of deployable "
+           "capital, owner order 2026-10-04)."
+           if _category_share(cfg) is not None else ""),
         "Fundamental components (earnings_growth, catalyst, analyst_revision) "
         "forced to neutral 50 in backtest — yfinance has no historical "
         "fundamentals snapshot.",

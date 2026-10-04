@@ -283,7 +283,7 @@ def apply_blocklist(universe: list[str], held, blocklist) -> list[str]:
 # ---------------------------------------------------------------------------
 
 # Sector map for the custom-universe names the Nifty-200 map doesn't cover
-# (CODEX REVIEW FIX, PR #68): unmapped names all read "Unknown", and
+# (REVIEW FIX, PR #68): unmapped names all read "Unknown", and
 # risk.can_open counts every Unknown position as ONE sector for
 # max_sector_positions — so a book of unmapped small-caps would have hit
 # sector_cap_reached on completely unrelated companies. Same 19-sector

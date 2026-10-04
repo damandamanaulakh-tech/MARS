@@ -32,13 +32,19 @@ EDITABLE_FIELDS = [
     ("starting_capital",        "Starting Capital (Rs)",  "Capital", "number", 1000, "Total paper capital to simulate", False),
     ("cash_reserve_pct",        "Cash Reserve %",          "Capital", "number", 0.5,  "Always keep this % in cash", True),
     ("position_size_value",     "Position Size (Rs)",      "Capital", "number", 1000, "Fixed Rs per new trade — used when Sizing Mode is 'fixed'", False),
-    ("sizing_mode",             "Sizing Mode",             "Capital", "text",   None, "half_kelly = size by edge (owner order 2026-07-30) · fixed = flat Position Size", False),
+    ("sizing_mode",             "Sizing Mode",             "Capital", "text",   None, "slab = LIVE (owner order 2026-09-10): score-driven size on a Rs 1.5 lakh floor · fixed = flat Position Size · half_kelly = Kelly with no slab", False),
     ("kelly_fraction",          "Kelly Fraction",          "Capital", "number", 0.05, "0.5 = half-Kelly (75% of max growth, 12.5% halving risk). NEVER above 1.0", False),
     ("kelly_ic",                "Kelly IC (assumed edge)", "Capital", "number", 0.01, "Assumed information coefficient. Higher = bigger bets. 0.05 is realistic", False),
     ("kelly_max_pct",           "Kelly Max % per Position","Capital", "number", 0.5,  "Hard ceiling per name under Kelly sizing", True),
     ("max_position_pct",        "Max % per Position",      "Capital", "number", 0.5,  "Fallback sizing when Position Size (Rs) is 0", True),
     ("max_positions",           "Max Open Positions",      "Capital", "number", 1,    "Total positions at once", False),
     ("max_sector_positions",    "Max Positions per Sector","Capital", "number", 1,    "Diversification cap", False),
+    ("category_budgets_enabled","Category Cash Shares On (1/0)","Capital","number", 1,  "OWNER ORDER 2026-10-04 ('fix it so all 5 categories get cash'). 1 = each category spends only its own share of the deployable capital, so momentum (scanned first at 09:20) cannot use up the cash before intraday/short/swing/positional are scanned. A share left unused stays as cash. 0 = one shared pot (momentum first). Usage on the Risk page", False),
+    ("budget_share_momentum",   "Momentum Cash Share %",   "Capital", "number", 1,    "Share of deployable capital momentum may spend (owner pick: 40)", True),
+    ("budget_share_intraday",   "Intraday Cash Share %",   "Capital", "number", 1,    "Owner pick: 15. Returns to cash every day at the 15:25 square-off", True),
+    ("budget_share_short",      "Short Cash Share %",      "Capital", "number", 1,    "Owner pick: 15", True),
+    ("budget_share_swing",      "Swing Cash Share %",      "Capital", "number", 1,    "Owner pick: 15", True),
+    ("budget_share_positional", "Positional Cash Share %", "Capital", "number", 1,    "Owner pick: 15. The five shares should add up to 100", True),
     ("stop_loss_pct",           "Stop Loss %",             "Risk",    "number", 0.5,  "Hard floor (negative % e.g. -12)", True),
     ("take_profit_pct",         "Take Profit %",           "Risk",    "number", 0.5,  "Full exit target %", True),
     ("trailing_stop_pct",       "Trailing Stop %",         "Risk",    "number", 0.5,  "From peak price (negative %)", True),
@@ -414,9 +420,26 @@ def _settings_save_body(form):
     # fat-finger would silently re-enable edge-based sizing AGAINST the
     # owner's written 2026-08-04 order ("fixed Rs 1.25L each"). A typo now
     # lands on the owner's standing choice, never on mine.
-    if str(getattr(cfg, "sizing_mode", "")).lower() not in ("fixed", "kelly", "half_kelly"):
-        cfg.sizing_mode = "fixed"
-        overrides["sizing_mode"] = "fixed"
+    # FIX 2026-10-04: "slab" — the LIVE mode since the owner's 2026-09-10
+    # order ("no flat size to follow") — was missing from this list, so
+    # EVERY Settings save, whatever field it changed, rewrote the live
+    # sizing to "fixed" (flat Rs 1.25 lakh, and a score just over the floor
+    # bought at full size). The owner's standing choice is slab, so slab is
+    # also where a typo lands now.
+    if str(getattr(cfg, "sizing_mode", "")).lower() not in (
+            "slab", "fixed", "kelly", "half_kelly"):
+        cfg.sizing_mode = "slab"
+        overrides["sizing_mode"] = "slab"
+    # Owner order 2026-10-04: a category's cash share is a fraction of the
+    # deployable capital — never negative, never more than all of it.
+    for _f in ("budget_share_momentum", "budget_share_intraday",
+               "budget_share_short", "budget_share_swing",
+               "budget_share_positional"):
+        _v = float(getattr(cfg, _f, 0.0) or 0.0)
+        _c = min(1.0, max(0.0, _v))
+        if _c != _v:
+            setattr(cfg, _f, _c)
+            overrides[_f] = _c
     if float(getattr(cfg, "kelly_fraction", 0.5)) > 1.0:
         cfg.kelly_fraction = 1.0
         overrides["kelly_fraction"] = 1.0

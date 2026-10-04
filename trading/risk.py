@@ -42,13 +42,19 @@ def can_open(
     fill_price: float,
     cfg: Config,
     notional_override: float | None = None,
+    category: str | None = None,
 ) -> tuple[bool, str, int]:
     """Decide whether a new position can open. Returns (ok, reason, qty).
 
     `notional_override` is the per-stock rupee size the caller computed (½-Kelly,
     owner order 2026-07-30). It replaces the flat per-trade size but is still
     subject to EVERY gate below — cash, reserve, sector count, sector capital,
-    portfolio heat, min position value. Sizing got smarter; nothing got looser."""
+    portfolio heat, min position value. Sizing got smarter; nothing got looser.
+
+    `category` is the trade category the entry opens under (owner order
+    2026-10-04, "fix it so all 5 categories get cash"): its share of the
+    deployable capital is one more ceiling on the headroom. None (the
+    default, and Ocean) = no category budget, the pre-2026-10-04 gate."""
     if risk.kill_switch:
         return False, "kill_switch_active", 0
 
@@ -76,6 +82,17 @@ def can_open(
     else:
         per_stock_cap = cfg.position_notional()
     headroom = min(per_stock_cap, deploy_cap - deployed, cash)
+
+    # OWNER ORDER 2026-10-04: per-category cash budget (trading/
+    # category_budget.py). A remainder under the slab is a FULL budget, never
+    # a dust trade — the same floor the IFR throttle respects.
+    if category is not None:
+        from . import category_budget as cb
+        left = cb.room(cfg, open_positions, category, base_capital)
+        if left is not None:
+            if left < max(cb.min_open(cfg), fill_price):
+                return False, "category_budget_full", 0
+            headroom = min(headroom, left)
     if headroom <= 0:
         return False, "no_headroom", 0
 

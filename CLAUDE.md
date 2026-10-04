@@ -1365,7 +1365,7 @@ not fixed") — FOUND AND FIXED (PR #69), 930 tests. READ THIS FAULT CLASS.**
   explanatory comment (same as the F1 test). Strip comment lines before
   asserting on source. Twice now — do not make it three.
 
-**CODEX REVIEW ON PR #68 — ALL FIVE FINDINGS REAL, ALL FIXED same day,
+**EXTERNAL REVIEW ON PR #68 — ALL FIVE FINDINGS REAL, ALL FIXED same day,
   926 tests:** (1) custom universe now governs EVERY mode, not just
   momentum — the 09:20 rotation's short/swing/positional passes could
   otherwise BUY outside the 50 and overwrite /scan with off-list rows.
@@ -2210,8 +2210,10 @@ positional & N200 momentum execute the trades".
   **NOT done, and told to the owner: git history was NOT rewritten** — that
   would break every clone, the open PRs and the release assets. "History"
   taken as "every place it still appears".
-- **CODEX GONE from the repo** — 11 files de-named (findings kept, the
-  reviewer's name removed) + CLAUDE.md. **The bot itself is a GitHub App on
+- **The bot reviewer's name GONE from the repo** — 11 files de-named
+  (findings kept, the reviewer's name removed) + CLAUDE.md. (INCOMPLETE —
+  7 comments and one CLAUDE.md heading still carried it; found and cleared
+  2026-10-04.) **The bot itself is a GitHub App on
   the account, NOT a repo file — only the owner can uninstall it** (told
   them; its quota is exhausted anyway so it posts nothing but a limit
   notice).
@@ -4100,6 +4102,61 @@ fix"). MEASURED, then four questions, then fixed. 1,478 tests.**
   momentum) · the 30-minute exit pass waits (no timeout) behind the 09:20
   rotation's mode lock, so stop checks pause while the rotation runs —
   live duration unknown (journal timestamps answer it).
+**CATEGORY CASH SHARES 2026-10-04 (owner: "fix it so all 5 categories get
+cash", picked "Momentum 40%, others 15%"). 1,508 tests.**
+- WHY, measured with real engine code (scratchpad replay.py, 4 month-long
+  windows, OLD code): momentum opened 64-158 trades/month, the other four
+  0-11 each, **positional ZERO in every window** — momentum runs first at
+  09:20 and spent the cash before they were scanned.
+- `trading/category_budget.py` (pure): share is of DEPLOYABLE capital
+  (equity x (1 - regime reserve)) so a correction shrinks all five alike;
+  used = entry cost (the deploy-cap convention); category = `pos.mode`
+  (blank = momentum, "ocean" tag = exempt); unused share stays cash, never
+  lent. `cfg.category_budgets_enabled` + `budget_share_{momentum,intraday,
+  short,swing,positional}` (Settings, % fields, clamped 0-100 on save).
+- `risk.can_open(category=)`: room < max(slab, fill) = `category_budget_full`;
+  else headroom capped at room. Engine passes cfg.mode (None for Ocean);
+  CATEGORY_BUDGET_FULL journaled once/category/day. Owner BUY + Buy Desk not
+  gated but count as momentum. Backtest NOT budgeted (one category at a
+  time) — gap stated in its warning.
+- **Rotation**: when the SHARE (not cash) is short, only SAME-category
+  holdings may be sold, counted at ENTRY cost; if every near-target holding
+  together cannot make room for one trade, nothing is sold
+  (ROTATION_BUDGET_FULL). Behaviour change, say it: momentum over its share
+  + a momentum name >=90% to target => that name rotates to fund a fresh
+  momentum pick even with cash plentiful. MY FIRST CUT sold 2 names for a
+  pick that still couldn't buy (market value vs entry cost) — caught by an
+  old tiny-book test. Old cash-rule rotation/slot tests now run with shares
+  OFF (Rs 11k / 4.5L fixture books make the share bind first).
+- /risk card (category_budget_marker), /scan slot card names the picks'
+  category share (category_budget_slot_marker, `slot_view(category=)`).
+- **SAME PR, found by the 2026-10-04 review workflow + my own read:**
+  (1) **EVERY Settings save rewrote sizing "slab" -> "fixed"** (validation
+  list never learned "slab"; flat Rs 1.25L trades) — fixed, typo -> slab,
+  one-time boot migration `slab_restore_2026_10_04` clears a stored "fixed"
+  (`state._migrate_slab_restore`). Live box state unknown: the BUY
+  journal's config_snapshot.sizing_mode answers whether it bit.
+  (2) danger leash read the LIVE cfg stop: a positional holding's -10% got
+  tightened to momentum's -5% — now `_exit_cfg(pos)`. (3) HOLD journal text
+  printed the live mode's numbers — now the position's own. (4) /signal
+  printed AM07_WEIGHTS for every category — now `weights_for(mode)`.
+  (5) /strategy momentum note claimed an exit role it lost at F-1.
+  (6) 7 leftover reviewer-name comments removed (the 08-30 claim was
+  incomplete).
+- **VERIFIED BY REPLAY (2024-01, real engine code, NEW code):** opens
+  momentum 65 / intraday 27 / short 30 / swing 32 / positional 1 (OLD code
+  same month: 158 / 2 / 1 / 0 / 0). Positional is no longer cash-starved
+  (Rs 2.46 Cr free when its pass started) — its picks were mostly ALREADY
+  HELD by an earlier category (213 refusals; one stock can only be held
+  once) plus its strict 68 floor. Trade-off stated: the book ran ~50%
+  deployed (Rs 2.5-2.7 Cr cash at each pass) because the four smaller
+  shares did not fill. The measured-Kelly check also blocked 632 momentum
+  picks mid-month once the replay's own closed trades showed no edge.
+- STILL OPEN, flagged not changed: 30-min exit pass waits behind the 09:20
+  rotation lock and APScheduler DROPS the waiting runs (max_instances 1);
+  14:30 top-up scans only cfg.mode; filings job reads yesterday's picks;
+  pooled measured Kelly; slab is not a hard minimum when cash/heat trims
+  (down to Rs 25k); swing's floor 60 is below momentum's 62 (owner preset).
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never

@@ -1650,7 +1650,7 @@ def _weekly_history_topup() -> None:
         from trading.history_store import top_up_history
         tickers = {m["ticker"] for m in db.list_history_meta() if m.get("ticker")}
         tickers |= set(eng.portfolio.positions.keys())
-        # CODEX REVIEW FIX (PR #68): the scope used to be "already stored +
+        # REVIEW FIX (PR #68): the scope used to be "already stored +
         # held", so the store could never GROW — it sat at the original 191
         # names, which also starved the F3 breadth reading of the wide
         # sample it claims. The full universe file (~2,400 tradeable names)

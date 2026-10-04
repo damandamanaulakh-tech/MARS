@@ -25,6 +25,11 @@ NOW = datetime(2026, 9, 4, 9, 25)
 
 def _eng(tmp_path, cash: float):
     cfg = Config(state_dir=str(tmp_path), mode="nifty200_momentum")
+    # These pin the CASH rule. On a Rs 3.5 lakh fixture book every holding
+    # is momentum, so the 40% momentum share (owner order 2026-10-04) would
+    # bind first; the share rule has its own tests in
+    # test_category_budgets_2026_10_04.py.
+    cfg.category_budgets_enabled = False
     p = Portfolio.fresh(cfg)
     p.cash = cash
     return TradingEngine(cfg=cfg, portfolio=p)

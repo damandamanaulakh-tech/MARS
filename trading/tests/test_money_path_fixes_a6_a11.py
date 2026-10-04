@@ -20,12 +20,17 @@ from trading.modes import get_preset
 
 # --------------------------------------------------------- A6: typo fallback
 
-def test_a_sizing_mode_typo_lands_on_fixed_not_kelly():
+def test_a_sizing_mode_typo_lands_on_the_owners_choice_not_kelly():
+    """A6 intent: a typo lands on the owner's standing choice, never on
+    Kelly. That choice was "fixed" (2026-08-04) and is "slab" since the
+    2026-09-10 order — the 2026-10-04 fix also stopped the save rewriting a
+    correct "slab" to "fixed" (behaviour pinned in
+    web/tests/test_category_budgets_page_2026_10_04.py)."""
     from pathlib import Path
     src = Path("web/routes/settings_routes.py").read_text()
-    guard = src.split('not in ("fixed", "kelly", "half_kelly")')[1][:200]
-    assert 'cfg.sizing_mode = "fixed"' in guard, \
-        "a typo re-enables Kelly against the owner's written order"
+    guard = src.split('"slab", "fixed", "kelly", "half_kelly")')[1][:200]
+    assert 'cfg.sizing_mode = "slab"' in guard, \
+        "a typo must land on the owner's standing choice (slab)"
     assert '= "half_kelly"' not in guard
 
 
