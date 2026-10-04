@@ -30,6 +30,9 @@ are impossible now.
 
 ## The strategy, in plain words (the "final set" — earned by testing, not opinion)
 
+**This is Final Set V1.1 (your order 2026-10-04).** The full one-page record,
+every number checked against the code, is `docs/FINAL_SET_V1_1.md`.
+
 1. **Buy strength:** rank stocks by how strongly they've risen over 6 and 12
    months, adjusted for how wildly they swing, and buy above score 62 (your
    floor, 2026-07-30). **Trade size = the slab rule (your order 2026-09-10,
