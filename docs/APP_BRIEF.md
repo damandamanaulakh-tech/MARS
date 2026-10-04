@@ -19,9 +19,10 @@ down every single decision it makes — nothing is ever hidden or deleted.
 | **your login** | The ONE thing only you can do. Any time of day — the moment you connect, a missed morning scan runs itself |
 | 08:50 | Refreshes the full NSE list from Upstox (auto — ~2,400+ stocks, new listings enter same day) |
 | 09:20 | Scans the market: momentum first (a fresh ~50-stock slice of the whole NSE list daily, spread across the alphabet, plus everything held), then intraday, short, swing, positional — all five categories execute trades (your order 2026-08-30) |
-| 14:30 | Top-up scan if the book is under-invested |
+| every 30 min, 09:15-15:30 | Checks every stop and target at live prices (your order 2026-09-10). While a scan is running, the scan itself runs this check between categories, so no 30-minute slot is skipped (your order 2026-10-04) |
+| 14:30 | A second scan of all five categories, each within its own cash share (your order 2026-10-04 — it used to scan one category and stop at 60% invested) |
 | 15:25 | Force-sells every intraday position — no exceptions, ever |
-| 15:35 | Marks all positions at live prices and fires the exit rules |
+| 15:35 | Marks all positions at the closing prices (no buying or selling after 15:30) |
 | always | Journals every buy, sell, hold, failure and reason |
 
 If a scan fails you SEE it (journal shows SCAN_FAILED). Silent dead mornings
@@ -72,9 +73,12 @@ are impossible now.
    dip engine at once — and Ocean only buys behind its four safety rails,
    whose damage rule now uses the panel's own top-10% line (your order
    2026-10-04; the fixed 0.213 was ON 84% of days, so Ocean had bought
-   nothing in 12 years of data); and **nothing below ₹25,000 ever
-   opens** — that is a dust guard from 2026-07-11, and a trade that small
-   is skipped outright, not shrunk to fit.
+   nothing in 12 years of data); and **nothing below ₹1,50,000 ever
+   opens from a scan** (your order 2026-10-04, "no 25 k is needed" — the
+   old ₹25,000 dust guard is gone). When cash, a category's share, the
+   sector limit or the risk limit leaves less than ₹1.5 lakh, the trade is
+   rounded up to ₹1.5 lakh if there is room, otherwise it is skipped —
+   never opened small.
 2. **Sell by rails, not feelings:** every position carries **−5% stop /
    +20% target** from day one (your calls: stop 2026-07-26; target raised
    +12→+20 on 2026-08-24 — you picked "Switch to D" after both exit

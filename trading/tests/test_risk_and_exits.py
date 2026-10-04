@@ -214,6 +214,9 @@ def test_portfolio_heat_shrinks_qty_to_fit():
     cfg = _cfg(starting_capital=10_00_000, cash_reserve_pct=0.0,
                max_position_pct=1.0, max_positions=99, max_sector_positions=99,
                stop_loss_pct=-0.50, max_portfolio_heat_pct=0.25)
+    # This pins the HEAT arithmetic; the Rs 1.5 lakh minimum (2026-10-04)
+    # would refuse the Rs 1 lakh that fits, and has its own tests.
+    cfg.min_position_value = 0.0
     risk = RiskState(cfg=cfg, starting_capital=cfg.starting_capital)
     # 4 positions * 50000 heat = 200000 = 20%. Remaining 5% = 50000 heat budget.
     # At 100 price * 50% stop = 50 heat/share -> 1000 shares fit.

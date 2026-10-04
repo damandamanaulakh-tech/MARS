@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 from .config import Config
@@ -31,6 +32,17 @@ class RiskState:
         if self.daily_pnl_pct(current_equity) <= self.cfg.daily_loss_halt_pct:
             self.kill_switch = True
         return self.kill_switch
+
+
+def min_trade_value(cfg: Config, target: float | None = None) -> float:
+    """The smallest trade a scan may open (owner order 2026-10-04: Rs 1.5
+    lakh, "no 25 k is needed"). Never above the trade's own target size, so
+    a mode whose whole ticket is smaller (the legacy fixed Rs 1,25,000)
+    still opens its own size instead of being refused outright."""
+    floor = float(getattr(cfg, "min_position_value", 0) or 0)
+    if target is not None and target > 0:
+        floor = min(floor, float(target))
+    return max(0.0, floor)
 
 
 def can_open(
@@ -86,6 +98,8 @@ def can_open(
     # OWNER ORDER 2026-10-04: per-category cash budget (trading/
     # category_budget.py). A remainder under the slab is a FULL budget, never
     # a dust trade — the same floor the IFR throttle respects.
+    # The money that may not be exceeded, whatever the rounding below does.
+    hard_room = min(deploy_cap - deployed, cash)
     if category is not None:
         from . import category_budget as cb
         left = cb.room(cfg, open_positions, category, base_capital)
@@ -93,8 +107,10 @@ def can_open(
             if left < max(cb.min_open(cfg), fill_price):
                 return False, "category_budget_full", 0
             headroom = min(headroom, left)
+            hard_room = min(hard_room, left)
     if headroom <= 0:
         return False, "no_headroom", 0
+    min_val = min_trade_value(cfg, per_stock_cap)
 
     qty = int(headroom // fill_price)
     if qty <= 0:
@@ -130,6 +146,7 @@ def can_open(
         if budget < fill_price:
             return False, "sector_exposure_cap", 0
         qty = min(qty, int(budget // fill_price))
+        hard_room = min(hard_room, budget)
 
     # v7: PORTFOLIO_HEAT gate (absorbed from G07 research framework).
     # Total open risk-at-stop = sum((entry - stop_price) * qty). Block the new
@@ -149,8 +166,17 @@ def can_open(
             qty = int(remaining / (fill_price * stop_frac))
             if qty <= 0:
                 return False, "portfolio_heat_cap", 0
+            if stop_frac > 0:
+                hard_room = min(hard_room, remaining / stop_frac)
 
-    min_val = float(getattr(cfg, "min_position_value", 0) or 0)
+    # OWNER ORDER 2026-10-04: nothing below the minimum opens. A trade that
+    # whole-share rounding or a trim left just short (93 x Rs 1,600 =
+    # Rs 1,48,800) is rounded UP to the minimum when every money limit above
+    # still has room; otherwise it is refused, never opened small.
     if min_val > 0 and qty * fill_price < min_val:
-        return False, f"below_min_value_{int(min_val)}", 0
+        need = int(math.ceil(min_val / fill_price))
+        if need * fill_price <= hard_room + 1e-6:
+            qty = need
+        else:
+            return False, f"below_min_value_{int(min_val)}", 0
     return True, "ok", qty

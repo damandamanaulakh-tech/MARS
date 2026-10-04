@@ -183,8 +183,14 @@ def test_a_skipped_top_up_still_checks_resting_orders(monkeypatch):
                         lambda where: checked.append(where))
     monkeypatch.setattr(scheduler, "_degraded_halt", lambda where: False)
     monkeypatch.setattr("trading.calendars.is_trading_day", lambda *a, **k: True)
-    monkeypatch.setattr(scheduler, "DEPLOYMENT_TARGET_PCT", -1.0)  # always "over"
+    # The 60%-deployed skip is gone (owner order 2026-10-04: the 14:30 pass
+    # scans all five categories, each on its own cash share). The one skip
+    # left is a rotation still running — and it still checks the orders.
     monkeypatch.setattr(state.engine(), "scan",
                         lambda *a, **k: pytest.fail("top-up must have skipped"))
-    scheduler._deployment_topup_scan()
+    assert scheduler._ROTATION_LOCK.acquire(blocking=False)
+    try:
+        scheduler._deployment_topup_scan()
+    finally:
+        scheduler._ROTATION_LOCK.release()
     assert checked == ["top-up-skip"]

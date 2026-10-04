@@ -4152,11 +4152,37 @@ cash", picked "Momentum 40%, others 15%"). 1,508 tests.**
   deployed (Rs 2.5-2.7 Cr cash at each pass) because the four smaller
   shares did not fill. The measured-Kelly check also blocked 632 momentum
   picks mid-month once the replay's own closed trades showed no edge.
-- STILL OPEN, flagged not changed: 30-min exit pass waits behind the 09:20
-  rotation lock and APScheduler DROPS the waiting runs (max_instances 1);
-  14:30 top-up scans only cfg.mode; filings job reads yesterday's picks;
-  pooled measured Kelly; slab is not a hard minimum when cash/heat trims
-  (down to Rs 25k); swing's floor 60 is below momentum's 62 (owner preset).
+- STILL OPEN after #149 (three of them closed the same day, below):
+  filings job reads yesterday's picks; pooled measured Kelly; swing's
+  floor 60 is below momentum's 62 (owner preset).
+**EXIT PASS + 14:30 + Rs 1.5L MINIMUM 2026-10-04 (owner: "fix the 30 min
+exit pass too / 14:30 scan as well / leave the 1.5 minimum value no 25 k is
+needed"). 1,521 tests (13 new, all fail on old code).**
+- `scheduler._run_category_rotation(eng, cfg, where)` = THE rotation, shared
+  by 09:20 and 14:30 (one held MODE_LOCK, owner mode restored in finally).
+  Before each category pass, inside market hours, when the last exit pass
+  is >= intraday_refresh_minutes old (`_LAST_EXIT_PASS`, monotonic), it runs
+  `engine.refresh()` itself — safe mid-rotation because refresh reads each
+  position's own `_exit_cfg`, never the shared cfg.mode (grep-verified).
+- `_session_refresh` waits at most `SESSION_EXIT_LOCK_WAIT_S` (60 s), then
+  stands down with a log line (ModeBusy) — it used to wait forever and
+  APScheduler DROPPED every run that fell due meanwhile.
+- 14:30 `_deployment_topup_scan` runs the five-category rotation under
+  `_ROTATION_LOCK` (skips if 09:20 still running). The 60%-of-starting-
+  capital skip and `DEPLOYMENT_TARGET_PCT` are GONE — with category shares
+  can_open stops a full category, and the book-wide line only blocked the
+  categories with room. Memory: 14:30 now costs what 09:20 costs (peak
+  measured 291-326 MiB at 09:20/16:45 on the 1,205-name universe).
+- `min_position_value` 25,000 -> 150,000 (= slab). `risk.min_trade_value
+  (cfg, target)` = min(floor, the trade's own target), so legacy fixed
+  Rs 1.25L still opens its own size. `can_open` tracks `hard_room` (deploy
+  room, cash, category room, sector budget, heat room) and ROUNDS UP a
+  short trade to the floor when hard_room allows (93 x Rs 1,600 -> 94),
+  else refuses `below_min_value_150000`. Engine post-throttle check uses
+  the same helper. Owner BUY/Buy Desk untouched (their qty).
+- Old pins updated, each with a comment: 60%-skip test -> rotation-busy skip;
+  heat-arithmetic test sets min 0; Kelly cash test uses Rs 2L; candle floor
+  test uses thin cash; silent-death source pins read _run_category_rotation.
 parameter pages closed the last two). COMMUNICATION (user demanded,
 binding): DISCUSS FIRST — no code until explicit yes; before any build,
 one line on what it changes for their money; user reads git — never
