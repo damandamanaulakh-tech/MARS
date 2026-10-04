@@ -103,6 +103,8 @@ class Config:
     #       Rs 25,000                  min_position_value
     #       user-approved 2026-07-11; a trade smaller than this is SKIPPED,
     #       not shrunk. It is a dust guard, never a target size.
+    #       RAISED 2026-10-04 to Rs 1,50,000 (owner: "leave the 1.5 minimum
+    #       value no 25 k is needed") — the slab is now the floor too.
     #
     # SUPERSEDED 2026-09-10 by the SLAB MODEL below. The three numbers above
     # are kept as the history of how the book was sized to that date.
@@ -126,8 +128,8 @@ class Config:
     #                   /8.0x; 0.50 -> 75%/12.5%/4.0x.)
     #   Rs 25,00,000    kelly_max_pct 5% of a Rs 5 Cr book — the hard ceiling.
     #
-    # Ocean keeps its own ticket (Everest + 35%) and the Rs 25,000 dust guard
-    # still skips anything smaller. Every sizing site goes through
+    # Ocean keeps its own ticket (Everest + 35%). Since 2026-10-04 nothing
+    # below the Rs 1,50,000 slab opens from a scan (min_position_value). Every sizing site goes through
     # sizing.position_notional_for(), so the knobs cannot disagree at runtime.
     # Guard test: test_entry_value_policy.
     # ------------------------------------------------------------------
@@ -371,7 +373,15 @@ class Config:
     candle_confirm_skip_modes: tuple = ("nifty200_momentum",)
     # F7 (user-approved 2026-07-11): never open dust positions — a position
     # whose notional is below this is skipped (IDEA-12-shares problem).
-    min_position_value: float = 25000.0
+    # OWNER ORDER 2026-10-04 ("leave the 1.5 minimum value no 25 k is
+    # needed"): Rs 25,000 -> Rs 1,50,000, the slab. Before this, cash, the
+    # category share, the sector cap or portfolio heat could trim a trade
+    # down to Rs 25,000. Now risk.can_open rounds a trimmed trade UP to the
+    # minimum when the money limits have room, and refuses it when they do
+    # not — a trade below Rs 1.5 lakh never opens from a scan. The effective
+    # floor never exceeds the trade's own target size (risk.min_trade_value),
+    # so the legacy fixed Rs 1,25,000 mode still opens its own size.
+    min_position_value: float = 150000.0
     # ---- market hours + in-session refresh (owner order 2026-09-10) ----
     # "trade are prohibited from now after market hours ... yes all block,
     # but i can run the advisery to review buy, watch and block list".

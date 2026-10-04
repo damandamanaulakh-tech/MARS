@@ -958,7 +958,10 @@ class TradingEngine:
                 qty = self._throttled_qty(
                     qty, throttle, fill,
                     float(getattr(cfg, "position_slab_value", 0) or 0))
-                min_val = float(getattr(cfg, "min_position_value", 0) or 0)
+                from .risk import min_trade_value
+                min_val = min_trade_value(
+                    cfg, notional_arg if notional_arg is not None
+                    else float(cfg.position_notional()))
                 if qty > 0 and min_val > 0 and qty * fill < min_val:
                     skipped.append({
                         "ticker": pick["ticker"],

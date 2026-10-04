@@ -21,6 +21,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
+import time
 from datetime import datetime
 from typing import Optional
 
@@ -121,7 +122,8 @@ def start_if_enabled() -> None:
             day_of_week="mon-fri", hour=9, minute=20,
             id="daily_multi_mode_scan",
         )
-        # Afternoon top-up: if deployment below 60%, scan again to fill book.
+        # Afternoon: a second pass of all five categories (owner order
+        # 2026-10-04, "14:30 scan as well"); each spends only its own share.
         _SCHED.add_job(
             _deployment_topup_scan, "cron",
             day_of_week="mon-fri", hour=14, minute=30,
@@ -433,40 +435,34 @@ def _square_off_pass() -> None:
 _DAILY_MODE_ORDER = ["nifty200_momentum", "intraday", "short", "swing",
                      "positional"]
 
-DEPLOYMENT_TARGET_PCT = 60.0   # weekly target gross deployment
-
-
 def _deployment_topup_scan() -> None:
-    """14:30 IST: if deployed < target, run another scan pass to fill book."""
+    """14:30 IST: a second pass of ALL FIVE categories (owner order
+    2026-10-04, "14:30 scan as well").
+
+    Before this it scanned ONE category — whatever `cfg.mode` held after the
+    09:20 rotation restored it, normally momentum — and skipped entirely
+    once 60% of the STARTING capital was deployed, so intraday, short, swing
+    and positional got exactly one chance a day. Now it runs the same
+    rotation as 09:20 (`_run_category_rotation`), and the old 60% skip is
+    gone: since the same day's order each category spends only its own cash
+    share (trading/category_budget.py), so `risk.can_open` already stops a
+    category that has spent its share, and a book-wide 60% line would only
+    stop the categories that still have room."""
     from trading.calendars import is_trading_day
     if not is_trading_day():
         return
     from . import state
     if _degraded_halt("14:30"):
         return
-    eng = state.engine()
-    p = state.portfolio()
-    cfg = state.cfg()
-    prices = {pos.ticker: pos.entry_price for pos in p.positions.values()}
-    deployed = p.deployed_value(prices)
-    deployed_pct = deployed / cfg.starting_capital * 100 if cfg.starting_capital else 0
-    if deployed_pct >= DEPLOYMENT_TARGET_PCT:
-        log.info("[14:30] Top-up skip: already %.0f%% deployed", deployed_pct)
-        # AUDIT S-7: skipping the top-up SCAN must not skip the owner's
-        # resting limit orders — they are the owner's trades, not the
-        # engine's, and the deployment target is the engine's rule.
+    if not _ROTATION_LOCK.acquire(blocking=False):
+        log.warning("[14:30] a category rotation is still running — skipped")
         _check_pending_orders("top-up-skip")
         return
-    log.info("[14:30] Top-up scan: %.0f%% deployed < %.0f%% target",
-             deployed_pct, DEPLOYMENT_TARGET_PCT)
-    from trading.modes import holding_mode_lock
     try:
-        with holding_mode_lock():           # audit S-6
-            res = eng.scan()
-        log.info("[14:30] Top-up result: %d opened, %d skipped",
-                 len(res.opened), len(res.skipped))
-    except Exception as e:
-        log.exception("Top-up scan failed: %s", e)
+        summary = _run_category_rotation(state.engine(), state.cfg(), "14:30")
+        log.info("[14:30] Top-up rotation complete: %s", " · ".join(summary))
+    finally:
+        _ROTATION_LOCK.release()
     _push_phone_alerts("14:30")
     _check_pending_orders("top-up")
 
@@ -1755,16 +1751,110 @@ def _session_refresh() -> None:
     if not is_market_open():
         return
     from . import state
-    from trading.modes import holding_mode_lock
+    from trading.modes import ModeBusy, holding_mode_lock
+    # FIX 2026-10-04 (owner: "fix the 30 min exit pass too"): this used to
+    # wait with NO timeout behind the 09:20 rotation's mode lock, and
+    # APScheduler (max_instances 1) DROPPED every later run that fell due
+    # while it waited — stop checks simply stopped for as long as the
+    # rotation ran. Now: wait a short while for an ordinary holder (an owner
+    # tap, one scan pass), and if a rotation still holds the lock, stand
+    # down — the rotation runs the same exit pass itself between categories
+    # (`_run_category_rotation`), so the check happens either way.
     try:
-        # Audit S-6: the exit pass reads stop/target/leash values off the
-        # shared Config; it waits for a running scan pass rather than read
-        # another category's preset mid-rotation.
-        with holding_mode_lock():
+        with holding_mode_lock(timeout=SESSION_EXIT_LOCK_WAIT_S):
             state.engine().refresh()
+            _mark_exit_pass()
+    except ModeBusy:
+        log.info("[session] rotation running — its own exit pass covers this slot")
     except Exception as e:
         log.exception("session refresh failed: %s", e)
     _check_pending_orders("session")
+
+
+# How long the 30-minute exit pass waits for the mode lock before standing
+# down to the rotation's own exit pass. Short on purpose: anything longer
+# than a single scan pass is a rotation, which checks exits itself.
+SESSION_EXIT_LOCK_WAIT_S = 60.0
+_LAST_EXIT_PASS: dict = {"t": None}
+
+
+def _mark_exit_pass() -> None:
+    _LAST_EXIT_PASS["t"] = time.monotonic()
+
+
+def _exit_pass_due(cfg) -> bool:
+    """True when the last in-session exit pass is at least one refresh
+    interval old (or none has run since this process started)."""
+    last = _LAST_EXIT_PASS["t"]
+    if last is None:
+        return True
+    mins = max(5, int(getattr(cfg, "intraday_refresh_minutes", 30) or 30))
+    return (time.monotonic() - last) >= mins * 60
+
+
+def _run_category_rotation(eng, cfg, where: str) -> list:
+    """Scan every category in `_DAILY_MODE_ORDER` under ONE held mode lock,
+    restoring the owner's mode at the end. Shared by 09:20 and 14:30.
+
+    Exit checks keep running during the rotation (owner order 2026-10-04):
+    before each category pass, inside market hours, if the last exit pass
+    is a refresh interval old, `engine.refresh()` runs here. It reads each
+    position's OWN category rules (`engine._exit_cfg`), never the shared
+    cfg.mode the rotation is flipping, so running it mid-rotation is safe.
+    Caller holds `_ROTATION_LOCK`."""
+    import gc
+    from trading.calendars import is_market_open
+    from trading.modes import MODE_LOCK
+    summary: list = []
+    # AUDIT S-6 (2026-10-02): the lock is held for the WHOLE rotation,
+    # restore included. Releasing it between passes left cfg.mode on the
+    # previous pass's category, so an owner buy that slipped in between read
+    # (and restored) the wrong preset. Owner web actions wait up to 30 s and
+    # then say a scan is running.
+    MODE_LOCK.acquire()
+    original_mode = getattr(cfg, "mode", "swing")
+    try:
+        for m in _DAILY_MODE_ORDER:
+            if is_market_open() and _exit_pass_due(cfg):
+                try:
+                    eng.refresh()
+                    _mark_exit_pass()
+                except Exception:
+                    log.exception("[%s] exit pass inside the rotation failed", where)
+            try:
+                cfg.mode = m
+                cfg.apply_mode_preset()
+                res = eng.scan()
+                summary.append(f"{m}={len(res.opened)} opened/{len(res.skipped)} skipped")
+            except Exception as e:
+                log.exception("[%s] scan for mode=%s failed: %s", where, m, e)
+                summary.append(f"{m}=error")
+                # Silent dead mornings are forbidden: the failure goes into the
+                # journal so the dashboard trigger card SHOWS it the same day.
+                try:
+                    from datetime import datetime as _dt
+                    eng.portfolio.decision_journal.append({
+                        "ts": _dt.utcnow().isoformat(), "action": "SCAN_FAILED",
+                        "mode": m,
+                        "err": f"{type(e).__name__}: {str(e)[:120]}",
+                        "why": f"{where} scan pass failed — check Upstox login/data.",
+                    })
+                    eng.portfolio.save()
+                except Exception:
+                    pass
+            finally:
+                # 512 MB guard: drop each mode's OHLCV panels before the next
+                # mode downloads its own.
+                gc.collect()
+    finally:
+        # AUDIT FIX C3: the restore is in a finally — an escape mid-loop
+        # used to leave cfg.mode stuck on whatever mode the loop died in.
+        try:
+            cfg.mode = original_mode
+            cfg.apply_mode_preset()
+        finally:
+            MODE_LOCK.release()
+    return summary
 
 
 def _eod_refresh() -> None:
@@ -1888,55 +1978,10 @@ def _daily_multi_mode_scan() -> None:
         _sector_index_refresh()
     except Exception:
         log.exception("sector refresh failed before daily scan")
-    summary = []
-    import gc
-    from trading.modes import MODE_LOCK
-    # AUDIT S-6 (2026-10-02): the lock is held for the WHOLE rotation, restore
-    # included. Releasing it between passes left cfg.mode on the previous
-    # pass's category, so an owner buy or the 30-minute exit pass that slipped
-    # in between read (and an owner buy restored) the wrong preset. Owner web
-    # actions wait up to 30 s and then say a scan is running.
-    MODE_LOCK.acquire()
-    original_mode = getattr(cfg, "mode", "swing")
     try:
-        for m in _DAILY_MODE_ORDER:
-            try:
-                with MODE_LOCK:
-                    cfg.mode = m
-                    cfg.apply_mode_preset()
-                    res = eng.scan()
-                summary.append(f"{m}={len(res.opened)} opened/{len(res.skipped)} skipped")
-            except Exception as e:
-                log.exception("Daily scan for mode=%s failed: %s", m, e)
-                summary.append(f"{m}=error")
-                # Silent dead mornings are forbidden: the failure goes into the
-                # journal so the dashboard trigger card SHOWS it the same day.
-                try:
-                    from datetime import datetime as _dt
-                    eng.portfolio.decision_journal.append({
-                        "ts": _dt.utcnow().isoformat(), "action": "SCAN_FAILED",
-                        "mode": m,
-                        "err": f"{type(e).__name__}: {str(e)[:120]}",
-                        "why": "09:20 scan pass failed — check Upstox login/data.",
-                    })
-                    eng.portfolio.save()
-                except Exception:
-                    pass
-            finally:
-                # 512 MB guard: drop each mode's OHLCV panels before the next
-                # mode downloads its own — otherwise five scans' worth of frames
-                # can overlap in RAM at 09:20.
-                gc.collect()
+        summary = _run_category_rotation(eng, cfg, "09:20")
     finally:
-        # AUDIT FIX C3: the restore is in a finally now — an escape mid-loop
-        # used to leave cfg.mode stuck on whatever mode the loop died in.
-        try:
-            with MODE_LOCK:
-                cfg.mode = original_mode
-                cfg.apply_mode_preset()
-        finally:
-            MODE_LOCK.release()
-            _ROTATION_LOCK.release()
+        _ROTATION_LOCK.release()
     _check_pending_orders("post-scan")
     # The daily store top-up ("all fresh", owner order 2026-08-20) now runs
     # BEFORE the scans above (audit item 8, 2026-10-02).

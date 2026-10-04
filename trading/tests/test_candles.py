@@ -104,8 +104,11 @@ def test_min_position_value_gate():
     risk = RiskState(cfg=cfg, starting_capital=cfg.starting_capital)
     # qty*price below 25k -> blocked (2.5% sizing on tiny price is fine,
     # so force with a huge price making qty=1 and value < min)
-    cfg.min_position_value = 1e9   # absurd floor: everything blocked
-    ok, reason, qty = can_open(risk, cash=cfg.starting_capital,
+    # Since 2026-10-04 the floor never exceeds a trade's own size
+    # (risk.min_trade_value), so an absurd floor no longer blocks a full
+    # ticket; what it blocks is a trade the MONEY cannot lift to the floor.
+    cfg.min_position_value = 1e9
+    ok, reason, qty = can_open(risk, cash=10_000.0,
                                current_equity=cfg.starting_capital,
                                open_positions={}, ticker="X.NS",
                                fill_price=100.0, cfg=cfg)

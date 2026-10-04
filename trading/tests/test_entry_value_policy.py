@@ -32,7 +32,10 @@ def test_the_three_entry_values_are_the_owners_numbers():
     cfg = Config()
     assert cfg.position_size_value == 125_000.0   # Everest, order 2026-07-30
     assert cfg.ocean_position_value == 168_750.0  # Everest +35%, 08-30
-    assert cfg.min_position_value == 25_000.0     # dust guard, 2026-07-11
+    # dust guard 2026-07-11 was Rs 25,000; owner order 2026-10-04 ("leave
+    # the 1.5 minimum value no 25 k is needed") made it the Rs 1.5 lakh slab
+    assert cfg.min_position_value == 150_000.0
+    assert cfg.min_position_value == cfg.position_slab_value
 
 
 def test_ocean_is_exactly_everest_plus_35_percent():
@@ -44,19 +47,23 @@ def test_ocean_is_exactly_everest_plus_35_percent():
     assert cfg.ocean_position_value > cfg.position_size_value
 
 
-def test_the_floor_is_below_both_sizes_so_it_only_catches_dust():
-    """min_position_value is a SKIP threshold, never a target. If it ever
-    rose above a real entry size it would silently block that engine."""
+def test_the_floor_never_blocks_an_engines_own_ticket():
+    """The floor (Rs 1.5 lakh since 2026-10-04) sits at the slab and below
+    Ocean's ticket. The legacy fixed Rs 1,25,000 is below it, so the
+    effective floor is capped at the trade's own size (risk.min_trade_value)
+    — otherwise that Settings choice would silently refuse every trade."""
+    from trading.risk import min_trade_value
     cfg = Config()
-    assert cfg.min_position_value < cfg.ocean_position_value
-    assert cfg.min_position_value < cfg.position_size_value
+    assert cfg.min_position_value <= cfg.ocean_position_value
+    assert min_trade_value(cfg, cfg.position_size_value) == cfg.position_size_value
+    assert min_trade_value(cfg, 25_00_000.0) == cfg.min_position_value
 
 
 def test_config_states_the_whole_policy_in_one_place():
     """The reviewer's actual complaint: no single place said all three."""
     src = (ROOT / "trading" / "config.py").read_text()
     block = src.split("ENTRY VALUE POLICY")[1][:2000]
-    for token in ("1,25,000", "1,68,750", "25,000"):
+    for token in ("1,25,000", "1,68,750", "1,50,000"):
         assert token in block, token
     assert "Ocean" in block and "Everest" in block
 
@@ -68,7 +75,7 @@ def test_the_owners_manual_states_all_three_sizes():
     # 2026-10-02: Everest is the slab ladder (at least Rs 1,50,000) since
     # 2026-09-10; the old fixed Rs 1,25,000 is still named as the Settings
     # alternative.
-    for token in ("1,50,000", "1,25,000", "1,68,750", "25,000"):
+    for token in ("1,50,000", "1,25,000", "1,68,750"):
         assert token in brief, token
 
 

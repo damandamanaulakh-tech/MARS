@@ -81,7 +81,10 @@ def test_two_rotations_cannot_run_at_once():
     assert "_ROTATION_LOCK.acquire(blocking=False)" in src
     body = src.split("def _daily_multi_mode_scan")[1]
     assert "finally:" in body and "_ROTATION_LOCK.release()" in body
-    after_loop = body.split("for m in _DAILY_MODE_ORDER")[1]
+    # since 2026-10-04 the loop lives in _run_category_rotation, shared by
+    # 09:20 and 14:30
+    rot = src.split("def _run_category_rotation")[1].split("\ndef ")[0]
+    after_loop = rot.split("for m in _DAILY_MODE_ORDER")[1]
     # the restore sits in the loop's outer finally (nested since audit S-6,
     # whose own finally releases the mode lock held across the rotation)
     outer = after_loop.split("    finally:\n        # AUDIT FIX C3")[1]
@@ -94,7 +97,8 @@ def test_mode_lock_exists_and_rotation_uses_it():
     from trading.modes import MODE_LOCK
     assert MODE_LOCK is not None
     src = Path("web/scheduler.py").read_text()
-    assert "with MODE_LOCK:" in src
+    rot = src.split("def _run_category_rotation")[1].split("\ndef ")[0]
+    assert "MODE_LOCK.acquire()" in rot and "MODE_LOCK.release()" in rot
 
 
 # --------------------------------------------------- C4/C5: pinned + present

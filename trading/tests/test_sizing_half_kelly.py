@@ -182,9 +182,11 @@ def test_zero_override_blocks_the_trade():
 
 def test_override_is_still_bounded_by_cash():
     cfg = _cfg()
-    ok, why, qty = _open(cfg, 10_00_000.0, cash=1_00_000.0)
+    # Rs 2 lakh of cash (above the Rs 1.5 lakh minimum since 2026-10-04;
+    # Rs 1 lakh would now be refused rather than opened small)
+    ok, why, qty = _open(cfg, 10_00_000.0, cash=2_00_000.0)
     assert ok, why
-    assert qty * 500.0 <= 1_00_000.0                # cash wins over Kelly
+    assert qty * 500.0 <= 2_00_000.0                # cash wins over Kelly
 
 
 def test_kill_switch_still_beats_kelly():
