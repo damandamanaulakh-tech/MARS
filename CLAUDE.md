@@ -38,6 +38,28 @@ weekly liquidity universe + 172 owner names · 5 categories at 09:20 AND
 −2%/day · drawdown ladder −5/−8/−10/−15/−20 · danger layer 12 tripwires ON ·
 rotation ON at 90% · RBI days never halt.
 
+**UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
+reading too").** The feed had been ARRIVING since 08-24 but was never READ:
+(1) `data_refresh._row_date` looked for a string date while Upstox sends
+`time_stamp` in MILLISECONDS → every row dropped, FII-04/05 stayed on the
+committed panel (ends 2026-08-07). Now read in IST (stamp = IST midnight;
+a UTC read dates every row a day early). (2) `get_market_dii` omitted the
+REQUIRED `data_type=NSE_EQ|CASH` → Upstox refused every call (why /healthz
+showed `dii: null`). Shape verified from the live `market_info_shape` +
+the API docs (upstox.com/developer/api-documentation/get-fii-data/,
+get-dii-data/): {data_type: [30 rows, newest first]}, contracts same unit
+as the NSE panel. Mapper now also fills opt_idx_*/opt_stk_* and
+total_long/short (NSE's sum of the six legs, verified on the committed
+08-07 row) — totals only when every leg is present. DII amounts land in
+CRORE; unit decided by size (> 10 lakh = rupees ÷ 1e7) because the docs
+label amounts INR while their own FII example reads as crore. The old
+tests passed on an INVENTED payload shape — the fault-mask class again;
+web/tests/test_fii_feed_reading_2026_10_04.py uses the real shape, all 6
+fail on the old code. NOT built: backfill of the 2026-08-08→~08-20 gap
+via the API's `from` param (offered). First live proof = Monday 10-05
+09:20 snapshot journal line "N FII derivative day-row(s)". Display-only
+consumers (register FII-04/05); money path untouched.
+
 ## FINAL SET V1.0 (2026-07-21) — SUPERSEDED by V1.1; history below, do not quote as live
 - Signal: **6m+12m vol-adjusted momentum, an ABSOLUTE score** —
   50 + 25 × average(r6/σ6, r12/σ12), clipped 0-100; no ranking step

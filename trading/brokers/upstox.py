@@ -415,9 +415,10 @@ class UpstoxClient:
         launched 2026-05-11; data from 2026-04-01, 30 trading days per 1D
         request). data_types e.g. 'NSE_FO|INDEX_FUTURES'. Returns the raw
         `data` payload or None. AUTH REQUIRED (401 verified from the
-        sandbox tokenless) — response SHAPE is verified by the first
-        authenticated call, and the caller must treat a parse miss as
-        DATA_NEEDED, never guess."""
+        sandbox tokenless). Response SHAPE verified 2026-10-04 from the
+        live stored payload: {data_type: [rows newest first]}, rows dated
+        by time_stamp in ms (data_refresh.map_market_fii reads it); the
+        caller still treats a parse miss as DATA_NEEDED, never a guess."""
         try:
             params = [("data_type", d) for d in data_types]
             params.append(("interval", interval))
@@ -433,10 +434,16 @@ class UpstoxClient:
     def get_market_dii(self, interval: str = "1D") -> Optional[dict]:
         """DII activity (NSE Cash) from /v2/market/dii — same contract and
         caveats as get_market_fii. This is the first LIVE DII source the
-        app has had since the NSDL DII archive proved OTP-walled (F7)."""
+        app has had since the NSDL DII archive proved OTP-walled (F7).
+
+        FIXED 2026-10-04: the API REQUIRES data_type=NSE_EQ|CASH (its only
+        allowed value, per the docs). This call sent only `interval`, so
+        Upstox refused it every time — which is why /healthz showed no
+        stored DII payload at all while the FII one had arrived."""
         try:
             r = httpx.get("https://api.upstox.com/v2/market/dii",
-                          params={"interval": interval},
+                          params={"data_type": "NSE_EQ|CASH",
+                                  "interval": interval},
                           headers=self._market_info_headers(), timeout=30.0)
             r.raise_for_status()
             return r.json().get("data") or None
