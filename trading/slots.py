@@ -42,6 +42,12 @@ class SlotView:
     cut: int = -1             # rows above the divider; -1 = same as `free`
     sizes: tuple = ()         # rupee size of each fundable new trade, in order
     ladder: bool = False      # True when sized per pick on the live ladder
+    # Owner order 2026-10-04: the picks' trade category and the rupees its
+    # cash share has left (None = no budget applies). `budget_binds` is True
+    # when that share, not cash or the reserve, is the tighter limit.
+    category: str = ""
+    category_left: object = None
+    budget_binds: bool = False
 
     @property
     def divider_row(self) -> int:
@@ -50,16 +56,18 @@ class SlotView:
     @property
     def limiting(self) -> str:
         """Which constraint binds — shown so the owner knows what to change."""
+        money = "category_budget" if self.budget_binds else "cash"
         if self.free <= 0:
             if self.slots_by_ceiling <= 0:
                 return "max_positions"
-            return "cash"
+            return money
         if self.slots_by_cash <= self.slots_by_ceiling:
-            return "cash"
+            return money
         return "max_positions"
 
 
-def slot_view(portfolio, cfg, picks=None, close_of=None) -> SlotView:
+def slot_view(portfolio, cfg, picks=None, close_of=None,
+              category=None) -> SlotView:
     """How many NEW trades today's cash can fund, by the live gate's own math.
 
     Deployed value is at ENTRY prices — the exact convention `risk.can_open`
@@ -78,6 +86,11 @@ def slot_view(portfolio, cfg, picks=None, close_of=None) -> SlotView:
     `sizing.position_notional_for`, the engine's own entry point, and when
     the ranked `picks` are given each pick is sized at its own score (and
     stored close history via `close_of`, when the caller can supply it).
+
+    `category` (owner order 2026-10-04): the trade category the picks were
+    scanned under. Its remaining cash share caps the headroom exactly as
+    `risk.can_open` caps it, so the card cannot promise a slot the category
+    budget would refuse.
     """
     from .sizing import position_notional_for
 
@@ -93,6 +106,15 @@ def slot_view(portfolio, cfg, picks=None, close_of=None) -> SlotView:
     reserve_pct = float(getattr(cfg, "cash_reserve_pct", 0.0) or 0.0)
     deploy_cap = base_capital * (1.0 - reserve_pct)
     headroom = min(cash, deploy_cap - deployed)
+    from . import category_budget as cb
+    cat_left = (cb.room(cfg, portfolio.positions, category, base_capital)
+                if category else None)
+    budget_binds = False
+    if cat_left is not None:
+        budget_binds = cat_left < headroom
+        headroom = min(headroom, cat_left)
+        if headroom < cb.min_open(cfg):
+            headroom = 0.0
     open_count = len(portfolio.positions)
     slots_by_ceiling = int(cfg.max_positions) - open_count
 
@@ -105,7 +127,9 @@ def slot_view(portfolio, cfg, picks=None, close_of=None) -> SlotView:
             deploy_cap=deploy_cap, open_count=open_count,
             max_positions=int(cfg.max_positions),
             slots_by_cash=max(0, slots_by_cash),
-            slots_by_ceiling=max(0, slots_by_ceiling), free=free)
+            slots_by_ceiling=max(0, slots_by_ceiling), free=free,
+            category=category or "", category_left=cat_left,
+            budget_binds=budget_binds)
 
     held = set(portfolio.positions)
     trades: list = []                      # (row index, rupees), in rank order
@@ -142,4 +166,6 @@ def slot_view(portfolio, cfg, picks=None, close_of=None) -> SlotView:
         open_count=open_count, max_positions=int(cfg.max_positions),
         slots_by_cash=max(0, slots_by_cash),
         slots_by_ceiling=max(0, slots_by_ceiling), free=free,
-        cut=cut, sizes=sizes, ladder=True)
+        cut=cut, sizes=sizes, ladder=True,
+        category=category or "", category_left=cat_left,
+        budget_binds=budget_binds)

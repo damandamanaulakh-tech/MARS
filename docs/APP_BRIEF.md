@@ -47,6 +47,17 @@ are impossible now.
    at the size that record supports (never below ₹1,50,000, never raised).
    The reading is on the Risk page; Settings switches it off. Your own BUY
    button and the Buy Desk are never blocked by it.
+   **Cash share per category (your order 2026-10-04, "fix it so all 5
+   categories get cash"):** momentum may spend **40%** of the book (₹2 crore
+   on ₹5 crore), intraday, short, swing and positional **15% each** (₹75
+   lakh). Before this, momentum is scanned first at 09:20 and could spend
+   all the cash before the other four were looked at. A share a category
+   does not use stays as cash — it is never lent to another. In a correction
+   the 20% safety reserve shrinks all five shares alike (momentum ₹1.6 crore,
+   the others ₹60 lakh). Ocean sits outside the shares (its own 8 slots).
+   Your BUY button and the Buy Desk are never refused, but what they buy
+   counts as momentum. The Risk page shows each share, spent and left;
+   Settings can change the five numbers or switch the shares off.
    **Momentum buys no longer wait for a candle pattern** (your order
    2026-10-04, "off for momentum" — 12 years measured, the wait added
    nothing). Intraday, short, swing and positional still wait, and each of

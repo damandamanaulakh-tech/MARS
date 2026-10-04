@@ -93,6 +93,41 @@
 </div>
 {% endif %}
 
+{% if budgets %}
+<div class="bg-white border border-line p-4 lg:p-6 mb-6 border-l-4 border-l-slate-400"
+     data-category-budget="category_budget_marker">
+  <div class="text-xs tracking-widest text-ink-faint uppercase mb-2">CASH SHARE PER CATEGORY (owner order 2026-10-04)</div>
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+      <tr><th class="text-left py-1 pr-3">Category</th><th class="text-right pr-3">Share</th><th class="text-right pr-3">Limit</th><th class="text-right pr-3">Spent</th><th class="text-right pr-3">Left</th><th class="text-right">Open</th></tr>
+    </thead>
+    <tbody>
+      {% for b in budgets %}
+      <tr class="border-b border-line last:border-0">
+        <td class="py-1 pr-3 font-bold">{{ b.label }}{% if b.full %} <span class="text-amber-700 font-normal text-xs">· full — new {{ b.label|lower }} buys wait</span>{% endif %}</td>
+        <td class="text-right pr-3 tabular-nums">{{ "%.0f%%"|format((b.share or 0) * 100) }}</td>
+        <td class="text-right pr-3 tabular-nums">₹{{ (b.limit or 0)|inr }}</td>
+        <td class="text-right pr-3 tabular-nums">₹{{ b.used|inr }}</td>
+        <td class="text-right pr-3 tabular-nums">₹{{ (b.left or 0)|inr }}</td>
+        <td class="text-right tabular-nums">{{ b.open }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if budget_total is not none and (budget_total - 1.0)|abs > 0.001 %}
+  <div class="mt-2 text-sm text-amber-800">The five shares add up to {{ "%.0f%%"|format(budget_total * 100) }}, not 100% — {% if budget_total < 1 %}the rest stays as cash no category can spend{% else %}the deploy cap still stops the book at 100%, so the last category in the 09:20 order can be squeezed{% endif %}.</div>
+  {% endif %}
+  <div class="mt-2 text-xs text-ink-faint">
+    Shares are of the deployable capital: equity (at entry prices on this page) minus the regime reserve{% if cfg.cash_reserve_pct > 0 %} — {{ "%.0f%%"|format(cfg.cash_reserve_pct * 100) }} right now{% endif %}.
+    Spent counts each position at its entry cost. A share a category does not use stays as cash; it is never lent to another category.
+    Ocean is outside these shares (its own {{ cfg.ocean_max_positions }}-slot limit). Your BUY button and the Buy Desk are never refused here, but what they buy counts as momentum.
+    A remainder smaller than the ₹{{ cfg.position_slab_value|inr }} slab counts as full.
+  </div>
+</div>
+{% endif %}
+
 {% if ifr %}
 <div class="bg-white border border-line p-4 lg:p-6 mb-6
             {% if ifr.active %}border-l-4 border-l-amber-500{% else %}border-l-4 border-l-emerald-500{% endif %}">

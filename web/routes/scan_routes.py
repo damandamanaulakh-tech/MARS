@@ -92,7 +92,11 @@ def scan_view(request: Request, error: str | None = None):
         from trading.slots import slot_view
         # Audit F-14: each pick sized on the live slab ladder, from its own
         # score and STORED close history (no network on a page render).
-        slots = slot_view(p, cfg, picks=picks, close_of=_desk_close_loader())
+        # Owner order 2026-10-04: the picks' own category share caps the
+        # count too — the pass that produced them is named on the matrix.
+        slots = slot_view(p, cfg, picks=picks, close_of=_desk_close_loader(),
+                          category=((p.scan_matrix or {}).get("mode")
+                                    or getattr(cfg, "mode", None)))
     except Exception:
         log.exception("slot view failed")
     # ADOPTED 2026-08-29 (owner order "go ... 2") from the AshStocks review:

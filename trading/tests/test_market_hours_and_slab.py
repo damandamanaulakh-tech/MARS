@@ -364,6 +364,9 @@ def test_rotation_fires_on_the_cash_trigger_for_a_real_pick(tmp_path, monkeypatc
     F-7 removed that — see test_audit_items_f5_f12_2026_10_02.py.)"""
     from trading.paper import PaperPosition
     eng, cfg, p = _engine(tmp_path, cash=1_000.0)      # cash under the 5% floor
+    # pins the CASH trigger; on this Rs 11,000 fixture book the 40% momentum
+    # share (owner order 2026-10-04) would bind first — tested separately
+    cfg.category_budgets_enabled = False
     p.positions["OLD.NS"] = PaperPosition(
         ticker="OLD.NS", qty=100, entry_price=100.0,
         entry_date=datetime(2026, 8, 1), sector="IT", peak_price=119.0,

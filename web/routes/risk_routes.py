@@ -92,6 +92,19 @@ def risk_view(request: Request):
     except Exception:
         mk = None
 
+    # Owner order 2026-10-04 ("fix it so all 5 categories get cash"): each
+    # category's share of the deployable capital, what it has spent at entry
+    # cost, and what is left — the numbers risk.can_open refuses on.
+    budgets = None
+    budget_total = None
+    try:
+        from trading import category_budget as cb
+        if cb.enabled(cfg):
+            budgets = cb.usage(cfg, eng.portfolio.positions, equity)
+            budget_total = cb.share_total(cfg)
+    except Exception:
+        budgets = None
+
     return templates.TemplateResponse(
         request, "risk.html",
         {
@@ -105,5 +118,7 @@ def risk_view(request: Request):
             "mk": mk,
             "mk_cap": mk_cap,
             "mk_on": bool(getattr(cfg, "measured_kelly_enabled", False)),
+            "budgets": budgets,
+            "budget_total": budget_total,
         },
     )

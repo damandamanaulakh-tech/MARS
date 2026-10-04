@@ -100,8 +100,13 @@ def test_a_macro_halt_means_nothing_is_rotated_out(tmp_path, monkeypatch):
 
 
 def test_a_pick_that_clears_every_gate_still_rotates(tmp_path, monkeypatch):
-    """The same book with no halt: rotation still does its job."""
+    """The same book with no halt: rotation still does its job.
+
+    Pins the CASH rule: on this Rs 11,000 fixture book the 40% momentum share
+    (owner order 2026-10-04) binds first, and the share rule has its own
+    tests in test_category_budgets_2026_10_04.py."""
     e = _scan_engine(tmp_path, monkeypatch, event=None)
+    e.cfg.category_budgets_enabled = False
     picks_seen = []
     real = e._rotation_exits
 

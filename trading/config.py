@@ -143,6 +143,25 @@ class Config:
     # Measured: 20 sectors x max_sector_positions 12 = 240, so 222 fits under
     # the sector cap without loosening it.
     max_positions: int = 222
+    # OWNER ORDER 2026-10-04 ("fix it so all 5 categories get cash", split
+    # picked from the options card: "Momentum 40%, others 15%"). The 09:20
+    # rotation runs momentum FIRST, and a replay of the live machine on a
+    # strong week showed momentum opening 46 trades while intraday, short,
+    # swing and positional opened NONE — momentum spent the cash before the
+    # other four were scanned. Each category now has its own share of the
+    # DEPLOYABLE capital (equity minus the regime reserve), so a correction's
+    # 20% reserve shrinks every share alike instead of starving the last
+    # category in line. A share a category does not use stays as cash; it is
+    # never lent to another. Positions count at entry cost, the same as the
+    # deploy cap. Ocean is exempt (its own 8-slot limit); the owner's BUY
+    # button and Buy Desk are never refused, but what they buy counts toward
+    # its category (momentum). See trading/category_budget.py.
+    category_budgets_enabled: bool = True
+    budget_share_momentum: float = 0.40
+    budget_share_intraday: float = 0.15
+    budget_share_short: float = 0.15
+    budget_share_swing: float = 0.15
+    budget_share_positional: float = 0.15
     # Sizing. "fixed" = the owner's own number, position_size_value above.
     #
     # REVERTED to fixed 2026-08-04 (owner: "still u r making 30000 positions").

@@ -54,7 +54,7 @@ def store_breadth(docs: Iterable[dict], dma: int = 200,
     when fewer than `min_sample` names are usable — a thin store must not
     wear a confident number.
 
-    min_sample=1000 (CODEX REVIEW FIX, PR #68 — was 200): the live store
+    min_sample=1000 (REVIEW FIX, PR #68 — was 200): the live store
     held ~191 names, and the daily custom-universe top-up would have grown
     it to ~240 — at which point a "full store" reading would have crossed a
     200 bar carrying ~±6pp of sampling error, nearly the same noise the F3

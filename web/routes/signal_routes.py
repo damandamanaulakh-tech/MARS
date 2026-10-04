@@ -42,11 +42,18 @@ FACTOR_ORDER = [
 ]
 
 
-def _weights() -> dict:
-    """The exact weights the scorer uses, plus the momentum-mode blend split."""
+def _weights(mode: str | None = None) -> dict:
+    """The exact weights the scorer uses for this trade category, plus the
+    momentum-mode blend split.
+
+    FIX 2026-10-04: since the owner's "use each category's weights" order
+    (PR #148) intraday/short/swing/positional score with their own preset
+    weights (scoring.weights_for). This page still printed the shared
+    AM07_WEIGHTS for every stock — e.g. positional earnings growth shown at
+    0.10 while the scorer used 0.25. It now asks the scorer's own function."""
     try:
-        from trading.config import AM07_WEIGHTS
-        w = dict(AM07_WEIGHTS)
+        from trading.scoring import weights_for
+        w = dict(weights_for(mode))
     except ImportError:
         w = {}
     try:
@@ -82,6 +89,7 @@ def _live_signal(ticker: str) -> dict | None:
             "ticker": ticker,
             "components": {"momentum": round(ms, 1), "quality": round(q, 1)},
             "entry_score": blend_scores(ms, q, b),
+            "mode": "nifty200_momentum",
             "on_demand": True,
             "asof": asof.strftime("%d %b %Y") if hasattr(asof, "strftime") else str(asof),
         }
@@ -107,12 +115,16 @@ def _rows_for(ticker: str | None):
     for pos in p.positions.values():
         pool.append({"ticker": pos.ticker,
                      "components": buy_components.get(pos.ticker) or {},
-                     "entry_score": pos.entry_score})
+                     "entry_score": pos.entry_score,
+                     "mode": pos.mode or "nifty200_momentum"})
     held = {c["ticker"] for c in pool}
+    # picks and matrix rows come from the last scan pass — its category
+    scan_mode = (p.scan_matrix or {}).get("mode")
     for pk in (p.last_scan_picks or []):
         t = pk.get("ticker")
         if t and t not in held:
-            row = {"ticker": t, "components": pk.get("components") or {}}
+            row = {"ticker": t, "components": pk.get("components") or {},
+                   "mode": scan_mode}
             if pk.get("score") is not None:
                 row["entry_score"] = pk["score"]
             pool.append(row)
@@ -121,7 +133,7 @@ def _rows_for(ticker: str | None):
     for t, r in ((p.scan_matrix or {}).get("rows") or {}).items():
         if t not in seen and r.get("c"):
             pool.append({"ticker": t, "components": r["c"],
-                         "entry_score": r.get("score")})
+                         "entry_score": r.get("score"), "mode": scan_mode})
 
     tickers = sorted({c["ticker"] for c in pool})
     chosen = None
@@ -137,7 +149,7 @@ def _rows_for(ticker: str | None):
         return None, tickers, []
 
     comps = chosen.get("components") or {}
-    weights = _weights()
+    weights = _weights(chosen.get("mode"))
     rows: list[dict] = []
     known: set[str] = set()
     for name, colour in FACTOR_ORDER:

@@ -182,7 +182,7 @@ def test_empty_custom_list_restores_the_rotating_bucket(tmp_path):
 
 
 def test_custom_list_governs_every_mode_not_only_momentum(tmp_path):
-    """CODEX REVIEW FIX (PR #68): the 09:20 rotation runs short/swing/
+    """REVIEW FIX (PR #68): the 09:20 rotation runs short/swing/
     positional too, and each can OPEN positions — a momentum-only
     restriction would have let the other passes buy outside the 50."""
     for mode in ("swing", "short", "positional"):
@@ -201,7 +201,7 @@ def test_other_modes_keep_their_own_universe_when_custom_is_off(tmp_path):
 
 
 def test_every_custom_name_has_a_real_sector(tmp_path):
-    """CODEX REVIEW FIX (PR #68): risk.can_open counts all Unknown names as
+    """REVIEW FIX (PR #68): risk.can_open counts all Unknown names as
     ONE sector for max_sector_positions — a book of unmapped small-caps
     would have hit sector_cap_reached on unrelated companies."""
     cfg = Config(state_dir=str(tmp_path))

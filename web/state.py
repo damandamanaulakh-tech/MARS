@@ -274,6 +274,23 @@ def _coerce_override(cfg, key: str, value):
     return value
 
 
+def _migrate_slab_restore(cfg) -> bool:
+    """One-time: clear a stored sizing_mode "fixed" left by the Settings-save
+    bug (fixed 2026-10-04 — every save rewrote "slab" to "fixed"). Returns
+    True when it restored slab. Marker in the migrations doc."""
+    if db.load_settings(doc_id="migrations").get("slab_restore_2026_10_04"):
+        return False
+    restored = False
+    if str(db.load_settings().get("sizing_mode", "")).lower() == "fixed":
+        db.unset_settings_keys(["sizing_mode"])
+        cfg.sizing_mode = "slab"
+        restored = True
+        log.warning("sizing_mode: stored 'fixed' (Settings-save bug) "
+                    "cleared — slab sizing restored")
+    db.save_settings({"slab_restore_2026_10_04": True}, doc_id="migrations")
+    return restored
+
+
 def _bootstrap() -> None:
     global _CFG, _PORTFOLIO, _ENGINE
     _CFG = Config()
@@ -391,6 +408,15 @@ def _bootstrap() -> None:
         _CFG.rotation_cash_trigger_pct = 0.05
         db.save_settings({"owner_batch_2026_09_10": True},
                          doc_id="migrations")
+
+    # FIX 2026-10-04: the Settings save rewrote sizing_mode "slab" -> "fixed"
+    # on EVERY save (its validation list never learned "slab"), so any save
+    # since 2026-09-10 left a stored "fixed" pinning flat Rs 1.25 lakh trades
+    # against the owner's written order ("no flat size to follow"). The owner
+    # never ordered fixed after that date, so a stored "fixed" is the bug's
+    # footprint: cleared once, and slab rules again. The Settings field still
+    # accepts "fixed" for a deliberate choice made after this boot.
+    _migrate_slab_restore(_CFG)
 
     # Apply mode preset (sets stops, target, etc. per chosen horizon)
     _CFG.apply_mode_preset()

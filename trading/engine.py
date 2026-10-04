@@ -46,6 +46,14 @@ class ScanResult:
     skipped: List[dict]           # for the picks we couldn't open, why
 
 
+def _level(price: float, pct: float) -> str:
+    """A held position's stop/target for the journal: its own stored price
+    when it has one, else the category percentage."""
+    if price and price > 0:
+        return f"₹{float(price):,.2f}"
+    return f"{float(pct) * 100:+.0f}%"
+
+
 class TradingEngine:
     def __init__(self, cfg: Config, portfolio: Portfolio):
         self.cfg = cfg
@@ -98,7 +106,7 @@ class TradingEngine:
         cfg = self.cfg
         held = list(self.portfolio.positions.keys())
         custom = tuple(getattr(cfg, "custom_universe", ()) or ())
-        # CODEX REVIEW FIX (PR #68): the custom list applies to EVERY mode,
+        # REVIEW FIX (PR #68): the custom list applies to EVERY mode,
         # not only momentum — the 09:20 rotation also runs short/swing/
         # positional, each of which can OPEN positions, so a momentum-only
         # restriction would have let the other three passes buy outside the
@@ -910,10 +918,14 @@ class TradingEngine:
                         "capped": bool(want > cap_rs)}
                     if want > cap_rs:
                         notional_arg = cap_rs
+            # OWNER ORDER 2026-10-04: each category spends only its own share
+            # (momentum 40%, the other four 15% each). Ocean is exempt.
             ok, reason, qty = can_open(
                 self.risk, self.portfolio.cash, current_eq,
                 self.portfolio.positions, pick["ticker"], fill, cfg,
                 notional_override=notional_arg,
+                category=(None if pick.get("ocean")
+                          else (getattr(cfg, "mode", "") or MOMENTUM_MODE)),
             )
             pick["size_diag"] = size_diag
             # v7: size throttle = MIN of (strength, IFR) instead of product.
@@ -964,6 +976,8 @@ class TradingEngine:
                 continue
             self._open(pick, qty, fill, now)
             opened.append(pick["ticker"])
+
+        self._journal_budget_full(skipped, now)
 
         self.portfolio.last_scan = now.isoformat()
         if self._trading_allowed(now):
@@ -1281,8 +1295,9 @@ class TradingEngine:
                 # position keeps its entry score rather than reading 0.
                 if rescored is not None:
                     current_score = rescored
+            xcfg = self._exit_cfg(pos, cfg)
             should_exit, reason = check_exit(
-                pos, price, current_score, self._exit_cfg(pos, cfg), now)
+                pos, price, current_score, xcfg, now)
             if should_exit and marking_only:
                 # Owner order 2026-09-10: outside 09:15-15:30 the rule is SEEN
                 # and RECORDED, never executed — a fill after the close is a
@@ -1309,11 +1324,18 @@ class TradingEngine:
                     "unrealised_pct": round(upct, 2),
                     "current_score": round(current_score, 1),
                     "score_at_entry": round(pos.entry_score, 1),
+                    # FIX 2026-10-04: the text names THIS position's own
+                    # levels and category rules (xcfg, the config the exit
+                    # check above really used) — it printed the live mode's,
+                    # so a positional holding read "max 200d" under momentum.
                     "why": (
-                        f"No exit rule hit: ret {upct:+.1f}% inside stop({cfg.stop_loss_pct*100:.0f}%)"
-                        f"/target(+{cfg.take_profit_pct*100:.0f}%), score {current_score:.0f} "
-                        f"above decay-floor {cfg.score_decay_exit:.0f}, "
-                        f"held {(now.date() - pos.entry_date.date()).days}d of max {cfg.max_hold_days}d"
+                        f"No exit rule hit: ret {upct:+.1f}% inside "
+                        f"stop({_level(pos.stop_price, xcfg.stop_loss_pct)})"
+                        f"/target({_level(pos.target_price, xcfg.take_profit_pct)}), "
+                        f"score {current_score:.0f} "
+                        f"above decay-floor {xcfg.score_decay_exit:.0f}, "
+                        f"held {(now.date() - pos.entry_date.date()).days}d of max "
+                        f"{xcfg.max_hold_days}d ({getattr(pos, 'mode', '') or MOMENTUM_MODE})"
                     ),
                 })
 
@@ -1617,8 +1639,15 @@ class TradingEngine:
             # this still trails a winner up (the stop rises with the price) but
             # can no longer be narrower than the risk they accepted. Reads
             # cfg, so if they ever set -3% the floor follows them.
+            # FIX 2026-10-04: the width is the POSITION's own category stop
+            # (engine._exit_cfg, the same per-mode config every other exit
+            # reads since audit F-6). It read the live shared cfg — so with the
+            # app in momentum, a positional holding's -10% stop was tightened
+            # to momentum's -5% and sold at -6%, a loss its own stop would
+            # have held (found by the 2026-10-04 exit-per-category check).
+            pos_cfg = self._exit_cfg(pos, cfg)
             leash = max(abs(float(danger.TIGHTEN_PCT)),
-                        abs(float(getattr(cfg, "stop_loss_pct", -0.05))))
+                        abs(float(getattr(pos_cfg, "stop_loss_pct", -0.05))))
             entry = {
                 "ts": now.isoformat(), "ticker": ticker,
                 "fired": reading.fired, "price": round(price, 2),
@@ -1772,16 +1801,38 @@ class TradingEngine:
                             f"is not buying (audit F-7, 2026-10-02)."),
                 })
             return []
-        need = sum(_ticket(pk) for pk in fresh)
+        tickets = {pk["ticker"]: _ticket(pk) for pk in fresh}
+        need = sum(tickets.values())
         shortfall = need - spendable
 
-        if shortfall <= 0 and not cash_low:
+        # OWNER ORDER 2026-10-04 (category cash budgets): each pass is one
+        # category, and its share is that category's cash. When the SHARE is
+        # what runs short, only selling a holding of the SAME category frees
+        # it — selling another category's holding frees cash this pick still
+        # cannot spend, shrinking the book for nothing (the S-4 rule). A share
+        # is counted at ENTRY cost, so a sale frees the holding's cost from
+        # the share (and its market value as cash). Ocean picks sit outside
+        # the shares.
+        from . import category_budget as cb
+        cat = getattr(cfg, "mode", "") or MOMENTUM_MODE
+        share_limit = cb.limit(cfg, cat, eq)
+        budget_need = sum(tickets[pk["ticker"]] for pk in fresh
+                          if not pk.get("ocean"))
+        room_now = (share_limit - cb.used(held.values(), cat)
+                    if share_limit is not None else None)
+        same_category_only = (room_now is not None and budget_need > 0
+                              and room_now < budget_need)
+        # the smallest room can_open will open a trade into
+        usable_room = max(cb.min_open(cfg),
+                          float(getattr(cfg, "min_position_value", 0) or 0))
+
+        if shortfall <= 0 and not cash_low and not same_category_only:
             return []
-        if cash_low and shortfall <= 0:
+        if cash_low and shortfall <= 0 and not same_category_only:
             # Cash is under the floor but the waiting pick is affordable.
             # Free one ticket's worth so the book is not left with nothing to
             # act on tomorrow.
-            shortfall = need if need > 0 else _ticket(fresh[0])
+            shortfall = need if need > 0 else tickets[fresh[0]["ticker"]]
             self._journal_once_a_day("ROTATION_CASH_TRIGGER", now, {
                 "cash": round(self.portfolio.cash, 2),
                 "cash_pct": round(self.portfolio.cash / eq * 100, 2),
@@ -1792,8 +1843,20 @@ class TradingEngine:
             })
 
         candidates = [t for t, p in held.items()
-                      if "owner_pick" not in (getattr(p, "tags", None) or [])]
+                      if "owner_pick" not in (getattr(p, "tags", None) or [])
+                      and (not same_category_only
+                           or cb.category_of(p) == cat)]
         if not candidates:
+            if same_category_only:
+                self._journal_once_a_day("ROTATION_BUDGET_FULL", now, {
+                    "category": cat,
+                    "picks": [pk["ticker"] for pk in fresh][:20],
+                    "why": (f"{cb.LABELS.get(cat, cat)} has spent its cash "
+                            f"share and holds no position rotation may sell "
+                            f"(owner picks are exempt); selling another "
+                            f"category's holding could not buy these picks "
+                            f"(owner order 2026-10-04)."),
+                })
             return []
         try:
             live = routed_fetch_quotes(candidates, upstox_client=self.broker) or {}
@@ -1817,16 +1880,41 @@ class TradingEngine:
             {t: held[t] for t in candidates}, live, fresh, cfg,
             min_progress=min_prog)
 
+        if same_category_only and suggestions:
+            # Selling only helps if it can make room for at least one trade.
+            # Over-full by more than every near-target holding's cost = no
+            # sale at all (never shrink the book for a pick that still won't
+            # buy — the S-4 rule).
+            reachable = room_now + sum(
+                float(held[sg["ticker"]].qty) * float(held[sg["ticker"]].entry_price)
+                for sg in suggestions if sg["ticker"] in held)
+            if reachable < usable_room:
+                self._journal_once_a_day("ROTATION_BUDGET_FULL", now, {
+                    "category": cat,
+                    "picks": [pk["ticker"] for pk in fresh][:20],
+                    "share_room": round(room_now, 0),
+                    "why": (f"{cb.LABELS.get(cat, cat)} is past its cash "
+                            f"share by more than its near-target holdings "
+                            f"would free, so no rotation could buy these "
+                            f"picks — nothing sold (owner order 2026-10-04)."),
+                })
+                return []
+
         rotated: list = []
         freed = 0.0
+        freed_share = 0.0
         for s in suggestions:
-            if freed >= shortfall:
+            cash_ok = freed >= shortfall
+            share_ok = (not same_category_only
+                        or room_now + freed_share >= budget_need)
+            if cash_ok and share_ok:
                 break
             t = s["ticker"]
             px = float(live.get(t) or 0)
             if px <= 0 or t not in held:
                 continue
             value = float(held[t].qty) * px
+            freed_share += float(held[t].qty) * float(held[t].entry_price)
             self._close(t, px, "ROTATION_EXIT", now)
             freed += value
             rotated.append(t)
@@ -1836,11 +1924,17 @@ class TradingEngine:
                 "target": s["target"], "freed": round(value, 2),
                 "fund_ticker": s.get("fund_ticker"),
                 "fund_score": s.get("fund_score"),
+                "short_of": ("category_share" if same_category_only
+                             else "cash"),
                 "why": (f"Rotated out {t} at ₹{px:,.2f} — {s['progress_pct']}% "
                         f"of the way to its ₹{s['target']:,.2f} target — to "
                         f"free ₹{value:,.0f} for {s.get('fund_ticker') or 'a fresh pick'}"
-                        f" (score {s.get('fund_score')}). Cash was short by "
-                        f"₹{shortfall:,.0f}; ₹{freed:,.0f} freed so far. "
+                        f" (score {s.get('fund_score')}). "
+                        + (f"Its category cash share had ₹{max(room_now, 0):,.0f} "
+                           f"of the ₹{budget_need:,.0f} it needs"
+                           if same_category_only else
+                           f"Cash was short by ₹{shortfall:,.0f}")
+                        + f"; ₹{freed:,.0f} freed so far. "
                         f"Owner order 2026-09-04 — the suggester executes."),
                 "cash_after": round(self.portfolio.cash, 2),
             })
@@ -2163,6 +2257,41 @@ class TradingEngine:
         else:
             floor = float(getattr(cfg, "min_position_value", 0) or 0)
         return max(cap, floor)
+
+    def _journal_budget_full(self, skipped: list, now: datetime) -> None:
+        """One CATEGORY_BUDGET_FULL line per category per day when this pass
+        refused picks because its share was spent (owner order 2026-10-04).
+        A refusal the owner cannot see is the lying-screen class."""
+        names = [s["ticker"] for s in skipped
+                 if s.get("reason") == "category_budget_full"]
+        if not names:
+            return
+        cfg = self.cfg
+        cat = getattr(cfg, "mode", "") or MOMENTUM_MODE
+        today_iso = now.date().isoformat()
+        if any(e.get("action") == "CATEGORY_BUDGET_FULL"
+               and e.get("category") == cat
+               and str(e.get("ts", "")).startswith(today_iso)
+               for e in self.portfolio.decision_journal[-60:]):
+            return
+        from . import category_budget as cb
+        positions = self.portfolio.positions
+        base = self.portfolio.cash + sum(
+            float(p.qty) * float(p.entry_price) for p in positions.values())
+        lim = cb.limit(cfg, cat, base) or 0.0
+        spent = cb.used(positions.values(), cat)
+        self.portfolio.decision_journal.append({
+            "ts": now.isoformat(), "action": "CATEGORY_BUDGET_FULL",
+            "category": cat,
+            "share": cb.share(cfg, cat),
+            "limit": round(lim, 0), "used": round(spent, 0),
+            "refused": names[:20], "refused_count": len(names),
+            "why": (f"{cb.LABELS.get(cat, cat)} has spent its "
+                    f"{(cb.share(cfg, cat) or 0) * 100:.0f}% share "
+                    f"(Rs {spent:,.0f} of Rs {lim:,.0f}); {len(names)} pick(s) "
+                    f"waited. The other categories keep their own shares — "
+                    f"owner order 2026-10-04."),
+        })
 
     def _journal_once_a_day(self, action: str, now: datetime,
                             fields: dict) -> None:
