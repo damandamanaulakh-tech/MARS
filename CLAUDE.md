@@ -99,6 +99,19 @@ re-buy after a stop (VEDL ~7 stops June-July); short/swing enter late and
 get shaken out. Three testable fixes offered (ATR-scaled stop, re-entry
 cooldown, rebound entry) — owner has not picked. Nothing wired.**
 
+**STOP/COOLDOWN STUDY 2026-10-05 (owner: "test A and B on the 12 year
+panel"), PR #154, research/stop_cooldown_study/summary.md IS THE RECORD.**
+Pre-registered (settings picked on 2015-2020H1, judged on 2020H2-2026H1),
+live-like harness for every arm (intraday low/high stop+target checks,
+k x ATR targets, floor 62, 191x12y panel). **A = ATR stop max(5%, 2.0 x
+ATR14), cap 15%: EARNED** — train +2.82 vs +0.88, test +21.14 vs +19.33,
+5 of 6 windows, test DD shallower; k 1.5 also beats base (gradient). 30%
+fewer stops, win rate 29->35%. Cost: a losing trade on a jumpy name can
+lose more than 5% (avg width 6.8%, max 15%) at unchanged slab size.
+**B = re-entry cooldown 5/10/20d: NOT EARNED** — picked B10 lost the test
+(+12.73 vs +19.33), all three lose; re-buys after a stop catch trend
+continuations. NOTHING WIRED — A awaits the owner's word.
+
 ## FINAL SET V1.0 (2026-07-21) — SUPERSEDED by V1.1; history below, do not quote as live
 - Signal: **6m+12m vol-adjusted momentum, an ABSOLUTE score** —
   50 + 25 × average(r6/σ6, r12/σ12), clipped 0-100; no ranking step
