@@ -597,6 +597,7 @@ def _close_position(portfolio, ticker, raw_price, reason, date) -> None:
         gross_pnl=gross, costs=costs, net_pnl=gross - costs,
         reason=reason, sector=pos.sector,
         entry_score=pos.entry_score, reasoning=pos.reasoning,
+        mode=getattr(pos, "mode", "") or "",
     ))
 
 

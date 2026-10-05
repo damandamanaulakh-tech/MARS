@@ -22,12 +22,32 @@ tables, direct, no hedging, no fake data (say DATA_NEEDED), mercy on
 tokens. **Verify against code — never trust a narrative** (incl. other AIs'
 uploads: audit them; several contained fabricated numbers/padded catalogs).
 
-## FINAL SET V1.2 — LIVE since 2026-10-05 (owner: "Go for A")
-**docs/FINAL_SET_V1_2.md IS THE RECORD** (V1.1 page kept as history with a
-SUPERSEDED banner) — every live money number read from code, pinned by
-web/tests/test_final_set_v1_2.py (a drift fails the suite). Any
-owner-ordered change to a pinned number = bump the page to V1.3 and update
-the pins in the same commit. **V1.2's ONE change: a NEW momentum buy's stop
+## FINAL SET V1.3 — LIVE since 2026-10-05 (owner: "Go for A" → V1.2; "make it momentum only" → V1.3)
+**docs/FINAL_SET_V1_3.md IS THE RECORD** (V1.1/V1.2 pages kept as history
+with SUPERSEDED banners) — every live money number read from code, pinned
+by web/tests/test_final_set_v1_3.py (a drift fails the suite). Any
+owner-ordered change to a pinned number = bump the page to V1.4 and update
+the pins in the same commit.
+**V1.3's ONE change (owner 2026-10-05, after "show me the kelly check …
+no change no shiping" was answered read-only, then "make it momentum
+only"): the measured-Kelly check (F-9) reads MOMENTUM closed trades only
+and gates the MOMENTUM pass only.** `cfg.measured_kelly_modes =
+("nifty200_momentum",)` (empty tuple = the old pooled check in every pass);
+`engine._measured_kelly` returns None in any other category's pass; Ocean
+picks exempt from the block; `measured_kelly.measure(category=)` +
+`trade_category(trade)`; reading carries `category`/`other_category`
+(journal MEASURED_KELLY_BLOCKED, /risk card "+ N other categories").
+**`ClosedTrade.mode` is NEW** — written from `pos.mode` by engine._close /
+_exit_half / backtest._close_position; every trade closed BEFORE 10-05 has
+a blank mode and is placed by its own record: reasoning "MOM … + QUALITY"
+or "NIFTY200_MOMENTUM" → momentum; "OWNER BUY" / owner_pick / buy_desk tags
+→ momentum (category_budget convention); "ocean" tag or "OCEAN:" → ocean;
+anything else (reasoning_text composites) → "other" = left out, counted.
+So the live September record is NOT wiped: momentum scan buys still count.
+Whether the block clears = the first live reading Tue 10-06 (/risk). Tests
+trading/tests/test_measured_kelly_momentum_only_2026_10_05.py; old
+measured-Kelly fixtures now set mode=momentum (a blank-mode "fixture"
+trade is "other"). **V1.2's ONE change: a NEW momentum buy's stop
 = the wider of −5% and 2 × its own ATR14, capped at −15%** (`targets.
 stop_pct_for`, constants ATR_STOP_K 2.0 / CAP 0.15 / MODES = momentum only,
 measured in research/stop_cooldown_study — see the STOP/COOLDOWN block;
@@ -102,8 +122,12 @@ starts ~09:30. Render Instance Type -> Starter is the fix (owner's action).
 the measured-Kelly check (F-9, live from 10-02 holiday, so 10-05 was its
 first trading day) reading NO_POSITIVE_EDGE on the September stop-outs and
 refusing every scan entry. Breadth ruled out (~33% < 40% = buyable). NOT
-confirmed — owner to read the /risk measured-Kelly card; options A switch
-off / B keep / C cap-only / D Buy Desk put to them, awaiting their pick.**
+confirmed — owner to read the /risk measured-Kelly card. Options A switch
+off / B keep / C cap-only / D Buy Desk were put to them; after a read-only
+walk-through of the check ("show me the kelly check … no change no
+shiping") the owner picked a fifth: "make it momentum only" → FINAL SET
+V1.3 (header block). Whether that clears the live block depends on
+September's momentum-only record — the first live reading tells.**
 **19-NAME REPLAY 2026-10-04 (owner's list, live V1.1, 15 Jan -> 1 Oct,
 scratchpad only): +Rs 2.31L on Rs 5 Cr (Nifty -12.6%), ~Rs 66L max deployed;
 MTAR (T2T, never auto-scanned live) made +3.41L — without it ~-1.1L.
@@ -4264,8 +4288,9 @@ cash", picked "Momentum 40%, others 15%"). 1,508 tests.**
   shares did not fill. The measured-Kelly check also blocked 632 momentum
   picks mid-month once the replay's own closed trades showed no edge.
 - STILL OPEN after #149 (three of them closed the same day, below):
-  filings job reads yesterday's picks; pooled measured Kelly; swing's
-  floor 60 is below momentum's 62 (owner preset).
+  filings job reads yesterday's picks; ~~pooled measured Kelly~~ (CLOSED
+  2026-10-05, momentum only = V1.3); swing's floor 60 is below momentum's
+  62 (owner preset).
 **EXIT PASS + 14:30 + Rs 1.5L MINIMUM 2026-10-04 (owner: "fix the 30 min
 exit pass too / 14:30 scan as well / leave the 1.5 minimum value no 25 k is
 needed"). 1,521 tests (13 new, all fail on old code).**

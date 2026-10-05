@@ -1,5 +1,7 @@
 # FINAL SET V1.2 — the live recipe as of 2026-10-05
 
+> **SUPERSEDED 2026-10-05 by [FINAL_SET_V1_3.md](FINAL_SET_V1_3.md)** (the measured-Kelly check reads momentum only, your order "make it momentum only"). Kept as history; the pins now check V1.3.
+
 *Owner order 2026-10-04: "also make these things as finale set V 1.1";
 2026-10-05: "Go for A" (the ATR stop), which makes this V1.2.*
 

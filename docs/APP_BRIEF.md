@@ -30,9 +30,9 @@ are impossible now.
 
 ## The strategy, in plain words (the "final set" — earned by testing, not opinion)
 
-**This is Final Set V1.2 (your orders 2026-10-04 and 2026-10-05).** The full
+**This is Final Set V1.3 (your orders 2026-10-04 and 2026-10-05).** The full
 one-page record, every number checked against the code, is
-`docs/FINAL_SET_V1_2.md`.
+`docs/FINAL_SET_V1_3.md`.
 
 1. **Buy strength:** rank stocks by how strongly they've risen over 6 and 12
    months, adjusted for how wildly they swing, and buy above score 62 (your
@@ -44,14 +44,18 @@ one-page record, every number checked against the code, is
    On ₹5 crore at a typical swing: 63 → ₹1.5L · 65 → ₹3.9L · 68 → ₹7.8L ·
    72 → ₹13.1L · 80 → ₹23.5L. (This is NOT ½-Kelly — ½-Kelly ran only
    2026-07-30 → 08-04; the old fixed ₹1,25,000 ran 08-04 → 09-10.)
-   **Measured-Kelly check (your order 2026-10-02, "write it"):** at every
-   scan the app reads its OWN closed trades (stops, targets, trails, decay,
-   max-hold, rotation, danger — never your own sells, square-offs, the kill
-   switch or the drawdown ladder). If they show NO edge after costs, the
-   scan opens nothing new; if they show an edge, each new trade is capped
-   at the size that record supports (never below ₹1,50,000, never raised).
-   The reading is on the Risk page; Settings switches it off. Your own BUY
-   button and the Buy Desk are never blocked by it.
+   **Measured-Kelly check (your order 2026-10-02, "write it"; momentum only
+   since your order 2026-10-05, "make it momentum only"):** before the
+   momentum pass the app reads its OWN closed MOMENTUM trades (stops,
+   targets, trails, decay, max-hold, rotation, danger — never your own
+   sells, square-offs, the kill switch or the drawdown ladder, and never
+   the other four categories' or Ocean's exits). If they show NO edge after
+   costs, the momentum scan opens nothing new; if they show an edge, each
+   new momentum trade is capped at the size that record supports (never
+   below ₹1,50,000, never raised). Intraday, short, swing, positional and
+   Ocean are neither counted nor blocked. The reading is on the Risk page;
+   Settings switches it off. Your own BUY button and the Buy Desk are never
+   blocked by it.
    **Cash share per category (your order 2026-10-04, "fix it so all 5
    categories get cash"):** momentum may spend **40%** of the book (₹2 crore
    on ₹5 crore), intraday, short, swing and positional **15% each** (₹75

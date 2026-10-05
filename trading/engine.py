@@ -733,7 +733,11 @@ class TradingEngine:
         mk = self._measured_kelly(now) if picks else None
         cleared: list = []
         for pick in picks:
-            if mk is not None and mk.block_new_entries:
+            # 2026-10-05 ("make it momentum only"): the reading is this
+            # category's own record, so an Ocean pick (its own category, its
+            # own exits) is not judged by it.
+            if (mk is not None and mk.block_new_entries
+                    and not pick.get("ocean")):
                 skipped.append({"ticker": pick["ticker"],
                                 "reason": "measured_kelly_no_edge"})
                 continue
@@ -2009,6 +2013,7 @@ class TradingEngine:
             entry_score=pos.entry_score, reasoning=pos.reasoning,
             entry_notes=getattr(pos, "entry_notes", "") or "",
             tags=list(getattr(pos, "tags", []) or []),
+            mode=getattr(pos, "mode", "") or "",
         ))
         pos.qty -= half
 
@@ -2028,6 +2033,7 @@ class TradingEngine:
             entry_score=pos.entry_score, reasoning=pos.reasoning,
             entry_notes=getattr(pos, "entry_notes", "") or "",
             tags=list(getattr(pos, "tags", []) or []),
+            mode=getattr(pos, "mode", "") or "",
         ))
         # WHY-SOLD journal entry — full exit context, never deleted
         hold_days = (now.date() - pos.entry_date.date()).days
@@ -2266,6 +2272,15 @@ class TradingEngine:
         cfg = self.cfg
         if not bool(getattr(cfg, "measured_kelly_enabled", False)):
             return None
+        # OWNER ORDER 2026-10-05 ("make it momentum only"): the check runs
+        # only in a listed category's pass and reads only that category's
+        # closed trades. Any other pass = no reading, no block, no cap.
+        modes = tuple(getattr(cfg, "measured_kelly_modes", ()) or ())
+        category = None
+        if modes:
+            if str(getattr(cfg, "mode", "") or "") not in modes:
+                return None
+            category = str(cfg.mode)
         try:
             from .measured_kelly import live_clip_pct, measure
             r = measure(
@@ -2274,12 +2289,13 @@ class TradingEngine:
                 min_trades=int(getattr(cfg, "measured_kelly_min_trades", 0) or 0),
                 full_confidence=int(getattr(
                     cfg, "measured_kelly_full_confidence", 300) or 300),
-                clip_pct=live_clip_pct())
+                clip_pct=live_clip_pct(), category=category)
         except Exception as e:
             log.exception("measured Kelly failed — check skipped: %s", e)
             return None
         if r.block_new_entries:
             self._journal_once_a_day("MEASURED_KELLY_BLOCKED", now, {
+                "category": r.category, "other_category": r.other_category,
                 "usable": r.usable, "excluded": r.excluded,
                 "win_rate": r.raw_win_rate, "payoff": r.payoff_ratio,
                 "kelly": r.raw_kelly, "why": r.note})

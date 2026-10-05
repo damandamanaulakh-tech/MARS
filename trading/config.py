@@ -329,6 +329,12 @@ class Config:
     # they were opened with. The owner's switch; the numbers are measured
     # constants in targets.py, not knobs.
     atr_stop_enabled: bool = True
+    # OWNER ORDER 2026-10-05 ("make it momentum only"): the measured-Kelly
+    # check (F-9) reads ONLY this category's closed trades and gates ONLY
+    # this category's scan pass. One pooled reading let a run of losing
+    # intraday/swing exits block momentum. Empty tuple = the old pooled
+    # check in every pass.
+    measured_kelly_modes: tuple = ("nifty200_momentum",)
     take_profit_pct: float = 0.10             # +10% -> R:R 1:2 from -5% stop
     trailing_stop_pct: float = -0.08          # -8% from peak (chandelier-style)
     score_decay_exit: float = 50.0            # exit if AM 07 score drops below this

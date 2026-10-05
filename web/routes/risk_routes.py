@@ -78,16 +78,22 @@ def risk_view(request: Request):
     # engine._measured_kelly: a page view must never write the journal.
     mk = None
     mk_cap = None
+    mk_modes: tuple = ()
     try:
         from trading.measured_kelly import live_clip_pct, measure
         if bool(getattr(cfg, "measured_kelly_enabled", False)):
+            # 2026-10-05 ("make it momentum only"): the page shows the
+            # reading of the FIRST listed category (momentum), the one the
+            # scan acts on; an empty list = the old pooled reading.
+            mk_modes = tuple(getattr(cfg, "measured_kelly_modes", ()) or ())
             mk = measure(
                 eng.portfolio.trades,
                 fraction=float(getattr(cfg, "kelly_fraction", 0.29) or 0.29),
                 min_trades=int(getattr(cfg, "measured_kelly_min_trades", 0) or 0),
                 full_confidence=int(getattr(
                     cfg, "measured_kelly_full_confidence", 300) or 300),
-                clip_pct=live_clip_pct())
+                clip_pct=live_clip_pct(),
+                category=(mk_modes[0] if mk_modes else None))
             mk_cap = eng._measured_kelly_cap(mk, cfg, equity)
     except Exception:
         mk = None
@@ -118,6 +124,7 @@ def risk_view(request: Request):
             "mk": mk,
             "mk_cap": mk_cap,
             "mk_on": bool(getattr(cfg, "measured_kelly_enabled", False)),
+            "mk_modes": mk_modes,
             "budgets": budgets,
             "budget_total": budget_total,
         },

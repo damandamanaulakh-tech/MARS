@@ -1,10 +1,11 @@
 """Owner order 2026-10-04: "also make these things as finale set V 1.1";
-2026-10-05 "Go for A" (the ATR stop) made it V1.2.
+2026-10-05 "Go for A" (the ATR stop) made it V1.2; 2026-10-05 "make it
+momentum only" (the measured-Kelly check) made it V1.3.
 
-docs/FINAL_SET_V1_2.md records the live recipe. These pins check its key
+docs/FINAL_SET_V1_3.md records the live recipe. These pins check its key
 numbers against the code, so a later change cannot leave the record saying
 something the app no longer does. Changing a pinned number means the owner
-ordered a change — and the page then becomes V1.3.
+ordered a change — and the page then becomes V1.4.
 """
 
 from pathlib import Path
@@ -15,7 +16,7 @@ from trading.risk_v2 import DRAWDOWN_LEVELS, DYNAMIC_CASH_RESERVE
 from trading import targets
 from trading.targets import ATR_TARGET_K
 
-DOC = Path("docs/FINAL_SET_V1_2.md")
+DOC = Path("docs/FINAL_SET_V1_3.md")
 
 
 def _doc() -> str:
@@ -24,9 +25,21 @@ def _doc() -> str:
 
 def test_the_record_exists_and_names_itself():
     d = _doc()
-    assert d.startswith("# FINAL SET V1.2")
+    assert d.startswith("# FINAL SET V1.3")
     assert "finale set V 1.1" in d          # the owner's own words (V1.1)
-    assert '"Go for A"' in d                # and the V1.2 order
+    assert '"Go for A"' in d                # the V1.2 order
+    assert '"make it momentum only"' in d   # the V1.3 order
+
+
+def test_the_measured_kelly_check_is_momentum_only():
+    """V1.3's one change. The check reads momentum's exits and gates the
+    momentum pass only; the page must say so."""
+    c, d = Config(), _doc()
+    assert c.measured_kelly_enabled is True
+    assert c.measured_kelly_modes == ("nifty200_momentum",)
+    assert "| Measured-Kelly check | On, **momentum only**." in d
+    flat = " ".join(d.split())
+    assert "neither counted in the reading nor blocked by it" in flat
 
 
 def test_money_lines_match_the_config():
