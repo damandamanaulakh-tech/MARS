@@ -9,8 +9,17 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import health_stats, readiness, scheduler
-from .routes import (
+# 2026-10-05 (owner: "go with memory fix"): cap glibc's malloc arenas
+# BEFORE the scheduler and server threads start, so each new thread shares a
+# small set of heaps instead of growing and fragmenting its own. Same effect
+# as MALLOC_ARENA_MAX=2 without depending on a Render dashboard setting.
+# See web/memory_relief.py for the 2026-10-05 measurements.
+from . import memory_relief
+
+memory_relief.limit_arenas()
+
+from . import health_stats, readiness, scheduler  # noqa: E402
+from .routes import (  # noqa: E402
     auth, dashboard, positions, scan_routes, settings_routes,
     upstox, backtest_routes, regime_routes,
     strategy_routes, reports_routes, risk_routes, alerts_routes,

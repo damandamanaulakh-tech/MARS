@@ -129,7 +129,6 @@ def test_a_limit_fill_waits_for_the_running_pass():
 def test_the_rotation_holds_the_lock_between_passes(monkeypatch):
     """Between two passes cfg.mode is still the previous category; another
     thread must not get in there."""
-    import gc
     from trading.modes import MODE_LOCK
     eng = state.engine()
     seen = []
@@ -145,7 +144,14 @@ def test_the_rotation_holds_the_lock_between_passes(monkeypatch):
         t.start()
         t.join()
 
-    monkeypatch.setattr(gc, "collect", probe)
+    # 2026-10-05: the between-pass hook is now memory_relief.release (it
+    # still calls gc.collect). It also runs AFTER the rotation, before the
+    # trigger layer, where the lock is rightly free — probe only the
+    # between-pass calls, which carry the category in their label.
+    from web import memory_relief
+    monkeypatch.setattr(
+        memory_relief, "release",
+        lambda label="": probe() if "trigger layer" not in label else None)
     monkeypatch.setattr(eng, "scan", lambda *a, **k: type(
         "R", (), {"opened": [], "skipped": []})())
     monkeypatch.setattr(scheduler, "_degraded_halt", lambda where: False)
