@@ -154,9 +154,23 @@ def can_open(
     heat_cap_pct = getattr(cfg, "max_portfolio_heat_pct", None)
     if heat_cap_pct is not None and current_equity > 0:
         stop_frac = abs(cfg.stop_loss_pct)  # e.g. 0.05 -> 5% risk per position
+
+        # 2026-10-05 ("Go for A"): a held position's risk at stop is read off
+        # ITS OWN stop (an ATR-widened momentum stop, an owner's custom stop,
+        # a danger-tightened one) — the formula this gate documents. The flat
+        # category percentage is only the fallback for a position with no
+        # snapshot. A stop already above entry carries no risk at stop.
+        def _risk_frac(p) -> float:
+            sp = float(getattr(p, "stop_price", 0.0) or 0.0)
+            ep = float(getattr(p, "entry_price", 0.0) or 0.0)
+            if sp > 0 and ep > 0:
+                return max(0.0, (ep - sp) / ep)
+            return stop_frac
         existing_heat = sum(
-            p.qty * p.entry_price * stop_frac for p in open_positions.values()
+            p.qty * p.entry_price * _risk_frac(p) for p in open_positions.values()
         )
+        # The NEW entry's own stop is set after this gate (engine._stop_for),
+        # so its heat is counted at the category percentage here.
         new_heat = qty * fill_price * stop_frac
         if (existing_heat + new_heat) / current_equity > heat_cap_pct:
             # Try to shrink qty to fit remaining heat budget before rejecting.

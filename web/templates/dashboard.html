@@ -647,7 +647,7 @@
   {% if atr_rows %}
   <div class="border border-line bg-white">
     <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
-      <div class="font-bold">📐 Volatility vs your fixed stop</div>
+      <div class="font-bold">📐 Volatility and the stop rule</div>
       <div class="text-xs text-ink-faint">stored closes, not live ticks · display only</div>
     </div>
     <div class="overflow-x-auto">
@@ -655,8 +655,8 @@
       <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
         <tr><th class="text-left px-4 py-2 whitespace-nowrap">Stock</th>
             <th class="text-right px-2 py-2 whitespace-nowrap">ATR(14)</th>
-            <th class="text-right px-2 py-2 whitespace-nowrap">Your stop</th>
-            <th class="text-right px-4 py-2 whitespace-nowrap">1.5×ATR stop</th></tr>
+            <th class="text-right px-2 py-2 whitespace-nowrap">Floor (fixed)</th>
+            <th class="text-right px-4 py-2 whitespace-nowrap">Live rule: 2×ATR, floor −5%, cap −15%</th></tr>
       </thead>
       <tbody>
         {% for r in atr_rows %}
@@ -665,14 +665,14 @@
             <span class="text-ink-faint text-xs tabular-nums" title="last stored close — not a live price">₹{{ r.last | inr(2) }}{% if r.asof %} <span class="text-[10px]">({{ r.asof }})</span>{% endif %}</span></td>
           <td class="px-2 py-2 text-right tabular-nums">₹{{ r.atr | inr(2) }} <span class="text-ink-faint text-xs">({{ r.atr_pct }}%)</span></td>
           <td class="px-2 py-2 text-right tabular-nums">₹{{ r.fixed_stop | inr(2) }} <span class="text-ink-faint text-xs">(−{{ r.fixed_stop_pct }}%)</span></td>
-          <td class="px-4 py-2 text-right tabular-nums {% if r.tighter %}text-amber-700 font-semibold{% endif %}">₹{{ r.atr_stop | inr(2) }} <span class="text-xs">(−{{ r.atr_stop_pct }}%)</span></td>
+          <td class="px-4 py-2 text-right tabular-nums {% if r.widened %}text-amber-700 font-semibold{% endif %}">₹{{ r.atr_stop | inr(2) }} <span class="text-xs">(−{{ r.atr_stop_pct }}%{% if r.source == 'atr_cap' %}, capped{% elif r.source == 'fixed' %}, fixed{% endif %})</span></td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
     </div>
     <div class="px-4 lg:px-6 py-3 text-xs text-ink-faint border-t border-line">
-      Where the ATR stop is <span class="text-amber-700 font-semibold">tighter</span>, your −5% gives the stock more rope than its own volatility needs; where it is wider, −5% may be inside the daily noise.
+      Since 2026-10-05 ("Go for A") a <strong>new momentum buy</strong> gets the wider of −5% and 2 × its 14-day ATR, capped at −15% (measured: research/stop_cooldown_study). Rows in <span class="text-amber-700 font-semibold">amber</span> are names the rule widens — −5% sits inside their daily noise. Other categories keep their fixed stop; a held position keeps the stop it was opened with.
     </div>
   </div>
   {% endif %}

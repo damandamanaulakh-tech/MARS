@@ -1,9 +1,10 @@
-"""Owner order 2026-10-04: "also make these things as finale set V 1.1".
+"""Owner order 2026-10-04: "also make these things as finale set V 1.1";
+2026-10-05 "Go for A" (the ATR stop) made it V1.2.
 
-docs/FINAL_SET_V1_1.md records the live recipe. These pins check its key
+docs/FINAL_SET_V1_2.md records the live recipe. These pins check its key
 numbers against the code, so a later change cannot leave the record saying
 something the app no longer does. Changing a pinned number means the owner
-ordered a change — and the page then becomes V1.2.
+ordered a change — and the page then becomes V1.3.
 """
 
 from pathlib import Path
@@ -11,9 +12,10 @@ from pathlib import Path
 from trading.config import Config
 from trading.modes import get_preset
 from trading.risk_v2 import DRAWDOWN_LEVELS, DYNAMIC_CASH_RESERVE
+from trading import targets
 from trading.targets import ATR_TARGET_K
 
-DOC = Path("docs/FINAL_SET_V1_1.md")
+DOC = Path("docs/FINAL_SET_V1_2.md")
 
 
 def _doc() -> str:
@@ -22,8 +24,9 @@ def _doc() -> str:
 
 def test_the_record_exists_and_names_itself():
     d = _doc()
-    assert d.startswith("# FINAL SET V1.1")
-    assert "finale set V 1.1" in d          # the owner's own words
+    assert d.startswith("# FINAL SET V1.2")
+    assert "finale set V 1.1" in d          # the owner's own words (V1.1)
+    assert '"Go for A"' in d                # and the V1.2 order
 
 
 def test_money_lines_match_the_config():
@@ -89,7 +92,8 @@ def test_floors_and_scan_order_match_the_code():
 def test_exit_table_matches_presets_and_targets():
     d = _doc()
     rows = {
-        "nifty200_momentum": ("| Momentum | −5% |", -0.05, -0.15, 40.0, 200, 8.0),
+        "nifty200_momentum": ("| Momentum | −5%, or 2 × ATR if wider (cap −15%) |",
+                              -0.05, -0.15, 40.0, 200, 8.0),
         "intraday": ("| Intraday | −1.5% |", -0.015, -0.01, 40.0, 1, 1.0),
         "short": ("| Short | −3% |", -0.03, -0.04, 45.0, 63, 5.0),
         "swing": ("| Swing | −5% |", -0.05, -0.08, 45.0, 20, 4.0),
@@ -105,6 +109,20 @@ def test_exit_table_matches_presets_and_targets():
         assert ATR_TARGET_K[mode] == k, mode
     assert get_preset("nifty200_momentum").take_profit_pct == 0.20
     assert "+20% (8 × ATR" in d
+
+
+def test_the_atr_stop_matches_the_measured_constants():
+    """V1.2's one change (owner 2026-10-05, "Go for A"). The numbers are the
+    ones the study ran — research/stop_cooldown_study — not knobs."""
+    c, d = Config(), _doc()
+    assert c.atr_stop_enabled is True
+    assert targets.ATR_STOP_MODES == ("nifty200_momentum",)
+    assert targets.ATR_STOP_K == 2.0
+    assert targets.ATR_STOP_CAP == 0.15
+    assert "2 × ATR" in d and "cap −15%" in d
+    assert "stop_cooldown_study" in d
+    flat = " ".join(d.split())                 # the page wraps mid-sentence
+    assert "Other categories keep their fixed stops" in flat
 
 
 def test_drawdown_ladder_matches_risk_v2():

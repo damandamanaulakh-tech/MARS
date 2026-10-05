@@ -1407,6 +1407,11 @@ class TradingEngine:
         # so the line can carry how it was set (k, ATR, band) — it used to be
         # computed after, and the journal never said.
         target_price = self._target_for(pick, fill_price, cfg=cfg)
+        # OWNER ORDER 2026-10-05 ("Go for A"): the stop is sized the same way
+        # — the wider of the category stop and 2 x the name's own ATR, capped
+        # (momentum only; see targets.py for the measurement). Computed here
+        # so the BUY line carries how it was set.
+        stop_price = self._stop_for(pick, fill_price, cfg=cfg)
         notional = qty * fill_price
         self.portfolio.cash -= notional
         # WHY-BOUGHT journal entry — full decision context, never deleted
@@ -1435,6 +1440,8 @@ class TradingEngine:
             "sizing": pick.get("size_diag") or {"mode": "fixed"},
             "target": {"price": target_price,
                        **(pick.get("target_diag") or {})},
+            "stop": {"price": stop_price,
+                     **(pick.get("stop_diag") or {})},
             # P2: config snapshot so every decision stays reproducible after
             # settings change later.
             "config_snapshot": {
@@ -1461,7 +1468,7 @@ class TradingEngine:
             peak_price=fill_price, entry_score=pick["score"],
             reasoning=pick["reasoning"],
             mode=getattr(cfg, "mode", ""),
-            stop_price=round(fill_price * (1 + cfg.stop_loss_pct), 2),
+            stop_price=stop_price,
             # OWNER ORDER 2026-09-10 ("C- k x ATR"): the target is k average
             # days of range away, per horizon, not a flat percentage — a quiet
             # name gets a nearer target than a wild one. Falls back to the
@@ -1559,6 +1566,28 @@ class TradingEngine:
         pick["target_diag"] = diag
         return price
 
+    def _stop_for(self, pick: dict, fill_price: float,
+                  cfg: Optional[Config] = None) -> float:
+        """Stop for a new position (owner order 2026-10-05, "Go for A"):
+        the wider of the category's stop and ATR_STOP_K x ATR14, capped —
+        momentum only, measured in research/stop_cooldown_study. Every other
+        case, and any failure, is the category's fixed stop; the diagnostic
+        on the pick says which."""
+        from .targets import stop_price_for
+        cfg = cfg if cfg is not None else self.cfg
+        df = pick.get("history")
+        try:
+            price, diag = stop_price_for(
+                getattr(cfg, "mode", ""), float(fill_price), df,
+                float(cfg.stop_loss_pct),
+                enabled=bool(getattr(cfg, "atr_stop_enabled", True)))
+        except Exception:
+            log.exception("ATR stop failed — category stop used")
+            pick["stop_diag"] = {"source": "fixed", "reason": "atr_failed"}
+            return round(float(fill_price) * (1 + cfg.stop_loss_pct), 2)
+        pick["stop_diag"] = diag
+        return price
+
     def _danger_pass(self, prices: dict, history: dict, now: datetime) -> None:
         """Mode C (alerts, first 7 days) then mode B (auto per-stock defence).
         1 VERIFIED danger trigger on a held name -> tighten stop to -2.5%
@@ -1649,8 +1678,22 @@ class TradingEngine:
             # to momentum's -5% and sold at -6%, a loss its own stop would
             # have held (found by the 2026-10-04 exit-per-category check).
             pos_cfg = self._exit_cfg(pos, cfg)
+            # 2026-10-05 ("Go for A"): a momentum buy may carry a stop WIDER
+            # than the category's -5% (2 x its own ATR). The risk accepted at
+            # entry is that width, so the leash is floored at it too — the
+            # same rule as above, read off the position's own stop. A stop
+            # already tightened above entry contributes nothing here.
+            entry_width = 0.0
+            try:
+                _sp = float(getattr(pos, "stop_price", 0.0) or 0.0)
+                _ep = float(pos.entry_price or 0.0)
+                if 0 < _sp < _ep:
+                    entry_width = (_ep - _sp) / _ep
+            except (TypeError, ValueError):
+                entry_width = 0.0
             leash = max(abs(float(danger.TIGHTEN_PCT)),
-                        abs(float(getattr(pos_cfg, "stop_loss_pct", -0.05))))
+                        abs(float(getattr(pos_cfg, "stop_loss_pct", -0.05))),
+                        entry_width)
             entry = {
                 "ts": now.isoformat(), "ticker": ticker,
                 "fired": reading.fired, "price": round(price, 2),

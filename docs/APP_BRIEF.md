@@ -30,8 +30,9 @@ are impossible now.
 
 ## The strategy, in plain words (the "final set" — earned by testing, not opinion)
 
-**This is Final Set V1.1 (your order 2026-10-04).** The full one-page record,
-every number checked against the code, is `docs/FINAL_SET_V1_1.md`.
+**This is Final Set V1.2 (your orders 2026-10-04 and 2026-10-05).** The full
+one-page record, every number checked against the code, is
+`docs/FINAL_SET_V1_2.md`.
 
 1. **Buy strength:** rank stocks by how strongly they've risen over 6 and 12
    months, adjusted for how wildly they swing, and buy above score 62 (your
@@ -82,10 +83,15 @@ every number checked against the code, is `docs/FINAL_SET_V1_1.md`.
    sector limit or the risk limit leaves less than ₹1.5 lakh, the trade is
    rounded up to ₹1.5 lakh if there is room, otherwise it is skipped —
    never opened small.
-2. **Sell by rails, not feelings:** every position carries **−5% stop /
-   +20% target** from day one (your calls: stop 2026-07-26; target raised
-   +12→+20 on 2026-08-24 — you picked "Switch to D" after both exit
-   studies showed it winning all four test windows), a **−15% trailing
+2. **Sell by rails, not feelings:** every momentum position carries a
+   **stop of −5%, or 2 × its own 14-day range if that is wider, capped at
+   −15%** (stop −5% your call 2026-07-26; the ATR widening your call
+   2026-10-05, "Go for A", after it beat the fixed stop on the 12-year
+   panel in both the choosing half and the judging half —
+   `research/stop_cooldown_study`; other categories keep their fixed
+   stops) and a **+20% target** from day one (target raised +12→+20 on
+   2026-08-24 — you picked "Switch to D" after both exit studies showed
+   it winning all four test windows), a **−15% trailing
    stop that is now genuinely live** (above +17.6% it protects the gain;
    at the old +12 it could never fire), a score-decay exit that dumps dead
    leaders (never your own manual picks — those only you sell, or the
@@ -93,7 +99,7 @@ every number checked against the code, is `docs/FINAL_SET_V1_1.md`.
 3. **Bad weather = brake — SWITCHED OFF at your order (2026-08-09,
    "i want to take risk on 200 DMA"):** a correction (Nifty below its
    200-day average) no longer blocks buying by itself. Still standing:
-   panic blocks, the breadth gate, the score floor, the −5% stop, the
+   panic blocks, the breadth gate, the score floor, the stop, the
    kill switch, and the crash cash-reserve ladder (20% correction / 40%
    panic). The Settings toggle restores the brake.
 4. **The green light inside corrections (new):** if the fear index (India

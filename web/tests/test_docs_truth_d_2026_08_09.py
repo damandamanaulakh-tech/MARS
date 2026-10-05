@@ -38,7 +38,11 @@ def test_app_brief_sizing_matches_the_owners_order():
 def test_app_brief_exits_match_the_live_preset():
     p = get_preset("nifty200_momentum")
     b = _brief()
-    assert p.stop_loss_pct == -0.05 and "−5% stop" in b
+    # 2026-10-05 ("Go for A"): the -5% is now the FLOOR of an ATR-scaled
+    # stop (2 x ATR14, cap -15%, momentum only); the brief must say both.
+    assert p.stop_loss_pct == -0.05 and "stop of −5%" in b
+    assert Config().atr_stop_enabled is True
+    assert "2 × its own 14-day range" in b and "−15%" in b and "Go for A" in b
     assert p.take_profit_pct == 0.20 and "+20% target" in b
     assert "+12% target" not in b       # superseded by Node 12 (2026-08-24)
     assert "−12% stop" not in b

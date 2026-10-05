@@ -425,18 +425,22 @@ def horizons_panel() -> list[dict]:
 
 
 def atr_panel(tickers: list[str], limit: int = 4) -> list[dict]:
-    """ATR-based stop context for held names (mockups' "ATR Stop & Position
-    Size"). Computed from STORED OHLCV — shows what a volatility-scaled stop
-    would be next to the owner's fixed -5%, so the two are comparable.
-    Display only: the live engine still uses the fixed stop."""
+    """Volatility context for held names (mockups' "ATR Stop & Position
+    Size"). Computed from STORED OHLCV: the name's ATR, the category floor,
+    and what the LIVE stop rule gives it today — since 2026-10-05 ("Go for
+    A") a new momentum buy's stop is the wider of the floor and 2 x ATR,
+    capped at 15% (trading/targets.py). Display only: a held position keeps
+    the stop it was opened with; this shows the rule, not the position."""
     from . import state
     from .candle_chart import load_ohlcv
+    from trading import targets as _T
     try:
         from trading.lens_v2 import atr as _atr
     except Exception:
         return []
     cfg = state.cfg()
     stop_pct = abs(float(cfg.stop_loss_pct))
+    enabled = bool(getattr(cfg, "atr_stop_enabled", True))
     out = []
     for t in (tickers or [])[:limit]:
         df = load_ohlcv(t, tail=90)
@@ -451,6 +455,8 @@ def atr_panel(tickers: list[str], limit: int = 4) -> list[dict]:
             continue
         if a <= 0 or last <= 0:
             continue
+        live_pct, diag = _T.stop_pct_for("nifty200_momentum", last, df,
+                                          -stop_pct, enabled=enabled)
         out.append({
             "ticker": t,
             # This is the last STORED close, not a live tick. It is dated on
@@ -462,8 +468,11 @@ def atr_panel(tickers: list[str], limit: int = 4) -> list[dict]:
             "atr_pct": round(a / last * 100, 2),
             "fixed_stop": round(last * (1 - stop_pct), 2),
             "fixed_stop_pct": round(stop_pct * 100, 1),
-            "atr_stop": round(last - 1.5 * a, 2),
-            "atr_stop_pct": round(1.5 * a / last * 100, 2),
-            "tighter": (1.5 * a / last) < stop_pct,
+            # the live rule, momentum only (other categories read "fixed")
+            "atr_stop": round(last * (1 + live_pct), 2),
+            "atr_stop_pct": round(abs(live_pct) * 100, 2),
+            "source": diag.get("source", "fixed"),
+            "widened": abs(live_pct) > stop_pct + 1e-9,
+            "k": _T.ATR_STOP_K, "cap_pct": round(_T.ATR_STOP_CAP * 100, 1),
         })
     return out
