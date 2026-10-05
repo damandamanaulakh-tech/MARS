@@ -32,9 +32,21 @@ def retag_positions_per_mode(portfolio, now: datetime | None = None) -> int:
         if retagged:
             tag = "nifty200_momentum"
         preset = PRESETS[tag]
-        new_stop = round(pos.entry_price * (1 + preset.stop_loss_pct), 2)
         old_stop = getattr(pos, "stop_price", 0.0) or 0.0
         old_target = getattr(pos, "target_price", 0.0) or 0.0
+        # OWNER ORDER 2026-10-05 ("Go for A"): a momentum buy's stop is set
+        # at entry as the wider of the category stop and 2 x its own ATR
+        # (engine._stop_for). This retag runs on EVERY boot and used to
+        # re-snapshot the flat preset stop over it — the exact fault audit
+        # item S-2 fixed for the TARGET on 2026-10-02. Same rule now for the
+        # stop: a position whose category is still valid keeps the stop it
+        # was opened with; only a blank, unknown or stale-intraday tag, or a
+        # missing stop, gets the preset. A Settings change to a stop applies
+        # to NEW trades.
+        if retagged or old_stop <= 0:
+            new_stop = round(pos.entry_price * (1 + preset.stop_loss_pct), 2)
+        else:
+            new_stop = round(old_stop, 2)
         # OWNER ORDER 2026-10-02 (audit item 6): since 2026-09-10 a target is
         # k x ATR per stock, set at entry (engine._target_for). This retag
         # runs on EVERY boot and used to overwrite it with the flat preset

@@ -22,21 +22,37 @@ tables, direct, no hedging, no fake data (say DATA_NEEDED), mercy on
 tokens. **Verify against code — never trust a narrative** (incl. other AIs'
 uploads: audit them; several contained fabricated numbers/padded catalogs).
 
-## FINAL SET V1.1 — LIVE since 2026-10-04 (owner: "also make these things as finale set V 1.1")
-**docs/FINAL_SET_V1_1.md IS THE RECORD** — every live money number read
-from code on 2026-10-04, pinned by web/tests/test_final_set_v1_1.py (a
-drift fails the suite). Any owner-ordered change to a pinned number = bump
-the page to V1.2 and update the pins in the same commit. Summary: ₹5 Cr ·
+## FINAL SET V1.2 — LIVE since 2026-10-05 (owner: "Go for A")
+**docs/FINAL_SET_V1_2.md IS THE RECORD** (V1.1 page kept as history with a
+SUPERSEDED banner) — every live money number read from code, pinned by
+web/tests/test_final_set_v1_2.py (a drift fails the suite). Any
+owner-ordered change to a pinned number = bump the page to V1.3 and update
+the pins in the same commit. **V1.2's ONE change: a NEW momentum buy's stop
+= the wider of −5% and 2 × its own ATR14, capped at −15%** (`targets.
+stop_pct_for`, constants ATR_STOP_K 2.0 / CAP 0.15 / MODES = momentum only,
+measured in research/stop_cooldown_study — see the STOP/COOLDOWN block;
+`cfg.atr_stop_enabled` is the owner's switch, Settings "ATR Stop On"; the
+numbers are measured constants, not knobs). Wired in engine._stop_for
+(BUY journal carries `stop` {price, source atr/atr_floor/atr_cap/fixed, k,
+atr}), the backtest's `_try_open_positions` (same rule), the heat gate
+(each held name counted at ITS OWN stop), the danger leash (floored at the
+position's entry width, never narrower), and `exits.retag_positions_per_
+mode` (a valid-tag position KEEPS its entry stop on boot — the S-2 target
+lesson applied to the stop; blank/stale tag or stop 0 still gets the
+preset). Held positions untouched; other four categories keep fixed stops
+(unmeasured). Cost stated to the owner: size unchanged, so a losing jumpy
+name can lose 6.8% on average, 15% at the cap. First live day Tue 10-06.
+Everything else = V1.1 summary: ₹5 Cr ·
 slab ₹1.5L min + 0.29×Kelly, cap 5% · min trade ₹1.5L (round-up or skip) ·
 ceiling 222 · category shares momentum 40 / others 15 each · Ocean
 ₹1,68,750 ×8 outside shares · measured-Kelly check ON · ~1,200-name
 weekly liquidity universe + 172 owner names · 5 categories at 09:20 AND
 14:30 (momentum, intraday, short, swing, positional) · floors 62/72/70/60/68
 · breadth band 40-65% · correction brake OFF · candle gate off for momentum
-· exits per position's own mode, targets k×ATR (momentum −5/+20/trail −15,
-200d) · exit check every 30 min incl. between scan categories · kill switch
-−2%/day · drawdown ladder −5/−8/−10/−15/−20 · danger layer 12 tripwires ON ·
-rotation ON at 90% · RBI days never halt.
+· exits per position's own mode, targets k×ATR (momentum stop as above /+20/
+trail −15, 200d) · exit check every 30 min incl. between scan categories ·
+kill switch −2%/day · drawdown ladder −5/−8/−10/−15/−20 · danger layer 12
+tripwires ON · rotation ON at 90% · RBI days never halt.
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:
@@ -110,9 +126,13 @@ fewer stops, win rate 29->35%. Cost: a losing trade on a jumpy name can
 lose more than 5% (avg width 6.8%, max 15%) at unchanged slab size.
 **B = re-entry cooldown 5/10/20d: NOT EARNED** — picked B10 lost the test
 (+12.73 vs +19.33), all three lose; re-buys after a stop catch trend
-continuations. NOTHING WIRED — A awaits the owner's word.
+continuations. **A WIRED 2026-10-05 (owner: "Go for A") = FINAL SET V1.2,
+see the header block; B stays unwired. Tests: trading/tests/test_atr_stop_
+2026_10_05.py (18; 15 fail on the old code).** Gotcha from the wire: the
+Final Set page wraps sentences mid-line, so a doc pin on a phrase must
+join whitespace first (`" ".join(d.split())`).
 
-## FINAL SET V1.0 (2026-07-21) — SUPERSEDED by V1.1; history below, do not quote as live
+## FINAL SET V1.0 (2026-07-21) — SUPERSEDED by V1.1 (2026-10-04) then V1.2 (2026-10-05); history below, do not quote as live
 - Signal: **6m+12m vol-adjusted momentum, an ABSOLUTE score** —
   50 + 25 × average(r6/σ6, r12/σ12), clipped 0-100; no ranking step
   (R-11 truth-pass 2026-10-02; "rank-blended" was wrong)

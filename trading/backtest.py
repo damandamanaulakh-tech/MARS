@@ -237,7 +237,9 @@ def run_backtest(
         # survivorship-biased. Appended later only when PIT did NOT run.
         "LIVE-GATE GAP: this replay does not model the breadth gate, the "
         "VIX-crush re-entry, the spread gate or the IFR throttle — it tests "
-        "the core recipe, not the full live rulebook."
+        "the core recipe, not the full live rulebook. Its targets are the "
+        "flat category percentage (live: k x ATR per stock since 2026-09-10) "
+        "and exits are judged once a day on the close (live: every 30 min)."
         + (" It also runs ONE category with the whole book, while live each "
            "category spends only its own cash share "
            f"({cfg.mode}: {_category_share(cfg) * 100:.0f}% of deployable "
@@ -562,9 +564,23 @@ def _try_open_positions(
             peak_price=fill, entry_score=pick["score"],
             reasoning=reasoning,
             mode=getattr(cfg, "mode", ""),
-            stop_price=round(fill * (1 + cfg.stop_loss_pct), 2),
+            # 2026-10-05 ("Go for A"): the same ATR stop the live engine sets
+            # (momentum only, measured), so /backtest tests the live rule.
+            stop_price=_stop_price_for(cfg, fill, pick["hist"]),
             target_price=round(fill * (1 + cfg.take_profit_pct), 2),
         )
+
+
+def _stop_price_for(cfg, fill: float, hist) -> float:
+    """The live stop rule for a backtest entry; the fixed stop on any failure."""
+    try:
+        from .targets import stop_price_for
+        return stop_price_for(
+            getattr(cfg, "mode", ""), float(fill), hist,
+            float(cfg.stop_loss_pct),
+            enabled=bool(getattr(cfg, "atr_stop_enabled", True)))[0]
+    except Exception:
+        return round(fill * (1 + cfg.stop_loss_pct), 2)
 
 
 def _close_position(portfolio, ticker, raw_price, reason, date) -> None:

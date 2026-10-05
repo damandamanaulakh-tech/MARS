@@ -147,3 +147,87 @@ def target_price_for(mode: str, entry_price: float,
     """Absolute target price for a new position."""
     pct, diag = target_pct_for(mode, entry_price, df, fallback_pct)
     return round(float(entry_price) * (1.0 + pct), 2), diag
+
+
+# ---------------------------------------------------------------------------
+# ATR-scaled STOP (owner order 2026-10-05: "Go for A")
+# ---------------------------------------------------------------------------
+# WHY. The 19-name replay of 2026-10-04 showed the fixed -5% stop is less than
+# ONE normal day's range on a jumpy name (MTAR: ATR 5.9% of price; 9 of its
+# stop-outs were followed by +15..+59% within 20 days). The fix was MEASURED
+# before it was wired — research/stop_cooldown_study/summary.md: settings
+# chosen on 2015-2020H1 only, judged on 2020H2-2026H1, every arm through the
+# same live-like harness (intraday low/high stop checks, k x ATR targets,
+# floor 62, the committed 191 x 12y panel).
+#
+#     stop width = max(category stop, ATR_STOP_K x ATR14 / price), capped
+#
+#     arm        train    test    verdict
+#     base -5%   +0.88   +19.33
+#     k = 1.5    +1.74   +20.24   beats base both halves
+#     k = 2.0    +2.82   +21.14   beats base both halves, 5 of 6 windows,
+#                                 shallower test drawdown  -> EARNED
+#
+# k = 2.0 was the wider of the two settings tested; wider values were NOT
+# tested, and choosing one by its holdout would destroy the holdout. The cap
+# (15%) and the floor (the category's own stop) were fixed before the run.
+# The re-entry cooldown (arm B) measured WORSE than base on the holdout and
+# is not wired.
+#
+# SCOPE. Momentum only: that is the category the study ran. The other four
+# keep their fixed stops until measured. Held positions keep the stop they
+# were opened with (exits.retag_positions_per_mode); only NEW buys get this.
+#
+# WHAT IT COSTS, stated once here and on the Settings page: trade size is
+# unchanged, so a losing trade on a jumpy name can lose more than 5% —
+# 6.8% on average in the study, 15% at the cap.
+ATR_STOP_MODES: tuple[str, ...] = ("nifty200_momentum",)
+ATR_STOP_K = 2.0
+ATR_STOP_CAP = 0.15                      # widest stop, as a fraction of entry
+ATR_STOP_SOURCE = "research/stop_cooldown_study/summary.md (2026-10-05)"
+
+
+def stop_pct_for(mode: str, price: float, df: Optional[pd.DataFrame],
+                 floor_pct: float, enabled: bool = True,
+                 k: float = ATR_STOP_K, cap: float = ATR_STOP_CAP,
+                 ) -> tuple[float, dict]:
+    """(stop as a NEGATIVE fraction of entry, diagnostics).
+
+    `floor_pct` is the category's own stop (negative, e.g. -0.05) and is the
+    narrowest the stop can be. Outside ATR_STOP_MODES, with the switch off,
+    or when the ATR cannot be computed, the floor is returned unchanged and
+    the diagnostic says why — a screen can never show an ATR stop that was
+    really the fixed number.
+    """
+    m = str(mode or "")
+    floor = -abs(float(floor_pct))
+    base = {"mode": m, "floor_pct": round(abs(floor) * 100, 2),
+            "k": k, "cap_pct": round(cap * 100, 1)}
+    if not enabled:
+        return floor, {"source": "fixed", "reason": "disabled", **base}
+    if m not in ATR_STOP_MODES:
+        return floor, {"source": "fixed", "reason": "mode_not_atr", **base}
+    if not price or price <= 0:
+        return floor, {"source": "fixed", "reason": "no_price", **base}
+    a = atr(df)
+    if a is None:
+        return floor, {"source": "fixed", "reason": "no_atr", **base}
+    raw = k * a / float(price)
+    width = min(cap, max(abs(floor), raw))
+    source = "atr" if abs(floor) < raw < cap else (
+        "atr_cap" if raw >= cap else "atr_floor")
+    return -width, {
+        "source": source, **base,
+        "atr": round(a, 2),
+        "atr_pct_of_price": round(a / float(price) * 100, 3),
+        "raw_pct": round(raw * 100, 2),
+        "width_pct": round(width * 100, 2),
+    }
+
+
+def stop_price_for(mode: str, entry_price: float,
+                   df: Optional[pd.DataFrame], floor_pct: float,
+                   enabled: bool = True) -> tuple[float, dict]:
+    """Absolute stop price for a new position."""
+    pct, diag = stop_pct_for(mode, entry_price, df, floor_pct, enabled=enabled)
+    return round(float(entry_price) * (1.0 + pct), 2), diag

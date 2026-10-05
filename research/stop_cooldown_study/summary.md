@@ -72,7 +72,7 @@ compare the arms with each other, not with Nifty.
 - The stop on a volatile name moves from −5% to as much as −15%, sized at entry.
 - Trade sizes do not change (slab sizing is untouched).
 - **A losing trade on a jumpy stock can therefore cost more than today's −5%.** On average about 6.8% instead of 5%; at worst 15%.
-- Nothing is wired yet. This needs the owner's word.
+- ~~Nothing is wired yet. This needs the owner's word.~~ **Wired 2026-10-05 on the owner's "Go for A"** — Final Set V1.2 (`docs/FINAL_SET_V1_2.md`, `trading/targets.py` ATR_STOP_*). Momentum only, new buys only; B stays unwired.
 
 ## Limits (same for every arm)
 

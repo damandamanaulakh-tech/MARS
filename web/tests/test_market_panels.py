@@ -162,16 +162,46 @@ def test_horizons_panel_carries_the_real_presets_and_marks_the_live_one():
 
 # ---- ATR ----------------------------------------------------------------
 
-def test_atr_panel_compares_volatility_stop_to_the_fixed_stop():
+def test_atr_panel_shows_the_live_stop_rule_beside_the_floor():
+    """2026-10-05 ("Go for A"): the panel prints what the LIVE rule gives a
+    name today — the wider of the floor and 2 x ATR, capped — never the old
+    1.5 x ATR illustration, and never narrower than the floor."""
     with patch("web.db.is_connected", return_value=False):     # repo-zip path
         rows = mp.atr_panel(["RELIANCE.NS", "TCS.NS"])
     assert len(rows) == 2
     for r in rows:
         assert r["atr"] > 0 and r["last"] > 0
         assert r["fixed_stop"] < r["last"]
-        assert r["atr_stop"] < r["last"]
+        assert r["atr_stop"] <= r["fixed_stop"] + 0.01        # never tighter
         assert r["fixed_stop_pct"] == 5.0                      # owner's -5%
-        assert isinstance(r["tighter"], bool)
+        assert 5.0 <= r["atr_stop_pct"] <= 15.0
+        assert r["source"] in ("atr", "atr_floor", "atr_cap")
+        assert r["widened"] == (r["atr_stop_pct"] > 5.0)
+        assert r["k"] == 2.0 and r["cap_pct"] == 15.0
+
+
+def test_the_dashboard_renders_the_atr_rows_for_a_held_name():
+    """The rows only render with a held position that has stored history —
+    an empty-book render never reaches the row template (the /positions
+    500 lesson: model the state the owner's real book has)."""
+    from datetime import datetime
+    from trading.paper import PaperPosition
+    p = state.portfolio()
+    saved = dict(p.positions)
+    p.positions["RELIANCE.NS"] = PaperPosition(
+        ticker="RELIANCE.NS", qty=10, entry_price=1400.0,
+        entry_date=datetime(2026, 9, 1), sector="Energy", peak_price=1400.0,
+        entry_score=70.0, reasoning="fixture", mode="nifty200_momentum",
+        stop_price=1330.0, target_price=1680.0)
+    try:
+        with patch("web.db.is_connected", return_value=False):
+            r = _owner().get("/")
+        assert r.status_code == 200
+        assert "Volatility and the stop rule" in r.text
+        assert "Floor (fixed)" in r.text and "Live rule: 2×ATR" in r.text
+        assert "RELIANCE.NS" in r.text
+    finally:
+        p.positions = saved
 
 
 def test_atr_panel_skips_tickers_with_no_stored_history():

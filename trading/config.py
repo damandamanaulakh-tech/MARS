@@ -322,6 +322,13 @@ class Config:
 
     # --- Per-trade risk ---
     stop_loss_pct: float = -0.05              # -5% hard stop
+    # OWNER ORDER 2026-10-05 ("Go for A"): a NEW momentum buy's stop is the
+    # wider of this category stop and 2 x its own 14-day ATR, capped at
+    # -15% (trading/targets.py, measured in research/stop_cooldown_study).
+    # Other categories keep their fixed stops; held positions keep the stop
+    # they were opened with. The owner's switch; the numbers are measured
+    # constants in targets.py, not knobs.
+    atr_stop_enabled: bool = True
     take_profit_pct: float = 0.10             # +10% -> R:R 1:2 from -5% stop
     trailing_stop_pct: float = -0.08          # -8% from peak (chandelier-style)
     score_decay_exit: float = 50.0            # exit if AM 07 score drops below this
