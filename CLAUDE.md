@@ -60,6 +60,45 @@ via the API's `from` param (offered). First live proof = Monday 10-05
 09:20 snapshot journal line "N FII derivative day-row(s)". Display-only
 consumers (register FII-04/05); money path untouched.
 
+**MEMORY FIX 2026-10-05 (owner: "go with memory fix") — READ BEFORE ADDING
+ANY LOAD TO A SCHEDULED JOB.** First live day of the five-category rotation
+over the 1,205-name universe at BOTH 09:20 and 14:30, read minute by minute
+from /healthz: 09:20 rotation peak 478 MiB, then the process HELD 353 MiB
+idle; the trigger layer loaded its panels on top -> 511 MiB -> **Render
+OOM-killed the process at 10:09 IST** (fresh process 10:11; book safe,
+writes landing). 14:30 rotation climbed to 494 MiB and HELD it, peak 501.
+CAUSE: the rotation already gc.collect()s per category, but glibc keeps
+freed memory in per-thread arenas instead of returning it, so resident
+memory ratchets job after job. FIX (no trading rule touched):
+`web/memory_relief.py` — `limit_arenas()` (mallopt M_ARENA_MAX=2, called in
+web/main.py BEFORE the scheduler import; also MALLOC_ARENA_MAX=2 in
+render.yaml, belt and braces) and `release(label)` (gc.collect +
+malloc_trim(0), never raises, no-op off glibc), called after every category
+pass, before AND after the 09:20 trigger layer, after every Friday sub-job,
+and via an APScheduler listener after EVERY job (success or crash). Tests:
+web/tests/test_memory_relief_2026_10_05.py (7 wiring tests fail on the old
+code). First live proof = Tue 10-06 /healthz rss after each job.
+**THE APP STILL SLEEPS** — 10-05 09:11 and 14:20 IST both found it asleep
+(42 s cold start, fresh process); the 10-04 "no longer sleeps" note below is
+WRONG. A missed 08:30 top-up means the 09:20 job tops up first and the scan
+starts ~09:30. Render Instance Type -> Starter is the fix (owner's action).
+**"WHY NOT BUYING TODAY" (owner 10-05, shortlist showed names): most likely
+the measured-Kelly check (F-9, live from 10-02 holiday, so 10-05 was its
+first trading day) reading NO_POSITIVE_EDGE on the September stop-outs and
+refusing every scan entry. Breadth ruled out (~33% < 40% = buyable). NOT
+confirmed — owner to read the /risk measured-Kelly card; options A switch
+off / B keep / C cap-only / D Buy Desk put to them, awaiting their pick.**
+**19-NAME REPLAY 2026-10-04 (owner's list, live V1.1, 15 Jan -> 1 Oct,
+scratchpad only): +Rs 2.31L on Rs 5 Cr (Nifty -12.6%), ~Rs 66L max deployed;
+MTAR (T2T, never auto-scanned live) made +3.41L — without it ~-1.1L.
+23 up-moves of >=20%: caught 5 (all already-trending names), slices of 7,
+held-but-lost 3, missed 8. Gaps measured: no entry at a turn from the bottom
+(30-Mar low: scores cleared the floor 11-26 days late); fixed -5% stop is
+<1 day of MTAR's range (9 of its stops were followed by +15-59%); immediate
+re-buy after a stop (VEDL ~7 stops June-July); short/swing enter late and
+get shaken out. Three testable fixes offered (ATR-scaled stop, re-entry
+cooldown, rebound entry) — owner has not picked. Nothing wired.**
+
 ## FINAL SET V1.0 (2026-07-21) — SUPERSEDED by V1.1; history below, do not quote as live
 - Signal: **6m+12m vol-adjusted momentum, an ABSOLUTE score** —
   50 + 25 × average(r6/σ6, r12/σ12), clipped 0-100; no ranking step
@@ -4131,7 +4170,7 @@ fix"). MEASURED, then four questions, then fixed. 1,478 tests.**
   the pick really REACHES the gate (the fixture's swing score was 54 < 60).
 - Engine page truth-pass: "half-size dips" + "0.213 damage cluster" were
   stale (Ocean ticket Rs 1,68,750 since 08-30); now says Ocean is rare.
-- **LIVE BOX: the app NO LONGER SLEEPS** — 21-min idle test 2026-10-04
+- **(WRONG — 2026-10-05 found it asleep twice; see MEMORY FIX block) LIVE BOX: the app NO LONGER SLEEPS** — 21-min idle test 2026-10-04
   08:41->09:02Z, same process both reads (peak 159 MiB). The owner appears
   to have moved Render to an always-on instance (M-12). Re-test before
   claiming otherwise. Cluster 388 MB; app db 43 MB; store 2,233 names;

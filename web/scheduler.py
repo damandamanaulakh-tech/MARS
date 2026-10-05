@@ -30,6 +30,20 @@ log = logging.getLogger(__name__)
 _SCHED = None
 
 
+def _job_end_mask() -> int:
+    from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
+    return EVENT_JOB_EXECUTED | EVENT_JOB_ERROR
+
+
+def _release_after_job(event) -> None:
+    """Scheduler listener: give memory back after every job. Never raises."""
+    try:
+        from .memory_relief import release
+        release(f"job {getattr(event, 'job_id', '?')}")
+    except Exception:                                      # noqa: BLE001
+        pass
+
+
 def daily_enabled() -> bool:
     """Is the daily auto-scan track on? THE single source of truth.
 
@@ -74,6 +88,11 @@ def start_if_enabled() -> None:
     _SCHED = BackgroundScheduler(
         timezone=ist,
         job_defaults={"misfire_grace_time": 300, "coalesce": True})
+    # 2026-10-05 (owner: "go with memory fix"): every job hands its freed
+    # memory back to the OS when it finishes — success or crash. Without
+    # this the 512 MiB box ratcheted up job after job (353 MiB held after
+    # the 09:20 rotation, 494 after 14:30) and Render killed it at 10:09 IST.
+    _SCHED.add_listener(_release_after_job, _job_end_mask())
 
     if intraday:
         _SCHED.add_job(
@@ -1537,6 +1556,11 @@ def _run_weekly_step(label: str, fn, journal) -> bool:
                 f"Friday data block: {label} crashed ({e}) — the other "
                 f"weekly feeds still ran.")
         return False
+    finally:
+        # 2026-10-05: each Friday feed hands its memory back before the next
+        # one loads (the block's peak was 326 MiB on 09-30).
+        from .memory_relief import release as release_memory
+        release_memory(f"weekly {label}")
 
 
 def _weekly_history_topup() -> None:
@@ -1803,9 +1827,9 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
     position's OWN category rules (`engine._exit_cfg`), never the shared
     cfg.mode the rotation is flipping, so running it mid-rotation is safe.
     Caller holds `_ROTATION_LOCK`."""
-    import gc
     from trading.calendars import is_market_open
     from trading.modes import MODE_LOCK
+    from .memory_relief import release as release_memory
     summary: list = []
     # AUDIT S-6 (2026-10-02): the lock is held for the WHOLE rotation,
     # restore included. Releasing it between passes left cfg.mode on the
@@ -1845,8 +1869,10 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
                     pass
             finally:
                 # 512 MB guard: drop each mode's OHLCV panels before the next
-                # mode downloads its own.
-                gc.collect()
+                # mode downloads its own — and hand the freed pages back to
+                # the OS (2026-10-05: gc alone left the process holding
+                # 353-494 MiB after a rotation; see web/memory_relief.py).
+                release_memory(f"{where} {m}")
     finally:
         # AUDIT FIX C3: the restore is in a finally — an escape mid-loop
         # used to leave cfg.mode stuck on whatever mode the loop died in.
@@ -1986,7 +2012,13 @@ def _daily_multi_mode_scan() -> None:
     _check_pending_orders("post-scan")
     # The daily store top-up ("all fresh", owner order 2026-08-20) now runs
     # BEFORE the scans above (audit item 8, 2026-10-02).
+    # 2026-10-05: the trigger layer loads its panels on top of whatever the
+    # rotation left resident — that is what tipped the box over 512 MiB at
+    # 10:09 IST. Give the memory back first, and again after.
+    from .memory_relief import release as release_memory
+    release_memory("09:20 before trigger layer")
     run_trigger_layer("09:20")
+    release_memory("09:20 after trigger layer")
     _push_phone_alerts("09:20")
     log.info("[09:20] Daily multi-mode scan complete: %s", " · ".join(summary))
 

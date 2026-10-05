@@ -25,3 +25,8 @@ services:
         value: sourceborn
       - key: INTRADAY_SCHEDULER # set to "1" to enable the 5-min intraday cron
         value: "0"
+      # 2026-10-05 memory fix: cap glibc malloc arenas from process start.
+      # web/memory_relief.limit_arenas() sets the same cap in code, so this
+      # is belt and braces (a blueprint value only lands on a blueprint sync).
+      - key: MALLOC_ARENA_MAX
+        value: "2"
