@@ -1,0 +1,26 @@
+{
+ "T1_2015-16": {
+  "arm": "B10",
+  "window": "T1_2015-16",
+  "half": "train",
+  "entry_floor": 62.0,
+  "return_pct": -0.63,
+  "alpha_pct": 1.87,
+  "bench_pct": -2.5,
+  "max_dd_pct": -2.84,
+  "trades": 596,
+  "win_rate_pct": 21.0,
+  "avg_trade_pct": -0.409,
+  "net_pnl": -313529,
+  "exit_reasons": {
+   "STOP_LOSS": 457,
+   "TAKE_PROFIT": 99,
+   "TRAILING_STOP": 21,
+   "BACKTEST_END": 19
+  },
+  "avg_stop_width_pct": 5.0,
+  "blocked_reentries": 2491,
+  "fast_rebuys": 0,
+  "secs": 166.8
+ }
+}
