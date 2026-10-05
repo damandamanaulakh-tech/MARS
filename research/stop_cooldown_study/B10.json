@@ -47,5 +47,54 @@
   "blocked_reentries": 6715,
   "fast_rebuys": 0,
   "secs": 305.9
+ },
+ "T3_2019-20H1": {
+  "arm": "B10",
+  "window": "T3_2019-20H1",
+  "half": "train",
+  "entry_floor": 62.0,
+  "return_pct": -1.15,
+  "alpha_pct": 3.4,
+  "bench_pct": -4.54,
+  "max_dd_pct": -1.71,
+  "trades": 388,
+  "win_rate_pct": 17.3,
+  "avg_trade_pct": -1.177,
+  "net_pnl": -573808,
+  "exit_reasons": {
+   "STOP_LOSS": 306,
+   "TAKE_PROFIT": 55,
+   "TRAILING_STOP": 22,
+   "MAX_HOLD": 5
+  },
+  "avg_stop_width_pct": 5.0,
+  "blocked_reentries": 2056,
+  "fast_rebuys": 0,
+  "secs": 165.0
+ },
+ "H1_2020H2-22": {
+  "arm": "B10",
+  "window": "H1_2020H2-22",
+  "half": "test",
+  "entry_floor": 62.0,
+  "return_pct": 5.45,
+  "alpha_pct": -68.14,
+  "bench_pct": 73.59,
+  "max_dd_pct": -3.62,
+  "trades": 1434,
+  "win_rate_pct": 25.9,
+  "avg_trade_pct": 1.529,
+  "net_pnl": 2725028,
+  "exit_reasons": {
+   "STOP_LOSS": 998,
+   "TAKE_PROFIT": 285,
+   "TRAILING_STOP": 89,
+   "MAX_HOLD": 14,
+   "BACKTEST_END": 48
+  },
+  "avg_stop_width_pct": 5.0,
+  "blocked_reentries": 8807,
+  "fast_rebuys": 0,
+  "secs": 352.8
  }
 }
