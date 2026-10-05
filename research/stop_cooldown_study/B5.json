@@ -22,5 +22,30 @@
   "blocked_reentries": 1495,
   "fast_rebuys": 0,
   "secs": 176.5
+ },
+ "T2_2017-18": {
+  "arm": "B5",
+  "window": "T2_2017-18",
+  "half": "train",
+  "entry_floor": 62.0,
+  "return_pct": 4.65,
+  "alpha_pct": -28.15,
+  "bench_pct": 32.8,
+  "max_dd_pct": -2.99,
+  "trades": 1183,
+  "win_rate_pct": 28.1,
+  "avg_trade_pct": 1.554,
+  "net_pnl": 2325425,
+  "exit_reasons": {
+   "STOP_LOSS": 794,
+   "TAKE_PROFIT": 257,
+   "TRAILING_STOP": 77,
+   "MAX_HOLD": 22,
+   "BACKTEST_END": 33
+  },
+  "avg_stop_width_pct": 5.0,
+  "blocked_reentries": 3539,
+  "fast_rebuys": 0,
+  "secs": 318.0
  }
 }
