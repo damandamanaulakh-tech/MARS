@@ -114,6 +114,18 @@ pass, before AND after the 09:20 trigger layer, after every Friday sub-job,
 and via an APScheduler listener after EVERY job (success or crash). Tests:
 web/tests/test_memory_relief_2026_10_05.py (7 wiring tests fail on the old
 code). First live proof = Tue 10-06 /healthz rss after each job.
+**TUE 10-06 READING: THE FIX DID NOT HOLD — SECOND OOM KILL.** Keep-alive
+log (one /healthz a minute, 09:12-10:45 IST): boot 159 MiB; rotation
+started ~09:50 IST (08:30 top-up missed asleep) and climbed 283 -> 412 ->
+488 -> 503 in four minutes; HELD 494-503 for 12 min, then 511/512 from
+10:07 IST for 23 minutes (the trigger layer on top); fresh process at
+10:30 IST (rss 163, peak 163) = Render OOM-killed it. Same shape as Mon,
+only slower to die. So malloc_trim + M_ARENA_MAX=2 returned nothing
+visible: the ~500 MiB is LIVE working set during the five 1,205-name
+passes, not fragmentation. NEXT LEVERS (owner's word needed): (a) cut
+the universe the four non-momentum passes scan (they pull 6mo but still
+score 1,205 names each), (b) run the trigger layer as a separate step
+after a cool-down, (c) Render Starter (1 GB). Not built.
 **THE APP STILL SLEEPS** — 10-05 09:11 and 14:20 IST both found it asleep
 (42 s cold start, fresh process); the 10-04 "no longer sleeps" note below is
 WRONG. A missed 08:30 top-up means the 09:20 job tops up first and the scan
