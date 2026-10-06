@@ -13,13 +13,28 @@ from web import state
 from web.main import app
 
 
-def _t(i, ret, reason):
+def _t(i, ret, reason, mode="nifty200_momentum"):
+    # 2026-10-05 ("make it momentum only"): the page shows the MOMENTUM
+    # reading, so the fixture's trades carry that category.
     return ClosedTrade(
         ticker=f"T{i}.NS", qty=100, entry_date=datetime(2026, 1, 1),
         exit_date=datetime(2026, 2, 1), entry_price=100.0,
         exit_price=100.0 * (1 + ret), gross_pnl=ret * 10_000, costs=0.0,
         net_pnl=ret * 10_000, reason=reason, sector="IT", entry_score=70.0,
-        reasoning="fixture")
+        reasoning="fixture", mode=mode)
+
+
+def test_the_page_counts_other_categories_exits_separately():
+    """Thirty losing swing stops beside a healthy momentum record: the card
+    reads the momentum edge and names the swing exits as left out."""
+    trades = ([_t(i, 0.05, "TAKE_PROFIT") for i in range(40)]
+              + [_t(100 + i, -0.05, "STOP_LOSS") for i in range(20)]
+              + [_t(200 + i, -0.05, "STOP_LOSS", mode="swing") for i in range(30)])
+    html = _page(trades)
+    card = html.split("measured_kelly_marker")[1].split("IFR OVERLAY")[0]
+    assert "momentum only" in card
+    assert "SIZE CAP ₹" in card and "BLOCKED" not in card
+    assert "+ 30 other categories" in card
 
 
 def _page(trades):

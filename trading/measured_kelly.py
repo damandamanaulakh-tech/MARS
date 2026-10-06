@@ -39,6 +39,17 @@ aggressive one — it is measuring the wrong thing. So they are excluded, the
 breakdown is returned for the screen, and the owner sees the real usable count
 before a rupee is sized on it.
 
+THE CATEGORY FILTER (owner order 2026-10-05: "make it momentum only").
+One pooled reading judged all five categories by each other's record — a
+run of losing intraday or swing exits could stop momentum buying, and the
+owner's 10-05 "why not buying" was most likely that. Now `measure(...,
+category=)` counts only trades of ONE category, and the engine runs the
+check only in that category's pass. `trade_category()` reads the trade's
+own `mode` field (written at close since 2026-10-05); a legacy trade with
+no field is classified from the record it carries — the reasoning text and
+tags each entry path writes — never guessed. A legacy trade that cannot be
+placed is "other" and left out of a category reading, counted on screen.
+
 BOUNDARY: pure. Reads a list of ClosedTrade-shaped objects, returns numbers.
 No network, no config mutation, no engine/risk/orders import.
 """
@@ -95,6 +106,39 @@ def classify(reason: Optional[str]) -> str:
     return "unknown"
 
 
+MOMENTUM = "nifty200_momentum"
+# Entry paths and the mark each leaves on a position's record (verified in
+# engine.scan / _ocean_picks / scan_routes.owner_buy / backtest):
+#   momentum scan   reasoning "MOM 72 + QUALITY 60 (blend 35%) = 68"
+#   backtest        reasoning "NIFTY200_MOMENTUM: 6m+12m sharpe 68.0/100"
+#   ocean           tag "ocean", reasoning "OCEAN: ..."
+#   owner BUY/desk  tags owner_pick / buy_desk, reasoning "OWNER BUY CALL"
+#                   (counted as momentum — the category_budget convention)
+#   other four      reasoning_text() over the composite components
+_MOMENTUM_PREFIXES = ("MOM ", "NIFTY200_MOMENTUM")
+_OWNER_TAGS = ("owner_pick", "buy_desk")
+
+
+def trade_category(trade: Any) -> str:
+    """The category a closed trade belongs to: the mode recorded at close,
+    else the category its own record proves. 'other' when it cannot be
+    placed (a legacy swing/short/positional/intraday exit)."""
+    mode = str(getattr(trade, "mode", "") or "").strip()
+    tags = [str(x) for x in (getattr(trade, "tags", None) or [])]
+    if "ocean" in tags:
+        return "ocean"
+    if mode:
+        return mode
+    why = str(getattr(trade, "reasoning", "") or "").strip()
+    if why.upper().startswith("OCEAN"):
+        return "ocean"
+    if any(why.startswith(p) for p in _MOMENTUM_PREFIXES):
+        return MOMENTUM
+    if why.upper().startswith("OWNER BUY") or any(t in tags for t in _OWNER_TAGS):
+        return MOMENTUM
+    return "other"
+
+
 def net_return(trade: Any) -> Optional[float]:
     """Net-of-cost return on the entry notional, as a fraction.
 
@@ -136,6 +180,8 @@ class KellyReading:
     max_position_pct: Optional[float] = None  # the CAP this puts on a name
     block_new_entries: bool = False
     note: str = ""
+    category: Optional[str] = None            # None = all categories pooled
+    other_category: int = 0                   # trades left out for category
 
     def to_dict(self) -> dict:
         d = self.__dict__.copy()
@@ -146,7 +192,8 @@ class KellyReading:
 def measure(trades: Iterable[Any], fraction: float = 0.29,
             min_trades: int = 0,
             full_confidence: int = FULL_CONFIDENCE,
-            clip_pct: Optional[float] = None) -> KellyReading:
+            clip_pct: Optional[float] = None,
+            category: Optional[str] = None) -> KellyReading:
     """Measure Kelly from closed trades. Pure.
 
     `fraction` is the owner's m. `min_trades` 0 honours their "no cap on
@@ -156,12 +203,17 @@ def measure(trades: Iterable[Any], fraction: float = 0.29,
     design's normal win, not an outlier — clipped at 12% every target exit
     would read as +12%, understating the payoff ratio by 40% and pushing the
     check toward a wrongful "no edge" block.
+    `category` (owner order 2026-10-05, "make it momentum only"): count only
+    trades of that category (see trade_category); None pools all.
     """
     clip = float(CLIP_PCT if clip_pct is None else clip_pct) / 100.0
     by_reason: dict = {}
     usable: list = []
-    excluded = unknown = 0
+    excluded = unknown = other_cat = 0
     for t in trades or []:
+        if category is not None and trade_category(t) != category:
+            other_cat += 1
+            continue
         raw = str(getattr(t, "reason", "") or "")
         head = raw.split(" ")[0].split("(")[0].strip().upper() or "(none)"
         by_reason[head] = by_reason.get(head, 0) + 1
@@ -182,7 +234,8 @@ def measure(trades: Iterable[Any], fraction: float = 0.29,
     wins = [r for r in usable if r > 0]
     losses = [r for r in usable if r < 0]
     base = dict(usable=n, excluded=excluded, unknown=unknown,
-                by_reason=by_reason, wins=len(wins), losses=len(losses))
+                by_reason=by_reason, wins=len(wins), losses=len(losses),
+                category=category, other_category=other_cat)
 
     if n < max(1, int(min_trades)) or not wins or not losses:
         return KellyReading(

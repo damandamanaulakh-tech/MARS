@@ -86,6 +86,11 @@ class ClosedTrade:
     reasoning: str
     entry_notes: str = ""
     tags: List[str] = field(default_factory=list)
+    # 2026-10-05 ("make it momentum only"): the category the position was
+    # opened under, copied from PaperPosition.mode at close. Blank on trades
+    # closed before this field existed (measured_kelly.trade_category reads
+    # the rest of the record for those).
+    mode: str = ""
 
     def to_dict(self) -> dict:
         d = asdict(self)

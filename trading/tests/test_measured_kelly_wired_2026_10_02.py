@@ -21,12 +21,14 @@ from trading.tests.test_audit_s4_s9_2026_10_02 import _scan_engine
 def _trade(i: int, ret: float, reason: str = "STOP_LOSS") -> ClosedTrade:
     entry = 100.0
     exit_ = entry * (1 + ret)
+    # 2026-10-05 ("make it momentum only"): the fixture's trades are MOMENTUM
+    # exits — the check now reads only that category's record.
     return ClosedTrade(
         ticker=f"T{i}.NS", qty=100, entry_date=datetime(2026, 1, 1),
         exit_date=datetime(2026, 2, 1), entry_price=entry, exit_price=exit_,
         gross_pnl=(exit_ - entry) * 100, costs=0.0,
         net_pnl=(exit_ - entry) * 100, reason=reason, sector="IT",
-        entry_score=70.0, reasoning="fixture")
+        entry_score=70.0, reasoning="fixture", mode="nifty200_momentum")
 
 
 def _no_edge():
