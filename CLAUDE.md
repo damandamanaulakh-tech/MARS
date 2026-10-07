@@ -125,7 +125,21 @@ visible: the ~500 MiB is LIVE working set during the five 1,205-name
 passes, not fragmentation. NEXT LEVERS (owner's word needed): (a) cut
 the universe the four non-momentum passes scan (they pull 6mo but still
 score 1,205 names each), (b) run the trigger layer as a separate step
-after a cool-down, (c) Render Starter (1 GB). Not built.
+after a cool-down, (c) a bigger Render instance — NOTE Starter is STILL
+512 MB (it only removes the sleep); Standard (2 GB) is the memory fix.
+Not built. **Owner 10-06: "go with render starter"** = their dashboard
+click; the box still sleeps until it lands (see 14:23 IST below).
+**TUE 10-06 14:30 CHAIN SURVIVED — peak 502 MiB, no kill.** Keep-alive
+log 14:24-15:40 IST, ONE process throughout (peak never reset, stats never
+pending): 14:23 IST probe = 42.8 s cold start (asleep again, so the
+Starter move had not landed); rotation started 14:30 at 147 MiB, 404 by
+14:31, held 420-437 to 14:43, climbed 455 -> 470 -> 488 -> 493 by 14:47,
+then 450-477 for 30 min, a last spike to 502 at 15:23 (the 15:25
+square-off pass on top), 370 by 15:30, idle 370. So the 14:30 chain (no
+trigger layer) fits with ~10 MiB to spare; the 09:20 chain dies because
+the trigger layer loads its panels on top of the same ~500. Lever (b)
+above — trigger layer after a cool-down — is the targeted one. 15:25 and
+15:35 ran on a live process; whether they did anything = the journal.
 **THE APP STILL SLEEPS** — 10-05 09:11 and 14:20 IST both found it asleep
 (42 s cold start, fresh process); the 10-04 "no longer sleeps" note below is
 WRONG. A missed 08:30 top-up means the 09:20 job tops up first and the scan
