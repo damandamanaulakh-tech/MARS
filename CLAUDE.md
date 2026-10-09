@@ -188,10 +188,24 @@ fixed for the pull, now in the feed before it. NOT confirmed (the
 journal would show DATA_REFRESH_WEEKLY_START + no DATA_REFRESH_WEEKLY;
 alternative = `weekly_block_due()` said not due at 16:30, which only a
 completion stamped 10-06..10-08 could cause, and no rebuild stamp exists
-for those days). Keep-alive extended to 19:15 IST to let it finish; a
-block that outlives the probes dies with the sleep, unmarked, and comes
-due again Mon 16:30 (12 days). Lever, owner's word: a time budget on the
-fundamentals step (or move it AFTER the pull). Not built.
+for those days). Keep-alive extended to 19:15 IST to let it finish —
+**AND MY OWN MERGE KILLED IT: PR #160 (docs only) merged 17:56 IST,
+Render auto-deployed main, and the keep-alive log shows a FRESH PROCESS
+at 17:59 IST (rss 161 / peak 160, down from 246 / 358).** Not an OOM
+(246 MiB), not a sleep (probed every minute): a deploy restart. The
+block had run 89 minutes with no rebuild stamp (the whole 09-30 block
+took 41) and died unmarked; the new process ran only its boot catch-up
+(161 → 131 MiB, flat to 19:15) and the 16:30 slot is past, so nothing
+resumes before Mon 16:30 (ledger still 09-30 → 12 days → due). Store
+2,233, last_rebuild 09-30 at 19:15 IST.
+**STANDING RULE FROM THIS: EVERY MERGE TO MAIN IS A RENDER DEPLOY = A
+LIVE PROCESS RESTART.** Never merge while a long job may be running on
+the box (08:30 top-up, the 09:20 and 14:30 chains, the 16:30 block,
+16:45 precompute) — merge after 17:30 IST on a day the block is not
+due, or on a weekend. This also explains Wed 10-07's "warm" 09:10
+reading: #158 merged 08:55 IST → deploy → boot catch-up → peak 208.
+Lever, owner's word: a time budget on the fundamentals step (or move it
+AFTER the pull). Not built.
 **THE APP STILL SLEEPS** — 10-05 09:11 and 14:20 IST both found it asleep
 (42 s cold start, fresh process); the 10-04 "no longer sleeps" note below is
 WRONG. A missed 08:30 top-up means the 09:20 job tops up first and the scan
