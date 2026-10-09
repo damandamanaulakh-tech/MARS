@@ -143,15 +143,19 @@ above — trigger layer after a cool-down — is the targeted one. 15:25 and
 **WED 10-07 09:20 CHAIN — THIRD MORNING OOM KILL, and the sleep is GONE.**
 Keep-alive log 09:11-10:45 IST: the 09:10 probe answered WARM (0.5 s,
 peak 208 over rss 164, stats already computed) = the process was alive
-before anyone touched it → the owner's Render Starter move HAS landed
-(the 08:30 top-up ran on its own; the rotation started 09:37 IST, not
-~09:50 as on Tue). Rotation: 277 → 405 → 440 → 493 → **499 by 09:42
+before anyone touched it → ~~the owner's Render Starter move HAS landed~~
+**(WRONG — Fri 10-09 16:26 IST was a 42.6 s cold start after 42 idle
+minutes; the app STILL SLEEPS. Wed's warm 09:10 reading means only that
+SOMEONE had hit the app before 09:10, most likely the owner's own Upstox
+login; a warm probe is never proof of the plan.)** (the 08:30 top-up had
+run; the rotation started 09:37 IST, not ~09:50 as on Tue). Rotation: 277 → 405 → 440 → 493 → **499 by 09:42
 IST**, held 495-499 for 12 min, then 505 → 510 → **512/513 from 09:56
 IST for 27 minutes** (the trigger layer on top; /healthz latency rose
 0.5 s → 6 s as it swapped), **fresh process at 10:23 IST (rss 156, peak
 155) = OOM kill**. The boot catch-up then ran something at 10:30 (rss
-196 → 225 by 10:45). Same shape as Mon 10:09 and Tue ~10:30. So
-Starter fixed sleeping and nothing else: the 512 MB ceiling is the box.
+196 → 225 by 10:45). Same shape as Mon 10:09 and Tue ~10:30. The
+512 MB ceiling is the box, whatever the plan; the sleep is a SEPARATE,
+still-open fault (see Fri below).
 Levers unchanged, owner's word needed: (b) trigger layer as a separate
 step after a cool-down (the morning-only killer), (a) shrink what the
 four non-momentum passes score, or Standard (2 GB).
@@ -163,6 +167,31 @@ names, scan_universe 1,205 (last_rebuild still 09-30 → the Fri 10-02
 holiday block never ran and no catch-up fired since; due today 16:30),
 app db 65 MB, writes landing. Whether Thu/Fri 09:20 chains ran and died
 = the journal (needs the owner's login).
+**FRI 10-09 16:30 WEEKLY BLOCK — WOKEN BY THE PROBE, THEN STALLED BEFORE
+THE REBUILD.** 16:26 IST probe = 42.6 s COLD START (asleep since ~16:00;
+so nothing scheduled had a process to run in — without the probe the
+block would not have fired at all). Keep-alive 16:27-17:45 IST, one
+process throughout: 16:30 rss 154 → 198 over ten minutes (the block's
+short feeds), flat 198 to 16:45, the 16:45 register precompute spike to
+**peak 358** (326 on 09-30), settled 246 and FLAT to 17:45 — and at
+17:45 `scan_universe.last_rebuild` STILL 2026-09-30, store still 2,233.
+The pre-pull rebuild (block step 7) stamps `universe_batch.ts`, so it
+had NOT run by 17:45. CODE READ: step 5 is `_monthly_fundamentals_
+refresh` — FIRST run of October, scope = custom universe + held =
+~1,205 names, ONE Yahoo GET each with a 20 s timeout, 0.2 s sleep, NO
+total budget (10 min if Yahoo answers fast, ~6.7 h if it hangs to the
+timeout; Yahoo 429-blocks Render). On 09-21/09-30 the same step covered
+only ~443 names. So the likeliest reading: the block is stuck in the
+fundamentals fetch and everything after it (rebuild, OHLCV pull, breadth,
+post-pull precompute) waits — the unbounded-step fault class PR #103
+fixed for the pull, now in the feed before it. NOT confirmed (the
+journal would show DATA_REFRESH_WEEKLY_START + no DATA_REFRESH_WEEKLY;
+alternative = `weekly_block_due()` said not due at 16:30, which only a
+completion stamped 10-06..10-08 could cause, and no rebuild stamp exists
+for those days). Keep-alive extended to 19:15 IST to let it finish; a
+block that outlives the probes dies with the sleep, unmarked, and comes
+due again Mon 16:30 (12 days). Lever, owner's word: a time budget on the
+fundamentals step (or move it AFTER the pull). Not built.
 **THE APP STILL SLEEPS** — 10-05 09:11 and 14:20 IST both found it asleep
 (42 s cold start, fresh process); the 10-04 "no longer sleeps" note below is
 WRONG. A missed 08:30 top-up means the 09:20 job tops up first and the scan
