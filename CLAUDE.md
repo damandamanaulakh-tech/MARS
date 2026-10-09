@@ -140,6 +140,29 @@ trigger layer) fits with ~10 MiB to spare; the 09:20 chain dies because
 the trigger layer loads its panels on top of the same ~500. Lever (b)
 above — trigger layer after a cool-down — is the targeted one. 15:25 and
 15:35 ran on a live process; whether they did anything = the journal.
+**WED 10-07 09:20 CHAIN — THIRD MORNING OOM KILL, and the sleep is GONE.**
+Keep-alive log 09:11-10:45 IST: the 09:10 probe answered WARM (0.5 s,
+peak 208 over rss 164, stats already computed) = the process was alive
+before anyone touched it → the owner's Render Starter move HAS landed
+(the 08:30 top-up ran on its own; the rotation started 09:37 IST, not
+~09:50 as on Tue). Rotation: 277 → 405 → 440 → 493 → **499 by 09:42
+IST**, held 495-499 for 12 min, then 505 → 510 → **512/513 from 09:56
+IST for 27 minutes** (the trigger layer on top; /healthz latency rose
+0.5 s → 6 s as it swapped), **fresh process at 10:23 IST (rss 156, peak
+155) = OOM kill**. The boot catch-up then ran something at 10:30 (rss
+196 → 225 by 10:45). Same shape as Mon 10:09 and Tue ~10:30. So
+Starter fixed sleeping and nothing else: the 512 MB ceiling is the box.
+Levers unchanged, owner's word needed: (b) trigger layer as a separate
+step after a cool-down (the morning-only killer), (a) shrink what the
+four non-momentum passes score, or Standard (2 GB).
+**THU 10-08 AND FRI 10-09 UNATTENDED.** The session container paused
+from Wed 10:47 IST to Fri 15:44 IST — the Wed 14:20 re-arm was refused
+("run_once_at in past"), so no wake fired Thu or Fri morning. Fri 15:44
+IST reading: warm process (peak 213 / rss 158, stats fresh), store 2,233
+names, scan_universe 1,205 (last_rebuild still 09-30 → the Fri 10-02
+holiday block never ran and no catch-up fired since; due today 16:30),
+app db 65 MB, writes landing. Whether Thu/Fri 09:20 chains ran and died
+= the journal (needs the owner's login).
 **THE APP STILL SLEEPS** — 10-05 09:11 and 14:20 IST both found it asleep
 (42 s cold start, fresh process); the 10-04 "no longer sleeps" note below is
 WRONG. A missed 08:30 top-up means the 09:20 job tops up first and the scan
