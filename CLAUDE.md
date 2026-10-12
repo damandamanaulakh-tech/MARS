@@ -291,6 +291,45 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   cost nothing; `scan_universe.last_rebuild` still 09-30 = today's block
   never stamped, Tue 10-13 16:30 is the next slot and the first live run
   of the fundamentals budget.)
+- **VALUATION CONTEXT STAGE BUILT 2026-10-12 ~23:00 IST (owner: "both,
+  indian sector only, discount rate - go"). docs/VALUATION_CONTEXT_
+  2026-10-12.md IS THE RECORD. Money impact: none — display only, no
+  gate/stop/size reads it (boundary test-pinned).** `trading/
+  valuation_context.py` (PURE: `beta` OLS over 252 sessions / min 120,
+  `sector_leg` BOTH columns 1:1 and measured, `rates_leg` multiplier =
+  (r_then−g)/(r_now+shift−g) with r = 10y + ERP — at 7.2+5−8 one extra
+  point = −19.2%, printed as `per_pp_pct` with every reading,
+  `sentiment_margin` = base 10% + 2.5pp per gauge ON (VIX > prior-120d
+  p90 / breadth < band low / FII 5d ≤ −5,000 Cr / damage q90), unknown
+  gauges COUNTED never assumed, `decompose` residual ≥ ±10% = RE-RUN flag
+  with the news verdict beside it, `context` orchestrates; every missing
+  input DATA_NEEDED with its reason). `SECTOR_INDEX_FOR` maps the app's
+  sector labels to the 16 verified NSE indices (Auto, Financial→Fin
+  Service, IT, Pharma, FMCG, Metal, Energy, Utilities→Energy, Media,
+  Construction→Infra; 7 realty names→Realty via TICKER_INDEX_OVERRIDE);
+  the rest read Nifty 50 and say so; global sector = DATA_NEEDED (owner
+  chose Indian only). `web/valuation_view.py` gathers STORED inputs only
+  (load_ohlcv, Mongo sector_index, the committed 10y csv ending
+  2026-06-08 with a typed "today's yield" override, VIX csv+tail, breadth
+  store, FII csv+store with the 45-day guard, damage store, news_watch);
+  the owner's standalone targets live in settings doc `valuation_targets`
+  {targets{ticker:{target,asof,basis,ts}}, assumptions} + in-process
+  `LAST`, max 25 — TYPED until stages 09-17 produce them. Den §11
+  (`_den_valuation.html`, markers den_valuation_marker/_form_/_rows_),
+  `POST /den/valuation` + `/den/valuation/clear` (owner-only), SEQUENCE
+  stage "17b" (exists) after 17; `empty_section()` is the template-safe
+  fallback so a data fault never 500s the Den. SECTOR DEPTH: the store
+  only held ~30 days (the daily seed) → `dr.fetch_sector_history` +
+  `scheduler.backfill_sector_history(days=760)` (idempotent, one attempt
+  per process per day, 16 tokenless calls) runs inside
+  `_sector_index_refresh` AND on a Den save (`vv.ensure_sector_depth`);
+  until it lands on the live box a valuation dated before the store's
+  first row reads DATA_NEEDED on the sector leg (rates leg still prints).
+  Tests: trading/tests/test_valuation_context_2026_10_12.py (10),
+  web/tests/test_valuation_den_2026_10_12.py (11); the two old Den pins
+  (section list, 25 codes) updated for §11 / 17b. NOT built, said in the
+  doc: CPI feed, live 10y feed, global sector, the standalone target
+  itself (Phase 1 still waits on the formula review + companion sheet).
 - OWNER ASKS STILL OPEN (said to them): the companion sheet; display name;
   archive-not-delete confirmed? (built as archive); which category Buy
   Desk buys count under (today momentum → fills the 40% share, why "no

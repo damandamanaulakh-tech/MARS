@@ -37,6 +37,7 @@ from collections import Counter
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -62,6 +63,7 @@ SECTIONS = [
     ("evidence",      "8 · Evidence"),
     ("algo-settings", "9 · Algo settings"),
     ("sandbox",       "10 · Sandbox"),
+    ("valuation",     "11 · Valuation context"),
 ]
 
 # --------------------------------------------------------------------- 1.
@@ -104,6 +106,17 @@ SEQUENCE: list[tuple[str, str, str, str]] = [
     ("15", "Revenue/margin/financing scenarios", "not yet", ""),
     ("16", "Scenario EPS", "not yet", ""),
     ("17", "Justified valuation range", "not yet", ""),
+    # Owner order 2026-10-12 ("both, indian sector only, discount rate -
+    # go"): the context stage sits between the justified range and the
+    # selection — it verifies a standalone target against the sector, the
+    # discount rate and the fear gauges. The target itself is typed until
+    # stages 09-17 produce it.
+    ("17b", "Market · sector · rates · sentiment context (target verify)",
+     "exists",
+     "trading/valuation_context.py + Den §11 — sector leg 1:1 and measured "
+     "β side by side (Indian NSE indices), rates through the discount rate, "
+     "sentiment as a wider buy discount, move split with a re-run flag; the "
+     "standalone target is typed until stages 09-17 produce it"),
     ("18", "Financial-selection assessment", "not yet", ""),
     ("19", "IFR state", "exists",
      "trading/ifr.py — frozen thresholds over the 191 reference names, "
@@ -968,11 +981,13 @@ def _sandbox(cfg, p, saved_flag: Optional[str]) -> dict:
 # ---------------------------------------------------------------- routes
 
 @router.get("/den", response_class=HTMLResponse)
-def den_page(request: Request, draft: Optional[str] = None):
+def den_page(request: Request, draft: Optional[str] = None,
+             val: Optional[str] = None, val_err: Optional[str] = None):
     user = auth.current_user(request)
     if not user:
         return RedirectResponse("/login", status_code=303)
     from . import settings_routes
+    from .. import valuation_view
     cfg = state.cfg()
     p = state.portfolio()
     eng = _safe(_engines, cfg, p, default={}) or {}
@@ -988,6 +1003,9 @@ def den_page(request: Request, draft: Optional[str] = None):
         "reg": _safe(_register, p, default={}),
         "evd": _safe(_evidence, p, default={}),
         "sbx": _safe(_sandbox, cfg, p, draft, default={}),
+        "val": _safe(valuation_view.section, cfg, p, val, (val_err or "")[:120],
+                     default=valuation_view.empty_section(
+                         "invalid", "the context could not be read — see the log")),
         "is_owner": user.get("role") == "owner",
         "db_status": state.db_status(),
     }
@@ -1015,6 +1033,53 @@ async def den_sandbox_save(request: Request):
     except Exception:
         log.exception("den: draft save failed (in-memory copy kept)")
     return RedirectResponse("/den?draft=saved#sandbox", status_code=303)
+
+
+@router.post("/den/valuation")
+async def den_valuation_save(request: Request):
+    """Owner-only (order 2026-10-12). Stores ONE standalone target with its
+    date and basis, plus the assumptions, in settings doc
+    "valuation_targets"; the GET reads the context for every stored
+    target. If the typed valuation date lies before the stored sector
+    series, the one-time sector backfill runs now (tokenless public
+    candles, once per process per day). The live Config is never
+    written."""
+    from .. import valuation_view as vv
+    user = auth.current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    if user.get("role") != "owner":
+        return RedirectResponse("/den?val=denied#valuation", status_code=303)
+    form = await request.form()
+    entry, assumptions, err = vv.parse_form(form)
+    if entry is None:
+        return RedirectResponse(f"/den?val=invalid&val_err={quote(err)}#valuation",
+                                status_code=303)
+    ok, err = vv.save_target(entry, assumptions)
+    if not ok:
+        return RedirectResponse(f"/den?val=invalid&val_err={quote(err)}#valuation",
+                                status_code=303)
+    try:
+        vv.ensure_sector_depth(entry["asof"])
+    except Exception:
+        log.exception("den: sector backfill after a valuation save failed")
+    return RedirectResponse("/den?val=saved#valuation", status_code=303)
+
+
+@router.post("/den/valuation/clear")
+async def den_valuation_clear(request: Request):
+    """Owner-only: forget one stored target. Nothing else changes."""
+    from .. import valuation_view as vv
+    user = auth.current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    if user.get("role") != "owner":
+        return RedirectResponse("/den?val=denied#valuation", status_code=303)
+    form = await request.form()
+    ticker = vv.normalise_symbol(str(form.get("ticker") or ""))
+    if ticker:
+        vv.clear_target(ticker)
+    return RedirectResponse("/den?val=cleared#valuation", status_code=303)
 
 
 @router.post("/den/sandbox/clear")

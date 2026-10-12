@@ -1064,20 +1064,86 @@ def _sector_index_refresh() -> None:
         rows = dr.fetch_sector_tail(broker, last)
         if not rows:
             log.info("sector refresh: already current to %s", last or "(empty)")
-            return
-        n = db.save_sector_rows(rows)
-        got = sorted({r["sector"] for r in rows})
-        missing = [s for s in dr.SECTOR_INDEX_KEYS if s not in got]
-        _refresh_journal(
-            "DATA_REFRESH_SECTOR",
-            f"Sector index refresh: {n} row(s) stored for {len(got)} of "
-            f"{len(dr.SECTOR_INDEX_KEYS)} sectors, to {max(r['date'] for r in rows)}."
-            + (f" No data for: {', '.join(missing)}." if missing else ""))
-        log.info("sector refresh: %d rows, %d sectors", n, len(got))
+        else:
+            n = db.save_sector_rows(rows)
+            got = sorted({r["sector"] for r in rows})
+            missing = [s for s in dr.SECTOR_INDEX_KEYS if s not in got]
+            _refresh_journal(
+                "DATA_REFRESH_SECTOR",
+                f"Sector index refresh: {n} row(s) stored for {len(got)} of "
+                f"{len(dr.SECTOR_INDEX_KEYS)} sectors, to {max(r['date'] for r in rows)}."
+                + (f" No data for: {', '.join(missing)}." if missing else ""))
+            log.info("sector refresh: %d rows, %d sectors", n, len(got))
     except Exception as e:
         log.exception("sector index refresh failed: %s", e)
         _refresh_journal("DATA_REFRESH_SECTOR_FAILED",
                          f"Sector index refresh crashed: {e}")
+    # The valuation context stage (owner order 2026-10-12) reads the sector
+    # index at the VALUATION DATE and regresses a β over 252 sessions; the
+    # 30-day seed above cannot serve either. One-time, idempotent backfill.
+    try:
+        backfill_sector_history()
+    except Exception:
+        log.exception("sector history backfill failed")
+
+
+SECTOR_HISTORY_DAYS = 760          # ~2 years + margin for the 252-session β
+_SECTOR_BACKFILL_DAY: dict = {}    # one attempt per process per day
+
+
+def backfill_sector_history(days: int = SECTOR_HISTORY_DAYS,
+                            force: bool = False) -> dict:
+    """Fill the sector-index store BACKWARDS to ~`days` calendar days once
+    (owner order 2026-10-12, the valuation context stage). Idempotent: when
+    the oldest stored row already reaches back that far nothing is fetched;
+    when it does not, every sector's missing window is fetched in ONE
+    public-candle call per index (16 calls, tokenless) and stored. One
+    attempt per process per day unless `force` — a dead feed must not cost
+    16 calls on every owner tap. Returns a small report for the caller
+    (the Den's valuation POST calls this when a typed valuation date lies
+    before the store)."""
+    from datetime import date as _date, timedelta as _td
+
+    from trading import data as tdata, data_refresh as dr
+    from . import db
+    today = _date.today().isoformat()
+    rep = {"fetched": 0, "stored": 0, "skipped": "", "oldest": ""}
+    if not db.is_connected():
+        rep["skipped"] = "mongo_offline"
+        return rep
+    if not force and _SECTOR_BACKFILL_DAY.get("day") == today:
+        rep["skipped"] = "already_tried_today"
+        return rep
+    stored = db.load_sector_rows()
+    oldest = min((str(r.get("date") or "") for r in stored
+                  if r.get("date")), default="")
+    rep["oldest"] = oldest
+    want_from = (_date.today() - _td(days=int(days))).isoformat()
+    if oldest and oldest <= want_from:
+        rep["skipped"] = "deep_enough"
+        return rep
+    broker = tdata.history_broker()
+    if broker is None:
+        rep["skipped"] = "no_history_client"
+        return rep
+    _SECTOR_BACKFILL_DAY["day"] = today
+    end = ((_date.fromisoformat(oldest) - _td(days=1)).isoformat()
+           if oldest else today)
+    rows = dr.fetch_sector_history(broker, want_from, end)
+    rep["fetched"] = len(rows)
+    if not rows:
+        _refresh_journal("DATA_REFRESH_SECTOR_FAILED",
+                         f"Sector history backfill fetched nothing for "
+                         f"{want_from} → {end}.")
+        return rep
+    rep["stored"] = db.save_sector_rows(rows)
+    got = sorted({r["sector"] for r in rows})
+    _refresh_journal(
+        "DATA_REFRESH_SECTOR",
+        f"Sector history backfill: {rep['stored']} row(s) stored for "
+        f"{len(got)} of {len(dr.SECTOR_INDEX_KEYS)} sectors, "
+        f"{want_from} → {end} (valuation context stage).")
+    return rep
 
 
 def _monthly_constituents_snapshot() -> None:
