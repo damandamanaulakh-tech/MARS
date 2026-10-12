@@ -8,13 +8,13 @@
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
   <script defer src="/static/install.js"></script>
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="AM07">
+  <meta name="apple-mobile-web-app-title" content="MARS">
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
     }
   </script>
-  <title>{% block title %}Sourceborn AM07{% endblock %}</title>
+  <title>{% block title %}Sourceborn MARS{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
@@ -55,8 +55,10 @@
         <span class="flex items-center gap-2 min-w-0">
           <button @click="nav = true" aria-label="Open menu"
                   class="lg:hidden text-xl leading-none px-1 -ml-1 text-ink">☰</button>
-          <span class="lg:hidden text-ink font-black tracking-tight normal-case text-sm">AM07</span>
-          <span class="hidden lg:inline truncate">Sourceborn AM07 &middot; {{ user.role|capitalize }} View</span>
+          <span class="lg:hidden text-ink font-black tracking-tight normal-case text-sm">MARS</span>
+          <!-- Owner 2026-10-11 (item 45): the old brand-and-role ribbon is gone;
+               this is the owner's deck — a welcome line with their name. -->
+          <span class="hidden lg:inline truncate" data-welcome-ribbon="1">Welcome to Sourceborn &mdash; <span class="text-ink normal-case tracking-normal font-bold">{{ display_name(request, user) }}</span></span>
         </span>
         <span class="flex items-center gap-3 lg:gap-5 shrink-0">
           {% if request.session.get('upstox_token') %}
@@ -75,7 +77,8 @@
           </a>
           {% endif %}
           <span aria-hidden="true" class="hidden sm:inline">🔔</span>
-          <span class="text-ink hidden md:inline">{{ today or '' }}</span>
+          <!-- IST, always (item 37): a Greenwich-time stamp here read as "yesterday" until 05:30 IST -->
+          <span class="text-ink hidden md:inline normal-case tracking-normal" data-ist-clock="1">{{ ist_now_str() }}</span>
         </span>
       </header>
       {% endif %}

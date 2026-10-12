@@ -139,7 +139,7 @@ one-page record, every number checked against the code, is
 - Across four research campaigns on real data, the recipe beat buy-and-hold
   in most unseen test windows — roughly **+9%/year before survivorship
   doubts, somewhere between −2% and +9% after them**. Not a guarantee; a
-  measured, documented edge estimate (`docs/PARAM_SEARCH_V1..V4.md`).
+  measured, documented edge estimate (`docs/PARAM_SEARCH_V3.md` (live walk-forward evidence) and `docs/archive/PARAM_SEARCH_V1..V4.md`).
 - **Right now the market is in a correction and this factor is in a
   measured cold stretch** — your flat year was the season, not a broken app.
 - The one test that settles it: **60 days of live paper trading** starting

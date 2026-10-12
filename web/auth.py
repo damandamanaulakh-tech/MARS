@@ -40,6 +40,17 @@ SEEDED_USERS = {
     "owner@sourceborn.in": {"role": "owner", "password": _SEEDED_PWD, "name": "Owner"},
 }
 
+# OWNER 2026-10-11, item 35: a second login that sees the book and never a
+# formula. It exists ONLY when VIEWER_PASSWORD is set in the Render env — no
+# fallback password this time (the 2026-07-27 lesson: the old viewer account
+# shipped with "viewer" as its password). What a viewer may open is decided
+# in web/main.py (_viewer_guard), not by the templates.
+_VIEWER_PWD = (os.environ.get("VIEWER_PASSWORD") or "").strip()
+if _VIEWER_PWD:
+    SEEDED_USERS["viewer@sourceborn.in"] = {
+        "role": "viewer", "password": _VIEWER_PWD,
+        "name": (os.environ.get("VIEWER_NAME") or "Viewer").strip() or "Viewer"}
+
 
 def _hash(pwd: str) -> str:
     return hashlib.sha256(pwd.encode()).hexdigest()

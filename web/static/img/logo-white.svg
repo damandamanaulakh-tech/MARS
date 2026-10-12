@@ -7,14 +7,14 @@
     </linearGradient>
   </defs>
   <circle cx="100" cy="100" r="90" fill="none"
-          stroke="url(#steelW)" stroke-width="9"/>
+          stroke="url(#steelW)" stroke-width="13"/>
   <path d="M 100 25 L 168 175 M 100 25 L 32 175"
-        stroke="url(#steelW)" stroke-width="10"
+        stroke="url(#steelW)" stroke-width="14"
         stroke-linecap="round" stroke-linejoin="round" fill="none"/>
   <path d="M 38 170
            C 26 145 38 122 70 122
            C 100 122 130 132 156 122
            C 178 114 178 90 168 70"
-        stroke="url(#steelW)" stroke-width="8"
+        stroke="url(#steelW)" stroke-width="11"
         stroke-linecap="round" fill="none"/>
 </svg>

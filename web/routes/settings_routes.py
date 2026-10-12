@@ -153,28 +153,41 @@ def _grouped() -> dict[str, list[dict]]:
     return groups
 
 
+def algo_context() -> dict:
+    """Everything _settings_algo.html needs — the ALGO half of the old
+    Settings page. OWNER ORDER 2026-10-12 ("setting will only have the APP
+    SETTINGS, NOT THE ALGO, that will move to MARS Den"): the form is now
+    rendered inside /den section 9 (web/routes/den_routes.py) with the SAME
+    action and field names, so the POST handlers below are untouched."""
+    cfg = state.cfg()
+    return {
+        "groups": _grouped(),
+        "trail_warn": _trail_warning(),
+        "trail_dead": _dead_trail_positions(),
+        "preset_fields": PRESET_OWNED_FIELDS,
+        "modes": MODE_CHOICES,
+        "current_mode": getattr(cfg, "mode", "swing"),
+        # OWNER ORDER 2026-08-20: the custom 50-name universe, shown for
+        # weekly editing. Empty = rotating full-NSE bucket.
+        "custom_universe": list(getattr(cfg, "custom_universe", ()) or ()),
+    }
+
+
 @router.get("/settings", response_class=HTMLResponse)
 def settings_view(request: Request, saved: str | None = None):
+    """APP settings only since 2026-10-12 (phone alerts, Upstox, storage,
+    purge) plus the result banners every save redirects to. The algo form
+    moved to /den#algo-settings — see algo_context()."""
     if not auth.current_user(request):
         return RedirectResponse("/login", status_code=303)
-    cfg = state.cfg()
     return templates.TemplateResponse(
         request, "settings.html",
         {
             "user": auth.current_user(request),
             "active": "settings",
-            "groups": _grouped(),
-            "trail_warn": _trail_warning(),
-            "trail_dead": _dead_trail_positions(),
-            "preset_fields": PRESET_OWNED_FIELDS,
-            "modes": MODE_CHOICES,
-            "current_mode": getattr(cfg, "mode", "swing"),
             "saved": saved,
             "db_status": state.db_status(),
             "push": _push_state(),
-            # OWNER ORDER 2026-08-20: the custom 50-name universe, shown for
-            # weekly editing. Empty = rotating full-NSE bucket.
-            "custom_universe": list(getattr(cfg, "custom_universe", ()) or ()),
         },
     )
 

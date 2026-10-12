@@ -1,0 +1,42 @@
+<!-- 1. SEQUENCE — the owner's 24-stage selection sequence. The status column
+     is the one hand-written table on this page (den_routes.SEQUENCE) and is
+     dated; everything else on /den is read from code. -->
+<section id="sequence" class="scroll-mt-20"><!-- den_sequence_marker -->
+  <div class="flex flex-wrap items-end justify-between gap-2 mb-3">
+    <h2 class="font-black text-2xl tracking-tight">1 · Sequence</h2>
+    <div class="text-xs text-ink-faint">status as of <strong>{{ seq.asof }}</strong> — hand-written, the only such table here</div>
+  </div>
+  <div class="bg-white border border-line">
+    <div class="px-4 lg:px-6 py-3 border-b border-line text-sm flex flex-wrap gap-x-6 gap-y-1">
+      <span><strong>{{ seq.n }}</strong> stages</span>
+      <span class="text-emerald-700"><strong>{{ seq.exists }}</strong> exist</span>
+      <span class="text-amber-700"><strong>{{ seq.partly }}</strong> partly</span>
+      <span class="text-ink-faint"><strong>{{ seq.not_yet }}</strong> not yet</span>
+    </div>
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+        <tr><th class="text-left px-4 py-2 whitespace-nowrap">#</th>
+            <th class="text-left px-2 py-2">Stage</th>
+            <th class="text-left px-2 py-2 whitespace-nowrap">Status</th>
+            <th class="text-left px-4 py-2">Where it lives today</th></tr>
+      </thead>
+      <tbody>
+        {% for r in seq.rows %}
+        <tr class="border-b border-line last:border-0 {% if r.status == 'not yet' %}text-ink-faint{% endif %}">
+          <td class="px-4 py-2 font-mono tabular-nums">{{ r.code }}</td>
+          <td class="px-2 py-2 font-semibold min-w-[12rem]">{{ r.name }}</td>
+          <td class="px-2 py-2 whitespace-nowrap">
+            <span class="text-[10px] tracking-widest uppercase font-bold px-1.5 py-0.5
+              {% if r.status == 'exists' %}bg-emerald-100 text-emerald-800
+              {% elif r.status == 'partly' %}bg-amber-100 text-amber-900
+              {% else %}bg-slate-100 text-slate-500{% endif %}">{{ r.status }}</span>
+          </td>
+          <td class="px-4 py-2 text-xs text-ink-soft min-w-[16rem]">{{ r.where or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>

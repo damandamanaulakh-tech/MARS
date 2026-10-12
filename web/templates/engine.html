@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Engine Regime — Sourceborn AM07{% endblock %}
+{% block title %}Engine Regime — Sourceborn MARS{% endblock %}
 {% block content %}
 <div class="text-xs tracking-widest text-ink-faint uppercase mb-3">DUAL-REGIME / MASTER SWITCH</div>
 <div class="flex flex-wrap items-end justify-between gap-2 mb-8">
@@ -7,7 +7,7 @@
     <h1 class="font-black text-3xl lg:text-5xl tracking-tight">Engine Status</h1>
     <p class="text-ink-soft mt-2">
       Which engine is live right now and why.
-      {% if regime_at %}Reading as of <strong>{{ regime_at.strftime('%Y-%m-%d %H:%M') }} UTC</strong> —{% endif %}
+      {% if regime_at %}Reading as of <strong>{{ regime_at | ist }}</strong> —{% endif %}
       cached up to 15 min, refreshed when you open this page or tap Refresh.
     </p>
   </div>
@@ -105,7 +105,7 @@
 
 <!-- Raw inputs -->
 <div class="bg-white border border-line p-4 lg:p-6">
-  <div class="font-bold mb-4">Raw inputs{% if regime_at %} (as of {{ regime_at.strftime('%Y-%m-%d %H:%M') }} UTC){% endif %}</div>
+  <div class="font-bold mb-4">Raw inputs{% if regime_at %} (as of {{ regime_at | ist }}){% endif %}</div>
   <div class="overflow-x-auto">
   <table class="w-full text-sm">
     <tbody class="divide-y divide-line">

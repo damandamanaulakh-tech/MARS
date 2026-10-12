@@ -1,0 +1,68 @@
+<!-- _settings_app.html — the APP half of the old /settings page.
+     OWNER ORDER 2026-10-12: "setting will only have the APP SETTINGS, NOT
+     THE ALGO, that will move to MARS Den". Phone alerts, the universe
+     purge and the storage badge live here; every algo knob (floors, stops,
+     targets, toggles, sizing, cash shares, the universe list) is rendered by
+     _settings_algo.html inside /den#algo-settings.
+     Context: user, db_status, push. -->
+
+<!-- Persistence badge -->
+<div class="mb-6 flex items-center gap-2 text-xs tracking-widest text-ink-faint uppercase">
+  <span class="inline-block w-2 h-2 rounded-full {% if db_status.connected %}bg-emerald-500{% else %}bg-slate-400{% endif %}"></span>
+  Storage:
+  {% if db_status.connected %}MongoDB ({{ db_status.db }}){% else %}JSON on disk (Mongo offline){% endif %}
+</div>
+
+<!-- 🔔 PHONE ALERTS (ntfy.sh) -->
+<div class="mb-8 bg-white border border-line p-4 lg:p-5">
+  <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">🔔 Phone alerts</div>
+  {% if not push.available %}
+    <p class="text-sm text-ink-soft">Needs MongoDB connected (or an NTFY_TOPIC env var) so your alert channel survives restarts.</p>
+  {% elif push.enabled %}
+    <p class="text-sm text-ink-soft">ON — pushes buys, sells, scan failures, stale-data holds and the VIX re-entry signal.</p>
+    <ol class="mt-2 text-sm text-ink-soft list-decimal pl-5 space-y-1">
+      <li>Install the free <strong>ntfy</strong> app (Play Store / App Store).</li>
+      <li>In ntfy tap <strong>+ Subscribe to topic</strong> and enter exactly:</li>
+    </ol>
+    <div class="mt-2 px-3 py-2 bg-slate-100 font-mono text-sm break-all select-all">{{ push.topic }}</div>
+    <p class="mt-1 text-xs text-ink-faint">This topic name is your private channel — treat it like a password.</p>
+    <div class="mt-3 flex gap-3">
+      <form method="post" action="/settings/push/test"><button class="border border-line px-4 py-2 text-sm hover:bg-slate-50">Send test alert</button></form>
+      <form method="post" action="/settings/push/disable"><button class="border border-line px-4 py-2 text-sm text-red-700 hover:bg-red-50">Turn off</button></form>
+    </div>
+  {% else %}
+    <p class="text-sm text-ink-soft">Get a phone notification on every buy, sell, scan failure and the VIX re-entry signal.</p>
+    <form method="post" action="/settings/push/enable" class="mt-3"><button class="bg-slate-950 text-white px-4 py-2 text-sm font-bold">Enable phone alerts</button></form>
+  {% endif %}
+</div>
+
+<!-- 🔌 UPSTOX — the daily login is the only manual act; nothing in the app
+     takes a token (the keys live in the Render environment). -->
+<div class="mb-8 bg-white border border-line p-4 lg:p-5"><!-- settings_upstox_marker -->
+  <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">🔌 Upstox</div>
+  {% if request.session.get('upstox_token') %}
+    <p class="text-sm text-ink-soft">Connected as <strong>{{ request.session.get('upstox_user_name', 'connected') }}</strong>. The token dies at 03:30 IST every day (Upstox rule); log in again from the header the next morning.</p>
+    <form action="/upstox/disconnect" method="post" class="mt-3"><button class="border border-line px-4 py-2 text-sm hover:bg-slate-50">Disconnect</button></form>
+  {% else %}
+    <p class="text-sm text-ink-soft">Not connected for this browser session. Candles, scans, exits and the Friday block run without a login; only real-time quotes, the option chain and the Upstox FII/DII feed need it.</p>
+    <a href="/upstox/login" class="mt-3 inline-block border border-line px-4 py-2 text-sm hover:bg-slate-50">Connect Upstox &rarr;</a>
+  {% endif %}
+</div>
+
+{% if user and user.role == 'owner' %}
+<div class="mb-6 border border-red-200 bg-red-50/60 p-4">
+  <div class="font-bold text-sm text-red-900">🧹 Remove all the old universe</div>
+  <p class="text-xs text-ink-soft mt-1 max-w-2xl">
+    Clears every cached universe artefact — the scan matrix, last picks and skips, the shadow
+    book, and the on-disk Upstox instrument master — then pulls a fresh instrument list from
+    Upstox. Nothing old can be scanned or displayed again. Trade history and open positions are
+    untouched.
+  </p>
+  <form method="post" action="/positions/purge-universe" class="mt-3"
+        onsubmit="return confirm('Clear all cached universe data and re-pull a fresh list from Upstox?');">
+    <button class="px-4 py-2 bg-red-700 text-white text-xs font-bold tracking-wide hover:bg-red-800">
+      PURGE + REFRESH UNIVERSE
+    </button>
+  </form>
+</div>
+{% endif %}

@@ -1506,6 +1506,41 @@ def refresh_liquid_universe(where: str = "weekly") -> dict:
             # outside the rank are exactly res["held_added"].
             "watchlist_carried": sorted(keep & set(res.get("held_added", ()))),
         }
+        # OWNER 2026-10-11 item 15: "when the shares are moved from the
+        # universe of 1200, verify that some part do things in code, but
+        # some you keep quiet". What was quiet: the per-name REASON and DATE.
+        # One ledger row per move, kept on the portfolio (JSON + Mongo both
+        # ways), capped at UNIVERSE_LEDGER_CAP rows.
+        try:
+            from trading.paper import UNIVERSE_LEDGER_CAP
+            rank_of = {r["ticker"]: (i + 1, r["turnover"])
+                       for i, r in enumerate(res.get("ranked") or [])}
+            always_set = set(p.positions.keys()) | keep | owner_list
+            stamp = _dt.utcnow().isoformat()
+            rows = []
+            for t in added:
+                rk, tv = rank_of.get(t, (None, None))
+                if t in always_set and rk is None:
+                    why = ("held" if t in p.positions else
+                           "owner list" if t in owner_list else "watchlist")
+                    reason = f"carried in by rule: {why}"
+                elif rk is not None:
+                    reason = f"ranked {rk} of {target} by median turnover"
+                else:
+                    reason = "in the final list (no rank recorded)"
+                rows.append({"ts": stamp, "ticker": t, "move": "in",
+                             "turnover": tv, "rank": rk, "reason": reason})
+            for t in dropped:
+                reason = ("below the turnover cut (not in the top "
+                          f"{target}) and not held / watched / owner-listed"
+                          if t not in always_set else
+                          "left the tradeable file or blocklisted")
+                rows.append({"ts": stamp, "ticker": t, "move": "out",
+                             "turnover": None, "rank": None, "reason": reason})
+            ledger = list(getattr(p, "universe_ledger", []) or []) + rows
+            p.universe_ledger = ledger[-UNIVERSE_LEDGER_CAP:]
+        except Exception:
+            log.exception("universe ledger failed (batch card unaffected)")
         carried = sorted(keep & set(res.get("held_added", ())))
         kept_note = ("" if not keep else
                      f" Watchlist kept: {len(keep)} name(s), "
@@ -1851,6 +1886,14 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
                 cfg.apply_mode_preset()
                 res = eng.scan()
                 summary.append(f"{m}={len(res.opened)} opened/{len(res.skipped)} skipped")
+                # OWNER 2026-10-11 item 28: the watchlist capture is taken
+                # RIGHT AFTER the momentum pass, while scan_matrix /
+                # last_scan_skipped / last_scan_opened still hold THAT pass —
+                # at the end of the rotation they hold positional's, and a
+                # capture taken there mixed two passes (found by the
+                # positions/reports agent 2026-10-12). Never raises.
+                if m == "nifty200_momentum":
+                    _capture_watchlist(eng, cfg, where)
             except Exception as e:
                 log.exception("[%s] scan for mode=%s failed: %s", where, m, e)
                 summary.append(f"{m}=error")
@@ -1882,6 +1925,42 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
         finally:
             MODE_LOCK.release()
     return summary
+
+
+def _capture_watchlist(eng, cfg, where: str) -> dict:
+    """Owner item 28 — one dated watchlist capture per rotation, taken right
+    after the momentum pass (web/watchlist_capture.py, bounded). Journals
+    WATCHLIST_CAPTURED or WATCHLIST_CAPTURE_FAILED so an empty Reports
+    card is never a mystery. Returns the capture result (tests)."""
+    from datetime import datetime as _dt
+    res: dict = {}
+    try:
+        from . import db
+        from .watchlist_capture import capture
+        try:
+            res = capture(eng.portfolio, cfg, _dt.utcnow(), db_module=db,
+                          state_dir=getattr(cfg, "state_dir", None)) or {}
+            action = "WATCHLIST_CAPTURED" if res.get("ok") else "WATCHLIST_CAPTURE_FAILED"
+            why = (f"[{where}] {res.get('n_rows', 0)} rows captured at "
+                   f"{res.get('ts') or '?'} · mongo={'yes' if res.get('mongo') else 'no'}"
+                   f" · csv={'yes' if res.get('csv') else 'no'}"
+                   + (f" · {res.get('error')}" if res.get("error") else "")
+                   + (f" · {res.get('note')}" if res.get("note") else ""))
+        except Exception as e:                           # noqa: BLE001
+            log.exception("[%s] watchlist capture crashed", where)
+            res = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+            action, why = "WATCHLIST_CAPTURE_FAILED", f"[{where}] {res['error']}"
+        eng.portfolio.decision_journal.append(
+            {"ts": _dt.utcnow().isoformat(), "action": action, "why": why,
+             "n_rows": res.get("n_rows", 0)})
+        eng.portfolio.save()
+    except Exception:
+        log.exception("[%s] watchlist capture journal failed", where)
+    # No memory_relief.release() here on purpose: the capture is a few
+    # hundred small dicts, the last category pass already released, and the
+    # rotation pins count exactly one release per category (CI red on
+    # 5181c89 when this had its own release).
+    return res
 
 
 def _eod_refresh() -> None:

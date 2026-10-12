@@ -74,6 +74,113 @@ trail −15, 200d) · exit check every 30 min incl. between scan categories ·
 kill switch −2%/day · drawdown ladder −5/−8/−10/−15/−20 · danger layer 12
 tripwires ON · rotation ON at 90% · RBI days never halt.
 
+**MARS ROUND 2026-10-11/12 — THE APP IS "MARS" NOW (owner: 46-item list +
+two sequences + 3 files → "meanwhile n checking formulas n all do the
+cleaning n dashboard etc works" → "Try again"). PR #162 (draft on
+claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
+16:30 block is done). READ BEFORE TOUCHING SCREENS, DOCS OR THE SEQUENCE.**
+- DELIVERED READ-ONLY FIRST (2026-10-12 08:40-09:05 IST): the owner's audit
+  list (pending/parked/unconnected/size/flaws with add-vs-leave impact),
+  then the understanding of their 46 points + the 24-stage valuation
+  sequence, and the task book
+  (scratchpad MARS_task_book_2026-10-12.xlsx: Tasks 39 rows · Sequence map
+  27 stages · Sector methods 21 · Finance terms 52 · ASH test 15 names).
+  Commit it under docs/ only on their word. THEIR FILES: a resilience
+  screen (0/1/2 rules, groups 30/25/30/15, most cells blank → neutral), a
+  Tata Technologies IPO→FY27 P/E-driver model (29 ASSUMED sensitivities,
+  section H additive = what-if by its own note), a docx keeping their 8
+  steps + 4 additions (valuation basis FIRST, company/context step, event
+  re-run loop, change log). The companion sheet (Blocks A-G) was NOT
+  attached — asked for.
+- TWO DATA TRAPS found reading for the valuation layer: the fundamentals
+  store carries ADR-listed names in US DOLLARS (INFY annualBasicEPS 0.81,
+  net income 3.31 bn vs ₹~80 / ₹~28,000 cr reported; same risk WIPRO,
+  HDFCBANK, ICICIBANK, DRREDDY, TATAMOTORS) and TATATECH is not in it at
+  all (N200 only; the October monthly refresh stalled). Stage 08 must lock
+  currency + units; Yahoo gives period ends not publication dates (45-day
+  lag ASSUMED until NSE result dates are fetched). Fundamentals start 2021
+  → any valuation-stage test covers 5 years, not 12 (said to the owner).
+- ITEM 14 RUN (live public candles to 10-09): AM07 ≥62 passes SUNPHARMA,
+  ICICIBANK, SBIN, SAIL, LODHA, HAL; ASH08 gives TATATECH 100.0 on a name
+  down 13% in a month (6-month return only, saturates) = the flaw the study
+  found; AshStocks 70 passes nobody. Keep both as display columns.
+- 59,045 = 1,205 stocks × 49 piano lanes (10 composite factors + 4 gates +
+  34 candle structures + 1 outcome). Placeholder-prone lanes: catalyst,
+  short_interest (frozen panel → 50 all), earnings_growth, analyst_revision
+  ≈ 4,820 cells; the 34 structure lanes are 69% of the count.
+- PHASE 0 SHIPPED (b967365 + 05893ab): MARS above / Sourceborn below;
+  ribbon "Welcome to Sourceborn — <name>" (OWNER_NAME env → Upstox profile
+  name → account); page titles; logo strokes 9/10/8 → 13/14/11; PWA
+  manifest. `web/clock.py` = ONE IST clock (dashboard date was utcnow →
+  read yesterday until 05:30 IST; engine page printed UTC) + `|ist` Jinja
+  filter. Signal page DELETED (route/template/test/links; candle_chart.
+  load_ohlcv stays). Docs: FINAL_SET V1.1/V1.2 + PARAM_SEARCH v1/v2/v4 →
+  docs/archive/, docs/MARS_LIVE_SET.md = the index, V1.3 stays the
+  test-pinned live record, v3 results stay (Evidence panel reads them).
+  VIEWER LOGIN: VIEWER_PASSWORD env → viewer@sourceborn.in sees /, /positions,
+  /trades read-only; `_viewer_guard` middleware in web/main.py registered
+  BEFORE SessionMiddleware (= runs inside it; the other order sees no
+  session and waves every viewer through — test-pinned); 403 on every other
+  path and every POST; sidebar shows the book pages only. UNIVERSE MOVE
+  LEDGER (item 15): `portfolio.universe_ledger` rows {ts, ticker, move,
+  turnover, rank, reason}, cap 1,500, JSON+Mongo both ways, on the /scan
+  batch card. PRE-15-SEP ARCHIVE (item 5, archive NOT delete — rule 3):
+  `state._migrate_archive_pre_mars` moves ClosedTrades with exit before
+  2026-09-15 00:00 IST and journal lines before it to Mongo `trades` /
+  `journal_archive` flagged `pre_mars: True`, reads the counts back, THEN
+  trims the live book; marker archive_pre_mars_2026_09_15; Mongo down /
+  write refused / short read-back = nothing trimmed, retried next boot;
+  `db.list_trades` / `list_journal_archive` skip pre_mars rows unless
+  include_pre_mars=True; measured Kelly loses those trades from its sample.
+  Tests web/tests/test_mars_phase0_2026_10_12.py (19).
+- PHASE 5 LANDED (5eb3333 + 8696fa0; full suite from a clean state dir
+  1,682 passed; PR #162 ready, UNMERGED — merge after the 16:30 block on
+  the owner's authority, standing rule 0). Agents' finds while finishing:
+  the end-of-rotation capture mixed TWO passes (scan_matrix /
+  last_scan_skipped / last_scan_opened hold the positional pass by then)
+  → capture now runs right after the momentum pass, inside the loop; the
+  /positions decay flag compared every row to the LIVE mode's floor
+  (momentum 40) instead of its own category's (45 for intraday/short/
+  swing) → fixed to the exit rule; Den copy traps fixed before shipping
+  (capacity law formula, "29 need a feed" overstated, trigger "computing
+  112/112" misleading, breadth band edge is x < 65 not <=). /trades
+  `?archive=1` shows the pre-MARS trades flagged. Dashboard breadth
+  footer read a key deleted 09-09 (printed "need >% of the panel" with no
+  number) — fixed. Remaining pins moved to /den or /scan with comments.
+- PHASE 5 as ordered: dashboard rebuild per items 30 a-j
+  (fund summary per category on top, index strip below, full picks/
+  watchlist, equity curve by day 1-31, Status card, breadth+events, sector
+  strip + coverage moved to /scan, capability panel gone, purge button,
+  "why not today" per category, "Market state" label); MARS Den `/den`
+  (sequence · engines with Everest+Ocean live numbers · weights · triggers &
+  danger · timing block · sizing & capacity · register · evidence · algo
+  settings moved off /settings · sandbox that never touches cfg, drafts in
+  settings doc formula_drafts); positions legend + days held (item 38);
+  watchlist capture after every rotation (item 28: `web/watchlist_capture.
+  py`, `scheduler._capture_watchlist`, Mongo `watchlist_snapshots` newest
+  120 + CSVs newest 60, journals WATCHLIST_CAPTURED/_FAILED, /reports card).
+  International indices (item 43): no reachable free feed from the box
+  (Yahoo blocked on Render, stooq answered nothing) → DATA_NEEDED chip.
+- HARNESS LESSON: the three screen-building subagents all stopped mid-work
+  with "You've reached your Fable limit" (the account's usage cap is SHARED
+  with subagents) and the container restart that followed marked them
+  failed with their edits still on disk; relaunched as RESUME jobs with
+  `model: "opus"`. For long builds, run subagents on opus and tell them to
+  read the partial files first.
+- MON 10-12 09:20 CHAIN: asleep at 09:18 IST (fresh process, 151 MiB);
+  keep-alive log 09:25-09:29 IST rss 447 / peak 481, then MY container
+  restarted and the loop died; 11:51 IST probe = 52.6 s cold start, rss 151
+  → the morning process was gone by then (OOM kill vs sleep not
+  distinguishable from outside). 14:20 IST wake armed
+  (trig_014eEmBWPKn6KvWfq82ErURF; re-arms Tue 09:10); the 16:30 weekly block
+  is due today.
+- OWNER ASKS STILL OPEN (said to them): the companion sheet; display name;
+  archive-not-delete confirmed? (built as archive); which category Buy
+  Desk buys count under (today momentum → fills the 40% share, why "no
+  fund"); 1-2 international indices; the memory lever (b/a/c); accept the
+  5-year test window for valuation legs. Phases 1-4 (valuation data layer →
+  scenarios → re-sequenced selection) wait for their formula review.
+
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:
 (1) `data_refresh._row_date` looked for a string date while Upstox sends

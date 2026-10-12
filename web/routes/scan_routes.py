@@ -8,7 +8,7 @@ import threading
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
-from .. import auth, market_gate, state
+from .. import auth, market_gate, market_panels as mp, state
 from ..templating import templates
 
 
@@ -145,6 +145,9 @@ def scan_view(request: Request, error: str | None = None):
             # Owner ask 2026-09-04: this week's batch, on the screen they buy
             # from. Rebuilt Friday 16:30 IST; Monday only if Friday is missed.
             "universe_batch": p.universe_batch or {},
+            # owner 2026-10-11 item 15: per-name moves, newest first
+            "universe_ledger": list(reversed(
+                (getattr(p, "universe_ledger", None) or [])[-400:])),
             # OWNER ORDER 2026-09-11: the card states whether the three-formula
             # filter is merely showing or actually gating, so the screen can
             # never imply a control it isn't exercising.
@@ -163,6 +166,11 @@ def scan_view(request: Request, error: str | None = None):
             "pending_orders": [o for o in (p.pending_orders or [])
                                if o.get("status") == "open"],
             "be_watch": _load_be_watch(),
+            # Owner order 2026-10-12 (item 30i): the sector-moves strip and the
+            # scan-coverage card moved here from the dashboard. Same panels,
+            # same safety wrapper — a broken panel hides, the page renders.
+            "sectors": mp.safe_panel(mp.sector_panel),
+            "coverage": mp.safe_panel(mp.coverage_panel),
         },
     )
 

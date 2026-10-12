@@ -43,7 +43,9 @@ def test_seeded_owner_logs_in_and_sees_dashboard():
 
     r2 = fresh.get("/")
     assert r2.status_code == 200
-    assert "Master Dashboard" in r2.text
+    # Owner order 2026-10-12 (item 30a): "There only dashboard, remove master".
+    assert "Dashboard — Sourceborn MARS" in r2.text
+    assert "Master Dashboard" not in r2.text
     assert "SOURCEBORN" in r2.text
 
 
@@ -104,9 +106,14 @@ def test_settings_renders_editable_fields():
     )
     r = fresh.get("/settings")
     assert r.status_code == 200
-    assert "Strategy Settings" in r.text
-    assert "Starting Capital" in r.text
-    assert "Stop Loss" in r.text
+    # Owner order 2026-10-12 ("setting will only have the APP SETTINGS, NOT
+    # THE ALGO, that will move to MARS Den"): /settings is App Settings now
+    # and the editable algo fields render on /den.
+    assert "App Settings" in r.text
+    den = fresh.get("/den")
+    assert den.status_code == 200
+    assert "Starting Capital" in den.text
+    assert "Stop Loss" in den.text
 
 
 def test_inr_indian_grouping():

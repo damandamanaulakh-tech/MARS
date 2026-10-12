@@ -194,12 +194,16 @@ def test_the_dashboard_renders_the_atr_rows_for_a_held_name():
         entry_score=70.0, reasoning="fixture", mode="nifty200_momentum",
         stop_price=1330.0, target_price=1680.0)
     try:
+        # Repointed 2026-10-12: the ATR panel left the dashboard for the MARS
+        # Den on the owner's order (item 30f); the rows render there now.
         with patch("web.db.is_connected", return_value=False):
-            r = _owner().get("/")
+            r = _owner().get("/den")
         assert r.status_code == 200
         assert "Volatility and the stop rule" in r.text
-        assert "Floor (fixed)" in r.text and "Live rule: 2×ATR" in r.text
-        assert "RELIANCE.NS" in r.text
+        assert "den_atr_marker" in r.text            # the rows, not the empty note
+        # the Den prints k as stored (2.0); the rule header, not its float format
+        assert "Floor (fixed)" in r.text and "Live rule: 2" in r.text and "×ATR" in r.text
+        assert "RELIANCE" in r.text                  # the Den drops the .NS suffix
     finally:
         p.positions = saved
 
@@ -216,10 +220,14 @@ def test_dashboard_renders_the_always_available_panels():
     so they must render on a brand-new book (CI starts with an empty one)."""
     with patch("web.db.is_connected", return_value=False):
         page = _owner().get("/").text
+        # Walk-Forward Evidence moved to the MARS Den (owner order 2026-10-12,
+        # item 30f) — still always available, now on /den.
+        den = _owner().get("/den").text
     for needle in ("NIFTY 50", "INDIA VIX",                    # index strip
                    "s Coming",                                 # What's Coming
-                   "Trade Horizons", "Walk-Forward Evidence"):
+                   "Trade Horizons"):                          # Status card
         assert needle in page, needle
+    assert "Walk-Forward Evidence" in den
 
 
 def test_dashboard_breadth_panel_appears_once_a_scan_exists():

@@ -70,7 +70,10 @@ def test_settings_blank_restores_the_rotating_bucket():
 
 
 def test_settings_page_shows_the_editable_list():
-    html = _client().get("/settings").text
+    # Owner order 2026-10-12 ("setting will only have the APP SETTINGS, NOT
+    # THE ALGO, that will move to MARS Den"): the list is edited on /den now
+    # (same form, same POST to /settings).
+    html = _client().get("/den").text
     assert "custom_universe_marker" in html
     # derived — see the note in trading/tests/test_custom_universe.py
     from trading.universes import OWNER_UNIVERSE_2026_08_20 as U

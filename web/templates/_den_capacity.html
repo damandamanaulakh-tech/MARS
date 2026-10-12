@@ -1,0 +1,18 @@
+<!-- 6. SIZING & CAPACITY — the old Universe Lens: lens_v2's assumptions
+     next to the live sizing numbers they are compared with. -->
+<section id="capacity" class="scroll-mt-20"><!-- den_capacity_marker -->
+  <div class="flex flex-wrap items-end justify-between gap-2 mb-3">
+    <h2 class="font-black text-2xl tracking-tight">6 · Sizing &amp; capacity (the lens)</h2>
+    <div class="text-xs text-ink-faint">per-stock v1/v2 table: <a href="/lens" class="underline">/lens</a> · trading/lens_v2.py (read-only; the engine never imports it)</div>
+  </div>
+  <div class="bg-white border border-line">
+    <div class="p-4 text-xs space-y-2">
+      <div><strong>Edge estimate</strong> (Grinold, shared with the live sizer — sizing.edge_estimate): μ = IC × σ × z, z = (score − floor) / {{ cap.z_div if cap.z_div else 'DATA_NEEDED' }}. Lens IC = <strong>{{ cap.ic }}</strong> (ASSUMED) · live engine IC = {{ cap.live_ic }}.</div>
+      <div><strong>Kelly</strong>: f = fraction × μ / σ². Lens shows {{ cap.lens_kelly_fraction }} (display only) · live engine m = <strong>{{ cap.live_m }}</strong>, capped {{ cap.live_cap_pct }}% of equity per name.</div>
+      <div><strong>Impact law</strong> (square root — lens_v2.impact_bps): impact = Y × σ<sub>daily</sub> × √(notional / ADV) × 10,000 bps, Y = <strong>{{ cap.impact_y }}</strong>, σ<sub>daily</sub> over the last {{ cap.sigma_days or 'DATA_NEEDED' }} returns, ADV = {{ cap.adv_days or 'DATA_NEEDED' }}-day average rupee turnover. Because of the square root, 4× the size costs 2× the impact. Capacity = the largest notional whose impact stays under {{ cap.max_impact_bps }} bps. Proxies from daily bars — no order book exists here.</div>
+      <div><strong>Convexity</strong>: ATR room-to-high, payoff R, break-even hit rate, {{ cap.skew_days or 'DATA_NEEDED' }}-day return skew — proxies, labelled so on /lens. Names with under {{ cap.min_bars or 'DATA_NEEDED' }} bars read DATA_NEEDED, never a guess.</div>
+      <div><strong>Trap detector</strong> (defensive): parabolic-without-volume, thin-book ramp, volume-spike-price-stall, repeated limit-up, no-down-days; {{ cap.trap_flags or 'DATA_NEEDED' }}+ flags = TRAP, v2 refuses the name.</div>
+      <div class="text-ink-faint">{{ cap.trading_days }} trading days per year in every annualisation.</div>
+    </div>
+  </div>
+</section>

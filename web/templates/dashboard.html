@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Master Dashboard — Sourceborn AM07{% endblock %}
+{% block title %}Dashboard — Sourceborn MARS{% endblock %}
 {% block content %}
-
-<div class="text-xs tracking-widest text-ink-faint uppercase mb-3">MASTER / OWNER VIEW</div>
+{#- Owner order 2026-10-12 (item 30a): "There only dashboard, remove master" —
+    the MASTER / OWNER VIEW eyebrow and the "Master Dashboard" h1 are gone. -#}
 
 {% if db_status and db_status.connected and db_status.write_error %}
 <!-- 2026-09-24 (owner: "issue is at mongo 513 MB on 512 plan"): a database
@@ -41,11 +41,169 @@
 </div>
 {% endif %}
 
-<!-- Index strip (owner ask 2026-07-30, from the reference dashboards).
-     Committed 15-year index history — labelled with its own as-of date
-     rather than pretending to be a live tick. -->
+<!-- Page header: title, IST date, the owner's buttons (owner items 30a, 30j, 30k) -->
+<div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+  <div>
+    <h1 class="font-black text-3xl lg:text-5xl tracking-tight">Dashboard</h1>
+    <p class="text-ink-soft mt-2 text-sm" data-ist-date="1">{{ today }}</p>
+  </div>
+  <div class="flex flex-wrap gap-2 lg:gap-3">
+    <form action="/refresh" method="post">
+      <button class="px-4 py-2 border border-line text-sm font-semibold tracking-wide hover:bg-ink/[0.03] whitespace-nowrap">
+        ⬇ REFRESH PRICES
+      </button>
+    </form>
+    <form action="/scan/run" method="post">
+      <button class="px-4 py-2 bg-ink text-white text-sm font-semibold tracking-wide hover:bg-black whitespace-nowrap">
+        🎯 RUN SCAN
+      </button>
+    </form>
+    {% if user and user.role == 'owner' %}
+    <!-- Owner item 30j: the same purge the Settings page offers, same confirm text,
+         POSTs to the existing /positions/purge-universe (owner-only there too). -->
+    <form method="post" action="/positions/purge-universe"
+          onsubmit="return confirm('Clear all cached universe data and re-pull a fresh list from Upstox?');">
+      <button data-purge-universe="1" class="px-4 py-2 border border-red-300 text-red-700 text-sm font-semibold tracking-wide hover:bg-red-50 whitespace-nowrap">
+        🧹 PURGE UNIVERSE
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if fund %}
+<!-- FUND SUMMARY (owner item 30b): capital · allocated · reserved · used · cash ·
+     P&L, per segment and in total. Every number is the book's or the config's;
+     the marks label says whether P&L is live or at entry prices. -->
+{% set fund_up = fund.pnl >= 0 %}
+<div class="border border-line bg-white mb-6" data-fund-summary="fund_summary_marker">
+  <div class="px-4 lg:px-6 py-4 border-b border-line">
+    <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase">Fund summary · {{ fund.marks }}</div>
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase">paper book · capital ₹{{ fund.capital | inr_lakh }}</div>
+    </div>
+    <!-- the one-line summary, kept ONCE, enlarged, coloured by the sign of P&L (items 30b, 12) -->
+    <p class="mt-2 font-black text-2xl lg:text-4xl tracking-tight tabular-nums {% if fund_up %}text-emerald-700{% else %}text-red-700{% endif %}" data-fund-summary-line="1">
+      ₹{{ fund.equity | inr_lakh }} equity &middot;
+      {{ fund.open }} open position{% if fund.open != 1 %}s{% endif %} &middot;
+      <span title="state reading, not a forecast" class="cursor-help">
+        <span class="text-ink-faint text-sm lg:text-lg font-semibold tracking-widest uppercase align-middle">Market state</span>
+        {{ regime }}</span>
+    </p>
+    <div class="mt-1 text-xs text-ink-faint">Market state = Nifty against its own 200-day line as the engine last read it — a reading of where the index IS, never a forecast.</div>
+  </div>
+
+  <!-- totals strip -->
+  <div class="px-4 lg:px-6 py-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-x-4 gap-y-3 text-sm border-b border-line">
+    <div>
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase">Capital</div>
+      <div class="font-bold tabular-nums">₹{{ fund.capital | inr }}</div>
+    </div>
+    <div title="entry cost of the open positions (qty × entry price) — the deploy cap's own convention">
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase">Allocated</div>
+      <div class="font-bold tabular-nums">₹{{ fund.allocated | inr }}</div>
+      <div class="text-[10px] text-ink-faint">entry cost of open positions</div>
+    </div>
+    <div title="regime cash reserve = cfg.cash_reserve_pct × equity; ladder {{ fund.ladder }}">
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase">Reserved</div>
+      <div class="font-bold tabular-nums">₹{{ fund.reserved | inr }}</div>
+      <div class="text-[10px] text-ink-faint">regime reserve {{ (fund.reserve_pct * 100) | round(0) | int }}% · ladder {{ fund.ladder }}</div>
+    </div>
+    <div title="the open positions at this page's marks">
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase">Used (now)</div>
+      <div class="font-bold tabular-nums">₹{{ fund.now | inr }}</div>
+      <div class="text-[10px] text-ink-faint">{{ fund.marks }}</div>
+    </div>
+    <div>
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase">Cash</div>
+      <div class="font-bold tabular-nums">₹{{ fund.cash | inr }}</div>
+    </div>
+    <div>
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase">UNREALIZED P&amp;L</div>
+      <div class="font-bold tabular-nums {% if fund_up %}text-emerald-700{% else %}text-red-700{% endif %}">{{ '+' if fund.pnl >= 0 }}₹{{ fund.pnl | inr }}</div>
+      <div class="text-[10px] tabular-nums {% if fund_up %}text-emerald-700{% else %}text-red-700{% endif %}">
+        {% if fund.pnl_vs_capital is not none %}{{ '%+.2f' % fund.pnl_vs_capital }}% vs capital{% else %}— vs capital{% endif %}
+        · {% if fund.pnl_vs_cost is not none %}{{ '%+.2f' % fund.pnl_vs_cost }}% vs used{% else %}— vs used{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- per-segment table -->
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm" data-fund-segments="1">
+    <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+      <tr>
+        <th class="text-left px-4 lg:px-6 py-2 whitespace-nowrap">Segment</th>
+        <th class="text-right px-2 py-2 whitespace-nowrap" title="the category's share of the deployable capital (equity minus the regime reserve) — the number risk.can_open refuses on">Share</th>
+        <th class="text-right px-2 py-2 whitespace-nowrap" title="entry cost of this segment's open positions">Allocated</th>
+        <th class="text-right px-2 py-2 whitespace-nowrap" title="this segment's positions at the page's marks">Used (now)</th>
+        <th class="text-right px-2 py-2 whitespace-nowrap" title="share minus allocated — what this segment may still spend">Free</th>
+        <th class="text-right px-2 py-2 whitespace-nowrap">Open</th>
+        <th class="text-right px-2 py-2 whitespace-nowrap">P&amp;L ₹</th>
+        <th class="text-right px-2 py-2 whitespace-nowrap">vs used</th>
+        <th class="text-right px-4 lg:px-6 py-2 whitespace-nowrap">vs share</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in fund.rows %}
+      {% set up = r.pnl >= 0 %}
+      <tr class="border-b border-line/60 last:border-0" data-fund-segment="{{ r.category }}">
+        <td class="px-4 lg:px-6 py-2 font-semibold whitespace-nowrap">{{ r.label }}
+          {% if r.note %}<span class="text-[10px] font-normal text-ink-faint">· {{ r.note }}</span>{% endif %}
+          {% if r.full %}<span class="text-[10px] font-normal text-amber-700">· share full</span>{% endif %}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">{% if r.limit is not none %}₹{{ r.limit | inr }}{% if r.share is not none %} <span class="text-[10px] text-ink-faint">({{ (r.share * 100) | round(0) | int }}%)</span>{% endif %}{% else %}<span class="text-ink-faint" title="no budget applies">—</span>{% endif %}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">₹{{ r.allocated | inr }}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">₹{{ r.now | inr }}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">{% if r.free is not none %}₹{{ r.free | inr }}{% else %}<span class="text-ink-faint">—</span>{% endif %}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">{{ r.open }}</td>
+        <td class="px-2 py-2 text-right tabular-nums font-semibold whitespace-nowrap {% if r.open %}{% if up %}text-emerald-700{% else %}text-red-700{% endif %}{% else %}text-ink-faint{% endif %}">{% if r.open %}{{ '+' if r.pnl >= 0 }}₹{{ r.pnl | inr }}{% else %}—{% endif %}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap {% if r.pnl_vs_cost is not none %}{% if up %}text-emerald-700{% else %}text-red-700{% endif %}{% else %}text-ink-faint{% endif %}">{% if r.pnl_vs_cost is not none %}{{ '%+.2f' % r.pnl_vs_cost }}%{% else %}—{% endif %}</td>
+        <td class="px-4 lg:px-6 py-2 text-right tabular-nums whitespace-nowrap {% if r.pnl_vs_share is not none %}{% if up %}text-emerald-700{% else %}text-red-700{% endif %}{% else %}text-ink-faint{% endif %}">{% if r.pnl_vs_share is not none %}{{ '%+.2f' % r.pnl_vs_share }}%{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+      <tr class="border-t-2 border-line font-bold bg-ink/[0.02]" data-fund-segment="total">
+        <td class="px-4 lg:px-6 py-2 whitespace-nowrap">Total</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">₹{{ fund.capital | inr }} <span class="text-[10px] font-normal text-ink-faint">capital</span></td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">₹{{ fund.allocated | inr }}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">₹{{ fund.now | inr }}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">₹{{ fund.cash | inr }} <span class="text-[10px] font-normal text-ink-faint">cash</span></td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">{{ fund.open }}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap {% if fund_up %}text-emerald-700{% else %}text-red-700{% endif %}">{{ '+' if fund.pnl >= 0 }}₹{{ fund.pnl | inr }}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap {% if fund_up %}text-emerald-700{% else %}text-red-700{% endif %}">{% if fund.pnl_vs_cost is not none %}{{ '%+.2f' % fund.pnl_vs_cost }}%{% else %}—{% endif %}</td>
+        <td class="px-4 lg:px-6 py-2 text-right tabular-nums whitespace-nowrap {% if fund_up %}text-emerald-700{% else %}text-red-700{% endif %}" title="vs capital">{% if fund.pnl_vs_capital is not none %}{{ '%+.2f' % fund.pnl_vs_capital }}%{% else %}—{% endif %}</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="px-4 lg:px-6 py-2 text-[11px] text-ink-faint border-b border-line">
+    {% if fund.budgets_on %}Shares are of the deployable capital (equity ₹{{ fund.equity | inr_lakh }} minus the {{ (fund.reserve_pct * 100) | round(0) | int }}% regime reserve){% if fund.share_total is not none and (fund.share_total - 1.0)|abs > 0.001 %} — the five shares add up to {{ (fund.share_total * 100) | round(0) | int }}%, not 100%{% endif %}. A share a category does not use stays as cash; it is never lent to another.{% else %}Category shares are OFF in Settings — every category draws on the same cash.{% endif %}
+    Ocean counts its own ticket × slots. Positions count at entry cost, the same convention the deploy cap uses.
+  </div>
+
+  <!-- Owner item 32: "Why not today" — the engine's own block lines for today, one per category -->
+  <div class="px-4 lg:px-6 py-3" data-why-not-today="why_not_today_marker">
+    <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-1.5">Why not today · from today's journal (IST)</div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-xs">
+      {% for w in why_not %}
+      <div class="flex gap-2 min-w-0" data-why-not="{{ w.category }}">
+        <span class="font-semibold whitespace-nowrap w-24 shrink-0">{{ w.label }}</span>
+        {% if w.action %}
+        <span class="min-w-0 break-words"><span class="font-mono text-[10px] text-amber-800">{{ w.action }}</span> {{ w.why }}{% if w.ts %} <span class="text-ink-faint">· {{ w.ts | ist("%H:%M IST") }}</span>{% endif %}</span>
+        {% else %}
+        <span class="text-ink-faint">no block recorded today</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Index strip (owner ask 2026-07-30, from the reference dashboards), now BELOW
+     the fund summary (owner item 30b). Committed 15-year index history —
+     labelled with its own as-of date rather than pretending to be a live tick. -->
 {% if index_strip %}
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-2">
   {% for ix in index_strip %}
   {% set good = (not ix.up) if ix.invert else ix.up %}
   <div class="bg-white border px-4 py-3 {% if ix.live %}border-line{% else %}border-amber-400 bg-amber-50/40{% endif %}">
@@ -84,46 +242,10 @@
   {% endfor %}
 </div>
 {% endif %}
-
-<!-- What this app does — 15-line orientation panel -->
-<details class="bg-white border border-line p-5 mb-6" {% if not last_scan %}open{% endif %}>
-  <summary class="cursor-pointer font-bold text-sm select-none">
-    ℹ️ What Sourceborn AM07 can do <span class="text-ink-faint font-normal">(click to {% if last_scan %}expand{% else %}collapse{% endif %})</span>
-  </summary>
-  <ol class="mt-3 text-sm text-ink-soft space-y-1.5 list-decimal pl-5">
-    <li>Paper-trades NSE/BSE equities using the AM07 10-factor score (momentum, volume, earnings, news catalyst, RS, vol-adj upside, breakout, sector, plus stubs).</li>
-    <li>Dual-Regime architecture: Everest (momentum) when Nifty trends; Ocean (deep-reversion) when Nifty corrects.</li>
-    <li>5 hard pre-entry gates: graduated drawdown, ticker correlation &gt; 0.85, rupee-turnover liquidity floor, portfolio-heat cap, consecutive-loss halt.</li>
-    <li>Calendar overlays: blocks new entries 3 days before elections, Union Budget, and per-ticker earnings dates. RBI MPC days are shown, not a halt (owner order 2026-09-30).</li>
-    <li>Sector caps: max 25% of capital in one sector, 12 names per sector. No sectors blacklisted by default.</li>
-    <li>4 trade modes — Intraday, Short, Swing, Positional — plus Nifty 200 Momentum 30 (NSE methodology, top-30 by 6m+12m sharpe).</li>
-    <li>Regime-aware dynamic cash reserve (0% bull · 0% neutral · 20% correction · 40% panic) — fully deployed in normal markets, protective cash forced back in stress.</li>
-    <li>FII flow tide + sector-rotation top-3 boosts wired into scoring.</li>
-    <li>Score-decay trailing tighten: locks gains earlier when entry score has fallen 15+ points.</li>
-    <li>News-sentiment catalyst via Claude API (graceful fallback when no key).</li>
-    <li>Walk-forward backtester with lookahead-bias guards, 2-year default range, every run archived in Mongo.</li>
-    <li>Always-downloadable CSV reports: picks, positions, trades, equity curve, skipped reasons.</li>
-    <li>Per-trade journal: notes + tags on each open position; carried through CSVs.</li>
-    <li>Alerts on drawdown escalation and regime switch (webhook-based; configure in env).</li>
-    <li>Live Upstox quote routing when connected; with no live quote a price shows as ABSENT or entry-marked — never a stale number dressed as live. <strong>Paper-only — no live order placement yet.</strong></li>
-  </ol>
-</details>
-
-<!-- Data source + mode badges -->
-<div class="mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs tracking-widest text-ink-faint uppercase">
-  <span class="flex items-center gap-2">
-    <span class="inline-block w-2 h-2 rounded-full {% if quote_source.source == 'upstox' %}bg-emerald-500{% else %}bg-slate-400{% endif %}"></span>
-    Quotes: {% if quote_source.source == 'upstox' %}<span class="text-emerald-700 normal-case tracking-normal font-semibold">Upstox real-time</span>{% else %}<span class="normal-case tracking-normal text-amber-700">~1-min delayed public candles — <a href="/upstox/login" class="underline">log in</a> for real-time ticks</span>{% endif %}
-  </span>
-  <span class="flex items-center gap-2">
-    <span class="inline-block w-2 h-2 rounded-full {% if db_status.connected and not db_status.write_error %}bg-emerald-500{% elif db_status.connected %}bg-red-500{% else %}bg-slate-400{% endif %}"></span>
-    Storage: {% if db_status.connected and db_status.write_error %}<span class="text-red-700 normal-case tracking-normal font-semibold" title="{{ db_status.write_error }}">MongoDB ({{ db_status.db }}) — WRITES REFUSED, book not being saved</span>{% elif db_status.connected %}<span class="text-emerald-700 normal-case tracking-normal font-semibold">MongoDB ({{ db_status.db }})</span>{% else %}<span class="normal-case tracking-normal">JSON on disk</span>{% endif %}
-  </span>
-  <a href="/settings#mode" class="flex items-center gap-2 hover:text-ink">
-    <span class="inline-block w-2 h-2 rounded-full bg-ink"></span>
-    Mode: <span class="normal-case tracking-normal font-bold text-ink">{{ current_mode | upper }}</span>
-    <span class="text-ink-faint normal-case tracking-normal">(change ›)</span>
-  </a>
+<!-- Owner item 43: international indices. No feed is reachable from the box
+     (Yahoo blocked on Render, stooq empty from the sandbox) — a chip, never a number. -->
+<div class="mb-6 flex flex-wrap items-center gap-2 text-[11px]" data-international="international_chip_marker">
+  <span class="border border-amber-400 bg-amber-50/40 text-amber-800 px-2.5 py-1 tracking-wide">🌐 {{ international_note }}</span>
 </div>
 
 <!-- Quick mode switcher -->
@@ -136,49 +258,6 @@
   </button>
   {% endfor %}
 </form>
-
-<div class="flex flex-wrap items-end justify-between gap-4 mb-8">
-  <div>
-    <h1 class="font-black text-3xl lg:text-5xl tracking-tight">Master Dashboard</h1>
-    <p class="text-ink-soft mt-2 text-sm lg:text-base">
-      {{ kpis[0].big | inr_lakh }} equity &middot;
-      {{ kpis[1].big }} open positions &middot;
-      {{ kpis[3].big }} regime
-    </p>
-  </div>
-  <div class="flex flex-wrap gap-2 lg:gap-3">
-    <form action="/refresh" method="post">
-      <button class="px-4 py-2 border border-line text-sm font-semibold tracking-wide hover:bg-ink/[0.03] whitespace-nowrap">
-        ⬇ REFRESH PRICES
-      </button>
-    </form>
-    <form action="/scan/run" method="post">
-      <button class="px-4 py-2 bg-ink text-white text-sm font-semibold tracking-wide hover:bg-black whitespace-nowrap">
-        🎯 RUN SCAN
-      </button>
-    </form>
-  </div>
-</div>
-
-<!-- KPI cards -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-  {% for kpi in kpis %}
-  <a href="{{ kpi.href }}"
-     class="block bg-white border border-line p-5 hover:border-ink/40
-            {% if kpi.highlight %}border-2 border-ink/80{% endif %}">
-    <div class="flex items-start justify-between">
-      <div class="text-[10px] tracking-widest text-ink-faint uppercase">{{ kpi.label }}</div>
-      <span class="text-ink-faint">›</span>
-    </div>
-    <div class="mt-4 font-black text-3xl lg:text-4xl tracking-tight break-words">
-      {% if kpi.fmt == 'inr_lakh' %}₹{{ kpi.big | inr_lakh }}
-      {% elif kpi.fmt == 'inr' %}{{ '+' if kpi.big >= 0 }}₹{{ kpi.big | inr }}
-      {% else %}{{ kpi.big }}{% endif %}
-    </div>
-    <div class="mt-1 text-sm text-ink-faint">{{ kpi.trail }}</div>
-  </a>
-  {% endfor %}
-</div>
 
 
 {% if rotations %}
@@ -209,85 +288,70 @@
 </div>
 {% endif %}
 
-<!-- Share candle chart (owner ask 2026-07-26: share candles, not NIFTY) -->
-{% if share_candles and share_candles|length > 2 %}
-<div class="border border-line bg-white mb-6">
-  <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
-    <div class="flex items-center gap-3">
-      <span aria-hidden="true">🕯️</span>
-      <div>
-        <div class="font-bold">{{ chart_ticker | replace('.NS','') }} — Daily Candles</div>
-        <div class="text-xs text-ink-faint">Last {{ share_candles|length }} sessions · green = up, red = down · the engine reads these same bars</div>
-      </div>
-    </div>
-    <div class="flex flex-wrap items-center gap-2">
-      {% for c in chart_choices[:8] %}
-      <a href="/?chart={{ c }}"
-         class="text-xs border px-2.5 py-1 tracking-wide whitespace-nowrap
-                {% if c == chart_ticker %}border-ink bg-ink text-white font-semibold{% else %}border-line hover:bg-ink/[0.03]{% endif %}">{{ c | replace('.NS','') }}</a>
-      {% endfor %}
-      <span class="text-xs text-ink-faint tabular-nums whitespace-nowrap">Last ₹{{ share_candles[-1].c | inr(2) }}</span>
-    </div>
-  </div>
-  {% if share_structs %}
-  <div class="px-4 lg:px-6 py-2 border-b border-line flex flex-wrap gap-1.5">
-    {% for name, fired in share_structs.items() if fired %}
-    <a href="/scan/parameter/struct:{{ name }}"
-       class="text-[11px] border px-2 py-0.5 tracking-wide whitespace-nowrap hover:bg-ink/[0.03]
-              {% if name in bearish_names %}border-red-300 text-red-700{% else %}border-emerald-300 text-emerald-700{% endif %}">
-      {% if name in bearish_names %}⚠ {% endif %}{{ name | replace('_',' ') }}
-    </a>
-    {% endfor %}
-  </div>
-  {% endif %}
-  <div class="p-3 lg:p-4 overflow-x-auto"><canvas id="shareCandles" height="120" class="w-full block h-[240px]"></canvas></div>
-</div>
-<script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const el = document.getElementById('shareCandles');
-    if (!el) return;
-    const data = {{ share_candles | tojson }};
-    const dpr = window.devicePixelRatio || 1;
-    const W = el.clientWidth || 800, H = 240;
-    el.width = W * dpr; el.height = H * dpr;
-    el.style.height = H + 'px';   // CSS height must match the logical
-                                  // height or retina phones stretch it
-    const ctx = el.getContext('2d'); ctx.scale(dpr, dpr);
-    const lo = Math.min(...data.map(d => d.l)), hi = Math.max(...data.map(d => d.h));
-    const padL = 52, padR = 10, padT = 12, padB = 22;
-    const plotW = W - padL - padR, plotH = H - padT - padB;
-    const y = v => padT + (hi - v) / (hi - lo || 1) * plotH;
-    const n = data.length, slot = plotW / n, bw = Math.max(2, slot * 0.6);
-    ctx.strokeStyle = 'rgba(0,0,0,0.08)'; ctx.fillStyle = 'rgba(0,0,0,0.45)';
-    ctx.font = '10px system-ui'; ctx.textAlign = 'right';
-    for (let i = 0; i <= 4; i++) {
-      const v = lo + (hi - lo) * i / 4, yy = y(v);
-      ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(W - padR, yy); ctx.stroke();
-      ctx.fillText('₹' + v.toFixed(0), padL - 6, yy + 3);
-    }
-    data.forEach((d, i) => {
-      const cx = padL + slot * i + slot / 2;
-      const up = d.c >= d.o;
-      ctx.strokeStyle = up ? '#059669' : '#dc2626';
-      ctx.fillStyle = up ? '#059669' : '#dc2626';
-      ctx.beginPath(); ctx.moveTo(cx, y(d.h)); ctx.lineTo(cx, y(d.l)); ctx.stroke();
-      const yO = y(d.o), yC = y(d.c);
-      ctx.fillRect(cx - bw / 2, Math.min(yO, yC), bw, Math.max(1, Math.abs(yC - yO)));
-    });
-    ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.textAlign = 'center';
-    [0, Math.floor(n/2), n-1].forEach(i => {
-      if (data[i]) ctx.fillText(data[i].t, padL + slot * i + slot / 2, H - 6);
-    });
-  });
-</script>
-{% endif %}
+{#- The share-candle chart left this page for the MARS Den (owner order 2026-10-12,
+    item 30f); the 📈 link on every row still opens /chart/<ticker>. -#}
 
-<!-- Today's Picks + Watchlist -->
+<!-- Owner item 30e: two columns on lg (stacked on a phone) — open positions LEFT,
+     today's picks + watchlist RIGHT, both FULL lists (item 30c). -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+  <!-- LEFT: Open positions (the whole book) -->
+  <div class="border border-line bg-white" data-open-positions="open_positions_marker">
+    <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-3">
+        <span aria-hidden="true">📌</span>
+        <div>
+          <div class="font-bold">Open Positions <span class="text-xs font-normal text-ink-faint">{{ positions | length }}</span></div>
+          <div class="text-xs text-ink-faint">Last scan: {{ last_scan | ist if last_scan else 'never' }}{% if fund %} · {{ fund.marks }}{% endif %}</div>
+        </div>
+      </div>
+      <a href="/positions" class="text-xs font-semibold tracking-widest text-ink-faint hover:text-ink uppercase whitespace-nowrap">DETAILS ›</a>
+    </div>
+    {% if positions %}
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+        <tr>
+          <th class="text-left px-3 py-2 whitespace-nowrap">Ticker</th>
+          <th class="text-left px-2 py-2 whitespace-nowrap">Segment</th>
+          <th class="text-right px-2 py-2 whitespace-nowrap">Qty</th>
+          <th class="text-right px-2 py-2 whitespace-nowrap">Entry</th>
+          <th class="text-right px-2 py-2 whitespace-nowrap">Now</th>
+          <th class="text-right px-2 py-2 whitespace-nowrap">P&amp;L %</th>
+          <th class="text-right px-3 py-2 whitespace-nowrap">Score</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pos in positions %}
+        <tr class="border-b border-line last:border-0">
+          <td class="px-3 py-2 font-semibold whitespace-nowrap">{{ pos.ticker | replace('.NS','') }}
+            <a href="/chart/{{ pos.ticker }}" title="candle chart with your stop/target lines" class="ml-1 no-underline">📈</a></td>
+          <td class="px-2 py-2 text-xs text-ink-soft whitespace-nowrap">{% if 'ocean' in (pos.tags or []) %}Ocean{% elif pos.mode == 'nifty200_momentum' or not pos.mode %}Momentum{% else %}{{ pos.mode | capitalize }}{% endif %}{% if 'owner_pick' in (pos.tags or []) %} <span class="text-ink-faint" title="your own buy">· owner</span>{% endif %}</td>
+          <td class="px-2 py-2 tabular-nums text-right whitespace-nowrap">{{ pos.qty }}</td>
+          <td class="px-2 py-2 tabular-nums text-right whitespace-nowrap">₹{{ pos.entry_price | inr(2) }}</td>
+          {% set cur = prices.get(pos.ticker, pos.entry_price) %}
+          {% set chg = (cur / pos.entry_price - 1) * 100 if pos.entry_price else 0 %}
+          <td class="px-2 py-2 tabular-nums text-right whitespace-nowrap">₹{{ cur | inr(2) }}</td>
+          <td class="px-2 py-2 tabular-nums text-right font-semibold whitespace-nowrap {% if chg >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}">{{ '%+.2f' % chg }}%</td>
+          {#- a hand-tapped BUY stores entry_score 0 — a real 0, never "missing" (the /positions 500 lesson) -#}
+          <td class="px-3 py-2 tabular-nums text-right whitespace-nowrap">{% if pos.entry_score is not none %}{{ pos.entry_score | round(1) }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="px-4 lg:px-6 py-8 lg:py-10 text-center text-ink-faint text-sm">
+      No open positions. The 09:20 / 14:30 rotations add what clears the gates — or tap RUN SCAN.
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- RIGHT: Today's Picks (full list, tap a row for the parameter detail) + Watchlist -->
+  <div class="space-y-4">
   <div class="border border-line bg-white">
     <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
-      <div class="font-bold">🎯 Today's Picks</div>
-      <div class="text-xs text-ink-faint">Last scan: {{ last_scan or 'no scan yet' }}</div>
+      <div class="font-bold">🎯 Today's Picks <span class="text-xs font-normal text-ink-faint">{{ today_picks | length }} · tap a row for its parameters</span></div>
+      <div class="text-xs text-ink-faint">Last scan: {{ last_scan | ist if last_scan else 'no scan yet' }}</div>
     </div>
     {% if today_picks %}
     <div class="overflow-x-auto">
@@ -306,7 +370,9 @@
           <td class="px-3 py-2.5 font-semibold whitespace-nowrap">{{ t.ticker | replace('.NS','') }}
             <a href="/chart/{{ t.ticker }}" title="candle chart" class="ml-1 no-underline" @click.stop>📈</a></td>
           <td class="px-2 py-2.5 tabular-nums text-right">{{ t.score }}</td>
-          <td class="px-2 py-2.5 text-right text-xs whitespace-nowrap {% if t.candle.startswith('✓') %}text-emerald-700 font-semibold{% else %}text-ink-faint{% endif %}">{{ t.candle }}</td>
+          {#- styling derives from candles.BEARISH_PATTERNS (bearish_names): a bearish
+              structure name can never render green here (the 18->34 lesson) -#}
+          <td class="px-2 py-2.5 text-right text-xs whitespace-nowrap {% if t.candle_key in bearish_names %}text-red-700 font-semibold{% elif t.candle.startswith('✓') %}text-emerald-700 font-semibold{% else %}text-ink-faint{% endif %}">{% if t.candle_key in bearish_names %}⚠ {% endif %}{{ t.candle }}</td>
           <td class="px-2 py-2.5 tabular-nums text-right whitespace-nowrap">{% if t.last_close %}₹{{ t.last_close | inr(2) }}{% else %}—{% endif %}</td>
           <td class="px-2 py-2.5 text-right">{% if t.held %}<span class="text-emerald-700 font-semibold whitespace-nowrap">HELD ✓</span>{% else %}<span class="text-ink-faint">pick</span>{% endif %}</td>
           {% if user and user.role == 'owner' %}
@@ -371,6 +437,95 @@
     <div class="px-4 lg:px-6 py-8 text-center text-ink-faint text-sm">Empty — every scored pick is already in the book, or no scan yet.</div>
     {% endif %}
   </div>
+  </div>
+</div>
+
+<!-- Equity curve (owner item 30d): THIS month, one point per calendar day = the last
+     equity mark of that day; a day with no mark is a gap; last month behind it,
+     faint, for comparison. Real marks only (portfolio.equity_history). -->
+<div class="border border-line bg-white mb-6" data-equity-curve="equity_curve_marker">
+  <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
+    <div class="flex items-center gap-3">
+      <span aria-hidden="true">📈</span>
+      <div>
+        <div class="font-bold">Equity Curve — {{ eq.month if eq else '' }}</div>
+        <div class="text-xs text-ink-faint">
+          {% if eq and eq.n_current %}{{ eq.n_current }} day{% if eq.n_current != 1 %}s{% endif %} marked · last ₹{{ eq.last | inr }}{% if eq.first is not none and eq.first %} · {{ '%+.2f' % ((eq.last / eq.first - 1) * 100) }}% since the first mark of the month{% endif %}
+          {% else %}no equity mark recorded in {{ eq.month if eq else 'this month' }} yet — the engine records one at every price pass{% endif %}
+          {% if eq and eq.n_previous %} · faint line = {{ eq.prev_month }} ({{ eq.n_previous }} days){% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="text-[10px] text-ink-faint uppercase tracking-widest">days 1–31 · green up / red down vs the prior mark</div>
+  </div>
+  {% if eq and (eq.n_current or eq.n_previous) %}
+  <div class="p-4 lg:p-6">
+    <canvas id="equityChart" class="w-full block h-[240px]"></canvas>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const el = document.getElementById('equityChart');
+      if (!el || !window.Chart) return;
+      const labels = {{ eq.labels | tojson }};
+      const current = {{ eq.current | tojson }};
+      const previous = {{ eq.previous | tojson }};
+      const GREEN = '#047857', RED = '#b91c1c';
+      const gradient = (ctx) => {
+        const chart = ctx.chart, area = chart.chartArea;
+        if (!area) return 'rgba(15, 23, 42, 0.06)';
+        const g = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+        g.addColorStop(0, 'rgba(15, 23, 42, 0.22)');
+        g.addColorStop(1, 'rgba(15, 23, 42, 0.0)');
+        return g;
+      };
+      new Chart(el, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: '{{ eq.prev_month }}',
+            data: previous,
+            borderColor: 'rgba(100, 116, 139, 0.35)',
+            borderWidth: 1,
+            pointRadius: 0,
+            tension: 0.2,
+            spanGaps: true,
+            fill: false,
+            order: 2,
+          }, {
+            label: '{{ eq.month }}',
+            data: current,
+            borderColor: '#0f172a',
+            borderWidth: 2.5,
+            pointRadius: 2,
+            pointBackgroundColor: '#0f172a',
+            tension: 0.2,
+            spanGaps: false,
+            fill: true,
+            backgroundColor: gradient,
+            segment: {
+              borderColor: (ctx) => (ctx.p1.parsed.y >= ctx.p0.parsed.y ? GREEN : RED),
+            },
+            order: 1,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } },
+            tooltip: { callbacks: { label: (c) => c.dataset.label + ': ₹' + (c.parsed.y ?? 0).toLocaleString('en-IN') } },
+          },
+          scales: {
+            x: { title: { display: true, text: 'day of month' }, grid: { display: false }, ticks: { font: { size: 10 } } },
+            y: { ticks: { callback: (v) => '₹' + v.toLocaleString('en-IN'), font: { size: 10 } } },
+          },
+        },
+      });
+    });
+  </script>
+  {% endif %}
 </div>
 
 {% if filings %}
@@ -409,84 +564,64 @@
 </div>
 {% endif %}
 
-{% if coverage and coverage.rows %}
-<!-- Owner ask 2026-09-10: "what i felt system is not reading all 2400 stocks
-     every time, that is the flaw ... we can do sector wise and on dashboard
-     after doing each sector's each share it show show data". A count, not a
-     reassurance. Display only. -->
-<div class="border border-line bg-white mb-6"><!-- coverage_marker -->
-  <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
-    <div class="font-bold">📡 Scan coverage
-      <span class="text-xs font-normal text-ink-faint">what the app actually read today</span></div>
-    <div class="text-xs text-ink-faint">
-      <span class="font-mono font-bold">{{ coverage.scanned }}</span> of
-      <span class="font-mono">{{ coverage.universe }}</span> names scored
-      ({{ coverage.pct }}%) · {{ coverage.passing }} above the {{ coverage.floor }} floor
-    </div>
+{#- The Scan-coverage card and the Sector-moves strip moved to /scan (owner order
+    2026-10-12, item 30i) — same markers, same copy, rendered from scan_routes. -#}
+
+<!-- STATUS card (owner item 30g): quotes source, storage, mode and the real exit
+     presets (Trade Horizons) in ONE compact card. The storage chip keeps the exact
+     WRITES-REFUSED wording — it is a safety screen (2026-09-24). -->
+<div class="border border-line bg-white mb-6" data-status-card="status_card_marker">
+  <div class="px-4 lg:px-6 py-3 border-b border-line flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-xs tracking-widest text-ink-faint uppercase">
+    <span class="font-bold text-ink">Status</span>
+    <span class="flex items-center gap-2">
+      <span class="inline-block w-2 h-2 rounded-full {% if quote_source.source == 'upstox' %}bg-emerald-500{% else %}bg-slate-400{% endif %}"></span>
+      Quotes: {% if quote_source.source == 'upstox' %}<span class="text-emerald-700 normal-case tracking-normal font-semibold">Upstox real-time</span>{% else %}<span class="normal-case tracking-normal text-amber-700">~1-min delayed public candles — <a href="/upstox/login" class="underline">log in</a> for real-time ticks</span>{% endif %}
+    </span>
+    <span class="flex items-center gap-2">
+      <span class="inline-block w-2 h-2 rounded-full {% if db_status.connected and not db_status.write_error %}bg-emerald-500{% elif db_status.connected %}bg-red-500{% else %}bg-slate-400{% endif %}"></span>
+      Storage: {% if db_status.connected and db_status.write_error %}<span class="text-red-700 normal-case tracking-normal font-semibold" title="{{ db_status.write_error }}">MongoDB ({{ db_status.db }}) — WRITES REFUSED, book not being saved</span>{% elif db_status.connected %}<span class="text-emerald-700 normal-case tracking-normal font-semibold">MongoDB ({{ db_status.db }})</span>{% else %}<span class="normal-case tracking-normal">JSON on disk</span>{% endif %}
+    </span>
+    <a href="/settings#mode" class="flex items-center gap-2 hover:text-ink">
+      <span class="inline-block w-2 h-2 rounded-full bg-ink"></span>
+      Mode: <span class="normal-case tracking-normal font-bold text-ink">{{ current_mode | upper }}</span>
+      <span class="text-ink-faint normal-case tracking-normal">(change ›)</span>
+    </a>
   </div>
-  {% if coverage.short_by > 0 %}
-  <div class="px-4 lg:px-6 py-3 border-b border-line bg-amber-50 text-xs text-ink">
-    <b>SHORT BY {{ coverage.short_by }}</b> of the {{ coverage.target }}-name target.
-    The weekly batch ranks only the names the stored history covers, so the list
-    grows as the store fills — it is not a silent truncation.
+  {% if horizons %}
+  <div class="px-4 lg:px-6 py-3 border-b border-line">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase">🎚️ Trade Horizons — real exit presets</div>
+      <div class="text-[10px] text-ink-faint">highlighted = live right now</div>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+      {% for h in horizons %}
+      <div class="border px-2.5 py-2 text-xs {% if h.active %}border-ink bg-ink/[0.03]{% else %}border-line{% endif %}">
+        <div class="flex items-center justify-between gap-1">
+          <span class="font-bold">{{ h.name }}</span>
+          {% if h.active %}<span class="text-[9px] uppercase tracking-widest bg-ink text-white px-1.5 py-0.5">live</span>{% endif %}
+        </div>
+        <div class="tabular-nums text-[11px] mt-1 text-ink-soft">
+          stop <span class="font-semibold text-red-700">{{ h.stop }}%</span> ·
+          target <span class="font-semibold text-emerald-700">+{{ h.target }}%</span> ·
+          trail {{ h.trail }}% · hold {{ h.hold }}d · floor {{ h.floor }}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
   </div>
   {% endif %}
-  <div class="px-4 lg:px-6 py-4">
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-      {% for c in coverage.rows %}
-      <div class="border border-line px-3 py-2">
-        <div class="text-xs font-bold truncate">{{ c.sector }}</div>
-        <div class="font-mono text-sm">
-          {{ c.scanned }}/{{ c.universe }}
-          <span class="text-xs {% if c.pct >= 100 %}text-emerald-700{% else %}text-ink-faint{% endif %}">
-            {{ c.pct }}%</span>
-        </div>
-        <div class="text-xs text-ink-faint">{{ c.passing }} passing</div>
-      </div>
-      {% endfor %}
-    </div>
-    <div class="text-xs text-ink-faint mt-3">
-      Scan of {{ coverage.ts[:16] }}. A name with no stored daily history cannot
-      be scored — that is the gap, and filling the store closes it.
-      Display only; nothing here buys or sells.
-    </div>
+  {% if gates %}
+  <!-- the entry rules in force, read from config/code (the 2026-07-27 truth-pass
+       pins live on here now that the capability panel is gone) -->
+  <div class="px-4 lg:px-6 py-2.5 text-[11px] text-ink-faint" data-gates-in-force="1">
+    Entry gates in force: score floor {{ gates.floor | round(0) | int }} · ticker correlation &gt; {{ gates.correlation }} · {% if gates.turnover_cr is not none %}₹{{ gates.turnover_cr | round(0) | int }} Cr/day rupee-turnover floor · {% endif %}portfolio-heat cap · consecutive-loss halt · ceiling {{ gates.max_positions }} names ·
+    regime cash reserve ladder {{ gates.ladder }} — fully deployed in normal markets, protective cash forced back in stress.
   </div>
+  {% endif %}
 </div>
-{% endif %}
 
-{% if sectors and sectors.rows %}
-<!-- Real NSE sector indices (owner order 2026-09-09 "fix it": Nifty IT fell
-     10% in six sessions and no screen in the app said so). Display only. -->
-<div class="border border-line bg-white mb-6"><!-- sector_strip_marker -->
-  <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
-    <div class="font-bold">🧭 Sector moves <span class="text-xs font-normal text-ink-faint">worst first</span></div>
-    <div class="text-xs text-ink-faint">{{ sectors.n }} NSE sector indices · closes to {{ sectors.asof }}</div>
-  </div>
-  <div class="px-4 lg:px-6 py-4">
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-      {% for s in sectors.rows %}
-      <div class="border border-line px-3 py-2">
-        <div class="text-xs text-ink-soft truncate">{{ s.sector }}</div>
-        <div class="text-lg font-black tabular-nums {% if s.chg_1d is none %}text-ink-faint{% elif s.chg_1d < 0 %}text-red-700{% else %}text-emerald-700{% endif %}">
-          {% if s.chg_1d is none %}—{% else %}{{ '%+.2f'|format(s.chg_1d) }}%{% endif %}
-        </div>
-        <div class="text-xs text-ink-faint tabular-nums">
-          5d {% if s.chg_5d is none %}—{% else %}{{ '%+.1f'|format(s.chg_5d) }}%{% endif %}
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-    <p class="text-xs text-ink-faint mt-3">
-      Stored daily closes from the public Upstox candle feed, refreshed before the scan and after the close.
-      A dash means that sector has only one stored day yet, not a flat market.
-      Display only: nothing here buys, sells or moves a stop, and the calibrated sector tripwires
-      keep their own equal-weight construction so their measured evidence still holds.
-    </p>
-  </div>
-</div>
-{% endif %}
-
-<!-- Market breadth + What's coming (owner ask 2026-07-30, reference mockups).
+<!-- Market breadth + What's coming (owner ask 2026-07-30, reference mockups), kept
+     as they were and placed below the Status card (owner item 30h).
      Since the F3 fix (2026-08-20) the A3 gate prefers the FULL-STORE 200DMA
      reading below; the score bands remain the day's scan-panel facts. -->
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
@@ -494,7 +629,7 @@
   <div class="border border-line bg-white">
     <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
       <div class="font-bold">🌡️ Market Breadth</div>
-      <div class="text-xs text-ink-faint">{{ breadth.scanned }} scanned{% if breadth.ts %} · {{ breadth.ts[:16] | replace('T',' ') }}{% endif %}</div>
+      <div class="text-xs text-ink-faint">{{ breadth.scanned }} scanned{% if breadth.ts %} · {{ breadth.ts | ist }}{% endif %}</div>
     </div>
     <div class="px-4 lg:px-6 py-4">
       {% if breadth.store and breadth.store.pct is not none %}
@@ -502,7 +637,7 @@
         <span class="font-bold tabular-nums">{{ (breadth.store.pct * 100) | round(1) }}%</span>
         of <span class="tabular-nums">{{ breadth.store.sample }}</span> stored names above their 200DMA
         <span class="text-xs text-ink-faint">· closes to {{ breadth.store.asof }} · this full-store reading is what the breadth gate
-          {% if breadth.gate_on %}uses while fresh (blocks new momentum buys only inside the measured dead band {{ breadth.gate_band_low }}–{{ breadth.gate_band_high }}%; below {{ breadth.gate_band_low }}% a washed-out tape is buyable){% else %}would use — gate currently OFF{% endif %}
+          {% if breadth.gate_on %}uses while fresh (blocks new buys only inside the measured dead band {{ breadth.gate_band_low }}–{{ breadth.gate_band_high }}%; below {{ breadth.gate_band_low }}% a washed-out tape is buyable){% else %}would use — gate currently OFF{% endif %}
           — ~±1pp sampling noise vs the old 50-name bucket's ±7pp</span>
       </div>
       {% endif %}
@@ -543,7 +678,11 @@
       </div>
       {% endif %}
       <div class="mt-3 text-xs text-ink-faint">
-        {% if breadth.gate_on %}Breadth gate ON — new momentum buys need &gt;{{ breadth.gate_min_pct }}% of the panel above its own 200-day line.
+        {#- 2026-10-12 truth-pass: this line read `breadth.gate_min_pct`, a key
+            that left with the single-threshold rule on 2026-09-09, so it
+            printed "need >% of the panel" with no number. The gate is a BAND
+            and, since 2026-09-16, guards every category's pass (Ocean exempt). -#}
+        {% if breadth.gate_on %}Breadth gate ON — new buys in every category (Ocean exempt) are blocked while {{ breadth.gate_band_low }}–{{ breadth.gate_band_high }}% of the panel sits above its own 200-day line; below {{ breadth.gate_band_low }}% a washed-out tape is buyable.
         {% else %}Breadth gate OFF.{% endif %}
       </div>
     </div>
@@ -579,140 +718,9 @@
   {% endif %}
 </div>
 
-<!-- 4 Horizons + Walk-forward evidence + ATR context -->
-{% if horizons %}
-<div class="border border-line bg-white mb-6">
-  <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
-    <div class="font-bold">🎚️ Trade Horizons — real exit presets</div>
-    <div class="text-xs text-ink-faint">highlighted = live right now</div>
-  </div>
-  <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 p-4 lg:p-5">
-    {% for h in horizons %}
-    <div class="border p-3 {% if h.active %}border-ink bg-ink/[0.03]{% else %}border-line{% endif %}">
-      <div class="flex items-center justify-between gap-1">
-        <div class="font-bold text-sm">{{ h.name }}</div>
-        {% if h.active %}<span class="text-[9px] uppercase tracking-widest bg-ink text-white px-1.5 py-0.5">live</span>{% endif %}
-      </div>
-      <div class="text-[10px] text-ink-faint mt-0.5 leading-snug">{{ h.blurb }}</div>
-      <div class="mt-2 text-xs tabular-nums space-y-0.5">
-        <div class="flex justify-between"><span class="text-ink-faint">stop</span><span class="font-semibold text-red-700">{{ h.stop }}%</span></div>
-        <div class="flex justify-between"><span class="text-ink-faint">target</span><span class="font-semibold text-emerald-700">+{{ h.target }}%</span></div>
-        <div class="flex justify-between"><span class="text-ink-faint">trail</span><span>{{ h.trail }}%</span></div>
-        <div class="flex justify-between"><span class="text-ink-faint">max hold</span><span>{{ h.hold }}d</span></div>
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-</div>
-{% endif %}
-
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-  {% if evidence %}
-  <div class="border border-line bg-white">
-    <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
-      <div class="font-bold">🔬 Walk-Forward Evidence</div>
-      <div class="text-xs text-ink-faint">{{ evidence.wins }}/{{ evidence.windows }} windows beat the benchmark
-        · <span class="text-amber-700" title="AUDIT FIX D3: these numbers were computed 2026-07-21 under the floor-55 / −12/+30 rules of that date — the live rules (floor 62, −5/+20) have moved since. Evidence of the RECIPE's era, not a forecast of the current settings.">computed 2026-07-21 (floor-55 era)</span></div>
-    </div>
-    <div class="overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
-        <tr><th class="text-left px-4 py-2 whitespace-nowrap">Out-of-sample window</th>
-            <th class="text-right px-2 py-2 whitespace-nowrap">Engine</th>
-            <th class="text-right px-2 py-2 whitespace-nowrap">Benchmark</th>
-            <th class="text-right px-2 py-2 whitespace-nowrap">Alpha</th>
-            <th class="text-right px-4 py-2 whitespace-nowrap">Worst DD</th></tr>
-      </thead>
-      <tbody>
-        {% for r in evidence.rows %}
-        <tr class="border-b border-line last:border-0">
-          <td class="px-4 py-2 font-semibold whitespace-nowrap">{{ r.window }}</td>
-          <td class="px-2 py-2 text-right tabular-nums">{{ r.cagr }}%</td>
-          <td class="px-2 py-2 text-right tabular-nums text-ink-soft">{{ r.bench }}%</td>
-          <td class="px-2 py-2 text-right tabular-nums font-bold {% if r.alpha > 0 %}text-emerald-700{% else %}text-red-700{% endif %}">{{ '%+.2f' % r.alpha }}</td>
-          <td class="px-4 py-2 text-right tabular-nums text-red-700">{{ r.dd }}%</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    </div>
-    <div class="px-4 lg:px-6 py-3 text-xs text-ink-faint border-t border-line">
-      Preregistered search over {{ evidence.grid }} configs, 191 real tickers, chosen on PAST data only.
-      Average out-of-sample alpha <strong>{{ '%+.2f' % evidence.avg_alpha }}pp/yr</strong> — the honest band is −2 to +9.
-      The 2024–26 miss is the flat stretch you lived through.
-    </div>
-  </div>
-  {% endif %}
-
-  {% if atr_rows %}
-  <div class="border border-line bg-white">
-    <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
-      <div class="font-bold">📐 Volatility and the stop rule</div>
-      <div class="text-xs text-ink-faint">stored closes, not live ticks · display only</div>
-    </div>
-    <div class="overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
-        <tr><th class="text-left px-4 py-2 whitespace-nowrap">Stock</th>
-            <th class="text-right px-2 py-2 whitespace-nowrap">ATR(14)</th>
-            <th class="text-right px-2 py-2 whitespace-nowrap">Floor (fixed)</th>
-            <th class="text-right px-4 py-2 whitespace-nowrap">Live rule: 2×ATR, floor −5%, cap −15%</th></tr>
-      </thead>
-      <tbody>
-        {% for r in atr_rows %}
-        <tr class="border-b border-line last:border-0">
-          <td class="px-4 py-2 font-semibold whitespace-nowrap">{{ r.ticker | replace('.NS','') }}
-            <span class="text-ink-faint text-xs tabular-nums" title="last stored close — not a live price">₹{{ r.last | inr(2) }}{% if r.asof %} <span class="text-[10px]">({{ r.asof }})</span>{% endif %}</span></td>
-          <td class="px-2 py-2 text-right tabular-nums">₹{{ r.atr | inr(2) }} <span class="text-ink-faint text-xs">({{ r.atr_pct }}%)</span></td>
-          <td class="px-2 py-2 text-right tabular-nums">₹{{ r.fixed_stop | inr(2) }} <span class="text-ink-faint text-xs">(−{{ r.fixed_stop_pct }}%)</span></td>
-          <td class="px-4 py-2 text-right tabular-nums {% if r.widened %}text-amber-700 font-semibold{% endif %}">₹{{ r.atr_stop | inr(2) }} <span class="text-xs">(−{{ r.atr_stop_pct }}%{% if r.source == 'atr_cap' %}, capped{% elif r.source == 'fixed' %}, fixed{% endif %})</span></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    </div>
-    <div class="px-4 lg:px-6 py-3 text-xs text-ink-faint border-t border-line">
-      Since 2026-10-05 ("Go for A") a <strong>new momentum buy</strong> gets the wider of −5% and 2 × its 14-day ATR, capped at −15% (measured: research/stop_cooldown_study). Rows in <span class="text-amber-700 font-semibold">amber</span> are names the rule widens — −5% sits inside their daily noise. Other categories keep their fixed stop; a held position keeps the stop it was opened with.
-    </div>
-  </div>
-  {% endif %}
-</div>
-
-<!-- Engine trigger-map: which parameters fired today -->
-<div class="border border-line bg-white mb-6">
-  <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
-    <div class="font-bold">⚡ Engine Triggers Today</div>
-    <div class="text-xs text-ink-faint">Regime: <span class="font-semibold text-ink">{{ triggers.regime }}</span>
-      {% if triggers.festival %} · <span class="text-amber-700 font-semibold">🪔 {{ triggers.festival }}</span>{% endif %}
-      {% if triggers.ifr_active %} · <span class="text-amber-700 font-semibold">IFR throttle active</span>{% endif %}</div>
-  </div>
-  <div class="px-4 lg:px-6 py-5 grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 text-sm">
-    <div>
-      <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">Actions ({{ triggers.journal_today }} journal entries)</div>
-      {% if triggers.actions %}
-        {% for a, n in triggers.actions %}
-        <div class="flex justify-between gap-2 border-b border-line/60 py-1"><span class="min-w-0 break-words">{{ a }}</span><span class="tabular-nums font-semibold shrink-0">{{ n }}</span></div>
-        {% endfor %}
-      {% else %}<div class="text-ink-faint">Nothing journaled yet today.</div>{% endif %}
-    </div>
-    <div>
-      <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">Exit rules fired</div>
-      {% if triggers.exits %}
-        {% for r, n in triggers.exits %}
-        <div class="flex justify-between gap-2 border-b border-line/60 py-1"><span class="min-w-0 break-words">{{ r }}</span><span class="tabular-nums font-semibold shrink-0">{{ n }}</span></div>
-        {% endfor %}
-      {% else %}<div class="text-ink-faint">No exits today.</div>{% endif %}
-    </div>
-    <div>
-      <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">Entry blocks (last scan)</div>
-      {% if triggers.skips %}
-        {% for r, n in triggers.skips %}
-        <div class="flex justify-between gap-2 border-b border-line/60 py-1"><span class="truncate pr-2 min-w-0">{{ r }}</span><span class="tabular-nums font-semibold shrink-0">{{ n }}</span></div>
-        {% endfor %}
-      {% else %}<div class="text-ink-faint">No blocked entries recorded.</div>{% endif %}
-    </div>
-  </div>
-</div>
+{#- Walk-Forward Evidence, the ATR/stop panel and the Engine-Triggers card left this
+    page for the MARS Den (owner order 2026-10-12, item 30f). The horizons now sit
+    inside the Status card above. -#}
 
 {% if tweaks %}
 <div class="bg-amber-50 border border-amber-300 p-4 mb-6">
@@ -723,137 +731,9 @@
 </div>
 {% endif %}
 
-<!-- Equity curve (last 100 marks) -->
-{% if eq_values and eq_values|length > 1 %}
-<div class="border border-line bg-white mb-6">
-  <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
-    <div class="flex items-center gap-3">
-      <span aria-hidden="true">📈</span>
-      <div>
-        <div class="font-bold">Equity Curve</div>
-        <div class="text-xs text-ink-faint">Last {{ eq_values|length }} marks · current ₹{{ eq_values[-1] | inr }}</div>
-      </div>
-    </div>
-  </div>
-  <div class="p-4 lg:p-6">
-    <canvas id="equityChart" height="80" class="w-full block"></canvas>
-  </div>
-</div>
-<script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const ctx = document.getElementById('equityChart');
-    if (!ctx || !window.Chart) return;
-    const labels = {{ eq_labels | tojson }};
-    const data = {{ eq_values | tojson }};
-    new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [{
-          label: 'Equity (₹)',
-          data,
-          borderColor: '#0f172a',
-          backgroundColor: 'rgba(245, 158, 11, 0.15)',
-          borderWidth: 2,
-          tension: 0.2,
-          fill: true,
-          pointRadius: 0,
-        }],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { display: false },
-          y: { ticks: { callback: (v) => '₹' + v.toLocaleString('en-IN') } },
-        },
-      },
-    });
-  });
-</script>
-{% endif %}
-
-<!-- Capital Allocation tracker (Site Control's bank overdraft analog) -->
-<div class="border border-line bg-white">
-  <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
-    <div class="flex items-center gap-3">
-      <span aria-hidden="true">🏦</span>
-      <div>
-        <div class="font-bold">Capital Allocation</div>
-        <div class="text-xs text-ink-faint">
-          Deployed ₹{{ deployed | inr_lakh }} of ₹{{ starting_capital | inr_lakh }} ·
-          {{ reserve_floor_pct | round(0) }}% reserve floor
-        </div>
-      </div>
-    </div>
-    <a href="/positions" class="text-xs font-semibold tracking-widest text-ink-faint hover:text-ink uppercase whitespace-nowrap">+ ADD POSITION</a>
-  </div>
-  <div class="px-4 lg:px-6 py-5 grid grid-cols-2 lg:grid-cols-12 gap-3 lg:gap-4 items-center text-sm">
-    <div class="col-span-1 lg:col-span-2 font-semibold tracking-widest text-xs uppercase">Cash</div>
-    <div class="col-span-1 lg:col-span-2 tabular-nums">₹{{ cash | inr }}</div>
-    <div class="col-span-1 lg:col-span-2 font-semibold tracking-widest text-xs uppercase" title="Current market value of holdings (not cost)">Deployed (mkt value)</div>
-    <div class="col-span-1 lg:col-span-2 tabular-nums">₹{{ deployed | inr }}</div>
-    <div class="col-span-1 lg:col-span-2 font-semibold tracking-widest text-xs uppercase">Utilisation</div>
-    <div class="col-span-1 lg:col-span-2">
-      <div class="h-2 bg-slate-100 rounded">
-        <div class="h-2 bg-accent rounded" style="width: {{ deployed_pct }}%"></div>
-      </div>
-      <div class="mt-1 text-xs text-ink-faint">{{ deployed_pct | round(1) }}% deployed</div>
-    </div>
-  </div>
-</div>
-
-<!-- Recent positions strip -->
-<div class="border border-line bg-white mt-6">
-  <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
-    <div class="flex items-center gap-3">
-      <span aria-hidden="true">📌</span>
-      <div>
-        <div class="font-bold">Open Positions</div>
-        <div class="text-xs text-ink-faint">Last scan: {{ last_scan or 'never' }}</div>
-      </div>
-    </div>
-    <a href="/positions" class="text-xs font-semibold tracking-widest text-ink-faint hover:text-ink uppercase whitespace-nowrap">VIEW ALL ›</a>
-  </div>
-
-  {% if positions %}
-  <div class="overflow-x-auto">
-  <table class="w-full text-sm">
-    <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
-      <tr>
-        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Ticker</th>
-        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Qty</th>
-        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Entry</th>
-        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Current</th>
-        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">P&amp;L %</th>
-        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Sector</th>
-        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Score</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for p in positions %}
-      <tr class="border-b border-line last:border-0">
-        <td class="px-3 lg:px-6 py-3 font-semibold whitespace-nowrap">{{ p.ticker }}
-          <a href="/chart/{{ p.ticker }}" title="candle chart with your stop/target lines" class="ml-1 no-underline">📈</a></td>
-        <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap">{{ p.qty }}</td>
-        <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap">₹{{ p.entry_price | inr(2) }}</td>
-        {% set cur = prices.get(p.ticker, p.entry_price) %}
-        {% set chg = (cur / p.entry_price - 1) * 100 if p.entry_price else 0 %}
-        <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap">₹{{ cur | inr(2) }}</td>
-        <td class="px-3 lg:px-6 py-3 tabular-nums font-semibold whitespace-nowrap {% if chg >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}">{{ '%+.2f' % chg }}%</td>
-        <td class="px-3 lg:px-6 py-3 text-ink-soft whitespace-nowrap">{{ p.sector }}</td>
-        <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap">{{ p.entry_score | round(1) }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  </div>
-  {% else %}
-  <div class="px-4 lg:px-6 py-8 lg:py-10 text-center text-ink-faint">
-    No open positions yet. Run the scan to find candidates 🎯
-  </div>
-  {% endif %}
-</div>
+{#- The old 100-mark equity curve, the Capital Allocation tracker and the 5-row
+    positions strip are gone (owner order 2026-10-12, items 30d/30e): the month
+    curve sits above, the allocation numbers live in the fund block, and the whole
+    book is the left column. -#}
 
 {% endblock %}

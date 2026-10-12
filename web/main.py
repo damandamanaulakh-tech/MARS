@@ -23,9 +23,14 @@ from .routes import (  # noqa: E402
     auth, dashboard, positions, scan_routes, settings_routes,
     upstox, backtest_routes, regime_routes,
     strategy_routes, reports_routes, risk_routes, alerts_routes,
-    signal_routes, chart_routes, lens_routes, trigger_routes,
-    register_routes,
+    chart_routes, lens_routes, trigger_routes,
+    register_routes, den_routes,
 )
+# The Signal page (signal_routes) was removed 2026-10-12 on the owner's order
+# (item 1: "signal file also can be removed, not working and zero utility").
+# den_routes = MARS Den (item 23): one tab for every formula and the algo
+# controls; the lens/triggers/register/strategy/engine pages stay reachable
+# from it.
 
 
 WEB_DIR = Path(__file__).parent
@@ -46,6 +51,48 @@ app = FastAPI(
     version="2.0.0-dev",
 )
 
+# OWNER 2026-10-11, item 35: "I want to share with someone ... another can't
+# see any kind of formula, only the user dashboard". A `viewer` account (see
+# web/auth.py, VIEWER_PASSWORD) reaches the book only — dashboard, open
+# positions and closed trades, all read-only. Every other path, and every
+# POST, answers 403 with a plain line. Enforced HERE, in one place, so a new
+# route can never leak a formula to a viewer by forgetting a role check.
+# ORDER MATTERS: this middleware is registered BEFORE SessionMiddleware so it
+# runs INSIDE it (Starlette wraps later additions outside earlier ones) and
+# can read request.session. Registered the other way round it would see no
+# session and silently pass every viewer — test-pinned.
+VIEWER_ALLOWED_EXACT = {"/", "/positions", "/trades", "/logout", "/login",
+                        "/healthz", "/sw.js"}
+VIEWER_ALLOWED_PREFIXES = ("/static/",)
+
+
+def viewer_may_pass(path: str, method: str) -> bool:
+    if path.startswith(VIEWER_ALLOWED_PREFIXES):
+        return True
+    if path in ("/login", "/logout"):
+        return True
+    if method.upper() not in ("GET", "HEAD"):
+        return False
+    return path in VIEWER_ALLOWED_EXACT
+
+
+@app.middleware("http")
+async def _viewer_guard(request, call_next):
+    try:
+        user = request.session.get("user") if "session" in request.scope else None
+    except Exception:
+        user = None
+    if user and user.get("role") == "viewer" and not viewer_may_pass(
+            request.url.path, request.method):
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(
+            "<p style='font-family:sans-serif;padding:2rem'>Viewer account: "
+            "this login sees the dashboard, open positions and closed trades "
+            "only. <a href='/'>Back to the dashboard</a></p>",
+            status_code=403)
+    return await call_next(request)
+
+
 # Session cookies for simple role-based auth (no JWT yet — keep beginner-friendly)
 app.add_middleware(
     SessionMiddleware,
@@ -65,7 +112,6 @@ app.mount("/static", StaticFiles(directory=str(WEB_DIR / "static")), name="stati
 
 app.include_router(auth.router)
 app.include_router(dashboard.router)
-app.include_router(signal_routes.router)
 app.include_router(positions.router)
 app.include_router(scan_routes.router)
 app.include_router(settings_routes.router)
@@ -80,6 +126,7 @@ app.include_router(chart_routes.router)
 app.include_router(lens_routes.router)
 app.include_router(trigger_routes.router)
 app.include_router(register_routes.router)
+app.include_router(den_routes.router)
 
 
 @app.on_event("startup")

@@ -1,16 +1,24 @@
 {% extends "base.html" %}
-{% block title %}Settings — Sourceborn AM07{% endblock %}
+{% block title %}App Settings — Sourceborn MARS{% endblock %}
 {% block content %}
-<div class="text-xs tracking-widest text-ink-faint uppercase mb-3">CONFIG / EDITABLE</div>
+{# OWNER ORDER 2026-10-12: "setting will only have the APP SETTINGS, NOT THE
+   ALGO, that will move to MARS Den". This page keeps the app things (phone
+   alerts, Upstox, storage, purge) and the result banners the save handlers
+   redirect to; every algo field is rendered by _settings_algo.html inside
+   /den#algo-settings with the SAME form action and field names. #}
+<div class="text-xs tracking-widest text-ink-faint uppercase mb-3">CONFIG / APP</div>
 <div class="flex flex-wrap items-end justify-between gap-3 mb-6 lg:mb-8">
   <div>
-    <h1 class="font-black text-3xl lg:text-5xl tracking-tight">Strategy Settings</h1>
-    <p class="text-ink-soft mt-2">Tune capital, risk, and entry thresholds. Owner role required.</p>
+    <h1 class="font-black text-3xl lg:text-5xl tracking-tight">App Settings</h1>
+    <p class="text-ink-soft mt-2">Phone alerts, the Upstox login and storage. Owner role required to change anything.</p>
   </div>
+  <a href="/den#algo-settings" class="px-4 py-2 border border-line text-sm font-semibold tracking-wide hover:bg-ink/[0.03] whitespace-nowrap"><!-- settings_algo_moved_marker -->
+    🧪 Algo settings live in MARS Den &rarr;
+  </a>
 </div>
 
 {% if saved == 'ok' %}
-<div class="mb-6 px-4 py-3 border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm">✓ Saved.{% if db_status.connected %} Persisted to MongoDB.{% else %} (In-memory only — set MONGO_URL to persist.){% endif %}</div>
+<div class="mb-6 px-4 py-3 border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm">✓ Saved.{% if db_status.connected %} Persisted to MongoDB.{% else %} (In-memory only — set MONGO_URL to persist.){% endif %} <a href="/den#algo-settings" class="underline">Back to MARS Den</a></div>
 {% elif saved == 'busy' %}
 <div class="mb-6 px-4 py-3 border border-amber-200 bg-amber-50 text-amber-900 text-sm"><!-- settings_busy_marker -->
   ⏳ A scan is running right now, so <strong>nothing was saved</strong> — changing settings while the engine is mid-scan could leave it on the wrong stops or targets. Save again in a few minutes.
@@ -18,19 +26,19 @@
 {% elif saved == 'denied' %}
 <div class="mb-6 px-4 py-3 border border-red-200 bg-red-50 text-red-800 text-sm">Owner role required to save changes.</div>
 {% elif saved == 'reset' %}
-<div class="mb-6 px-4 py-3 border border-amber-200 bg-amber-50 text-amber-900 text-sm">⟳ All AM 07 + risk params reset to factory defaults. (Mode preserved.)</div>
+<div class="mb-6 px-4 py-3 border border-amber-200 bg-amber-50 text-amber-900 text-sm">⟳ All AM 07 + risk params reset to factory defaults. (Mode preserved.) <a href="/den#algo-settings" class="underline">Back to MARS Den</a></div>
 {% elif saved == 'universe_unknown' %}
 <div class="mb-6 px-4 py-3 border border-red-200 bg-red-50 text-red-800 text-sm">
   ✕ Custom universe NOT saved — these names are not on NSE (check spelling):
   <strong class="font-mono">{{ request.query_params.get('bad') }}</strong>.
-  Nothing was changed; fix the names and save again.
+  Nothing was changed; fix the names and save again. <a href="/den#algo-settings" class="underline">Back to MARS Den</a>
 </div>
 {% elif saved == 'universe_too_big' %}
 <div class="mb-6 px-4 py-3 border border-red-200 bg-red-50 text-red-800 text-sm">
   ✕ Custom universe NOT saved — {{ request.query_params.get('n') }} names is over the
   cap of {{ request.query_params.get('cap', '1200') }}. The cap tracks the app's own
   universe target, so a list the engine could actually scan is never refused.
-  Nothing was changed.
+  Nothing was changed. <a href="/den#algo-settings" class="underline">Back to MARS Den</a>
 </div>
 {% elif saved == 'universe_purged' %}
 <div class="mb-6 px-4 py-3 border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm">
@@ -41,162 +49,5 @@
 </div>
 {% endif %}
 
-{% if trail_warn %}
-<div class="mb-6 px-4 py-3 border border-amber-300 bg-amber-50 text-amber-900 text-sm">
-  ⚠ <strong>Your trailing stop cannot fire.</strong> At stop {{ trail_warn.stop }}% and target
-  +{{ trail_warn.target }}%, a {{ trail_warn.trail }}% trail only triggers if the peak lands between
-  +{{ trail_warn.need }}% and +{{ trail_warn.target }}% — a {{ trail_warn.window }}-point window.
-  The target closes the trade first. Nothing was changed (exits are your decision) — this is just
-  no longer implied to be protecting you.
-</div>
-{% endif %}
-{% if trail_dead %}
-<div class="mb-6 px-4 py-3 border border-amber-300 bg-amber-50 text-amber-900 text-sm"><!-- trail_dead_marker -->
-  ⚠ <strong>{{ trail_dead | length }} held position{{ '' if trail_dead | length == 1 else 's' }}
-  where the trailing stop cannot fire.</strong> Each trade carries its own target (k × ATR since
-  10 Sep), and for these the target sits inside the zone where the trail would need the peak:
-  <span class="font-mono">{% for r in trail_dead %}{{ r.ticker }} (target +{{ r.target_pct }}%, trail {{ r.trail_pct }}% needs a +{{ r.need_pct }}% peak){% if not loop.last %} · {% endif %}{% endfor %}</span>.
-  The target or the stop closes these first. Nothing was changed — display only.
-</div>
-{% endif %}
-{% if preset_fields %}
-<div class="mb-6 px-4 py-3 border border-line bg-white text-xs text-ink-soft">
-  <strong>Note:</strong> these fields default from the <strong>mode preset</strong>:
-  <span class="font-mono">{{ preset_fields | join(' · ') }}</span>.
-  Editing one here saves it as <strong>your override for the current mode</strong> —
-  it sticks across restarts and the daily rotation. Entering the preset's own
-  value (or ⟳ RESET) removes the override and the preset governs again.
-</div>
-{% endif %}
-{% if user and user.role == 'owner' %}
-<div class="mb-6 border border-red-200 bg-red-50/60 p-4">
-  <div class="font-bold text-sm text-red-900">🧹 Remove all the old universe</div>
-  <p class="text-xs text-ink-soft mt-1 max-w-2xl">
-    Clears every cached universe artefact — the scan matrix, last picks and skips, the shadow
-    book, and the on-disk Upstox instrument master — then pulls a fresh instrument list from
-    Upstox. Nothing old can be scanned or displayed again. Trade history and open positions are
-    untouched.
-  </p>
-  <form method="post" action="/positions/purge-universe" class="mt-3"
-        onsubmit="return confirm('Clear all cached universe data and re-pull a fresh list from Upstox?');">
-    <button class="px-4 py-2 bg-red-700 text-white text-xs font-bold tracking-wide hover:bg-red-800">
-      PURGE + REFRESH UNIVERSE
-    </button>
-  </form>
-</div>
-{% endif %}
-
-<!-- Persistence badge -->
-<div class="mb-6 flex items-center gap-2 text-xs tracking-widest text-ink-faint uppercase">
-  <span class="inline-block w-2 h-2 rounded-full {% if db_status.connected %}bg-emerald-500{% else %}bg-slate-400{% endif %}"></span>
-  Storage:
-  {% if db_status.connected %}MongoDB ({{ db_status.db }}){% else %}JSON on disk (Mongo offline){% endif %}
-</div>
-
-<!-- 🔔 PHONE ALERTS (ntfy.sh) -->
-<div class="mb-8 bg-white border border-line p-4 lg:p-5">
-  <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">🔔 Phone alerts</div>
-  {% if not push.available %}
-    <p class="text-sm text-ink-soft">Needs MongoDB connected (or an NTFY_TOPIC env var) so your alert channel survives restarts.</p>
-  {% elif push.enabled %}
-    <p class="text-sm text-ink-soft">ON — pushes buys, sells, scan failures, stale-data holds and the VIX re-entry signal.</p>
-    <ol class="mt-2 text-sm text-ink-soft list-decimal pl-5 space-y-1">
-      <li>Install the free <strong>ntfy</strong> app (Play Store / App Store).</li>
-      <li>In ntfy tap <strong>+ Subscribe to topic</strong> and enter exactly:</li>
-    </ol>
-    <div class="mt-2 px-3 py-2 bg-slate-100 font-mono text-sm break-all select-all">{{ push.topic }}</div>
-    <p class="mt-1 text-xs text-ink-faint">This topic name is your private channel — treat it like a password.</p>
-    <div class="mt-3 flex gap-3">
-      <form method="post" action="/settings/push/test"><button class="border border-line px-4 py-2 text-sm hover:bg-slate-50">Send test alert</button></form>
-      <form method="post" action="/settings/push/disable"><button class="border border-line px-4 py-2 text-sm text-red-700 hover:bg-red-50">Turn off</button></form>
-    </div>
-  {% else %}
-    <p class="text-sm text-ink-soft">Get a phone notification on every buy, sell, scan failure and the VIX re-entry signal.</p>
-    <form method="post" action="/settings/push/enable" class="mt-3"><button class="bg-slate-950 text-white px-4 py-2 text-sm font-bold">Enable phone alerts</button></form>
-  {% endif %}
-</div>
-
-<form method="post" action="/settings" class="space-y-8">
-
-  <!-- MODE SELECTOR -->
-  <div class="bg-white border border-line">
-    <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
-      <div>
-        <div class="font-bold">Trading Mode</div>
-        <div class="text-xs text-ink-faint">Currently: <strong>{{ current_mode | upper }}</strong> &middot; switching mode changes the presets for NEW trades; held positions keep the stop/target they were opened with</div>
-      </div>
-    </div>
-    <div class="p-4 lg:p-6 grid grid-cols-1 md:grid-cols-2 gap-3">
-      {% for value, label, desc in modes %}
-      <label class="flex items-start gap-3 border border-line p-4 cursor-pointer
-                    {% if current_mode == value %}border-ink/80 bg-ink/[0.02]{% endif %}
-                    hover:border-ink/40">
-        <input type="radio" name="mode" value="{{ value }}"
-               {% if current_mode == value %}checked{% endif %}
-               class="mt-1">
-        <div>
-          <div class="font-bold tracking-wide uppercase text-sm">{{ label }}</div>
-          <div class="text-xs text-ink-faint mt-1">{{ desc }}</div>
-        </div>
-      </label>
-      {% endfor %}
-    </div>
-  </div>
-
-  <!-- CUSTOM UNIVERSE (owner order 2026-08-20: 50 names, refreshed weekly) -->
-  <div class="bg-white border border-line"><!-- custom_universe_marker -->
-    <div class="px-4 lg:px-6 py-4 border-b border-line">
-      <div class="font-bold">🎯 Custom Universe ({{ custom_universe | length }} names{% if not custom_universe %} — OFF, scanning full NSE by rotation{% endif %})</div>
-      <div class="text-xs text-ink-faint mt-1">
-        Your weekly list. When filled, the momentum scan reads EXACTLY these names every day — all fresh daily,
-        no rotation. Every other rule (score floor, gates, stops, sizing) is untouched.
-        One name per line or comma-separated; .NS optional. A name not on NSE is refused with its name shown —
-        never silently dropped. <strong>Blank the box to go back to the full-NSE rotating bucket.</strong>
-        Blocklist still applies (YESBANK can never enter).
-      </div>
-    </div>
-    <div class="p-4 lg:p-6">
-      <textarea name="custom_universe" rows="6"
-                class="w-full border border-line focus:border-ink outline-none p-3 text-sm font-mono"
-                placeholder="TCS, RELIANCE, HFCL …">{{ custom_universe | map('replace', '.NS', '') | join(', ') }}</textarea>
-    </div>
-  </div>
-
-  {% for group, items in groups.items() %}
-  <div class="bg-white border border-line">
-    <div class="px-4 lg:px-6 py-4 border-b border-line">
-      <div class="font-bold">{{ group }}</div>
-    </div>
-    <div class="p-4 lg:p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-      {% for item in items %}
-      <div>
-        <label class="text-[10px] tracking-widest text-ink-faint uppercase border-t border-line pt-3 block">{{ item.label }}</label>
-        <div class="mt-2 flex items-center gap-2 border-b border-line focus-within:border-ink">
-          <input type="{{ item.type }}" step="{{ item.step }}" name="{{ item.name }}"
-                 value="{{ item.value }}"
-                 class="w-full outline-none py-2 text-base tabular-nums bg-transparent">
-          {% if item.is_pct %}<span class="text-ink-faint font-semibold">%</span>{% endif %}
-        </div>
-        <div class="text-xs text-ink-faint mt-1">{{ item.hint }}</div>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-  {% endfor %}
-
-  <div class="flex flex-wrap items-center justify-between gap-3">
-    <button type="submit"
-            class="w-full sm:w-auto px-6 py-3 bg-ink text-white font-semibold tracking-wide hover:bg-black whitespace-nowrap">
-      SAVE CHANGES &rarr;
-    </button>
-    <button type="button"
-            onclick="document.getElementById('reset-form').requestSubmit()"
-            class="w-full sm:w-auto px-6 py-3 border border-line text-sm font-semibold tracking-wide text-ink-soft hover:border-amber-400 hover:text-amber-700 whitespace-nowrap">
-      ⟳ RESET TO DEFAULTS
-    </button>
-  </div>
-</form>
-<form id="reset-form" method="post" action="/settings/reset"
-      onsubmit="return confirm('Reset all AM 07 + risk parameters to factory defaults? Your trading mode stays the same.')">
-</form>
+{% include "_settings_app.html" %}
 {% endblock %}

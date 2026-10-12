@@ -1,5 +1,6 @@
 """Batch A+B (2026-07): positions P&L columns, dashboard cards, square-off."""
 
+import re
 from datetime import datetime
 
 from fastapi.testclient import TestClient
@@ -45,12 +46,17 @@ def test_dashboard_shows_picks_watchlist_triggers():
     p = state.portfolio()
     p.last_scan_picks = [{"ticker": "AAA.NS", "score": 88, "last_close": 100.0},
                          {"ticker": "BBB.NS", "score": 77, "last_close": 50.0}]
-    p.last_scan_skipped = [{"ticker": "CCC.NS", "reason": "score_below_floor"}]
+    p.last_scan_skipped = [{"ticker": "CCC.NS", "reason": "score_below_floor"},
+                           {"ticker": "BBB.NS", "reason": "sector_exposure_cap"}]
     r = _client().get("/")
     assert r.status_code == 200
-    for label in ("Today's Picks", "Watchlist", "Engine Triggers Today",
-                  "UNREALIZED P&amp;L", "AAA.NS", "score_below_floor"):
+    # Owner order 2026-10-12 (item 30f): the "Engine Triggers Today" card and
+    # its skip-reason tally were REMOVED from the dashboard (no new home). A
+    # watchlist name still says why it was not bought, from the same skips.
+    for label in ("Today's Picks", "Watchlist", "Why not bought",
+                  "UNREALIZED P&amp;L", "AAA", "BBB", "sector cap"):
         assert label in r.text, label
+    assert "Engine Triggers Today" not in r.text
 
 
 def test_square_off_intraday_only_and_ignores_disable_exits():
@@ -95,12 +101,17 @@ def test_closed_trades_capital_columns():
 
 def test_settings_shows_percent_and_saves_fraction():
     c = _client()
-    r = c.get("/settings")
+    # Owner order 2026-10-12 ("setting will only have the APP SETTINGS, NOT
+    # THE ALGO, that will move to MARS Den"): the field renders on /den and
+    # still posts to /settings. Pin the INPUT, not a stray "2.5" anywhere on
+    # the page (a CSS class like py-2.5 used to satisfy the old pin).
+    r = c.get("/den")
     assert r.status_code == 200
     cfg = state.cfg()
     # max_position_pct stored as fraction (0.025) shown as 2.5
     shown = round(cfg.max_position_pct * 100, 4)
-    assert str(shown) in r.text
+    assert re.search(r'name="max_position_pct"\s+value="' + re.escape(str(shown)) + '"',
+                     r.text), shown
     # save 3(%) -> stored 0.03
     old = cfg.max_position_pct
     from web.routes.settings_routes import EDITABLE_FIELDS
@@ -141,9 +152,12 @@ def test_recent_candles_cached_no_crash(monkeypatch):
     }]
     try:
         r = _client().get("/")
-        assert "NIFTY 50 — Daily Candles" not in r.text     # index chart gone
-        assert "TESTCO — Daily Candles" in r.text            # share chart shown
-        assert "hammer" in r.text                            # structure chips
+        # Owner order 2026-10-12 (item 30f): the big share-candle chart left
+        # the dashboard. Every pick row keeps its 📈 link to /chart/<ticker>,
+        # which draws the same stored bars on demand.
+        assert r.status_code == 200
+        assert "Daily Candles" not in r.text
+        assert "/chart/TESTCO.NS" in r.text
     finally:
         p.last_scan_picks = saved
 

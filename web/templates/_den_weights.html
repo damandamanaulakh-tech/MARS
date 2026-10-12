@@ -1,0 +1,39 @@
+<!-- 3. WEIGHTS — trading.scoring.weights_for(mode) per category, the same
+     dict the scorer reads (owner order 2026-10-04 "use each category's
+     weights"). Momentum never uses a composite: its note is below. -->
+<section id="weights" class="scroll-mt-20"><!-- den_weights_marker -->
+  <div class="flex flex-wrap items-end justify-between gap-2 mb-3">
+    <h2 class="font-black text-2xl tracking-tight">3 · Weights</h2>
+    <div class="text-xs text-ink-faint">read from <span class="font-mono">trading.scoring.weights_for</span> · full page: <a href="/strategy" class="underline">/strategy</a></div>
+  </div>
+  <div class="mb-3 px-4 py-3 border border-amber-200 bg-amber-50 text-xs text-amber-900" data-weights-note="den_momentum_composite_marker">
+    <strong>Momentum (Everest) does not use any of these tables.</strong> It buys AND is judged
+    for exits on its own 6m+12m volatility-adjusted momentum score blended
+    {{ wts.momentum_blend_pct }}% with quality (section 2). The four tables below are the
+    composite each other category scores with.
+  </div>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    {% for t in wts.tables %}
+    <div class="bg-white border border-line {% if t.active %}border-ink{% endif %}">
+      <div class="px-4 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
+        <div class="font-bold">{{ t.label }} <span class="font-mono text-xs text-ink-faint">{{ t.mode }}</span></div>
+        <div class="text-xs text-ink-faint">sums to {{ t.total_pct }}%{% if t.active %} · <span class="text-ink font-semibold">live mode</span>{% endif %}</div>
+      </div>
+      <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <tbody>
+          {% for r in t.rows %}
+          <tr class="border-b border-line last:border-0 {% if r.weight_pct == 0 %}text-ink-faint{% endif %}">
+            <td class="px-4 py-1.5 font-mono text-xs whitespace-nowrap">{{ r.component }}</td>
+            <td class="px-2 py-1.5 text-right tabular-nums font-bold whitespace-nowrap">{{ r.weight_pct }}%</td>
+            <td class="px-4 py-1.5 text-xs text-ink-soft min-w-[14rem]">{{ r.description }}
+              <span class="uppercase tracking-widest text-[9px] {% if 'live' in r.status or 'proxy' in r.status %}text-emerald-700{% else %}text-amber-700{% endif %}">· {{ r.status }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>

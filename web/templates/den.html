@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}MARS Den — Sourceborn MARS{% endblock %}
+{% block content %}
+{# OWNER ORDER 2026-10-12: one place for every formula ("MARS Den"). Every
+   number on this page comes from web/routes/den_routes.py, which reads the
+   live Config and the module constants at render time — nothing numeric is
+   typed in here. Phone layout: cards stack, tables scroll inside their
+   card, the 16px gutter is base.html's p-4. #}
+<div class="text-xs tracking-widest text-ink-faint uppercase mb-3">MARS / THE DEN — EVERY FORMULA, ONE PAGE</div>
+<div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+  <div>
+    <h1 class="font-black text-3xl lg:text-5xl tracking-tight">🧪 MARS Den</h1>
+    <p class="text-ink-soft mt-2 max-w-3xl">
+      The selection sequence, both engines with their live parameters, the category weights,
+      the trigger layer and danger tripwires, the candle timing block, sizing and capacity, the
+      register, the walk-forward evidence, the algo settings — and a sandbox copy you can edit
+      without touching the engine. Read from the running config at
+      <span class="font-mono">{{ eng.live_mode }}</span> mode.
+    </p>
+  </div>
+  <div class="text-xs text-ink-faint">
+    {% if db_status.connected %}storage MongoDB{% else %}storage JSON (Mongo offline){% endif %}
+  </div>
+</div>
+
+<!-- section chips: anchors only, no JS needed -->
+<nav class="flex flex-wrap gap-2 mb-6 lg:mb-8 text-xs" aria-label="MARS Den sections"><!-- den_nav_marker -->
+  {% for id, label in sections %}
+  <a href="#{{ id }}" class="px-3 py-1.5 border border-line bg-white hover:border-ink/60 whitespace-nowrap">{{ label }}</a>
+  {% endfor %}
+</nav>
+
+<div class="space-y-8 lg:space-y-10">
+  {% include "_den_sequence.html" %}
+  {% include "_den_engines.html" %}
+  {% include "_den_weights.html" %}
+  {% include "_den_triggers.html" %}
+  {% include "_den_timing.html" %}
+  {% include "_den_capacity.html" %}
+  {% include "_den_register.html" %}
+  {% include "_den_evidence.html" %}
+
+  <!-- 9. ALGO SETTINGS — the algo half of the old Settings page, same form -->
+  <section id="algo-settings" class="scroll-mt-20"><!-- den_algo_settings_marker -->
+    <div class="flex flex-wrap items-end justify-between gap-2 mb-3">
+      <h2 class="font-black text-2xl tracking-tight">9 · Algo settings</h2>
+      <div class="text-xs text-ink-faint">moved here from /settings on 2026-10-12 · saves land back on <a href="/settings" class="underline">App Settings</a> with the result</div>
+    </div>
+    <p class="text-sm text-ink-soft mb-4 max-w-3xl">
+      These are the LIVE knobs — saving here changes the engine for new trades (held positions
+      keep the stop and target they were opened with). For a what-if that changes nothing, use
+      the <a href="#sandbox" class="underline">Sandbox</a> below.
+      {% if not is_owner %}<span class="text-amber-700">Owner role required to save.</span>{% endif %}
+    </p>
+    {% include "_settings_algo.html" %}
+  </section>
+
+  {% include "_den_sandbox.html" %}
+</div>
+{% endblock %}
