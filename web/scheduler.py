@@ -1916,7 +1916,48 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
             cfg.apply_mode_preset()
         finally:
             MODE_LOCK.release()
+    # OWNER 2026-10-11 item 28: after every rotation (09:20 and 14:30) the
+    # watchlist is captured with date, time and each stock's parameters
+    # (web/watchlist_capture.py), OUTSIDE the mode lock, bounded, never
+    # raising into the scan. /reports lists the captures.
+    _capture_watchlist(eng, cfg, where)
     return summary
+
+
+def _capture_watchlist(eng, cfg, where: str) -> dict:
+    """Owner item 28 — one dated watchlist capture per rotation. Journals
+    WATCHLIST_CAPTURED or WATCHLIST_CAPTURE_FAILED so an empty Reports
+    card is never a mystery. Returns the capture result (tests)."""
+    from datetime import datetime as _dt
+    res: dict = {}
+    try:
+        from . import db
+        from .watchlist_capture import capture
+        try:
+            res = capture(eng.portfolio, cfg, _dt.utcnow(), db_module=db,
+                          state_dir=getattr(cfg, "state_dir", None)) or {}
+            action = "WATCHLIST_CAPTURED" if res.get("ok") else "WATCHLIST_CAPTURE_FAILED"
+            why = (f"[{where}] {res.get('n_rows', 0)} rows captured at "
+                   f"{res.get('ts') or '?'} · mongo={'yes' if res.get('mongo') else 'no'}"
+                   f" · csv={'yes' if res.get('csv') else 'no'}"
+                   + (f" · {res.get('error')}" if res.get("error") else "")
+                   + (f" · {res.get('note')}" if res.get("note") else ""))
+        except Exception as e:                           # noqa: BLE001
+            log.exception("[%s] watchlist capture crashed", where)
+            res = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+            action, why = "WATCHLIST_CAPTURE_FAILED", f"[{where}] {res['error']}"
+        eng.portfolio.decision_journal.append(
+            {"ts": _dt.utcnow().isoformat(), "action": action, "why": why,
+             "n_rows": res.get("n_rows", 0)})
+        eng.portfolio.save()
+    except Exception:
+        log.exception("[%s] watchlist capture journal failed", where)
+    try:
+        from .memory_relief import release as release_memory
+        release_memory(f"{where} watchlist capture")
+    except Exception:
+        pass
+    return res
 
 
 def _eod_refresh() -> None:

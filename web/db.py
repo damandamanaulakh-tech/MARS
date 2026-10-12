@@ -952,7 +952,12 @@ def list_watchlist_snapshots(limit: int = 60, fields=None) -> list:
         cur = _DB.watchlist_snapshots.find({}, proj).sort("_id", -1)
         if limit and limit > 0:
             cur = cur.limit(int(limit))
-        return [dict(d) for d in cur]
+        out = []
+        for d in cur:
+            d = dict(d)
+            d.pop("_id", None)      # the projection drops it; belt and braces
+            out.append(d)
+        return out
     except Exception as e:
         log.warning("Mongo list_watchlist_snapshots failed: %s", e)
         return []
