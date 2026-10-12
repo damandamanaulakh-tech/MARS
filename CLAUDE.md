@@ -285,7 +285,12 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   Phase 1 (fundamentals currency/unit lock), which still waits on their
   formula review + companion sheet. Awaiting their picks: β 1:1 vs
   measured vs both; domestic-only sector or their global feed; inflation
-  via discount rate vs direct % cut.
+  via discount rate vs direct % cut. (Recorded in PR #165, docs only,
+  MERGED 20:47 IST Mon 10-12 = main 143e222; the 20:46 probe found the
+  app ASLEEP — 42.7 s cold start, fresh process — so the deploy restart
+  cost nothing; `scan_universe.last_rebuild` still 09-30 = today's block
+  never stamped, Tue 10-13 16:30 is the next slot and the first live run
+  of the fundamentals budget.)
 - OWNER ASKS STILL OPEN (said to them): the companion sheet; display name;
   archive-not-delete confirmed? (built as archive); which category Buy
   Desk buys count under (today momentum → fills the 40% share, why "no
