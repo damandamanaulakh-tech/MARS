@@ -290,13 +290,29 @@ def archive_trades(trade_docs: list) -> bool:
         return False
 
 
-def list_trades(limit: int = 0) -> list:
+# OWNER 2026-10-11, item 5: "remove the entries before 15 September". The
+# journal is append-only (standing rule 3), so nothing is deleted: trades and
+# journal lines closed/stamped before this cut are moved to the archive
+# collections with `pre_mars: True` and left out of every live reader by
+# default. `include_pre_mars=True` brings them back (the /trades "show
+# archive" switch and research scripts).
+PRE_MARS_CUT_ISO = "2026-09-15T00:00:00"
+PRE_MARS_FLAG = "pre_mars"
+
+
+def _not_pre_mars(include_pre_mars: bool) -> dict:
+    return {} if include_pre_mars else {PRE_MARS_FLAG: {"$ne": True}}
+
+
+def list_trades(limit: int = 0, include_pre_mars: bool = False) -> list:
     """Archived closed trades, OLDEST first (the order the CSV wants).
-    `limit` > 0 keeps the newest N. [] when Mongo is down."""
+    `limit` > 0 keeps the newest N. [] when Mongo is down. Trades archived
+    as pre-MARS (before 2026-09-15) are left out unless asked for."""
     if not _CONNECTED or _DB is None:
         return []
     try:
-        cur = _DB.trades.find({}, {"_id": 0}).sort("exit_date", -1)
+        cur = _DB.trades.find(_not_pre_mars(include_pre_mars),
+                              {"_id": 0}).sort("exit_date", -1)
         if limit and limit > 0:
             cur = cur.limit(int(limit))
         return list(reversed(list(cur)))
@@ -738,18 +754,38 @@ def archive_journal(entries: list) -> bool:
         return False
 
 
-def list_journal_archive(limit: int = 20000) -> list:
+def list_journal_archive(limit: int = 20000,
+                         include_pre_mars: bool = False) -> list:
     """Archived journal lines, OLDEST first, newest `limit` of them. Read by
     the /reports decision-journal CSV (audit M-5, 2026-10-02 — it had no
-    caller, so lines that left the in-RAM cap could not be downloaded)."""
+    caller, so lines that left the in-RAM cap could not be downloaded).
+    Lines archived as pre-MARS (before 2026-09-15) are left out unless
+    asked for."""
     if not _CONNECTED or _DB is None:
         return []
     try:
-        cur = _DB.journal_archive.find({}, {"_id": 0}).sort("ts", -1).limit(limit)
+        cur = (_DB.journal_archive.find(_not_pre_mars(include_pre_mars),
+                                        {"_id": 0})
+               .sort("ts", -1).limit(limit))
         return list(reversed(list(cur)))
     except Exception as e:
         log.warning("Mongo list_journal_archive failed: %s", e)
         return []
+
+
+def count_pre_mars(collection: str) -> int:
+    """How many archived rows carry the pre-MARS flag in `trades` or
+    `journal_archive`. -1 when Mongo is down or the count fails — the
+    migration reads this back BEFORE trimming anything, and -1 must never
+    look like "zero rows landed"."""
+    if not _CONNECTED or _DB is None:
+        return -1
+    try:
+        return int(_DB[collection].count_documents({PRE_MARS_FLAG: True},
+                                                   maxTimeMS=4000))
+    except Exception as e:
+        log.warning("Mongo count_pre_mars(%s) failed: %s", collection, e)
+        return -1
 
 
 # ---------- settings overrides ----------
@@ -861,3 +897,77 @@ def clear_upstox_token(doc_id: str = "default") -> None:
         _DB.upstox_token.delete_one({"_id": doc_id})
     except Exception as e:
         log.warning("Mongo clear_upstox_token failed: %s", e)
+
+
+# ---------- watchlist captures (owner item 28, 2026-10-12) ----------
+#
+# One document per capture of the day's scan watchlist, keyed by its IST
+# minute (`_id` == `ts_key`, e.g. "2026-10-12T0935"). BOUNDED: the collection
+# keeps the newest WATCHLIST_SNAPSHOT_KEEP documents and each document holds
+# at most watchlist_capture.MAX_ROWS rows (300), so the collection can never
+# exceed ~120 x ~60 KB = ~7 MB on the 512 MB free cluster. The trim runs only
+# AFTER a successful insert — a refused write must not delete history.
+
+WATCHLIST_SNAPSHOT_KEEP = 120
+
+
+def save_watchlist_snapshot(doc: dict) -> bool:
+    """Upsert one watchlist capture (keyed by its `ts_key`) and trim the
+    collection to the newest WATCHLIST_SNAPSHOT_KEEP. True only when the
+    write landed; never raises (the caller is the end of the 09:20 rotation
+    and must not die for a report)."""
+    if not _CONNECTED or _DB is None:
+        return False
+    key = str((doc or {}).get("ts_key") or "")
+    if not key:
+        return False
+    try:
+        _DB.watchlist_snapshots.replace_one(
+            {"_id": key}, {**doc, "_id": key}, upsert=True)
+    except Exception as e:
+        log.warning("Mongo save_watchlist_snapshot failed: %s", e)
+        return False
+    # Retention: only after the insert landed, only the oldest beyond the cap.
+    try:
+        cur = (_DB.watchlist_snapshots.find({}, {"_id": 1})
+               .sort("_id", -1).skip(WATCHLIST_SNAPSHOT_KEEP))
+        old = [d["_id"] for d in cur]
+        if old:
+            _DB.watchlist_snapshots.delete_many({"_id": {"$in": old}})
+    except Exception as e:
+        log.warning("Mongo watchlist_snapshots trim failed: %s", e)
+    return True
+
+
+def list_watchlist_snapshots(limit: int = 60, fields=None) -> list:
+    """Newest first, `_id` stripped. `fields` = the keys to return (a
+    projection), None = whole documents. Rows are small when the caller
+    asks for the summary keys only — the /reports card does."""
+    if not _CONNECTED or _DB is None:
+        return []
+    proj = {"_id": 0}
+    if fields:
+        proj.update({str(f): 1 for f in fields})
+    try:
+        cur = _DB.watchlist_snapshots.find({}, proj).sort("_id", -1)
+        if limit and limit > 0:
+            cur = cur.limit(int(limit))
+        return [dict(d) for d in cur]
+    except Exception as e:
+        log.warning("Mongo list_watchlist_snapshots failed: %s", e)
+        return []
+
+
+def load_watchlist_snapshot(ts_key: str) -> Optional[dict]:
+    """One capture by its key, `_id` stripped; None when absent or Mongo is
+    down (the caller then falls back to the CSV on disk, or says so)."""
+    if not _CONNECTED or _DB is None or not ts_key:
+        return None
+    try:
+        doc = _DB.watchlist_snapshots.find_one({"_id": str(ts_key)})
+        if doc:
+            doc.pop("_id", None)
+            return dict(doc)
+    except Exception as e:
+        log.warning("Mongo load_watchlist_snapshot failed: %s", e)
+    return None

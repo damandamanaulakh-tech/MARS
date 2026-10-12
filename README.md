@@ -13,7 +13,7 @@ approval.
 - **Live app:** https://sourceborn-stocks.onrender.com
 - **Owner's manual (simple language):** `docs/APP_BRIEF.md`
 - **Session brain / working notes:** `CLAUDE.md`
-- **Evidence behind every strategy choice:** `docs/PARAM_SEARCH_V1..V4.md`
+- **Evidence behind every strategy choice:** `docs/PARAM_SEARCH_V3.md` (live walk-forward evidence) and `docs/archive/PARAM_SEARCH_V1..V4.md`
 
 ## Daily rhythm (IST, all automatic)
 

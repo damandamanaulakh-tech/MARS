@@ -1506,6 +1506,41 @@ def refresh_liquid_universe(where: str = "weekly") -> dict:
             # outside the rank are exactly res["held_added"].
             "watchlist_carried": sorted(keep & set(res.get("held_added", ()))),
         }
+        # OWNER 2026-10-11 item 15: "when the shares are moved from the
+        # universe of 1200, verify that some part do things in code, but
+        # some you keep quiet". What was quiet: the per-name REASON and DATE.
+        # One ledger row per move, kept on the portfolio (JSON + Mongo both
+        # ways), capped at UNIVERSE_LEDGER_CAP rows.
+        try:
+            from trading.paper import UNIVERSE_LEDGER_CAP
+            rank_of = {r["ticker"]: (i + 1, r["turnover"])
+                       for i, r in enumerate(res.get("ranked") or [])}
+            always_set = set(p.positions.keys()) | keep | owner_list
+            stamp = _dt.utcnow().isoformat()
+            rows = []
+            for t in added:
+                rk, tv = rank_of.get(t, (None, None))
+                if t in always_set and rk is None:
+                    why = ("held" if t in p.positions else
+                           "owner list" if t in owner_list else "watchlist")
+                    reason = f"carried in by rule: {why}"
+                elif rk is not None:
+                    reason = f"ranked {rk} of {target} by median turnover"
+                else:
+                    reason = "in the final list (no rank recorded)"
+                rows.append({"ts": stamp, "ticker": t, "move": "in",
+                             "turnover": tv, "rank": rk, "reason": reason})
+            for t in dropped:
+                reason = ("below the turnover cut (not in the top "
+                          f"{target}) and not held / watched / owner-listed"
+                          if t not in always_set else
+                          "left the tradeable file or blocklisted")
+                rows.append({"ts": stamp, "ticker": t, "move": "out",
+                             "turnover": None, "rank": None, "reason": reason})
+            ledger = list(getattr(p, "universe_ledger", []) or []) + rows
+            p.universe_ledger = ledger[-UNIVERSE_LEDGER_CAP:]
+        except Exception:
+            log.exception("universe ledger failed (batch card unaffected)")
         carried = sorted(keep & set(res.get("held_added", ())))
         kept_note = ("" if not keep else
                      f" Watchlist kept: {len(keep)} name(s), "

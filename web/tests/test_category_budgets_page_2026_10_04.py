@@ -153,21 +153,7 @@ def test_the_scan_page_names_the_category_share():
         p.last_scan_picks, p.scan_matrix = saved
 
 
-def test_the_signal_page_shows_the_positions_own_category_weights():
-    """PR #148 gave each category its own weights; this page kept printing
-    the shared table (positional earnings growth 0.10 vs the scorer's 0.25)."""
-    from trading.modes import WEIGHTS
-    from web.routes import signal_routes
-    p = state.portfolio()
-    saved_pos, saved_j = dict(p.positions), list(p.decision_journal)
-    try:
-        p.positions = {"SIG.NS": _pos("SIG.NS", 2_00_000.0, "positional")}
-        p.decision_journal.append({
-            "ts": "2026-10-01T04:00:00", "action": "BUY", "ticker": "SIG.NS",
-            "components": {"earnings_growth": 60.0, "relative_strength": 55.0}})
-        chosen, _t, rows = signal_routes._rows_for("SIG.NS")
-        w = {r["name"]: r["weight"] for r in rows}
-        assert w["earnings_growth"] == WEIGHTS["positional"]["earnings_growth"]
-        assert w["relative_strength"] == WEIGHTS["positional"]["relative_strength"]
-    finally:
-        p.positions, p.decision_journal = saved_pos, saved_j
+# The Signal page test that sat here was deleted with the page itself
+# (owner order 2026-10-11, item 1: "signal file also can be removed, not
+# working and zero utility"). The per-category weights it checked are still
+# pinned on the scorer in trading/tests and on the /den page.

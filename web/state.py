@@ -80,6 +80,7 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     # lesson from 2026-07-27.
     p.news_watch = dict(doc.get("news_watch", {}) or {})
     p.universe_batch = dict(doc.get("universe_batch", {}) or {})
+    p.universe_ledger = list(doc.get("universe_ledger", []) or [])
     p.breadth_store = dict(doc.get("breadth_store", {}) or {})
     p.breadth_today = dict(doc.get("breadth_today", {}) or {})
     p.option_chain = dict(doc.get("option_chain", {}) or {})
@@ -160,6 +161,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "trigger_watch": self.trigger_watch,
             "news_watch": self.news_watch,
             "universe_batch": self.universe_batch,
+            "universe_ledger": self.universe_ledger[-1500:],
             "breadth_store": self.breadth_store,
             "breadth_today": self.breadth_today,
             "option_chain": self.option_chain,
@@ -289,6 +291,69 @@ def _migrate_slab_restore(cfg) -> bool:
                     "cleared — slab sizing restored")
     db.save_settings({"slab_restore_2026_10_04": True}, doc_id="migrations")
     return restored
+
+
+PRE_MARS_MARKER = "archive_pre_mars_2026_09_15"
+
+
+def _migrate_archive_pre_mars(p: Portfolio) -> dict:
+    """OWNER ORDER 2026-10-11, item 5: "remove the entries before 15
+    September, any file u need for back or data, keep rest needs to rest".
+
+    ARCHIVE, NEVER DELETE — standing rule 3 says the journal is append-only,
+    and the closed trades are the evidence behind every measured number.
+    Closed trades whose exit is before 2026-09-15 00:00 IST and journal lines
+    stamped before it move to the Mongo archive collections (`trades`,
+    `journal_archive`) flagged `pre_mars: True`, which every live reader
+    skips by default (web/db.py). Only AFTER the archive write is read back
+    with at least as many flagged rows as were sent does the live book drop
+    them. Mongo down, write refused, or a short read-back = nothing trimmed,
+    no marker, retried on the next boot. Git history is untouched.
+
+    Returns {trades, journal, done} for the journal line and the tests."""
+    from datetime import datetime as _dt, timedelta as _td
+
+    out = {"trades": 0, "journal": 0, "done": False}
+    if db.load_settings(doc_id="migrations").get(PRE_MARS_MARKER):
+        return out
+    if not db.is_connected():
+        return out
+    # 2026-09-15 00:00 IST = 2026-09-14 18:30 UTC; stamps are naive UTC.
+    cut_utc = _dt(2026, 9, 15) - _td(hours=5, minutes=30)
+    old_trades = [t for t in p.trades
+                  if getattr(t, "exit_date", None) is not None
+                  and t.exit_date < cut_utc]
+    old_journal = [e for e in p.decision_journal
+                   if str(e.get("ts", ""))[:19] < cut_utc.isoformat()[:19]]
+    t_docs = [{**t.to_dict(), db.PRE_MARS_FLAG: True} for t in old_trades]
+    j_docs = [{**dict(e), db.PRE_MARS_FLAG: True} for e in old_journal]
+    if t_docs and not db.archive_trades(t_docs):
+        log.warning("pre-MARS archive: trade write failed — nothing trimmed")
+        return out
+    if j_docs and not db.archive_journal(j_docs):
+        log.warning("pre-MARS archive: journal write failed — nothing trimmed")
+        return out
+    # Read back before trimming (the save-then-verify rule of the sequence).
+    if t_docs and db.count_pre_mars("trades") < len(t_docs):
+        log.warning("pre-MARS archive: trade read-back short — nothing trimmed")
+        return out
+    if j_docs and db.count_pre_mars("journal_archive") < len(j_docs):
+        log.warning("pre-MARS archive: journal read-back short — nothing trimmed")
+        return out
+    keep_t = [t for t in p.trades if t not in old_trades]
+    keep_j = [e for e in p.decision_journal if e not in old_journal]
+    p.trades = keep_t
+    p.decision_journal = keep_j
+    out.update({"trades": len(t_docs), "journal": len(j_docs), "done": True})
+    p.decision_journal.append({
+        "ts": _dt.utcnow().isoformat(), "action": "MARS_ARCHIVE_PRE_2026_09_15",
+        "why": (f"Owner order 2026-10-11 item 5: {len(t_docs)} closed trades "
+                f"and {len(j_docs)} journal lines dated before 2026-09-15 IST "
+                "moved to the Mongo archive (pre_mars flag), read back, then "
+                "left the live book. Nothing deleted; '?archive=1' on /trades "
+                "shows them.")})
+    db.save_settings({PRE_MARS_MARKER: True}, doc_id="migrations")
+    return out
 
 
 def _bootstrap() -> None:
@@ -461,6 +526,16 @@ def _bootstrap() -> None:
 
     # Wire save() to mirror to Mongo from now on
     _patch_portfolio_save_to_mirror_mongo()
+
+    # Owner order 2026-10-11 item 5: pre-15-September trades and journal
+    # lines leave the live book for the archive (never deleted). One-time,
+    # marker in the migrations doc, retried on the next boot if Mongo was
+    # down or the read-back came up short.
+    try:
+        if _migrate_archive_pre_mars(_PORTFOLIO).get("done"):
+            _PORTFOLIO.save()
+    except Exception:
+        log.exception("pre-MARS archive migration failed — nothing trimmed")
 
     # Owner order 2026-07-30: cash follows starting_capital (delta, journaled).
     if _PORTFOLIO.sync_capital(_CFG):

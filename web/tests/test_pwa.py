@@ -8,7 +8,7 @@ from web.main import app
 def test_manifest_served():
     r = TestClient(app).get("/static/manifest.webmanifest")
     assert r.status_code == 200
-    assert r.json()["short_name"] == "AM07"
+    assert r.json()["short_name"] == "MARS"
     assert r.json()["display"] == "standalone"
 
 

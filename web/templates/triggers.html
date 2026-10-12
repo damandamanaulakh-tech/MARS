@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}⚡ Trigger Layer — Sourceborn AM07{% endblock %}
+{% block title %}⚡ Trigger Layer — Sourceborn MARS{% endblock %}
 {% block content %}
 <div class="text-xs tracking-widest text-ink-faint uppercase mb-3">YOUR DESIGN / trigger_layer_v0_2 · DISPLAY + WATCHLIST ONLY</div>
 <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
@@ -141,7 +141,7 @@
   <a href="/triggers" class="text-xs text-ink-faint hover:text-ink">&larr; back to today's table</a>
   <h2 class="font-black text-2xl mt-1">{{ detail.ticker }}
     <a href="/chart/{{ detail.ticker }}" class="text-base no-underline ml-1">📈</a>
-    <a href="/signal?ticker={{ detail.ticker }}" class="text-base no-underline">🎵</a>
+    <a href="/chart/{{ detail.ticker }}" class="text-base no-underline" title="Candle chart">📈</a>
   </h2>
   <div class="text-xs text-amber-700 mt-1">
     Computed now from stored history to <strong>{{ detail.view.asof or '?' }}</strong> ({{ detail.bars }} bars) — not a live quote.

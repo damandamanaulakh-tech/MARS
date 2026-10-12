@@ -425,7 +425,7 @@ class TradingEngine:
 
         # v4 correction playbook (user-approved 2026-07-21): in a correction
         # the brake holds UNTIL the VIX crushes to <=75% of its recent spike
-        # peak — the tested V-recovery signal (docs/PARAM_SEARCH_V4.md:
+        # peak — the tested V-recovery signal (docs/archive/PARAM_SEARCH_V4.md:
         # +24% COVID, +7.3% 2022, +2.0% current episode; never fires in
         # mild corrections, so cash remains the default stance).
         vix_reentry = False

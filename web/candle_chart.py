@@ -38,7 +38,7 @@ _GRID = "rgba(0,0,0,0.08)"
 def load_ohlcv(ticker: str, tail: int = _PATTERN_TAIL) -> pd.DataFrame | None:
     """Daily OHLCV for one ticker: Mongo store first (freshest, Friday
     top-up), repo zip second (ships with every deploy). None = DATA_NEEDED.
-    `tail` bounds RAM (512 MB box); /signal passes a longer one because
+    `tail` bounds RAM (512 MB box); the old /signal page (removed 2026-10-12) passed a longer one because
     momentum_score needs >=252 bars."""
     try:
         from trading.history_store import records_to_df

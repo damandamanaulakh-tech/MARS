@@ -28,6 +28,36 @@ def _logo_url_white() -> str:
 templates.env.globals["logo_url"] = _logo_url
 templates.env.globals["logo_url_white"] = _logo_url_white
 
+# OWNER 2026-10-11 (items 42/45): the app is MARS now — "put Sourceborn
+# below and MARS above & bold"; the top ribbon reads "WELCOME TO SOURCEBORN —
+# <name of user>". The name comes from OWNER_NAME in the Render env, else the
+# Upstox profile name of the logged-in session, else the account name.
+from . import clock as _clock  # noqa: E402
+
+APP_NAME = "MARS"
+APP_HOUSE = "Sourceborn"
+templates.env.globals["app_name"] = APP_NAME
+templates.env.globals["app_house"] = APP_HOUSE
+templates.env.globals["ist_now_str"] = _clock.ist_now_str
+templates.env.filters["ist"] = _clock.to_ist
+
+
+def display_name(request: Request | None, user: dict | None) -> str:
+    env_name = os.environ.get("OWNER_NAME", "").strip()
+    if env_name:
+        return env_name
+    try:
+        if request is not None:
+            upstox = (request.session.get("upstox_user_name") or "").strip()
+            if upstox:
+                return upstox
+    except Exception:
+        pass
+    return str((user or {}).get("name") or "Owner")
+
+
+templates.env.globals["display_name"] = display_name
+
 
 def inr(value: float, digits: int = 0) -> str:
     """Indian-grouping rupee formatter. 2_500_000 -> '25,00,000'."""

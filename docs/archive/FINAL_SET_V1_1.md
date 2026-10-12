@@ -1,6 +1,6 @@
 # FINAL SET V1.1 — the live recipe as of 2026-10-04
 
-> **SUPERSEDED 2026-10-05 by [FINAL_SET_V1_2.md](FINAL_SET_V1_2.md)** (the ATR stop, your order "Go for A"). Kept as history; the pins now check V1.2.
+> **SUPERSEDED 2026-10-05 by [FINAL_SET_V1_2.md](FINAL_SET_V1_2.md) — now under docs/archive/** (the ATR stop, your order "Go for A"). Kept as history; the pins now check V1.2.
 
 *Owner order 2026-10-04: "also make these things as finale set V 1.1".*
 

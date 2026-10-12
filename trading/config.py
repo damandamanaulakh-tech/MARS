@@ -225,7 +225,7 @@ class Config:
     # v4 correction playbook (user-approved 2026-07-21): momentum entries
     # re-enable inside a correction once India VIX crushes to <=75% of its
     # recent spike peak — the only correction tactic that beat cash in the
-    # 10-episode preregistered test (docs/PARAM_SEARCH_V4.md).
+    # 10-episode preregistered test (docs/archive/PARAM_SEARCH_V4.md).
     correction_vix_reentry: bool = True
     # Ocean (mean-reversion / knife-catch engine, trading/engines/ocean.py).
     # Docs have described it as PARKED since the v3 review (-41% drawdown

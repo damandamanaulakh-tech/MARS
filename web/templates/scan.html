@@ -84,6 +84,31 @@
       </div>
     </div>
     <div class="text-[10px] text-ink-faint pt-1">Dropping a name from the universe never sells it — a held position stays until its own exit fires or you sell it.</div>
+    {% if universe_ledger %}
+    <!-- universe_ledger_marker — owner 2026-10-11 item 15: every move with its date and reason -->
+    <details class="pt-2">
+      <summary class="cursor-pointer text-xs font-semibold">📒 Move ledger — {{ universe_ledger | length }} most recent moves, each with date, rank, turnover and reason</summary>
+      <div class="overflow-x-auto mt-2">
+        <table class="w-full text-xs">
+          <thead><tr class="text-[10px] tracking-widest text-ink-faint uppercase">
+            <th class="text-left py-1 pr-3">When (IST)</th><th class="text-left py-1 pr-3">Name</th><th class="text-left py-1 pr-3">Move</th>
+            <th class="text-right py-1 pr-3">Rank</th><th class="text-right py-1 pr-3">Median turnover</th><th class="text-left py-1">Reason</th></tr></thead>
+          <tbody>
+          {% for m in universe_ledger %}
+          <tr class="border-t border-line">
+            <td class="py-1 pr-3 whitespace-nowrap tabular-nums">{{ m.ts | ist }}</td>
+            <td class="py-1 pr-3 font-semibold whitespace-nowrap">{{ m.ticker | replace('.NS','') }}</td>
+            <td class="py-1 pr-3 {% if m.move == 'in' %}text-emerald-700{% else %}text-rose-700{% endif %} font-semibold">{{ m.move | upper }}</td>
+            <td class="py-1 pr-3 text-right tabular-nums">{% if m.rank is not none %}{{ m.rank }}{% else %}—{% endif %}</td>
+            <td class="py-1 pr-3 text-right tabular-nums whitespace-nowrap">{% if m.turnover is not none %}₹{{ m.turnover | inr }}{% else %}—{% endif %}</td>
+            <td class="py-1">{{ m.reason }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+    {% endif %}
   </div>
 </div>
 {% endif %}

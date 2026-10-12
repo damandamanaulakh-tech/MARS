@@ -25,6 +25,10 @@ REGIME_HISTORY_RAM_CAP = 200
 # (web/state.py save wrapper), and only after that write succeeds — a trade
 # is never trimmed without a durable copy. ~400 bytes each, so 5,000 is ~2 MB.
 TRADES_DOC_CAP = 5000
+# Owner 2026-10-11 item 15: the per-name universe move ledger kept on the
+# portfolio doc. ~1,200 names can move a few hundred at a time on a rebuild;
+# 1,500 rows ≈ 6 weeks of rebuilds at ~150 KB — bounded for the 512 MB box.
+UNIVERSE_LEDGER_CAP = 1500
 EQUITY_HISTORY_RAM_CAP = 5000  # (ts, equity) points; appended every refresh
 
 
@@ -135,6 +139,7 @@ class Portfolio:
     trigger_watch: dict = field(default_factory=dict)  # ⚡ owner's trigger-layer daily result (display+watchlist only)
     news_watch: dict = field(default_factory=dict)     # 📰 news verdict per stock (display only, never blocks)
     universe_batch: dict = field(default_factory=dict)  # 📦 this week's liquidity batch: what came in/out (owner ask 2026-09-04)
+    universe_ledger: List[dict] = field(default_factory=list)  # 📒 per-name moves {ts, ticker, move, turnover, rank, reason} — owner 2026-10-11 item 15; capped UNIVERSE_LEDGER_CAP
     breadth_store: dict = field(default_factory=dict)  # F3: full-store breadth reading {pct, sample, asof} the A3 gate prefers over the noisy bucket sample
     breadth_today: dict = field(default_factory=dict)  # the day's scan-bucket breadth, computed once by the first pass that CAN (momentum pulls 2y; the other four pull 6mo and cannot see a 200DMA) and reused by the rest — one market reading per day, not one per mode
     option_chain: dict = field(default_factory=dict)   # Node 8: daily chain snapshot {asof, rows, history} (display/triggers only; needs the daily login)
@@ -262,6 +267,7 @@ class Portfolio:
                 "trigger_watch": self.trigger_watch,           # ⚡ trigger-layer daily result
                 "news_watch": self.news_watch,                 # 📰 news verdict per stock
                 "universe_batch": self.universe_batch,         # 📦 weekly batch details
+                "universe_ledger": self.universe_ledger[-UNIVERSE_LEDGER_CAP:],  # 📒 per-name moves
                 "breadth_store": self.breadth_store,           # F3 full-store breadth
                 "breadth_today": self.breadth_today,           # the day's shared bucket reading
                 "option_chain": self.option_chain,             # Node 8 chain snapshot
@@ -315,6 +321,7 @@ class Portfolio:
             p.trigger_watch = dict(data.get("trigger_watch", {}))
             p.news_watch = dict(data.get("news_watch", {}))
             p.universe_batch = dict(data.get("universe_batch", {}) or {})
+            p.universe_ledger = list(data.get("universe_ledger", []) or [])
             p.breadth_store = dict(data.get("breadth_store", {}))
             p.breadth_today = dict(data.get("breadth_today", {}) or {})
             p.option_chain = dict(data.get("option_chain", {}))

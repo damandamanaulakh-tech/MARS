@@ -145,6 +145,9 @@ def scan_view(request: Request, error: str | None = None):
             # Owner ask 2026-09-04: this week's batch, on the screen they buy
             # from. Rebuilt Friday 16:30 IST; Monday only if Friday is missed.
             "universe_batch": p.universe_batch or {},
+            # owner 2026-10-11 item 15: per-name moves, newest first
+            "universe_ledger": list(reversed(
+                (getattr(p, "universe_ledger", None) or [])[-400:])),
             # OWNER ORDER 2026-09-11: the card states whether the three-formula
             # filter is merely showing or actually gating, so the screen can
             # never imply a control it isn't exercising.
