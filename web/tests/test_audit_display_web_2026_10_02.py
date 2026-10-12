@@ -30,7 +30,10 @@ def test_settings_names_held_positions_whose_trail_cannot_fire():
         entry_score=70.0, reasoning="fixture", mode="nifty200_momentum",
         stop_price=95.0, target_price=112.0)}          # a k x ATR +12% target
     try:
-        html = _owner().get("/settings").text
+        # Owner order 2026-10-12 ("setting will only have the APP SETTINGS,
+        # NOT THE ALGO, that will move to MARS Den"): the trail card moved
+        # with the algo form to /den#algo-settings.
+        html = _owner().get("/den").text
         assert "trail_dead_marker" in html and "QUIET.NS" in html
         assert "target +12.0%" in html
     finally:
@@ -47,7 +50,11 @@ def test_no_card_when_every_trail_can_fire():
         entry_score=70.0, reasoning="fixture", mode="nifty200_momentum",
         stop_price=95.0, target_price=130.0)}
     try:
-        html = _owner().get("/settings").text
+        # Owner order 2026-10-12: the trail card lives on /den now; the
+        # page must render for the absence to mean anything.
+        r = _owner().get("/den")
+        assert r.status_code == 200 and "settings_algo_form_marker" in r.text
+        html = r.text
         assert "<!-- trail_dead_marker -->" not in html
     finally:
         p.positions = saved

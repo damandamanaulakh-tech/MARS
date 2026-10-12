@@ -1,0 +1,37 @@
+<!-- 7. REGISTER — the owner's Selection Register v4, as counts. The live
+     state counts come from the nightly full-store precompute's own rows;
+     the fallback-reason maps are NOT counted as "missing" (each prints only
+     when its feed has no row for a symbol). -->
+<section id="register" class="scroll-mt-20"><!-- den_register_marker -->
+  <div class="flex flex-wrap items-end justify-between gap-2 mb-3">
+    <h2 class="font-black text-2xl tracking-tight">7 · Register</h2>
+    <div class="text-xs text-ink-faint">every item with its value: <a href="/register" class="underline">/register</a> · trading/register_v4.py</div>
+  </div>
+  <div class="bg-white border border-line">
+    <div class="p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+      <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">Items</div><div class="font-black text-2xl tabular-nums">{{ reg.n_registry }}</div></div>
+      <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">Money path</div><div class="font-black text-2xl tabular-nums">{{ reg.money_path }}</div><div class="text-[10px] text-ink-faint">{{ reg.trades }} TRADES params + {{ reg.danger }} danger tripwires</div></div>
+      <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">AM07 already had</div><div class="font-black text-2xl tabular-nums">{{ reg.have }}</div></div>
+      <div><!-- den_register_live_marker -->
+        <div class="text-[10px] tracking-widest text-ink-faint uppercase">Market items DATA_NEEDED now</div>
+        {% if reg.precompute_rows %}
+        <div class="font-black text-2xl tabular-nums">{{ reg.precompute_data_needed }}</div>
+        <div class="text-[10px] text-ink-faint">of {{ reg.precompute_rows }} in the nightly precompute, closes to {{ reg.precompute_asof }}</div>
+        {% else %}
+        <div class="font-black text-2xl tabular-nums text-ink-faint">—</div>
+        <div class="text-[10px] text-ink-faint">no nightly precompute stored yet</div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="px-4 pb-4 text-xs text-ink-soft space-y-1">
+      {% if reg.precompute_rows %}
+      <div>Nightly full-store precompute: {{ reg.precompute_rows }} market rows over {{ reg.precompute_sample }} names, closes to {{ reg.precompute_asof }} — states {% for s, n in reg.precompute_states %}{{ s }} {{ n }}{% if not loop.last %} · {% endif %}{% endfor %}.</div>
+      {% else %}
+      <div>No nightly precompute stored yet (16:45 job; the thin-store guard stores nothing under {{ reg.precompute_min_names or 'DATA_NEEDED' }} names). /register computes a capped live reading meanwhile.</div>
+      {% endif %}
+      <div>Per-stock items: {{ reg.stock_fallbacks }} carry a coded DATA_NEEDED reason ({{ reg.market_fallbacks }} market ones) that prints only when that item's feed has no row for the stock or date — most compute for most names. The live per-stock state is on <a href="/register" class="underline">/register</a>.</div>
+      <div class="text-ink-faint">First classification ({{ reg.status_file }}, historical — many of its DATA_NEEDED rows were wired since): {% for c, n in reg.status_counts %}{{ c }} {{ n }}{% if not loop.last %} · {% endif %}{% endfor %}. {{ reg.assumed }} assumed constants are named on /register.</div>
+      <div>Display/research only — the register's own REQUIRES_15Y_BACKTEST rule.</div>
+    </div>
+  </div>
+</section>

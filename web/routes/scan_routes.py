@@ -8,7 +8,7 @@ import threading
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
-from .. import auth, market_gate, state
+from .. import auth, market_gate, market_panels as mp, state
 from ..templating import templates
 
 
@@ -166,6 +166,11 @@ def scan_view(request: Request, error: str | None = None):
             "pending_orders": [o for o in (p.pending_orders or [])
                                if o.get("status") == "open"],
             "be_watch": _load_be_watch(),
+            # Owner order 2026-10-12 (item 30i): the sector-moves strip and the
+            # scan-coverage card moved here from the dashboard. Same panels,
+            # same safety wrapper — a broken panel hides, the page renders.
+            "sectors": mp.safe_panel(mp.sector_panel),
+            "coverage": mp.safe_panel(mp.coverage_panel),
         },
     )
 

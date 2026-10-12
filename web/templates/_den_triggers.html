@@ -1,0 +1,83 @@
+<!-- 4. TRIGGERS & DANGER — trading.danger.VERIFIED (the money-path
+     tripwires with their measured lifts), the trigger families and counts,
+     the 8 gates, and the selection ladder. -->
+<section id="triggers" class="scroll-mt-20"><!-- den_triggers_marker -->
+  <div class="flex flex-wrap items-end justify-between gap-2 mb-3">
+    <h2 class="font-black text-2xl tracking-tight">4 · Triggers &amp; Danger</h2>
+    <div class="text-xs text-ink-faint">per-stock table: <a href="/triggers" class="underline">/triggers</a>{% if trg.watch_ts %} · last pass {{ trg.watch_ts }}{% endif %}</div>
+  </div>
+
+  <div class="bg-white border border-line mb-4"><!-- den_danger_marker -->
+    <div class="px-4 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
+      <div class="font-bold">🛑 Danger layer — {{ trg.n_tripwires }} calibration-VERIFIED tripwires guard HELD names</div>
+      <div class="text-xs text-ink-faint">mode {% if trg.auto_mode %}<strong>B (auto)</strong>{% else %}<strong>C (alerts only)</strong>{% endif %}{% if trg.alerts_start %} since {{ trg.alerts_start[:10] }}{% endif %} · alert window {{ trg.alert_days }} days · tighten {{ trg.tighten_pct }}% (floored at the category stop)</div>
+    </div>
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+        <tr><th class="text-left px-4 py-2 whitespace-nowrap">Trigger</th>
+            <th class="text-left px-2 py-2">Name</th>
+            <th class="text-left px-2 py-2 whitespace-nowrap">Side</th>
+            <th class="text-right px-2 py-2 whitespace-nowrap">Lift</th>
+            <th class="text-right px-2 py-2 whitespace-nowrap">Lead</th>
+            <th class="text-left px-4 py-2 whitespace-nowrap">Evidence bar</th></tr>
+      </thead>
+      <tbody>
+        {% for t in trg.tripwires %}
+        <tr class="border-b border-line last:border-0">
+          <td class="px-4 py-1.5 font-mono text-xs whitespace-nowrap">{{ t.id }}</td>
+          <td class="px-2 py-1.5 font-semibold min-w-[12rem]">{{ t.name }}{% if t.needs_panels %} <span class="text-[9px] uppercase tracking-widest text-ink-faint">panel-fed</span>{% endif %}</td>
+          <td class="px-2 py-1.5 text-xs uppercase tracking-widest whitespace-nowrap">{{ t.side }}</td>
+          <td class="px-2 py-1.5 text-right tabular-nums font-bold whitespace-nowrap">{{ t.lift }}×</td>
+          <td class="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">{% if t.lead is not none %}{{ t.lead | int }}d{% else %}—{% endif %}</td>
+          <td class="px-4 py-1.5 text-xs whitespace-nowrap {% if 'strict' in t.labels %}text-emerald-700{% else %}text-amber-700{% endif %}">{{ t.labels }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <div class="px-4 py-3 text-xs text-ink-faint border-t border-line">
+      Loaded from the committed calibration CSVs at import — the money path cannot drift from the evidence files. The evidence bars differ on purpose: the OHLCV tripwires cleared <strong>{{ trg.ohlcv_labels | join(' / ') or 'DATA_NEEDED' }}</strong> labels, the panel-fed ones ({{ trg.panel_fed | join(', ') }}) only <strong>{{ trg.panel_labels | join(' / ') or 'DATA_NEEDED' }}</strong>. Rule: 1 fire → tighten, 2+ → exit half; never an entry gate (the owner's F-006).
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="bg-white border border-line"><!-- den_trigger_counts_marker -->
+      <div class="px-4 py-3 border-b border-line font-bold">⚡ Trigger layer — {{ trg.n_triggers }} designed triggers</div>
+      <div class="p-4 text-xs space-y-2">
+        <div><strong>{{ trg.n_computable }}</strong> compute from OHLCV · <strong>{{ trg.n_external_wired }}</strong> of {{ trg.n_external }} external ones have a formula wired{% if trg.n_external_pending %} · <strong>{{ trg.n_external_pending }}</strong> have none yet{% endif %}. An external trigger reads DATA_NEEDED on any day its input is missing — never a quiet "no": {{ trg.n_news_fed }} need the day's news pass, {{ trg.n_chain_fed }} the Upstox option chain (login), the rest the committed panels. {{ trg.n_calibrated }} carry a calibration verdict ({% for tag, n in trg.calibration %}{{ tag }} {{ n }}{% if not loop.last %}, {% endif %}{% endfor %}).</div>
+        <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line"><tr><th class="text-left px-2 py-1">Family</th><th class="text-right px-2 py-1">Designed</th><th class="text-right px-2 py-1">Formula wired</th></tr></thead>
+          <tbody>
+            {% for f in trg.families %}
+            <tr class="border-b border-line last:border-0"><td class="px-2 py-1">{{ f.name }}</td><td class="px-2 py-1 text-right tabular-nums">{{ f.n }}</td><td class="px-2 py-1 text-right tabular-nums">{{ f.computing }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        <div class="text-ink-faint">Display + watchlist only (the owner's REQUIRES_15Y_BACKTEST rule): rise triggers measured ~chance in BT01-BT08; the danger side is the measured edge. {{ trg.score_note }}</div>
+        <div class="text-ink-faint">Stored pass: {{ trg.watch_rows }} scored rows, {{ trg.watchlist }} on the watch gate.</div>
+      </div>
+    </div>
+
+    <div class="space-y-4">
+      <div class="bg-white border border-line"><!-- den_gates_marker -->
+        <div class="px-4 py-3 border-b border-line font-bold">The owner's {{ trg.gates | length }} gates (verbatim logic)</div>
+        <div class="p-4 text-xs space-y-1">
+          {% for g in trg.gates %}
+          <div><span class="font-mono">{{ g.id }}</span> <strong>{{ g.name }}</strong> — <span class="font-mono text-ink-soft">{{ g.logic }}</span></div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="bg-white border border-line"><!-- den_ladder_marker -->
+        <div class="px-4 py-3 border-b border-line font-bold">Selection ladder (reading order, never an entry signal)</div>
+        <div class="p-4 text-xs space-y-1">
+          {% for s in trg.ladder %}
+          <div><span class="font-mono">{{ s.icon }}</span> <strong>{{ s.label }}</strong> — {{ s.means }}{% if s.lead %} <span class="text-ink-faint">· {{ s.lead }}</span>{% endif %}</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

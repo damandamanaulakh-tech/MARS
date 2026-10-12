@@ -1,0 +1,230 @@
+<!-- 2. ENGINES — Everest (momentum) and Ocean with every live parameter.
+     All numbers: den_routes._engines (cfg + modes.PRESETS + targets.py +
+     sizing.py + danger.py + risk_v2.py + engines/ocean.py). -->
+<section id="engines" class="scroll-mt-20"><!-- den_engines_marker -->
+  <div class="flex flex-wrap items-end justify-between gap-2 mb-3">
+    <h2 class="font-black text-2xl tracking-tight">2 · Engines</h2>
+    <div class="text-xs text-ink-faint">live mode <span class="font-mono">{{ eng.live_mode }}</span> · regime page: <a href="/engine" class="underline">/engine</a></div>
+  </div>
+
+  {% if eng.regime %}
+  <div class="mb-4 bg-white border border-line p-4 text-sm"><!-- den_regime_marker -->
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div><span class="text-[10px] tracking-widest text-ink-faint uppercase">Current regime</span>
+        <span class="ml-2 font-black text-lg">{{ (eng.regime.regime or 'DATA_NEEDED') | upper | replace('_', ' ') }}</span></div>
+      <div class="text-xs text-ink-faint">{{ eng.regime.source }}{% if eng.regime.at %} · {{ eng.regime.at.strftime('%Y-%m-%d %H:%M') }} UTC{% endif %} · <strong>state reading, not a forecast</strong></div>
+    </div>
+    {% if eng.regime.nifty_close %}
+    <div class="mt-2 text-xs text-ink-soft tabular-nums">
+      Nifty {{ "%.0f"|format(eng.regime.nifty_close) }} vs 200-DMA {{ "%.0f"|format(eng.regime.nifty_200dma) if eng.regime.nifty_200dma else '—' }}
+      · {{ "%+.2f%%"|format(eng.regime.pct_below_52w_high) if eng.regime.pct_below_52w_high is not none else '—' }} vs 52w high
+      · VIX {{ "%.2f"|format(eng.regime.vix) if eng.regime.vix else '—' }}
+      · Everest {{ 'ACTIVE' if eng.regime.everest_active else 'dormant' }} · Ocean {{ 'eligible' if eng.regime.ocean_active else 'dormant' }}
+    </div>
+    {% if eng.regime.reasoning %}<div class="mt-1 text-xs text-ink-faint">{{ eng.regime.reasoning }}</div>{% endif %}
+    {% else %}
+    <div class="mt-2 text-xs text-ink-faint">No cached regime inputs in this process — open <a href="/engine" class="underline">/engine</a> (it fetches, at most every 15 min); this page never fetches.</div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+    <!-- EVEREST -->
+    <div class="bg-white border border-line"><!-- den_everest_marker -->
+      <div class="px-4 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
+        <div class="font-bold">🏔️ Everest — momentum entries</div>
+        <div class="text-xs text-ink-faint">trading/strategies/nifty200_momentum.py · trading/quality.py · engine.scan</div>
+      </div>
+      <div class="p-4 text-sm space-y-3">
+        <div>
+          <div class="text-[10px] tracking-widest text-ink-faint uppercase">Score</div>
+          {% set mf = eng.momentum or {} %}
+          <div class="font-mono text-xs mt-1">momentum = {{ mf.center if mf.center is not none else 'DATA_NEEDED' }} + {{ mf.slope if mf.slope is not none else 'DATA_NEEDED' }} × avg( r6m/σ6m , r12m/σ12m ), clipped 0–100 (needs {{ mf.min_bars or 'DATA_NEEDED' }} bars)</div>
+          <div class="font-mono text-xs">quality = avg( low-vol score over {{ mf.low_vol_lookback or '?' }} bars , liquidity score over {{ mf.liquidity_lookback or '?' }} bars [, fundamentals if fed] )</div>
+          <div class="font-mono text-xs">entry score = (1 − {{ eng.quality_blend_pct }}%) × momentum + {{ eng.quality_blend_pct }}% × quality</div>
+          <div class="text-xs text-ink-faint mt-1">{{ eng.momentum_doc }}</div>
+        </div>
+        <div>
+          <div class="text-[10px] tracking-widest text-ink-faint uppercase">Gates (momentum pass)</div>
+          <ul class="text-xs mt-1 space-y-1">
+            {% for c in eng.categories if c.key == 'nifty200_momentum' %}
+            <li>score floor <strong>{{ c.floor }}</strong>{% if c.floor != c.preset_floor %} <span class="text-amber-700">(preset {{ c.preset_floor }}, owner override)</span>{% endif %} — at or below the floor the slab model sizes ZERO, so the buy needs score &gt; floor</li>
+            <li>absolute momentum: {{ eng.abs_mom_rule }}</li>
+            <li>timing: {% if c.timing_off %}OFF for momentum (breakout threshold {{ c.breakout_threshold_pct }}%, volume ratio {{ c.volume_confirm_ratio }}){% else %}within {{ c.breakout_threshold_pct }}% of the 20-day high, 5d volume ≥ {{ c.volume_confirm_ratio }}× 20d{% endif %}</li>
+            <li>candle confirmation: {% if c.candle_gate %}ON{% else %}<strong>OFF</strong> for momentum (skip list: {{ eng.candle_skip_modes | join(', ') }}){% endif %}</li>
+            {% endfor %}
+            <li>breadth band: {% if eng.breadth.enabled %}<strong>blocks while {{ (eng.breadth.low * 100) | round(0) | int }}% ≤ share of names above their own 200-DMA &lt; {{ (eng.breadth.high * 100) | round(0) | int }}%</strong>; below the band is buyable (washout), above is healthy; min sample {{ eng.breadth.min_sample }}, store reading trusted {{ eng.breadth.store_max_age_days }} days; VIX-crush re-entry bypasses it{% else %}OFF{% endif %}
+              {% if eng.breadth.today %}<span class="text-ink-faint">· today's cached reading: {{ eng.breadth.today }}</span>{% endif %}</li>
+            <li>correction brake: {% if eng.risk.correction_brake %}ON (Nifty under its 200-DMA blocks){% else %}<strong>OFF</strong> (owner order 2026-08-09; panic still blocks){% endif %} · VIX-crush re-entry {{ 'ON' if eng.risk.vix_reentry else 'OFF' }}</li>
+            <li>liquidity: 5-day rupee turnover ≥ ₹{{ eng.risk.liquidity_cr }} Cr, market cap ≥ ₹{{ eng.risk.liquidity_mcap_cr | inr }} Cr, spread ≤ {{ eng.risk.liquidity_spread_pct }}% when a quote exists, no circuit</li>
+            <li>measured Kelly check: {% if eng.measured_kelly.enabled %}ON for {{ eng.measured_kelly.modes | join(', ') }} — no measured edge = no new scan entries in that pass{% else %}OFF{% endif %}</li>
+          </ul>
+        </div>
+        <div>
+          <div class="text-[10px] tracking-widest text-ink-faint uppercase">Exit bracket (new momentum buys)</div>
+          <ul class="text-xs mt-1 space-y-1">
+            <li>stop = {% if eng.stop.enabled %}wider of the category stop and <strong data-den-stop-k="{{ eng.stop.k }}">{{ eng.stop.k }} × ATR{{ eng.stop.window }}</strong>, capped at <strong data-den-stop-cap="{{ eng.stop.cap_pct }}">−{{ eng.stop.cap_pct }}%</strong>{% else %}the fixed category stop (ATR stop switched OFF){% endif %} · modes: {{ eng.stop.modes | join(', ') }} · <span class="text-ink-faint">{{ eng.stop.source }}</span></li>
+            <li>target = <strong>k × ATR{{ eng.target.window }}</strong>, k anchored so the median name (ATR {{ eng.target.median_atr_pct }}% of price) reproduces the owner's target; clamped into a per-horizon band (table below)</li>
+            <li>trail, decay and max-hold per category (table below); a held position keeps the bracket it was opened with</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- OCEAN -->
+    <div class="bg-white border border-line"><!-- den_ocean_marker -->
+      <div class="px-4 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
+        <div class="font-bold">🌊 Ocean — deep-reversion entries</div>
+        <div class="text-xs"><span class="px-2 py-0.5 text-[10px] tracking-widest uppercase font-bold {% if eng.ocean.enabled %}bg-blue-600 text-white{% else %}bg-amber-200 text-amber-900{% endif %}">{{ 'ON behind the crash guard' if eng.ocean.enabled else 'PARKED (switch off)' }}</span></div>
+      </div>
+      <div class="p-4 text-sm space-y-3">
+        <div>
+          <div class="text-[10px] tracking-widest text-ink-faint uppercase">Ticket</div>
+          <div class="text-xs mt-1">₹<strong>{{ eng.ocean.ticket | inr }}</strong> per dip trade (fixed, "ocean_fixed"), max <strong>{{ eng.ocean.max_positions }}</strong> concurrent slots = ₹{{ (eng.ocean.ticket * eng.ocean.max_positions) | inr }} at most; every can_open gate still applies, regime reserve included.</div>
+        </div>
+        <div>
+          <div class="text-[10px] tracking-widest text-ink-faint uppercase">Selection (all must pass) — engines/ocean.py evaluate()</div>
+          <ul class="text-xs mt-1 space-y-1">
+            <li>price ≥ <strong>{{ (eng.ocean.below_200dma_pct | abs) if eng.ocean.below_200dma_pct is not none else 'DATA_NEEDED' }}%</strong> below its 200-day SMA</li>
+            <li>weekly RSI({{ eng.ocean.rsi_length or '?' }}) &lt; <strong>{{ eng.ocean.weekly_rsi_max if eng.ocean.weekly_rsi_max is not none else 'DATA_NEEDED' }}</strong></li>
+            <li>climax volume: max volume of the last {{ eng.ocean.cvr_lookback or '?' }} days ≥ <strong>{{ eng.ocean.climax_ratio_min if eng.ocean.climax_ratio_min is not none else 'DATA_NEEDED' }}×</strong> its {{ eng.ocean.cvr_baseline or '?' }}-day average</li>
+            <li>survival (fundamentals store): D/E &lt; <strong>{{ eng.ocean.de_max if eng.ocean.de_max is not none else 'DATA_NEEDED' }}</strong> and latest free cash flow &gt; 0; missing fundamentals = FAIL</li>
+          </ul>
+        </div>
+        <div>
+          <div class="text-[10px] tracking-widest text-ink-faint uppercase">The four rails (crash guard, owner-approved 2026-08-26)</div>
+          <ul class="text-xs mt-1 space-y-1">
+            {% for r in eng.ocean.rails %}
+            <li><strong>{{ r.id }} {{ r.name }}</strong> — {{ r.rule }} <span class="text-ink-faint">· {{ r.source }}</span></li>
+            {% endfor %}
+          </ul>
+        </div>
+        <div>
+          <div class="text-[10px] tracking-widest text-ink-faint uppercase">Exempt from</div>
+          <div class="text-xs mt-1">{{ eng.ocean.exempt | join(' · ') }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PER-CATEGORY TABLE -->
+  <div class="bg-white border border-line mb-4"><!-- den_categories_marker -->
+    <div class="px-4 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
+      <div class="font-bold">Five categories — floors, brackets, gates, cash shares</div>
+      <div class="text-xs text-ink-faint">modes.PRESETS + owner overrides · targets.ATR_TARGET_K / TARGET_BAND · category shares {{ 'ON' if eng.shares_enabled else 'OFF' }}</div>
+    </div>
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+        <tr><th class="text-left px-4 py-2 whitespace-nowrap">Category</th>
+            <th class="text-right px-2 py-2 whitespace-nowrap">Floor</th>
+            <th class="text-left px-2 py-2 whitespace-nowrap">Scorer</th>
+            <th class="text-right px-2 py-2 whitespace-nowrap">Stop</th>
+            <th class="text-right px-2 py-2 whitespace-nowrap">Target k</th>
+            <th class="text-right px-2 py-2 whitespace-nowrap">@ median ATR</th>
+            <th class="text-right px-2 py-2 whitespace-nowrap">Band</th>
+            <th class="text-right px-2 py-2 whitespace-nowrap">Trail</th>
+            <th class="text-right px-2 py-2 whitespace-nowrap">Decay</th>
+            <th class="text-right px-2 py-2 whitespace-nowrap">Max hold</th>
+            <th class="text-center px-2 py-2 whitespace-nowrap">Candle gate</th>
+            <th class="text-center px-2 py-2 whitespace-nowrap">Kelly check</th>
+            <th class="text-right px-4 py-2 whitespace-nowrap">Cash share</th></tr>
+      </thead>
+      <tbody>
+        {% for c in eng.categories %}
+        <tr class="border-b border-line last:border-0 {% if c.active %}bg-ink/[0.03]{% endif %}" data-den-category="{{ c.key }}">
+          <td class="px-4 py-2 font-semibold whitespace-nowrap">{{ c.name }}{% if c.active %} <span class="text-[9px] uppercase tracking-widest bg-ink text-white px-1.5 py-0.5">live</span>{% endif %}
+            <div class="text-[10px] text-ink-faint font-normal">{{ c.bar }} bars · {{ c.history }} history{% if c.square_off %} · square-off {{ c.square_off }}{% endif %}</div></td>
+          <td class="px-2 py-2 text-right tabular-nums font-bold" data-den-floor="{{ c.key }}">{{ c.floor }}{% if c.floor != c.preset_floor %}<div class="text-[10px] text-amber-700 font-normal">preset {{ c.preset_floor }}</div>{% endif %}</td>
+          <td class="px-2 py-2 text-xs text-ink-soft min-w-[10rem]">{{ c.scorer }}</td>
+          <td class="px-2 py-2 text-right tabular-nums text-red-700 whitespace-nowrap">{{ c.stop_pct }}%{% if c.atr_stop %}<div class="text-[10px] text-amber-700">floor of {{ eng.stop.k }}×ATR, cap −{{ eng.stop.cap_pct }}%</div>{% endif %}</td>
+          <td class="px-2 py-2 text-right tabular-nums" data-den-target-k="{{ c.key }}">{{ c.target_k }}×</td>
+          <td class="px-2 py-2 text-right tabular-nums text-emerald-700">+{{ c.target_at_median_pct }}%</td>
+          <td class="px-2 py-2 text-right tabular-nums text-xs text-ink-faint whitespace-nowrap">{{ c.band_pct[0] }}–{{ c.band_pct[1] }}%</td>
+          <td class="px-2 py-2 text-right tabular-nums">{{ c.trail_pct }}%</td>
+          <td class="px-2 py-2 text-right tabular-nums">{{ c.decay }}</td>
+          <td class="px-2 py-2 text-right tabular-nums">{{ c.hold }}d</td>
+          <td class="px-2 py-2 text-center">{{ 'ON' if c.candle_gate else 'off' }}</td>
+          <td class="px-2 py-2 text-center">{{ 'gated' if c.kelly_gated and eng.measured_kelly.enabled else '—' }}</td>
+          <td class="px-4 py-2 text-right tabular-nums">{% if c.share_pct is not none %}{{ c.share_pct }}%{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <div class="px-4 py-3 text-xs text-ink-faint border-t border-line">
+      Target k is anchored to a MEASUREMENT: median ATR = {{ eng.target.median_atr_pct }}% of price over the committed 191-name panel, so k × {{ eng.target.median_atr_pct }}% reproduces each owner-decided target for the median name. Stops for the four non-momentum categories are fixed (unmeasured). Owner overrides: {% for c in eng.categories if c.overrides %}{{ c.key }} → {{ c.overrides | join(', ') }}{% if not loop.last %}; {% endif %}{% else %}none stored{% endfor %}.
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+    <!-- SIZING -->
+    <div class="bg-white border border-line"><!-- den_sizing_marker -->
+      <div class="px-4 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
+        <div class="font-bold">Sizing — the slab model</div>
+        <div class="text-xs text-ink-faint">trading/sizing.py · mode <span class="font-mono">{{ eng.sizing.mode }}</span></div>
+      </div>
+      <div class="p-4 text-sm">
+        <div class="font-mono text-xs space-y-0.5">
+          <div>z = (score − {{ eng.sizing.floor }}) / {{ eng.sizing.z_div if eng.sizing.z_div else 'DATA_NEEDED' }} · μ = IC × σ × z · f = min( {{ (eng.sizing.cap_pct) }}% , m × μ / σ² )</div>
+          <div>size = max( ₹{{ eng.sizing.slab | inr }} , f × equity ) · score ≤ {{ eng.sizing.floor }} → 0 (skipped, never opened at the slab)</div>
+          <div>m = <strong>{{ eng.sizing.m }}</strong> · IC = {{ eng.sizing.ic }} (ASSUMED) · cap {{ eng.sizing.cap_pct }}% of equity = ₹{{ eng.sizing.cap_rupees | inr }} on ₹{{ eng.sizing.equity | inr }}</div>
+          <div>minimum any scan trade opens at: ₹{{ eng.sizing.min_position_value | inr }} (rounded UP when the money limits have room, else refused) · ceiling {{ eng.sizing.max_positions }} positions</div>
+        </div>
+        <div class="overflow-x-auto mt-3">
+        <table class="w-full text-xs">
+          <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+            <tr><th class="text-left px-2 py-1">Score</th><th class="text-right px-2 py-1">z</th><th class="text-right px-2 py-1">Kelly f</th><th class="text-right px-2 py-1">f × equity</th><th class="text-right px-2 py-1">Size</th></tr>
+          </thead>
+          <tbody>
+            {% for r in eng.sizing.ladder %}
+            <tr class="border-b border-line last:border-0">
+              <td class="px-2 py-1 tabular-nums">{{ r.score }}</td>
+              <td class="px-2 py-1 text-right tabular-nums">{{ r.z }}</td>
+              <td class="px-2 py-1 text-right tabular-nums">{{ r.kelly_pct }}%{% if r.capped %} <span class="text-amber-700">cap</span>{% endif %}</td>
+              <td class="px-2 py-1 text-right tabular-nums">₹{{ r.raw | inr }}</td>
+              <td class="px-2 py-1 text-right tabular-nums font-bold">₹{{ r.notional | inr }}{% if r.slab_applied %} <span class="text-ink-faint font-normal">slab</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        {% if not eng.sizing.ladder %}<div class="text-xs text-amber-700 mt-2">DATA_NEEDED — the z divisor could not be read from sizing.edge_estimate, so no ladder is drawn rather than a guessed one.</div>{% endif %}
+        <div class="text-[10px] text-ink-faint mt-2">Ladder = the same pure functions at an ILLUSTRATION σ of {{ eng.sizing.sigma_pct }}% annual vol on the starting capital; a real name uses its own realised vol, and the measured-Kelly cap and every can_open gate still apply after it. Not market data.</div>
+      </div>
+    </div>
+
+    <!-- MEASURED KELLY + RISK GOVERNOR -->
+    <div class="space-y-4">
+      <div class="bg-white border border-line"><!-- den_measured_kelly_marker -->
+        <div class="px-4 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
+          <div class="font-bold">Measured Kelly check (F-9)</div>
+          <div class="text-xs text-ink-faint">trading/measured_kelly.py · {{ 'ON' if eng.measured_kelly.enabled else 'OFF' }} · {{ eng.measured_kelly.modes | join(', ') }}</div>
+        </div>
+        <div class="p-4 text-xs space-y-1">
+          <div class="font-mono">p = (wins + {{ eng.measured_kelly.prior_trades | int }} × {{ eng.measured_kelly.prior_win_rate }}) / (n + {{ eng.measured_kelly.prior_trades | int }}) · b = mean win / |mean loss| · f = p − (1 − p)/b</div>
+          <div class="font-mono">applied cap = max(0, f) × m × min(1, n / {{ eng.measured_kelly.full_confidence }}) · returns clipped ±{{ eng.measured_kelly.clip_pct }}% · f ≤ 0 → block new scan entries</div>
+          {% if eng.measured_kelly.reading %}
+          <div class="mt-2">Live reading: <strong>{{ eng.measured_kelly.reading.status }}</strong> on {{ eng.measured_kelly.reading.usable }} usable exits ({{ eng.measured_kelly.reading.excluded }} owner/portfolio exits excluded{% if eng.measured_kelly.reading.other_category %}, {{ eng.measured_kelly.reading.other_category }} other-category{% endif %}) — {{ eng.measured_kelly.reading.note }}</div>
+          {% else %}<div class="mt-2 text-amber-700">Live reading unavailable (see /risk).</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="bg-white border border-line"><!-- den_risk_marker -->
+        <div class="px-4 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
+          <div class="font-bold">Risk governor</div>
+          <div class="text-xs text-ink-faint">risk.can_open · risk_v2.py · danger.py · full page: <a href="/risk" class="underline">/risk</a></div>
+        </div>
+        <div class="p-4 text-xs space-y-1">
+          <div>Kill switch: day loss ≤ <strong>{{ eng.risk.kill_switch_pct }}%</strong> of yesterday's close equity → every position closed, no entries for the day (re-arms daily).</div>
+          <div>Drawdown ladder (each level cuts ONCE, a recovery re-arms): {% for l in eng.risk.ladder %}<span class="whitespace-nowrap"><strong>{{ l.threshold_pct }}%</strong> {{ l.level }} ({{ l.action }}{% if l.mult < 1 %}, size ×{{ l.mult }}{% endif %})</span>{% if not loop.last %} · {% endif %}{% endfor %}.</div>
+          <div>Regime cash reserve: {% for r in eng.risk.reserve %}{{ r.regime }} {{ r.pct }}%{% if not loop.last %} · {% endif %}{% endfor %} (base reserve {{ eng.risk.cash_reserve_pct }}%).</div>
+          <div>Book limits: ceiling <strong>{{ eng.risk.max_positions }}</strong> names · sector cap {{ eng.risk.max_sector_positions }} names / {{ eng.risk.max_sector_exposure_pct }}% of capital ("Unknown" sector exempt from the count) · portfolio heat ≤ {{ eng.risk.max_heat_pct }}% of equity at stop · loss halt max(2, ⌈{{ eng.risk.loss_halt_fraction_pct }}% of the day's book⌉) strategy losses.</div>
+          <div>Rotation: {{ 'ON' if eng.risk.rotation else 'OFF' }} — a holding ≥ {{ eng.risk.rotation_min_progress_pct }}% to target is sold to fund a CLEARED pick when its category share or cash is short, or cash &lt; {{ eng.risk.rotation_cash_trigger_pct }}% of equity; owner picks never rotated.</div>
+          <div>Danger layer: {{ 'ON' if eng.risk.danger_enabled else 'OFF' }} — alerts only for the first {{ eng.risk.danger_alert_days }} days, then 1 tripwire = stop tightened to {{ eng.risk.danger_leash_pct }}% off price (module number {{ eng.risk.danger_tighten_pct }}%, floored at the category stop, never loosened), 2+ = exit half. Sell side only.</div>
+          <div>Market hours gate {{ 'ON' if eng.risk.market_hours_only else 'OFF' }} ({{ eng.market_hours or 'DATA_NEEDED' }} for opening/closing; reading runs at any hour) · exit check every {{ eng.risk.refresh_minutes }} min · skip buys when the last candle is older than {{ eng.risk.max_stale_days }} days · blocklist {{ eng.risk.blocklist | join(', ') or 'empty' }} · slippage {{ eng.risk.slippage_bps }} bps/side{% if eng.risk.disable_exits %} · <span class="text-red-700 font-bold">EXITS DISABLED</span>{% endif %}.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

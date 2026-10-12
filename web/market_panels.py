@@ -21,6 +21,29 @@ from typing import Optional
 
 log = logging.getLogger(__name__)
 
+
+def safe_panel(fn, *args):
+    """A broken panel must never take a page down with it.
+
+    One wrapper for every page that renders a panel — the dashboard and,
+    since the owner's 2026-10-12 order moved the sector strip and the scan
+    coverage card there, /scan as well. A panel that raises hides itself;
+    the page still renders.
+    """
+    try:
+        return fn(*args)
+    except Exception:                       # pragma: no cover - safety net
+        log.warning("panel %s failed", getattr(fn, "__name__", fn))
+        return None
+
+
+# Owner order 2026-10-12 (item 43): international indices on the index strip.
+# NO feed is reachable from the box — Yahoo is blocked on Render and stooq
+# returned nothing from the sandbox on 2026-10-12 — so the strip carries this
+# chip and never a number. Replace it with a real card only when a feed has
+# actually answered from the live box.
+INTERNATIONAL_NOTE = "International: DATA_NEEDED — no reachable free feed yet"
+
 _DATA = Path(__file__).resolve().parents[1] / "data"
 _DOCS = Path(__file__).resolve().parents[1] / "docs"
 _INDEX_CSV = _DATA / "index_daily_15y.csv"
@@ -383,6 +406,14 @@ def evidence_panel() -> Optional[dict]:
             "wins": wins_n,
             "avg_alpha": round(sum(alphas) / len(alphas), 2),
             "grid": d.get("grid_size"),
+            # AUDIT FIX D3 (2026-08-09), carried WITH the data since the
+            # panel left the dashboard (owner order 2026-10-12): these
+            # numbers were computed 2026-07-21 under the floor-55 / −12/+30
+            # rules of that date — evidence of the recipe's era, not a
+            # forecast of the live settings. Whoever renders the rows must
+            # print this beside them.
+            "era_note": ("computed 2026-07-21 (floor-55 era) — the live rules "
+                         "(floor 62, −5/+20) have moved since"),
         }
     except Exception as e:
         log.warning("evidence_panel unavailable: %s", e)
@@ -475,4 +506,256 @@ def atr_panel(tickers: list[str], limit: int = 4) -> list[dict]:
             "widened": abs(live_pct) > stop_pct + 1e-9,
             "k": _T.ATR_STOP_K, "cap_pct": round(_T.ATR_STOP_CAP * 100, 1),
         })
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Dashboard rebuild — owner order 2026-10-12 (items 30 a-m, 29, 12, 32, 43).
+# Pure arithmetic over the book and the config; no network, no I/O.
+# ---------------------------------------------------------------------------
+
+def _ist_zone():
+    try:
+        from .clock import IST
+        return IST
+    except Exception:                      # clock.py absent -> same zone
+        from zoneinfo import ZoneInfo
+        return ZoneInfo("Asia/Kolkata")
+
+
+def _ist_date_of(ts) -> str:
+    """IST calendar date of a stored stamp (journal stamps are naive UTC).
+    Unparseable -> '' so it matches no day, never today's by accident."""
+    from datetime import datetime as _dt, timezone
+    if ts is None or ts == "":
+        return ""
+    dt = ts
+    if isinstance(ts, str):
+        try:
+            dt = _dt.fromisoformat(ts.replace("Z", "+00:00"))
+        except ValueError:
+            return ""
+    if not isinstance(dt, _dt):
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(_ist_zone()).date().isoformat()
+
+
+def reserve_ladder_text() -> str:
+    """'0% bull · 0% neutral · 20% correction · 40% panic' read from
+    risk_v2's OWN table, so the screen cannot drift from the code (the
+    2026-07-27 truthful-copy pin, kept when the capability panel left the
+    dashboard)."""
+    try:
+        from trading.risk_v2 import DYNAMIC_CASH_RESERVE as ladder
+    except Exception:
+        return ""
+    names = {"bull_extension": "bull"}
+    return " · ".join(f"{round(float(v) * 100)}% {names.get(k, k)}"
+                      for k, v in ladder.items())
+
+
+def gates_in_force(cfg) -> dict:
+    """The entry rules a non-technical owner asks about when the book is
+    quiet, read from config/code — never typed by hand on the page."""
+    try:
+        from trading.risk_v2 import LiquidityRules
+        turnover_cr = float(LiquidityRules().min_rupee_volume_5d_cr)
+    except Exception:
+        turnover_cr = None
+    return {
+        "floor": float(getattr(cfg, "min_score_to_enter", 0.0) or 0.0),
+        # trading/engine.py: correlation_gate_blocks(..., threshold=0.85)
+        "correlation": 0.85,
+        "turnover_cr": turnover_cr,
+        "ladder": reserve_ladder_text(),
+        "max_positions": int(getattr(cfg, "max_positions", 0) or 0),
+    }
+
+
+def fund_summary(p, cfg, prices: dict, live_count: int) -> dict:
+    """Capital · allocated · reserved · used · cash · P&L, per segment and
+    in total (owner order 2026-10-12, item 30b).
+
+    Definitions, each the engine's own:
+      capital    = cfg.starting_capital (total); a segment's SHARE of the
+                   deployable capital (category_budget.limit — the number
+                   risk.can_open refuses on) or Ocean's ticket × slots.
+      allocated  = entry cost of the open positions (qty × entry price) —
+                   the deploy-cap convention, so it agrees with the gate.
+      now        = the same positions at the marks this page holds.
+      reserved   = the regime cash reserve, cfg.cash_reserve_pct × equity
+                   (engine.scan forces the 0/0/20/40 ladder into that field).
+      free       = share − allocated, what the category may still spend.
+      P&L        = now − allocated; "vs cost" over allocated, "vs capital"
+                   over the starting capital (total) or the share (segment).
+    `prices` carries live marks where the router had them and the entry
+    price elsewhere; `live_count` says how many names were live so the
+    block can label itself honestly instead of wearing "live" over an
+    entry mark.
+    """
+    from trading import category_budget as cb
+    positions = list(getattr(p, "positions", {}).values())
+    n = len(positions)
+    capital = float(getattr(cfg, "starting_capital", 0.0) or 0.0)
+    equity = float(p.equity(prices))
+    reserve_pct = float(getattr(cfg, "cash_reserve_pct", 0.0) or 0.0)
+    reserved = reserve_pct * equity
+    deployable = cb.deployable(cfg, equity)
+    budgets_on = cb.enabled(cfg)
+    min_open = max(cb.min_open(cfg), 1.0)
+
+    def _row(cat: str, label: str, limit, share, note: str = "") -> dict:
+        mine = [x for x in positions if cb.category_of(x) == cat]
+        allocated = sum(float(x.qty) * float(x.entry_price) for x in mine)
+        now_val = sum(float(x.qty) * float(prices.get(x.ticker, x.entry_price))
+                      for x in mine)
+        pnl = now_val - allocated
+        return {
+            "category": cat, "label": label, "note": note,
+            "share": share, "limit": limit,
+            "allocated": allocated, "now": now_val, "pnl": pnl,
+            "free": (max(0.0, limit - allocated) if limit is not None else None),
+            "pnl_vs_cost": ((pnl / allocated * 100) if allocated else None),
+            "pnl_vs_share": ((pnl / limit * 100) if limit else None),
+            "open": len(mine),
+            "full": (limit is not None and (limit - allocated) < min_open),
+        }
+
+    rows = []
+    for cat in cb.SHARE_FIELDS:
+        rows.append(_row(cat, cb.LABELS[cat], cb.limit(cfg, cat, equity),
+                         cb.share(cfg, cat)))
+    ocean_limit = (float(getattr(cfg, "ocean_position_value", 0.0) or 0.0)
+                   * int(getattr(cfg, "ocean_max_positions", 0) or 0))
+    rows.append(_row(cb.OCEAN, "Ocean", ocean_limit or None, None,
+                     note="ticket × slots, outside the five shares"))
+    known = set(cb.SHARE_FIELDS) | {cb.OCEAN}
+    for cat in sorted({cb.category_of(x) for x in positions} - known):
+        rows.append(_row(cat, cat.replace("_", " ").title(), None, None,
+                         note="no budget applies to this category"))
+
+    allocated = sum(r["allocated"] for r in rows)
+    now_val = sum(r["now"] for r in rows)
+    pnl = now_val - allocated
+    if n == 0:
+        marks = "no open positions"
+    elif live_count >= n:
+        marks = "live marks"
+    elif live_count == 0:
+        marks = "entry marks — connect Upstox for live P&L"
+    else:
+        marks = f"{live_count} of {n} names live, the rest at entry marks"
+    return {
+        "capital": capital, "equity": equity, "cash": float(p.cash),
+        "allocated": allocated, "now": now_val, "pnl": pnl,
+        "pnl_vs_cost": ((pnl / allocated * 100) if allocated else None),
+        "pnl_vs_capital": ((pnl / capital * 100) if capital else None),
+        "reserve_pct": reserve_pct, "reserved": reserved,
+        "deployable": deployable,
+        "budgets_on": budgets_on,
+        "share_total": (cb.share_total(cfg) if budgets_on else None),
+        "rows": rows, "open": n,
+        "marks": marks, "live": bool(n and live_count >= n),
+        "ladder": reserve_ladder_text(),
+    }
+
+
+def equity_month_series(history, now_ist=None) -> dict:
+    """The CURRENT month's equity curve, one point per calendar day (the
+    last mark of that day, a day with no mark = a gap), with the previous
+    month beside it for comparison (owner order 2026-10-12, item 30d).
+
+    `history` is `portfolio.equity_history`: (iso_ts, equity) tuples,
+    stamped naive UTC by the engine; days are bucketed in IST. Labels are
+    the owner's 1..31 — a 30-day month shows an empty 31st slot rather
+    than a different axis every month.
+    """
+    from datetime import datetime as _dt, timedelta, timezone
+    ist = _ist_zone()
+    now = now_ist or _dt.now(ist)
+    cur = (now.year, now.month)
+    prev_dt = now.replace(day=1) - timedelta(days=1)
+    prev = (prev_dt.year, prev_dt.month)
+    cur_vals: list = [None] * 31
+    prev_vals: list = [None] * 31
+    # Walk backwards: the first stamp seen for a day is that day's LAST
+    # mark; stop once a stamp is older than the previous month.
+    for item in reversed(list(history or [])):
+        try:
+            ts, v = item[0], item[1]
+            dt = _dt.fromisoformat(str(ts).replace("Z", "+00:00"))
+            val = round(float(v), 2)
+        except (TypeError, ValueError, IndexError):
+            continue
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.astimezone(ist)
+        key = (dt.year, dt.month)
+        if key == cur:
+            if cur_vals[dt.day - 1] is None:
+                cur_vals[dt.day - 1] = val
+        elif key == prev:
+            if prev_vals[dt.day - 1] is None:
+                prev_vals[dt.day - 1] = val
+        elif key < prev:
+            break
+    cur_seen = [v for v in cur_vals if v is not None]
+    return {
+        "labels": list(range(1, 32)),
+        "current": cur_vals,
+        "previous": prev_vals,
+        "month": now.strftime("%b %Y"),
+        "prev_month": prev_dt.strftime("%b %Y"),
+        "n_current": len(cur_seen),
+        "n_previous": sum(1 for v in prev_vals if v is not None),
+        "first": cur_seen[0] if cur_seen else None,
+        "last": cur_seen[-1] if cur_seen else None,
+    }
+
+
+# Journal actions that explain a quiet book (owner order 2026-10-12, item 32).
+WHY_NOT_ACTIONS = (
+    "CATEGORY_BUDGET_FULL", "BREADTH_BLOCKED", "MEASURED_KELLY_BLOCKED",
+    "SCAN_FAILED", "SCAN_COVERAGE_SHORT", "CORRECTION_BRAKE_OFF",
+    "ROTATION_NOTHING_TO_FUND", "KILL_SWITCH_SCAN",
+)
+
+
+def why_not_today(journal, today_iso: str) -> list[dict]:
+    """One row per category plus one for the whole book: the LATEST block
+    the journal recorded today, in the engine's own words. A category with
+    nothing recorded reads "no block recorded today" — never a reason the
+    journal did not write."""
+    from trading import category_budget as cb
+    order = list(cb.SHARE_FIELDS) + ["all"]
+    labels = dict(cb.LABELS)
+    labels["all"] = "All categories"
+    latest: dict = {}
+    for e in list(journal or [])[-800:]:
+        action = str(e.get("action", "") or "")
+        if action not in WHY_NOT_ACTIONS:
+            continue
+        if _ist_date_of(e.get("ts")) != today_iso:
+            continue
+        cat = str(e.get("category") or e.get("mode") or "").strip() or "all"
+        if cat not in labels:
+            cat = "all"
+        why = e.get("why") or e.get("detail") or e.get("err") or ""
+        # SCAN_FAILED's `why` is a generic hint; the real failure is `err`
+        # (scheduler._run_category_rotation) — show both, never just the hint.
+        if action == "SCAN_FAILED" and e.get("err") and str(e.get("err")) not in str(why):
+            why = f"{why} ({e.get('err')})" if why else str(e.get("err"))
+        if not why and action == "SCAN_COVERAGE_SHORT" and e.get("asked") is not None:
+            why = (f"scored {e.get('covered')} of the {e.get('asked')} names "
+                   f"asked for — the rest had no stored history")
+        latest[cat] = {"action": action, "why": str(why).strip(),
+                       "ts": e.get("ts")}
+    out = []
+    for c in order:
+        row = {"category": c, "label": labels[c],
+               "action": None, "why": "", "ts": None}
+        row.update(latest.get(c) or {})
+        out.append(row)
     return out

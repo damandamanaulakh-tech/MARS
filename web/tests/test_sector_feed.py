@@ -107,9 +107,12 @@ def test_card_renders_the_real_moves(monkeypatch):
     c = TestClient(app)
     assert c.post("/login", data={"email": "owner@sourceborn.in",
                                   "password": auth_mod._SEEDED_PWD}).status_code == 200
-    body = c.get("/").text
+    # Repointed 2026-10-12: the strip MOVED from the dashboard to /scan on the
+    # owner's order (item 30i).
+    body = c.get("/scan").text
     assert "sector_strip_marker" in body
     assert "-2.17%" in body and "Display only" in body
+    assert "sector_strip_marker" not in c.get("/").text
 
 
 def test_the_calibrated_tripwires_keep_their_own_sector_construction():

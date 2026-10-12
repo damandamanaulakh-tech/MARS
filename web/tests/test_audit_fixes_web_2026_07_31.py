@@ -61,7 +61,10 @@ def test_settings_warns_that_the_trailing_stop_cannot_fire():
     cfg = state.cfg()
     cfg.stop_loss_pct, cfg.take_profit_pct = -0.05, 0.12
     cfg.trailing_stop_pct = -0.15
-    html = _client().get("/settings").text
+    # Owner order 2026-10-12 ("setting will only have the APP SETTINGS, NOT
+    # THE ALGO, that will move to MARS Den"): the algo form and its warnings
+    # render on /den#algo-settings now.
+    html = _client().get("/den").text
     assert "trailing stop cannot fire" in html
     assert "11.76" in html          # the real peak it would need
     assert "Nothing was changed" in html   # exits are the owner's decision
@@ -72,7 +75,11 @@ def test_no_trail_warning_when_the_trail_can_actually_fire():
     cfg.stop_loss_pct, cfg.take_profit_pct = -0.12, 0.12
     cfg.trailing_stop_pct = -0.15
     try:
-        html = _client().get("/settings").text
+        # Owner order 2026-10-12: the warning's home is /den; the algo form
+        # must have rendered for the absence to mean anything.
+        r = _client().get("/den")
+        assert r.status_code == 200 and "settings_algo_form_marker" in r.text
+        html = r.text
         assert "trailing stop cannot fire" not in html
     finally:
         cfg.stop_loss_pct, cfg.take_profit_pct = -0.05, 0.12
@@ -80,8 +87,9 @@ def test_no_trail_warning_when_the_trail_can_actually_fire():
 
 def test_settings_names_the_preset_fields_and_explains_overrides():
     """AUDIT FIX A7: edits to preset-owned fields now STICK (per-mode
-    overrides) — the banner must say so instead of warning they revert."""
-    html = _client().get("/settings").text
+    overrides) — the banner must say so instead of warning they revert.
+    Owner order 2026-10-12: the banner moved with the algo form to /den."""
+    html = _client().get("/den").text
     assert "your override for the current mode" in html
     for field in PRESET_OWNED_FIELDS:
         assert field in html, f"{field} not disclosed as preset-owned"

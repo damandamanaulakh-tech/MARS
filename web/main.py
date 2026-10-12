@@ -24,10 +24,13 @@ from .routes import (  # noqa: E402
     upstox, backtest_routes, regime_routes,
     strategy_routes, reports_routes, risk_routes, alerts_routes,
     chart_routes, lens_routes, trigger_routes,
-    register_routes,
+    register_routes, den_routes,
 )
 # The Signal page (signal_routes) was removed 2026-10-12 on the owner's order
 # (item 1: "signal file also can be removed, not working and zero utility").
+# den_routes = MARS Den (item 23): one tab for every formula and the algo
+# controls; the lens/triggers/register/strategy/engine pages stay reachable
+# from it.
 
 
 WEB_DIR = Path(__file__).parent
@@ -123,6 +126,7 @@ app.include_router(chart_routes.router)
 app.include_router(lens_routes.router)
 app.include_router(trigger_routes.router)
 app.include_router(register_routes.router)
+app.include_router(den_routes.router)
 
 
 @app.on_event("startup")

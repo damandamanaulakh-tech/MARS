@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Scan — Sourceborn AM07{% endblock %}
+{% block title %}Scan — Sourceborn MARS{% endblock %}
 {% block content %}
 {% if running %}
 <meta http-equiv="refresh" content="10">
@@ -37,6 +37,86 @@
     </form>
   </div>
 </div>
+
+{#- Owner order 2026-10-12 (item 30i): the Sector-moves strip and the Scan-coverage
+    card MOVED here from the dashboard — same markers, same copy, the same
+    market_panels functions behind the same safety wrapper (scan_routes). -#}
+{% if sectors and sectors.rows %}
+<!-- Real NSE sector indices (owner order 2026-09-09 "fix it": Nifty IT fell
+     10% in six sessions and no screen in the app said so). Display only. -->
+<div class="border border-line bg-white mb-6"><!-- sector_strip_marker -->
+  <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
+    <div class="font-bold">🧭 Sector moves <span class="text-xs font-normal text-ink-faint">worst first</span></div>
+    <div class="text-xs text-ink-faint">{{ sectors.n }} NSE sector indices · closes to {{ sectors.asof }}</div>
+  </div>
+  <div class="px-4 lg:px-6 py-4">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+      {% for s in sectors.rows %}
+      <div class="border border-line px-3 py-2">
+        <div class="text-xs text-ink-soft truncate">{{ s.sector }}</div>
+        <div class="text-lg font-black tabular-nums {% if s.chg_1d is none %}text-ink-faint{% elif s.chg_1d < 0 %}text-red-700{% else %}text-emerald-700{% endif %}">
+          {% if s.chg_1d is none %}—{% else %}{{ '%+.2f'|format(s.chg_1d) }}%{% endif %}
+        </div>
+        <div class="text-xs text-ink-faint tabular-nums">
+          5d {% if s.chg_5d is none %}—{% else %}{{ '%+.1f'|format(s.chg_5d) }}%{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="text-xs text-ink-faint mt-3">
+      Stored daily closes from the public Upstox candle feed, refreshed before the scan and after the close.
+      A dash means that sector has only one stored day yet, not a flat market.
+      Display only: nothing here buys, sells or moves a stop, and the calibrated sector tripwires
+      keep their own equal-weight construction so their measured evidence still holds.
+    </p>
+  </div>
+</div>
+{% endif %}
+
+{% if coverage and coverage.rows %}
+<!-- Owner ask 2026-09-10: "what i felt system is not reading all 2400 stocks
+     every time, that is the flaw ... we can do sector wise and on dashboard
+     after doing each sector's each share it show show data". A count, not a
+     reassurance. Display only. -->
+<div class="border border-line bg-white mb-6"><!-- coverage_marker -->
+  <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
+    <div class="font-bold">📡 Scan coverage
+      <span class="text-xs font-normal text-ink-faint">what the app actually read today</span></div>
+    <div class="text-xs text-ink-faint">
+      <span class="font-mono font-bold">{{ coverage.scanned }}</span> of
+      <span class="font-mono">{{ coverage.universe }}</span> names scored
+      ({{ coverage.pct }}%) · {{ coverage.passing }} above the {{ coverage.floor }} floor
+    </div>
+  </div>
+  {% if coverage.short_by > 0 %}
+  <div class="px-4 lg:px-6 py-3 border-b border-line bg-amber-50 text-xs text-ink">
+    <b>SHORT BY {{ coverage.short_by }}</b> of the {{ coverage.target }}-name target.
+    The weekly batch ranks only the names the stored history covers, so the list
+    grows as the store fills — it is not a silent truncation.
+  </div>
+  {% endif %}
+  <div class="px-4 lg:px-6 py-4">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+      {% for c in coverage.rows %}
+      <div class="border border-line px-3 py-2">
+        <div class="text-xs font-bold truncate">{{ c.sector }}</div>
+        <div class="font-mono text-sm">
+          {{ c.scanned }}/{{ c.universe }}
+          <span class="text-xs {% if c.pct >= 100 %}text-emerald-700{% else %}text-ink-faint{% endif %}">
+            {{ c.pct }}%</span>
+        </div>
+        <div class="text-xs text-ink-faint">{{ c.passing }} passing</div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="text-xs text-ink-faint mt-3">
+      Scan of {{ coverage.ts | ist }}. A name with no stored daily history cannot
+      be scored — that is the gap, and filling the store closes it.
+      Display only; nothing here buys or sells.
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <div class="bg-white border border-line mb-6"><!-- multi_formula_card_marker -->
   <div class="px-4 lg:px-6 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">

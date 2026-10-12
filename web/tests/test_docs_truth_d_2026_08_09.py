@@ -101,8 +101,16 @@ def test_claude_md_no_longer_contradicts_itself():
 
 
 def test_walk_forward_panel_names_its_era():
-    d = Path("web/templates/dashboard.html").read_text()
+    # Repointed 2026-10-12: the Walk-Forward Evidence panel left the dashboard
+    # for the MARS Den on the owner's order (item 30f). The pin follows the
+    # panel — whichever screen shows those numbers must name their era — and
+    # the era note now also travels WITH the data (market_panels.evidence_panel).
+    d = Path("web/templates/_den_evidence.html").read_text()
     assert "floor-55 era" in d
+    assert "floor-55 era" in Path("web/market_panels.py").read_text()
+    # (absence from the RENDERED dashboard is pinned in
+    # test_dashboard_mars_2026_10_12.py — a source grep would trip on the
+    # template comment that records the move.)
 
 
 # ---- External-review regression guards (PR#40) ----

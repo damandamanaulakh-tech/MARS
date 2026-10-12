@@ -1,0 +1,46 @@
+<!-- 5. TIMING — the candle structures (trading/candles.py registries), who
+     the gate applies to, and the piano's last reading. -->
+<section id="timing" class="scroll-mt-20"><!-- den_timing_marker -->
+  <div class="flex flex-wrap items-end justify-between gap-2 mb-3">
+    <h2 class="font-black text-2xl tracking-tight">5 · Timing — candles + piano</h2>
+    <div class="text-xs text-ink-faint">the full piano: <a href="/scan#piano" class="underline">/scan#piano</a></div>
+  </div>
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div class="bg-white border border-line lg:col-span-2"><!-- den_candles_marker -->
+      <div class="px-4 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
+        <div class="font-bold">🕯️ {{ tim.n_structures }} candle structures</div>
+        <div class="text-xs text-ink-faint">gate {{ 'ON' if tim.enabled else 'OFF' }} · breakout lookback {{ tim.lookback }} bars · volume ≥ {{ tim.vol_mult }}× · tap pages under /scan/parameter/</div>
+      </div>
+      <div class="p-4 text-xs space-y-3">
+        <div><span class="text-[10px] tracking-widest text-ink-faint uppercase">Bullish ({{ tim.bullish | length }}) — can confirm an entry</span>
+          <div class="mt-1 flex flex-wrap gap-1">{% for n in tim.bullish %}<a href="/scan/parameter/struct:{{ n }}" class="px-1.5 py-0.5 border {% if n in tim.configured %}border-emerald-400 bg-emerald-50{% else %}border-line{% endif %} font-mono">{{ n }}</a>{% endfor %}</div></div>
+        <div><span class="text-[10px] tracking-widest text-ink-faint uppercase">Bearish ({{ tim.bearish | length }}) — warn only, never buy</span>
+          <div class="mt-1 flex flex-wrap gap-1">{% for n in tim.bearish %}<a href="/scan/parameter/struct:{{ n }}" class="px-1.5 py-0.5 border border-red-200 bg-red-50 font-mono">⚠ {{ n }}</a>{% endfor %}</div></div>
+        <div><span class="text-[10px] tracking-widest text-ink-faint uppercase">Neutral ({{ tim.neutral | length }})</span>
+          <div class="mt-1 flex flex-wrap gap-1">{% for n in tim.neutral %}<a href="/scan/parameter/struct:{{ n }}" class="px-1.5 py-0.5 border border-line font-mono">{{ n }}</a>{% endfor %}</div></div>
+        <div class="text-ink-faint">Green-boxed = in <span class="font-mono">cfg.candle_patterns</span> (the confirm set: {{ tim.configured | join(', ') }}). Gate-capable functions: {{ tim.gate_capable | join(', ') }}; breakout and urr take their own lookback/volume arguments.</div>
+        <div><span class="text-[10px] tracking-widest text-ink-faint uppercase">Who waits for a candle</span>
+          <div class="mt-1 flex flex-wrap gap-2">{% for c in tim.per_category %}<span class="px-2 py-0.5 border {% if c.gate %}border-emerald-400{% else %}border-line text-ink-faint{% endif %}">{{ c.name }}: {{ 'gate ON' if c.gate else 'off' }}</span>{% endfor %}</div></div>
+      </div>
+    </div>
+    <div class="bg-white border border-line"><!-- den_piano_marker -->
+      <div class="px-4 py-3 border-b border-line font-bold">🎹 Piano — last scan</div>
+      <div class="p-4 text-xs">
+        {% if tim.piano %}
+        <div><strong>{{ tim.piano.hits }}</strong> of {{ tim.piano.total }} cells hit · {{ tim.piano.scanned }} of {{ tim.piano.universe_size }} names scored · {{ tim.piano.mode }} pass{% if tim.piano.ts %} · {{ tim.piano.ts[:16] }}{% endif %}</div>
+        <div class="overflow-x-auto mt-2 max-h-72 overflow-y-auto">
+        <table class="w-full text-xs">
+          <tbody>
+            {% for s in tim.piano.sections %}
+            <tr class="border-b border-line last:border-0"><td class="px-2 py-1">{{ s.name }}</td><td class="px-2 py-1 text-right tabular-nums whitespace-nowrap">{{ s.hit }} / {{ s.total }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        {% else %}
+        <div class="text-ink-faint">No stored scan matrix yet — the piano fills at the next 09:20 / 14:30 pass.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>

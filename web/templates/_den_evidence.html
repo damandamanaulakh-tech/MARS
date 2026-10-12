@@ -1,0 +1,115 @@
+<!-- 8. EVIDENCE — the walk-forward table, the horizons and the ATR-vs-stop
+     rows, exactly as the dashboard used to render them (moved here
+     2026-10-12; web/market_panels.py is unchanged). -->
+<section id="evidence" class="scroll-mt-20"><!-- den_evidence_marker -->
+  <div class="flex flex-wrap items-end justify-between gap-2 mb-3">
+    <h2 class="font-black text-2xl tracking-tight">8 · Evidence</h2>
+    <div class="text-xs text-ink-faint">web/market_panels.py · docs/param_search_v3_results.json</div>
+  </div>
+
+  {% set horizons = evd.horizons %}
+  {% set evidence = evd.evidence %}
+  {% set atr_rows = evd.atr_rows %}
+
+  {% if horizons %}
+  <div class="border border-line bg-white mb-6"><!-- den_horizons_marker -->
+    <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
+      <div class="font-bold">🎚️ Trade Horizons — real exit presets</div>
+      <div class="text-xs text-ink-faint">highlighted = live right now</div>
+    </div>
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 p-4 lg:p-5">
+      {% for h in horizons %}
+      <div class="border p-3 {% if h.active %}border-ink bg-ink/[0.03]{% else %}border-line{% endif %}">
+        <div class="flex items-center justify-between gap-1">
+          <div class="font-bold text-sm">{{ h.name }}</div>
+          {% if h.active %}<span class="text-[9px] uppercase tracking-widest bg-ink text-white px-1.5 py-0.5">live</span>{% endif %}
+        </div>
+        <div class="text-[10px] text-ink-faint mt-0.5 leading-snug">{{ h.blurb }}</div>
+        <div class="mt-2 text-xs tabular-nums space-y-0.5">
+          <div class="flex justify-between"><span class="text-ink-faint">stop</span><span class="font-semibold text-red-700">{{ h.stop }}%</span></div>
+          <div class="flex justify-between"><span class="text-ink-faint">target</span><span class="font-semibold text-emerald-700">+{{ h.target }}%</span></div>
+          <div class="flex justify-between"><span class="text-ink-faint">trail</span><span>{{ h.trail }}%</span></div>
+          <div class="flex justify-between"><span class="text-ink-faint">max hold</span><span>{{ h.hold }}d</span></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+    {% if evidence %}
+    <div class="border border-line bg-white"><!-- den_walk_forward_marker -->
+      <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
+        <div class="font-bold">🔬 Walk-Forward Evidence</div>
+        <div class="text-xs text-ink-faint">{{ evidence.wins }}/{{ evidence.windows }} windows beat the benchmark
+          · <span class="text-amber-700" title="AUDIT FIX D3: these numbers were computed 2026-07-21 under the floor-55 / −12/+30 rules of that date — the live rules (floor 62, −5/+20) have moved since. Evidence of the RECIPE's era, not a forecast of the current settings.">computed 2026-07-21 (floor-55 era)</span></div>
+      </div>
+      <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+          <tr><th class="text-left px-4 py-2 whitespace-nowrap">Out-of-sample window</th>
+              <th class="text-right px-2 py-2 whitespace-nowrap">Engine</th>
+              <th class="text-right px-2 py-2 whitespace-nowrap">Benchmark</th>
+              <th class="text-right px-2 py-2 whitespace-nowrap">Alpha</th>
+              <th class="text-right px-4 py-2 whitespace-nowrap">Worst DD</th></tr>
+        </thead>
+        <tbody>
+          {% for r in evidence.rows %}
+          <tr class="border-b border-line last:border-0">
+            <td class="px-4 py-2 font-semibold whitespace-nowrap">{{ r.window }}</td>
+            <td class="px-2 py-2 text-right tabular-nums">{{ r.cagr }}%</td>
+            <td class="px-2 py-2 text-right tabular-nums text-ink-soft">{{ r.bench }}%</td>
+            <td class="px-2 py-2 text-right tabular-nums font-bold {% if r.alpha > 0 %}text-emerald-700{% else %}text-red-700{% endif %}">{{ '%+.2f' % r.alpha }}</td>
+            <td class="px-4 py-2 text-right tabular-nums text-red-700">{{ r.dd }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <div class="px-4 lg:px-6 py-3 text-xs text-ink-faint border-t border-line">
+        Preregistered search over {{ evidence.grid }} configs, 191 real tickers, chosen on PAST data only.
+        Average out-of-sample alpha <strong>{{ '%+.2f' % evidence.avg_alpha }}pp/yr</strong> — the honest band is −2 to +9.
+        The 2024–26 miss is the flat stretch you lived through.
+      </div>
+    </div>
+    {% else %}
+    <div class="border border-line bg-white p-4 text-sm text-ink-faint">Walk-forward evidence file not readable — DATA_NEEDED (docs/param_search_v3_results.json).</div>
+    {% endif %}
+
+    {% if atr_rows %}
+    <div class="border border-line bg-white"><!-- den_atr_marker -->
+      <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
+        <div class="font-bold">📐 Volatility and the stop rule</div>
+        <div class="text-xs text-ink-faint">stored closes, not live ticks · display only</div>
+      </div>
+      <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+          <tr><th class="text-left px-4 py-2 whitespace-nowrap">Stock</th>
+              <th class="text-right px-2 py-2 whitespace-nowrap">ATR(14)</th>
+              <th class="text-right px-2 py-2 whitespace-nowrap">Floor (fixed)</th>
+              <th class="text-right px-4 py-2 whitespace-nowrap">Live rule: {{ atr_rows[0].k }}×ATR, floor −{{ atr_rows[0].fixed_stop_pct }}%, cap −{{ atr_rows[0].cap_pct }}%</th></tr>
+        </thead>
+        <tbody>
+          {% for r in atr_rows %}
+          <tr class="border-b border-line last:border-0">
+            <td class="px-4 py-2 font-semibold whitespace-nowrap">{{ r.ticker | replace('.NS','') }}
+              <span class="text-ink-faint text-xs tabular-nums" title="last stored close — not a live price">₹{{ r.last | inr(2) }}{% if r.asof %} <span class="text-[10px]">({{ r.asof }})</span>{% endif %}</span></td>
+            <td class="px-2 py-2 text-right tabular-nums">₹{{ r.atr | inr(2) }} <span class="text-ink-faint text-xs">({{ r.atr_pct }}%)</span></td>
+            <td class="px-2 py-2 text-right tabular-nums">₹{{ r.fixed_stop | inr(2) }} <span class="text-ink-faint text-xs">(−{{ r.fixed_stop_pct }}%)</span></td>
+            <td class="px-4 py-2 text-right tabular-nums {% if r.widened %}text-amber-700 font-semibold{% endif %}">₹{{ r.atr_stop | inr(2) }} <span class="text-xs">(−{{ r.atr_stop_pct }}%{% if r.source == 'atr_cap' %}, capped{% elif r.source == 'fixed' %}, fixed{% endif %})</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <div class="px-4 lg:px-6 py-3 text-xs text-ink-faint border-t border-line">
+        Since 2026-10-05 ("Go for A") a <strong>new momentum buy</strong> gets the wider of the category stop and {{ atr_rows[0].k }} × its 14-day ATR, capped at −{{ atr_rows[0].cap_pct }}% (measured: research/stop_cooldown_study). Rows in <span class="text-amber-700 font-semibold">amber</span> are names the rule widens — the fixed stop sits inside their daily noise. Other categories keep their fixed stop; a held position keeps the stop it was opened with.
+      </div>
+    </div>
+    {% else %}
+    <div class="border border-line bg-white p-4 text-sm text-ink-faint">📐 Volatility and the stop rule — no held names with stored history to show.</div>
+    {% endif %}
+  </div>
+</section>

@@ -34,7 +34,10 @@ def test_db_save_load_noop_when_disconnected():
 
 def test_settings_page_shows_mode_picker():
     c = _logged_in_client()
-    r = c.get("/settings")
+    # Owner order 2026-10-12 ("setting will only have the APP SETTINGS, NOT
+    # THE ALGO, that will move to MARS Den"): the mode picker is part of the
+    # algo form, which renders on /den now.
+    r = c.get("/den")
     assert r.status_code == 200
     assert "Trading Mode" in r.text
     assert "Intraday" in r.text

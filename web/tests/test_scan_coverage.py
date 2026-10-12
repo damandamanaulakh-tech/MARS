@@ -96,18 +96,23 @@ def test_sectors_are_broken_out_and_ordered_by_size():
         p.scan_matrix, cfg.custom_universe = sm, su
 
 
-def test_the_card_renders_on_the_real_dashboard():
+def test_the_card_renders_on_the_real_scan_page():
     """VERIFIED BY A REAL RENDER, not only by the panel function — the
     /positions 500 of 2026-08-21 was a template fault that every unit test
-    missed because no test ever rendered the page with live state."""
+    missed because no test ever rendered the page with live state.
+
+    Repointed 2026-10-12: the card MOVED from the dashboard to /scan on the
+    owner's order (item 30i); the render pin follows it there."""
     p, cfg, sm, su = _seed({"TCS.NS": {"score": 71.0},
                             "M&M.NS": {"score": 64.0}})
     try:
         cfg.custom_universe = ("TCS.NS", "M&M.NS", "MARUTI.NS")
         p.save()
         with patch("web.db.is_connected", return_value=False):
-            r = _owner().get("/")
+            r = _owner().get("/scan")
+            dash = _owner().get("/")
         assert r.status_code == 200
+        assert "coverage_marker" not in dash.text    # it left the dashboard
         assert "coverage_marker" in r.text
         assert "Scan coverage" in r.text
         assert "SHORT BY" in r.text          # the honest shortfall line

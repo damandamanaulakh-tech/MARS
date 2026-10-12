@@ -61,7 +61,12 @@ def test_settings_carries_the_switch_and_the_five_shares():
 
 
 def _save_settings_page(c):
-    html = c.get("/settings").text
+    # Owner order 2026-10-12 ("setting will only have the APP SETTINGS, NOT
+    # THE ALGO, that will move to MARS Den"): the algo form renders on /den
+    # and still posts to /settings. Read ONLY that form — /den also carries
+    # the sandbox form, whose fields must never reach the settings POST.
+    html = c.get("/den").text
+    html = html.split("settings_algo_form_marker", 1)[1].split("</form>", 1)[0]
     fields = dict(re.findall(r'name="([a-z_]+)"[^>]*value="([^"]*)"', html))
     assert fields, "the settings form rendered no fields"
     return fields
