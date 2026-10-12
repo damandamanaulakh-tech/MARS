@@ -75,7 +75,13 @@ def test_lens_never_opens_a_position_or_changes_config():
             cfg.max_positions, cfg.mode) == before
 
 
-def test_lens_is_in_the_sidebar():
+def test_lens_is_reached_through_mars_den():
+    """Owner order 2026-10-12 (item 23): Universe Lens, Trigger Layer,
+    Selection Register, Strategy Weights and Engine Regime sit under ONE
+    sidebar entry, MARS Den. The lens page itself still answers."""
     with patch("web.db.is_connected", return_value=False):
         page = _owner().get("/").text
-    assert "/lens" in page and "Universe Lens" in page
+        assert _owner().get("/lens").status_code == 200
+    aside = page[page.index("<aside"):page.index("</aside>")]
+    assert 'href="/den"' in aside and "MARS Den" in aside
+    assert 'href="/lens"' not in aside
