@@ -189,6 +189,27 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   answers CDN script fetches with the offline page). Reading the live book
   needs the owner's screenshot or a VIEWER_PASSWORD login (env edit =
   Render restart; token survives via Mongo while writes land).
+- **DASHBOARD TRIM 2026-10-12 ~13:00 IST (owner marked up MY SAMPLE
+  SCREENSHOT — "JSON on disk", entry ₹100 rows, auto-scan OFF — not the
+  live book; the layout faults are real on the live page too).** Four
+  asks, all shipped on the branch (PR #163): (red) the open-positions TABLE
+  left the dashboard — a tall picks column stretched it into an empty box
+  with a sideways scroll; now ONE header button `📌 OPEN POSITIONS (n) ›`
+  (data-open-positions-button) + the headline count links to /positions,
+  picks + watchlist stacked full width (picks_watchlist_marker, no
+  grid-cols); (green) the fund card's Total row, the shares footnote AND the
+  item-32 "why not today" block are REMOVED ("doesn't make sense, remove
+  that" — the sample's +2207% was the fake ₹100 entries; told them; the
+  pure reader `market_panels.why_not_today` + its test stay, one word puts
+  the block back); (blue) Trade Horizons figures are five label-over-number
+  nowrap cells in a 3-col mini grid (data-horizon-figures / -trail) so
+  "trail" can never split from its number. Route no longer computes
+  `why_not`; dead `_ist_today_iso` helper deleted. Tests repointed in
+  test_dashboard_mars_2026_10_12.py (zero-score pin lives on /positions
+  tests). Sample renders: scratchpad mars_dashboard_desktop/phone.png.
+  NOTE the shot script writes the sample book into the DEFAULT state dir
+  (/tmp/sourceborn_paper; no SB_STATE_DIR env exists) — rm it before a
+  suite run, never run both at once.
 - OWNER ASKS STILL OPEN (said to them): the companion sheet; display name;
   archive-not-delete confirmed? (built as archive); which category Buy
   Desk buys count under (today momentum → fills the 40% share, why "no

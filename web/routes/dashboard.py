@@ -38,15 +38,6 @@ def _ist_now_str() -> str:
             "%a, %d %b %Y · %H:%M IST")
 
 
-def _ist_today_iso() -> str:
-    try:
-        from ..clock import ist_today_iso
-        return ist_today_iso()
-    except Exception:
-        from zoneinfo import ZoneInfo
-        return datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
-
-
 def _bearish_names() -> set:
     from trading.candles import BEARISH_PATTERNS
     return set(BEARISH_PATTERNS)
@@ -164,11 +155,9 @@ def dashboard(request: Request):
         "blocked": _blocked_reason(r.get("ticker", "")),
     } for r in picks_raw if r.get("ticker") not in held]
 
-    # ---- "Why not today" (owner item 32): the journal's own block lines ----
-    # Owner item 30k: "today" is the IST date (the journal stamps UTC; a UTC
-    # filter at 02:00 IST still showed yesterday's lines).
-    today_iso = _ist_today_iso()
-    why_not = _panel(mp.why_not_today, p.decision_journal, today_iso) or []
+    # The "why not today" block (item 32) left the page on the owner's
+    # 2026-10-12 screenshot markup; market_panels.why_not_today stays (pure,
+    # tested) for the day it is asked for again.
 
     deployed_pct = (deployed / cfg.starting_capital * 100) if cfg.starting_capital else 0
 
@@ -248,8 +237,8 @@ def dashboard(request: Request):
             # Owner item 30k: IST, formatted "%a, %d %b %Y · %H:%M IST"
             "today": _ist_now_str(),
             "fund": fund,
-            "why_not": why_not,
-            # Owner item 30e: the whole book, left column (was [:5])
+            # the count feeds the OPEN POSITIONS button; the table itself left
+            # the dashboard (owner 2026-10-12 markup) — it lives on /positions
             "positions": sorted(p.positions.values(), key=lambda x: x.ticker),
             "last_scan": p.last_scan,
             # Owner item 12: a STATE (Nifty vs its 200-DMA), never a forecast

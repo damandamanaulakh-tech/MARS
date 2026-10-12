@@ -96,12 +96,24 @@ def test_the_page_is_called_dashboard_and_master_is_gone():
 
 # ------------------------------------------------------- item 30b: fund block
 
-def test_fund_block_renders_every_segment_and_a_total():
+def test_fund_block_renders_every_segment_without_the_total_row():
+    """Owner markup 2026-10-12 ("that green marked doesn't make sense, remove
+    that"): the Total row, the shares footnote and the why-not block are gone
+    from the fund card. The totals still live in the strip above the table."""
     with _Book():
         page = _render()
     assert "fund_summary_marker" in page
-    for seg in list(cb.SHARE_FIELDS) + [cb.OCEAN, "total"]:
+    for seg in list(cb.SHARE_FIELDS) + [cb.OCEAN]:
         assert f'data-fund-segment="{seg}"' in page, seg
+    assert 'data-fund-segment="total"' not in page
+    assert "Shares are of the deployable capital" not in page
+    assert "Ocean counts its own ticket" not in page
+    assert "why_not_today_marker" not in page
+    assert "no block recorded today" not in page
+    # the totals strip still carries the book's numbers once each
+    for label in ("Capital", "Allocated", "Reserved", "Used (now)", "Cash",
+                  "UNREALIZED P&amp;L"):
+        assert label in page, label
     # the one-line summary, kept ONCE and enlarged inside the block
     assert page.count('data-fund-summary-line="1"') == 1
     assert "3 open positions" in page
@@ -154,14 +166,10 @@ def test_a_loss_renders_red_and_a_gain_green():
     assert "live marks" in page
 
 
-def test_the_owner_picks_zero_score_prints_as_zero_not_a_dash():
-    """A hand-tapped BUY stores entry_score 0 — a real 0 (the /positions
-    500 lesson: `x if x else y` treated it as missing)."""
-    with _Book():
-        page = _render()
-    row = re.search(r'<tr[^>]*>\s*<td[^>]*>OWNPK\b.*?</tr>', page, re.S)
-    assert row, "owner pick row missing from the open-positions column"
-    assert ">0.0<" in row.group(0)
+# The zero-score-prints-as-zero pin that sat here read the dashboard's
+# open-positions table; that table left the page (owner markup 2026-10-12).
+# The same fact stays pinned where the book now renders:
+# test_positions_owner_buy_500.py and test_positions_legend_2026_10_12.py.
 
 
 def test_market_state_is_labelled_as_a_reading_not_a_forecast():
@@ -200,13 +208,41 @@ def test_picks_and_watchlist_are_full_lists():
         p.last_scan_picks = saved
 
 
-def test_the_whole_book_is_in_the_open_positions_column():
+def test_the_open_positions_table_left_the_dashboard_for_a_button():
+    """Owner markup 2026-10-12: the open-positions table beside the picks
+    column stretched into an empty box with a sideways scroll ("this gap is
+    not good … just give a button only"). The book is on /positions; the
+    dashboard keeps one button carrying the count, and the picks + watchlist
+    take the full width."""
     with _Book():
         page = _render()
-    assert "open_positions_marker" in page
-    for t in ("SWNGX", "OWNPK", "OCNX"):
-        assert t in page
+    assert "open_positions_marker" not in page
+    assert "DETAILS ›" not in page
+    btn = re.search(r'<a href="/positions"[^>]*data-open-positions-button="1"[^>]*>(.*?)</a>',
+                    page, re.S)
+    assert btn, "the OPEN POSITIONS button is missing"
+    assert "OPEN POSITIONS (3)" in btn.group(1)
+    # picks + watchlist are no longer a half-width column: the wrapper that
+    # carries them is a plain stack, not a two-column grid
+    assert "picks_watchlist_marker" in page
+    wrapper = re.search(r'<div class="([^"]*)" data-picks-and-watchlist="picks_watchlist_marker">', page)
+    assert wrapper and "grid-cols" not in wrapper.group(1), wrapper and wrapper.group(1)
+    block = page[page.index("picks_watchlist_marker"):page.index("equity_curve_marker")]
+    assert "Today's Picks" in block and "Watchlist" in block
     assert "Capital Allocation" not in page
+    # the button also reaches a viewer (the book pages are theirs to read)
+    assert page.count('data-open-positions-button="1"') == 1
+
+
+def test_the_open_positions_button_count_follows_the_book():
+    p = state.portfolio()
+    saved = dict(p.positions)
+    try:
+        p.positions = {}
+        page = _render()
+        assert "OPEN POSITIONS (0)" in page
+    finally:
+        p.positions = saved
 
 
 # ---------------------------------------------------- item 30d: equity curve
@@ -393,7 +429,10 @@ def test_why_not_today_reads_todays_journal_by_ist_date():
     assert rows["positional"]["action"] is None
 
 
-def test_why_not_today_renders_with_the_no_block_line():
+def test_the_why_not_block_left_the_dashboard():
+    """Owner markup 2026-10-12 removed the block from the fund card. The
+    journal still records every block line (Reports CSV) and the pure
+    reader above stays tested, so one word brings it back."""
     p = state.portfolio()
     mine = {"ts": datetime.utcnow().isoformat(), "action": "CATEGORY_BUDGET_FULL",
             "category": "swing", "why": "fixture-why-2026-10-12"}
@@ -403,10 +442,30 @@ def test_why_not_today_renders_with_the_no_block_line():
             page = _render()
     finally:
         p.decision_journal[:] = [e for e in p.decision_journal if e is not mine]
-    assert "why_not_today_marker" in page
-    row = re.search(r'data-why-not="swing".*?</div>', page, re.S)
-    assert row and "fixture-why-2026-10-12" in row.group(0)
-    assert "no block recorded today" in page
+    assert "why_not_today_marker" not in page
+    assert "fixture-why-2026-10-12" not in page
+    assert "no block recorded today" not in page
+
+
+# ------------------------------------------- Status card: horizon figures
+
+def test_every_horizon_figure_keeps_its_label_and_number_together():
+    """Owner markup 2026-10-12: "trail and its number going to next line" —
+    the one-line sentence wrapped between the word and the value. Each figure
+    is now one nowrap cell holding both, so a wrap can only fall BETWEEN
+    figures."""
+    with _Book():
+        page = _render()
+    card = page[page.index("status_card_marker"):]
+    cells = re.findall(r'<div class="whitespace-nowrap"[^>]*data-horizon-trail="1"[^>]*>(.*?)</div>\s*</div>',
+                       card, re.S)
+    assert cells, "no trail cell on the status card"
+    for cell in cells:
+        assert "trail" in cell
+        assert re.search(r"-?\d+(\.\d+)?%", cell), cell       # the number sits inside the same cell
+    # the old sentence form is gone
+    assert "· trail " not in card
+    assert page.count('data-horizon-figures="1"') == len(cells)
 
 
 # ------------------------------------------------------- phone-width layout
