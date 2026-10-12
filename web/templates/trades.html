@@ -7,6 +7,12 @@
     <h1 class="font-black text-3xl lg:text-5xl tracking-tight">Closed Trades</h1>
     <p class="text-ink-soft mt-2">{{ total }} trades · Win rate {{ win_rate | round(1) }}% · Net P&L ₹{{ net_total | inr }} ({{ '%+.2f' % net_pct_of_capital }}% of capital)</p>
     {% if archived_trades %}<p class="text-xs text-amber-800 mt-1"><!-- trades_archived_marker -->These figures cover the newest {{ total }} closed trades. {{ archived_trades }} older ones were moved to the trades archive to keep the book's record small — nothing is deleted, and all of them are in the trades CSV on Reports.</p>{% endif %}
+    {% if pre_mars_count %}
+    <p class="text-xs text-ink-faint mt-1"><!-- pre_mars_archive_marker -->
+      {{ pre_mars_count }} closed trade{{ '' if pre_mars_count == 1 else 's' }} from before 15 Sep 2026 sit in the archive (your order 2026-10-11; nothing deleted, out of the live figures).
+      {% if show_archive %}<a href="/trades" class="underline">Hide them</a>{% else %}<a href="/trades?archive=1" class="underline">Show them</a>{% endif %}
+    </p>
+    {% endif %}
   </div>
 </div>
 
@@ -63,8 +69,8 @@
     </thead>
     <tbody>
       {% for r in rows %}
-      <tr class="border-b border-line last:border-0">
-        <td class="px-3 lg:px-6 py-3 font-semibold whitespace-nowrap">{{ r.ticker }}</td>
+      <tr class="border-b border-line last:border-0 {% if r.pre_mars %}bg-slate-50 text-ink-faint{% endif %}">
+        <td class="px-3 lg:px-6 py-3 font-semibold whitespace-nowrap">{{ r.ticker }}{% if r.pre_mars %} <span class="text-[9px] uppercase tracking-widest border border-line px-1 ml-1" title="Closed before 15 Sep 2026 — archived, not in the live figures">archived</span>{% endif %}</td>
         <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap">{{ r.qty }}</td>
         <td class="px-3 lg:px-6 py-3 text-ink-soft whitespace-nowrap">{{ r.entry_date }}</td>
         <td class="px-3 lg:px-6 py-3 text-ink-soft whitespace-nowrap">{{ r.exit_date }}</td>

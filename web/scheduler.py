@@ -1886,6 +1886,14 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
                 cfg.apply_mode_preset()
                 res = eng.scan()
                 summary.append(f"{m}={len(res.opened)} opened/{len(res.skipped)} skipped")
+                # OWNER 2026-10-11 item 28: the watchlist capture is taken
+                # RIGHT AFTER the momentum pass, while scan_matrix /
+                # last_scan_skipped / last_scan_opened still hold THAT pass —
+                # at the end of the rotation they hold positional's, and a
+                # capture taken there mixed two passes (found by the
+                # positions/reports agent 2026-10-12). Never raises.
+                if m == "nifty200_momentum":
+                    _capture_watchlist(eng, cfg, where)
             except Exception as e:
                 log.exception("[%s] scan for mode=%s failed: %s", where, m, e)
                 summary.append(f"{m}=error")
@@ -1916,16 +1924,12 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
             cfg.apply_mode_preset()
         finally:
             MODE_LOCK.release()
-    # OWNER 2026-10-11 item 28: after every rotation (09:20 and 14:30) the
-    # watchlist is captured with date, time and each stock's parameters
-    # (web/watchlist_capture.py), OUTSIDE the mode lock, bounded, never
-    # raising into the scan. /reports lists the captures.
-    _capture_watchlist(eng, cfg, where)
     return summary
 
 
 def _capture_watchlist(eng, cfg, where: str) -> dict:
-    """Owner item 28 — one dated watchlist capture per rotation. Journals
+    """Owner item 28 — one dated watchlist capture per rotation, taken right
+    after the momentum pass (web/watchlist_capture.py, bounded). Journals
     WATCHLIST_CAPTURED or WATCHLIST_CAPTURE_FAILED so an empty Reports
     card is never a mystery. Returns the capture result (tests)."""
     from datetime import datetime as _dt

@@ -146,3 +146,100 @@ def write_skipped_csv(portfolio: Portfolio) -> str:
         for s in skipped:
             w.writerow([s.get("ticker", ""), s.get("reason", "")])
     return path
+
+
+# ---------- watchlist captures (owner item 28, 2026-10-12) ----------
+
+WATCHLIST_CSV_SUBDIR = "watchlist"   # <state_dir>/watchlist/watchlist_<ts_key>.csv
+WATCHLIST_CSV_KEEP = 60              # files kept on disk; Mongo keeps 120 docs
+
+WATCHLIST_CSV_COLS = [
+    # The first three repeat the snapshot header on every row so a file read
+    # back from disk (Mongo down) still says which scan it came from.
+    "snapshot_ts_ist", "scan_mode", "floor",
+    "rank", "ticker", "score", "sector", "abs_mom", "timing", "candle",
+    "liquidity", "liquidity_why", "outcome", "reason_if_skipped",
+    "held", "opened", "first_seen", "multi", "components", "structures",
+]
+
+
+def watchlist_csv_dir(state_dir: str) -> str:
+    d = os.path.join(state_dir, WATCHLIST_CSV_SUBDIR)
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def watchlist_csv_path(state_dir: str, ts_key: str) -> str:
+    return os.path.join(watchlist_csv_dir(state_dir), f"watchlist_{ts_key}.csv")
+
+
+def _kv(d: dict) -> str:
+    """dict -> 'k=v;k=v' (the decision-journal CSV convention)."""
+    if not isinstance(d, dict) or not d:
+        return ""
+    return ";".join(f"{k}={v}" for k, v in d.items())
+
+
+def write_watchlist_csv(snapshot: dict, state_dir: str) -> str:
+    """One CSV per capture: <state_dir>/watchlist/watchlist_<ts_key>.csv.
+
+    Writes the rows exactly as the snapshot holds them (rank order), then
+    prunes the directory to the newest WATCHLIST_CSV_KEEP files — only
+    `watchlist_*.csv` files are ever removed, nothing else in state_dir.
+    Render wipes /tmp on restart, so the Mongo copy is the durable one and
+    /reports regenerates a missing file from it; this is the no-Mongo path
+    and the download cache.
+    """
+    key = str(snapshot.get("ts_key") or "")
+    if not key:
+        raise ValueError("snapshot has no ts_key")
+    path = watchlist_csv_path(state_dir, key)
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(WATCHLIST_CSV_COLS)
+        for r in snapshot.get("rows") or []:
+            w.writerow([
+                snapshot.get("ts", ""), snapshot.get("scan_mode", ""),
+                snapshot.get("floor", ""),
+                r.get("rank", ""), r.get("ticker", ""), r.get("score", ""),
+                r.get("sector", ""), r.get("abs_mom", ""), r.get("timing", ""),
+                r.get("candle", ""),
+                r.get("liquidity", ""), r.get("liquidity_why", ""),
+                r.get("outcome", ""), r.get("reason_if_skipped", ""),
+                r.get("held", ""), r.get("opened", ""), r.get("first_seen", ""),
+                _kv(r.get("multi") or {}), _kv(r.get("components") or {}),
+                _kv(r.get("structures") or {}),
+            ])
+    _prune_watchlist_csvs(os.path.dirname(path))
+    return path
+
+
+def _prune_watchlist_csvs(d: str, keep: int = WATCHLIST_CSV_KEEP) -> int:
+    """Delete the oldest watchlist_*.csv beyond `keep`. The ts_key in the
+    name sorts chronologically, so a name sort IS a time sort."""
+    try:
+        names = sorted(n for n in os.listdir(d)
+                       if n.startswith("watchlist_") and n.endswith(".csv"))
+    except OSError:
+        return 0
+    gone = 0
+    for n in names[:-keep] if keep > 0 else names:
+        try:
+            os.remove(os.path.join(d, n))
+            gone += 1
+        except OSError:
+            pass
+    return gone
+
+
+def list_watchlist_csvs(state_dir: str) -> list:
+    """Captures present on disk, newest first: [{ts_key, path}]."""
+    d = os.path.join(state_dir, WATCHLIST_CSV_SUBDIR)
+    try:
+        names = sorted((n for n in os.listdir(d)
+                        if n.startswith("watchlist_") and n.endswith(".csv")),
+                       reverse=True)
+    except OSError:
+        return []
+    return [{"ts_key": n[len("watchlist_"):-len(".csv")],
+             "path": os.path.join(d, n)} for n in names]

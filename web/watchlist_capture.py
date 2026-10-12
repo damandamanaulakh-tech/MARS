@@ -17,11 +17,21 @@ Sources, in order of trust:
   * `scan_matrix` — overwritten by EVERY pass; after the rotation it holds
     the LAST category (positional). Only mode-independent extras are taken
     from it (candle label, structures, multi-formula verdicts) and, when the
-    matrix IS the momentum pass (same mode), the top-100 fill beyond the
-    shortlist's own top-50. A different pass's score is never mixed in.
-  * `last_scan_skipped` — the reason a name was refused at the gate.
+    matrix IS the momentum pass (same mode), the below-floor names that fill
+    toward the top 100 (the shortlist itself keeps only rows at or above the
+    floor). A different pass's score is never mixed in; when the matrix is a
+    different pass the capture holds the at/above-floor rows only and its
+    `note` says why.
+  * `last_scan_skipped` / `last_scan_opened` — written with the matrix, so
+    read only when the matrix is the captured pass; otherwise the
+    shortlist's own `outcome` is the skip reason and "opened" = held under
+    this category with today's entry day.
   With no shortlist at all (the momentum pass did not run), the matrix is
   the only source and the capture SAYS so (`source`).
+
+  Fullest capture: call capture() right after the momentum pass, while the
+  matrix is still that pass. At the end of the rotation it still works,
+  with the at/above-floor rows only.
 
 Bounds: every row at or above the floor, plus the top 100 by score,
 whichever is larger, capped at MAX_ROWS (300). Mongo keeps the newest 120
@@ -145,13 +155,36 @@ def build_snapshot(portfolio, cfg, now: Optional[datetime] = None,
     if floor is None:
         floor = _safe_float(getattr(cfg, "min_score_to_enter", None))
 
-    skipped_by = {}
-    for s in getattr(portfolio, "last_scan_skipped", None) or []:
-        t = s.get("ticker") if isinstance(s, dict) else None
-        if t and t not in skipped_by:
-            skipped_by[t] = str(s.get("reason") or "")[:80]
-    opened = set(getattr(portfolio, "last_scan_opened", None) or [])
-    held = set((getattr(portfolio, "positions", None) or {}).keys())
+    # last_scan_skipped / last_scan_opened are written by engine.scan in the
+    # SAME block as scan_matrix, so they belong to the matrix's pass. After the
+    # rotation that is the LAST category (positional), not the momentum pass
+    # being captured — read them only when the matrix IS the captured pass.
+    # Otherwise the shortlist's own `outcome` (the momentum pass's skip
+    # reason) is the reason, and "opened" is read off the book: held, bought
+    # under this category, entered today.
+    skipped_by: dict = {}
+    opened: set = set()
+    positions = getattr(portfolio, "positions", None) or {}
+    if same_pass:
+        for s in getattr(portfolio, "last_scan_skipped", None) or []:
+            t = s.get("ticker") if isinstance(s, dict) else None
+            if t and t not in skipped_by:
+                skipped_by[t] = str(s.get("reason") or "")[:80]
+        opened = set(getattr(portfolio, "last_scan_opened", None) or [])
+    else:
+        for t, pos in positions.items():
+            if (getattr(pos, "mode", "") or "") != scan_mode:
+                continue
+            ed = getattr(pos, "entry_date", None)
+            try:
+                # entry_date is naive UTC; inside market hours the UTC and
+                # IST calendar days are the same day
+                day = ed.date() if hasattr(ed, "date") and callable(ed.date) else ed
+                if day is not None and str(day)[:10] == today:
+                    opened.add(t)
+            except Exception:
+                continue
+    held = set(positions.keys())
     sector_map = getattr(cfg, "sector_map", None) or {}
 
     # Candidate pool: the shortlist's rows (its scores are the momentum
@@ -207,12 +240,23 @@ def build_snapshot(portfolio, cfg, now: Optional[datetime] = None,
             "components": {k: _safe_float(v) for k, v in (comps or {}).items()},
             "multi": _multi_labels(mx.get("multi")) if mx else {},
             "structures": _structures_fired(mx.get("structures")) if mx else {},
-            "reason_if_skipped": skipped_by.get(t, ""),
+            "reason_if_skipped": (skipped_by.get(t, "") if same_pass
+                                  else str(sl.get("outcome") or "")[:80]),
             "held": t in held,
             "opened": t in opened,
             "first_seen": first,
         })
 
+    # The momentum shortlist stores ONLY rows at/above its floor
+    # (engine._store_momentum_shortlist); its below-floor scores live only in
+    # the matrix while the matrix is still that pass. Say so rather than let a
+    # short capture read as "only N names scored".
+    note = ""
+    if not same_pass:
+        note = ("below-floor names are not in this capture: the momentum pass "
+                "keeps only rows at or above its floor"
+                + (f", and the scan matrix now holds the {mx_mode or 'other'} pass"
+                   if mx_rows else ""))
     return {
         "ts": now_ist.isoformat(),
         "ts_key": ts_key_for(now_ist),
@@ -220,6 +264,7 @@ def build_snapshot(portfolio, cfg, now: Optional[datetime] = None,
         "floor": floor,
         "scan_ts": scan_ts,          # the scan's own stamp (naive UTC, as stored)
         "source": source,
+        "note": note,
         "n_rows": len(rows),
         "n_above_floor": sum(1 for r in rows if floor is not None and r["score"] >= floor),
         "n_pool": len(pool),
@@ -290,6 +335,10 @@ def capture(portfolio, cfg, now: Optional[datetime] = None,
         out["error"] = f"build: {type(e).__name__}: {e}"
         return out
     out.update(ts=snap["ts"], ts_key=snap["ts_key"], n_rows=snap["n_rows"])
+    if snap.get("note") and snap["n_rows"]:
+        # e.g. "below-floor names are not in this capture ..." — the
+        # scheduler journals `note`, so a short capture explains itself
+        out["note"] = (out["note"] + "; " if out["note"] else "") + snap["note"]
     if snap["n_rows"] == 0:
         out["note"] = (out["note"] + "; " if out["note"] else "") + \
             "nothing to capture (no scan record)"

@@ -62,6 +62,90 @@
   Reports with 0 rows are still downloadable — they contain just the header row so format stays consistent.
 </div>
 
+<div class="bg-white border border-line mt-8" id="watchlist"><!-- watchlist_captures_marker -->
+  <div class="px-4 lg:px-6 py-3 border-b border-line flex flex-wrap items-baseline justify-between gap-2">
+    <div class="text-xs tracking-widest text-ink-faint uppercase">Watchlist captures (newest first, last {{ watchlist | length }})</div>
+    <div class="text-xs text-ink-faint">Frozen at the end of each scan rotation: every name at or above the floor plus the top 100 by score, with the parameters the scan read. Date and time are IST.</div>
+  </div>
+  {% if watchlist %}
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+      <tr>
+        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Captured (IST)</th>
+        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Scan</th>
+        <th class="text-right px-3 lg:px-6 py-3 whitespace-nowrap">Floor</th>
+        <th class="text-right px-3 lg:px-6 py-3 whitespace-nowrap">Rows</th>
+        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">First 8 names</th>
+        <th class="text-right px-3 lg:px-6 py-3 whitespace-nowrap">Open</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in watchlist %}
+      <tr class="border-b border-line last:border-0 {% if watchlist_show and watchlist_show.ts_key == s.ts_key %}bg-ink/[0.03]{% endif %}" data-watchlist-key="{{ s.ts_key }}">
+        <td class="px-3 lg:px-6 py-3 font-mono text-xs whitespace-nowrap">{{ s.when }}{% if s.where == 'csv' %} <span class="text-ink-faint" title="read from the CSV on disk — the database copy is absent">(file)</span>{% endif %}</td>
+        <td class="px-3 lg:px-6 py-3 uppercase text-xs tracking-widest text-ink-soft whitespace-nowrap">{{ s.scan_mode or '—' }}</td>
+        <td class="px-3 lg:px-6 py-3 text-right tabular-nums whitespace-nowrap">{{ s.floor if s.floor is not none and s.floor != '' else '—' }}</td>
+        <td class="px-3 lg:px-6 py-3 text-right tabular-nums whitespace-nowrap">{{ s.n_rows }}{% if s.n_above_floor is defined and s.n_above_floor is not none %} <span class="text-ink-faint text-xs" title="rows at or above the floor">({{ s.n_above_floor }} ≥ floor)</span>{% endif %}</td>
+        <td class="px-3 lg:px-6 py-3 text-xs whitespace-nowrap">{{ (s.head or []) | join(', ') or '—' }}</td>
+        <td class="px-3 lg:px-6 py-3 text-right whitespace-nowrap">
+          <a href="/reports?show={{ s.ts_key }}#watchlist" class="inline-block px-3 py-2 border border-line text-xs font-semibold tracking-widest uppercase hover:bg-ink/[0.03] whitespace-nowrap">On this page</a>
+          <a href="/reports/watchlist/{{ s.ts_key }}.csv" class="inline-block px-3 py-2 border border-line text-xs font-semibold tracking-widest uppercase hover:bg-ink/[0.03] whitespace-nowrap ml-1">⬇ CSV</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="px-4 lg:px-6 py-6 text-sm text-ink-faint">No capture yet — the first one is written at the end of the next scan rotation. DATA_NEEDED until then.</div>
+  {% endif %}
+
+  {% if watchlist_show %}
+  <div class="border-t-2 border-ink/20"><!-- watchlist_show_marker -->
+    <div class="px-4 lg:px-6 py-3 flex flex-wrap items-baseline justify-between gap-2">
+      <div class="font-bold">Capture {{ watchlist_show.when }} — {{ watchlist_show.scan_mode or '—' }}, floor {{ watchlist_show.floor if watchlist_show.floor is not none else '—' }}, {{ watchlist_show.n_rows }} rows{% if watchlist_show.universe_count %}, scan universe {{ watchlist_show.universe_count }} names{% endif %}</div>
+      <div class="text-xs text-ink-faint">Source: {{ watchlist_show.source or '—' }}{% if watchlist_show.where == 'csv' %} · read from the CSV on disk{% endif %} · <a href="/reports#watchlist" class="underline">close</a></div>
+    </div>
+    {% if watchlist_show.note %}<div class="px-4 lg:px-6 pb-3 text-xs text-amber-700" data-watchlist-note>{{ watchlist_show.note }}</div>{% endif %}
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+        <tr>
+          <th class="text-right px-2 lg:px-4 py-2 whitespace-nowrap">#</th>
+          <th class="text-left px-2 lg:px-4 py-2 whitespace-nowrap">Ticker</th>
+          <th class="text-right px-2 lg:px-4 py-2 whitespace-nowrap">Score</th>
+          <th class="text-left px-2 lg:px-4 py-2 whitespace-nowrap">Sector</th>
+          <th class="text-left px-2 lg:px-4 py-2 whitespace-nowrap" title="own 6-month return above zero">Abs-mom</th>
+          <th class="text-left px-2 lg:px-4 py-2 whitespace-nowrap">Timing</th>
+          <th class="text-left px-2 lg:px-4 py-2 whitespace-nowrap">Candle</th>
+          <th class="text-left px-2 lg:px-4 py-2 whitespace-nowrap" title="the entry gate's own rupee-turnover verdict; '—' = that pass never reached the liquidity gate">Liquidity</th>
+          <th class="text-left px-2 lg:px-4 py-2 whitespace-nowrap">Outcome</th>
+          <th class="text-left px-2 lg:px-4 py-2 whitespace-nowrap" title="earliest capture this name appeared in">First seen</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in watchlist_show.rows %}
+        <tr class="border-b border-line last:border-0 {% if r.held %}bg-emerald-50{% endif %}" data-watchlist-row="{{ r.ticker }}">
+          <td class="px-2 lg:px-4 py-2 text-right tabular-nums text-ink-faint">{{ r.rank }}</td>
+          <td class="px-2 lg:px-4 py-2 font-semibold whitespace-nowrap">{{ r.ticker }}{% if r.held %} <span class="text-[10px] text-emerald-700" title="in the book">HELD</span>{% endif %}{% if r.opened %} <span class="text-[10px] text-emerald-700" title="opened by this scan">BOUGHT</span>{% endif %}</td>
+          <td class="px-2 lg:px-4 py-2 text-right tabular-nums">{{ r.score }}</td>
+          <td class="px-2 lg:px-4 py-2 text-xs whitespace-nowrap">{{ r.sector or '—' }}</td>
+          <td class="px-2 lg:px-4 py-2 text-xs">{% if r.abs_mom is none %}—{% elif r.abs_mom %}<span class="text-emerald-700">yes</span>{% else %}<span class="text-red-700">no</span>{% endif %}</td>
+          <td class="px-2 lg:px-4 py-2 text-xs">{% if r.timing is none %}—{% elif r.timing %}<span class="text-emerald-700">yes</span>{% else %}<span class="text-ink-faint">wait</span>{% endif %}</td>
+          <td class="px-2 lg:px-4 py-2 text-xs whitespace-nowrap">{{ r.candle or '—' }}</td>
+          <td class="px-2 lg:px-4 py-2 text-xs whitespace-nowrap">{% if r.liquidity is none %}<span class="text-ink-faint" title="{{ r.liquidity_why or 'not judged by this pass' }}">—</span>{% elif r.liquidity %}<span class="text-emerald-700">ok</span>{% else %}<span class="text-red-700" title="{{ r.liquidity_why }}">thin</span>{% endif %}</td>
+          <td class="px-2 lg:px-4 py-2 text-xs whitespace-nowrap">{{ r.reason_if_skipped or r.outcome or '—' }}</td>
+          <td class="px-2 lg:px-4 py-2 font-mono text-xs whitespace-nowrap">{{ r.first_seen or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
 {% if scan_history %}
 <div class="bg-white border border-line mt-8">
   <div class="px-4 lg:px-6 py-3 border-b border-line text-xs tracking-widest text-ink-faint uppercase">Scan history (most recent 50)</div>

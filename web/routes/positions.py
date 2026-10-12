@@ -27,6 +27,124 @@ _MODE_LABEL = {
 }
 
 
+# Owner ask 2026-10-12 (item 38): "it shows orange triangle - add meaning of
+# that like star". Every marker the page can print, in one place, each derived
+# from a REAL stored field (PaperPosition.tags / custom_levels, the decay
+# watch computed from the journal's HOLD scores, and the DANGER_TIGHTEN journal
+# line the danger layer writes when it moves a stop). The template renders the
+# legend from this list and the row markers from the same keys, so a marker
+# can never appear on a row without a line in the legend.
+MARKERS = (
+    {"key": "decay", "icon": "⚠", "label": "DECAY",
+     "meaning": ("score has fallen to within 5 points of its own category's "
+                 "score-decay exit floor — the engine may sell it on a later "
+                 "pass (never an owner pick or an Ocean position: the decay "
+                 "exit does not apply to those)")},
+    {"key": "owner_pick", "icon": "⭐", "label": "OWNER PICK",
+     "meaning": ("you bought it (BUY button, order ticket or Buy Desk) — the "
+                 "score-decay exit never sells it; stop, target and trail still do")},
+    {"key": "buy_desk", "icon": "🛒", "label": "BUY DESK",
+     "meaning": "opened by the one-tap Buy Desk batch on /scan"},
+    {"key": "ocean", "icon": "🌊", "label": "OCEAN",
+     "meaning": ("opened by the Ocean dip engine (its own ticket size and "
+                 "8-slot cap; exempt from the decay exit)")},
+    {"key": "danger", "icon": "⚡", "label": "DANGER-TIGHTENED",
+     "meaning": ("a verified danger tripwire fired on this name and the stop "
+                 "was pulled up under the live price (by a leash never narrower "
+                 "than this position's own entry stop) — it is never loosened "
+                 "again")},
+    {"key": "custom", "icon": "✍", "label": "HAND-SET LEVELS",
+     "meaning": ("stop/target typed by you on the order ticket (or a danger "
+                 "tightening older than the in-memory journal) — the boot "
+                 "retag leaves them alone")},
+)
+_MARKER_BY_KEY = {m["key"]: m for m in MARKERS}
+
+
+def _entry_day(entry_date):
+    """The calendar day a position was opened. `entry_date` is a datetime on
+    every engine-opened position; a hand-fed fixture or an old manual row can
+    carry a bare `date` (it has no .date()), so both are accepted. None when
+    the field is unreadable — the page then prints a dash, never a 0."""
+    if entry_date is None:
+        return None
+    if hasattr(entry_date, "date") and callable(entry_date.date):
+        try:
+            return entry_date.date()
+        except Exception:
+            return None
+    try:
+        from datetime import date as _date
+        if isinstance(entry_date, _date):
+            return entry_date
+    except Exception:
+        pass
+    return None
+
+
+def _today_ist():
+    """Today in IST — the days-held ruler. The engine keeps naive UTC clocks
+    (datetime.utcnow()); a UTC `today` would read one day short for the
+    first 5h30 of every IST day."""
+    from trading.calendars import _ist_now
+    return _ist_now().date()
+
+
+def _decay_floor_for(pos, cfg, cache: dict) -> float:
+    """The score-decay floor the exit pass ACTUALLY judges this position on.
+
+    engine._exit_cfg hands check_exit a copy of the config with the
+    position's OWN mode preset applied (audit F-6, 2026-10-02) — momentum and
+    positional sell below 40, intraday/short/swing below 45. The page used the
+    live config's floor for every row, so a swing holding read against
+    momentum's 40 and the DECAY flag came 5 points late. Same rule as
+    engine.mode_cfg: blank legacy mode = momentum, an unknown mode falls to
+    the swing preset (modes.get_preset), owner per-mode edits included.
+    One copy per mode, cached for the request."""
+    mode = getattr(pos, "mode", "") or "nifty200_momentum"
+    if mode not in cache:
+        try:
+            if mode == getattr(cfg, "mode", ""):
+                floor = cfg.score_decay_exit
+            else:
+                import copy
+                c = copy.copy(cfg)
+                c.mode = mode
+                c.apply_mode_preset()
+                floor = c.score_decay_exit
+            cache[mode] = float(floor)
+        except Exception:
+            cache[mode] = float(getattr(cfg, "score_decay_exit", 45.0))
+    return cache[mode]
+
+
+def _decay_exempt(pos) -> bool:
+    """exits.check_exit never sells an owner pick or an Ocean position on
+    score decay (audit A4 2026-08-09, F-2 2026-10-02)."""
+    tags = getattr(pos, "tags", None) or []
+    return "owner_pick" in tags or "ocean" in tags
+
+
+def _row_markers(pos, decay_watch: bool, danger_tightened: bool) -> list:
+    """Which MARKERS apply to this position, from its stored fields only."""
+    tags = set(getattr(pos, "tags", []) or [])
+    keys = []
+    if decay_watch:
+        keys.append("decay")
+    if "owner_pick" in tags:
+        keys.append("owner_pick")
+    if "buy_desk" in tags:
+        keys.append("buy_desk")
+    if "ocean" in tags:
+        keys.append("ocean")
+    if getattr(pos, "custom_levels", False):
+        # One stored flag, two real causes: the danger layer sets it when it
+        # tightens a stop (and journals DANGER_TIGHTEN), the order ticket
+        # sets it for hand-typed levels. The journal line decides which.
+        keys.append("danger" if danger_tightened else "custom")
+    return [_MARKER_BY_KEY[k] for k in keys]
+
+
 @router.get("/positions", response_class=HTMLResponse)
 def positions_view(
     request: Request, error: str | None = None, seeded: str | None = None,
@@ -42,12 +160,17 @@ def positions_view(
     prices, quotes_live = state.marks(tickers)
 
     # F4: latest journaled current_score per ticker (from HOLD entries) so we
-    # can flag positions decaying toward the score-decay exit floor.
-    decay_floor = float(getattr(cfg, "score_decay_exit", 45.0))
+    # can flag positions decaying toward the score-decay exit floor — each
+    # position's OWN category floor (_decay_floor_for), as the exit pass reads.
+    floor_cache: dict[str, float] = {}
     latest_score: dict[str, float] = {}
     # Piano detail row: the per-factor scores journaled at BUY time — the
     # position itself only stores the total, the journal has the breakdown.
     buy_components: dict[str, dict] = {}
+    # Item 38: the danger layer journals DANGER_TIGHTEN when it pulls a stop
+    # up (engine._danger_pass) — the only record that says WHY custom_levels
+    # is True on a name the owner never touched.
+    danger_tightened: set[str] = set()
     for e in reversed(p.decision_journal or []):
         t = e.get("ticker")
         if t and t not in latest_score and e.get("current_score") is not None:
@@ -58,7 +181,10 @@ def positions_view(
         if (t and t not in buy_components and e.get("action") == "BUY"
                 and e.get("components")):
             buy_components[t] = e["components"]
+        if t and e.get("action") == "DANGER_TIGHTEN":
+            danger_tightened.add(t)
 
+    today = _today_ist()
     rows = []
     tot_invested = tot_value = 0.0
     for pos in p.positions.values():
@@ -85,12 +211,21 @@ def positions_view(
         tot_invested += invested
         tot_value += value
         cur_score = latest_score.get(pos.ticker)
+        decay_floor = _decay_floor_for(pos, cfg, floor_cache)
         decay_watch = cur_score is not None and cur_score <= decay_floor + 5
+        # Item 38: days held = today (IST) minus the entry DAY. A future-dated
+        # entry (clock skew, a typo on the manual form) reads 0, never negative.
+        entry_day = _entry_day(pos.entry_date)
+        days_held = (max((today - entry_day).days, 0)
+                     if entry_day is not None else None)
         rows.append({
             "ticker": pos.ticker,
             "category": category,
             "qty": pos.qty,
             "entry_date": pos.entry_date.strftime("%Y-%m-%d"),
+            "days_held": days_held,
+            "markers": _row_markers(pos, decay_watch,
+                                    pos.ticker in danger_tightened),
             "entry_price": pos.entry_price,
             "ltp": ltp,
             "ltp_live": ltp_is_live,
@@ -100,6 +235,7 @@ def positions_view(
             "current_score": cur_score,
             "decay_watch": decay_watch,
             "decay_floor": decay_floor,
+            "decay_exempt": _decay_exempt(pos),
             "target_price": target_price,
             "stop_price": stop_price,
             "to_target_pct": (target_price / ltp - 1) * 100 if ltp else 0.0,
@@ -113,12 +249,25 @@ def positions_view(
             "tags": getattr(pos, "tags", []) or [],
         })
     rows.sort(key=lambda r: -r["value"])
+    held_days = [r["days_held"] for r in rows if r["days_held"] is not None]
     totals = {
         "invested": tot_invested,
         "value": tot_value,
         "pnl": tot_value - tot_invested,
         "pnl_pct": ((tot_value / tot_invested - 1) * 100) if tot_invested else 0.0,
+        # Item 38: the totals row says how many names and how long, on average,
+        # they have been held. Average over the rows that HAVE a readable
+        # entry day; None when none do (prints a dash, not a fake 0).
+        "count": len(rows),
+        "avg_days_held": (sum(held_days) / len(held_days)) if held_days else None,
     }
+    # Legend = every marker the code can print, with how many rows carry it
+    # today (0 stays listed, dimmed — the owner learns the vocabulary before
+    # the marker turns up, which is the whole point of item 38).
+    legend = []
+    for m in MARKERS:
+        n = sum(1 for r in rows if any(x["key"] == m["key"] for x in r["markers"]))
+        legend.append({**m, "count": n})
 
     return templates.TemplateResponse(
         request, "positions.html",
@@ -126,6 +275,7 @@ def positions_view(
             "user": auth.current_user(request),
             "active": "positions",
             "rows": rows,
+            "legend": legend,
             "totals": totals,
             "quotes_live": quotes_live,
             "max_positions": cfg.max_positions,
@@ -167,8 +317,27 @@ def trades_view(request: Request):
     cfg = state.cfg()
 
     starting_capital = cfg.starting_capital or 1.0
+    # OWNER 2026-10-11 item 5: closed trades before 2026-09-15 IST live in
+    # the Mongo archive (pre_mars), off this page by default. ?archive=1
+    # shows them beside the live book, flagged; the live figures stay the
+    # live book's own (the owner asked for the old record out of the way,
+    # not out of existence).
+    from .. import db
+    show_archive = request.query_params.get("archive") == "1"
+    pre_mars_count = max(0, db.count_pre_mars("trades"))
+    archived_rows: list = []
+    if show_archive and pre_mars_count:
+        from trading.paper import ClosedTrade
+        for d in db.list_trades(include_pre_mars=True):
+            if not d.get(db.PRE_MARS_FLAG):
+                continue
+            try:
+                archived_rows.append(ClosedTrade.from_dict(
+                    {k: v for k, v in d.items() if k != db.PRE_MARS_FLAG}))
+            except Exception:                       # a malformed doc stays out
+                continue
     rows = []
-    for t in p.trades:
+    for t in archived_rows + list(p.trades):
         net_pct = (t.exit_price / t.entry_price - 1) * 100 if t.entry_price else 0
         hold = (t.exit_date.date() - t.entry_date.date()).days
         capital_used = t.qty * t.entry_price            # F9: rupees deployed
@@ -187,6 +356,7 @@ def trades_view(request: Request):
             "net_pct": net_pct,
             "reason": t.reason,
             "sector": t.sector,
+            "pre_mars": t in archived_rows,
         })
 
     wins = sum(1 for t in p.trades if t.net_pnl > 0)
@@ -204,12 +374,13 @@ def trades_view(request: Request):
     from trading.paper import TRADES_DOC_CAP
     archived = 0
     if total >= TRADES_DOC_CAP:
-        from .. import db
         archived = db.count_archived_trades()
 
     return templates.TemplateResponse(
         request, "trades.html",
         {
+            "pre_mars_count": pre_mars_count,
+            "show_archive": show_archive,
             "losses": losses,
             "gross_profit": gross_profit,
             "gross_loss": gross_loss,
