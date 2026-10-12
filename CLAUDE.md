@@ -262,6 +262,30 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   Yahoo = 30 names/run. Tests web/tests/test_fundamentals_budget_2026_10_12
   .py (8); the old job test repointed to the budgeted fetcher. FIRST LIVE
   RUN = Tue 10-13 16:30 (block due; October stamp still missing).
+- **PR #164 MERGED 17:43 IST Mon 10-12 (main 8204df9; CI green; box quiet
+  — the block had died at 16:59).** First live run of the budget = Tue
+  10-13 16:30 (block due, October stamp missing).
+- **OWNER 2026-10-12 ~17:50 IST — NEW VALUATION LEG, DISCUSS-FIRST
+  (nothing built):** the Tata Tech IPO sheet was only an example of how a
+  share is valued over a period ("already shipped" = understood/recorded).
+  What they want next in the valuation sequence: the target must be tied to
+  the MARKET and the stock's SECTOR — "if IT globally is down 2%, every IT
+  company's valuation is down 2%" applied to the current price — plus the
+  INFLATION rate at that time, a SENTIMENT dip, and "other things", to
+  VERIFY the target. Proposed back as a context stage between the
+  justified range and selection: standalone target × sector leg (β=1 as
+  they said AND the measured beta, side by side) × rates/inflation leg
+  (through the discount rate: P/E = f(r−g), ~−19% per +1pp at r−g 4.2%)
+  with sentiment as a WIDER BUY-DISCOUNT not a forecast (09-09/09-29
+  studies: no gauge predicts), plus a move decomposition (sector part vs
+  stock-specific residual → re-run trigger). DATA: domestic sector indices
+  wired (16, daily); GLOBAL sector = DATA_NEEDED (no free feed reachable
+  from Render, 10-12 check); CPI = no feed wired (FRED free key / MOSPI
+  monthly, ~2-month lag); 10y yield csv stale (2026-06). Builds AFTER
+  Phase 1 (fundamentals currency/unit lock), which still waits on their
+  formula review + companion sheet. Awaiting their picks: β 1:1 vs
+  measured vs both; domestic-only sector or their global feed; inflation
+  via discount rate vs direct % cut.
 - OWNER ASKS STILL OPEN (said to them): the companion sheet; display name;
   archive-not-delete confirmed? (built as archive); which category Buy
   Desk buys count under (today momentum → fills the 40% share, why "no
