@@ -133,7 +133,21 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   `db.list_trades` / `list_journal_archive` skip pre_mars rows unless
   include_pre_mars=True; measured Kelly loses those trades from its sample.
   Tests web/tests/test_mars_phase0_2026_10_12.py (19).
-- PHASE 5 (same PR, next commit): dashboard rebuild per items 30 a-j
+- PHASE 5 LANDED (5eb3333 + 8696fa0; full suite from a clean state dir
+  1,682 passed; PR #162 ready, UNMERGED — merge after the 16:30 block on
+  the owner's authority, standing rule 0). Agents' finds while finishing:
+  the end-of-rotation capture mixed TWO passes (scan_matrix /
+  last_scan_skipped / last_scan_opened hold the positional pass by then)
+  → capture now runs right after the momentum pass, inside the loop; the
+  /positions decay flag compared every row to the LIVE mode's floor
+  (momentum 40) instead of its own category's (45 for intraday/short/
+  swing) → fixed to the exit rule; Den copy traps fixed before shipping
+  (capacity law formula, "29 need a feed" overstated, trigger "computing
+  112/112" misleading, breadth band edge is x < 65 not <=). /trades
+  `?archive=1` shows the pre-MARS trades flagged. Dashboard breadth
+  footer read a key deleted 09-09 (printed "need >% of the panel" with no
+  number) — fixed. Remaining pins moved to /den or /scan with comments.
+- PHASE 5 as ordered: dashboard rebuild per items 30 a-j
   (fund summary per category on top, index strip below, full picks/
   watchlist, equity curve by day 1-31, Status card, breadth+events, sector
   strip + coverage moved to /scan, capability panel gone, purge button,
