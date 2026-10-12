@@ -209,7 +209,17 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   tests). Sample renders: scratchpad mars_dashboard_desktop/phone.png.
   NOTE the shot script writes the sample book into the DEFAULT state dir
   (/tmp/sourceborn_paper; no SB_STATE_DIR env exists) — rm it before a
-  suite run, never run both at once.
+  suite run, never run both at once. **PR #163 MERGED 16:58 IST Mon 10-12
+  on the owner's "Merge now" (main e7a192a; squash) — their second
+  override of the after-17:30 rule today, taken as their decision.** At
+  that moment the 16:30 weekly block was mid-run and looked exactly like
+  Fri 10-09: woken by the 16:27 probe (42.9 s cold start), rss 152 → 188
+  over 16:30-16:39 (the short feeds), flat to 16:45, the register
+  precompute spike to peak 355, then 244-246 FLAT from 16:46 with NO
+  rebuild stamp (last_rebuild still 09-30, store 2,233) = stuck in the
+  monthly fundamentals step again; the deploy restart will have killed it
+  unmarked (the 17:45 log confirms). Owner's time budget lever on that
+  step still not ordered.
 - **MON 10-12 14:30 CHAIN DID NOT RUN — THE APP WAS ASLEEP AT 14:30.** The
   14:20 wake fired 08:50Z but the container paused; first probe 14:34 IST =
   52.7 s cold start (rss 151 / peak 150) — the post-login process (peak
