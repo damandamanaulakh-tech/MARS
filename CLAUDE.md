@@ -210,6 +210,24 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   NOTE the shot script writes the sample book into the DEFAULT state dir
   (/tmp/sourceborn_paper; no SB_STATE_DIR env exists) — rm it before a
   suite run, never run both at once.
+- **MON 10-12 14:30 CHAIN DID NOT RUN — THE APP WAS ASLEEP AT 14:30.** The
+  14:20 wake fired 08:50Z but the container paused; first probe 14:34 IST =
+  52.7 s cold start (rss 151 / peak 150) — the post-login process (peak
+  302 at 12:56) was gone. Keep-alive 14:44-15:40 IST, ONE process: rss 147
+  flat to 15:00, then a bump to 188 / **peak 208** (the 15:00 in-session
+  exit pass loading histories + danger panels), 170-174 flat to 15:40
+  (15:30 pass cache-warm, 15:35 marks). A five-category rotation peaks
+  ~480-500, so NO rotation ran. WHY: a cron job added to a fresh
+  APScheduler at 14:33 computes its next run from NOW → the 14:30 slot is
+  simply tomorrow's; the boot catch-up covers the DAILY scan only and S-5
+  skips it when an in-hours scan already happened today (the 09:20 chain
+  ran 09:25-09:29 at 447/481). So every day the box sleeps at 14:30 the
+  afternoon rotation is lost; Render Starter (owner's M-12 "will
+  consider") is still the only fix. Exits/stops/danger DID run at 15:00 /
+  15:30 / 15:35 on the woken process; no OOM today. Wakes armed:
+  16:25 IST today (trig_01E4aX89hEdbDWStVRMQjbKd — watch the 16:30 block,
+  merge PR #163 after 17:30 once stamped) and Tue 09:10 IST
+  (trig_01R2viqLdBgXdRwHKjCkkLdo).
 - OWNER ASKS STILL OPEN (said to them): the companion sheet; display name;
   archive-not-delete confirmed? (built as archive); which category Buy
   Desk buys count under (today momentum → fills the 40% share, why "no
