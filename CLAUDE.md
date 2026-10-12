@@ -174,6 +174,21 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   distinguishable from outside). 14:20 IST wake armed
   (trig_014eEmBWPKn6KvWfq82ErURF; re-arms Tue 09:10); the 16:30 weekly block
   is due today.
+- **PR #162 MERGED 12:21 IST MON 10-12 on the owner's order ("merge it now
+  n show me the new dashboard") — the owner OVERRODE the after-17:30 merge
+  rule for this one; main = 86466b1, branch fast-forwarded.** Render
+  deployed by ~12:25 IST (login page reads Sourceborn MARS). Owner logged
+  in to Upstox 12:5x IST; the login catch-up ran (peak 302 MiB, rss 184
+  → 194, same process at 12:56 IST), Mongo writes landing (write_error
+  None), store 2,233, scan_universe 1,205 / last_rebuild 09-30 (16:30
+  block still due today). Atlas cluster total 430 of 512 MB (app db 68).
+  A session CANNOT see the authenticated dashboard (no owner password
+  here; /healthz carries no book numbers) — the three screenshots sent
+  were LOCAL sample-book renders (scratchpad tools/shot_dashboard.py;
+  Playwright needs `service_workers="block"` or the app's service worker
+  answers CDN script fetches with the offline page). Reading the live book
+  needs the owner's screenshot or a VIEWER_PASSWORD login (env edit =
+  Render restart; token survives via Mongo while writes land).
 - OWNER ASKS STILL OPEN (said to them): the companion sheet; display name;
   archive-not-delete confirmed? (built as archive); which category Buy
   Desk buys count under (today momentum → fills the 40% share, why "no
