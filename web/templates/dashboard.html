@@ -48,6 +48,13 @@
     <p class="text-ink-soft mt-2 text-sm" data-ist-date="1">{{ today }}</p>
   </div>
   <div class="flex flex-wrap gap-2 lg:gap-3">
+    <!-- Owner 2026-10-12 (screenshot markup): the open-positions TABLE left the
+         dashboard — "just give a button only … let it be in left bar only". The
+         book lives on /positions; this button and the sidebar reach it. -->
+    <a href="/positions" data-open-positions-button="1"
+       class="px-4 py-2 border border-line text-sm font-semibold tracking-wide hover:bg-ink/[0.03] whitespace-nowrap no-underline">
+      📌 OPEN POSITIONS ({{ positions | length }}) ›
+    </a>
     <form action="/refresh" method="post">
       <button class="px-4 py-2 border border-line text-sm font-semibold tracking-wide hover:bg-ink/[0.03] whitespace-nowrap">
         ⬇ REFRESH PRICES
@@ -85,7 +92,7 @@
     <!-- the one-line summary, kept ONCE, enlarged, coloured by the sign of P&L (items 30b, 12) -->
     <p class="mt-2 font-black text-2xl lg:text-4xl tracking-tight tabular-nums {% if fund_up %}text-emerald-700{% else %}text-red-700{% endif %}" data-fund-summary-line="1">
       ₹{{ fund.equity | inr_lakh }} equity &middot;
-      {{ fund.open }} open position{% if fund.open != 1 %}s{% endif %} &middot;
+      <a href="/positions" class="no-underline hover:underline" title="open the book">{{ fund.open }} open position{% if fund.open != 1 %}s{% endif %}</a> &middot;
       <span title="state reading, not a forecast" class="cursor-help">
         <span class="text-ink-faint text-sm lg:text-lg font-semibold tracking-widest uppercase align-middle">Market state</span>
         {{ regime }}</span>
@@ -161,41 +168,13 @@
         <td class="px-4 lg:px-6 py-2 text-right tabular-nums whitespace-nowrap {% if r.pnl_vs_share is not none %}{% if up %}text-emerald-700{% else %}text-red-700{% endif %}{% else %}text-ink-faint{% endif %}">{% if r.pnl_vs_share is not none %}{{ '%+.2f' % r.pnl_vs_share }}%{% else %}—{% endif %}</td>
       </tr>
       {% endfor %}
-      <tr class="border-t-2 border-line font-bold bg-ink/[0.02]" data-fund-segment="total">
-        <td class="px-4 lg:px-6 py-2 whitespace-nowrap">Total</td>
-        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">₹{{ fund.capital | inr }} <span class="text-[10px] font-normal text-ink-faint">capital</span></td>
-        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">₹{{ fund.allocated | inr }}</td>
-        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">₹{{ fund.now | inr }}</td>
-        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">₹{{ fund.cash | inr }} <span class="text-[10px] font-normal text-ink-faint">cash</span></td>
-        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">{{ fund.open }}</td>
-        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap {% if fund_up %}text-emerald-700{% else %}text-red-700{% endif %}">{{ '+' if fund.pnl >= 0 }}₹{{ fund.pnl | inr }}</td>
-        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap {% if fund_up %}text-emerald-700{% else %}text-red-700{% endif %}">{% if fund.pnl_vs_cost is not none %}{{ '%+.2f' % fund.pnl_vs_cost }}%{% else %}—{% endif %}</td>
-        <td class="px-4 lg:px-6 py-2 text-right tabular-nums whitespace-nowrap {% if fund_up %}text-emerald-700{% else %}text-red-700{% endif %}" title="vs capital">{% if fund.pnl_vs_capital is not none %}{{ '%+.2f' % fund.pnl_vs_capital }}%{% else %}—{% endif %}</td>
-      </tr>
     </tbody>
   </table>
   </div>
-  <div class="px-4 lg:px-6 py-2 text-[11px] text-ink-faint border-b border-line">
-    {% if fund.budgets_on %}Shares are of the deployable capital (equity ₹{{ fund.equity | inr_lakh }} minus the {{ (fund.reserve_pct * 100) | round(0) | int }}% regime reserve){% if fund.share_total is not none and (fund.share_total - 1.0)|abs > 0.001 %} — the five shares add up to {{ (fund.share_total * 100) | round(0) | int }}%, not 100%{% endif %}. A share a category does not use stays as cash; it is never lent to another.{% else %}Category shares are OFF in Settings — every category draws on the same cash.{% endif %}
-    Ocean counts its own ticket × slots. Positions count at entry cost, the same convention the deploy cap uses.
-  </div>
-
-  <!-- Owner item 32: "Why not today" — the engine's own block lines for today, one per category -->
-  <div class="px-4 lg:px-6 py-3" data-why-not-today="why_not_today_marker">
-    <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-1.5">Why not today · from today's journal (IST)</div>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-xs">
-      {% for w in why_not %}
-      <div class="flex gap-2 min-w-0" data-why-not="{{ w.category }}">
-        <span class="font-semibold whitespace-nowrap w-24 shrink-0">{{ w.label }}</span>
-        {% if w.action %}
-        <span class="min-w-0 break-words"><span class="font-mono text-[10px] text-amber-800">{{ w.action }}</span> {{ w.why }}{% if w.ts %} <span class="text-ink-faint">· {{ w.ts | ist("%H:%M IST") }}</span>{% endif %}</span>
-        {% else %}
-        <span class="text-ink-faint">no block recorded today</span>
-        {% endif %}
-      </div>
-      {% endfor %}
-    </div>
-  </div>
+  {#- The Total row, the shares footnote and the "why not today" block (item 32)
+      were removed on the owner's screenshot markup of 2026-10-12 ("that green
+      marked doesn't make sense, remove that"). The book totals stay in the strip
+      above; the engine's block lines still live in the journal (Reports CSV). -#}
 </div>
 {% endif %}
 
@@ -291,63 +270,12 @@
 {#- The share-candle chart left this page for the MARS Den (owner order 2026-10-12,
     item 30f); the 📈 link on every row still opens /chart/<ticker>. -#}
 
-<!-- Owner item 30e: two columns on lg (stacked on a phone) — open positions LEFT,
-     today's picks + watchlist RIGHT, both FULL lists (item 30c). -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-  <!-- LEFT: Open positions (the whole book) -->
-  <div class="border border-line bg-white" data-open-positions="open_positions_marker">
-    <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
-      <div class="flex items-center gap-3">
-        <span aria-hidden="true">📌</span>
-        <div>
-          <div class="font-bold">Open Positions <span class="text-xs font-normal text-ink-faint">{{ positions | length }}</span></div>
-          <div class="text-xs text-ink-faint">Last scan: {{ last_scan | ist if last_scan else 'never' }}{% if fund %} · {{ fund.marks }}{% endif %}</div>
-        </div>
-      </div>
-      <a href="/positions" class="text-xs font-semibold tracking-widest text-ink-faint hover:text-ink uppercase whitespace-nowrap">DETAILS ›</a>
-    </div>
-    {% if positions %}
-    <div class="overflow-x-auto">
-    <table class="w-full text-sm">
-      <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
-        <tr>
-          <th class="text-left px-3 py-2 whitespace-nowrap">Ticker</th>
-          <th class="text-left px-2 py-2 whitespace-nowrap">Segment</th>
-          <th class="text-right px-2 py-2 whitespace-nowrap">Qty</th>
-          <th class="text-right px-2 py-2 whitespace-nowrap">Entry</th>
-          <th class="text-right px-2 py-2 whitespace-nowrap">Now</th>
-          <th class="text-right px-2 py-2 whitespace-nowrap">P&amp;L %</th>
-          <th class="text-right px-3 py-2 whitespace-nowrap">Score</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for pos in positions %}
-        <tr class="border-b border-line last:border-0">
-          <td class="px-3 py-2 font-semibold whitespace-nowrap">{{ pos.ticker | replace('.NS','') }}
-            <a href="/chart/{{ pos.ticker }}" title="candle chart with your stop/target lines" class="ml-1 no-underline">📈</a></td>
-          <td class="px-2 py-2 text-xs text-ink-soft whitespace-nowrap">{% if 'ocean' in (pos.tags or []) %}Ocean{% elif pos.mode == 'nifty200_momentum' or not pos.mode %}Momentum{% else %}{{ pos.mode | capitalize }}{% endif %}{% if 'owner_pick' in (pos.tags or []) %} <span class="text-ink-faint" title="your own buy">· owner</span>{% endif %}</td>
-          <td class="px-2 py-2 tabular-nums text-right whitespace-nowrap">{{ pos.qty }}</td>
-          <td class="px-2 py-2 tabular-nums text-right whitespace-nowrap">₹{{ pos.entry_price | inr(2) }}</td>
-          {% set cur = prices.get(pos.ticker, pos.entry_price) %}
-          {% set chg = (cur / pos.entry_price - 1) * 100 if pos.entry_price else 0 %}
-          <td class="px-2 py-2 tabular-nums text-right whitespace-nowrap">₹{{ cur | inr(2) }}</td>
-          <td class="px-2 py-2 tabular-nums text-right font-semibold whitespace-nowrap {% if chg >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}">{{ '%+.2f' % chg }}%</td>
-          {#- a hand-tapped BUY stores entry_score 0 — a real 0, never "missing" (the /positions 500 lesson) -#}
-          <td class="px-3 py-2 tabular-nums text-right whitespace-nowrap">{% if pos.entry_score is not none %}{{ pos.entry_score | round(1) }}{% else %}—{% endif %}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    </div>
-    {% else %}
-    <div class="px-4 lg:px-6 py-8 lg:py-10 text-center text-ink-faint text-sm">
-      No open positions. The 09:20 / 14:30 rotations add what clears the gates — or tap RUN SCAN.
-    </div>
-    {% endif %}
-  </div>
-
-  <!-- RIGHT: Today's Picks (full list, tap a row for the parameter detail) + Watchlist -->
-  <div class="space-y-4">
+<!-- Today's Picks (full list, tap a row for the parameter detail) + Watchlist,
+     FULL WIDTH, stacked (item 30c). The open-positions table that used to sit
+     beside them left on the owner's 2026-10-12 markup: a tall right column
+     stretched it into an empty box with a sideways scroll ("this gap is not
+     good"); the book is one tap away on /positions (button in the header). -->
+<div class="space-y-4 mb-6" data-picks-and-watchlist="picks_watchlist_marker">
   <div class="border border-line bg-white">
     <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
       <div class="font-bold">🎯 Today's Picks <span class="text-xs font-normal text-ink-faint">{{ today_picks | length }} · tap a row for its parameters</span></div>
@@ -436,7 +364,6 @@
     {% else %}
     <div class="px-4 lg:px-6 py-8 text-center text-ink-faint text-sm">Empty — every scored pick is already in the book, or no scan yet.</div>
     {% endif %}
-  </div>
   </div>
 </div>
 
@@ -600,10 +527,16 @@
           <span class="font-bold">{{ h.name }}</span>
           {% if h.active %}<span class="text-[9px] uppercase tracking-widest bg-ink text-white px-1.5 py-0.5">live</span>{% endif %}
         </div>
-        <div class="tabular-nums text-[11px] mt-1 text-ink-soft">
-          stop <span class="font-semibold text-red-700">{{ h.stop }}%</span> ·
-          target <span class="font-semibold text-emerald-700">+{{ h.target }}%</span> ·
-          trail {{ h.trail }}% · hold {{ h.hold }}d · floor {{ h.floor }}
+        {#- Owner 2026-10-12 markup: "trail and its number going to next line" —
+            the one-line sentence wrapped between a label and its value. Each
+            figure is now its own cell (label over number, nowrap), so a narrow
+            card wraps between figures, never inside one. -#}
+        <div class="grid grid-cols-3 gap-x-2 gap-y-1.5 mt-1.5 tabular-nums" data-horizon-figures="1">
+          <div class="whitespace-nowrap"><div class="text-[9px] uppercase tracking-wider text-ink-faint">stop</div><div class="text-[11px] font-semibold text-red-700">{{ h.stop }}%</div></div>
+          <div class="whitespace-nowrap"><div class="text-[9px] uppercase tracking-wider text-ink-faint">target</div><div class="text-[11px] font-semibold text-emerald-700">+{{ h.target }}%</div></div>
+          <div class="whitespace-nowrap" data-horizon-trail="1"><div class="text-[9px] uppercase tracking-wider text-ink-faint">trail</div><div class="text-[11px] text-ink-soft">{{ h.trail }}%</div></div>
+          <div class="whitespace-nowrap"><div class="text-[9px] uppercase tracking-wider text-ink-faint">hold</div><div class="text-[11px] text-ink-soft">{{ h.hold }}d</div></div>
+          <div class="whitespace-nowrap"><div class="text-[9px] uppercase tracking-wider text-ink-faint">floor</div><div class="text-[11px] text-ink-soft">{{ h.floor }}</div></div>
         </div>
       </div>
       {% endfor %}

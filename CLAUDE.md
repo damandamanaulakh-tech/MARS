@@ -174,6 +174,60 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   distinguishable from outside). 14:20 IST wake armed
   (trig_014eEmBWPKn6KvWfq82ErURF; re-arms Tue 09:10); the 16:30 weekly block
   is due today.
+- **PR #162 MERGED 12:21 IST MON 10-12 on the owner's order ("merge it now
+  n show me the new dashboard") — the owner OVERRODE the after-17:30 merge
+  rule for this one; main = 86466b1, branch fast-forwarded.** Render
+  deployed by ~12:25 IST (login page reads Sourceborn MARS). Owner logged
+  in to Upstox 12:5x IST; the login catch-up ran (peak 302 MiB, rss 184
+  → 194, same process at 12:56 IST), Mongo writes landing (write_error
+  None), store 2,233, scan_universe 1,205 / last_rebuild 09-30 (16:30
+  block still due today). Atlas cluster total 430 of 512 MB (app db 68).
+  A session CANNOT see the authenticated dashboard (no owner password
+  here; /healthz carries no book numbers) — the three screenshots sent
+  were LOCAL sample-book renders (scratchpad tools/shot_dashboard.py;
+  Playwright needs `service_workers="block"` or the app's service worker
+  answers CDN script fetches with the offline page). Reading the live book
+  needs the owner's screenshot or a VIEWER_PASSWORD login (env edit =
+  Render restart; token survives via Mongo while writes land).
+- **DASHBOARD TRIM 2026-10-12 ~13:00 IST (owner marked up MY SAMPLE
+  SCREENSHOT — "JSON on disk", entry ₹100 rows, auto-scan OFF — not the
+  live book; the layout faults are real on the live page too).** Four
+  asks, all shipped on the branch (PR #163): (red) the open-positions TABLE
+  left the dashboard — a tall picks column stretched it into an empty box
+  with a sideways scroll; now ONE header button `📌 OPEN POSITIONS (n) ›`
+  (data-open-positions-button) + the headline count links to /positions,
+  picks + watchlist stacked full width (picks_watchlist_marker, no
+  grid-cols); (green) the fund card's Total row, the shares footnote AND the
+  item-32 "why not today" block are REMOVED ("doesn't make sense, remove
+  that" — the sample's +2207% was the fake ₹100 entries; told them; the
+  pure reader `market_panels.why_not_today` + its test stay, one word puts
+  the block back); (blue) Trade Horizons figures are five label-over-number
+  nowrap cells in a 3-col mini grid (data-horizon-figures / -trail) so
+  "trail" can never split from its number. Route no longer computes
+  `why_not`; dead `_ist_today_iso` helper deleted. Tests repointed in
+  test_dashboard_mars_2026_10_12.py (zero-score pin lives on /positions
+  tests). Sample renders: scratchpad mars_dashboard_desktop/phone.png.
+  NOTE the shot script writes the sample book into the DEFAULT state dir
+  (/tmp/sourceborn_paper; no SB_STATE_DIR env exists) — rm it before a
+  suite run, never run both at once.
+- **MON 10-12 14:30 CHAIN DID NOT RUN — THE APP WAS ASLEEP AT 14:30.** The
+  14:20 wake fired 08:50Z but the container paused; first probe 14:34 IST =
+  52.7 s cold start (rss 151 / peak 150) — the post-login process (peak
+  302 at 12:56) was gone. Keep-alive 14:44-15:40 IST, ONE process: rss 147
+  flat to 15:00, then a bump to 188 / **peak 208** (the 15:00 in-session
+  exit pass loading histories + danger panels), 170-174 flat to 15:40
+  (15:30 pass cache-warm, 15:35 marks). A five-category rotation peaks
+  ~480-500, so NO rotation ran. WHY: a cron job added to a fresh
+  APScheduler at 14:33 computes its next run from NOW → the 14:30 slot is
+  simply tomorrow's; the boot catch-up covers the DAILY scan only and S-5
+  skips it when an in-hours scan already happened today (the 09:20 chain
+  ran 09:25-09:29 at 447/481). So every day the box sleeps at 14:30 the
+  afternoon rotation is lost; Render Starter (owner's M-12 "will
+  consider") is still the only fix. Exits/stops/danger DID run at 15:00 /
+  15:30 / 15:35 on the woken process; no OOM today. Wakes armed:
+  16:25 IST today (trig_01E4aX89hEdbDWStVRMQjbKd — watch the 16:30 block,
+  merge PR #163 after 17:30 once stamped) and Tue 09:10 IST
+  (trig_01R2viqLdBgXdRwHKjCkkLdo).
 - OWNER ASKS STILL OPEN (said to them): the companion sheet; display name;
   archive-not-delete confirmed? (built as archive); which category Buy
   Desk buys count under (today momentum → fills the 40% share, why "no
