@@ -1952,11 +1952,10 @@ def _capture_watchlist(eng, cfg, where: str) -> dict:
         eng.portfolio.save()
     except Exception:
         log.exception("[%s] watchlist capture journal failed", where)
-    try:
-        from .memory_relief import release as release_memory
-        release_memory(f"{where} watchlist capture")
-    except Exception:
-        pass
+    # No memory_relief.release() here on purpose: the capture is a few
+    # hundred small dicts, the last category pass already released, and the
+    # rotation pins count exactly one release per category (CI red on
+    # 5181c89 when this had its own release).
     return res
 
 
