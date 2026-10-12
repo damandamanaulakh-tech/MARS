@@ -1125,13 +1125,59 @@ def _monthly_constituents_snapshot() -> None:
                          f"Monthly constituents snapshot crashed: {e}")
 
 
+# Owner order 2026-10-12 ("add a time budget on the fundamentals step").
+# The step used to loop every scanned name with one 20 s-timeout Yahoo GET
+# and no total bound: ~1,205 names since the liquidity universe, so when
+# Yahoo hung the weekly block sat in it for 89 minutes (Fri 10-09) and
+# again Mon 10-12, and the universe rebuild + OHLCV pull behind it never
+# ran. Now: a per-run budget (seconds; env SB_FUNDAMENTALS_BUDGET_S), the
+# names already attempted this month kept in the ledger, and an unfinished
+# run keeps the weekly block due the NEXT trading day — the OHLCV pull's own
+# resume pattern (PR #103). Display-only feed: nothing here touches entries
+# or exits.
+FUNDAMENTALS_BUDGET_S_DEFAULT = 600.0
+FUNDAMENTALS_DONE_KEY = "fundamentals_done"        # {"month", "symbols": [...]}
+FUNDAMENTALS_LEFT_KEY = "fundamentals_remaining"   # int; > 0 = block due tomorrow
+
+
+def fundamentals_time_budget_s() -> "float | None":
+    """Seconds one fundamentals run may spend (SB_FUNDAMENTALS_BUDGET_S,
+    default 600). None = unbounded, chosen only by setting it <= 0."""
+    raw = os.environ.get("SB_FUNDAMENTALS_BUDGET_S", "")
+    try:
+        v = float(raw) if raw.strip() else FUNDAMENTALS_BUDGET_S_DEFAULT
+    except ValueError:
+        v = FUNDAMENTALS_BUDGET_S_DEFAULT
+    return v if v > 0 else None
+
+
+def _fundamentals_complete(db, month: str) -> None:
+    """Stamp the month done and clear the resume state."""
+    db.save_settings({"fundamentals_month": month, FUNDAMENTALS_LEFT_KEY: 0},
+                     doc_id="data_refresh")
+    try:
+        db.unset_settings_keys([FUNDAMENTALS_DONE_KEY], doc_id="data_refresh")
+    except Exception:
+        log.exception("fundamentals done-list could not be cleared")
+
+
 def _monthly_fundamentals_refresh() -> None:
     """Node 3: monthly fundamentals refresh (Yahoo direct timeseries — the
     raw endpoint, since the yfinance wrapper returns empty where the
-    endpoint has data). Scope = custom universe + held names, bounded.
+    endpoint has data). Scope = custom universe + held names.
     register_v4.load_fundamentals overlays the stored rows on the committed
     CSV; the cache is cleared after a successful store so the page and the
-    nightly precompute see the new quarters without a restart."""
+    nightly precompute see the new quarters without a restart.
+
+    TIME-BUDGETED AND RESUMABLE (owner order 2026-10-12): each run spends
+    at most `fundamentals_time_budget_s()` on Yahoo, saves what it got,
+    records the names it attempted under FUNDAMENTALS_DONE_KEY, and — when
+    names are left — sets FUNDAMENTALS_LEFT_KEY so `weekly_block_due` brings
+    the block back tomorrow to continue. The month is stamped only once
+    every name has been attempted. A run Yahoo refuses entirely stores
+    nothing, counts nothing as done, and does NOT ask for a next-day rerun
+    (that would be a 10-minute hang every evening); it waits for the next
+    weekly slot as before."""
     from datetime import date as _date
 
     from . import db, state
@@ -1139,8 +1185,8 @@ def _monthly_fundamentals_refresh() -> None:
         return                      # weekly retry; the index job journaled
     month = _date.today().isoformat()[:7]
     try:
-        if db.load_settings(doc_id="data_refresh").get(
-                "fundamentals_month") == month:
+        ledger = db.load_settings(doc_id="data_refresh") or {}
+        if ledger.get("fundamentals_month") == month:
             return
         from trading import data_refresh as dr
         cfg = state.cfg()
@@ -1150,28 +1196,61 @@ def _monthly_fundamentals_refresh() -> None:
                                  + tuple((p.positions or {}).keys()))})
         if not syms:
             return
-        rows, n_ok = dr.fetch_fundamentals(syms)
+        done_doc = ledger.get(FUNDAMENTALS_DONE_KEY) or {}
+        done = (set(done_doc.get("symbols") or [])
+                if done_doc.get("month") == month else set())
+        todo = [s for s in syms if s not in done]
+        if not todo:
+            # every name was attempted on earlier runs this month (the list
+            # shrank since) — nothing left to fetch, stamp and clear
+            _fundamentals_complete(db, month)
+            log.info("[fri 16:30] fundamentals refresh %s: nothing left", month)
+            return
+        budget = fundamentals_time_budget_s()
+        res = dr.fetch_fundamentals_budgeted(todo, time_budget_s=budget)
+        rows, n_ok = res["rows"], res["n_ok"]
+        attempted = list(res["attempted"])
+        left = len(res["remaining"])
         if not rows:
+            # Nothing came back: keep the progress already made, count none
+            # of these as done, and do not re-run tomorrow for it.
+            db.save_settings({FUNDAMENTALS_LEFT_KEY: 0}, doc_id="data_refresh")
             _refresh_journal("DATA_REFRESH_FUNDAMENTALS_FAILED",
                              f"Monthly fundamentals refresh: Yahoo returned "
-                             f"nothing for all {len(syms)} symbols — will "
-                             "retry next Friday.")
+                             f"nothing for all {len(attempted)} symbols tried "
+                             f"in {res['elapsed_s']}s ({len(done)} of "
+                             f"{len(syms)} already done this month) — will "
+                             "retry at the next weekly slot.")
             return
         n = db.save_fundamentals_rows(rows)
-        db.save_settings({"fundamentals_month": month},
-                         doc_id="data_refresh")
+        done |= set(attempted)
+        if left:
+            db.save_settings({FUNDAMENTALS_DONE_KEY: {"month": month,
+                                                      "symbols": sorted(done)},
+                              FUNDAMENTALS_LEFT_KEY: left},
+                             doc_id="data_refresh")
+        else:
+            _fundamentals_complete(db, month)
         try:
             import trading.register_v4 as rv
             rv.clear_fundamentals_cache()
         except Exception:
             log.exception("fundamentals cache clear failed")
+        budget_txt = f"{int(budget)} s" if budget else "no"
         _refresh_journal("DATA_REFRESH_FUNDAMENTALS",
                          f"Monthly fundamentals refresh for {month}: "
-                         f"{n} datapoints stored, {n_ok}/{len(syms)} "
-                         "symbols answered. /register H/W/X items read the "
-                         "fresh quarters.")
-        log.info("[fri 16:30] fundamentals refresh: %d rows, %d/%d ok",
-                 n, n_ok, len(syms))
+                         f"{n} datapoints stored, {n_ok}/{len(attempted)} "
+                         f"symbols answered in {res['elapsed_s']}s"
+                         + (f". STOPPED on the {budget_txt} time budget with "
+                            f"{left} name(s) left ({len(done)}/{len(syms)} "
+                            "done this month) — the weekly block runs again "
+                            "next trading day and resumes from there."
+                            if left else
+                            f". Complete: {len(done)}/{len(syms)} names this "
+                            "month. /register H/W/X items read the fresh "
+                            "quarters."))
+        log.info("[fri 16:30] fundamentals refresh: %d rows, %d/%d ok, "
+                 "%d left", n, n_ok, len(attempted), left)
     except Exception as e:
         log.exception("fundamentals refresh failed: %s", e)
         _refresh_journal("DATA_REFRESH_FUNDAMENTALS_FAILED",
@@ -1307,19 +1386,29 @@ def weekly_block_due(today=None) -> tuple[bool, str]:
     today = today or _date.today()
     try:
         from . import db
-        last_iso = (db.load_settings(doc_id="data_refresh")
-                    or {}).get(WEEKLY_BLOCK_KEY)
+        ledger = db.load_settings(doc_id="data_refresh") or {}
     except Exception:
         log.exception("weekly block ledger unreadable")
-        last_iso = None
+        ledger = {}
+    last_iso = ledger.get(WEEKLY_BLOCK_KEY)
     try:
-        left = int((db.load_settings(doc_id="data_refresh")
-                    or {}).get(WEEKLY_BLOCK_LEFT_KEY) or 0)
-    except Exception:
+        left = int(ledger.get(WEEKLY_BLOCK_LEFT_KEY) or 0)
+    except (TypeError, ValueError):
         left = 0
     if left > 0:
         return True, (f"the OHLCV pull still owes {left} name(s) — it stopped "
                       f"on its time budget, so it resumes today")
+    # Owner order 2026-10-12: the fundamentals step is time-budgeted and
+    # resumable the same way — an unfinished month brings the block back
+    # tomorrow (the other feeds are cheap and idempotent; the pull skips
+    # fresh names).
+    try:
+        fleft = int(ledger.get(FUNDAMENTALS_LEFT_KEY) or 0)
+    except (TypeError, ValueError):
+        fleft = 0
+    if fleft > 0:
+        return True, (f"the fundamentals refresh still owes {fleft} name(s) "
+                      f"— it stopped on its time budget, so it resumes today")
     if not last_iso:
         return True, "the weekly data block has no recorded completion yet"
     try:

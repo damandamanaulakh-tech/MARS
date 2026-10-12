@@ -238,6 +238,30 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   16:25 IST today (trig_01E4aX89hEdbDWStVRMQjbKd — watch the 16:30 block,
   merge PR #163 after 17:30 once stamped) and Tue 09:10 IST
   (trig_01R2viqLdBgXdRwHKjCkkLdo).
+- **FUNDAMENTALS TIME BUDGET (owner order 2026-10-12 17:10 IST: "add a
+  time budget on the fundamentals step"), PR #164.** Money impact: none —
+  the feed serves /register and Ocean's survival check, never entries or
+  exits; the win is that the weekly block can no longer hang in this step,
+  so the universe rebuild + OHLCV pull behind it run every week.
+  `data_refresh.fetch_fundamentals_budgeted(symbols, time_budget_s)` checks
+  the budget BEFORE each symbol (overshoot ≤ one request: 20 s timeout +
+  0.2 s sleep) and returns {rows, n_ok, attempted, remaining, elapsed_s,
+  stopped}; `fetch_fundamentals` stays as the unbounded (rows, n_ok)
+  wrapper for the kit. `scheduler._monthly_fundamentals_refresh`: budget =
+  `fundamentals_time_budget_s()` (env SB_FUNDAMENTALS_BUDGET_S, default
+  600 s; <= 0 = unbounded), ledger `fundamentals_done` {month, symbols}
+  keeps the names attempted this month, `fundamentals_remaining` > 0 makes
+  `weekly_block_due` bring the block back the NEXT trading day (the PR
+  #103 pull pattern), the month is stamped only once every name was
+  attempted. A run Yahoo refuses ENTIRELY (no rows) counts nothing done and
+  sets remaining 0 — no 10-minute hang every evening; it waits for the
+  next weekly slot as before. Journal DATA_REFRESH_FUNDAMENTALS says
+  "STOPPED on the 600 s time budget with N name(s) left (done/total)" or
+  "Complete". Sizing: ~1,205 names at ~0.6 s each ≈ 12 min when Yahoo
+  answers → two runs (Tue + Wed) the first week of a month; a hanging
+  Yahoo = 30 names/run. Tests web/tests/test_fundamentals_budget_2026_10_12
+  .py (8); the old job test repointed to the budgeted fetcher. FIRST LIVE
+  RUN = Tue 10-13 16:30 (block due; October stamp still missing).
 - OWNER ASKS STILL OPEN (said to them): the companion sheet; display name;
   archive-not-delete confirmed? (built as archive); which category Buy
   Desk buys count under (today momentum → fills the 40% share, why "no

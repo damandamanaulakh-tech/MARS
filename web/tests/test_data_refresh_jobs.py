@@ -158,11 +158,18 @@ def test_monthly_fundamentals_stores_and_journals(monkeypatch):
     monkeypatch.setattr(
         "web.db.save_settings",
         lambda d, doc_id="default": marks.update({doc_id: d}))
+    # Owner order 2026-10-12: the step calls the time-budgeted fetcher; this
+    # fake answers everything inside the budget (nothing remaining).
     monkeypatch.setattr(
-        "trading.data_refresh.fetch_fundamentals",
-        lambda syms, **k: ([{"symbol": s, "field": "annualNetIncome",
-                             "as_of": "2026-03-31", "value": 1.0}
-                            for s in syms], len(syms)))
+        "trading.data_refresh.fetch_fundamentals_budgeted",
+        lambda syms, **k: {"rows": [{"symbol": s, "field": "annualNetIncome",
+                                     "as_of": "2026-03-31", "value": 1.0}
+                                    for s in syms],
+                           "n_ok": len(syms), "attempted": list(syms),
+                           "remaining": [], "elapsed_s": 1.0,
+                           "stopped": None})
+    monkeypatch.setattr("web.db.unset_settings_keys",
+                        lambda keys, doc_id="default": None)
     monkeypatch.setattr(
         "web.db.save_fundamentals_rows",
         lambda rows: stored.setdefault("rows", rows) and 0 or len(rows))

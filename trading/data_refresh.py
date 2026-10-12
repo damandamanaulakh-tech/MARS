@@ -548,18 +548,45 @@ def extend_pwoi_df(df):
 
 
 # ------------------------------------------------------------- fundamentals
-def fetch_fundamentals(symbols: list[str], sleep_s: float = 0.2,
-                       timeout: float = 20.0) -> tuple[list[dict], int]:
-    """Yahoo direct timeseries rows for bare NSE symbols (no .NS).
+def fetch_fundamentals_budgeted(symbols: list[str],
+                                time_budget_s: Optional[float] = None,
+                                sleep_s: float = 0.2,
+                                timeout: float = 20.0) -> dict:
+    """Yahoo direct timeseries rows for bare NSE symbols (no .NS), under a
+    TIME BUDGET (owner order 2026-10-12: "add a time budget on the
+    fundamentals step").
 
-    Returns (rows, n_ok). Symbols are URL-encoded (the M&M / GVT&D lesson).
-    Same fields and shape as the committed CSV: symbol/field/as_of/value."""
+    WHY: this step runs inside the weekly block BEFORE the universe rebuild
+    and the OHLCV pull. Its first October run covered ~1,205 names with one
+    20 s-timeout GET each and NO total bound — when Yahoo hung, the block sat
+    in it for 89 minutes (Fri 10-09) and again on Mon 10-12, and everything
+    sequenced after it never ran. The budget is checked BEFORE each symbol,
+    so one run overshoots by at most one request (timeout + sleep). Symbols
+    never reached come back as `remaining` so the caller resumes from them
+    next time — the OHLCV pull's own pattern (PR #103). `time_budget_s`
+    None or <= 0 = unbounded (the old behaviour).
+
+    Returns {rows, n_ok, attempted, remaining, elapsed_s, stopped}:
+      rows       symbol/field/as_of/value — the committed CSV's own schema
+      n_ok       symbols that answered with at least one datapoint
+      attempted  symbols a request was sent for (answered or failed), in order
+      remaining  symbols never attempted because the budget ran out first
+      stopped    "time_budget" when it stopped early, else None
+    Symbols are URL-encoded (the M&M / GVT&D lesson)."""
     types = ",".join(FUND_FIELDS_ANNUAL + FUND_FIELDS_QUARTERLY)
     headers = {"User-Agent": "Mozilla/5.0"}
     p2 = int(time.time())
+    budget = float(time_budget_s) if time_budget_s and time_budget_s > 0 else None
+    t0 = time.monotonic()
     rows: list[dict] = []
     n_ok = 0
+    attempted: list[str] = []
+    stopped: Optional[str] = None
     for s in symbols:
+        if budget is not None and (time.monotonic() - t0) >= budget:
+            stopped = "time_budget"
+            break
+        attempted.append(s)
         y = quote(s + ".NS", safe="")
         url = ("https://query2.finance.yahoo.com/ws/fundamentals-timeseries/"
                f"v1/finance/timeseries/{y}?symbol={y}&type={types}"
@@ -580,4 +607,16 @@ def fetch_fundamentals(symbols: list[str], sleep_s: float = 0.2,
         except Exception as e:                                 # noqa: BLE001
             log.warning("fundamentals fetch failed for %s: %s", s, e)
         time.sleep(sleep_s)
-    return rows, n_ok
+    remaining = list(symbols[len(attempted):]) if stopped else []
+    return {"rows": rows, "n_ok": n_ok, "attempted": attempted,
+            "remaining": remaining,
+            "elapsed_s": round(time.monotonic() - t0, 1), "stopped": stopped}
+
+
+def fetch_fundamentals(symbols: list[str], sleep_s: float = 0.2,
+                       timeout: float = 20.0) -> tuple[list[dict], int]:
+    """The UNBOUNDED form, kept for the research kit and older callers:
+    (rows, n_ok). The weekly block uses fetch_fundamentals_budgeted."""
+    res = fetch_fundamentals_budgeted(symbols, None, sleep_s=sleep_s,
+                                      timeout=timeout)
+    return res["rows"], res["n_ok"]
