@@ -224,6 +224,36 @@ def fetch_sector_tail(broker, last_iso: str, days_back: int = 30) -> list[dict]:
     return out
 
 
+def fetch_sector_history(broker, start_iso: str, end_iso: str) -> list[dict]:
+    """Daily closes for every NSE sector index between two dates inclusive
+    — the one-time BACKFILL behind the valuation context stage (owner order
+    2026-10-12 "both, indian sector only, discount rate - go"): a measured
+    β needs ~252 paired sessions and a valuation dated before the store's
+    first row needs the index at that date, while the daily refresh only
+    ever seeds 30 days. Same row shape as fetch_sector_tail; a sector whose
+    fetch dies is simply absent (DATA_NEEDED on the page, never a flat
+    move). Tokenless — public candles."""
+    if broker is None or not start_iso or not end_iso or start_iso > end_iso:
+        return []
+    out: list[dict] = []
+    for sector, key in SECTOR_INDEX_KEYS.items():
+        try:
+            df = broker.get_daily_candles(key, start_iso, end_iso)
+        except Exception as e:                                 # noqa: BLE001
+            log.warning("sector history fetch failed for %s: %s", sector, e)
+            continue
+        if df is None or df.empty:
+            continue
+        for ts, r in df.iterrows():
+            d = ts.date().isoformat()
+            if d < start_iso or d > end_iso:
+                continue
+            out.append({"date": d, "sector": sector,
+                        "open": float(r["Open"]), "high": float(r["High"]),
+                        "low": float(r["Low"]), "close": float(r["Close"])})
+    return out
+
+
 def sector_moves(rows: list) -> list[dict]:
     """Latest close per sector with its 1-day and 5-day change, worst first.
 

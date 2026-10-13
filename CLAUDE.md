@@ -291,12 +291,94 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   cost nothing; `scan_universe.last_rebuild` still 09-30 = today's block
   never stamped, Tue 10-13 16:30 is the next slot and the first live run
   of the fundamentals budget.)
+- **VALUATION CONTEXT STAGE BUILT 2026-10-12 ~23:00 IST (owner: "both,
+  indian sector only, discount rate - go"). docs/VALUATION_CONTEXT_
+  2026-10-12.md IS THE RECORD. Money impact: none — display only, no
+  gate/stop/size reads it (boundary test-pinned).** `trading/
+  valuation_context.py` (PURE: `beta` OLS over 252 sessions / min 120,
+  `sector_leg` BOTH columns 1:1 and measured, `rates_leg` multiplier =
+  (r_then−g)/(r_now+shift−g) with r = 10y + ERP — at 7.2+5−8 one extra
+  point = −19.2%, printed as `per_pp_pct` with every reading,
+  `sentiment_margin` = base 10% + 2.5pp per gauge ON (VIX > prior-120d
+  p90 / breadth < band low / FII 5d ≤ −5,000 Cr / damage q90), unknown
+  gauges COUNTED never assumed, `decompose` residual ≥ ±10% = RE-RUN flag
+  with the news verdict beside it, `context` orchestrates; every missing
+  input DATA_NEEDED with its reason). `SECTOR_INDEX_FOR` maps the app's
+  sector labels to the 16 verified NSE indices (Auto, Financial→Fin
+  Service, IT, Pharma, FMCG, Metal, Energy, Utilities→Energy, Media,
+  Construction→Infra; 7 realty names→Realty via TICKER_INDEX_OVERRIDE);
+  the rest read Nifty 50 and say so; global sector = DATA_NEEDED (owner
+  chose Indian only). `web/valuation_view.py` gathers STORED inputs only
+  (load_ohlcv, Mongo sector_index, the committed 10y csv ending
+  2026-06-08 with a typed "today's yield" override, VIX csv+tail, breadth
+  store, FII csv+store with the 45-day guard, damage store, news_watch);
+  the owner's standalone targets live in settings doc `valuation_targets`
+  {targets{ticker:{target,asof,basis,ts}}, assumptions} + in-process
+  `LAST`, max 25 — TYPED until stages 09-17 produce them. Den §11
+  (`_den_valuation.html`, markers den_valuation_marker/_form_/_rows_),
+  `POST /den/valuation` + `/den/valuation/clear` (owner-only), SEQUENCE
+  stage "17b" (exists) after 17; `empty_section()` is the template-safe
+  fallback so a data fault never 500s the Den. SECTOR DEPTH: the store
+  only held ~30 days (the daily seed) → `dr.fetch_sector_history` +
+  `scheduler.backfill_sector_history(days=760)` (idempotent, one attempt
+  per process per day, 16 tokenless calls) runs inside
+  `_sector_index_refresh` AND on a Den save (`vv.ensure_sector_depth`);
+  until it lands on the live box a valuation dated before the store's
+  first row reads DATA_NEEDED on the sector leg (rates leg still prints).
+  Tests: trading/tests/test_valuation_context_2026_10_12.py (10),
+  web/tests/test_valuation_den_2026_10_12.py (11); the two old Den pins
+  (section list, 25 codes) updated for §11 / 17b. NOT built, said in the
+  doc: CPI feed, live 10y feed, global sector, the standalone target
+  itself (Phase 1 still waits on the formula review + companion sheet).
 - OWNER ASKS STILL OPEN (said to them): the companion sheet; display name;
   archive-not-delete confirmed? (built as archive); which category Buy
   Desk buys count under (today momentum → fills the 40% share, why "no
   fund"); 1-2 international indices; the memory lever (b/a/c); accept the
   5-year test window for valuation legs. Phases 1-4 (valuation data layer →
   scenarios → re-sequenced selection) wait for their formula review.
+- **TUE 10-13 (owner: "chk its all done how it was asked / we are pending
+  on sequence and formulas").** PR #167 (valuation stage, head 0bb7d15)
+  verified against their order point by point + a REAL render with repo
+  data (TCS ₹4,200 dated 2026-05-01: rates leg 10y 7.02→7.17 typed,
+  ×0.964, −19.3%/pp, context ₹4,046.91 +78.4% vs price; VIX 12.16 vs p90
+  22.66 off; sector leg DATA_NEEDED in the sandbox = no sector store);
+  full suite 1,712 passed, posted on the PR. Sequence standing told to
+  them: 26 Den stages = 4 exist (03, 17b, 19, 20) / 8 partly / 14 not
+  yet (the valuation chain 00,04,08-11,14-18,21,23,24); the 21 sector
+  methods + 52 finance terms are WRITTEN in the task book, not coded,
+  awaiting their review. The 7 asks that block stages (companion sheet;
+  OK to batch-fetch 1,205 names' statements + NSE result dates; sector
+  labels for ~950 unmapped names or derive from NSE industry; OK for 4
+  macro fetches; peer groups or derive; the 5-year window; Buy Desk
+  category) restated in one table. Proposed order once answered: 08 →
+  09 → 10 → 11 → 15-17; no money impact through Phase 3. **09:20 CHAIN =
+  FOURTH MORNING OOM KILL, same shape** (keep-alive 09:47-11:30 IST, one
+  process until the kill): warm at 09:47 (rss 189 / peak 231, the 08:30
+  top-up missed asleep → 09:20 topped up first), rotation 09:59 IST (315
+  → 438 peak by 10:00), 10:15 peak 493, 10:16-10:26 flat 356-368, 10:27-
+  10:45 climb 385 → 492, **peak 502 at 10:46**, held 468-476 for 14 min
+  (the trigger layer on top), 502 at 11:01 → a `502` from Render's edge
+  → **fresh process 11:02 IST (rss 153 / peak 152)**, flat 148 to 11:30
+  (boot catch-up skipped on S-5, the morning scans had already run).
+  Kill ~40 min later than last week because the top-up ran first. Levers
+  unchanged, owner's word needed: (b) trigger layer after a cool-down,
+  (a) shrink the four non-momentum passes, or Standard 2 GB. 16:25 IST
+  wake armed (trig_01YVhY4sgaVp1raBmTkebYMP) for the 16:30 block = first
+  live run of the fundamentals budget; PR #167 merges after 17:30 once
+  the block has stamped or died. **14:30 CHAIN RAN AND SURVIVED (unlike
+  Mon):** the 14:20 wake's probe found the box ASLEEP (14:21 IST, 42.6 s
+  cold start, rss 152 / peak 151, stats pending) but the fresh process
+  booted BEFORE 14:30, so its cron fired: rotation 14:30 (401), 424-435
+  to 14:44, climb 449 → 479 by 14:47, **peak 495 at 14:48**, rss 464-485
+  held to 15:17, 435-444 flat 15:19-15:40 (15:25 square-off + 15:35
+  marks on the live process), ONE process throughout, no kill — same
+  shape as Tue 10-06's 14:30 (peak 502). The 14:30 chain fits because it
+  has no trigger layer; the 09:20 chain dies because the trigger layer
+  loads on top of the same ~495. HARNESS NOTE: `keepalive_tue_pm.sh`
+  APPENDS (`>>`), and `keepalive_tue_pm.log` still held Tue 10-06's
+  14:24-15:40 block above today's — use a DATED log name per run, or rm
+  first; the 10-06 block is byte-for-byte the "rotation 404 by 14:31 …
+  502 at 15:23" reading recorded in the 10-06 bullet.
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:

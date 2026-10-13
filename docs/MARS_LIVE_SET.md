@@ -20,6 +20,7 @@ before. Nothing about the money path changed on 2026-10-12.
 | V1.2 | 2026-10-05 | "Go for A" — momentum stop = max(5%, 2×ATR14), cap 15% | [archive/FINAL_SET_V1_2.md](archive/FINAL_SET_V1_2.md) |
 | **V1.3 (live)** | 2026-10-05 | "make it momentum only" — measured-Kelly check reads momentum trades only | [FINAL_SET_V1_3.md](FINAL_SET_V1_3.md) |
 | MARS | 2026-10-12 | name, screens and records; formulas unchanged pending the valuation sequence | this page |
+| MARS 17b | 2026-10-12 | "both, indian sector only, discount rate - go" — the valuation CONTEXT stage (sector leg 1:1 + measured β, rates through the discount rate, sentiment as a wider buy discount, move split with a re-run flag); display only, money path untouched | [VALUATION_CONTEXT_2026-10-12.md](VALUATION_CONTEXT_2026-10-12.md) |
 
 ## Evidence behind the choices (kept, not deleted)
 

@@ -95,9 +95,11 @@ def test_den_renders_for_the_owner_and_redirects_a_stranger():
 def test_every_section_anchor_is_on_the_page():
     html = _den()
     ids = [sid for sid, _ in D.SECTIONS]
+    # "valuation" = the context stage, owner order 2026-10-12 ("both,
+    # indian sector only, discount rate - go").
     assert ids == ["sequence", "engines", "weights", "triggers", "timing",
                    "capacity", "register", "evidence", "algo-settings",
-                   "sandbox"]
+                   "sandbox", "valuation"]
     for sid in ids:
         assert f'id="{sid}"' in html, sid
         assert f'href="#{sid}"' in html, sid          # the chip row links it
@@ -105,9 +107,14 @@ def test_every_section_anchor_is_on_the_page():
 
 def test_the_sequence_is_the_owners_25_codes_and_dated():
     seq = D._sequence()
-    assert [r["code"] for r in seq["rows"]] == [f"{i:02d}" for i in range(25)]
+    codes = [r["code"] for r in seq["rows"]]
+    # The owner's 25 codes, in order, plus the ONE stage they ordered on
+    # 2026-10-12 — the market/sector/rates/sentiment context, which sits
+    # right after the justified range (17) and before selection (18).
+    assert [c for c in codes if c != "17b"] == [f"{i:02d}" for i in range(25)]
+    assert codes[codes.index("17") + 1] == "17b"
     assert {r["status"] for r in seq["rows"]} <= {"exists", "partly", "not yet"}
-    assert seq["exists"] + seq["partly"] + seq["not_yet"] == 25
+    assert seq["exists"] + seq["partly"] + seq["not_yet"] == len(codes) == 26
     # a "partly"/"exists" stage must say where it lives — never a bare claim
     assert all(r["where"] for r in seq["rows"] if r["status"] != "not yet")
     assert f"status as of <strong>{D.SEQUENCE_STATUS_ASOF}</strong>" in _den()
