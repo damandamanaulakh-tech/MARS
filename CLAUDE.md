@@ -379,6 +379,50 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   14:24-15:40 block above today's — use a DATED log name per run, or rm
   first; the 10-06 block is byte-for-byte the "rotation 404 by 14:31 …
   502 at 15:23" reading recorded in the 10-06 bullet.
+- **PR #167 MERGED 17:45 IST TUE 10-13 (main c93fb6d, squash; branch
+  reset onto main). THE VALUATION STAGE IS LIVE after the deploy: Den
+  §11 + sequence stage 17b.** The owner re-sent "both, indian sector
+  only, discount rate - go" at ~17:20 IST = the SAME order as 10-12
+  night, already built — told them, nothing rebuilt. First things the
+  live box will do with it: the sector backfill (`backfill_sector_
+  history`, 760 days, 16 tokenless calls) fires inside the next
+  `_sector_index_refresh` (09:20 / 15:35 slots, or a Den save); until
+  it lands, a valuation dated before the sector store's first row (~30
+  days back) reads DATA_NEEDED on the sector leg.
+- **TUE 10-13 16:30 BLOCK — THIRD STALL IN A ROW, AND THE FUNDAMENTALS
+  BUDGET DID NOT CHANGE THE SHAPE.** 16:28 IST probe = 52.7 s cold start
+  (asleep since the 15:40 loop ended; without the wake, no process).
+  Keep-alive 16:28-17:45, ONE process: rss 152 → 191 over 16:30-16:39
+  (the short feeds), flat 191 to 16:44, 16:45 register precompute spike
+  to **peak 357**, then **247 FLAT from 16:46 to 17:45 with NO rebuild
+  stamp** (`last_rebuild` 2026-09-30, store 2,233) — byte-for-byte Fri
+  10-09 and Mon 10-12. Since the pre-pull `refresh_liquid_universe` is
+  the FIRST thing that stamps and it sits AFTER six feed steps (FII
+  NSDL 40/60 s timeouts · index tail · sector · constituents 30 s ·
+  fundamentals, now budgeted 600 s · SEBI 25 s), the growth stopping at
+  16:39 and nothing stamping by 17:45 means EITHER a feed step is
+  hanging past its per-request timeout (a many-request loop with no
+  total bound: NSDL per-day pages, constituents ×3, SEBI — the
+  fundamentals step was the one with a bound and it is now bounded) OR
+  the rebuild DECLINED (store ranked nothing → "previous list stands",
+  no stamp) and the time-bounded pull ran silently (a pull over an
+  already-stored universe changes NOTHING on /healthz — not rss, not
+  history_tickers — so from outside the two cases look identical; in
+  that case the post-pull rebuild would have stamped by ~17:35 and did
+  not). ONLY THE JOURNAL DECIDES: the DATA_REFRESH_WEEKLY_START line,
+  then which of DATA_REFRESH_FII / _INDEX / _SECTOR / CONSTITUENTS /
+  _FUNDAMENTALS ("STOPPED on the 600 s budget …" = the budget's first
+  live reading) / _SEBI / UNIVERSE_* lines follow it, and whether
+  DATA_REFRESH_STEP_FAILED names a step. Needs the owner's login
+  (/reports → journal CSV, lines from 16:30 today). Asked for. The
+  merge at 17:45 restarted the process = the stuck block died unmarked
+  again (ledger still 09-30 → due the next trading day, Wed 10-14
+  16:30). LEVER (owner's word, not built): a TOTAL time cap per weekly
+  step in `_run_weekly_step` (thread + join(timeout), journal
+  DATA_REFRESH_STEP_TIMEOUT naming the step) so no feed can hold the
+  rebuild + pull hostage, whichever it is — the fix that does not need
+  the journal to name the culprit first. Wed 09:10 IST wake armed
+  (trig_019Tk87LirATcxCKVErppijs).
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:
