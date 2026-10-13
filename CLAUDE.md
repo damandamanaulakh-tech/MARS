@@ -365,7 +365,20 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   (a) shrink the four non-momentum passes, or Standard 2 GB. 16:25 IST
   wake armed (trig_01YVhY4sgaVp1raBmTkebYMP) for the 16:30 block = first
   live run of the fundamentals budget; PR #167 merges after 17:30 once
-  the block has stamped or died.
+  the block has stamped or died. **14:30 CHAIN RAN AND SURVIVED (unlike
+  Mon):** the 14:20 wake's probe found the box ASLEEP (14:21 IST, 42.6 s
+  cold start, rss 152 / peak 151, stats pending) but the fresh process
+  booted BEFORE 14:30, so its cron fired: rotation 14:30 (401), 424-435
+  to 14:44, climb 449 → 479 by 14:47, **peak 495 at 14:48**, rss 464-485
+  held to 15:17, 435-444 flat 15:19-15:40 (15:25 square-off + 15:35
+  marks on the live process), ONE process throughout, no kill — same
+  shape as Tue 10-06's 14:30 (peak 502). The 14:30 chain fits because it
+  has no trigger layer; the 09:20 chain dies because the trigger layer
+  loads on top of the same ~495. HARNESS NOTE: `keepalive_tue_pm.sh`
+  APPENDS (`>>`), and `keepalive_tue_pm.log` still held Tue 10-06's
+  14:24-15:40 block above today's — use a DATED log name per run, or rm
+  first; the 10-06 block is byte-for-byte the "rotation 404 by 14:31 …
+  502 at 15:23" reading recorded in the 10-06 bullet.
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:
