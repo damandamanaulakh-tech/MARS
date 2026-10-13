@@ -336,6 +336,36 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   fund"); 1-2 international indices; the memory lever (b/a/c); accept the
   5-year test window for valuation legs. Phases 1-4 (valuation data layer →
   scenarios → re-sequenced selection) wait for their formula review.
+- **TUE 10-13 (owner: "chk its all done how it was asked / we are pending
+  on sequence and formulas").** PR #167 (valuation stage, head 0bb7d15)
+  verified against their order point by point + a REAL render with repo
+  data (TCS ₹4,200 dated 2026-05-01: rates leg 10y 7.02→7.17 typed,
+  ×0.964, −19.3%/pp, context ₹4,046.91 +78.4% vs price; VIX 12.16 vs p90
+  22.66 off; sector leg DATA_NEEDED in the sandbox = no sector store);
+  full suite 1,712 passed, posted on the PR. Sequence standing told to
+  them: 26 Den stages = 4 exist (03, 17b, 19, 20) / 8 partly / 14 not
+  yet (the valuation chain 00,04,08-11,14-18,21,23,24); the 21 sector
+  methods + 52 finance terms are WRITTEN in the task book, not coded,
+  awaiting their review. The 7 asks that block stages (companion sheet;
+  OK to batch-fetch 1,205 names' statements + NSE result dates; sector
+  labels for ~950 unmapped names or derive from NSE industry; OK for 4
+  macro fetches; peer groups or derive; the 5-year window; Buy Desk
+  category) restated in one table. Proposed order once answered: 08 →
+  09 → 10 → 11 → 15-17; no money impact through Phase 3. **09:20 CHAIN =
+  FOURTH MORNING OOM KILL, same shape** (keep-alive 09:47-11:30 IST, one
+  process until the kill): warm at 09:47 (rss 189 / peak 231, the 08:30
+  top-up missed asleep → 09:20 topped up first), rotation 09:59 IST (315
+  → 438 peak by 10:00), 10:15 peak 493, 10:16-10:26 flat 356-368, 10:27-
+  10:45 climb 385 → 492, **peak 502 at 10:46**, held 468-476 for 14 min
+  (the trigger layer on top), 502 at 11:01 → a `502` from Render's edge
+  → **fresh process 11:02 IST (rss 153 / peak 152)**, flat 148 to 11:30
+  (boot catch-up skipped on S-5, the morning scans had already run).
+  Kill ~40 min later than last week because the top-up ran first. Levers
+  unchanged, owner's word needed: (b) trigger layer after a cool-down,
+  (a) shrink the four non-momentum passes, or Standard 2 GB. 16:25 IST
+  wake armed (trig_01YVhY4sgaVp1raBmTkebYMP) for the 16:30 block = first
+  live run of the fundamentals budget; PR #167 merges after 17:30 once
+  the block has stamped or died.
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:
