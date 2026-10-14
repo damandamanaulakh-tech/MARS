@@ -170,6 +170,15 @@ assert tuple(LINE_ITEMS) == SNAPSHOT_FIELDS, "LINE_ITEMS must cover SNAPSHOT_FIE
 EXTRA_LINE_ITEMS: Dict[str, Tuple[Tuple[str, str], ...]] = {
     "retained_earnings": (("bs", "Retained Earnings"),),
     "capital_stock": (("bs", "Capital Stock"),),
+    # Read by normalise.py (stage 11-12) and shares.py (stage 10) through
+    # snap["extra"] / history — the exact tax on the one-offs, the treasury
+    # investments that belong in net debt, the two components of the
+    # unusual-items line, and share issuance for the bridge.
+    "tax_effect_unusual": (("is", "Tax Effect Of Unusual Items"),),
+    "short_term_investments": (("bs", "Other Short Term Investments"),),
+    "restructuring": (("is", "Restructuring And Mergern Acquisition"),),
+    "write_off": (("is", "Write Off"),),
+    "issuance": (("cf", "Issuance Of Capital Stock"), ("cf", "Common Stock Issuance")),
 }
 
 # Curated fundamentals CSV (source "fundamentals_csv") → canonical names.
@@ -569,7 +578,7 @@ def snapshot(ticker: str, *, asof: Optional[str] = None,
                        f"{field} not carried by the fundamentals csv "
                        f"(no statements zip file for {sym})")
                 raw_fields[field] = dn(why)
-        if series and field in LINE_ITEMS:
+        if series and (field in LINE_ITEMS or field in EXTRA_LINE_ITEMS):
             h = {p: series[p] for p in hist_periods if p in series}
             if h:
                 raw_hist[field] = h
@@ -709,6 +718,13 @@ def snapshot(ticker: str, *, asof: Optional[str] = None,
             else:
                 out_h[p] = float(mv)
         rec["history"][field] = out_h
+    # snap["extra"]: what normalise.py / shares.py read — the dated series
+    # when the source has it, else the chosen period's scalar (or its dn).
+    rec["extra"] = {}
+    for field in EXTRA_LINE_ITEMS:
+        h = rec["history"].get(field)
+        rec["extra"][field] = (dict(h) if isinstance(h, dict) and h
+                               else rec["extras"].get(field))
 
     conv_q: Dict[str, Dict[str, float]] = {}
     for field, vals in raw_q.items():

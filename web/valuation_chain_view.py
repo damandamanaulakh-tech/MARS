@@ -30,6 +30,7 @@ from typing import Any, Optional
 import pandas as pd
 
 from trading import valuation as V
+from trading import valuation_context as vc
 
 from . import valuation_view as vv
 
@@ -129,10 +130,10 @@ def names_to_show(p, typed: str = "") -> list[str]:
 # --------------------------------------------------------------- peers
 
 def peer_multiples(method: str, exclude: str = "") -> dict:
-    """Median trailing P/E (and EV/EBITDA where the route is EV-based) of
-    the names on the same route among the Nifty-200 statement set.
-    ASSUMED peer definition — the owner has not supplied peer groups.
-    One pass per process per day; every name's price from the store."""
+    """Median trailing multiples (P/E, P/B, EV/EBITDA, EV/Sales) of the
+    names on the same route among the Nifty-200 statement set. ASSUMED
+    peer definition — the owner has not supplied peer groups. One pass per
+    process per day; every name's price from the store."""
     from trading.valuation import pipeline
     today = date.today().isoformat()
     if _PEER_CACHE["day"] != today:
@@ -141,17 +142,19 @@ def peer_multiples(method: str, exclude: str = "") -> dict:
         try:
             _PEER_CACHE["by_method"] = pipeline.peer_table(
                 price_of=lambda t: price_now(_closes(t))[0],
-                sector_map=_sector_map())
+                sector_map=_sector_map(), company_names=_company_names())
         except Exception:                               # noqa: BLE001
             log.exception("valuation chain: peer table failed")
     rows = [r for r in (_PEER_CACHE["by_method"].get(method) or [])
             if r.get("ticker") != exclude]
-    pes = [r["pe"] for r in rows if V.num(r.get("pe")) and r["pe"] > 0]
-    evs = [r["ev_ebitda"] for r in rows if V.num(r.get("ev_ebitda")) and r["ev_ebitda"] > 0]
-    return {"n": len(rows),
-            "pe_median": statistics.median(pes) if pes else None,
-            "ev_ebitda_median": statistics.median(evs) if evs else None,
-            "source": f"median of {len(pes)} same-route Nifty-200 names (ASSUMED peers)"}
+
+    def _med(key: str) -> Optional[float]:
+        xs = [r[key] for r in rows if V.num(r.get(key)) and r[key] > 0]
+        return statistics.median(xs) if xs else None
+
+    return {"n": len(rows), "pe_median": _med("pe"), "pb_median": _med("pb"),
+            "ev_ebitda_median": _med("ev_ebitda"), "ev_sales_median": _med("ev_sales"),
+            "source": f"median of {len(rows)} same-route Nifty-200 names (ASSUMED peers)"}
 
 
 def _sector_map() -> dict:
@@ -186,24 +189,40 @@ def _company_names() -> dict:
 
 # ---------------------------------------------------------------- rows
 
-def _macro_inputs(snap: dict) -> dict:
-    """The owner's P/E-bridge market inputs from stored state; missing
-    macro series are 0 with a DATA_NEEDED note (what-if rows)."""
+def _macro_inputs(snap: dict, closes: Optional[pd.Series] = None) -> dict:
+    """The owner's P/E-bridge market inputs from STORED state: Sensex /
+    Nifty levels at the period end and now, VIX, the 10-year yield (rf),
+    the stock's measured β on Nifty 50, USDINR now and at the period end.
+    Repo / CPI / GDP / Brent are not stored — the pipeline counts them 0
+    and lists them DATA_NEEDED."""
+    from trading.valuation import snapshot as S
     period_end = snap.get("period_end")
     nifty = index_move("nifty_close", period_end)
     sensex = index_move("sensex_close", period_end)
     vix = vv._index_field("india_vix_close")
-    out = {
+    bond = vv._bond_series()
+    out: dict = {
         "sensex_start": sensex.get("start"), "sensex_end": sensex.get("end"),
         "nifty_start": nifty.get("start"), "nifty_end": nifty.get("end"),
         "vix": float(vix.dropna().iloc[-1]) if vix is not None and len(vix.dropna()) else None,
-        "data_needed": [],
+        "rf_pct": float(bond.dropna().iloc[-1]) if bond is not None and len(bond.dropna()) else None,
+        "beta": None, "usdinr_now": None, "usdinr_base": None,
+        "price_now": price_now(closes)[0] if closes is not None else None,
     }
-    for k, why in (("repo", "RBI repo rate: no feed wired"),
-                   ("cpi", "CPI: no feed wired (MOSPI / FRED)"),
-                   ("gdp", "GDP growth: no feed wired"),
-                   ("brent", "Brent: no feed wired")):
-        out["data_needed"].append(f"{k} — {why}; counted 0")
+    try:
+        fx_now = S.usdinr_at(date.today().isoformat())
+        fx_base = S.usdinr_at(period_end) if period_end else None
+        out["usdinr_now"] = fx_now[0] if fx_now else None
+        out["usdinr_base"] = fx_base[0] if fx_base else None
+    except Exception:                                   # noqa: BLE001
+        pass
+    try:
+        nifty_s = vv._index_field("nifty_close")
+        if closes is not None and nifty_s is not None:
+            b = vc.beta(closes, nifty_s)
+            out["beta"] = b.get("beta") if isinstance(b, dict) else V.num(b)
+    except Exception:                                   # noqa: BLE001
+        pass
     return out
 
 
@@ -218,7 +237,7 @@ def row_for(ticker: str, cfg, p, *, show_terms: bool = False) -> dict:
         price_at=lambda when: price_at(closes, when),
         own_pe_history=lambda snap: own_pe_history(closes, snap),
         peers=peer_multiples,
-        macro=_macro_inputs,
+        macro=lambda snap: _macro_inputs(snap, closes),
     )
     rec["key_terms"] = [t for t in rec.get("terms_rows", []) if t["name"] in KEY_TERMS]
     rec["all_terms"] = rec.get("terms_rows", []) if show_terms else []
