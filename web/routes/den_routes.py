@@ -64,6 +64,10 @@ SECTIONS = [
     ("algo-settings", "9 · Algo settings"),
     ("sandbox",       "10 · Sandbox"),
     ("valuation",     "11 · Valuation context"),
+    # Owner order 2026-10-14 ("lets hit the formulas work completion"):
+    # stages 07-18 as code — snapshot, route, shares, normalised earnings,
+    # quality, scenarios, justified range, verdict. Display only.
+    ("chain",         "12 · Valuation chain"),
 ]
 
 # --------------------------------------------------------------------- 1.
@@ -982,15 +986,25 @@ def _sandbox(cfg, p, saved_flag: Optional[str]) -> dict:
 
 @router.get("/den", response_class=HTMLResponse)
 def den_page(request: Request, draft: Optional[str] = None,
-             val: Optional[str] = None, val_err: Optional[str] = None):
+             val: Optional[str] = None, val_err: Optional[str] = None,
+             chain: Optional[str] = None, terms: Optional[str] = None):
     user = auth.current_user(request)
     if not user:
         return RedirectResponse("/login", status_code=303)
     from . import settings_routes
-    from .. import valuation_view
+    from .. import valuation_chain_view, valuation_view
     cfg = state.cfg()
     p = state.portfolio()
     eng = _safe(_engines, cfg, p, default={}) or {}
+    typed = (chain or "").strip()[:24]
+    chain_ctx = _safe(valuation_chain_view.section, cfg, p, typed,
+                      bool(terms), default=None)
+    if chain_ctx is None:
+        # the chain could not be read at all — a template-safe shell
+        chain_ctx = {"rows": [], "n": 0, "max_rows": valuation_chain_view.MAX_ROWS,
+                     "typed": typed, "typed_full": "", "show_terms": False,
+                     "error": "the valuation chain could not be read — see the log",
+                     "n_statements": 0, "assumed": {}, "today": ""}
     ctx = {
         "user": user, "active": "den",
         "sections": SECTIONS,
@@ -1006,6 +1020,7 @@ def den_page(request: Request, draft: Optional[str] = None,
         "val": _safe(valuation_view.section, cfg, p, val, (val_err or "")[:120],
                      default=valuation_view.empty_section(
                          "invalid", "the context could not be read — see the log")),
+        "chain": chain_ctx,
         "is_owner": user.get("role") == "owner",
         "db_status": state.db_status(),
     }

@@ -423,6 +423,30 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   rebuild + pull hostage, whichever it is — the fix that does not need
   the journal to name the culprit first. Wed 09:10 IST wake armed
   (trig_019Tk87LirATcxCKVErppijs).
+- **WED 10-14 09:20 SLOT LOST TO SLEEP, THEN THE FIFTH MORNING KILL AT
+  12:10 IST.** The 09:10 wake fired (03:40Z) but the SESSION CONTAINER
+  itself paused after the first tool call until 04:58Z — the first probe
+  landed 10:28 IST = 52.7 s cold start (rss 158 / peak 157, stats
+  pending): the app was asleep at 09:20, so that cron slot was simply
+  gone (a wake is not a guarantee the probe lands before the slot).
+  The boot catch-up then ran the WHOLE chain on the probe's fresh process
+  (keep-alive 10:30-12:30 IST, one /healthz a minute): 10:30 rss 307
+  (universe refresh), 10:31-10:56 flat 194-203 (the missed 08:30 top-up,
+  ~25 min), 11:00-11:08 flat 170, **11:09-11:30 flat 261** (breadth +
+  index + sector refresh incl. the first live sector backfill), 11:31-
+  11:39 flat 200, **rotation 11:40: 340 → 404 → 433 → 516 by 11:43**,
+  517-521 held to 11:49, 503-515 to 11:55, **523-525 from 11:56 to 12:09
+  with /healthz latency 1-3 s** (the trigger layer on top), **503 from
+  Render's edge at 12:10 → fresh process 12:11 (rss 156 / peak 156) =
+  OOM kill**, 50 min later than Tue only because the chain started 70
+  min late. The new process then climbed again (peak 211 → 367 → 414 by
+  12:24, rss 325 flat to 12:30 — the boot catch-up or the 12:15 in-
+  session pass; which, only the journal says). Peak 525 today vs 502
+  yesterday: the catch-up path stacks the universe refresh + top-up +
+  backfill on the same process before the rotation. Same three levers,
+  still unordered. Wakes armed: 14:20 (trig_01ULM4JHHE5KU5poRWeAdBX9),
+  16:25 (trig_01F1Mna81qTt58BLwm5LE29N; block due — Tue did not stamp;
+  re-arms Thu 09:10). /risk + journal need the owner's login.
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:

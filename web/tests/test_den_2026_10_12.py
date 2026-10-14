@@ -97,9 +97,11 @@ def test_every_section_anchor_is_on_the_page():
     ids = [sid for sid, _ in D.SECTIONS]
     # "valuation" = the context stage, owner order 2026-10-12 ("both,
     # indian sector only, discount rate - go").
+    # "chain" = stages 07-18 as code, owner order 2026-10-14 ("lets hit the
+    # formulas work completion").
     assert ids == ["sequence", "engines", "weights", "triggers", "timing",
                    "capacity", "register", "evidence", "algo-settings",
-                   "sandbox", "valuation"]
+                   "sandbox", "valuation", "chain"]
     for sid in ids:
         assert f'id="{sid}"' in html, sid
         assert f'href="#{sid}"' in html, sid          # the chip row links it
