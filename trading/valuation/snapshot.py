@@ -64,7 +64,6 @@ import csv
 import hashlib
 import json
 import logging
-import math
 from bisect import bisect_right
 from datetime import date, timedelta
 from pathlib import Path

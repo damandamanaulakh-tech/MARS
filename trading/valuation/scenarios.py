@@ -312,27 +312,27 @@ def fy_scenario(base: dict, drivers: dict, market: dict,
         drivers["pe_bridge_extra_pct"] = 0.0   # not a sheet cell: absent = the sheet's chain
 
     ch = _Chain()
-    I, F = ch.inp, ch.f
+    In, F = ch.inp, ch.f
 
     # ---- sensitivities (column B, rows 140-168)
     for name, cell, _v, label in _A:
-        I(cell, name, label, av, "assumptions", name)
+        In(cell, name, label, av, "assumptions", name)
 
     # ---- base year inputs (column D)
-    I("D17", "fy0_revenue", "Revenue from operations (₹ cr)", base, "base", "revenue")
-    I("D19", "fy0_ebitda", "Operating EBITDA (₹ cr)", base, "base", "ebitda")
-    I("D22", "fy0_pat", "PAT (₹ cr)", base, "base", "pat")
-    I("D24", "fy0_tax", "Tax expense (₹ cr)", base, "base", "tax")
-    I("D26", "fy0_employee_cost", "Employee benefit expense (₹ cr)", base, "base", "employee_cost")
-    I("D28", "fy0_shares", "Shares outstanding (cr)", base, "base", "shares")
-    I("D30", "fy0_dividend_ps", "Dividend per share (₹)", base, "base", "dividend_ps")
-    I("D32", "fy0_equity", "Net worth, total equity (₹ cr)", base, "base", "equity")
-    I("D35", "fy0_borrowings", "Borrowings (₹ cr)", base, "base", "borrowings")
-    I("D36", "fy0_net_cash", "Net cash incl. investments (₹ cr)", base, "base", "net_cash")
-    I("D39", "fy0_price_fy_end", "Share price at period end (₹)", base, "base", "price_fy_end")
-    I("C17", "prior_revenue", "Revenue, year before base (₹ cr)", base, "base",
+    In("D17", "fy0_revenue", "Revenue from operations (₹ cr)", base, "base", "revenue")
+    In("D19", "fy0_ebitda", "Operating EBITDA (₹ cr)", base, "base", "ebitda")
+    In("D22", "fy0_pat", "PAT (₹ cr)", base, "base", "pat")
+    In("D24", "fy0_tax", "Tax expense (₹ cr)", base, "base", "tax")
+    In("D26", "fy0_employee_cost", "Employee benefit expense (₹ cr)", base, "base", "employee_cost")
+    In("D28", "fy0_shares", "Shares outstanding (cr)", base, "base", "shares")
+    In("D30", "fy0_dividend_ps", "Dividend per share (₹)", base, "base", "dividend_ps")
+    In("D32", "fy0_equity", "Net worth, total equity (₹ cr)", base, "base", "equity")
+    In("D35", "fy0_borrowings", "Borrowings (₹ cr)", base, "base", "borrowings")
+    In("D36", "fy0_net_cash", "Net cash incl. investments (₹ cr)", base, "base", "net_cash")
+    In("D39", "fy0_price_fy_end", "Share price at period end (₹)", base, "base", "price_fy_end")
+    In("C17", "prior_revenue", "Revenue, year before base (₹ cr)", base, "base",
       "prior_revenue", required=False)
-    I("B4", "ipo_price", "IPO issue price (₹)", base, "base", "ipo_price", required=False)
+    In("B4", "ipo_price", "IPO issue price (₹)", base, "base", "ipo_price", required=False)
 
     # ---- base year derived (column D)
     F("D18", "fy0_revenue_growth_pct", "Revenue growth (%)", "ROUND((D17/C17-1)*100,1)",
@@ -358,7 +358,7 @@ def fy_scenario(base: dict, drivers: dict, market: dict,
     F("D40", "fy0_market_cap", "Market cap (₹ cr)", "ROUND(D39*D28,0)",
       ["D39", "D28"], lambda p, s: R(p * s, 0))
     if num(base.get("opening_pe")) is not None:
-        I("D41", "opening_pe", "P/E at base year end (x) — typed", base, "base", "opening_pe")
+        In("D41", "opening_pe", "P/E at base year end (x) — typed", base, "base", "opening_pe")
     else:
         F("D41", "opening_pe", "P/E at base year end (x)", "ROUND(D39/D29,1)",
           ["D39", "D29"], lambda p, e: R(p / e, 1))
@@ -390,8 +390,8 @@ def fy_scenario(base: dict, drivers: dict, market: dict,
             ("E100", "bid_discount_pct", "Bid price discount (%)"),
             ("E102", "tax_rate_change_pp", "Change in effective tax rate (pp)"),
             ("E103", "one_off_costs", "One-off costs (₹ cr)")):
-        I(cell, name, label, drivers, "drivers", name)
-    I("X_EXTRA", "pe_bridge_extra_pct", "Case points added to the P/E bridge (not a sheet cell)",
+        In(cell, name, label, drivers, "drivers", name)
+    In("X_EXTRA", "pe_bridge_extra_pct", "Case points added to the P/E bridge (not a sheet cell)",
       drivers, "drivers", "pe_bridge_extra_pct")
 
     # ---- market inputs
@@ -419,7 +419,7 @@ def fy_scenario(base: dict, drivers: dict, market: dict,
             ("E87", "gap_close_pct", "Share of valuation gap to peers that closes (%)", True),
             ("E88", "peer_pe", "Peer average P/E (x)", True),
             ("B57", "latest_price", "Latest share price (₹)", False)):
-        I(cell, name, label, market, "market", name, required=req)
+        In(cell, name, label, market, "market", name, required=req)
 
     # ---- FY+1 chain (column E), sheet order of dependency
     F("E17", "revenue", "Revenue from operations (₹ cr)",

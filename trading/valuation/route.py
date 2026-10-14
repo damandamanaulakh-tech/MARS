@@ -233,7 +233,7 @@ _FIN_AMC = ["AMC", "ASSET MANAGEMENT", "BSE", "MCX", "CDSL", "CAMS", "ANGEL",
 _FIN_INS = ["LIFE", "INSURANCE", "GENERAL INS", "ASSURANCE"]
 _FIN_NBFC = ["FINANCE", "FINSERV", "FINCORP", "CAPITAL", "HOUSING", "HFC",
              "CREDIT", "LEASING"]
-_HOSPITAL = ["HOSP", "HEALTH", "DIAGNOS", "PATH LAB", "PATHLAB", "MEDICAL",
+_HOSPITAL = ["HOSPITAL", "HEALTH", "DIAGNOS", "PATH LAB", "PATHLAB", "MEDICAL",
              "CLINIC", "HRUDAYALAYA", "QUALITY CARE"]
 _REALTY = ["REALTY", "ESTATE", "DLF", "LODHA", "OBEROI", "PRESTIGE", "BRIGADE",
            "PHOENIX", "SOBHA", "GODREJ PROP", "SUNTECK", "MAHINDRA LIFE"]
@@ -350,7 +350,9 @@ ASSUMED: dict = {
                         "Asset Management' reads AMC, not insurance (ASSUMED here)"),
     "hospital_keywords_note": ("plain 'LAB' is NOT a hospital keyword — it would route "
                                "Dr. Reddy's / Divi's / Laurus Laboratories to hospitals; "
-                               "'PATH LAB' is used instead (ASSUMED here)"),
+                               "'PATH LAB' is used instead; 'HOSP' is spelled 'HOSPITAL' so the "
+                               "<= 4-character whole-word rule cannot drop 'Hospitals' "
+                               "(ASSUMED here)"),
     "psu_keywords": list(_PSU_KEYWORDS),
     "psu_full_names": list(_PSU_FULL_NAMES),
     "psu_exclusions": list(_PSU_EXCLUSIONS),
