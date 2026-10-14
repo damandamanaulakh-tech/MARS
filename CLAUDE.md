@@ -423,6 +423,159 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   rebuild + pull hostage, whichever it is — the fix that does not need
   the journal to name the culprit first. Wed 09:10 IST wake armed
   (trig_019Tk87LirATcxCKVErppijs).
+- **WED 10-14 09:20 SLOT LOST TO SLEEP, THEN THE FIFTH MORNING KILL AT
+  12:10 IST.** The 09:10 wake fired (03:40Z) but the SESSION CONTAINER
+  itself paused after the first tool call until 04:58Z — the first probe
+  landed 10:28 IST = 52.7 s cold start (rss 158 / peak 157, stats
+  pending): the app was asleep at 09:20, so that cron slot was simply
+  gone (a wake is not a guarantee the probe lands before the slot).
+  The boot catch-up then ran the WHOLE chain on the probe's fresh process
+  (keep-alive 10:30-12:30 IST, one /healthz a minute): 10:30 rss 307
+  (universe refresh), 10:31-10:56 flat 194-203 (the missed 08:30 top-up,
+  ~25 min), 11:00-11:08 flat 170, **11:09-11:30 flat 261** (breadth +
+  index + sector refresh incl. the first live sector backfill), 11:31-
+  11:39 flat 200, **rotation 11:40: 340 → 404 → 433 → 516 by 11:43**,
+  517-521 held to 11:49, 503-515 to 11:55, **523-525 from 11:56 to 12:09
+  with /healthz latency 1-3 s** (the trigger layer on top), **503 from
+  Render's edge at 12:10 → fresh process 12:11 (rss 156 / peak 156) =
+  OOM kill**, 50 min later than Tue only because the chain started 70
+  min late. The new process then climbed again (peak 211 → 367 → 414 by
+  12:24, rss 325 flat to 12:30 — the boot catch-up or the 12:15 in-
+  session pass; which, only the journal says). Peak 525 today vs 502
+  yesterday: the catch-up path stacks the universe refresh + top-up +
+  backfill on the same process before the rotation. Same three levers,
+  still unordered. Wakes armed: 14:20 (trig_01ULM4JHHE5KU5poRWeAdBX9),
+  16:25 (trig_01F1Mna81qTt58BLwm5LE29N; block due — Tue did not stamp;
+  re-arms Thu 09:10). /risk + journal need the owner's login.
+- **WED 10-14 14:30 CHAIN — UNOBSERVED; THE SESSION CONTAINER DIED
+  BETWEEN THE PROBE AND 15:40.** The 14:20 wake fired on time; the
+  14:21 IST probe found the box ASLEEP (42.6 s cold start, rss 156 /
+  peak 155, stats pending) — so the fresh process booted BEFORE 14:30
+  and its cron could fire (the Tue pattern). But the keep-alive loop
+  started at 14:21 never logged a line: the sandbox container was
+  REPLACED (uptime "0 min" at 15:40 IST; the loop's own DONE stamp was
+  written by the re-run on the new container), so from 14:22 to 15:40
+  nothing from here touched the app. With no inbound traffic Render
+  spins the free-tier process down ~15 min after the last request →
+  the 14:22 process was most likely retired ~14:37, mid-rotation if the
+  rotation had started. 15:40 IST probe = 42.8 s cold start again
+  (rss 155 / peak 154) → the 15:25 square-off and 15:35 marks ran on NO
+  process I can see. Whether the 14:30 rotation bought anything in its
+  ~7 minutes = the journal (owner's login). Keep-alive restarted 15:41
+  IST straight through to 17:45 (keepalive_1014_block.log) so the
+  16:30 block has a live process whether or not the 16:25 wake's probe
+  lands. HARNESS: TWO container pauses/replacements today (03:43→04:58Z
+  and 08:52→10:10Z) — a wake fires, its first probe runs, and the
+  container can vanish before the loop logs once. Nothing in the repo
+  changes this; Render Starter (owner's M-12) is still the only fix.
+- **THE VALUATION CHAIN IS CODE (owner 2026-10-14 ~12:20 IST: "show me
+  the list of all 40+ pending work in a table what is done what is
+  pending n lets hit the formulas work complietion"). PR #169. Money
+  impact: NONE — display only; engine/risk/orders/danger/sizing/targets/
+  exits/scoring never reference `trading/valuation` (test-pinned); the
+  engine still buys on the momentum score; item 19 (valuation exits) and
+  Phase 4 (valuation as the base) stay OUT until the pre-registered test
+  + the owner's go.** The task-book table was given first (39 rows:
+  15 done / 7 building / 6 partly / 11 pending — the pending ones each
+  name the owner's ask: memory lever b/a/c, Buy Desk category, Drive
+  service account, go-live word, mix list, international feed).
+  WHAT LANDED — package `trading/valuation/` (contract in `__init__.py`:
+  `dn()` DATA_NEEDED shape, `SNAPSHOT_FIELDS`, rupees ABSOLUTE inside,
+  every constant in a module `ASSUMED` dict with its source):
+  * `snapshot.py` (stages 07-08): the locked FY record from the committed
+    statements zip (200 N200 names) / fundamentals CSV + Mongo overlay;
+    publication date = period end + 45 d ASSUMED (`result_dates=` wins);
+    `asof` makes it point-in-time; basis consolidated/standalone =
+    DATA_NEEDED (never guessed); **the ADR currency trap**: `USD_SUSPECTS`
+    (INFY WIPRO HDFCBANK ICICIBANK DRREDDY TATAMOTORS) AND the signature
+    (price/EPS > 300) must BOTH agree before converting at the period-end
+    USDINR (per-period `fx`); list alone never converts (HDFCBANK is
+    rupees); signature alone = DATA_NEEDED. INFY FY26: 0.81 USD × 93.48 =
+    ₹75.72; TTM only from 4 CONSECUTIVE quarters (Yahoo skips quarters —
+    42/200 names qualify); sha256 `lock_hash`; `extra` carries the exact
+    tax effect, short-term investments, restructuring, write-off,
+    issuance for the sibling stages.
+  * `terms.py`: the 52 finance terms as pure functions + `TERMS` registry
+    (formula text, stage) + `detail_all`; bank-only ratios and anything
+    not in statements = DATA_NEEDED naming the source; bank WACC refused
+    (deposit interest is not a cost of debt). TCS: ROE 48.7%, cash
+    conversion 1.06, EV/EBITDA 10.9, Graham 952, Altman 10.2.
+  * `route.py` (stages 00/09): the 21-row `SECTOR_METHODS` table verbatim
+    (+ `method`, `family` ∈ earnings/book/ev_ebitda/ev_sales/nav/
+    embedded_value/sotp); label = cfg.sector_map → Nifty-500 industry file
+    → unmapped; keyword rules for the coarse labels (bank/NBFC/insurer/
+    AMC, hospital, realty/cement/EPC, retail/hotel/airline), PSU and
+    holding overlays, all ASSUMED and printed; anything else UNDECLARED
+    with a `nearest` suggestion, never forced.
+  * `shares.py` (stage 10): CA subject parser (split/bonus/rights/buyback/
+    dividend; 12,506 of 34,792 file rows stay "other" with NO ratio),
+    period-pair bridge reconciled within ±3% else "unexplained" (HDFCBANK
+    FY23→24 +36% = the merger, named), Yahoo's restated series accepted
+    as a second reading; ESOP pool DATA_NEEDED.
+  * `normalise.py` (stages 11-12): normalised PAT = reported − unusual +
+    tax effect, reproduces Yahoo's own Normalized Income to 0.0% on TCS
+    (519,741.64 ₹ mn) and matches on HDFCBANK/DLF/SAIL; quality score
+    (ASSUMED weights) with lenders' leverage lines DATA_NEEDED.
+  * `scenarios.py` (stages 15-17): the owner's Tata Tech sheet reproduced
+    **cell for cell — 164 cells, zero difference against the workbook's
+    cached values** (E29 EPS 18.28, E135 price 690.62; `xround` = Excel's
+    half-away-from-zero), the 29 sensitivities as `SHEET_ASSUMPTIONS`
+    with row sources, section H kept and labelled the owner's ADDITIVE
+    what-if; `three_cases` with `CASE_DELTAS` ASSUMED (growth ∓5pp,
+    margin ∓1pp, ∓10 pts on the bridge); `justified_range` per family
+    (EPS × band [min(peer, own low), mean(peer, own median), max]; banks
+    (ROE−g)/(COE−g) × BVPS with COE = rf + β×ERP; EV routes EV = multiple
+    × EBITDA/share − net debt − minorities; NAV = DATA_NEEDED with a P/B
+    fallback; EV/VNB and SOTP DATA_NEEDED); 3×3 + multiple sensitivity.
+    Fixture committed: research/valuation/Tata_Technologies_IPO_
+    valuation_model_2026-10-09.xlsx.
+  * `assess.py` (stage 18): attractive / watch / unattractive /
+    insufficient (ASSUMED bands: base −10% = the context stage's buy
+    discount; ±10% watch; width > 60% = insufficient);
+    `not_a_trade_permission: True` on every record.
+  * `pipeline.py`: one record per stock; base-year drivers = the latest
+    FY's own ratios (ASSUMED); constant-currency growth for converted
+    names (INFY: 4.6% not the rupee's 14.4%); lenders' g capped at
+    ROE × (1 − payout) (ASSUMED — (ROE−g)/(COE−g) breaks when g ≥ ROE);
+    metals base = mid-cycle (5-FY mean) EBITDA/share; **the sheet's
+    what-if macro rows the app does not store (repo, CPI, GDP, Brent,
+    institutional change, delivery) COUNT 0 AND are listed
+    `macro_data_needed` on every record**; peers = same-route median
+    among the 200 statement names (ASSUMED, one pass per process per
+    day); `failed_record` = the same shape for a crashed row.
+  * Den §12 "Valuation chain" (`_den_valuation_chain.html`, markers
+    den_chain_marker/_form_/_rows_/_use_/_terms_/_empty_; `web/
+    valuation_chain_view.py` gathers STORED inputs only: closes via
+    load_ohlcv, index levels, 10y, β on Nifty, USDINR, peers): rows =
+    typed `?chain=` + §11 targets + held (cap 25); **"↑ use as §11
+    target" posts the computed base into the context stage through the
+    existing /den/valuation route** (so 17b now verifies a COMPUTED
+    target, typed still allowed); `&terms=1` prints all 52 per stock.
+    SEQUENCE: 00, 08-12, 15-18 → "exists" (07 partly: 200 of ~1,205
+    names), dated 2026-10-14; stage 21 stays "not yet".
+  * READINGS (sandbox prices = repo zip to 2026-07-17; index file to
+    08-07): TCS route IT/earnings, FY26 INR, EPS 136.01 → normalised
+    143.65 (matches), quality 97, cases 133/145/158, range ₹2,311 /
+    4,343 / 5,119 → INSUFFICIENT (width 65%); INFY converted, range
+    1,234 / 2,295 / 2,885 → INSUFFICIENT; HDFCBANK book route, Yahoo ROE
+    8.9% (UNVERIFIED vs the bank's own ~14% — the equity line) → range
+    50 / 196 / 343 → INSUFFICIENT; DLF NAV DATA_NEEDED, P/B fallback;
+    SAIL metals + PSU overlay, mid-cycle, range 151 / 174 / … → WATCH.
+    The wide ranges are the formula's honest answer (the names trade far
+    below their own 5-year median multiples); the verdict refuses to
+    judge above 60% width by design. The P/E bridge reads +9.6% in the
+    sandbox = the Nifty move since 03-31 to the stale index file; live it
+    reads the stored tail.
+  * TESTS: trading/tests/test_valuation_{boundary,snapshot,terms,route,
+    shares,normalise,scenarios,assess,pipeline}_2026_10_14.py + web/tests/
+    test_valuation_chain_den_2026_10_14.py; Den pins updated (12 sections).
+  * NOT BUILT, said: the batch fetch of the other ~1,000 names'
+    statements + NSE result dates (owner OK pending); CPI/repo/GDP/Brent
+    feeds; stage 14 thesis fields (placeholder only); stage 21 permitted
+    conditions; URR; item 19; Phase 4. HARNESS: three opus builders in
+    parallel on disjoint files against a written contract worked (no
+    usage-cap stops this time); the lead wrote the contract, the
+    orchestrator, the screen and the tests that cross the seams.
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:

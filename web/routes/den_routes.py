@@ -64,6 +64,10 @@ SECTIONS = [
     ("algo-settings", "9 · Algo settings"),
     ("sandbox",       "10 · Sandbox"),
     ("valuation",     "11 · Valuation context"),
+    # Owner order 2026-10-14 ("lets hit the formulas work completion"):
+    # stages 07-18 as code — snapshot, route, shares, normalised earnings,
+    # quality, scenarios, justified range, verdict. Display only.
+    ("chain",         "12 · Valuation chain"),
 ]
 
 # --------------------------------------------------------------------- 1.
@@ -71,9 +75,15 @@ SECTIONS = [
 # one place that is acceptable on this page) and dated. "exists" = the stage
 # runs in code today; "partly" = a piece of it runs, named in `where`;
 # "not yet" = nothing in the repo does this.
-SEQUENCE_STATUS_ASOF = "2026-10-12"
+SEQUENCE_STATUS_ASOF = "2026-10-14"
 SEQUENCE: list[tuple[str, str, str, str]] = [
-    ("00", "Valuation basis by sector", "not yet", ""),
+    # Owner order 2026-10-14 ("lets hit the formulas work completion"): the
+    # valuation chain stages 07-18 run as code in trading/valuation/* and
+    # print on Den §12. Display only — no gate reads any of it.
+    ("00", "Valuation basis by sector", "exists",
+     "trading/valuation/route.py — the 21-row sector-method table, label from "
+     "cfg.sector_map then the Nifty-500 industry file, keyword rules for the "
+     "coarse labels, unmapped names UNDECLARED (never forced)"),
     ("01", "Evaluation mandate + batch plan", "partly",
      "weekly liquidity batch (scheduler.refresh_liquid_universe) + the owner's "
      "always-include list; no written mandate per batch"),
@@ -90,22 +100,44 @@ SEQUENCE: list[tuple[str, str, str, str]] = [
      "portfolio.save → JSON + Mongo mirror after each pass; no rotation "
      "ledger of its own"),
     ("07", "Financial snapshot", "partly",
-     "register_v4 fundamentals store (committed CSV + monthly Yahoo "
-     "refresh, data_refresh)"),
-    ("08", "Point-in-time validation + source lock", "not yet", ""),
-    ("09", "Business model + valuation route", "not yet", ""),
-    ("10", "Share capital + dilution", "not yet", ""),
-    ("11", "Normalised earnings", "not yet", ""),
-    ("12", "Earnings quality + balance sheet", "partly",
-     "register items (Altman, Piotroski, D/E, FCF) — display only on "
-     "/register"),
+     "trading/valuation/snapshot.py over the committed statements zip (200 "
+     "Nifty-200 names) + the monthly Yahoo refresh; the other ~1,000 scan "
+     "names read DATA_NEEDED until the batch fetch is approved"),
+    ("08", "Point-in-time validation + source lock", "exists",
+     "snapshot.py — period end, publication date (45-day lag ASSUMED until "
+     "NSE result dates are fetched), the ADR currency trap converted at the "
+     "period-end USDINR and labelled, consolidated/standalone DATA_NEEDED, "
+     "sha256 lock hash"),
+    ("09", "Business model + valuation route", "exists",
+     "route.py route_for — method, family, per-share metric, drivers, "
+     "defended-by, policy links, PSU / holding overlays"),
+    ("10", "Share capital + dilution", "exists",
+     "trading/valuation/shares.py — basic / weighted / diluted, corporate "
+     "actions parsed (split, bonus, rights, buyback), each period pair "
+     "reconciled or named unexplained; ESOP pool DATA_NEEDED"),
+    ("11", "Normalised earnings", "exists",
+     "trading/valuation/normalise.py — one-offs and their tax effect stripped "
+     "from reported PAT, cross-checked against the audited normalised line"),
+    ("12", "Earnings quality + balance sheet", "exists",
+     "normalise.quality — cash conversion (3 FYs), FCF margin, receivable / "
+     "working-capital days, net debt/EBITDA, interest cover, D/E, score with "
+     "ASSUMED weights; lenders read DATA_NEEDED on the leverage lines"),
     ("13", "Company/sector/market conditions", "partly",
      "regime + breadth band + sector feed + damage store; no per-company "
      "conditions sheet"),
     ("14", "Thesis + falsifier", "not yet", ""),
-    ("15", "Revenue/margin/financing scenarios", "not yet", ""),
-    ("16", "Scenario EPS", "not yet", ""),
-    ("17", "Justified valuation range", "not yet", ""),
+    ("15", "Revenue/margin/financing scenarios", "exists",
+     "trading/valuation/scenarios.py — the owner's Tata Tech P/E-driver sheet "
+     "reproduced cell for cell (164 cells, zero difference), three cases with "
+     "ASSUMED deltas; the macro what-if rows the app does not store count 0 "
+     "and are listed DATA_NEEDED"),
+    ("16", "Scenario EPS", "exists",
+     "scenarios.three_cases — downside / base / upside EPS, closing P/E, model "
+     "price; BVPS for the book route, EBITDA per share for the EV routes"),
+    ("17", "Justified valuation range", "exists",
+     "scenarios.justified_range per route family: EPS × P/E band (peer median "
+     "+ own 5-year range), justified P/B for lenders, EV/EBITDA → equity bridge, "
+     "NAV DATA_NEEDED with a P/B fallback; sensitivity grid"),
     # Owner order 2026-10-12 ("both, indian sector only, discount rate -
     # go"): the context stage sits between the justified range and the
     # selection — it verifies a standalone target against the sector, the
@@ -117,7 +149,10 @@ SEQUENCE: list[tuple[str, str, str, str]] = [
      "β side by side (Indian NSE indices), rates through the discount rate, "
      "sentiment as a wider buy discount, move split with a re-run flag; the "
      "standalone target is typed until stages 09-17 produce it"),
-    ("18", "Financial-selection assessment", "not yet", ""),
+    ("18", "Financial-selection assessment", "exists",
+     "trading/valuation/assess.py — attractive / watch / unattractive / "
+     "insufficient with the reasons; printed on Den §12; NOT a trade "
+     "permission (stage 21 and Phase 4 wait on the pre-registered test)"),
     ("19", "IFR state", "exists",
      "trading/ifr.py — frozen thresholds over the 191 reference names, "
      "throttle applied in engine.scan"),
@@ -982,15 +1017,25 @@ def _sandbox(cfg, p, saved_flag: Optional[str]) -> dict:
 
 @router.get("/den", response_class=HTMLResponse)
 def den_page(request: Request, draft: Optional[str] = None,
-             val: Optional[str] = None, val_err: Optional[str] = None):
+             val: Optional[str] = None, val_err: Optional[str] = None,
+             chain: Optional[str] = None, terms: Optional[str] = None):
     user = auth.current_user(request)
     if not user:
         return RedirectResponse("/login", status_code=303)
     from . import settings_routes
-    from .. import valuation_view
+    from .. import valuation_chain_view, valuation_view
     cfg = state.cfg()
     p = state.portfolio()
     eng = _safe(_engines, cfg, p, default={}) or {}
+    typed = (chain or "").strip()[:24]
+    chain_ctx = _safe(valuation_chain_view.section, cfg, p, typed,
+                      bool(terms), default=None)
+    if chain_ctx is None:
+        # the chain could not be read at all — a template-safe shell
+        chain_ctx = {"rows": [], "n": 0, "max_rows": valuation_chain_view.MAX_ROWS,
+                     "typed": typed, "typed_full": "", "show_terms": False,
+                     "error": "the valuation chain could not be read — see the log",
+                     "n_statements": 0, "assumed": {}, "today": ""}
     ctx = {
         "user": user, "active": "den",
         "sections": SECTIONS,
@@ -1006,6 +1051,7 @@ def den_page(request: Request, draft: Optional[str] = None,
         "val": _safe(valuation_view.section, cfg, p, val, (val_err or "")[:120],
                      default=valuation_view.empty_section(
                          "invalid", "the context could not be read — see the log")),
+        "chain": chain_ctx,
         "is_owner": user.get("role") == "owner",
         "db_status": state.db_status(),
     }
