@@ -80,10 +80,10 @@
               <div class="text-amber-700 font-semibold">DATA_NEEDED — {{ r.snapshot.why }}</div>
               {% endif %}
             </td>
-            <td class="px-2 py-2 min-w-[9rem]">
+            <td class="px-2 py-2 min-w-[10rem] max-w-[14rem]">
               <div class="{% if r.shares.status == 'reconciled' %}text-ink-faint{% elif r.shares.status == 'unexplained' %}text-amber-700 font-semibold{% else %}text-amber-700{% endif %}">{{ r.shares.status }}</div>
               {% if r.shares.basic_now %}<div class="tabular-nums">{{ (r.shares.basic_now / 1e7) | round(2) }} cr shares{% if r.shares.dilutive_pct is not none %} · dilution {{ r.shares.dilutive_pct | round(2) }}%{% endif %}</div>{% endif %}
-              {% if r.shares.note %}<div class="text-ink-faint">{{ r.shares.note }}</div>{% endif %}
+              {% if r.shares.note %}<div class="text-ink-faint" title="{{ r.shares.note }}">{{ r.shares.note[:110] }}{% if r.shares.note | length > 110 %}…{% endif %}</div>{% endif %}
             </td>
             <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">
               {% if r.earnings.status == 'OK' %}
@@ -103,23 +103,23 @@
               {% for f in r.quality.flags %}<div class="text-amber-700">⚠ {{ f }}</div>{% endfor %}
               {% if r.quality.cash_conversion is not none %}<div class="text-ink-faint tabular-nums">OCF/PAT {{ r.quality.cash_conversion | round(2) }}{% if r.quality.net_debt_ebitda is not none %} · net debt/EBITDA {{ r.quality.net_debt_ebitda | round(2) }}{% endif %}{% if r.quality.interest_cover is not none %} · interest cover {{ r.quality.interest_cover | round(1) }}{% endif %}</div>{% endif %}
             </td>
-            <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">
+            <td class="px-2 py-2 text-right tabular-nums min-w-[12rem] max-w-[18rem]">
               {% if r.scenarios.status == 'OK' %}
-              <div>{{ r.scenarios.eps.downside | round(2) }} / <strong>{{ r.scenarios.eps.base | round(2) }}</strong> / {{ r.scenarios.eps.upside | round(2) }}</div>
-              <div class="text-ink-faint">growth {{ r.scenarios.drivers.revenue_growth_pct | round(1) }}% · margin {{ r.scenarios.drivers.base_margin_pct | round(1) }}% · PAT/EBITDA {{ r.scenarios.drivers.pat_pct_of_ebitda | round(1) }}%</div>
-              <div class="text-ink-faint">P/E bridge {{ '%+.2f' % r.scenarios.pe_bridge_pct }}% ({{ r.scenarios.macro_data_needed | length }} macro inputs DATA_NEEDED, counted 0)</div>
+              <div class="whitespace-nowrap">{{ r.scenarios.eps.downside | round(2) }} / <strong>{{ r.scenarios.eps.base | round(2) }}</strong> / {{ r.scenarios.eps.upside | round(2) }}</div>
+              <div class="text-ink-faint whitespace-normal">growth {{ r.scenarios.drivers.revenue_growth_pct | round(1) }}% · margin {{ r.scenarios.drivers.base_margin_pct | round(1) }}% · PAT/EBITDA {{ r.scenarios.drivers.pat_pct_of_ebitda | round(1) }}%</div>
+              <div class="text-ink-faint whitespace-normal">P/E bridge {{ '%+.2f' % r.scenarios.pe_bridge_pct }}% ({{ r.scenarios.macro_data_needed | length }} macro inputs DATA_NEEDED, counted 0)</div>
               {% else %}
-              <div class="text-amber-700 font-semibold text-left">DATA_NEEDED — {{ r.scenarios.why }}</div>
+              <div class="text-amber-700 font-semibold text-left whitespace-normal">DATA_NEEDED — {{ r.scenarios.why }}</div>
               {% endif %}
             </td>
-            <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">
+            <td class="px-2 py-2 text-right tabular-nums min-w-[14rem] max-w-[20rem]">
               {% if r.range.status == 'OK' %}
-              <div>₹{{ r.range.low | inr(0) }} / <strong>₹{{ r.range.base | inr(0) }}</strong> / ₹{{ r.range.high | inr(0) }}</div>
-              <div class="text-ink-faint">{{ r.range.method_text }}</div>
-              {% if r.range.multiple_band %}<div class="text-ink-faint">multiple {{ r.range.multiple_band.low | round(1) }}–{{ r.range.multiple_band.high | round(1) }}× ({{ r.range.multiple_band.source }})</div>{% endif %}
+              <div class="whitespace-nowrap">₹{{ r.range.low | inr(0) }} / <strong>₹{{ r.range.base | inr(0) }}</strong> / ₹{{ r.range.high | inr(0) }}</div>
+              <div class="text-ink-faint text-left whitespace-normal">{{ r.range.method_text }}</div>
+              {% if r.range.multiple_band %}<div class="text-ink-faint text-left whitespace-normal">multiple {{ r.range.multiple_band.low | round(1) }}–{{ r.range.multiple_band.high | round(1) }}× ({{ r.range.multiple_band.source }})</div>{% endif %}
               {% else %}
-              <div class="text-amber-700 font-semibold text-left">DATA_NEEDED — {{ r.range.why }}</div>
-              {% if r.range.fallback and r.range.fallback.base %}<div class="text-ink-faint text-left">fallback {{ r.range.fallback.label or 'P/B' }}: ₹{{ r.range.fallback.base | inr(0) }} (not the route's NAV)</div>{% endif %}
+              <div class="text-amber-700 font-semibold text-left whitespace-normal">DATA_NEEDED — {{ r.range.why }}</div>
+              {% if r.range.fallback and r.range.fallback.base %}<div class="text-ink-faint text-left whitespace-normal">fallback {{ r.range.fallback.label or 'P/B' }}: ₹{{ r.range.fallback.base | inr(0) }} (not the route's NAV)</div>{% endif %}
               {% endif %}
             </td>
             <td class="px-2 py-2 min-w-[11rem]">
