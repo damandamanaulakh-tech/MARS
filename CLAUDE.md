@@ -594,6 +594,80 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
     the title). Screenshots sent: mars_den_chain_desktop/terms/phone.png
     (scratchpad tools/shot_den_chain.py — sizes the viewport to the
     table's scrollWidth so nothing scrolls under the sticky ribbon).
+    PR #170 MERGED 16:04 IST (main e782ce4); the deploy restarted the
+    live process at 16:05 IST (rss 152 / peak 151), 25 min before the
+    16:30 block, with the keep-alive holding it.
+- **UPLOAD REVIEW 2026-10-14 (owner: "review this too" —
+  Valuation_Sequence_Review_2026-10-11.xlsx, 53 sheets, ~70k rows, an
+  AI-written review of AM07 pinned at fdcf2a2 = Fri 10-09 main, so it
+  never saw PR #162-#170). docs/UPLOAD_REVIEW_2026-10-14.md IS THE RECORD;
+  docs/upload_review_2026-10-14/ holds the per-finding verdict tables.
+  READ-ONLY, nothing changed; every fix below waits on the owner's word.**
+  Its extraction is accurate (90/90 config defaults match main; engine
+  call order right; formulas quoted right) and it produced NO valuation
+  number for any stock (every company row SOURCE_REQUIRED). Of its 405
+  findings 255 name AM07; 106 are about the owner's local workbooks or
+  the deleted August modules; **149 are about current code and 104 of
+  them are CONFIRMED on main (7 design judgments, 38 ASH08 paths, 0
+  wrong)** — three parallel readers, the top ones re-read by hand:
+  * **XR-060 THE DANGER LAYER HAS BEEN MOSTLY BLIND SINCE 08-11**:
+    `danger.evaluate_stock` tests `fn(x) is True`, 8 of the 10 OHLCV
+    tripwires return a NumPy boolean (only `_t0079`/`_t0096` wrap in
+    `bool()`), so on a synthetic shock five VERIFIED tripwires fire in
+    `triggers.evaluate` and the danger layer returns `[]` (reproduced).
+    Only 0079/0096/0094/0095 could ever tighten a stop or half-exit.
+    One-line fix; effect = stop tightenings/half-exits start firing on
+    held names. **XR-061**: `externals_for` → `externals_at(t)` with no
+    date reads the COMMITTED zip (last bar 2026-07-17), so 0094/0095
+    judge today's names against mid-July peers/index, live too.
+  * **XR-071**: `db._CONNECTED` is set only at connect time; refused
+    writes never clear it; `_degraded_halt` reads only that flag →
+    entries kept opening while Atlas refused every save in September
+    (that episode, named in code). **XR-050**: `fetch_regime` swallows
+    its own fetch failure and returns NEUTRAL/Everest on/reserve 0; the
+    C7 sticky brake fires only on an exception, so it is dead for the
+    common failure. **XR-041** IFR thin panel → multiplier 1.0 before the
+    saved fire window (an outage lifts an active throttle). **XR-026**
+    heat gate counts a NEW entry at 5% not its ATR stop. **XR-052**
+    rotation (engine 864) still precedes can_open (927) — kill switch /
+    sector / heat / category / min-size are only checked there.
+    **XR-051** correlation gate ignores same-pass fills. **XR-027**
+    all-NaN volume tail passes the liquidity gate (NaN < 5 Cr is False).
+    XR-055 FII "5 days" = first 5 rows; XR-056 Ocean survival NaN
+    passes; XR-083 Buy Desk can overspend by 5 bps; ROOT-ROUTE-03 owner
+    SELL accepts nan/inf; XR-042 policy substrings ("EV" in
+    "development"). Full ranked table in the doc §3a.
+  * **LIVE BUGS, NO MONEY: ROOT-ROUTE-07 — EVERY Settings / Den
+    algo-settings save on the live box is REFUSED `universe_too_big`**
+    (the form always posts the universe textarea, cap = max(100, 1200),
+    the live list has been 1,205 since 09-30). ROOT-ROUTE-06 a rejected
+    Settings edit leaves `cfg.mode` changed; XR-070 the Mongo-recovery
+    CONFLICT branch journals "NOTHING was overwritten" then `p.save()`s
+    the local book over Mongo; ROOT-ROUTE-01 an empty Mongo window
+    blocks the /backtest zip fill (bites after the 09-29 store wipe);
+    ROOT-ROUTE-08 OAuth state check passes when state is missing;
+    XR-069 success ledgers stamped on partial saves; XR-078 the backtest
+    sizes at the FIXED ₹1,25,000 (CLAUDE.md said ₹1.5L — the code reads
+    125,000); DOC-AM07-01 ALGO_V1_V2's Kelly example is floor-55 era
+    (≈₹68.6k at floor 62, not ₹1,38,825).
+  * **THE TATA SHEET FAULTS ARE NOW IN scenarios.py** (reproduced cell
+    for cell by order): TT01 extra depreciation+interest deducted from
+    PAT AFTER tax with no tax shield (E22); TT02 debt-funded capex never
+    moves E35; TT03 section H can print a NEGATIVE closing P/E (E134 has
+    no floor). TT12 (÷0) is already DATA_NEEDED. Owner decides
+    sheet-faithful vs corrected.
+  * Studies: leakage rows real but small (XR-092 1.6-3.1% of train rows
+    cross the 2020 split, favouring the test half; XR-091 ~0.4% of
+    windows; XR-093 a one-month relabel, not a leak) — no committed
+    conclusion changes. XR-103: study resume caches keyed by name only.
+  * Their 13-stage sequence maps onto our 00-24 spine; 48 of their 158
+    proposed definitions are already code in terms.py; our `ev_sales`
+    family has NO sector mapped to it; not coded as routes: FCFF/FCFE
+    DCF, DDM, residual income, EV/EBIT, REIT FFO/AFFO, rNPV,
+    liquidation, replacement cost, reverse valuation (proposed as a
+    diagnostic column). AshStocks/ASH08 rows out of scope (owner's 10-02
+    rule). HARNESS: three opus readers over disjoint finding files,
+    each writing progressively, worked (~17 min, no cap stops).
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:
