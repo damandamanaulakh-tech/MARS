@@ -743,6 +743,10 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   journal (owner's login) names it. LEVER restated, unordered: a total
   time cap per weekly step. Today's merge of PR #171 waited for 17:45
   IST (loop end) on a quiet box.
+  **PR #171 MERGED 17:47 IST WED 10-14 (main 9ae2d20, squash; CI green;
+  box flat at 230 MiB since 16:54, the stalled block long dead) — DEN
+  §13 IS LIVE after the deploy.** Thu 10-15 16:30 = the next weekly slot
+  (ledger still 09-30 → due).
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:
