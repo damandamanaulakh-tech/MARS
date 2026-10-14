@@ -242,13 +242,15 @@ def _cr(x: float) -> str:
 
 
 def share_bridge(ticker: str, snap: dict, ca_rows: Optional[list] = None,
-                 shares_csv_row: Optional[dict] = None) -> dict:
+                 shares_csv_row: Optional[dict] = None,
+                 tol_pct: Optional[float] = None) -> dict:
     """Stage 10 — the share count today and every change since, explained or
     flagged. `ca_rows=None` loads the committed CA file; pass [] for none.
     `shares_csv_row=None` loads data/shares_outstanding.csv; pass {} to skip."""
     sym = _bare(ticker)
     snap = snap or {}
-    tol = ASSUMED["reconcile_tol_pct"]
+    # `tol_pct` = Den draft (owner order 2026-10-14); None = module default.
+    tol = float(tol_pct) if num(tol_pct) is not None else ASSUMED["reconcile_tol_pct"]
 
     basic_now = _field(snap, "shares_outstanding")
     weighted = _field(snap, "basic_shares_avg")

@@ -261,14 +261,20 @@ def _band_score(v: float, zero_at: float, full_at: float) -> float:
     return max(0.0, min(100.0, s))
 
 
-def quality(snap: dict, route_family: str = "") -> dict:
+def quality(snap: dict, route_family: str = "",
+            thresholds: Optional[dict] = None) -> dict:
     """Stage 12 — earnings quality and balance-sheet stress. For a lender
     (route_family "book") the leverage/coverage/working-capital lines are
     DATA_NEEDED and so is the score."""
     snap = snap or {}
     f = _fields(snap)
     g = lambda k: num(f.get(k))                                   # noqa: E731
-    th = ASSUMED["thresholds"]
+    # `thresholds` = Den draft (owner order 2026-10-14) by name; the module
+    # defaults never change.
+    th = dict(ASSUMED["thresholds"])
+    for k, v in (thresholds or {}).items():
+        if k in th and num(v) is not None:
+            th[k] = float(v)
     lender = route_family == "book"
     flags: list[str] = []
     notes: list[str] = []

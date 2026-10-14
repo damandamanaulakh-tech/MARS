@@ -74,10 +74,18 @@ def _thesis(thesis: Any) -> Optional[dict]:
 
 
 def assess(price: Any, rng: dict, *, thesis: Optional[dict] = None,
-           uncertainty_pct: Optional[float] = None) -> dict:
-    """Stage 18 verdict for `price` against a stage-17 range {low, base, high}."""
+           uncertainty_pct: Optional[float] = None,
+           bands: Optional[dict] = None) -> dict:
+    """Stage 18 verdict for `price` against a stage-17 range {low, base, high}.
+
+    `bands` (Den draft, owner order 2026-10-14) replaces any of the ASSUMED
+    band numbers by name for this call only; the module defaults never
+    change."""
     rng = rng if isinstance(rng, dict) else {}
     a = {k: v["value"] for k, v in ASSUMED.items()}
+    for k, v in (bands or {}).items():
+        if k in a and num(v) is not None:
+            a[k] = float(v)
     p = num(price)
     lo, ba, hi = num(rng.get("low")), num(rng.get("base")), num(rng.get("high"))
     unc = num(uncertainty_pct)
