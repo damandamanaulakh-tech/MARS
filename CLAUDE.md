@@ -576,6 +576,24 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
     parallel on disjoint files against a written contract worked (no
     usage-cap stops this time); the lead wrote the contract, the
     orchestrator, the screen and the tests that cross the seams.
+  * **PR #169 MERGED 15:47 IST WED 10-14 on the owner's "merge now n show
+    me the den valuation chain" (main aafeb1c, squash; full suite 1,891
+    green from a clean state dir) — their third override of the
+    after-17:30 rule, taken as their decision; the deploy restarted the
+    live process at ~15:48 IST (keep-alive: peak 155 → fresh 152 → boot
+    catch-up peak 302) with the keep-alive holding it awake into the
+    16:30 block.** TWO FAULTS THE FIRST LOCAL RENDER EXPOSED, fixed on
+    PR #170 the same hour: (1) `Portfolio.positions` is a DICT keyed by
+    ticker and `_held_names` iterated it as a list of objects → every
+    held name silently dropped from §12 (my unit test had modelled a
+    list — the fixture-shape fault class; now a real PaperPosition in
+    the live dict must render); (2) the range cell's method text was
+    `whitespace-nowrap` → the table grew to ~3,000 px and the range /
+    verdict / terms columns sat off-screen; range, cases and the share
+    note now wrap (note truncated at 110 chars with the full text in
+    the title). Screenshots sent: mars_den_chain_desktop/terms/phone.png
+    (scratchpad tools/shot_den_chain.py — sizes the viewport to the
+    table's scrollWidth so nothing scrolls under the sticky ribbon).
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:
