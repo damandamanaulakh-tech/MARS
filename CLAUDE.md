@@ -447,6 +447,27 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   still unordered. Wakes armed: 14:20 (trig_01ULM4JHHE5KU5poRWeAdBX9),
   16:25 (trig_01F1Mna81qTt58BLwm5LE29N; block due — Tue did not stamp;
   re-arms Thu 09:10). /risk + journal need the owner's login.
+- **WED 10-14 14:30 CHAIN — UNOBSERVED; THE SESSION CONTAINER DIED
+  BETWEEN THE PROBE AND 15:40.** The 14:20 wake fired on time; the
+  14:21 IST probe found the box ASLEEP (42.6 s cold start, rss 156 /
+  peak 155, stats pending) — so the fresh process booted BEFORE 14:30
+  and its cron could fire (the Tue pattern). But the keep-alive loop
+  started at 14:21 never logged a line: the sandbox container was
+  REPLACED (uptime "0 min" at 15:40 IST; the loop's own DONE stamp was
+  written by the re-run on the new container), so from 14:22 to 15:40
+  nothing from here touched the app. With no inbound traffic Render
+  spins the free-tier process down ~15 min after the last request →
+  the 14:22 process was most likely retired ~14:37, mid-rotation if the
+  rotation had started. 15:40 IST probe = 42.8 s cold start again
+  (rss 155 / peak 154) → the 15:25 square-off and 15:35 marks ran on NO
+  process I can see. Whether the 14:30 rotation bought anything in its
+  ~7 minutes = the journal (owner's login). Keep-alive restarted 15:41
+  IST straight through to 17:45 (keepalive_1014_block.log) so the
+  16:30 block has a live process whether or not the 16:25 wake's probe
+  lands. HARNESS: TWO container pauses/replacements today (03:43→04:58Z
+  and 08:52→10:10Z) — a wake fires, its first probe runs, and the
+  container can vanish before the loop logs once. Nothing in the repo
+  changes this; Render Starter (owner's M-12) is still the only fix.
 - **THE VALUATION CHAIN IS CODE (owner 2026-10-14 ~12:20 IST: "show me
   the list of all 40+ pending work in a table what is done what is
   pending n lets hit the formulas work complietion"). PR #169. Money
