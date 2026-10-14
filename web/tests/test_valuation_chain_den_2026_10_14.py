@@ -138,12 +138,33 @@ def test_the_sequence_now_carries_the_chain_stages_dated_today():
 
 
 def test_names_to_show_orders_typed_then_targets_then_held(stored, monkeypatch):
+    # Portfolio.positions is a DICT keyed by ticker (the real shape — the
+    # first cut iterated it as a list and silently dropped every held name)
     class _P:
-        positions = [type("Pos", (), {"ticker": "SAIL.NS"})()]
+        positions = {"SAIL.NS": object(), "HDFCBANK.NS": object()}
     vv.LAST["targets"] = {"DLF.NS": {"target": 1.0}}
     monkeypatch.setattr(vv, "load_doc", lambda: {"targets": {"DLF.NS": {"target": 1.0}},
                                                  "assumptions": {}})
-    assert cv.names_to_show(_P(), "TCS.NS") == ["TCS.NS", "DLF.NS", "SAIL.NS"]
+    assert cv.names_to_show(_P(), "TCS.NS") == ["TCS.NS", "DLF.NS", "SAIL.NS", "HDFCBANK.NS"]
+
+
+def test_held_names_appear_on_the_chain_from_the_real_book(stored):
+    """A real PaperPosition in the live portfolio dict must reach the rows."""
+    from datetime import datetime
+    from trading.paper import PaperPosition
+    from web import state
+    p = state.portfolio()
+    saved = dict(p.positions)
+    try:
+        p.positions["SAIL.NS"] = PaperPosition(
+            ticker="SAIL.NS", qty=100, entry_price=150.0, entry_date=datetime.utcnow(),
+            sector="Metal", peak_price=150.0, entry_score=70.0, reasoning="t",
+            mode="swing", stop_price=140.0, target_price=170.0, tags=[])
+        t = _text(_owner().get("/den").text)
+        assert "SAIL" in t and "Metals (steel/aluminium/zinc)" in t
+    finally:
+        p.positions.clear()
+        p.positions.update(saved)
 
 
 def test_the_viewer_cannot_see_the_den(stored, monkeypatch):

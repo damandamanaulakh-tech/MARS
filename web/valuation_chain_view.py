@@ -102,8 +102,13 @@ def own_pe_history(closes: Optional[pd.Series], snap: dict) -> list[float]:
 
 
 def _held_names(p) -> list[str]:
+    """Held tickers. `Portfolio.positions` is a dict keyed by ticker; a
+    list of position objects is accepted too (fixtures)."""
+    held = getattr(p, "positions", None) or {}
     try:
-        return [pos.ticker for pos in (getattr(p, "positions", None) or [])]
+        if isinstance(held, dict):
+            return [str(k) for k in held.keys()]
+        return [getattr(x, "ticker", str(x)) for x in held]
     except Exception:                                   # noqa: BLE001
         return []
 
