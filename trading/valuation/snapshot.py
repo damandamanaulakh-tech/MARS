@@ -746,6 +746,9 @@ def snapshot(ticker: str, *, asof: Optional[str] = None,
             "money fields converted USD→INR at the period-end USDINR close"
             + (f" ({r['rate']} on {r['fx_date']} for {chosen})" if r else "")
             + "; shares, tax rate untouched")
+        warnings.append(
+            "year-on-year changes of converted flows include the USDINR move "
+            "between period ends (spot, not average-rate translation)")
     return _finish(rec)
 
 
