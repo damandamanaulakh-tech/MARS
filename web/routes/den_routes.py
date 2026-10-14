@@ -68,6 +68,10 @@ SECTIONS = [
     # stages 07-18 as code — snapshot, route, shares, normalised earnings,
     # quality, scenarios, justified range, verdict. Display only.
     ("chain",         "12 · Valuation chain"),
+    # Owner order 2026-10-14 ("put the formulas in the den now … need
+    # editable"): every formula of the chain printed, every ASSUMED number
+    # editable as a DRAFT that §12 reads on this page only.
+    ("formulas",      "13 · Formulas & assumptions"),
 ]
 
 # --------------------------------------------------------------------- 1.
@@ -1018,7 +1022,8 @@ def _sandbox(cfg, p, saved_flag: Optional[str]) -> dict:
 @router.get("/den", response_class=HTMLResponse)
 def den_page(request: Request, draft: Optional[str] = None,
              val: Optional[str] = None, val_err: Optional[str] = None,
-             chain: Optional[str] = None, terms: Optional[str] = None):
+             chain: Optional[str] = None, terms: Optional[str] = None,
+             fa: Optional[str] = None, fa_err: Optional[str] = None):
     user = auth.current_user(request)
     if not user:
         return RedirectResponse("/login", status_code=303)
@@ -1052,6 +1057,9 @@ def den_page(request: Request, draft: Optional[str] = None,
                      default=valuation_view.empty_section(
                          "invalid", "the context could not be read — see the log")),
         "chain": chain_ctx,
+        "fml": _safe(valuation_chain_view.formulas_section, fa, (fa_err or "")[:200],
+                     default=valuation_chain_view.empty_formulas_section(
+                         "invalid", "the formulas could not be read — see the log")),
         "is_owner": user.get("role") == "owner",
         "db_status": state.db_status(),
     }
@@ -1110,6 +1118,41 @@ async def den_valuation_save(request: Request):
     except Exception:
         log.exception("den: sector backfill after a valuation save failed")
     return RedirectResponse("/den?val=saved#valuation", status_code=303)
+
+
+@router.post("/den/valuation/assumptions")
+async def den_assumptions_save(request: Request):
+    """Owner-only (order 2026-10-14). Stores the assumption DRAFT (settings
+    doc "valuation_assumptions" + in-process copy). §12 reads it on this
+    page; the live Config and the engine never do. A single bad field
+    refuses the whole form — nothing is stored."""
+    from .. import valuation_chain_view as cv
+    user = auth.current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    if user.get("role") != "owner":
+        return RedirectResponse("/den?fa=denied#formulas", status_code=303)
+    form = await request.form()
+    values, errors = cv.parse_assumptions_form(form)
+    if errors:
+        return RedirectResponse(f"/den?fa=invalid&fa_err={quote('; '.join(errors)[:400])}#formulas",
+                                status_code=303)
+    cv.save_assumptions(values)
+    return RedirectResponse("/den?fa=saved#formulas", status_code=303)
+
+
+@router.post("/den/valuation/assumptions/clear")
+async def den_assumptions_clear(request: Request):
+    """Owner-only: forget the assumption draft — every number back to its
+    module default. Nothing in the live Config changes."""
+    from .. import valuation_chain_view as cv
+    user = auth.current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    if user.get("role") != "owner":
+        return RedirectResponse("/den?fa=denied#formulas", status_code=303)
+    cv.clear_assumptions()
+    return RedirectResponse("/den?fa=cleared#formulas", status_code=303)
 
 
 @router.post("/den/valuation/clear")

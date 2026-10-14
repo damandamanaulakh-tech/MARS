@@ -1,0 +1,104 @@
+<!-- 13. FORMULAS & ASSUMPTIONS — owner order 2026-10-14 ("put the formulas in
+     the den now … need editable as said in 40+ points"). Every formula the
+     valuation chain runs, printed from the code's own registries
+     (trading/valuation/terms.TERMS, route.SECTOR_METHODS, the scenario
+     chain's cell formulas), and every ASSUMED number as an editable DRAFT
+     (trading/valuation/assumptions.EDITABLE). A draft is stored in the
+     settings doc "valuation_assumptions" and read by §12 on this page only
+     — never by the live Config, never by the engine (boundary test). -->
+<section id="formulas" class="scroll-mt-20"><!-- den_formulas_marker -->
+  <div class="flex flex-wrap items-end justify-between gap-2 mb-3">
+    <h2 class="font-black text-2xl tracking-tight">13 · Formulas &amp; assumptions — every formula of the chain, every assumed number editable</h2>
+    <div class="text-xs text-ink-faint">printed from the code's registries · a draft here changes §12 on this page only · the engine never reads it</div>
+  </div>
+
+  {% if fml.flag == 'saved' %}
+  <div class="mb-4 px-4 py-3 border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm">Draft stored — §12 above now reads it ({{ fml.n_edited }} number(s) differ from the defaults). The live engine is unchanged.</div>
+  {% elif fml.flag == 'cleared' %}
+  <div class="mb-4 px-4 py-3 border border-line bg-paper text-sm">Draft cleared — every number is back to its module default.</div>
+  {% elif fml.flag == 'denied' %}
+  <div class="mb-4 px-4 py-3 border border-amber-200 bg-amber-50 text-amber-800 text-sm">Owner role required to store a draft.</div>
+  {% elif fml.flag == 'invalid' %}
+  <div class="mb-4 px-4 py-3 border border-red-200 bg-red-50 text-red-800 text-sm">Not stored — {{ fml.error or 'the form could not be read' }}. Nothing changed.</div>
+  {% endif %}
+
+  <div class="bg-white border border-line">
+    <div class="px-4 py-3 border-b border-line text-xs text-ink-soft space-y-1">
+      <div><strong>What it is.</strong> Part A lists the {{ fml.n_editable }} numbers the chain treats as ASSUMED, each with its default and its source. Type a replacement and save: §12 re-runs every name with your numbers and marks the rows DRAFT. Blank = default. A bad value refuses the whole form and stores nothing. Part B prints the formulas themselves — the {{ fml.terms | length }} finance terms, the {{ fml.routes | length }} sector routes, the {{ fml.chain_cells | length }} cells of your Tata Tech scenario chain (column E, with the sheet's Excel formula beside each), the range rule per family and the verdict rule.</div>
+      <div class="text-amber-800"><strong>Boundary.</strong> A draft is a what-if for the valuation display. It is not a Setting, it never touches the live Config, and no gate, stop or size reads it (test-pinned). {% if fml.n_edited %}<strong>{{ fml.n_edited }} number(s) are currently drafted</strong> — §12 is reading them.{% else %}No draft stored — §12 reads the defaults.{% endif %}</div>
+    </div>
+
+    <!-- A. editable assumptions -->
+    <form method="post" action="/den/valuation/assumptions" class="p-4 border-b border-line"><!-- den_formulas_form_marker -->
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">A · Assumed numbers — editable ({{ fml.n_editable }})</div>
+      {% for gkey, glabel in fml.groups %}
+      <div class="mt-3">
+        <div class="text-xs font-semibold mb-1">{{ glabel }}</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1">
+          {% for r in fml.rows if r.group == gkey %}
+          <label class="flex items-center justify-between gap-2 border-b border-line/60 py-1 text-xs {% if r.edited %}bg-amber-50{% endif %}" title="{{ r.source }}">
+            <span class="min-w-0"><span class="{% if r.edited %}font-semibold text-amber-800{% endif %}">{{ r.label }}</span>{% if r.cell %} <span class="text-ink-faint">{{ r.cell }}</span>{% endif %}<span class="block text-ink-faint">default {{ r.default }}{% if r.edited %} · <strong class="text-amber-800">draft {{ r.value }}</strong>{% endif %}</span></span>
+            <input name="{{ r.key }}" value="{% if r.edited %}{{ r.value }}{% endif %}" placeholder="{{ r.default }}" inputmode="decimal" {% if not is_owner %}disabled{% endif %}
+                   class="w-24 text-right border-b border-line focus:border-ink outline-none py-0.5 text-xs tabular-nums bg-transparent {% if r.edited %}font-semibold text-amber-800{% endif %}">
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+      <div class="mt-4 flex flex-wrap gap-3 items-center">
+        {% if is_owner %}
+        <button type="submit" class="px-4 py-2 bg-ink text-white text-xs font-semibold tracking-wide hover:bg-black">STORE DRAFT &rarr; re-read §12</button>
+        {% else %}
+        <span class="text-xs text-amber-700">Owner role required to store a draft.</span>
+        {% endif %}
+        <span class="text-xs text-ink-faint">a value equal to its default is not stored · every draft is listed on the §12 rows it changed</span>
+      </div>
+    </form>
+    {% if is_owner and fml.n_edited %}
+    <form method="post" action="/den/valuation/assumptions/clear" class="px-4 py-2 border-b border-line"><!-- den_formulas_clear_marker -->
+      <button type="submit" class="text-[10px] tracking-widest uppercase text-ink-faint hover:text-ink">✕ clear the draft — back to every default</button>
+    </form>
+    {% endif %}
+
+    <!-- B. the formulas -->
+    <div class="p-4 border-b border-line"><!-- den_formulas_terms_marker -->
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">B1 · The {{ fml.terms | length }} finance terms — name · formula · stage</div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-xs">
+        {% for t in fml.terms %}
+        <div class="border-b border-line/60 py-0.5"><span class="font-semibold">{{ t.name }}</span> <span class="text-ink-faint">{{ t.formula }}</span>{% if t.stage %} <span class="text-[10px] text-ink-faint uppercase tracking-widest">· {{ t.stage }}</span>{% endif %}</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="p-4 border-b border-line overflow-x-auto"><!-- den_formulas_routes_marker -->
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">B2 · The {{ fml.routes | length }} sector routes (stage 09) — sector · method · family · basis · per-share metric · key drivers · bad-year behaviour</div>
+      <table class="w-full text-xs">
+        <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line"><tr><th class="text-left py-1 pr-3">Sector</th><th class="text-left py-1 pr-3">Method</th><th class="text-left py-1 pr-3">Family</th><th class="text-left py-1 pr-3">Basis</th><th class="text-left py-1 pr-3">Per share</th><th class="text-left py-1 pr-3">Key drivers</th><th class="text-left py-1">In a bad year</th></tr></thead>
+        <tbody>
+          {% for r in fml.routes %}
+          <tr class="border-b border-line/60 align-top"><td class="py-1 pr-3 font-semibold whitespace-nowrap">{{ r.sector }}</td><td class="py-1 pr-3 whitespace-nowrap">{{ r.method }}</td><td class="py-1 pr-3 whitespace-nowrap">{{ r.family }}</td><td class="py-1 pr-3">{{ r.basis }}</td><td class="py-1 pr-3">{{ r.per_share }}</td><td class="py-1 pr-3 text-ink-faint">{{ r.rule }}</td><td class="py-1 text-ink-faint">{{ r.bad_time }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="mt-2 text-xs text-ink-faint">Range rule per family: {% for f, txt in fml.family_rules %}<span class="font-semibold">{{ f }}</span> — {{ txt }}{% if not loop.last %} · {% endif %}{% endfor %}</div>
+    </div>
+
+    <div class="p-4 border-b border-line overflow-x-auto"><!-- den_formulas_chain_marker -->
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">B3 · Your Tata Tech scenario chain (stages 15-16) — {{ fml.chain_cells | length }} cells of column E, the sheet's own Excel formula beside each</div>
+      <table class="w-full text-xs">
+        <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line"><tr><th class="text-left py-1 pr-3">Cell</th><th class="text-left py-1 pr-3">Line</th><th class="text-left py-1">Formula (sheet)</th></tr></thead>
+        <tbody>
+          {% for c in fml.chain_cells %}
+          <tr class="border-b border-line/60 align-top"><td class="py-0.5 pr-3 font-mono whitespace-nowrap">{{ c.cell }}</td><td class="py-0.5 pr-3 whitespace-nowrap">{{ c.label }}</td><td class="py-0.5 font-mono text-ink-faint">{{ c.formula }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="mt-2 text-xs text-ink-faint">Cases: downside / base / upside = the same chain with the case deltas (Part A) added to revenue growth, EBITDA margin and the P/E bridge total. Section H (E120-E134) is your ADDITIVE what-if: the nine impacts are summed into one P/E change; E134 has no floor, so a total below −100% prints a negative multiple (flagged in the 2026-10-14 upload review).</div>
+    </div>
+
+    <div class="p-4 text-xs text-ink-soft space-y-1"><!-- den_formulas_rules_marker -->
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-1">B4 · The other stage rules</div>
+      {% for name, txt in fml.stage_rules %}<div><span class="font-semibold">{{ name }}</span> — {{ txt }}</div>{% endfor %}
+    </div>
+  </div>
+</section>

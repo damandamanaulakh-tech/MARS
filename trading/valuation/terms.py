@@ -384,7 +384,7 @@ def irr(cash_flows: Any, outlay: Any, lo: float = -0.99, hi: float = 10.0,
     return float((a + b) / 2.0)
 
 
-def dcf_value(fcfs: Any, wacc_: Any, g: Any) -> Any:
+def dcf_value(fcfs: Any, wacc_: Any, g: Any, cap_pct: Any = None) -> Any:
     """Σ FCF_t/(1+WACC)^t + TV/(1+WACC)^n, TV = FCF_n × (1+g)/(WACC−g).
 
     The terminal value is discounted to today like every other flow. g is
@@ -398,7 +398,8 @@ def dcf_value(fcfs: Any, wacc_: Any, g: Any) -> Any:
         return dn("missing input: fcf_forecast (scenario FCF, stages 15-16)")
     if any(x is None for x in flows):
         return dn("fcf_forecast contains a missing value")
-    cap = ASSUMED["dcf_growth_cap_pct"] / 100.0
+    cap = (float(cap_pct) if num(cap_pct) is not None
+           else ASSUMED["dcf_growth_cap_pct"]) / 100.0
     if v["g"] > cap:
         return dn(f"g {v['g']:.2%} above the {cap:.0%} nominal-GDP cap")
     if v["wacc"] <= v["g"]:
@@ -629,9 +630,11 @@ def _t_dcf(snap, price, market):
         w = wp if is_dn(wp) else wp["value"]
         w_src = "WACC term"
     g = _pct(market, "growth_pct")
-    val = dcf_value((market or {}).get("fcf_forecast"), w, g)
+    cap_pct = (market or {}).get("dcf_growth_cap_pct")       # Den draft, else default
+    val = dcf_value((market or {}).get("fcf_forecast"), w, g, cap_pct=cap_pct)
     parts: Dict[str, Any] = {"value": val, "wacc": w, "wacc_source": w_src,
-                             "g": g, "g_cap": ASSUMED["dcf_growth_cap_pct"] / 100.0}
+                             "g": g, "g_cap": (float(cap_pct) if num(cap_pct) is not None
+                                               else ASSUMED["dcf_growth_cap_pct"]) / 100.0}
     if num(val) is not None:
         v, bad = _need(total_debt=_f(snap, "total_debt"), cash=_f(snap, "cash"),
                        minority_interest_bs=_f(snap, "minority_interest_bs"),

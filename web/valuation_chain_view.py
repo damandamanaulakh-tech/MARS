@@ -38,6 +38,12 @@ log = logging.getLogger(__name__)
 
 MAX_ROWS = 25
 PRICE_TAIL = 1500                        # ~6 years of daily closes
+#: Owner order 2026-10-14 ("need editable"): the assumption DRAFT lives in
+#: this settings doc (+ an in-process copy so the Den works while Mongo is
+#: offline, the formula_drafts pattern). §12 reads it on the page render;
+#: the live Config and the engine never do.
+ASSUMPTIONS_DOC_ID = "valuation_assumptions"
+LAST_ASSUMPTIONS: dict = {}
 KEY_TERMS = ("P/E (trailing, forward)", "P/B", "EV/EBITDA", "ROE", "ROCE",
              "FCF / FCF yield", "Cash conversion", "Net debt / EBITDA",
              "Interest coverage", "Dividend yield / payout", "Graham number",
@@ -130,6 +136,61 @@ def names_to_show(p, typed: str = "") -> list[str]:
         if t not in out:
             out.append(t)
     return out[:MAX_ROWS]
+
+
+# ------------------------------------------------------ assumption draft
+
+def load_assumptions() -> dict:
+    """{key: value} of the stored draft — Mongo doc first, the in-process
+    copy when the doc cannot be read. Unknown keys are dropped."""
+    from trading.valuation import assumptions as ASM
+    from . import db
+    values: dict = {}
+    try:
+        doc = db.load_settings(doc_id=ASSUMPTIONS_DOC_ID) or {}
+        values = dict(doc.get("values") or {})
+    except Exception:                                   # noqa: BLE001
+        log.warning("valuation chain: assumption draft unreadable — using the in-process copy")
+    if not values and LAST_ASSUMPTIONS:
+        values = dict(LAST_ASSUMPTIONS)
+    return ASM.clean(values)
+
+
+def save_assumptions(values: dict) -> bool:
+    """Store the draft (differences from the defaults only). Returns
+    whether the Mongo write landed; the in-process copy is kept either way."""
+    from datetime import datetime
+    from trading.valuation import assumptions as ASM
+    from . import db
+    clean = ASM.clean(values)
+    LAST_ASSUMPTIONS.clear()
+    LAST_ASSUMPTIONS.update(clean)
+    try:
+        db.save_settings({"values": clean, "ts": datetime.utcnow().isoformat(),
+                          "version": ASM.VERSION}, doc_id=ASSUMPTIONS_DOC_ID)
+        return True
+    except Exception:                                   # noqa: BLE001
+        log.exception("valuation chain: assumption draft save failed (in-memory copy kept)")
+        return False
+
+
+def clear_assumptions() -> None:
+    from datetime import datetime
+    from . import db
+    LAST_ASSUMPTIONS.clear()
+    try:
+        db.save_settings({"values": {}, "ts": datetime.utcnow().isoformat()},
+                         doc_id=ASSUMPTIONS_DOC_ID)
+    except Exception:                                   # noqa: BLE001
+        log.exception("valuation chain: assumption draft clear failed (in-memory copy cleared)")
+
+
+def parse_assumptions_form(form) -> tuple[dict, list]:
+    """Form → (values, errors) through assumptions.coerce; a non-owner
+    field or an unknown name is ignored, a bad number is an error."""
+    from trading.valuation import assumptions as ASM
+    raw = {k: form.get(k) for k in ASM.BY_KEY}
+    return ASM.coerce(raw)
 
 
 # --------------------------------------------------------------- peers
@@ -231,7 +292,8 @@ def _macro_inputs(snap: dict, closes: Optional[pd.Series] = None) -> dict:
     return out
 
 
-def row_for(ticker: str, cfg, p, *, show_terms: bool = False) -> dict:
+def row_for(ticker: str, cfg, p, *, show_terms: bool = False,
+            overrides: Optional[dict] = None) -> dict:
     from trading.valuation import pipeline
     closes = _closes(ticker)
     px, px_date = price_now(closes)
@@ -243,6 +305,7 @@ def row_for(ticker: str, cfg, p, *, show_terms: bool = False) -> dict:
         own_pe_history=lambda snap: own_pe_history(closes, snap),
         peers=peer_multiples,
         macro=lambda snap: _macro_inputs(snap, closes),
+        overrides=overrides,
     )
     rec["key_terms"] = [t for t in rec.get("terms_rows", []) if t["name"] in KEY_TERMS]
     rec["all_terms"] = rec.get("terms_rows", []) if show_terms else []
@@ -257,7 +320,8 @@ def empty_section(error: str = "", typed: str = "") -> dict:
             "show_terms": False, "error": error,
             "n_statements": pipeline.statement_coverage(),
             "assumed": pipeline.assumed_for_page(),
-            "today": date.today().isoformat()}
+            "today": date.today().isoformat(),
+            "drafted": False, "n_edited": 0, "drafted_keys": []}
 
 
 def section(cfg, p, typed: str = "", show_terms: bool = False) -> dict:
@@ -269,13 +333,91 @@ def section(cfg, p, typed: str = "", show_terms: bool = False) -> dict:
             out["error"] = f"'{typed}' is not a symbol"
     out["typed_full"] = typed_full
     out["show_terms"] = bool(show_terms and typed_full)
+    overrides = load_assumptions()
+    out.update({"drafted": bool(overrides), "n_edited": len(overrides),
+                "drafted_keys": sorted(overrides)})
     rows = []
     for t in names_to_show(p, typed_full):
         try:
-            rows.append(row_for(t, cfg, p, show_terms=(out["show_terms"] and t == typed_full)))
+            rows.append(row_for(t, cfg, p, show_terms=(out["show_terms"] and t == typed_full),
+                                overrides=overrides or None))
         except Exception as e:                          # noqa: BLE001
             log.exception("valuation chain: row failed for %s", t)
             from trading.valuation import pipeline
             rows.append(pipeline.failed_record(t, str(e)[:120]))
     out.update({"rows": rows, "n": len(rows)})
     return out
+
+
+# ------------------------------------------------------ §13 formulas page
+
+FAMILY_RULES = [
+    ("earnings", "value per share = scenario EPS × band [min(peer P/E, own low), mean(peer, own median), max(peer, own high)]; "
+                 "no own history → the three cases' own closing P/E"),
+    ("book", "justified P/B = (ROE − g) / (COE − g), COE = rf + β × ERP; value = P/B × BVPS; "
+             "downside / upside = ROE ∓ step; g = min(long-run g, ROE × (1 − payout))"),
+    ("ev_ebitda", "EV = multiple × EBITDA per share; equity per share = EV − net debt − minorities; "
+                  "metals use the mid-cycle (5-FY mean) EBITDA"),
+    ("ev_sales", "EV = multiple × sales per share; equity per share = EV − net debt − minorities"),
+    ("nav", "NAV per share = DATA_NEEDED (no project NAV stored); the P/B route is shown as a labelled fallback"),
+    ("embedded_value", "EV/VNB = DATA_NEEDED (no embedded-value disclosure stored)"),
+    ("sotp", "sum of parts = DATA_NEEDED (no segment values stored)"),
+]
+
+STAGE_RULES = [
+    ("07-08 snapshot lock", "latest audited FY from the statements zip (+ monthly refresh); publication date = "
+                            "period end + lag (ASSUMED) unless an NSE result date is given; currency: an ADR name "
+                            "converts at the period-end USDINR only when it is on the suspect list AND price ÷ EPS "
+                            "exceeds the USD signature — list alone never converts, signature alone = DATA_NEEDED; "
+                            "sha256 lock hash over the fields"),
+    ("09 route", "label = cfg.sector_map → Nifty-500 industry file → unmapped; keyword rules for the coarse labels "
+                 "(bank / NBFC / insurer / AMC, hospital, realty / cement / EPC, retail / hotel / airline); PSU and "
+                 "holding overlays; anything else UNDECLARED with a nearest suggestion, never forced"),
+    ("10 shares", "today's count vs the prior period: split = old face ÷ new face, bonus a:b = 1 + a/b; a period pair "
+                  "reconciles within ± tolerance (Part A) else 'unexplained'; rights / buyback / issuance carry no factor; "
+                  "ESOP pool = DATA_NEEDED"),
+    ("11 normalised PAT", "normalised = reported − unusual items + their tax effect (tax effect = unusual × effective "
+                          "rate, bounded 0-50%); checked against the audited Normalized Income line when present"),
+    ("12 quality", "cash conversion = OCF ÷ PAT, net debt ÷ EBITDA, interest cover = EBIT ÷ interest, each flagged at "
+                   "the thresholds in Part A; lenders' leverage lines DATA_NEEDED; score = ASSUMED weights"),
+    ("15-16 cases", "the chain in Part B3 run three times with the case deltas (Part A) added to revenue growth, "
+                    "EBITDA margin and the P/E bridge total; constant-currency growth for converted names"),
+    ("17 range", "per family as listed under B2; 3×3 grid growth {−1,0,+1}pp × margin {−1,0,+1}pp and a multiple row "
+                 "{−10,0,+10} points on the bridge"),
+    ("17b context", "sector leg (1:1 and measured β), rates leg (r_then − g) / (r_now + shift − g), sentiment margin "
+                    "= base discount + steps per gauge ON — §11 above"),
+    ("18 verdict", "attractive when base ≥ price × (1 + margin); watch within ± band of base; unattractive above base "
+                   "× (1 + premium); insufficient when (high − low) / base or the stated uncertainty exceeds the width "
+                   "cap — bands in Part A; never a trade permission"),
+]
+
+
+def empty_formulas_section(flag: str = "", error: str = "") -> dict:
+    return {"flag": flag, "error": error, "groups": [], "rows": [], "n_editable": 0,
+            "n_edited": 0, "terms": [], "routes": [], "chain_cells": [],
+            "family_rules": FAMILY_RULES, "stage_rules": STAGE_RULES}
+
+
+def formulas_section(flag: Optional[str] = None, error: str = "") -> dict:
+    """Den §13: the editable assumption rows (with the stored draft) and
+    every formula registry the chain runs. Stored inputs only."""
+    from trading.valuation import assumptions as ASM
+    from trading.valuation import route as R
+    from trading.valuation import scenarios as SC
+    from trading.valuation import terms as T
+    values = load_assumptions()
+    rows = ASM.describe(values)
+    terms = [{"name": name, "formula": e.get("formula") or "", "stage": e.get("stage") or ""}
+             for name, e in T.TERMS.items()]
+    routes = []
+    for r in R.SECTOR_METHODS:
+        routes.append({"sector": r.get("sector") or r.get("label") or "",
+                       "method": r.get("method") or "", "family": r.get("family") or "",
+                       "basis": r.get("primary_basis") or "",
+                       "per_share": r.get("per_share_metric") or "",
+                       "rule": r.get("key_drivers") or "",
+                       "bad_time": r.get("bad_time_behaviour") or ""})
+    return {"flag": flag or "", "error": error, "groups": ASM.GROUPS, "rows": rows,
+            "n_editable": len(rows), "n_edited": len(values),
+            "terms": terms, "routes": routes, "chain_cells": SC.chain_formulas(),
+            "family_rules": FAMILY_RULES, "stage_rules": STAGE_RULES}

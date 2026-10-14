@@ -594,6 +594,155 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
     the title). Screenshots sent: mars_den_chain_desktop/terms/phone.png
     (scratchpad tools/shot_den_chain.py — sizes the viewport to the
     table's scrollWidth so nothing scrolls under the sticky ribbon).
+    PR #170 MERGED 16:04 IST (main e782ce4); the deploy restarted the
+    live process at 16:05 IST (rss 152 / peak 151), 25 min before the
+    16:30 block, with the keep-alive holding it.
+- **UPLOAD REVIEW 2026-10-14 (owner: "review this too" —
+  Valuation_Sequence_Review_2026-10-11.xlsx, 53 sheets, ~70k rows, an
+  AI-written review of AM07 pinned at fdcf2a2 = Fri 10-09 main, so it
+  never saw PR #162-#170). docs/UPLOAD_REVIEW_2026-10-14.md IS THE RECORD;
+  docs/upload_review_2026-10-14/ holds the per-finding verdict tables.
+  READ-ONLY, nothing changed; every fix below waits on the owner's word.**
+  Its extraction is accurate (90/90 config defaults match main; engine
+  call order right; formulas quoted right) and it produced NO valuation
+  number for any stock (every company row SOURCE_REQUIRED). Of its 405
+  findings 255 name AM07; 106 are about the owner's local workbooks or
+  the deleted August modules; **149 are about current code and 104 of
+  them are CONFIRMED on main (7 design judgments, 38 ASH08 paths, 0
+  wrong)** — three parallel readers, the top ones re-read by hand:
+  * **XR-060 THE DANGER LAYER HAS BEEN MOSTLY BLIND SINCE 08-11**:
+    `danger.evaluate_stock` tests `fn(x) is True`, 8 of the 10 OHLCV
+    tripwires return a NumPy boolean (only `_t0079`/`_t0096` wrap in
+    `bool()`), so on a synthetic shock five VERIFIED tripwires fire in
+    `triggers.evaluate` and the danger layer returns `[]` (reproduced).
+    Only 0079/0096/0094/0095 could ever tighten a stop or half-exit.
+    One-line fix; effect = stop tightenings/half-exits start firing on
+    held names. **XR-061**: `externals_for` → `externals_at(t)` with no
+    date reads the COMMITTED zip (last bar 2026-07-17), so 0094/0095
+    judge today's names against mid-July peers/index, live too.
+  * **XR-071**: `db._CONNECTED` is set only at connect time; refused
+    writes never clear it; `_degraded_halt` reads only that flag →
+    entries kept opening while Atlas refused every save in September
+    (that episode, named in code). **XR-050**: `fetch_regime` swallows
+    its own fetch failure and returns NEUTRAL/Everest on/reserve 0; the
+    C7 sticky brake fires only on an exception, so it is dead for the
+    common failure. **XR-041** IFR thin panel → multiplier 1.0 before the
+    saved fire window (an outage lifts an active throttle). **XR-026**
+    heat gate counts a NEW entry at 5% not its ATR stop. **XR-052**
+    rotation (engine 864) still precedes can_open (927) — kill switch /
+    sector / heat / category / min-size are only checked there.
+    **XR-051** correlation gate ignores same-pass fills. **XR-027**
+    all-NaN volume tail passes the liquidity gate (NaN < 5 Cr is False).
+    XR-055 FII "5 days" = first 5 rows; XR-056 Ocean survival NaN
+    passes; XR-083 Buy Desk can overspend by 5 bps; ROOT-ROUTE-03 owner
+    SELL accepts nan/inf; XR-042 policy substrings ("EV" in
+    "development"). Full ranked table in the doc §3a.
+  * **LIVE BUGS, NO MONEY: ROOT-ROUTE-07 — EVERY Settings / Den
+    algo-settings save on the live box is REFUSED `universe_too_big`**
+    (the form always posts the universe textarea, cap = max(100, 1200),
+    the live list has been 1,205 since 09-30). ROOT-ROUTE-06 a rejected
+    Settings edit leaves `cfg.mode` changed; XR-070 the Mongo-recovery
+    CONFLICT branch journals "NOTHING was overwritten" then `p.save()`s
+    the local book over Mongo; ROOT-ROUTE-01 an empty Mongo window
+    blocks the /backtest zip fill (bites after the 09-29 store wipe);
+    ROOT-ROUTE-08 OAuth state check passes when state is missing;
+    XR-069 success ledgers stamped on partial saves; XR-078 the backtest
+    sizes at the FIXED ₹1,25,000 (CLAUDE.md said ₹1.5L — the code reads
+    125,000); DOC-AM07-01 ALGO_V1_V2's Kelly example is floor-55 era
+    (≈₹68.6k at floor 62, not ₹1,38,825).
+  * **THE TATA SHEET FAULTS ARE NOW IN scenarios.py** (reproduced cell
+    for cell by order): TT01 extra depreciation+interest deducted from
+    PAT AFTER tax with no tax shield (E22); TT02 debt-funded capex never
+    moves E35; TT03 section H can print a NEGATIVE closing P/E (E134 has
+    no floor). TT12 (÷0) is already DATA_NEEDED. Owner decides
+    sheet-faithful vs corrected.
+  * Studies: leakage rows real but small (XR-092 1.6-3.1% of train rows
+    cross the 2020 split, favouring the test half; XR-091 ~0.4% of
+    windows; XR-093 a one-month relabel, not a leak) — no committed
+    conclusion changes. XR-103: study resume caches keyed by name only.
+  * Their 13-stage sequence maps onto our 00-24 spine; 48 of their 158
+    proposed definitions are already code in terms.py; our `ev_sales`
+    family has NO sector mapped to it; not coded as routes: FCFF/FCFE
+    DCF, DDM, residual income, EV/EBIT, REIT FFO/AFFO, rNPV,
+    liquidation, replacement cost, reverse valuation (proposed as a
+    diagnostic column). AshStocks/ASH08 rows out of scope (owner's 10-02
+    rule). HARNESS: three opus readers over disjoint finding files,
+    each writing progressively, worked (~17 min, no cap stops).
+- **DEN §13 "FORMULAS & ASSUMPTIONS" — EVERY FORMULA PRINTED, EVERY
+  ASSUMED NUMBER EDITABLE AS A DRAFT (owner 2026-10-14 ~15:50 IST: "put
+  the formulas in the den now / and further i ll review each / need
+  editable as said in 40+ points / give me all work status and pending
+  lists in table"). PR #171 (with the upload review). Money impact:
+  NONE — a draft lives in settings doc `valuation_assumptions` (+
+  in-process `LAST_ASSUMPTIONS`), never in cfg (test pins cfg
+  byte-identical after a save); only the display chain (§12) reads it.**
+  * `trading/valuation/assumptions.py` = the registry `EDITABLE` (50
+    rows, each mirroring its module's default — test fails if a module
+    constant moves without the registry): 29 `sheet.*` (the Tata-sheet
+    sensitivities `SC._A`, col-E rows 140-168), 6 `case.{downside,
+    upside}.*` (CASE_DELTAS), 3 `range.*` (book_roe_step_pp,
+    equity_risk_premium_pct, long_run_growth_pct), 5 `verdict.*`
+    (assess bands), 2 `snapshot.*` (publication_lag_days INT,
+    usd_signature_pe), 1 `shares.reconcile_tol_pct`, 3 `quality.*`,
+    1 `terms.dcf_growth_cap_pct`. `coerce(form)` refuses by name (blank
+    = default; NaN/inf/non-integer/out-of-bounds = the WHOLE save
+    refused, nothing stored); `clean` drops values equal to the default
+    (so "n_edited" is honest); `split` routes keys to the stage that
+    consumes them.
+  * Threaded as kwargs, defaults untouched when absent:
+    `snapshot(publication_lag_days=, usd_signature_pe=)`,
+    `share_bridge(tol_pct=)`, `quality(thresholds=)`,
+    `three_cases(assumptions=, deltas=)`, `justified_range(…,
+    roe_step_pp=)` (NEW kwarg; NAV fallback passes it), `assess(bands=)`,
+    `dcf_value(cap_pct=)` via `market["dcf_growth_cap_pct"]`;
+    `pipeline.evaluate(overrides=)` → every record carries
+    `assumptions.drafted` / `drafted_values` and `rec["drafted"]`;
+    `failed_record` says drafted False. `scenarios.chain_formulas()` =
+    the 82 computed cells of the sheet (column E, Excel formula text,
+    e.g. E29 "ROUND(E22/E28,2)") from one synthetic run.
+  * `web/valuation_chain_view`: `load/save/clear_assumptions`,
+    `parse_assumptions_form`, `row_for(overrides=)`, `section()` sets
+    drafted/n_edited/drafted_keys, `formulas_section()` = {groups,
+    rows, terms 52, routes 21 (sector · method · family · primary_basis
+    · per_share_metric · key_drivers · bad_time_behaviour — the
+    SECTOR_METHODS keys; my first cut guessed `basis`/`rule` and rendered
+    blank), chain_cells 82, family_rules, stage_rules}. Den: SECTIONS +=
+    ("formulas", "13 · Formulas & assumptions"); `POST /den/valuation/
+    assumptions` + `/clear` (owner-only, redirect `?fa=saved|invalid|
+    cleared#formulas`, the invalid reason in `fa_err`);
+    `_den_valuation_formulas.html` (markers den_formulas_marker/_form_/
+    _clear_/_terms_/_routes_/_chain_/_rules_; Part A form, Part B
+    registries, section-H "negative multiple" caveat printed); §12 gets
+    `den_chain_draft_marker` ("DRAFT ASSUMPTIONS IN USE — N number(s)
+    differ") + a "draft" tag per row. Viewer: 403 on GET and POST.
+  * Tests: trading/tests/test_valuation_assumptions_2026_10_14.py (7)
+    + web/tests/test_valuation_formulas_den_2026_10_14.py (6); the Den
+    section pin now ends "…valuation, chain, formulas". Full suite
+    1,905 green from a clean state dir. Real render: scratchpad tools/
+    shot_den_formulas.py → mars_den_formulas_desktop/draft/phone.png
+    (sent). GOTCHA: `SB_STATE_DIR` is NOT honoured by Config (state_dir
+    is a plain default) — the shot scripts write the DEFAULT
+    /tmp/sourceborn_paper; never run one while the suite runs.
+  * The status table = docs/MARS_WORK_STATUS_2026-10-14.md (47 rows:
+    the 39 task-book rows re-read today + 8 new; 17 open asks listed
+    once). Not built, said there: version log for weights (row 25),
+    the review's 110 extra terms (row 19), everything money-path.
+- **WED 10-14 16:30 BLOCK — FOURTH STALL IN A ROW, same shape, read
+  from keepalive_1014_block.log (NOTE: the keep-alive script stamps
+  lines in the container's UTC clock; add 5:30).** One process from the
+  #170 deploy restart at 16:05 IST (rss 152 / peak 151): 16:30 rss 155
+  → 164 / 167 / 169 / 172 / 177 / 181 / 184 / 188 / 189 / **190 by
+  16:40** (the short feeds), 190 flat to 16:44, **16:45 register
+  precompute 282 → peak 331**, then 245 flat 16:46-16:53 and **230-232
+  flat from 16:54 to 17:45 with NO rebuild stamp** (`last_rebuild`
+  2026-09-30, store 2,233, writes landing, write_error None, Atlas 69 +
+  1 MB). Fri 10-09 / Mon 10-12 / Tue 10-13 / Wed 10-14 identical. The
+  fundamentals budget (live since 10-13) did not change it, so either a
+  feed step with no total bound hangs (NSDL/constituents/SEBI loops) or
+  the pre-pull rebuild declines and the pull runs silently — only the
+  journal (owner's login) names it. LEVER restated, unordered: a total
+  time cap per weekly step. Today's merge of PR #171 waited for 17:45
+  IST (loop end) on a quiet box.
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:

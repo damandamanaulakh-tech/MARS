@@ -643,6 +643,35 @@ def three_cases(base: dict, drivers: dict, market: dict,
     return out
 
 
+def chain_formulas() -> List[dict]:
+    """[{cell, key, label, formula}] for every computed cell of the chain
+    (inputs excluded) — what the Den's formulas section prints. Runs the
+    chain once on a synthetic, fully populated base so every formula is
+    emitted; the values are discarded (owner order 2026-10-14)."""
+    base = {"revenue": 1000.0, "ebitda": 180.0, "pat": 100.0, "tax": 30.0,
+            "employee_cost": 500.0, "shares": 10.0, "dividend_ps": 2.0,
+            "equity": 600.0, "borrowings": 50.0, "cash": 100.0,
+            "revenue_prev": 900.0, "pat_prev": 90.0, "eps_prev": 9.0,
+            "price": 150.0, "pe": 15.0, "net_cash": 50.0}
+    drivers = {k: (v if isinstance(v, (int, float)) else 0.0)
+               for k, v in SHEET_DRIVERS.items()} if isinstance(SHEET_DRIVERS, dict) else {}
+    market = {k: (v if isinstance(v, (int, float)) else 0.0)
+              for k, v in SHEET_MARKET.items()} if isinstance(SHEET_MARKET, dict) else {}
+    try:
+        sc = fy_scenario(base, drivers, market)
+        chain = sc.get("chain") or []
+    except Exception:                                      # noqa: BLE001
+        chain = []
+    out = []
+    for c in chain:
+        if not isinstance(c, dict) or c.get("formula") in (None, "", "input", "base",
+                                                           "drivers", "market", "assumptions"):
+            continue
+        out.append({"cell": c.get("cell", ""), "key": c.get("key", ""),
+                    "label": c.get("label", ""), "formula": c.get("formula", "")})
+    return out
+
+
 # -------------------------------------------------------------- stage 17
 
 def _case_num(cases: Any, case: str, key: str) -> Optional[float]:
@@ -770,8 +799,13 @@ def justified_range(family: str, cases: dict, *, price: Optional[float],
                     minorities_per_share: Optional[float] = None,
                     rf_pct: Optional[float] = None, beta: Optional[float] = None,
                     erp_pct: Optional[float] = None,
-                    growth_pct: Optional[float] = None) -> dict:
+                    growth_pct: Optional[float] = None,
+                    roe_step_pp: Optional[float] = None) -> dict:
     """Stage 17: the justified per-share range for the stock's route.
+
+    `roe_step_pp` (Den draft, owner order 2026-10-14) replaces the ASSUMED
+    BOOK_ROE_STEP_PP for the bank route's downside / upside ROE; None = the
+    module default.
 
     `per_share_overrides` = {case: metric} replaces the per-share metric the
     route reads from the cases (EPS for earnings, BVPS for book, EBITDA per
@@ -862,8 +896,8 @@ def justified_range(family: str, cases: dict, *, price: Optional[float],
                            bridge, dn("grid built for the earnings route only"), used,
                            missing, notes, price)
         per_share = {}
-        for c, step in (("downside", -BOOK_ROE_STEP_PP), ("base", 0.0),
-                        ("upside", BOOK_ROE_STEP_PP)):
+        rs = float(num(roe_step_pp)) if num(roe_step_pp) is not None else BOOK_ROE_STEP_PP
+        for c, step in (("downside", -rs), ("base", 0.0), ("upside", rs)):
             r = roe + step
             bvc = num(overrides.get(c)) if num(overrides.get(c)) is not None else bv
             pb = (r - g) / (coe - g)
@@ -946,7 +980,8 @@ def justified_range(family: str, cases: dict, *, price: Optional[float],
                                        peer_multiple=peer_multiple,
                                        per_share_overrides=per_share_overrides,
                                        roe_pct=roe_pct, bvps=bvps, rf_pct=rf_pct,
-                                       beta=beta, erp_pct=erp_pct, growth_pct=growth_pct)
+                                       beta=beta, erp_pct=erp_pct, growth_pct=growth_pct,
+                                       roe_step_pp=roe_step_pp)
         else:
             notes.append("no BVPS — the P/B fallback cannot be shown either")
         out = _finish(fam, "NAV per share (discounted land / project value) − net debt",

@@ -483,7 +483,9 @@ def snapshot(ticker: str, *, asof: Optional[str] = None,
              fundamentals: Optional[dict] = None,
              usdinr: Optional[Callable[[str], Optional[Tuple[float, str]]]] = None,
              result_dates: Optional[dict] = None,
-             shares_csv: Optional[dict] = None) -> dict:
+             shares_csv: Optional[dict] = None,
+             publication_lag_days: Optional[int] = None,
+             usd_signature_pe: Optional[float] = None) -> dict:
     """Stages 07-08: the locked financial snapshot of one company.
 
     Every data input defaults to the committed-file loader and can be
@@ -496,7 +498,12 @@ def snapshot(ticker: str, *, asof: Optional[str] = None,
     asof_iso = _iso(asof) if asof is not None else None
     fx_fn = usdinr if usdinr is not None else usdinr_at
     rd = _result_dates_for(result_dates, sym, ticker)
-    lag = int(ASSUMED["publication_lag_days"])
+    # Den draft (owner order 2026-10-14) may replace the two ASSUMED numbers
+    # for this call; the module defaults never change.
+    lag = int(publication_lag_days) if publication_lag_days is not None \
+        else int(ASSUMED["publication_lag_days"])
+    sig_pe = float(usd_signature_pe) if usd_signature_pe is not None \
+        else float(ASSUMED["usd_signature_pe"])
 
     stm = statements if statements is not None else _default_statements(sym)
     src = _zip_source(stm or {})
@@ -641,13 +648,12 @@ def snapshot(ticker: str, *, asof: Optional[str] = None,
     if px is not None and px > 0 and eps is not None and eps > 0 \
             and ni is not None and ni > 0:
         implied_pe = px / eps
-    signature = (implied_pe is not None
-                 and implied_pe > float(ASSUMED["usd_signature_pe"]))
+    signature = (implied_pe is not None and implied_pe > sig_pe)
     rec["currency_check"] = {
         "on_adr_list": on_list, "price": px,
         "implied_pe": None if implied_pe is None else round(implied_pe, 4),
         "signature": signature,
-        "signature_pe": float(ASSUMED["usd_signature_pe"]),
+        "signature_pe": sig_pe,
     }
     convert = False
     currency_dn: Optional[dict] = None

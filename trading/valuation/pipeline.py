@@ -36,6 +36,7 @@ from typing import Any, Callable, Dict, List, Optional
 from trading import valuation_context as _vc
 from trading.valuation import dn, is_dn, num
 from trading.valuation import assess as A
+from trading.valuation import assumptions as ASM
 from trading.valuation import normalise as N
 from trading.valuation import route as R
 from trading.valuation import scenarios as SC
@@ -157,7 +158,7 @@ def failed_record(ticker: str, why: str) -> dict:
     d = dn(why)
     return {
         "ticker": ticker, "version": VERSION, "price": None, "price_date": "",
-        "asof": None,
+        "asof": None, "drafted": False,
         "route": {"status": "UNDECLARED", "label": "", "label_source": "", "method": None,
                   "family": None, "sector": "", "basis": "", "per_share_metric": "",
                   "rule": why, "overlays": []},
@@ -442,9 +443,12 @@ def _scenario_block(cases: dict, drivers: dict, macro_missing: List[str],
 
 
 def _range_inputs(family: str, snap: dict, base: dict, cases: dict, peers: dict,
-                  own_pe_hist: List[float], macro: dict) -> dict:
-    """The keyword arguments justified_range needs for this family."""
+                  own_pe_hist: List[float], macro: dict,
+                  ov: Optional[dict] = None) -> dict:
+    """The keyword arguments justified_range needs for this family. `ov` =
+    the Den draft's range inputs (ERP, long-run g, ROE step) by name."""
     kw: Dict[str, Any] = {}
+    ov = ov or {}
     shares = _f(snap, "shares_outstanding")
     if family == "earnings":
         kw["peer_multiple"] = peers.get("pe_median")
@@ -462,7 +466,11 @@ def _range_inputs(family: str, snap: dict, base: dict, cases: dict, peers: dict,
         # long-run g (8%, valuation_context) is a market number; a lender
         # can only grow its book at the earnings it keeps, so g is capped
         # at the sustainable rate ROE × (1 − payout) — ASSUMED, printed.
-        g_lr = float(_vc.ASSUMED["long_run_growth_pct"])
+        g_lr = float(ov.get("long_run_growth_pct", _vc.ASSUMED["long_run_growth_pct"]))
+        if num(ov.get("equity_risk_premium_pct")) is not None:
+            kw["erp_pct"] = float(ov["equity_risk_premium_pct"])
+        if num(ov.get("book_roe_step_pp")) is not None:
+            kw["roe_step_pp"] = float(ov["book_roe_step_pp"])
         if roe is not None:
             eps0 = (base["pat"] / base["shares"]) if base.get("shares") else None
             payout = (base.get("dividend_ps") or 0.0) / eps0 if eps0 else 0.0
@@ -634,9 +642,16 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
              own_pe_history: Optional[Callable[[dict], List[float]]] = None,
              peers: Optional[Callable[[str, str], dict]] = None,
              macro: Optional[Callable[[dict], dict]] = None,
-             asof: Optional[str] = None) -> dict:
-    """Stages 07-18 for one name. Every outside input is injected."""
+             asof: Optional[str] = None,
+             overrides: Optional[dict] = None) -> dict:
+    """Stages 07-18 for one name. Every outside input is injected.
+
+    `overrides` = the Den's assumption draft ({key: value} over
+    assumptions.EDITABLE, owner order 2026-10-14). It is split by module
+    and passed DOWN as arguments; no module default is mutated and the
+    record says which keys were drafted (`drafted`, `assumptions.drafted`)."""
     sm = sector_map or {}
+    ov = ASM.split(overrides)
     price_at = price_at or (lambda when: None)
     own_pe_history = own_pe_history or (lambda snap: [])
     peers = peers or (lambda method, exclude: {})
@@ -646,12 +661,14 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
     data_needed: List[str] = []
     notes: List[str] = []
 
-    snap = S.snapshot(sym, price=price, asof=asof)
+    snap = S.snapshot(sym, price=price, asof=asof,
+                      publication_lag_days=ov["snapshot"].get("publication_lag_days"),
+                      usd_signature_pe=ov["snapshot"].get("usd_signature_pe"))
     rt = R.route_for(t, sm, company_name)
     family = rt.get("family") or ""
-    bridge = SH.share_bridge(sym, snap)
+    bridge = SH.share_bridge(sym, snap, tol_pct=ov["shares"].get("reconcile_tol_pct"))
     ne = N.normalised_earnings(snap)
-    q = N.quality(snap, family)
+    q = N.quality(snap, family, thresholds=ov["quality"] or None)
 
     rec: Dict[str, Any] = {
         "ticker": t, "version": VERSION, "price": price, "price_date": price_date,
@@ -682,7 +699,9 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
     market, macro_missing = _market(mac, snap, rt, pr.get("pe_median"), base)
     cases: dict = {}
     if rec["snapshot"]["status"] == "OK" and family in ("earnings", "ev_ebitda", "ev_sales"):
-        cases = SC.three_cases(base, drivers, market)
+        cases = SC.three_cases(base, drivers, market,
+                               assumptions=ov["sheet"] or None,
+                               deltas=ov["case_deltas"])
     elif rec["snapshot"]["status"] == "OK" and family in ("book", "nav"):
         # the sheet's chain needs EBITDA; lenders and developers go straight
         # to the book/NAV route in justified_range (ROE and BVPS from the
@@ -704,7 +723,8 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
     elif rec["snapshot"]["status"] != "OK":
         rec["range"] = _range_block({"status": dn(rec["snapshot"]["why"]), "family": family})
     else:
-        kw = _range_inputs(family, snap, base, cases, pr, own_pe_history(snap), mac)
+        kw = _range_inputs(family, snap, base, cases, pr, own_pe_history(snap), mac,
+                           ov=ov["range"])
         mid_note = " · ".join(x for x in (kw.pop("_midcycle_note", ""),
                                           kw.pop("_growth_note", "")) if x)
         try:
@@ -715,14 +735,20 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
         rec["range"] = _range_block(rng, mid_note)
 
     v = A.assess(price, {"low": rec["range"].get("low"), "base": rec["range"].get("base"),
-                         "high": rec["range"].get("high"), "family": family})
+                         "high": rec["range"].get("high"), "family": family},
+                 bands=ov["verdict"] or None)
     rec["verdict"] = _verdict_block(v)
 
     # ---- the 52 terms
-    t_market = {"rf_pct": num(mac.get("rf_pct")), "erp_pct": float(_vc.ASSUMED["equity_risk_premium_pct"]),
-                "growth_pct": float(_vc.ASSUMED["long_run_growth_pct"]),
+    t_market = {"rf_pct": num(mac.get("rf_pct")),
+                "erp_pct": float(ov["range"].get("equity_risk_premium_pct",
+                                                 _vc.ASSUMED["equity_risk_premium_pct"])),
+                "growth_pct": float(ov["range"].get("long_run_growth_pct",
+                                                    _vc.ASSUMED["long_run_growth_pct"])),
                 "beta": num(mac.get("beta")),
                 "forward_eps": (rec["scenarios"].get("eps") or {}).get("base")}
+    if num(ov["terms"].get("dcf_growth_cap_pct")) is not None:
+        t_market["dcf_growth_cap_pct"] = float(ov["terms"]["dcf_growth_cap_pct"])
     rec["terms_rows"] = _terms_rows(snap, price, t_market)
 
     for m in macro_missing:
@@ -730,8 +756,11 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
     rec["data_needed"] = data_needed
     rec["notes"] = notes
     rec["assumptions"] = {"pipeline": {k: v_["value"] for k, v_ in ASSUMED.items()},
-                          "snapshot": dict(S.ASSUMED), "case_deltas": SC.CASE_DELTAS,
-                          "verdict": {k: v_["value"] for k, v_ in A.ASSUMED.items()}}
+                          "snapshot": dict(S.ASSUMED), "case_deltas": ov["case_deltas"],
+                          "verdict": {k: v_["value"] for k, v_ in A.ASSUMED.items()},
+                          "drafted": list(ov["edited"]),
+                          "drafted_values": dict(ov["values"])}
+    rec["drafted"] = bool(ov["edited"])
     rec["detail"] = {"snapshot_fields": snap.get("fields"), "cases": cases,
                      "normalised": ne, "quality": q, "bridge": bridge}
     return rec
