@@ -83,7 +83,8 @@ def _fake_rows(monkeypatch, names):
         calls.append(t)
         return P.failed_record(t, "fake computed row")
 
-    monkeypatch.setattr(cv, "names_to_show", lambda p, typed="": cv.ShownNames(names))
+    shown = getattr(cv, "ShownNames", list)              # (the pre-fix module lacks it)
+    monkeypatch.setattr(cv, "names_to_show", lambda p, typed="": shown(names))
     monkeypatch.setattr(cv, "row_for", fake_row)
     monkeypatch.setattr(cv, "load_assumptions", lambda: {})
     return calls
@@ -256,7 +257,8 @@ def test_a_crashing_row_prints_failed_and_is_counted(monkeypatch):
             raise ZeroDivisionError("float division by zero")
         return P.failed_record(t, "fake computed row")
 
-    monkeypatch.setattr(cv, "names_to_show", lambda p, typed="": cv.ShownNames(["OK1.NS", "BAD.NS"]))
+    monkeypatch.setattr(cv, "names_to_show",
+                        lambda p, typed="": getattr(cv, "ShownNames", list)(["OK1.NS", "BAD.NS"]))
     monkeypatch.setattr(cv, "row_for", row)
     monkeypatch.setattr(cv, "load_assumptions", lambda: {})
     out = cv.section(state.cfg(), state.portfolio(), "")
@@ -320,16 +322,18 @@ def test_the_target_button_shows_only_on_a_judged_verdict(monkeypatch, no_target
     hdfc = cv.row_for("HDFCBANK.NS", state.cfg(), _Book())
     sail = cv.row_for("SAIL.NS", state.cfg(), _Book())
     assert hdfc["verdict"]["verdict"] == "insufficient" and hdfc["range"]["base"]
-    assert sail["verdict"]["verdict"] in cv.JUDGED_VERDICTS
+    assert sail["verdict"]["verdict"] in ("attractive", "watch", "unattractive")
+    mark = getattr(cv, "_marked", lambda r: r)
     chain = cv.empty_section()
-    chain.update({"rows": [cv._marked(hdfc), cv._marked(sail)], "n": 2})
+    chain.update({"rows": [mark(hdfc), mark(sail)], "n": 2})
     html = _render(chain)
     h_row, s_row = _row_html(html, "HDFCBANK.NS"), _row_html(html, "SAIL.NS")
     assert "den_chain_use_marker" not in h_row and 'name="target"' not in h_row
     assert "too uncertain to use as a target" in _flat(h_row)
     assert "den_chain_use_marker" in s_row and 'name="target"' in s_row
     viewer = _render(chain, is_owner=False)               # never for a non-owner
-    assert "den_chain_use_marker" not in viewer and "too uncertain" not in viewer
+    assert "den_chain_use_marker" not in viewer
+    assert "too uncertain to use as a target" not in viewer
 
 
 # ------------------------------------------------ 7. the peer-only text

@@ -695,8 +695,8 @@ def multiple_band(peer_multiple: Any = None,
         lo, hi, med = min(hist), max(hist), float(median(hist))
         if p is not None:
             return {"low": min(p, lo), "mid": (p + med) / 2.0, "high": max(p, hi),
-                    "source": f"peer {p:g} + own history ({len(hist)} readings, "
-                              f"low {lo:g} / median {med:g} / high {hi:g})"}
+                    "source": f"peer {p:.2f} + own history ({len(hist)} readings, "
+                              f"low {lo:.2f} / median {med:.2f} / high {hi:.2f})"}
         return {"low": lo, "mid": med, "high": hi,
                 "source": f"own history only ({len(hist)} readings)"}
     if p is not None and peer_only_point:
@@ -832,7 +832,7 @@ def justified_range(family: str, cases: dict, *, price: Optional[float],
         band = multiple_band(peer_multiple, own_multiple_history)
         used = {"band_mid_rule": ASSUMED["band_mid_rule"]}
         if band is None:
-            peer_note = (f" (peer P/E {num(peer_multiple):g} noted; own 5-year history "
+            peer_note = (f" (peer P/E {num(peer_multiple):.2f} noted; own 5-year history "
                          f"missing, so no band)") if num(peer_multiple) is not None else ""
             if all(pe[c] is not None for c in CASES):
                 band = {"low": pe["downside"], "mid": pe["base"], "high": pe["upside"],
@@ -914,7 +914,7 @@ def justified_range(family: str, cases: dict, *, price: Optional[float],
         band = {"low": jp["downside"], "mid": jp["base"], "high": jp["upside"],
                 "source": "justified P/B (ROE − g)/(COE − g), ROE ∓ 2pp"}
         if bridge["peer_pb"] is not None:
-            notes.append(f"peer P/B {bridge['peer_pb']:g} shown as a cross-check only")
+            notes.append(f"peer P/B {bridge['peer_pb']:.2f} shown as a cross-check only")
         vals = {"low": per_share["downside"], "base": per_share["base"],
                 "high": per_share["upside"]}
         return _finish(fam, method, vals, band, per_share, bridge,

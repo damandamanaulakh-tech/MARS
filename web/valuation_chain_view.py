@@ -18,7 +18,8 @@ input from STORED state only — no network on a page render:
     `valuation_peers`, so a fresh process after a sleep reads it back
     instead of rebuilding; today's multiples = that base x the last stored
     close of every name, fetched in ONE query (db.history_tails(1));
-  * which names to show: the typed one, the §11 stored targets, held names.
+  * which names to show: the typed one, held names, then the §11 stored
+    targets A-Z (cap MAX_ROWS; the cut is printed).
 
 Macro rows of the P/E bridge the app does not store (repo, CPI, GDP,
 Brent) are passed as 0 and listed as DATA_NEEDED on the row — the sheet
