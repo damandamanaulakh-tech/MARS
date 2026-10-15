@@ -1084,7 +1084,12 @@ def _sandbox(cfg, p, saved_flag: Optional[str]) -> dict:
     readings = _safe(_sandbox_readings, cfg, p, values, default=[]) if values["symbols"] else []
     diffs = [k["name"] for k in SANDBOX_KNOBS
              if abs(float(values[k["name"]]) - float(live[k["name"]])) > 1e-9]
-    return {"knobs": SANDBOX_KNOBS, "values": values, "live": live,
+    # 2026-10-15: the key is "vals", NOT "values" — in a Jinja template
+    # `sbx.values` resolves to the dict's built-in .values METHOD, so every
+    # draft box rendered empty and, once a breadth reading existed (after
+    # any scan), `sbx.values.breadth_low` raised and the WHOLE Den returned
+    # a 500 on the live box.
+    return {"knobs": SANDBOX_KNOBS, "vals": values, "live": live,
             "draft_ts": draft.get("ts"), "has_draft": bool(draft),
             "changed": diffs, "readings": readings, "saved": saved_flag,
             "max_symbols": MAX_SANDBOX_SYMBOLS,

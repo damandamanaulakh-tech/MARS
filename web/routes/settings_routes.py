@@ -182,8 +182,16 @@ def _grouped() -> dict[str, list[dict]]:
     groups: dict[str, list[dict]] = {}
     for name, label, group, type_, step, hint, is_pct in EDITABLE_FIELDS:
         raw = getattr(cfg, name, None)
+        # 2026-10-15: an on/off flag renders as 1 / 0. It used to render the
+        # word "True"/"False" into a type=number box, which a browser shows
+        # EMPTY and posts as "" — and the save reads "" as OFF, so one Save
+        # of the algo form switched every flag (Ocean, danger layer, breadth
+        # gate, ATR stop, category shares, rotation, measured Kelly …) off.
+        # Checked first: bool is a subclass of int.
+        if isinstance(raw, bool):
+            display = int(raw)
         # Show percentages, not fractions
-        if is_pct and isinstance(raw, (int, float)):
+        elif is_pct and isinstance(raw, (int, float)):
             display = round(raw * 100, 4)
         else:
             display = raw
