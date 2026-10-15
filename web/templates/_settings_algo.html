@@ -5,7 +5,8 @@
      message are UNCHANGED, so settings_routes' POST handlers keep working
      byte-identically; only the page the form lives on moved.
      Context: groups, trail_warn, trail_dead, preset_fields, modes,
-     current_mode, custom_universe (settings_routes.algo_context). -->
+     current_mode, custom_universe, universe_target, base_universe_n
+     (settings_routes.algo_context). -->
 {% if trail_warn %}
 <div class="mb-6 px-4 py-3 border border-amber-300 bg-amber-50 text-amber-900 text-sm">
   ⚠ <strong>Your trailing stop cannot fire.</strong> At stop {{ trail_warn.stop }}% and target
@@ -64,12 +65,18 @@
   <!-- CUSTOM UNIVERSE (owner order 2026-08-20: 50 names, refreshed weekly) -->
   <div class="bg-white border border-line"><!-- custom_universe_marker -->
     <div class="px-4 lg:px-6 py-4 border-b border-line">
-      <div class="font-bold">🎯 Custom Universe ({{ custom_universe | length }} names{% if not custom_universe %} — OFF, scanning full NSE by rotation{% endif %})</div>
+      <div class="font-bold">🎯 Custom Universe ({{ custom_universe | length }} names{% if not custom_universe %} — OFF: momentum scans the full NSE by rotation, the other four the base list{% endif %})</div>
       <div class="text-xs text-ink-faint mt-1">
-        Your weekly list. When filled, the momentum scan reads EXACTLY these names every day — all fresh daily,
-        no rotation. Every other rule (score floor, gates, stops, sizing) is untouched.
+        The list EVERY category scans (momentum, intraday, short, swing, positional), every day, no rotation.
+        Every other rule (score floor, gates, stops, sizing) is untouched.
+        <strong>The weekly rebuild (Friday 16:30, or the next trading day if missed) REPLACES this list</strong>
+        with the top{% if universe_target %} {{ universe_target }}{% endif %} names by rupee turnover, always keeping
+        held names, watched names and the hand-ordered list in code — so a name you type here that is none of those
+        stays only if it ranks in that top list.
         One name per line or comma-separated; .NS optional. A name not on NSE is refused with its name shown —
-        never silently dropped. <strong>Blank the box to go back to the full-NSE rotating bucket.</strong>
+        never silently dropped. Blank box: momentum scans the full NSE by rotation (~50 names a day) and the
+        other four categories scan the base list{% if base_universe_n %} of {{ base_universe_n }} names{% endif %},
+        until the next weekly rebuild fills the box again.
         Blocklist still applies (YESBANK can never enter).
       </div>
     </div>
