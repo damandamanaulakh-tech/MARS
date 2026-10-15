@@ -927,6 +927,77 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   web/tests/test_den_phone_width_2026_10_15.py,
   web/tests/test_den_truth_pass_2026_10_15.py (+ pins in test_market_panels
   and test_custom_universe_web).
+- **THE REAL REASON THE LIVE DEN "ALWAYS GO DOWN NT OPENING" — A 500, NOT
+  (ONLY) MEMORY. FIXED, PR #174 MERGED 15:51 IST THU 10-15 (main 2e5681f),
+  LIVE 15:54 IST.** `den_routes._sandbox()` returned its draft under the key
+  `"values"`; in Jinja `sbx.values` is the dict's built-in `.values` METHOD,
+  so every §10 draft box rendered empty AND, once a breadth reading existed
+  (`engine._cache_breadth_today` writes one on every momentum pass; the
+  full-store reading refreshes daily), `sbx.values.breadth_low` raised and
+  the WHOLE Den returned a 500 — on the live box that is every day since the
+  Den shipped (PR #162, 10-12). Every local render missed it because the
+  sample book never carried a breadth reading; a layout reviewer found it by
+  asking why the sandbox boxes were empty. Key is now `"vals"`. **JINJA
+  RULE: never name a dict key `values`, `items`, `keys`, `get`, `update`,
+  `pop` (any dict method) when a template reads it with dot syntax.** Same
+  PR: §9 on/off flags rendered "True"/"False" into `type=number` boxes —
+  the browser shows them EMPTY and posts "", the save reads "" as OFF, so
+  ONE Save of the algo form would have switched ten flags off (Ocean,
+  danger layer, breadth gate, ATR stop, category shares, rotation,
+  measured Kelly …); `settings_routes._grouped` now renders bools as 1/0
+  (bool checked before the pct branch — bool subclasses int). Live box
+  protected so far only because ROOT-ROUTE-07 refuses every save
+  (universe_too_big). Tests web/tests/test_den_sandbox_breadth_2026_10_15.py
+  (4, all fail on the old code). LESSON: a local render must model the LIVE
+  state's shapes (breadth, positions, stored drafts), not an empty book —
+  the /positions-500 fault class again (2026-08-21).
+- **PR #175 MERGED 17:46 IST THU 10-15 (main 055fd38) — the Den follow-up
+  from three reviewers' reports, built by three opus helpers on disjoint
+  files (no conflicts; one helper used `git stash` once to measure main —
+  forbid that in future briefs, it briefly stashed the others' edits).
+  Display only.** §11: ONE `history_docs` batch for every stored target
+  (was a full 12-year document per target) and the sector rows once per
+  render, bounded + cached 600 s (was the whole collection per target) —
+  50 → 2 store calls for 25 targets; price window sized from the oldest
+  target date (cap `PRICE_TAIL_MAX` 2,500; the false "series starts after
+  the valuation date" for pre-Feb-2024 targets is gone); the same budget /
+  rotation / memory guard as §12 + 30-min row cache + one computing render;
+  `POST /den/valuation` + `/clear` run the store write and the backfill via
+  `run_in_threadpool` (they froze the event loop); `backfill_sector_history`
+  day guard now {day, from} set BEFORE the store read (it read the whole
+  collection on every 09:20 / 15:35 refresh and every save) and honours the
+  typed date's depth (`sector_days_for`, 760 … 3,600 days). Still one full
+  sector read left in `_sector_index_refresh` (finds its last row) — not
+  touched. §12: per-render `_StoreGate` — after the first store call that
+  errors or stalls (2 s, 8 s for prices; ASSUMED) the render reads the repo
+  zip + committed index file only (dead-Atlas model 34.6 s / 1 row → 10.3 s /
+  5 rows; zip-priced rows kept 5 min, tagged "price: repo copy");
+  `busy_status()` kinds rotation / memory / other_tab each with their own
+  remedy (memory never says "once it finishes" or "stay away 15 min" — that
+  would let the free plan sleep through exit passes); order typed → HELD →
+  §11 targets with a cap note; crashed rows print FAILED and are counted;
+  names without full statements print NO STATEMENTS (summary-only
+  fundamentals_csv snapshots included), statements-but-no-range NO RANGE;
+  "use as §11 target" only on judged verdicts; Verdict / range / cases next
+  to the stock; the all-terms panel below the table (52/52 on screen at
+  every width); peer multiples to 2 decimals. Layout: §2 category table fits
+  1366 (Category + long headers wrap, Cash share next to Floor), sizing
+  ladder px-1, §8 header wraps + xl grid, §10 items-end. Worst-case Den
+  open is now ~40 s (§11 and §12 each have a 20 s budget). Full suite
+  1,984 passed from a clean state dir. Tests: test_den_valuation_cost
+  (15), test_den_chain_clarity (16), test_den_layout (8), all
+  2026_10_15.
+- **THU 10-15 16:30 BLOCK — FIFTH STALL IN A ROW, same shape**
+  (keepalive_1015_block.log, UTC stamps, add 5:30). Box awake from the #174
+  deploy (rss 150 at 16:26, warm). 16:30 → 157 … 190 by 16:42 (the short
+  feeds), 205 at 16:46, 269 / peak 279 at 16:48, 282 at 16:52, **peak 350
+  at 16:54** (the 16:45 register precompute), then **234-235 FLAT
+  16:56-17:17, 217 FLAT 17:19-17:45, NO rebuild stamp** (`last_rebuild`
+  2026-09-30, store 2,233, writes landing, app db 70 + 1 MB). Fri 10-09,
+  Mon 10-12, Tue 10-13, Wed 10-14, Thu 10-15 identical. Only the journal
+  (owner's login, /reports CSV from 16:30) names the stuck step; the lever
+  (a total time cap per weekly step) is still unordered. PR #175 merged
+  17:46 IST on that quiet box (flat 26 min).
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:
