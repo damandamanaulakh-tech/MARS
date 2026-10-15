@@ -420,35 +420,88 @@ def evidence_panel() -> Optional[dict]:
         return None
 
 
+def hold_words(days: int, square_off: Optional[str] = None) -> str:
+    """A category's max hold in plain words, as the exit check counts it.
+
+    exits.check_exit compares the entry DATE with today's date, so the
+    preset's max_hold_days are CALENDAR days (weekends included), not
+    trading sessions. Shared by the Settings mode cards and the Trade
+    Horizons card so the two can never disagree."""
+    d = int(days or 0)
+    if d <= 1:
+        return (f"same day — squared off at {square_off} IST"
+                if square_off else "same day")
+    if d < 60:
+        return f"up to {d} calendar days (~{max(1, round(d / 7))} weeks)"
+    return f"up to {d} calendar days (~{max(1, round(d / 30.4))} months)"
+
+
+def target_at_median_atr(mode: str) -> Optional[float]:
+    """The k x ATR target (in %) a new trade of this category gets when its
+    14-day ATR is the measured median (2.50% of price) — the same figure the
+    Den's category table prints (k x MEDIAN_ATR_PCT_OF_PRICE), kept inside
+    the category's band exactly as targets.target_pct_for does. None for a
+    category with no k (its preset percentage is then the target)."""
+    try:
+        from trading import targets as T
+    except Exception:
+        return None
+    k = T.ATR_TARGET_K.get(mode)
+    if not k:
+        return None
+    lo, hi = T.TARGET_BAND.get(mode, (0.0, 1.0))
+    pct = k * T.MEDIAN_ATR_PCT_OF_PRICE
+    return round(max(lo * 100, min(hi * 100, pct)), 1)
+
+
 def horizons_panel() -> list[dict]:
-    """The four trade horizons with their REAL exit presets, plus which one
-    is live right now. Adopted from the reference dashboards' "4 Horizons"."""
+    """The five trade categories with their REAL exit presets, plus which one
+    is live right now. Adopted from the reference dashboards' "4 Horizons".
+
+    Truth pass 2026-10-15: the hold blurbs are read from each preset's
+    max_hold_days (they had drifted from the 2026-09-10 horizon remap), all
+    five categories run in the 09:20 and 14:30 rotation (intraday too), and
+    "target" is what a new trade really gets — k x its own ATR, shown at the
+    median ATR — not the preset percentage, which is only the fallback when
+    the ATR cannot be computed (kept as `fixed_target`)."""
     try:
         from trading.modes import PRESETS
+        from trading import targets as T
         from . import state
         active = getattr(state.cfg(), "mode", "")
     except Exception:
         return []
     order = ["nifty200_momentum", "short", "swing", "positional", "intraday"]
-    labels = {
-        "nifty200_momentum": ("Momentum", "N200 momentum — the live engine"),
-        "short": ("Short", "1–7 day holds"),
-        "swing": ("Swing", "1–8 week holds"),
-        "positional": ("Positional", "1–6 month holds"),
-        "intraday": ("Intraday", "manual only — out of the daily rotation"),
+    names = {
+        "nifty200_momentum": "Momentum", "short": "Short", "swing": "Swing",
+        "positional": "Positional", "intraday": "Intraday",
     }
     out = []
     for key in order:
         pr = PRESETS.get(key)
         if pr is None:
             continue
-        name, blurb = labels.get(key, (key, ""))
+        hold = hold_words(pr.max_hold_days, pr.square_off_time)
+        k = T.ATR_TARGET_K.get(key)
+        at_median = target_at_median_atr(key)
+        if key == "nifty200_momentum":
+            blurb = f"6m+12m momentum + quality · holds {hold}"
+        else:
+            blurb = f"in the daily rotation · holds {hold}"
+        if at_median is not None:
+            blurb += f" · target k×ATR (k {k:g}), at median ATR"
         out.append({
-            "key": key, "name": name, "blurb": blurb,
+            "key": key, "name": names.get(key, key), "blurb": blurb,
             "stop": round(pr.stop_loss_pct * 100, 1),
-            "target": round(pr.take_profit_pct * 100, 1),
+            "target": (at_median if at_median is not None
+                       else round(pr.take_profit_pct * 100, 1)),
+            "target_basis": ("k×ATR, at median ATR" if at_median is not None
+                             else "preset %"),
+            "target_k": k,
+            "fixed_target": round(pr.take_profit_pct * 100, 1),
             "trail": round(pr.trailing_stop_pct * 100, 1),
             "hold": pr.max_hold_days,
+            "hold_text": hold,
             "floor": pr.min_score_to_enter,
             "active": key == active,
         })

@@ -16,16 +16,19 @@ from ..templating import templates
 router = APIRouter()
 
 
+# Truth pass 2026-10-15: each line below is read from trading/scoring.py
+# (and trading/signals/news.py for the catalyst key), not from the original
+# design notes — several had described blends and inputs the code never had.
 COMPONENT_DESCRIPTIONS = {
-    "momentum_1m":       ("1-month + 3-month return blend (cross-sectional rank)", "live"),
-    "volume_expansion":  ("5d/20d volume ratio + OBV slope direction", "live"),
+    "momentum_1m":       ("Last 21-day return, absolute (not ranked against other stocks): 50 + 10 x return %, so +5% scores 100 and -5% scores 0", "live"),
+    "volume_expansion":  ("5-day / 20-day average volume ratio (1.0 = 50, 2.0 = 100); a day that closed flat or down scores 0 whatever its volume", "live"),
     "earnings_growth":   ("yfinance quarterly YoY EPS growth", "live (snapshot only)"),
-    "catalyst":          ("Claude-scored news sentiment over last 7-day headlines", "live (needs ANTHROPIC_API_KEY)"),
-    "relative_strength": ("3M + 6M return vs Nifty 50 benchmark blend", "live"),
+    "catalyst":          ("AI-scored news sentiment over the last 7 days of headlines, plus the FII flow tilt", "live (needs ANTHROPIC_API_KEY or OPENAI_API_KEY; neutral 50 without either)"),
+    "relative_strength": ("63-day (3-month) return minus Nifty 50's over the same 63 days: 50 + 5 x the gap", "live"),
     "vol_adj_upside":    ("1-month return ÷ annual volatility (a return-to-vol ratio, not a Sharpe)", "live"),
     "short_interest":    ("Futures open-interest proxy (OI up + price down = short build-up) — true short interest has no free NSE source; neutral 50 for non-F&O names or a stale panel", "proxy (live since 2026-08-23)"),
     "analyst_revision":  ("yfinance consensus — LIVE since 2026-07-16, neutral 50 only when unfetchable", "live"),
-    "breakout_quality":  ("Distance from 20-day + 50-day high blend", "live"),
+    "breakout_quality":  ("Distance below the 20-day closing high: at the high = 100, 5% below = 0", "live"),
     "sector_alignment":  ("Sector-peer avg momentum + PIB policy boost", "live"),
 }
 

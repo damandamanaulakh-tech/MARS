@@ -854,6 +854,79 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   MEASURED_KELLY_BLOCKED, /risk measured-Kelly card; (3) breadth on the
   FULL store (2,233 names) reading ≥ 40% → BREADTH_BLOCKED. Asked the
   owner for the two /risk cards.
+- **THU 10-15 14:30 CHAIN — SEVENTH OOM KILL, AND THE FIRST AFTERNOON
+  ONE** (keepalive_1015_pm.log; the script stamps UTC, add 5:30). The 14:20
+  wake's probe landed 14:23 IST = 72.6 s cold start (rss 148): the box was
+  asleep, but the process booted BEFORE 14:30, so the cron fired. Rotation
+  14:30 → rss 173/peak 210 (14:31), 261/276 (14:35), 333/346 (14:38), 406
+  (14:40), 421/428 held to 14:47, 392 at 14:49, then 417 → 432 → 447 → 460
+  → 476 → **peak 482 at 15:01** (the 15:00 in-session exit pass runs INSIDE
+  the rotation, between category passes), 450-461 to 15:05, **`503` from
+  Render's edge at 15:06:37 IST → fresh process 15:07** (rss 155). The
+  14:30 chain had survived every earlier observed day (Tue 10-06 peak 502,
+  Tue 10-13 peak 495) — today it was still running at 36 minutes, so the
+  "afternoon is safe" reading no longer holds. Whatever passes had not run
+  by 15:06 did not run today (the journal names them; owner's login).
+- **PR #173 MERGED 15:06:42 IST THU 10-15 on the owner's "merge now n show
+  me the den" (main 3e59597, squash) — FIVE SECONDS AFTER the 503, so the
+  merge did not kill the rotation; the deploy's own new process came up at
+  15:08 IST (stats pending, rss 154).** That build ran the 15:30 exit pass
+  (rss 199 / peak 208) and the 15:35 marks (197, peak 212) on a live
+  process (the keep-alive held it awake), then something peaked **329** at
+  ~15:38 IST (rss settled 209): the 15:35 EOD index/sector refresh or a Den
+  open on the new code — both stay under 512; which, only the journal says.
+  Their fourth override of the after-17:30 rule, taken as their decision.
+- **DEN SHOWN + TRUTH PASS 2026-10-15 (same order).** A session still cannot
+  see the live Den (no owner password): sent LOCAL renders on main with a
+  sample book and repo prices to 2026-07-17 (scratchpad tools/
+  shot_den_full.py → mars_den_top_desktop / _sec_chain / _phone_top /
+  _phone_risk.png). Server time measured with TestClient: first open 5.5 s
+  (peer base built from the zip, 150 of 200 names priced → used, not
+  stored), re-open 0.15 s (rows kept). Browser "load" times of 10-24 s in
+  the sandbox are the CDN interception, not the app. THE RENDER EXPOSED A
+  PHONE FAULT: the §2 drawdown-ladder line was one no-wrap span per rung
+  and pushed the Den to 472 px at 390 px (sideways scroll) — fixed
+  (adaee04), test fails on the old template. Then three opus reviewers
+  (layout sweep, copy-vs-code, §11-13 live paths; run with the Agent tool,
+  not Workflow) + one fixer: **32 printed claims did not match the code,
+  all display text, all corrected on the branch (0566265, 4c301b3, e2640aa,
+  7bbe977, d3ce2ab)**. The one that matters for money, said on the page in
+  red and NOT fixed (needs the owner's word): **XR-060 still stands — 8 of
+  the 10 price tripwires return a NumPy bool that `danger.evaluate_stock`
+  never counts; only T12W_0079 and T12W_0096 (+ 0094/0095 on held names)
+  can tighten a stop or half-exit.** `den_routes._danger_blind()` measures
+  this from the tripwires' return TYPES on a fixed synthetic history, so
+  the warning (den_danger_blind_marker) clears by itself when the
+  one-line fix lands. Other corrections: danger leash = the WIDER of 2.5%,
+  the position's category stop and its own entry-stop width (engine.refresh)
+  — the page printed the live mode's stop; Ocean R4 runs price-only
+  tripwires; the category table printed preset bar_interval/history_period
+  (5m / 1wk / 3mo) that NOTHING reads — every pass scans daily bars,
+  momentum 2y, the rest 6mo (`_scan_history` reads the engine); the
+  liquidity line claimed a ₹5,000 Cr market-cap check the scan never runs
+  (mcap None); Ocean sits outside the category shares and gets no
+  measured-Kelly cap; the slab's zero-at-floor is each category's own
+  floor; the regime reserve is reset at every scan (a typed Cash Reserve %
+  is replaced); /lens uses the live m 0.29, not lens_v2's 0.25; 14 of 17
+  bullish candles can confirm; §13 verdict rule = price ≤ base × (1 −
+  margin) (the label said base ≥ price × (1 + margin)); mid-cycle EBITDA
+  applies to EVERY EV/EBITDA route with ≥ 3 FYs, not metals only; the 82
+  chain cells are 64 E + 15 D + 2 B + 1; section H sums twelve cells; §12
+  case delta = ±10 points on the bridge total; six macro rows count 0; row
+  order typed → §11 targets A-Z → held. Settings hints (§9, /settings):
+  mode cards from the presets (max-hold is CALENDAR days — exits.py
+  compares dates — swing 20 ≈ 3 weeks, short 63 ≈ 2 months, positional
+  252 ≈ 8 months, momentum 200 ≈ 7 months; modes.py comments still say
+  "sessions"), take-profit = fallback only (targets are k × ATR), kill
+  switch also SELLS every quoted position, Ocean default ON in every
+  regime, breadth band gates every pass, rotation's three triggers, the
+  custom universe is REPLACED by the weekly rebuild; Trade Horizons card
+  prints k × ATR at median ATR (short +12.5%, not the preset 6%) and says
+  so; the five score-component descriptions match scoring.py (21-day
+  return, no OBV, 63-day RS, 20-day high, OpenAI key also works). Tests:
+  web/tests/test_den_phone_width_2026_10_15.py,
+  web/tests/test_den_truth_pass_2026_10_15.py (+ pins in test_market_panels
+  and test_custom_universe_web).
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:

@@ -518,7 +518,7 @@
   <div class="px-4 lg:px-6 py-3 border-b border-line">
     <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
       <div class="text-[10px] tracking-widest text-ink-faint uppercase">🎚️ Trade Horizons — real exit presets</div>
-      <div class="text-[10px] text-ink-faint">highlighted = live right now</div>
+      <div class="text-[10px] text-ink-faint" data-horizon-legend="1">highlighted = live right now · target = k × each stock's own 14-day ATR, shown here at the median ATR · momentum stop = the wider of −5% and 2 × ATR (cap −15%) · hold = calendar days</div>
     </div>
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
       {% for h in horizons %}

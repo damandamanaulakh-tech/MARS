@@ -78,7 +78,11 @@ def test_settings_page_shows_the_editable_list():
     # derived — see the note in trading/tests/test_custom_universe.py
     from trading.universes import OWNER_UNIVERSE_2026_08_20 as U
     assert f"Custom Universe ({len(U)} names" in html
-    assert "Blank the box to go back" in html
+    # Truth pass 2026-10-15: the old line promised a blank box returns every
+    # scan to the full-NSE rotation; only momentum rotates, the other four
+    # read the base list, and the weekly rebuild rewrites the box anyway.
+    assert "Blank box: momentum scans the full NSE by rotation" in html
+    assert "The weekly rebuild" in html and "REPLACES this list" in html
 
 
 def test_daily_topup_covers_the_custom_names_with_daily_freshness(monkeypatch):

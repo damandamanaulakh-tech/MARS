@@ -158,6 +158,19 @@ def test_horizons_panel_carries_the_real_presets_and_marks_the_live_one():
     mom = next(h for h in hs if h["key"] == "nifty200_momentum")
     assert mom["stop"] == -5.0 and mom["target"] == 20.0   # owner's numbers (Node 12, 2026-08-24)
     assert sum(1 for h in hs if h["active"]) <= 1
+    # Truth pass 2026-10-15: "target" is the k x ATR target at the median
+    # ATR (targets.py), not the preset fallback percentage — short is 12.5,
+    # its preset fallback 6 — and every blurb is read from the preset's hold.
+    from trading import targets as T
+    from trading.modes import PRESETS
+    short = next(h for h in hs if h["key"] == "short")
+    assert short["target"] == round(T.ATR_TARGET_K["short"] * T.MEDIAN_ATR_PCT_OF_PRICE, 1)
+    assert short["target_basis"] == "k×ATR, at median ATR"
+    assert short["fixed_target"] == round(PRESETS["short"].take_profit_pct * 100, 1)
+    for h in hs:
+        assert f"{PRESETS[h['key']].max_hold_days}" in h["blurb"] or h["key"] == "intraday"
+    intraday = next(h for h in hs if h["key"] == "intraday")
+    assert "daily rotation" in intraday["blurb"] and "manual only" not in intraday["blurb"]
 
 
 # ---- ATR ----------------------------------------------------------------

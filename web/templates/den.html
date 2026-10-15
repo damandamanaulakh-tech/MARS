@@ -47,8 +47,10 @@
       <div class="text-xs text-ink-faint">moved here from /settings on 2026-10-12 · saves land back on <a href="/settings" class="underline">App Settings</a> with the result</div>
     </div>
     <p class="text-sm text-ink-soft mb-4 max-w-3xl">
-      These are the LIVE knobs — saving here changes the engine for new trades (held positions
-      keep the stop and target they were opened with). For a what-if that changes nothing, use
+      These are the LIVE knobs. Saving here changes the engine for new trades AND for held
+      positions of that category: trailing stop, score-decay and max-hold edits apply to them at
+      the next exit check, and a stop edit moves the danger layer's leash floor. Each held position
+      keeps its own stop price and target price. For a what-if that changes nothing, use
       the <a href="#sandbox" class="underline">Sandbox</a> below.
       {% if not is_owner %}<span class="text-amber-700">Owner role required to save.</span>{% endif %}
     </p>

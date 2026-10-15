@@ -37,8 +37,10 @@ above RSS_CEILING_MB — those rows print the reason instead.
 from __future__ import annotations
 
 import logging
+import re
 import statistics
 import threading
+from collections import Counter
 from datetime import date
 from typing import Any, Optional
 
@@ -757,7 +759,8 @@ FAMILY_RULES = [
     ("book", "justified P/B = (ROE − g) / (COE − g), COE = rf + β × ERP; value = P/B × BVPS; "
              "downside / upside = ROE ∓ step; g = min(long-run g, ROE × (1 − payout))"),
     ("ev_ebitda", "EV = multiple × EBITDA per share; equity per share = EV − net debt − minorities; "
-                  "metals use the mid-cycle (5-FY mean) EBITDA"),
+                  "the BASE case uses mid-cycle EBITDA per share (the mean of every stored FY, when 3 or more "
+                  "exist — any EV/EBITDA route, not metals only); downside / upside keep their own case EBITDA"),
     ("ev_sales", "EV = multiple × sales per share; equity per share = EV − net debt − minorities"),
     ("nav", "NAV per share = DATA_NEEDED (no project NAV stored); the P/B route is shown as a labelled fallback"),
     ("embedded_value", "EV/VNB = DATA_NEEDED (no embedded-value disclosure stored)"),
@@ -786,9 +789,10 @@ STAGE_RULES = [
                  "{−10,0,+10} points on the bridge"),
     ("17b context", "sector leg (1:1 and measured β), rates leg (r_then − g) / (r_now + shift − g), sentiment margin "
                     "= base discount + steps per gauge ON — §11 above"),
-    ("18 verdict", "attractive when base ≥ price × (1 + margin); watch within ± band of base; unattractive above base "
-                   "× (1 + premium); insufficient when (high − low) / base or the stated uncertainty exceeds the width "
-                   "cap — bands in Part A; never a trade permission"),
+    ("18 verdict", "insufficient first, when a range value is missing or unordered, (high − low) / base exceeds the "
+                   "width cap or the stated uncertainty its cap; then attractive when price ≤ base × (1 − margin); "
+                   "unattractive when price is above the range high, or above base × (1 + premium) with no thesis "
+                   "recorded; otherwise watch — bands in Part A; never a trade permission"),
 ]
 
 
@@ -809,6 +813,11 @@ def formulas_section(flag: Optional[str] = None, error: str = "") -> dict:
     rows = ASM.describe(values)
     terms = [{"name": name, "formula": e.get("formula") or "", "stage": e.get("stage") or ""}
              for name, e in T.TERMS.items()]
+    cells = SC.chain_formulas()
+    cols = Counter(re.match(r"[A-Z]*", str(c.get("cell") or "")).group(0) or "no cell"
+                   for c in cells)
+    chain_cols = " · ".join(f"{n} in column {k}" if k != "no cell" else f"{n} without a cell"
+                            for k, n in sorted(cols.items(), key=lambda kv: -kv[1]))
     routes = []
     for r in R.SECTOR_METHODS:
         routes.append({"sector": r.get("sector") or r.get("label") or "",
@@ -819,5 +828,6 @@ def formulas_section(flag: Optional[str] = None, error: str = "") -> dict:
                        "bad_time": r.get("bad_time_behaviour") or ""})
     return {"flag": flag or "", "error": error, "groups": ASM.GROUPS, "rows": rows,
             "n_editable": len(rows), "n_edited": len(values),
-            "terms": terms, "routes": routes, "chain_cells": SC.chain_formulas(),
+            "terms": terms, "routes": routes, "chain_cells": cells,
+            "chain_cols": chain_cols,
             "family_rules": FAMILY_RULES, "stage_rules": STAGE_RULES}

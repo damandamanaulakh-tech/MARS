@@ -16,13 +16,59 @@ router = APIRouter()
 log = logging.getLogger(__name__)
 
 
-MODE_CHOICES = [
-    ("intraday",          "Intraday",          "5-min bars, auto-exit by 3:25 PM. Needs Upstox + always-on host."),
-    ("short",             "Short-term",        "1-7 day holds. Tight stops, daily bars."),
-    ("swing",             "Swing",             "1-8 week holds (default). Daily bars."),
-    ("positional",        "Positional",        "1-6 month holds. Weekly bars, fundamentals."),
-    ("nifty200_momentum", "Nifty 200 Momentum 30", "NSE methodology: 6m+12m vol-adjusted momentum, quality-blended. Evidence: docs/ folder."),
-]
+def _mode_choices() -> list[tuple[str, str, str]]:
+    """The mode cards, built from the live presets (truth pass 2026-10-15).
+
+    The old literal cards had drifted from the 2026-09-10 horizon remap and
+    named bar sizes no scan uses: every category pass reads DAILY candles
+    (momentum 2 years, the other four 6 months — engine.scan_universe), the
+    hold is the preset's max_hold_days in calendar days, and the default
+    mode is momentum (config.Config.mode)."""
+    from trading.modes import PRESETS
+    from ..market_panels import hold_words
+
+    def _hold(m: str) -> str:
+        pr = PRESETS[m]
+        return hold_words(pr.max_hold_days, pr.square_off_time)
+
+    return [
+        ("intraday", "Intraday",
+         f"Same-day trades, squared off at "
+         f"{PRESETS['intraday'].square_off_time or '15:25'} IST. "
+         f"Daily bars (6 months)."),
+        ("short", "Short-term",
+         f"Holds {_hold('short')}. Daily bars (6 months). Target k×ATR."),
+        ("swing", "Swing",
+         f"Holds {_hold('swing')}. Daily bars (6 months). Target k×ATR."),
+        ("positional", "Positional",
+         f"Holds {_hold('positional')}. Daily bars (6 months), "
+         f"fundamentals weighted higher. Target k×ATR."),
+        ("nifty200_momentum", "Nifty 200 Momentum 30",
+         f"Default. 6m+12m vol-adjusted momentum blended with quality. Holds "
+         f"{_hold('nifty200_momentum')}. Daily bars (2 years). Target k×ATR. "
+         f"Evidence: docs/ folder."),
+    ]
+
+
+MODE_CHOICES = _mode_choices()
+
+
+def _reserve_hint() -> str:
+    """Cash Reserve hint, read from the regime table the engine applies
+    (risk_v2.DYNAMIC_CASH_RESERVE). engine.scan overwrites
+    cfg.cash_reserve_pct from that table at every scan, so a typed value
+    only lasts until the next scan (truth pass 2026-10-15)."""
+    try:
+        from trading.risk_v2 import DYNAMIC_CASH_RESERVE as R
+        ladder = ", ".join(f"{k.replace('_extension', '')} {v * 100:g}%"
+                           for k, v in R.items())
+    except Exception:
+        ladder = "see the regime table on the Risk page"
+    return ("Set by the MARKET REGIME at every scan (" + ladder + "). "
+            "A number typed here is replaced at the next scan")
+
+
+_RESERVE_HINT = _reserve_hint()
 
 
 EDITABLE_FIELDS = [
@@ -30,7 +76,7 @@ EDITABLE_FIELDS = [
     # F13: is_pct=True fields are stored as fractions (0.025) but SHOWN and
     # ENTERED as percentages (2.5) — no more "0.01 means 1%" confusion.
     ("starting_capital",        "Starting Capital (Rs)",  "Capital", "number", 1000, "Total paper capital to simulate", False),
-    ("cash_reserve_pct",        "Cash Reserve %",          "Capital", "number", 0.5,  "Always keep this % in cash", True),
+    ("cash_reserve_pct",        "Cash Reserve %",          "Capital", "number", 0.5,  _RESERVE_HINT, True),
     ("position_size_value",     "Position Size (Rs)",      "Capital", "number", 1000, "Fixed Rs per new trade — used when Sizing Mode is 'fixed'", False),
     ("sizing_mode",             "Sizing Mode",             "Capital", "text",   None, "slab = LIVE (owner order 2026-09-10): score-driven size on a Rs 1.5 lakh floor · fixed = flat Position Size · half_kelly = Kelly with no slab", False),
     ("kelly_fraction",          "Kelly Fraction",          "Capital", "number", 0.05, "0.5 = half-Kelly (75% of max growth, 12.5% halving risk). NEVER above 1.0", False),
@@ -47,19 +93,19 @@ EDITABLE_FIELDS = [
     ("budget_share_positional", "Positional Cash Share %", "Capital", "number", 1,    "Owner pick: 15. The five shares should add up to 100", True),
     ("stop_loss_pct",           "Stop Loss %",             "Risk",    "number", 0.5,  "The category's stop (negative % e.g. -5). For momentum it is the FLOOR: the ATR stop below can only widen it. Applies to new trades; held positions keep the stop they were opened with", True),
     ("atr_stop_enabled",        "ATR Stop On (1/0)",       "Risk",    "number", 1,    "OWNER ORDER 2026-10-05 ('Go for A'). 1 = a new MOMENTUM buy's stop is the wider of the category stop (-5%) and 2 x its own 14-day ATR, capped at -15%. MEASURED (research/stop_cooldown_study): beat the fixed -5% in train (+2.82 vs +0.88) and in the holdout (+21.14 vs +19.33), 30% fewer stop-outs. Cost: trade size is unchanged, so a losing trade on a jumpy name can lose more than 5% (6.8% on average, 15% at most). 0 = fixed stop. Other categories always use their fixed stop", False),
-    ("take_profit_pct",         "Take Profit %",           "Risk",    "number", 0.5,  "Full exit target %", True),
+    ("take_profit_pct",         "Take Profit %",           "Risk",    "number", 0.5,  "FALLBACK target only. A new trade's target is k x its own 14-day ATR, kept inside the category's band (Den section 2); this % is used only when the ATR cannot be computed. Held positions keep the target they were opened with", True),
     ("trailing_stop_pct",       "Trailing Stop %",         "Risk",    "number", 0.5,  "From peak price (negative %)", True),
     ("score_decay_exit",        "Score Decay Exit",        "Risk",    "number", 1,    "Exit if score drops below this", False),
     ("max_hold_days",           "Max Hold (days)",         "Risk",    "number", 1,    "Safety cap on holding period", False),
-    ("daily_loss_halt_pct",     "Daily Loss Kill Switch %","Risk",    "number", 0.5,  "Halts new entries on the day (negative %)", True),
-    ("min_score_to_enter",      "Min Score to Enter",      "Strategy","number", 1,    "AM 07 score threshold", False),
-    ("ocean_enabled",           "Ocean Engine On (1/0)",   "Strategy","number", 1,    "1 = allow mean-reversion buys in a correction, 0 = parked (default). Ocean picks skip the score floor and momentum gate", False),
-    ("breadth_gate_enabled",    "Breadth Gate On (1/0)",   "Strategy","number", 1,    "1 = block new momentum buys while breadth sits in the measured dead band (default on). RE-CUT 2026-09-09: it is a BAND, not a floor — a washed-out tape below the low edge is buyable", False),
+    ("daily_loss_halt_pct",     "Daily Loss Kill Switch %","Risk",    "number", 0.5,  "Negative %. If the book falls this much in one day, the engine (1) blocks new entries for the rest of the day AND (2) sells every open position that has a live quote at the next exit check in market hours; a name with no quote stays open", True),
+    ("min_score_to_enter",      "Min Score to Enter",      "Strategy","number", 1,    "Entry floor for the category selected above. Momentum: applies to the momentum + quality blend. Intraday, short, swing, positional: applies to the AM07 composite on that category's own weights", False),
+    ("ocean_enabled",           "Ocean Engine On (1/0)",   "Strategy","number", 1,    "1 = ON (default): Ocean dip buys run in every market regime, beside momentum, but only when all four safety rails pass (VIX knife, damage cluster, stock reclaim, danger veto). 0 = parked. Ocean picks skip the score floor, the momentum gate and the breadth gate", False),
+    ("breadth_gate_enabled",    "Breadth Gate On (1/0)",   "Strategy","number", 1,    "1 = (default) block new buys in EVERY category pass (momentum, intraday, short, swing, positional) while the share of stocks above their 200DMA sits INSIDE the band below (measured 40-65%). Below the low edge (washed out) and above the high edge (healthy) buying is allowed. Ocean and VIX-crush re-entry buys are exempt. The band was measured on momentum picks only; applying it to the other four is your order, not a measurement", False),
     ("breadth_block_low",       "Breadth Band Low",        "Strategy","number", 0.01, "Low edge of the no-buy band, share of stocks above their own 200DMA (measured 0.40). BELOW this the tape is washed out and entries are allowed", False),
     ("breadth_block_high",      "Breadth Band High",       "Strategy","number", 0.01, "High edge of the no-buy band (measured 0.65). Above this breadth is healthy and entries are allowed", False),
     ("correction_brake_enabled","Correction Brake On (1/0)","Strategy","number", 1,   "0 = OWNER ORDER 2026-08-09: engine buys even when Nifty is below its 200DMA (correction). 1 = restore the old brake. Panic always blocks", False),
-    ("rotation_auto_enabled",  "Auto Rotation On (1/0)",  "Strategy","number", 1,    "OWNER ORDER 2026-09-04: a position >=90% to its target is SOLD at the scan to fund a fresh pick when cash is short. Only as many as needed; owner picks never rotated; no live quote = skipped", False),
-    ("danger_layer_enabled",   "Danger Layer On (1/0)",   "Strategy","number", 1,    "OWNER ORDER 2026-08-11: 10 calibration-VERIFIED tripwires guard held names. Alerts first 7 days, then auto: 1 fire = tighten stop -2.5%, 2+ = exit half. Sell side only", False),
+    ("rotation_auto_enabled",  "Auto Rotation On (1/0)",  "Strategy","number", 1,    "OWNER ORDER 2026-09-04: a position >=90% of the way to its target is SOLD at the scan to fund a pick THIS scan is buying, when cash is short for those picks, when the pick's category cash share is full (then only a holding of the same category is sold), or when cash is under 5% of the book. Only as many as needed; owner picks never rotated; no live quote = skipped", False),
+    ("danger_layer_enabled",   "Danger Layer On (1/0)",   "Strategy","number", 1,    "OWNER ORDER 2026-08-11: 12 calibration-VERIFIED tripwires (10 price + 2 sector/index panel) guard held names. 1 fire = the stop is raised to a leash below the live price, the WIDER of 2.5%, the position's own category stop and its own entry stop width (never loosened); 2+ fires = exit half. Sell side only. KNOWN BUG XR-060 (fix awaits your word): today only 2 of the 10 price tripwires (T12W_0079, T12W_0096) plus the 2 panel ones can fire", False),
     ("measured_kelly_enabled", "Measured Kelly Check On (1/0)", "Strategy","number", 1, "AUDIT F-9, owner order 2026-10-02 ('write it'). 1 = the scan reads Kelly from your OWN closed strategy exits (never your sells, square-offs, kill switch or ladder): no measured edge = NO new scan entries; measured edge = each new trade capped at that size (never below the Rs 1.5L slab, never raised). Your BUY button and Buy Desk are never blocked. 0 = off. Reading on the Risk page. OWNER ORDER 2026-10-05 ('make it momentum only'): it counts MOMENTUM exits only and gates MOMENTUM buys only — intraday, short, swing, positional and Ocean are neither counted nor blocked.", False),
     ("multi_formula_gate",     "Three-Formula Filter On (1/0)", "Strategy","number", 1, "OWNER ORDER 2026-09-11. 0 = show the ASH08 (68) and AshStocks (70) verdicts on every stock but let AM07 decide (default). 1 = a pick must clear those floors too. MEASURED before you switch it on: ASH08's floor removes only 3% of our candidates (its quality leg is data coverage, so 68 means '6m return above +0.385%'), and AshStocks' live 20-day rule scored -0.77 train / -0.45 test. See research/ash_formula_study/", False),
     ("breakout_threshold_pct",  "Breakout Threshold %",    "Strategy","number", 0.5,  "Within N% of 20-day high", True),
@@ -136,8 +182,16 @@ def _grouped() -> dict[str, list[dict]]:
     groups: dict[str, list[dict]] = {}
     for name, label, group, type_, step, hint, is_pct in EDITABLE_FIELDS:
         raw = getattr(cfg, name, None)
+        # 2026-10-15: an on/off flag renders as 1 / 0. It used to render the
+        # word "True"/"False" into a type=number box, which a browser shows
+        # EMPTY and posts as "" — and the save reads "" as OFF, so one Save
+        # of the algo form switched every flag (Ocean, danger layer, breadth
+        # gate, ATR stop, category shares, rotation, measured Kelly …) off.
+        # Checked first: bool is a subclass of int.
+        if isinstance(raw, bool):
+            display = int(raw)
         # Show percentages, not fractions
-        if is_pct and isinstance(raw, (int, float)):
+        elif is_pct and isinstance(raw, (int, float)):
             display = round(raw * 100, 4)
         else:
             display = raw
@@ -167,9 +221,14 @@ def algo_context() -> dict:
         "preset_fields": PRESET_OWNED_FIELDS,
         "modes": MODE_CHOICES,
         "current_mode": getattr(cfg, "mode", "swing"),
-        # OWNER ORDER 2026-08-20: the custom 50-name universe, shown for
-        # weekly editing. Empty = rotating full-NSE bucket.
+        # OWNER ORDER 2026-08-20: the custom universe, shown for editing.
+        # Since 2026-08-30 the weekly liquidity rebuild
+        # (scheduler.refresh_liquid_universe) rewrites it; every category
+        # reads it (engine.scan_universe). Blank = momentum scans the
+        # rotating full-NSE bucket, the other four the base list.
         "custom_universe": list(getattr(cfg, "custom_universe", ()) or ()),
+        "universe_target": int(getattr(cfg, "universe_target_size", 0) or 0),
+        "base_universe_n": len(getattr(cfg, "universe", ()) or ()),
     }
 
 

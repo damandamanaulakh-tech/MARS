@@ -31,7 +31,7 @@
         <div>
           <label class="text-[10px] tracking-widest text-ink-faint uppercase block">{{ k.label }}</label>
           <div class="flex items-center gap-1 border-b border-line focus-within:border-ink">
-            <input type="number" step="any" inputmode="decimal" name="{{ k.name }}" value="{{ sbx.values[k.name] }}"
+            <input type="number" step="any" inputmode="decimal" name="{{ k.name }}" value="{{ sbx.vals[k.name] }}"
                    class="w-full outline-none py-1.5 text-sm tabular-nums bg-transparent {% if k.name in sbx.changed %}text-amber-700 font-bold{% endif %}">
             {% if k.kind == 'pct' %}<span class="text-ink-faint text-xs">%</span>{% endif %}
           </div>
@@ -41,7 +41,7 @@
       </div>
       <div class="mt-4">
         <label class="text-[10px] tracking-widest text-ink-faint uppercase block">Add any share — symbols to read through the draft</label>
-        <textarea name="symbols" rows="2" class="w-full border border-line focus:border-ink outline-none p-2 text-sm font-mono" placeholder="TCS RELIANCE THERMAX …">{{ sbx.values.symbols | replace('.NS', '') }}</textarea>
+        <textarea name="symbols" rows="2" class="w-full border border-line focus:border-ink outline-none p-2 text-sm font-mono" placeholder="TCS RELIANCE THERMAX …">{{ sbx.vals.symbols | replace('.NS', '') }}</textarea>
       </div>
       <div class="mt-3 flex flex-wrap gap-3">
         <button type="submit" class="px-5 py-2 bg-ink text-white text-sm font-semibold tracking-wide hover:bg-black">STORE DRAFT &amp; READ &rarr;</button>
@@ -51,7 +51,7 @@
     {% else %}
     <div class="p-4 text-sm text-ink-faint"><!-- den_sandbox_readonly_marker -->
       Owner role required to edit the draft. Current draft values:
-      <span class="font-mono text-xs">{% for k in sbx.knobs %}{{ k.name }}={{ sbx.values[k.name] }}{% if not loop.last %} · {% endif %}{% endfor %}</span>
+      <span class="font-mono text-xs">{% for k in sbx.knobs %}{{ k.name }}={{ sbx.vals[k.name] }}{% if not loop.last %} · {% endif %}{% endfor %}</span>
     </div>
     {% endif %}
 
@@ -63,7 +63,7 @@
         {% if bk.breadth %}
           Stored reading <strong>{{ bk.breadth_pct }}%</strong> of {{ bk.breadth.sample }} names above their 200-DMA ({{ bk.breadth_source }}; a state reading, not a forecast).
           Live band {{ (sbx.live.breadth_low * 100) | round(1) }}–{{ (sbx.live.breadth_high * 100) | round(1) }}%: <strong class="{% if bk.live_blocks %}text-red-700{% else %}text-emerald-700{% endif %}">{{ 'blocks' if bk.live_blocks else 'allows' }}</strong>
-          · draft band {{ (sbx.values.breadth_low * 100) | round(1) }}–{{ (sbx.values.breadth_high * 100) | round(1) }}%: <strong class="{% if bk.draft_blocks %}text-red-700{% else %}text-emerald-700{% endif %}">{{ 'would block' if bk.draft_blocks else 'would allow' }}</strong> new entries.
+          · draft band {{ (sbx.vals.breadth_low * 100) | round(1) }}–{{ (sbx.vals.breadth_high * 100) | round(1) }}%: <strong class="{% if bk.draft_blocks %}text-red-700{% else %}text-emerald-700{% endif %}">{{ 'would block' if bk.draft_blocks else 'would allow' }}</strong> new entries.
         {% else %}
           DATA_NEEDED — no stored breadth reading yet (the 09:20 scan or the full-store refresh writes one).
         {% endif %}
