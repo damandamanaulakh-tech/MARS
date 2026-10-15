@@ -701,7 +701,7 @@ def multiple_band(peer_multiple: Any = None,
                 "source": f"own history only ({len(hist)} readings)"}
     if p is not None and peer_only_point:
         return {"low": p, "mid": p, "high": p,
-                "source": f"peer {p:g} only — a single multiple, no own history"}
+                "source": f"peer {p:.2f} only — a single multiple, no own history"}
     return None
 
 

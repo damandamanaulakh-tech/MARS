@@ -37,7 +37,7 @@
   </div>
   {% endif %}
 
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-6">
     {% if evidence %}
     <div class="border border-line bg-white"><!-- den_walk_forward_marker -->
       <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
@@ -89,7 +89,7 @@
           <tr><th class="text-left px-4 py-2 whitespace-nowrap">Stock</th>
               <th class="text-right px-2 py-2 whitespace-nowrap">ATR(14)</th>
               <th class="text-right px-2 py-2 whitespace-nowrap">Floor (fixed)</th>
-              <th class="text-right px-4 py-2 whitespace-nowrap">Live rule: {{ atr_rows[0].k }}×ATR, floor −{{ atr_rows[0].fixed_stop_pct }}%, cap −{{ atr_rows[0].cap_pct }}%</th></tr>
+              <th class="text-right px-4 py-2">Live rule: {{ atr_rows[0].k }}×ATR, floor −{{ atr_rows[0].fixed_stop_pct }}%, cap −{{ atr_rows[0].cap_pct }}%</th></tr>
         </thead>
         <tbody>
           {% for r in atr_rows %}

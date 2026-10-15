@@ -17,9 +17,16 @@
       <div><strong>What it does.</strong> For each name below: locks the latest audited year (period end, publication date, currency — the US-dollar trap for ADR names is converted at the period-end rate and labelled, never silently), picks the valuation route from the sector-method table (unmapped names read UNDECLARED, never forced), reconciles the share count, strips one-offs from reported profit (checked against the audited normalised line), scores earnings quality, runs your Tata Tech scenario model as three cases (downside / base / upside) and prints the justified range per route, then the verdict: attractive · watch · unattractive · insufficient. <strong>Not a trade permission</strong> — the engine still buys on its own scores (the momentum blend for momentum, the AM07 composite for the other four categories); nothing here is read by a gate, a stop or a size.</div>
       <div><strong>Coverage.</strong> Statements exist for the {{ chain.n_statements }} Nifty-200 names fetched 2026-08-09 (+ the monthly refresh); any other name reads DATA_NEEDED until the batch fetch you have not yet approved runs. Peer multiples are derived: the median of the same route among those names (ASSUMED until you give peer groups). Rows of your P/E bridge the app does not store — RBI repo, CPI, GDP, Brent, institutional-holding change and delivery % (plus the Sensex / Nifty legs or USDINR when their stored levels are missing) — count 0 and are listed on each row.</div>
       {% if chain.drafted %}<div class="text-amber-800 font-semibold"><!-- den_chain_draft_marker -->DRAFT ASSUMPTIONS IN USE — {{ chain.n_edited }} number(s) differ from the defaults ({{ chain.drafted_keys | join(', ') }}); every row below is computed with them. Defaults, sources and the edit form: <a href="#formulas" class="underline">§13</a>.</div>{% endif %}
-      {% if chain.skipped_busy %}<div class="text-amber-800 font-semibold"><!-- den_chain_busy_marker -->{{ chain.skipped_busy }} row(s) NOT computed on this open — {{ chain.busy }}. Computing them now could push the app past its 512 MiB limit, which is what took the Den down before. Rows computed in the last {{ chain.row_ttl_min }} min still show. A scan clears when it finishes; memory held after a scan only clears when the app restarts, which the free plan does by itself after about 15 minutes with no visits.</div>{% endif %}
-      {% if chain.skipped_budget %}<div class="text-amber-800 font-semibold"><!-- den_chain_budget_marker -->{{ chain.skipped_budget }} row(s) NOT computed on this open — the {{ '%.0f' % chain.budget_s }} s time budget was spent on the {{ chain.computed }} row(s) above. Open the Den again to fill the rest: every computed row is kept {{ chain.row_ttl_min }} min.</div>{% endif %}
-      {% if chain.computed or chain.cached %}<div class="text-ink-faint"><!-- den_chain_cost_marker -->This open: {{ chain.computed }} row(s) computed in {{ chain.elapsed_s }} s, {{ chain.cached }} kept from an earlier open.</div>{% endif %}
+      {% if chain.store_down %}<div class="text-amber-800 font-semibold"><!-- den_chain_store_marker -->THE DATABASE DID NOT ANSWER IN TIME on this open — {{ chain.store_down }}. The rest of this open asked it nothing more: prices came from the committed repo copy (rows say "repo copy" beside the price, and are kept only {{ chain.degraded_ttl_min }} min so the database's prices replace them once it answers), index levels from the committed file.</div>{% endif %}
+      {% if chain.skipped_busy %}<div class="text-amber-800 font-semibold" data-den-chain-busy-kind="{{ chain.busy_kind }}"><!-- den_chain_busy_marker -->{{ chain.skipped_busy }} row(s) NOT computed on this open — {{ chain.busy }}.
+        {% if chain.busy_kind == 'other_tab' %}Another open of the Den (another tab or device) is computing these rows now; reload in a few seconds and they show.
+        {% elif chain.busy_kind == 'memory' %}The app keeps the memory a scan used until it restarts, so these rows fill in after the next restart; computing them now could push it past its 512 MiB limit, which is what took the Den down before. Rows computed in the last {{ chain.row_ttl_min }} min still show.
+        {% else %}Computing them during a scan could push the app past its 512 MiB limit, which is what took the Den down before. Open the Den again when the scan finishes; rows computed in the last {{ chain.row_ttl_min }} min still show.{% endif %}</div>{% endif %}
+      {% if chain.skipped_budget %}<div class="text-amber-800 font-semibold"><!-- den_chain_budget_marker -->{{ chain.skipped_budget }} row(s) NOT computed on this open —
+        {% if chain.store_down %}the database was slow or unreachable (above), and the {{ '%.0f' % chain.budget_s }} s budget ran out {% if chain.computed %}after {{ chain.computed }} row(s) computed on this open{% else %}before any row was computed{% endif %}; the rows themselves are not the cause.
+        {% else %}the {{ '%.0f' % chain.budget_s }} s budget, which includes loading the rows' prices{% if chain.store_wait_s >= 1 %} ({{ chain.store_wait_s }} s of it waiting for the database){% endif %}, ran out {% if chain.computed %}after {{ chain.computed }} row(s) computed on this open{% else %}before any row was computed{% endif %}.{% endif %}
+        Open the Den again to fill the rest: every computed row is kept {{ chain.row_ttl_min }} min.</div>{% endif %}
+      {% if chain.computed or chain.cached or chain.failed %}<div class="text-ink-faint"><!-- den_chain_cost_marker -->This open: {{ chain.computed }} row(s) computed{% if chain.failed %}, <span class="text-red-700 font-semibold">{{ chain.failed }} FAILED</span>{% endif %} in {{ chain.elapsed_s }} s, {{ chain.cached }} kept from an earlier open.</div>{% endif %}
       <div class="text-amber-800"><strong>ASSUMED, not measured:</strong> publication date = period end + {{ chain.assumed.publication_lag_days }} days · case deltas ±{{ chain.assumed.case_growth_pp }}pp growth, ±{{ chain.assumed.case_margin_pp }}pp margin, ±{{ chain.assumed.case_pe_pct }} points on the P/E-bridge total (= ±{{ chain.assumed.case_pe_pct }}% of the starting P/E) · the sheet's 29 sensitivities (owner sheet 2026-10-09) · verdict bands ({{ chain.assumed.attractive_discount_pct }}% below base = attractive). Every one of these is editable in <a href="#formulas" class="underline">§13</a>. Nothing here has been tested against forward returns — that is the pre-registered Phase-4 test, not yet run.</div>
     </div>
 
@@ -29,24 +36,27 @@
         <input name="chain" value="{{ chain.typed or '' }}" placeholder="TCS" class="border-b border-line focus:border-ink outline-none py-1.5 text-sm font-mono bg-transparent uppercase w-40">
       </div>
       <button type="submit" class="px-4 py-2 bg-ink text-white text-xs font-semibold tracking-wide hover:bg-black">READ THE CHAIN &rarr;</button>
-      <span class="text-xs text-ink-faint">showing {{ chain.n }} name(s): the one you typed first, then your §11 targets A-Z, then held names; cap {{ chain.max_rows }}</span>
+      <span class="text-xs text-ink-faint">showing {{ chain.n }} name(s): the one you typed first, then held names, then your §11 targets A-Z; cap {{ chain.max_rows }}{% if chain.n_cut %} · <span class="text-amber-800 font-semibold" title="{{ chain.cut_names | join(', ') }}"><!-- den_chain_cut_marker -->{{ chain.n_cut }} name(s) not shown (cap {{ chain.max_rows }}): {{ chain.cut_names[:8] | join(', ') | replace('.NS', '') }}{% if chain.n_cut > 8 %} …{% endif %}</span>{% endif %}</span>
       {% if chain.error %}<span class="text-xs text-red-700">{{ chain.error }}</span>{% endif %}
     </form>
 
     {% if chain.rows %}
+    <!-- Layout 2026-10-15: the answer columns (Verdict, Justified range,
+         Cases) sit right after Stock · price, so at 1366 px they are on
+         screen without a sideways scroll; the evidence columns follow. -->
     <div class="overflow-x-auto"><!-- den_chain_rows_marker -->
       <table class="w-full text-xs">
         <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
-          <tr><th class="text-left px-4 py-2 whitespace-nowrap">Stock · price</th>
-              <th class="text-left px-2 py-2 whitespace-nowrap">Route (stage 09)</th>
-              <th class="text-left px-2 py-2 whitespace-nowrap">Snapshot lock (07-08)</th>
-              <th class="text-left px-2 py-2 whitespace-nowrap">Shares (10)</th>
-              <th class="text-right px-2 py-2 whitespace-nowrap">Earnings (11)<br><span class="normal-case tracking-normal">reported → normalised EPS</span></th>
-              <th class="text-left px-2 py-2 whitespace-nowrap">Quality (12)</th>
-              <th class="text-right px-2 py-2 whitespace-nowrap">Cases (15-16)<br><span class="normal-case tracking-normal">EPS down / base / up</span></th>
-              <th class="text-right px-2 py-2 whitespace-nowrap">Justified range (17)<br><span class="normal-case tracking-normal">low / base / high</span></th>
-              <th class="text-left px-2 py-2 whitespace-nowrap">Verdict (18)</th>
-              <th class="text-left px-4 py-2 whitespace-nowrap">Key terms</th></tr>
+          <tr><th class="text-left px-4 py-2 whitespace-nowrap" data-den-chain-col="stock">Stock · price</th>
+              <th class="text-left px-2 py-2 whitespace-nowrap" data-den-chain-col="verdict">Verdict (18)</th>
+              <th class="text-right px-2 py-2 whitespace-nowrap" data-den-chain-col="range">Justified range (17)<br><span class="normal-case tracking-normal">low / base / high</span></th>
+              <th class="text-right px-2 py-2 whitespace-nowrap" data-den-chain-col="cases">Cases (15-16)<br><span class="normal-case tracking-normal">EPS down / base / up</span></th>
+              <th class="text-left px-2 py-2 whitespace-nowrap" data-den-chain-col="route">Route (stage 09)</th>
+              <th class="text-left px-2 py-2 whitespace-nowrap" data-den-chain-col="snapshot">Snapshot lock (07-08)</th>
+              <th class="text-left px-2 py-2 whitespace-nowrap" data-den-chain-col="shares">Shares (10)</th>
+              <th class="text-right px-2 py-2 whitespace-nowrap" data-den-chain-col="earnings">Earnings (11)<br><span class="normal-case tracking-normal">reported → normalised EPS</span></th>
+              <th class="text-left px-2 py-2 whitespace-nowrap" data-den-chain-col="quality">Quality (12)</th>
+              <th class="text-left px-4 py-2 whitespace-nowrap" data-den-chain-col="terms">Key terms</th></tr>
         </thead>
         <tbody>
           {% for r in chain.rows %}
@@ -55,12 +65,25 @@
             <td class="px-4 py-2 whitespace-nowrap font-semibold text-sm">{{ r.ticker | replace('.NS', '') }}</td>
             <td colspan="9" class="px-2 py-2 text-amber-700 font-semibold">NOT COMPUTED on this open — {{ r.route.rule | replace('not computed — ', '') }}</td>
           </tr>
+          {% elif r.failed %}
+          <tr class="border-b border-line last:border-0 align-top" data-den-chain-row="failed"><!-- den_chain_failed_marker -->
+            <td class="px-4 py-2 whitespace-nowrap font-semibold text-sm">{{ r.ticker | replace('.NS', '') }}</td>
+            <td colspan="9" class="px-2 py-2 text-red-700 font-semibold">FAILED on this open — {{ r.error }} <span class="text-ink-faint font-normal">(the chain raised for this name; nothing is kept, the next open tries again — the log has the trace)</span></td>
+          </tr>
+          {% elif r.row_kind == 'no_statements' %}
+          <tr class="border-b border-line last:border-0 align-top" data-den-chain-row="no_statements"><!-- den_chain_no_statements_marker -->
+            <td class="px-4 py-2 whitespace-nowrap">
+              <div class="font-semibold text-sm">{{ r.ticker | replace('.NS', '') }}</div>
+              <div class="tabular-nums">{% if r.price %}₹{{ r.price | inr(2) }} ({{ r.price_date }}{% if r.price_source == 'repo copy' %} · repo copy{% endif %}){% else %}<span class="text-amber-700">no stored price</span>{% endif %}</div>
+            </td>
+            <td colspan="9" class="px-2 py-2 text-amber-700 font-semibold">NO STATEMENTS — outside the {{ chain.n_statements }} names with statements{% if r.snapshot.source == 'fundamentals_csv' %} (only summary figures from the fundamentals file, not the statements the chain reads){% endif %}; needs the batch fetch (your approval pending). <span class="text-ink-faint font-normal">No verdict — the chain has nothing to value it on.</span></td>
+          </tr>
           {% else %}
           <tr class="border-b border-line last:border-0 align-top">
             <td class="px-4 py-2 whitespace-nowrap">
               <div class="font-semibold text-sm">{{ r.ticker | replace('.NS', '') }} <span class="text-ink-faint font-normal text-[10px]">{{ r.route.label or 'unmapped' }}</span>{% if r.drafted %} <span class="text-[10px] tracking-widest uppercase text-amber-800 font-bold" title="{{ r.assumptions.drafted | join(', ') }}">draft</span>{% endif %}</div>
-              <div class="tabular-nums">{% if r.price %}₹{{ r.price | inr(2) }} ({{ r.price_date }}){% else %}<span class="text-amber-700">no stored price</span>{% endif %}</div>
-              {% if is_owner and r.range.base %}
+              <div class="tabular-nums">{% if r.price %}₹{{ r.price | inr(2) }} ({{ r.price_date }}{% if r.price_source == 'repo copy' %} · repo copy{% endif %}){% else %}<span class="text-amber-700">no stored price</span>{% endif %}</div>
+              {% if is_owner and r.range.base and r.verdict.verdict in ('attractive', 'watch', 'unattractive') %}
               <form method="post" action="/den/valuation" class="mt-1"><!-- den_chain_use_marker -->
                 <input type="hidden" name="ticker" value="{{ r.ticker }}">
                 <input type="hidden" name="target" value="{{ '%.2f' % r.range.base }}">
@@ -68,6 +91,37 @@
                 <input type="hidden" name="basis" value="computed {{ r.route.method }} base case {{ chain.today }} (stage 17)">
                 <button type="submit" class="text-[10px] tracking-widest uppercase text-ink-faint hover:text-ink">↑ use as §11 target</button>
               </form>
+              {% elif is_owner and r.range.base %}
+              <div class="mt-1 text-[10px] text-ink-faint whitespace-normal max-w-[11rem]"><!-- den_chain_use_refused_marker -->too uncertain to use as a target (verdict {{ r.verdict.verdict | upper }})</div>
+              {% endif %}
+            </td>
+            <td class="px-2 py-2 min-w-[11rem] max-w-[16rem]">
+              {% if r.range.status == 'OK' %}
+              <div class="font-bold {% if r.verdict.verdict == 'attractive' %}text-emerald-700{% elif r.verdict.verdict == 'unattractive' %}text-red-700{% elif r.verdict.verdict == 'watch' %}text-amber-700{% else %}text-ink-faint{% endif %}">{{ r.verdict.verdict | upper }}</div>
+              {% if r.verdict.upside_to_base_pct is not none %}<div class="tabular-nums">{{ '%+.1f' % r.verdict.upside_to_base_pct }}% to base</div>{% endif %}
+              {% for why in r.verdict.reasons[:3] %}<div class="text-ink-faint">{{ why }}</div>{% endfor %}
+              {% else %}
+              <div class="font-bold text-amber-700"><!-- den_chain_no_range_marker -->NO RANGE — {{ r.range.why }}</div>
+              {% endif %}
+              <div class="text-ink-faint">not a trade permission</div>
+            </td>
+            <td class="px-2 py-2 text-right tabular-nums min-w-[14rem] max-w-[20rem]">
+              {% if r.range.status == 'OK' %}
+              <div class="whitespace-nowrap">₹{{ r.range.low | inr(0) }} / <strong>₹{{ r.range.base | inr(0) }}</strong> / ₹{{ r.range.high | inr(0) }}</div>
+              <div class="text-ink-faint text-left whitespace-normal">{{ r.range.method_text }}</div>
+              {% if r.range.multiple_band %}<div class="text-ink-faint text-left whitespace-normal">multiple {{ r.range.multiple_band.low | round(1) }}–{{ r.range.multiple_band.high | round(1) }}× ({{ r.range.multiple_band.source }})</div>{% endif %}
+              {% else %}
+              <div class="text-amber-700 font-semibold text-left whitespace-normal">DATA_NEEDED — {{ r.range.why }}</div>
+              {% if r.range.fallback and r.range.fallback.base %}<div class="text-ink-faint text-left whitespace-normal">fallback {{ r.range.fallback.label or 'P/B' }}: ₹{{ r.range.fallback.base | inr(0) }} (not the route's NAV)</div>{% endif %}
+              {% endif %}
+            </td>
+            <td class="px-2 py-2 text-right tabular-nums min-w-[12rem] max-w-[18rem]">
+              {% if r.scenarios.status == 'OK' %}
+              <div class="whitespace-nowrap">{{ r.scenarios.eps.downside | round(2) }} / <strong>{{ r.scenarios.eps.base | round(2) }}</strong> / {{ r.scenarios.eps.upside | round(2) }}</div>
+              <div class="text-ink-faint whitespace-normal">growth {{ r.scenarios.drivers.revenue_growth_pct | round(1) }}% · margin {{ r.scenarios.drivers.base_margin_pct | round(1) }}% · PAT/EBITDA {{ r.scenarios.drivers.pat_pct_of_ebitda | round(1) }}%</div>
+              <div class="text-ink-faint whitespace-normal">P/E bridge {{ '%+.2f' % r.scenarios.pe_bridge_pct }}% ({{ r.scenarios.macro_data_needed | length }} macro inputs DATA_NEEDED, counted 0)</div>
+              {% else %}
+              <div class="text-amber-700 font-semibold text-left whitespace-normal">DATA_NEEDED — {{ r.scenarios.why }}</div>
               {% endif %}
             </td>
             <td class="px-2 py-2 min-w-[11rem]">
@@ -95,10 +149,10 @@
               {% if r.shares.basic_now %}<div class="tabular-nums">{{ (r.shares.basic_now / 1e7) | round(2) }} cr shares{% if r.shares.dilutive_pct is not none %} · dilution {{ r.shares.dilutive_pct | round(2) }}%{% endif %}</div>{% endif %}
               {% if r.shares.note %}<div class="text-ink-faint" title="{{ r.shares.note }}">{{ r.shares.note[:110] }}{% if r.shares.note | length > 110 %}…{% endif %}</div>{% endif %}
             </td>
-            <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">
+            <td class="px-2 py-2 text-right tabular-nums min-w-[11rem]">
               {% if r.earnings.status == 'OK' %}
-              <div>₹{{ (r.earnings.reported_pat / 1e7) | inr(0) }} cr → <strong>₹{{ (r.earnings.normalised_pat / 1e7) | inr(0) }} cr</strong></div>
-              <div>EPS {{ r.earnings.reported_eps | round(2) }} → <strong>{{ r.earnings.normalised_eps | round(2) }}</strong></div>
+              <div class="whitespace-nowrap">₹{{ (r.earnings.reported_pat / 1e7) | inr(0) }} cr → <strong>₹{{ (r.earnings.normalised_pat / 1e7) | inr(0) }} cr</strong></div>
+              <div class="whitespace-nowrap">EPS {{ r.earnings.reported_eps | round(2) }} → <strong>{{ r.earnings.normalised_eps | round(2) }}</strong></div>
               <div class="text-ink-faint">{{ r.earnings.n_adjustments }} adjustment(s){% if r.earnings.matches_yahoo is true %} · matches audited normalised line{% elif r.earnings.matches_yahoo is false %} · <span class="text-amber-700">differs from audited normalised line</span>{% endif %}</div>
               {% else %}
               <div class="text-amber-700 font-semibold text-left">DATA_NEEDED — {{ r.earnings.why }}</div>
@@ -113,53 +167,29 @@
               {% for f in r.quality.flags %}<div class="text-amber-700">⚠ {{ f }}</div>{% endfor %}
               {% if r.quality.cash_conversion is not none %}<div class="text-ink-faint tabular-nums">OCF/PAT {{ r.quality.cash_conversion | round(2) }}{% if r.quality.net_debt_ebitda is not none %} · net debt/EBITDA {{ r.quality.net_debt_ebitda | round(2) }}{% endif %}{% if r.quality.interest_cover is not none %} · interest cover {{ r.quality.interest_cover | round(1) }}{% endif %}</div>{% endif %}
             </td>
-            <td class="px-2 py-2 text-right tabular-nums min-w-[12rem] max-w-[18rem]">
-              {% if r.scenarios.status == 'OK' %}
-              <div class="whitespace-nowrap">{{ r.scenarios.eps.downside | round(2) }} / <strong>{{ r.scenarios.eps.base | round(2) }}</strong> / {{ r.scenarios.eps.upside | round(2) }}</div>
-              <div class="text-ink-faint whitespace-normal">growth {{ r.scenarios.drivers.revenue_growth_pct | round(1) }}% · margin {{ r.scenarios.drivers.base_margin_pct | round(1) }}% · PAT/EBITDA {{ r.scenarios.drivers.pat_pct_of_ebitda | round(1) }}%</div>
-              <div class="text-ink-faint whitespace-normal">P/E bridge {{ '%+.2f' % r.scenarios.pe_bridge_pct }}% ({{ r.scenarios.macro_data_needed | length }} macro inputs DATA_NEEDED, counted 0)</div>
-              {% else %}
-              <div class="text-amber-700 font-semibold text-left whitespace-normal">DATA_NEEDED — {{ r.scenarios.why }}</div>
-              {% endif %}
-            </td>
-            <td class="px-2 py-2 text-right tabular-nums min-w-[14rem] max-w-[20rem]">
-              {% if r.range.status == 'OK' %}
-              <div class="whitespace-nowrap">₹{{ r.range.low | inr(0) }} / <strong>₹{{ r.range.base | inr(0) }}</strong> / ₹{{ r.range.high | inr(0) }}</div>
-              <div class="text-ink-faint text-left whitespace-normal">{{ r.range.method_text }}</div>
-              {% if r.range.multiple_band %}<div class="text-ink-faint text-left whitespace-normal">multiple {{ r.range.multiple_band.low | round(1) }}–{{ r.range.multiple_band.high | round(1) }}× ({{ r.range.multiple_band.source }})</div>{% endif %}
-              {% else %}
-              <div class="text-amber-700 font-semibold text-left whitespace-normal">DATA_NEEDED — {{ r.range.why }}</div>
-              {% if r.range.fallback and r.range.fallback.base %}<div class="text-ink-faint text-left whitespace-normal">fallback {{ r.range.fallback.label or 'P/B' }}: ₹{{ r.range.fallback.base | inr(0) }} (not the route's NAV)</div>{% endif %}
-              {% endif %}
-            </td>
-            <td class="px-2 py-2 min-w-[11rem]">
-              <div class="font-bold {% if r.verdict.verdict == 'attractive' %}text-emerald-700{% elif r.verdict.verdict == 'unattractive' %}text-red-700{% elif r.verdict.verdict == 'watch' %}text-amber-700{% else %}text-ink-faint{% endif %}">{{ r.verdict.verdict | upper }}</div>
-              {% if r.verdict.upside_to_base_pct is not none %}<div class="tabular-nums">{{ '%+.1f' % r.verdict.upside_to_base_pct }}% to base</div>{% endif %}
-              {% for why in r.verdict.reasons[:3] %}<div class="text-ink-faint">{{ why }}</div>{% endfor %}
-              <div class="text-ink-faint">not a trade permission</div>
-            </td>
             <td class="px-4 py-2 min-w-[12rem]">
               {% for t in r.key_terms %}<div class="tabular-nums"><span class="text-ink-faint">{{ t.name }}</span> {% if t.value is not none %}{{ t.text }}{% else %}<span class="text-amber-700">DATA_NEEDED</span>{% endif %}</div>{% endfor %}
-              <a href="/den?chain={{ r.ticker | replace('.NS', '') }}&terms=1#chain" class="text-[10px] tracking-widest uppercase text-ink-faint hover:text-ink">all {{ r.n_terms }} terms ›</a>
+              <a href="/den?chain={{ r.ticker | replace('.NS', '') }}&terms=1#chain-terms" class="text-[10px] tracking-widest uppercase text-ink-faint hover:text-ink">all {{ r.n_terms }} terms ›</a>
             </td>
           </tr>
-          {% if chain.show_terms and r.ticker == chain.typed_full %}
-          <tr class="border-b border-line bg-paper/40"><!-- den_chain_terms_marker -->
-            <td colspan="10" class="px-4 py-3">
-              <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">All {{ r.n_terms }} finance terms for {{ r.ticker | replace('.NS', '') }} — formula · value · stage</div>
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1 text-xs">
-                {% for t in r.all_terms %}
-                <div class="flex justify-between gap-2 border-b border-line/60 py-0.5"><span><span class="font-semibold">{{ t.name }}</span> <span class="text-ink-faint">{{ t.formula }}</span></span><span class="tabular-nums whitespace-nowrap">{% if t.value is not none %}{{ t.text }}{% else %}<span class="text-amber-700" title="{{ t.why }}">DATA_NEEDED</span>{% endif %}</span></div>
-                {% endfor %}
-              </div>
-            </td>
-          </tr>
-          {% endif %}
           {% endif %}
           {% endfor %}
         </tbody>
       </table>
     </div>
+    {# The all-terms panel sits OUTSIDE the sideways-scrolling table box
+       (layout 2026-10-15): as a colspan row it stretched to the table's
+       ~1,900 px and put the values off-screen — 52 of 52 hidden on a phone. #}
+    {% for r in chain.rows if chain.show_terms and r.ticker == chain.typed_full and not r.not_computed and not r.failed %}
+    <div id="chain-terms" class="px-4 py-3 border-t border-line bg-paper/40 scroll-mt-20"><!-- den_chain_terms_marker -->
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">All {{ r.n_terms }} finance terms for {{ r.ticker | replace('.NS', '') }} — formula · value · stage</div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1 text-xs">
+        {% for t in r.all_terms %}
+        <div class="flex justify-between gap-2 border-b border-line/60 py-0.5 min-w-0"><span class="min-w-0 break-words"><span class="font-semibold">{{ t.name }}</span> <span class="text-ink-faint">{{ t.formula }}</span></span><span class="tabular-nums whitespace-nowrap">{% if t.value is not none %}{{ t.text }}{% else %}<span class="text-amber-700" title="{{ t.why }}">DATA_NEEDED</span>{% endif %}</span></div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
     {% else %}
     <div class="p-4 text-sm text-ink-faint"><!-- den_chain_empty_marker -->No name to read yet — type one above, store a §11 target, or hold a position.</div>
     {% endif %}

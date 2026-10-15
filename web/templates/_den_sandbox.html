@@ -26,7 +26,7 @@
 
     {% if is_owner %}
     <form method="post" action="/den/sandbox" class="p-4"><!-- den_sandbox_form_marker -->
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end">
         {% for k in sbx.knobs %}
         <div>
           <label class="text-[10px] tracking-widest text-ink-faint uppercase block">{{ k.label }}</label>
