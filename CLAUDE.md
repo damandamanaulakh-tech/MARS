@@ -998,6 +998,49 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   (owner's login, /reports CSV from 16:30) names the stuck step; the lever
   (a total time cap per weekly step) is still unordered. PR #175 merged
   17:46 IST on that quiet box (flat 26 min).
+- **"MARKET UP BUT STOCKS NOT MOVING" — THU 10-15 READ, READ-ONLY (owner:
+  "Today market is up but stock isnt move / See as per app work what is
+  hitting and what not").** Data = tokenless Upstox daily 2y for all 2,675
+  universe-file names + today's bar built from the public 30-min candles;
+  scripts + outputs in scratchpad day1015/. FACTS: Nifty +1.66% (22,997),
+  Sensex +2.11, IT +1.82, but Smallcap 100 −1.39, Midcap 100 −0.37, PSU
+  Bank −1.54; on today's rebuilt 1,076-name scan list 297 up / 777 down,
+  median stock −1.19%, only 82 beat Nifty; median stock was RED from the
+  first 09:15 bar (adv 27-38% all day); 258 names were up >1% at their high
+  and closed below +0.5%. A heavyweight day (RELIANCE +3.4, ICICIBANK +3.8,
+  HDFCBANK +2.3, BHARTIARTL +3.3, INFY/TCS +2). The 312 momentum names that
+  clear floor+abs-mom+liquidity fell −1.78% median. BREADTH — THREE
+  READINGS: whole market 38.5% (10-15) / 39.3% (10-14) = below the band =
+  buyable; scan list alone 53.7% / 54.9% = blocked; a live-store-like mix
+  (scan list @10-14 + the rest frozen at their 09-30 close) 40.2% = INSIDE
+  the band by 0.2pt → the live 09:20 gate most likely BLOCKED all five
+  passes today (the journal's BREADTH_BLOCKED line names the reading; the
+  real engine.scan on today's data with the bucket reading blocked 325
+  picks at 53.7%). Other four categories (composite, own weights/floors,
+  timing+candle): intraday 11 / short 13 / swing 18 / positional 14 clear,
+  nearly all IT (LTTS, HCLTECH, TECHM, TATAELXSI) — the one sector that
+  rose. Danger: 141 names fired a price tripwire, 192 fires, 31 names with
+  2+ — the layer counts 12 (only 0079/0096; XR-060). **NEW FAULT, real
+  engine replay: FUND UNITS LEAD THE MOMENTUM LIST.** No layer filters
+  them: Upstox lists ETFs as NSE_EQ instrument_type "EQ", and the 09-30
+  turnover rebuild pulled 56 into the scan list (351 in the universe file;
+  ISIN prefix INF = fund unit, INE = company share — the clean marker).
+  Liquid funds have ~0.2% annual vol, so r/σ saturates the momentum score:
+  LIQUIDCASE/LIQUID1 98.25, LIQUIDADD/CASHIETF/LIQUIDBETF/LIQUIDPLUS 94.75,
+  SBILIQETF 92.1; slab sizing hits the 5% cap (₹25L each). engine.scan
+  with breadth allowed (38.5%) on a fresh ₹5 Cr book: momentum opened 6
+  liquid funds × ₹25L = ₹1.5 Cr of its ₹2 Cr share, then LAURUSLABS +
+  SONACOMS, then 304 picks "category_budget_full". Their target = the 10%
+  band floor, stop −5%, the score never decays → neither exit can fire;
+  they sit 200 calendar days earning ~6%/yr. Buy Desk ranks them first too.
+  Without fund units the same pass buys 11 stocks (LAURUSLABS, SONACOMS,
+  KTKBANK, DIVISLAB, SBC, SHREEJISPG, WELSPUNLIV, TFCILTD, PAISALO,
+  SKYGOLD, FEDERALBNK). Same class as GILT5YBEES (08-23 note) — flagged
+  then, never fixed. PROPOSED to the owner, NOT built (discuss-first):
+  drop INF-ISIN fund units from the scan universe for all five passes
+  (held ones untouched, owner BUY still works). Asked for /positions (any
+  LIQUID*/ETF held?), /risk measured-Kelly + category cards, or today's
+  journal BREADTH_BLOCKED line.
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:
