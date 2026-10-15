@@ -10,8 +10,13 @@
   <div class="bg-white border border-line mb-4"><!-- den_danger_marker -->
     <div class="px-4 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
       <div class="font-bold">🛑 Danger layer — {{ trg.n_tripwires }} calibration-VERIFIED tripwires guard HELD names</div>
-      <div class="text-xs text-ink-faint">mode {% if trg.auto_mode %}<strong>B (auto)</strong>{% else %}<strong>C (alerts only)</strong>{% endif %}{% if trg.alerts_start %} since {{ trg.alerts_start[:10] }}{% endif %} · alert window {{ trg.alert_days }} days · tighten {{ trg.tighten_pct }}% (floored at the category stop)</div>
+      <div class="text-xs text-ink-faint">mode {% if trg.auto_mode %}<strong>B (auto)</strong>{% else %}<strong>C (alerts only)</strong>{% endif %}{% if trg.alerts_start %} since {{ trg.alerts_start[:10] }}{% endif %} · alert window {{ trg.alert_days }} days · tighten to the wider of {{ trg.tighten_pct }}%, the position's category stop and its entry-stop width</div>
     </div>
+    {% if trg.blind %}
+    <div class="px-4 py-3 border-b border-line bg-red-50 text-xs text-red-900" data-den-danger-blind><!-- den_danger_blind_marker -->
+      <strong>Known fault (upload review XR-060, not fixed):</strong> {{ trg.blind | length }} of the {{ trg.blind | length + trg.countable | length }} price tripwires ({{ trg.blind | join(', ') }}) return a NumPy true/false, and the layer only counts the Python value <span class="font-mono">True</span> — so they can never tighten a stop or trigger a half-exit. Today only {{ trg.countable | join(' and ') }}{% if trg.panel_fed %} (+ the panel-fed {{ trg.panel_fed | join(', ') }} on held names){% endif %} can. The fix is one line in <span class="font-mono">trading/danger.py</span>; it waits for your word because it moves money: stops would start tightening and half-exits firing on held names.
+    </div>
+    {% endif %}
     <div class="overflow-x-auto">
     <table class="w-full text-sm">
       <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">

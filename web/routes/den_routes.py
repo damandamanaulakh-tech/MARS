@@ -236,6 +236,74 @@ def _entry_prices(p) -> dict:
     return {t: pos.entry_price for t, pos in (p.positions or {}).items()}
 
 
+def _scan_history() -> tuple:
+    """What the rotation really pulls per category pass: daily bars, the
+    momentum pass 2 years, every other pass `TradingEngine.scan`'s default.
+    Read from the engine itself — the presets' bar_interval/history_period
+    fields have no reader anywhere (audit 2026-10-15), so printing them told
+    the owner intraday scans 5-minute bars when it scans daily ones."""
+    from trading.engine import TradingEngine
+    other = "6mo"
+    mom = "2y"
+    try:
+        other = str(inspect.signature(TradingEngine.scan)
+                    .parameters["history_period"].default)
+    except Exception:
+        pass
+    try:
+        m = re.search(r'history_period\s*=\s*"([0-9]+[a-z]+)"',
+                      inspect.getsource(TradingEngine.scan_universe))
+        if m:
+            mom = m.group(1)
+    except Exception:
+        pass
+    return mom, other
+
+
+_BLIND: Optional[dict] = None
+
+
+def _danger_blind() -> dict:
+    """Which danger tripwires the layer can actually COUNT (audit
+    2026-10-15, the upload review's XR-060). `danger.evaluate_stock` counts a
+    fire only when the tripwire returns the Python object True; a tripwire
+    that returns a NumPy bool can never be counted, whatever the market does.
+    Measured here by running each OHLCV tripwire once on a fixed synthetic
+    history and reading the TYPE of what it returns — so the line on the
+    page disappears by itself the day the one-line fix lands. Cached per
+    process (the functions do not change while it runs)."""
+    global _BLIND
+    if _BLIND is not None:
+        return _BLIND
+    out = {"blind": [], "countable": [], "unknown": []}
+    try:
+        import numpy as np
+        import pandas as pd
+        from trading import danger
+        n = 320
+        i = np.arange(n, dtype=float)
+        c = 100.0 * np.exp(0.0004 * i + 0.02 * np.sin(i / 7.0))
+        df = pd.DataFrame({"Open": c * 0.998, "High": c * 1.01, "Low": c * 0.99,
+                           "Close": c, "Volume": 2e5 + 5e4 * np.cos(i / 5.0)},
+                          index=pd.bdate_range(end="2026-10-14", periods=n))
+        x = danger._Ctx(df)
+        for tid, fn in sorted(danger._FNS.items()):
+            try:
+                r = fn(x)
+            except Exception:
+                r = None
+            if isinstance(r, np.bool_):
+                out["blind"].append(tid)
+            elif isinstance(r, bool):
+                out["countable"].append(tid)
+            else:
+                out["unknown"].append(tid)
+    except Exception:
+        log.exception("den: danger blind check failed")
+    _BLIND = out
+    return out
+
+
 def _literal(src: str, pattern: str) -> Optional[float]:
     """Read one numeric literal out of a function's source — for rules
     written inline (engines/ocean.py evaluate) rather than as constants.
@@ -281,6 +349,7 @@ def _category_rows(cfg) -> list[dict]:
     from trading.scoring import COMPOSITE_MODES
     po = getattr(cfg, "preset_overrides", None) or {}
     mk_modes = tuple(getattr(cfg, "measured_kelly_modes", ()) or ())
+    hist_mom, hist_other = _scan_history()
     rows = []
     for m in _MODE_ORDER:
         pr = PRESETS.get(m)
@@ -300,7 +369,8 @@ def _category_rows(cfg) -> list[dict]:
             "scorer": ("6m+12m momentum blended with quality"
                        if m not in COMPOSITE_MODES else
                        "AM07 composite on this category's own weights"),
-            "bar": pr.bar_interval, "history": pr.history_period,
+            "bar": "daily",
+            "history": hist_mom if m == "nifty200_momentum" else hist_other,
             "stop_pct": _pct(over.get("stop_loss_pct", pr.stop_loss_pct)),
             "atr_stop": (m in T.ATR_STOP_MODES
                          and bool(getattr(cfg, "atr_stop_enabled", True))),
@@ -433,7 +503,9 @@ def _ocean_block(cfg) -> dict:
                       "the prior bar's high — buy the turn, never the fall"),
              "source": "engines/ocean.py crash_guard_stock"},
             {"id": "R4", "name": "Danger veto",
-             "rule": "any of the calibration-VERIFIED danger tripwires firing on the name blocks it",
+             "rule": ("a danger tripwire the layer can count firing on the name's own "
+                      "price history blocks it (the two panel-fed tripwires do not run "
+                      "here; see §4 for which ones the layer can count today)"),
              "source": "engines/ocean.py crash_guard_stock · trading/danger.py"},
         ],
         "exempt": ["breadth band (a dip engine exists for fallen markets)",
@@ -447,7 +519,10 @@ def _risk_block(cfg) -> dict:
     from trading import danger, risk_v2
     stop = abs(float(getattr(cfg, "stop_loss_pct", 0.0)))
     leash = max(abs(float(danger.TIGHTEN_PCT)), stop)
+    blind = _danger_blind()
     return {
+        "danger_blind": blind["blind"], "danger_countable": blind["countable"],
+        "danger_panel_fed": list(danger.PANEL_FED),
         "kill_switch_pct": _pct(getattr(cfg, "daily_loss_halt_pct", 0.0)),
         "ladder": [{"threshold_pct": _pct(t), "level": n, "mult": mult,
                     "action": a} for t, n, mult, a in risk_v2.DRAWDOWN_LEVELS],
@@ -631,6 +706,8 @@ def _triggers(p) -> dict:
         pass
     return {
         "tripwires": tripwires, "n_tripwires": len(tripwires),
+        "blind": _danger_blind()["blind"],
+        "countable": _danger_blind()["countable"],
         "alert_days": danger.ALERT_DAYS, "tighten_pct": _pct(danger.TIGHTEN_PCT),
         "auto_mode": auto,
         "alerts_start": getattr(p, "danger_alerts_start", None),

@@ -38,7 +38,8 @@ def momentum_score(close: pd.Series) -> Optional[float]:
     expressed in the 0-100 score scale used by the existing engine.
 
     Requires at least 252 daily bars (~1 year). Returns None for shorter
-    series — they fall to the bottom of the rank automatically.
+    series, and the scan then leaves that name out entirely (it is not
+    scored or bought).
     """
     if close is None or len(close.dropna()) < 252:
         return None

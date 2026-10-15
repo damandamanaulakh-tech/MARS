@@ -24,7 +24,7 @@
 
   <div class="bg-white border border-line">
     <div class="px-4 py-3 border-b border-line text-xs text-ink-soft space-y-1">
-      <div><strong>What it is.</strong> Part A lists the {{ fml.n_editable }} numbers the chain treats as ASSUMED, each with its default and its source. Type a replacement and save: §12 re-runs every name with your numbers and marks the rows DRAFT. Blank = default. A bad value refuses the whole form and stores nothing. Part B prints the formulas themselves — the {{ fml.terms | length }} finance terms, the {{ fml.routes | length }} sector routes, the {{ fml.chain_cells | length }} cells of your Tata Tech scenario chain (column E, with the sheet's Excel formula beside each), the range rule per family and the verdict rule.</div>
+      <div><strong>What it is.</strong> Part A lists the {{ fml.n_editable }} numbers the chain treats as ASSUMED, each with its default and its source. Type a replacement and save: §12 re-runs every name with your numbers and marks the rows DRAFT. Blank = default. A bad value refuses the whole form and stores nothing. Part B prints the formulas themselves — the {{ fml.terms | length }} finance terms, the {{ fml.routes | length }} sector routes, the {{ fml.chain_cells | length }} computed cells of your Tata Tech scenario chain ({{ fml.chain_cols }}, with the sheet's Excel formula beside each), the range rule per family and the verdict rule.</div>
       <div class="text-amber-800"><strong>Boundary.</strong> A draft is a what-if for the valuation display. It is not a Setting, it never touches the live Config, and no gate, stop or size reads it (test-pinned). {% if fml.n_edited %}<strong>{{ fml.n_edited }} number(s) are currently drafted</strong> — §12 is reading them.{% else %}No draft stored — §12 reads the defaults.{% endif %}</div>
     </div>
 
@@ -84,7 +84,7 @@
     </div>
 
     <div class="p-4 border-b border-line overflow-x-auto"><!-- den_formulas_chain_marker -->
-      <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">B3 · Your Tata Tech scenario chain (stages 15-16) — {{ fml.chain_cells | length }} cells of column E, the sheet's own Excel formula beside each</div>
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">B3 · Your Tata Tech scenario chain (stages 15-16) — {{ fml.chain_cells | length }} computed cells ({{ fml.chain_cols }}), the sheet's own Excel formula beside each</div>
       <table class="w-full text-xs">
         <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line"><tr><th class="text-left py-1 pr-3">Cell</th><th class="text-left py-1 pr-3">Line</th><th class="text-left py-1">Formula (sheet)</th></tr></thead>
         <tbody>
@@ -93,7 +93,7 @@
           {% endfor %}
         </tbody>
       </table>
-      <div class="mt-2 text-xs text-ink-faint">Cases: downside / base / upside = the same chain with the case deltas (Part A) added to revenue growth, EBITDA margin and the P/E bridge total. Section H (E120-E134) is your ADDITIVE what-if: the nine impacts are summed into one P/E change; E134 has no floor, so a total below −100% prints a negative multiple (flagged in the 2026-10-14 upload review).</div>
+      <div class="mt-2 text-xs text-ink-faint">Cases: downside / base / upside = the same chain with the case deltas (Part A) added to revenue growth, EBITDA margin and the P/E bridge total. Section H (E120-E134) is your ADDITIVE what-if: the twelve factor cells E120-E131 are summed into one P/E change; E134 has no floor, so a total below −100% prints a negative multiple (flagged in the 2026-10-14 upload review).</div>
     </div>
 
     <div class="p-4 text-xs text-ink-soft space-y-1"><!-- den_formulas_rules_marker -->

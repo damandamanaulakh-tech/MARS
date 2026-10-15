@@ -82,7 +82,7 @@ def _build() -> List[dict]:
              SC.ASSUMED["long_run_growth_pct"]["source"], lo=-10.0, hi=30.0),
     ]
     for k, lab, lo, hi in (
-            ("attractive_margin_pct", "ATTRACTIVE when base is at least this % above price", 0.0, 90.0),
+            ("attractive_margin_pct", "ATTRACTIVE when price is at least this % below base", 0.0, 90.0),
             ("watch_band_pct", "WATCH when price is within ± this % of base", 0.0, 90.0),
             ("unattractive_premium_pct", "UNATTRACTIVE when price is above base by more than this %", 0.0, 500.0),
             ("max_range_width_pct", "INSUFFICIENT when (high − low) / base is above this %", 1.0, 1000.0),
