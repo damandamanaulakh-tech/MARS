@@ -9,7 +9,7 @@
 <section id="chain" class="scroll-mt-20"><!-- den_chain_marker -->
   <div class="flex flex-wrap items-end justify-between gap-2 mb-3">
     <h2 class="font-black text-2xl tracking-tight">12 · Valuation chain — snapshot → route → shares → normalised earnings → scenarios → range → verdict</h2>
-    <div class="text-xs text-ink-faint">stages 07-18 · computed on this render from the committed statements · display only, no gate reads this</div>
+    <div class="text-xs text-ink-faint">stages 07-18 · computed from the committed statements, each row kept {{ chain.row_ttl_min }} min · display only, no gate reads this</div>
   </div>
 
   <div class="bg-white border border-line">
@@ -17,6 +17,9 @@
       <div><strong>What it does.</strong> For each name below: locks the latest audited year (period end, publication date, currency — the US-dollar trap for ADR names is converted at the period-end rate and labelled, never silently), picks the valuation route from the sector-method table (unmapped names read UNDECLARED, never forced), reconciles the share count, strips one-offs from reported profit (checked against the audited normalised line), scores earnings quality, runs your Tata Tech scenario model as three cases (downside / base / upside) and prints the justified range per route, then the verdict: attractive · watch · unattractive · insufficient. <strong>Not a trade permission</strong> — the engine still buys on the momentum score.</div>
       <div><strong>Coverage.</strong> Statements exist for the {{ chain.n_statements }} Nifty-200 names fetched 2026-08-09 (+ the monthly refresh); any other name reads DATA_NEEDED until the batch fetch you have not yet approved runs. Peer multiples are derived: the median of the same route among those names (ASSUMED until you give peer groups). Macro rows of the P/E bridge we do not store (repo, CPI, GDP, Brent) count 0 and are listed as DATA_NEEDED on each row.</div>
       {% if chain.drafted %}<div class="text-amber-800 font-semibold"><!-- den_chain_draft_marker -->DRAFT ASSUMPTIONS IN USE — {{ chain.n_edited }} number(s) differ from the defaults ({{ chain.drafted_keys | join(', ') }}); every row below is computed with them. Defaults, sources and the edit form: <a href="#formulas" class="underline">§13</a>.</div>{% endif %}
+      {% if chain.skipped_busy %}<div class="text-amber-800 font-semibold"><!-- den_chain_busy_marker -->{{ chain.skipped_busy }} row(s) NOT computed on this open — {{ chain.busy }}. Computing them now could push the app past its 512 MiB limit, which is what took the Den down before. Open the Den again after the scan; rows already computed today still show.</div>{% endif %}
+      {% if chain.skipped_budget %}<div class="text-amber-800 font-semibold"><!-- den_chain_budget_marker -->{{ chain.skipped_budget }} row(s) NOT computed on this open — the {{ '%.0f' % chain.budget_s }} s time budget was spent on the {{ chain.computed }} row(s) above. Open the Den again to fill the rest: every computed row is kept {{ chain.row_ttl_min }} min.</div>{% endif %}
+      {% if chain.computed or chain.cached %}<div class="text-ink-faint"><!-- den_chain_cost_marker -->This open: {{ chain.computed }} row(s) computed in {{ chain.elapsed_s }} s, {{ chain.cached }} kept from an earlier open.</div>{% endif %}
       <div class="text-amber-800"><strong>ASSUMED, not measured:</strong> publication date = period end + {{ chain.assumed.publication_lag_days }} days · case deltas ±{{ chain.assumed.case_growth_pp }}pp growth, ±{{ chain.assumed.case_margin_pp }}pp margin, ±{{ chain.assumed.case_pe_pct }}% multiple · the sheet's 29 sensitivities (owner sheet 2026-10-09) · verdict bands ({{ chain.assumed.attractive_discount_pct }}% below base = attractive). Every one of these is editable in <a href="#formulas" class="underline">§13</a>. Nothing here has been tested against forward returns — that is the pre-registered Phase-4 test, not yet run.</div>
     </div>
 
@@ -62,7 +65,9 @@
               {% endif %}
             </td>
             <td class="px-2 py-2 min-w-[11rem]">
-              {% if r.route.status == 'declared' %}
+              {% if r.not_computed %}
+              <div class="text-amber-700 font-semibold"><!-- den_chain_not_computed_marker -->NOT COMPUTED — {{ r.route.rule | replace('not computed — ', '') }}</div>
+              {% elif r.route.status == 'declared' %}
               <div class="font-semibold">{{ r.route.sector }}</div>
               <div class="text-ink-faint">{{ r.route.basis }}</div>
               <div class="text-ink-faint">per share: {{ r.route.per_share_metric }} · via {{ r.route.label_source }}</div>

@@ -20,6 +20,27 @@ os.environ.setdefault("SB_LOGIN_DELAY_SEC", "0")
 os.environ.setdefault("SB_IGNORE_MARKET_HOURS", "1")
 os.environ.setdefault("SB_CHAIN_PACE_S", "0")      # no sleeps between chain names in tests
 os.environ.setdefault("SB_SKIP_UPSTOX_PREFLIGHT", "1")  # tests never GET Upstox's dialog
+# Den §12 guards (2026-10-15): the memory ceiling reads THIS process's
+# resident memory — a full test run sits far above the live box's 380 MiB,
+# so every §12 row would read "not computed"; and the 20 s time budget
+# would make a slow CI box skip rows. Both off under tests, ON in
+# production; test_den_chain_cost_2026_10_15.py sets them explicitly and
+# pins the production defaults and that neither variable is in render.yaml.
+os.environ.setdefault("SB_DEN_CHAIN_RSS_CEILING_MB", "0")
+os.environ.setdefault("SB_DEN_CHAIN_BUDGET_S", "0")
+
+
+@pytest.fixture(autouse=True)
+def _fresh_den_chain_rows():
+    """§12 keeps computed rows for 30 min per process — one test's row must
+    never be served to the next (fixtures differ, the ticker may not)."""
+    try:
+        from web import valuation_chain_view as cv, valuation_view as vv
+        cv.clear_row_cache()
+        vv.clear_series_cache()
+    except Exception:                                   # noqa: BLE001
+        pass
+    yield
 
 
 @pytest.fixture(autouse=True)

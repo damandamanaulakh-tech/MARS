@@ -598,12 +598,22 @@ def _terms_rows(snap: dict, price: Optional[float], market: dict) -> List[dict]:
 
 # ------------------------------------------------------------------ peers
 
-def peer_table(price_of: Callable[[str], Optional[float]], sector_map: dict,
-               company_names: Optional[dict] = None) -> Dict[str, List[dict]]:
-    """{method: [{ticker, pe, ev_ebitda, pb, ev_sales}]} over every name in
-    the statements zip — the ASSUMED peer definition. One snapshot per
-    name; ADR names convert through their price."""
-    out: Dict[str, List[dict]] = {}
+#: The fundamentals each peer row needs, stored by `peer_base` so the
+#: multiples can be re-priced without re-opening 200 statements.
+PEER_BASE_FIELDS = ("basic_eps", "shares_outstanding", "ebitda", "revenue",
+                    "total_debt", "cash", "equity")
+
+
+def peer_base(price_of: Callable[[str], Optional[float]], sector_map: dict,
+              company_names: Optional[dict] = None) -> List[dict]:
+    """The PRICE-FREE half of the peer table: one row per statement name
+    {ticker, method, basic_eps, shares_outstanding, ebitda, revenue,
+    total_debt, cash, equity}. The price is passed to the snapshot only for
+    the ADR currency check (a USD-filed name converts at the period-end
+    USDINR, not at the price), so the stored figures stay valid while the
+    statements do. Den fix 2026-10-15: this is the slow part (200 statement
+    reads, ~9 s) and it is now built rarely and stored."""
+    out: List[dict] = []
     names = company_names or {}
     for sym in statement_symbols():
         t = f"{sym}.NS"
@@ -614,24 +624,54 @@ def peer_table(price_of: Callable[[str], Optional[float]], sector_map: dict,
             method = rt.get("method")
             if not method or snap.get("source") == "none":
                 continue
-            eps, sh = _f(snap, "basic_eps"), _f(snap, "shares_outstanding")
-            ebitda, rev = _f(snap, "ebitda"), _f(snap, "revenue")
-            debt, cash, eq = _f(snap, "total_debt"), _f(snap, "cash"), _f(snap, "equity")
-            row = {"ticker": t, "pe": None, "ev_ebitda": None, "pb": None, "ev_sales": None}
-            if px and eps and eps > 0:
-                row["pe"] = px / eps
-            if px and sh and eq and eq > 0:
-                row["pb"] = px / (eq / sh)
-            if px and sh and debt is not None and cash is not None:
-                ev = px * sh + debt - cash
-                if ebitda and ebitda > 0:
-                    row["ev_ebitda"] = ev / ebitda
-                if rev and rev > 0:
-                    row["ev_sales"] = ev / rev
-            out.setdefault(method, []).append(row)
+            row = {"ticker": t, "method": method}
+            for k in PEER_BASE_FIELDS:
+                row[k] = _f(snap, k)
+            out.append(row)
         except Exception as e:                            # noqa: BLE001
             log.warning("valuation chain: peer row failed for %s: %s", sym, e)
     return out
+
+
+def peer_rows_from_base(base: List[dict], price_of: Callable[[str], Optional[float]]
+                        ) -> Dict[str, List[dict]]:
+    """{method: [{ticker, pe, ev_ebitda, pb, ev_sales}]} — the base rows
+    priced at `price_of(ticker)`. Pure arithmetic, no file or network."""
+    out: Dict[str, List[dict]] = {}
+    for b in base or []:
+        t = b.get("ticker")
+        method = b.get("method")
+        if not t or not method:
+            continue
+        try:
+            px = price_of(t)
+        except Exception:                                 # noqa: BLE001
+            px = None
+        eps, sh = num(b.get("basic_eps")), num(b.get("shares_outstanding"))
+        ebitda, rev = num(b.get("ebitda")), num(b.get("revenue"))
+        debt, cash, eq = num(b.get("total_debt")), num(b.get("cash")), num(b.get("equity"))
+        row = {"ticker": t, "pe": None, "ev_ebitda": None, "pb": None, "ev_sales": None}
+        if px and eps and eps > 0:
+            row["pe"] = px / eps
+        if px and sh and eq and eq > 0:
+            row["pb"] = px / (eq / sh)
+        if px and sh and debt is not None and cash is not None:
+            ev = px * sh + debt - cash
+            if ebitda and ebitda > 0:
+                row["ev_ebitda"] = ev / ebitda
+            if rev and rev > 0:
+                row["ev_sales"] = ev / rev
+        out.setdefault(method, []).append(row)
+    return out
+
+
+def peer_table(price_of: Callable[[str], Optional[float]], sector_map: dict,
+               company_names: Optional[dict] = None) -> Dict[str, List[dict]]:
+    """{method: [{ticker, pe, ev_ebitda, pb, ev_sales}]} over every name in
+    the statements zip — the ASSUMED peer definition. One snapshot per
+    name; ADR names convert through their price. = peer_base priced by
+    peer_rows_from_base (one definition, two steps)."""
+    return peer_rows_from_base(peer_base(price_of, sector_map, company_names), price_of)
 
 
 # --------------------------------------------------------------- evaluate

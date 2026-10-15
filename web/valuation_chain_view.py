@@ -4,21 +4,35 @@
 trading/valuation/* holds the arithmetic (pure). This module gathers every
 input from STORED state only — no network on a page render:
 
-  * closes: web.candle_chart.load_ohlcv (Mongo store, repo zip) — today's
-    price, the price at each FY end (own P/E history), the price at the
-    snapshot's period end;
+  * closes: the Mongo store's last PRICE_TAIL rows in one $slice query
+    (db.history_docs), else web.candle_chart.load_ohlcv (repo zip) —
+    today's price, the price at each FY end (own P/E history), the price
+    at the snapshot's period end;
   * index levels: the committed index file + the stored tail
     (web.valuation_view._index_field) for the Sensex / Nifty legs of the
     owner's P/E bridge;
   * peers: the median trailing P/E of the SAME ROUTE among the Nifty-200
-    names with statements — ASSUMED until the owner gives peer groups;
-    computed once per process per day (200 zip reads);
+    names with statements — ASSUMED until the owner gives peer groups.
+    The price-free half (200 statement reads, ~9 s) is built at most once
+    every PEER_BASE_MAX_AGE_DAYS and STORED in settings doc
+    `valuation_peers`, so a fresh process after a sleep reads it back
+    instead of rebuilding; today's multiples = that base x the last stored
+    close of every name, fetched in ONE query (db.history_tails(1));
   * which names to show: the typed one, the §11 stored targets, held names.
 
 Macro rows of the P/E bridge the app does not store (repo, CPI, GDP,
 Brent) are passed as 0 and listed as DATA_NEEDED on the row — the sheet
 treats them as what-if inputs, so a missing one must not blank the price.
 Nothing here is read by the money path.
+
+DEN FIX 2026-10-15 (owner: "Mars den always go down nt opening"): this
+section used to load ~200 twelve-year price documents (the peer table) and
+re-read three committed files per row on EVERY open — on the 512 MB box,
+on top of a scan, that is what took the app down. Now: the peer base is
+stored, prices come from one query, the file loaders cache per process,
+computed rows are kept ROW_TTL_S, a TIME BUDGET stops new rows once spent,
+and NO new row is computed while a scan rotation runs or the process is
+above RSS_CEILING_MB — those rows print the reason instead.
 """
 from __future__ import annotations
 
@@ -49,19 +63,54 @@ KEY_TERMS = ("P/E (trailing, forward)", "P/B", "EV/EBITDA", "ROE", "ROCE",
              "Interest coverage", "Dividend yield / payout", "Graham number",
              "Revenue growth")
 
-_PEER_CACHE: dict = {"day": None, "by_method": {}}
+_PEER_CACHE: dict = {"day": None, "by_method": {}, "base": None,
+                     "built": None, "sig": None, "source": ""}
+
+#: Settings doc that holds the price-free peer base (see the module note).
+PEERS_DOC_ID = "valuation_peers"
+#: ASSUMED: statements change quarterly; a week-old base is current enough.
+PEER_BASE_MAX_AGE_DAYS = 7
+#: Bump when the stored base's row shape changes, so an old doc is rebuilt.
+PEER_BASE_VERSION = 1
+
+#: Computed §12 rows kept this long per process (re-open = instant).
+ROW_TTL_S = 1800.0
+ROW_CACHE_MAX = 80
+_ROW_CACHE: dict = {}
+#: Den fix 2026-10-15 defaults; both read from the environment at call
+#: time (SB_DEN_CHAIN_BUDGET_S, SB_DEN_CHAIN_RSS_CEILING_MB; <= 0 = off).
+DEFAULT_TIME_BUDGET_S = 20.0
+#: ASSUMED from the measured box: idle after a scan 330-370 MiB, a scan
+#: rotation 400-495, the 09:20 trigger layer 500-525 = the OOM kills.
+DEFAULT_RSS_CEILING_MB = 380.0
 
 
 # ------------------------------------------------------------- inputs
 
-def _closes(ticker: str) -> Optional[pd.Series]:
-    from .candle_chart import load_ohlcv
-    df = load_ohlcv(ticker, tail=PRICE_TAIL)
+def _close_series(df) -> Optional[pd.Series]:
     if df is None or df.empty or "Close" not in df.columns:
         return None
-    s = df["Close"].dropna()
+    s = df["Close"].dropna().astype(float)
     s.index = pd.to_datetime(s.index)
     return s if len(s) else None
+
+
+def _closes(ticker: str) -> Optional[pd.Series]:
+    """The last PRICE_TAIL closes: one $slice query on the store (the old
+    path loaded the whole twelve-year document and dropped most of it),
+    else the chart loader's repo-zip fallback."""
+    from . import db
+    try:
+        if db.is_connected():
+            from trading.history_store import records_to_df
+            doc = (db.history_docs([ticker], rows=PRICE_TAIL) or {}).get(ticker)
+            s = _close_series(records_to_df(doc)) if doc else None
+            if s is not None:
+                return s
+    except Exception:                                   # noqa: BLE001
+        log.warning("valuation chain: store read failed for %s", ticker)
+    from .candle_chart import load_ohlcv
+    return _close_series(load_ohlcv(ticker, tail=PRICE_TAIL))
 
 
 def price_now(closes: Optional[pd.Series]) -> tuple[Optional[float], str]:
@@ -195,20 +244,109 @@ def parse_assumptions_form(form) -> tuple[dict, list]:
 
 # --------------------------------------------------------------- peers
 
+def _store_closes() -> dict:
+    """{ticker: last stored close} for EVERY stored name in one query
+    (db.history_tails(1) — the server trims each document to its last
+    candle). {} when Mongo is down; the caller then reads names one by one
+    from the repo zip, as before."""
+    from . import db
+    out: dict = {}
+    try:
+        for doc in db.history_tails(1) or ():
+            t = doc.get("ticker") or doc.get("_id")
+            c = doc.get("candles") or []
+            if t and c:
+                try:
+                    out[str(t)] = float(c[-1][4])
+                except (TypeError, ValueError, IndexError):
+                    continue
+    except Exception:                                   # noqa: BLE001
+        log.warning("valuation chain: store closes unreadable")
+    return out
+
+
+def _price_lookup(prices: dict):
+    def _of(t: str) -> Optional[float]:
+        if prices:
+            return prices.get(t)
+        return price_now(_closes(t))[0]
+    return _of
+
+
+def _peer_sig(sector_map: dict) -> str:
+    """Short hash of the sector labels of the statement names — the route
+    reads them, so a changed label rebuilds the stored base."""
+    import hashlib
+    import json
+    from trading.valuation import pipeline
+    try:
+        names = [f"{s}.NS" for s in pipeline.statement_symbols()]
+    except Exception:                                   # noqa: BLE001
+        names = []
+    part = {t: sector_map.get(t) for t in names}
+    return hashlib.sha1(json.dumps(part, sort_keys=True, default=str)
+                        .encode()).hexdigest()[:12]
+
+
+def _base_fresh(built: Any) -> bool:
+    try:
+        age = (date.today() - date.fromisoformat(str(built)[:10])).days
+    except (TypeError, ValueError):
+        return False
+    return 0 <= age < PEER_BASE_MAX_AGE_DAYS
+
+
+def peer_base(prices: Optional[dict] = None) -> tuple[list, str, str]:
+    """(base rows, built date, source) — in-process copy, else the stored
+    settings doc, else built now from the statements and stored."""
+    from datetime import datetime
+    from trading.valuation import pipeline
+    from . import db
+    smap = _sector_map()
+    sig = _peer_sig(smap)
+    if (_PEER_CACHE.get("base") is not None and _PEER_CACHE.get("sig") == sig
+            and _base_fresh(_PEER_CACHE.get("built"))):
+        return _PEER_CACHE["base"], _PEER_CACHE["built"], _PEER_CACHE.get("source") or "process"
+    try:
+        doc = db.load_settings(doc_id=PEERS_DOC_ID) or {}
+    except Exception:                                   # noqa: BLE001
+        doc = {}
+    if (doc.get("base") and doc.get("sig") == sig and _base_fresh(doc.get("built"))
+            and doc.get("version") == PEER_BASE_VERSION):
+        _PEER_CACHE.update({"base": list(doc["base"]), "built": str(doc["built"])[:10],
+                            "sig": sig, "source": "stored"})
+        return _PEER_CACHE["base"], _PEER_CACHE["built"], "stored"
+    if prices is None:
+        prices = _store_closes()
+    base = pipeline.peer_base(price_of=_price_lookup(prices), sector_map=smap,
+                              company_names=_company_names())
+    built = date.today().isoformat()
+    _PEER_CACHE.update({"base": base, "built": built, "sig": sig, "source": "built"})
+    try:
+        db.save_settings({"base": base, "built": built, "sig": sig, "n": len(base),
+                          "version": PEER_BASE_VERSION,
+                          "ts": datetime.utcnow().isoformat()}, doc_id=PEERS_DOC_ID)
+    except Exception:                                   # noqa: BLE001
+        log.exception("valuation chain: peer base save failed (in-process copy kept)")
+    return base, built, "built"
+
+
 def peer_multiples(method: str, exclude: str = "") -> dict:
     """Median trailing multiples (P/E, P/B, EV/EBITDA, EV/Sales) of the
     names on the same route among the Nifty-200 statement set. ASSUMED
-    peer definition — the owner has not supplied peer groups. One pass per
-    process per day; every name's price from the store."""
+    peer definition — the owner has not supplied peer groups. Priced once
+    per process per day from ONE store query; the price-free base comes
+    from peer_base (stored, rebuilt weekly)."""
     from trading.valuation import pipeline
     today = date.today().isoformat()
     if _PEER_CACHE["day"] != today:
         _PEER_CACHE["day"] = today
         _PEER_CACHE["by_method"] = {}
         try:
-            _PEER_CACHE["by_method"] = pipeline.peer_table(
-                price_of=lambda t: price_now(_closes(t))[0],
-                sector_map=_sector_map(), company_names=_company_names())
+            prices = _store_closes()
+            base, _built, _src = peer_base(prices)
+            _PEER_CACHE["by_method"] = pipeline.peer_rows_from_base(
+                base, _price_lookup(prices))
         except Exception:                               # noqa: BLE001
             log.exception("valuation chain: peer table failed")
     rows = [r for r in (_PEER_CACHE["by_method"].get(method) or [])
@@ -218,9 +356,11 @@ def peer_multiples(method: str, exclude: str = "") -> dict:
         xs = [r[key] for r in rows if V.num(r.get(key)) and r[key] > 0]
         return statistics.median(xs) if xs else None
 
+    built = _PEER_CACHE.get("built")
     return {"n": len(rows), "pe_median": _med("pe"), "pb_median": _med("pb"),
             "ev_ebitda_median": _med("ev_ebitda"), "ev_sales_median": _med("ev_sales"),
-            "source": f"median of {len(rows)} same-route Nifty-200 names (ASSUMED peers)"}
+            "source": (f"median of {len(rows)} same-route Nifty-200 names (ASSUMED peers"
+                       + (f"; statements base built {built}" if built else "") + ")")}
 
 
 def _sector_map() -> dict:
@@ -292,10 +432,34 @@ def _macro_inputs(snap: dict, closes: Optional[pd.Series] = None) -> dict:
     return out
 
 
+def _prefetch_closes(tickers: list) -> dict:
+    """{ticker: close series} for the rows about to be computed, in ONE
+    store query ($in + $slice). Names the store lacks are absent; row_for
+    then falls back to _closes (repo zip)."""
+    from . import db
+    out: dict = {}
+    if not tickers:
+        return out
+    try:
+        if not db.is_connected():
+            return out
+        from trading.history_store import records_to_df
+        docs = db.history_docs(list(tickers), rows=PRICE_TAIL) or {}
+        for t, doc in docs.items():
+            s = _close_series(records_to_df(doc))
+            if s is not None:
+                out[t] = s
+    except Exception:                                   # noqa: BLE001
+        log.warning("valuation chain: batched store read failed")
+    return out
+
+
 def row_for(ticker: str, cfg, p, *, show_terms: bool = False,
-            overrides: Optional[dict] = None) -> dict:
+            overrides: Optional[dict] = None,
+            closes: Optional[pd.Series] = None) -> dict:
     from trading.valuation import pipeline
-    closes = _closes(ticker)
+    if closes is None:
+        closes = _closes(ticker)
     px, px_date = price_now(closes)
     rec = pipeline.evaluate(
         ticker, price=px, price_date=px_date,
@@ -313,6 +477,86 @@ def row_for(ticker: str, cfg, p, *, show_terms: bool = False,
     return rec
 
 
+def time_budget_s() -> float:
+    """§12's time budget per render, seconds (env SB_DEN_CHAIN_BUDGET_S;
+    <= 0 = no budget)."""
+    import os
+    try:
+        return float(os.environ.get("SB_DEN_CHAIN_BUDGET_S", DEFAULT_TIME_BUDGET_S))
+    except ValueError:
+        return DEFAULT_TIME_BUDGET_S
+
+
+def rss_ceiling_mb() -> float:
+    """Above this resident memory §12 computes no new row (env
+    SB_DEN_CHAIN_RSS_CEILING_MB; <= 0 = no ceiling)."""
+    import os
+    try:
+        return float(os.environ.get("SB_DEN_CHAIN_RSS_CEILING_MB", DEFAULT_RSS_CEILING_MB))
+    except ValueError:
+        return DEFAULT_RSS_CEILING_MB
+
+
+def busy_reason() -> str:
+    """Why §12 must not compute right now ("" = free to compute). A scan
+    rotation holds the scheduler's rotation lock; the 09:20 trigger layer
+    runs after it is released, so the memory reading covers that one."""
+    try:
+        from . import scheduler
+        lock = getattr(scheduler, "_ROTATION_LOCK", None)
+        if lock is not None and lock.locked():
+            return "a scan rotation is running on the box"
+    except Exception:                                   # noqa: BLE001
+        pass
+    ceiling = rss_ceiling_mb()
+    if ceiling > 0:
+        try:
+            from .memory_relief import rss_mb
+            r = rss_mb()
+        except Exception:                               # noqa: BLE001
+            r = None
+        if r is not None and r >= ceiling:
+            return (f"the app is using {r:.0f} MiB of its 512 MiB "
+                    f"(§12 computes below {ceiling:.0f})")
+    return ""
+
+
+def _row_key(ticker: str, overrides: Optional[dict], show_terms: bool) -> tuple:
+    import json
+    return (ticker, date.today().isoformat(),
+            json.dumps(overrides or {}, sort_keys=True, default=str), bool(show_terms))
+
+
+def _row_cache_get(key: tuple) -> Optional[dict]:
+    import time as _time
+    hit = _ROW_CACHE.get(key)
+    if hit is None or _time.monotonic() - hit[0] >= ROW_TTL_S:
+        _ROW_CACHE.pop(key, None)
+        return None
+    return hit[1]
+
+
+def _row_cache_put(key: tuple, rec: dict) -> None:
+    import time as _time
+    if len(_ROW_CACHE) >= ROW_CACHE_MAX:
+        oldest = min(_ROW_CACHE, key=lambda k: _ROW_CACHE[k][0])
+        _ROW_CACHE.pop(oldest, None)
+    _ROW_CACHE[key] = (_time.monotonic(), rec)
+
+
+def clear_row_cache() -> None:
+    _ROW_CACHE.clear()
+
+
+def not_computed_record(ticker: str, why: str) -> dict:
+    """failed_record's shape, flagged `not_computed` — a row §12 chose not
+    to compute on this render (time budget or a busy box), never a crash."""
+    from trading.valuation import pipeline
+    rec = pipeline.failed_record(ticker, why)
+    rec["not_computed"] = True
+    return rec
+
+
 def empty_section(error: str = "", typed: str = "") -> dict:
     from trading.valuation import pipeline
     return {"rows": [], "n": 0, "max_rows": MAX_ROWS, "typed": typed,
@@ -321,10 +565,14 @@ def empty_section(error: str = "", typed: str = "") -> dict:
             "n_statements": pipeline.statement_coverage(),
             "assumed": pipeline.assumed_for_page(),
             "today": date.today().isoformat(),
-            "drafted": False, "n_edited": 0, "drafted_keys": []}
+            "drafted": False, "n_edited": 0, "drafted_keys": [],
+            "budget_s": time_budget_s(), "elapsed_s": 0.0,
+            "computed": 0, "cached": 0, "skipped_budget": 0,
+            "skipped_busy": 0, "busy": "", "row_ttl_min": int(ROW_TTL_S // 60)}
 
 
 def section(cfg, p, typed: str = "", show_terms: bool = False) -> dict:
+    import time as _time
     out = empty_section("", typed)
     typed_full = ""
     if typed:
@@ -336,16 +584,55 @@ def section(cfg, p, typed: str = "", show_terms: bool = False) -> dict:
     overrides = load_assumptions()
     out.update({"drafted": bool(overrides), "n_edited": len(overrides),
                 "drafted_keys": sorted(overrides)})
+    budget = time_budget_s()
+    busy = busy_reason()
+    t0 = _time.monotonic()
     rows = []
-    for t in names_to_show(p, typed_full):
+    computed = cached = skipped_budget = skipped_busy = 0
+    names = names_to_show(p, typed_full)
+    todo = [t for t in names
+            if _row_cache_get(_row_key(t, overrides, out["show_terms"] and t == typed_full)) is None]
+    pre = _prefetch_closes(todo) if (todo and not busy) else {}
+    for t in names:
+        terms = out["show_terms"] and t == typed_full
+        key = _row_key(t, overrides, terms)
+        hit = _row_cache_get(key)
+        if hit is not None:
+            rows.append(hit)
+            cached += 1
+            continue
+        if busy:
+            rows.append(not_computed_record(
+                t, f"not computed — {busy}; open the Den again once it finishes"))
+            skipped_busy += 1
+            continue
+        if budget > 0 and _time.monotonic() - t0 >= budget:
+            rows.append(not_computed_record(
+                t, f"not computed — the §12 time budget ({budget:.0f} s) was spent on "
+                   f"the rows above; open the Den again (computed rows are kept "
+                   f"{int(ROW_TTL_S // 60)} min) or type this name in the box"))
+            skipped_budget += 1
+            continue
         try:
-            rows.append(row_for(t, cfg, p, show_terms=(out["show_terms"] and t == typed_full),
-                                overrides=overrides or None))
+            rec = row_for(t, cfg, p, show_terms=terms, overrides=overrides or None,
+                          closes=pre.get(t))
+            _row_cache_put(key, rec)
+            computed += 1
+            rows.append(rec)
         except Exception as e:                          # noqa: BLE001
             log.exception("valuation chain: row failed for %s", t)
             from trading.valuation import pipeline
             rows.append(pipeline.failed_record(t, str(e)[:120]))
-    out.update({"rows": rows, "n": len(rows)})
+    if computed:
+        try:
+            from .memory_relief import release
+            release("den chain")
+        except Exception:                               # noqa: BLE001
+            pass
+    out.update({"rows": rows, "n": len(rows), "busy": busy,
+                "elapsed_s": round(_time.monotonic() - t0, 1),
+                "computed": computed, "cached": cached,
+                "skipped_budget": skipped_budget, "skipped_busy": skipped_busy})
     return out
 
 
