@@ -747,6 +747,34 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   box flat at 230 MiB since 16:54, the stalled block long dead) — DEN
   §13 IS LIVE after the deploy.** Thu 10-15 16:30 = the next weekly slot
   (ledger still 09-30 → due).
+- **THU 10-15 09:20 CHAIN — SIXTH MORNING OOM KILL, same shape, 31 min
+  after the rotation started** (keep-alive 09:12-11:15 IST,
+  keepalive_1015_am.log; the script stamps UTC, add 5:30). Asleep at
+  09:12 (52.6 s cold start, rss 149 / peak 148) — but the process booted
+  BEFORE 09:20, so its cron fired (the Tue pattern, unlike Wed's lost
+  slot). Boot catch-up 09:15 (peak 243); the missed 08:30 top-up ran
+  FIRST inside the 09:20 job (162-165 flat 09:20-09:29, a 282 spike at
+  09:31 = breadth/index/sector refresh, then 187-190 flat to 09:51);
+  **rotation 09:52 IST: 272 → 401 → 438 → 482 → 493 (peak 494) by
+  09:56**, held 482-493 to 10:09 (/healthz 1-2 s); **the trigger layer
+  on top from 10:10: 509 → 511 / peak 513, held 10:11-10:21 with
+  /healthz latency 4-7 s** (swapping); **`503` from Render's edge at
+  10:22:48 IST → fresh process 10:23 (rss 153 / peak 152) = OOM kill**.
+  The new process ran the 10:30 and 11:00 in-session exit passes (peak
+  202; 169-181 flat between), so stops and the danger layer were
+  unguarded only 10:22-10:30. Whether the rotation bought and what the
+  trigger layer stored before the kill = the journal (owner's login).
+  TALLY: six observed morning kills (10-05, 10-06, 10-07, 10-13, 10-14,
+  10-15), every one with the trigger layer loading on top of the
+  ~495 MiB five-pass rotation; the 14:30 chain (no trigger layer) has
+  never been killed. Lever (b) — trigger layer after a cool-down or on
+  tap — is the targeted one, still unordered. Wakes armed: 14:20
+  (trig_01LovBPtLqTeBBGPWNnW1fDz), 16:25 (trig_01EuUMx2Aa6SmHCqzP69Hngp;
+  the block is due today, ledger 09-30; re-arms Fri 09:10). HARNESS: the
+  sandbox container was replaced right at the wake (uptime 1 min at
+  09:12) and the 2-hour background waiter dies 2 min before an 11:15
+  loop end — start the loop first, then the waiter, or cap the loop at
+  1h55m.
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:
