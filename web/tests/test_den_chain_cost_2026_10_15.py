@@ -9,8 +9,13 @@ on top of a scan, that took the app down. Pins:
   * the index / bond series are read once per process (copies handed out);
   * the peer table's price-free base is STORED (settings doc
     valuation_peers) and read back on a fresh process instead of rebuilt;
-    a week-old base or a changed sector label rebuilds it; today's
-    multiples = that base priced from ONE store query;
+    a base from another day, a changed sector label, a version bump or a
+    change to the valuation code rebuilds it; today's multiples = that base
+    priced from ONE store query, names the store lacks filled from the repo
+    zip in one open (never name-by-name store reads); a base priced on
+    under 90% of the names is used but not stored;
+  * concurrent renders: one peer build, one computing render, a thread-
+    safe row cache; the busy reading is re-taken before every new row;
   * splitting the peer table changed no number;
   * §12 stops computing new rows once its time budget is spent and says so;
     rows it computed are kept and fill in over later opens;
@@ -156,7 +161,16 @@ def _tails():
             {"ticker": "BBB.NS", "candles": [["2026-10-14", 0, 0, 0, 300.0, 0]]}]
 
 
+def _two_names(monkeypatch):
+    """The statement set = the two fake names; the zip is never read."""
+    monkeypatch.setattr(P, "statement_symbols", lambda: ["AAA", "BBB"])
+    zips = []
+    monkeypatch.setattr(cv, "_zip_frames", lambda ts: zips.append(list(ts)) or {})
+    return zips
+
+
 def test_peers_come_from_the_stored_base_and_one_price_query(monkeypatch, fresh_peers):
+    zips = _two_names(monkeypatch)
     doc = {"base": _base_rows(), "built": date.today().isoformat(),
            "sig": cv._peer_sig(cv._sector_map()), "version": cv.PEER_BASE_VERSION}
     monkeypatch.setattr(db, "load_settings",
@@ -172,11 +186,13 @@ def test_peers_come_from_the_stored_base_and_one_price_query(monkeypatch, fresh_
     assert m["n"] == 2
     assert m["pe_median"] == pytest.approx((200 / 10 + 300 / 20) / 2)   # 20 and 15
     assert queries == [1]                                # ONE query, last candle only
+    assert zips == [[]]                                  # nothing missing → no zip read
     cv.peer_multiples("m1")
     assert queries == [1]                                # priced once per day
 
 
 def test_a_fresh_build_is_stored_and_not_repeated(monkeypatch, fresh_peers):
+    _two_names(monkeypatch)
     saved: dict = {}
     monkeypatch.setattr(db, "load_settings", lambda doc_id="default": {})
     monkeypatch.setattr(db, "save_settings",
@@ -196,7 +212,8 @@ def test_a_fresh_build_is_stored_and_not_repeated(monkeypatch, fresh_peers):
 
 
 @pytest.mark.parametrize("stale", ["old", "sig", "version"])
-def test_a_week_old_or_mismatched_base_is_rebuilt(monkeypatch, fresh_peers, stale):
+def test_a_stale_or_mismatched_base_is_rebuilt(monkeypatch, fresh_peers, stale):
+    _two_names(monkeypatch)
     doc = {"base": _base_rows(), "built": date.today().isoformat(),
            "sig": cv._peer_sig(cv._sector_map()), "version": cv.PEER_BASE_VERSION}
     if stale == "old":
@@ -359,3 +376,174 @@ def test_the_den_prints_the_budget_line(monkeypatch):
     html = _owner().get("/den").text
     assert "den_chain_budget_marker" in html and "den_chain_cost_marker" in html
     assert "1 row(s) NOT computed" in " ".join(html.split())
+
+
+# ------------------------------------------------ review fixes 2026-10-15
+
+def test_mongo_down_prices_come_from_one_zip_open_never_per_name(monkeypatch):
+    monkeypatch.setattr(P, "statement_symbols", lambda: ["TCS", "INFY"])
+    monkeypatch.setattr(db, "history_tails", lambda rows: [])
+
+    def no_store(*a, **k):
+        raise AssertionError("no per-name store read when the store answered nothing")
+
+    monkeypatch.setattr(db, "history_docs", no_store)
+    monkeypatch.setattr(db, "load_history_doc", no_store)
+    calls = []
+    real = cv._zip_frames
+    monkeypatch.setattr(cv, "_zip_frames", lambda ts: calls.append(list(ts)) or real(ts))
+    prices = cv._peer_prices()
+    assert calls == [["TCS.NS", "INFY.NS"]]
+    assert prices["TCS.NS"] == pytest.approx(2269.0)      # the zip's last close (2026-07-17)
+    assert prices["INFY.NS"] > 0
+
+
+def test_a_partial_store_is_filled_from_the_zip(monkeypatch):
+    monkeypatch.setattr(P, "statement_symbols", lambda: ["TCS", "INFY"])
+    monkeypatch.setattr(db, "history_tails", lambda rows: [
+        {"ticker": "TCS.NS", "candles": [["2026-10-14", 0, 0, 0, 3000.0, 0]]}])
+    calls = []
+    real = cv._zip_frames
+    monkeypatch.setattr(cv, "_zip_frames", lambda ts: calls.append(list(ts)) or real(ts))
+    prices = cv._peer_prices()
+    assert calls == [["INFY.NS"]]
+    assert prices["TCS.NS"] == 3000.0 and prices["INFY.NS"] > 0
+
+
+def test_a_thinly_priced_base_is_used_but_not_stored(monkeypatch, fresh_peers):
+    names = [f"N{i}" for i in range(10)]
+    monkeypatch.setattr(P, "statement_symbols", lambda: names)
+    monkeypatch.setattr(db, "load_settings", lambda doc_id="default": {})
+    saved = []
+    monkeypatch.setattr(db, "save_settings", lambda d, doc_id="default": saved.append(doc_id))
+    monkeypatch.setattr(P, "peer_base", lambda price_of, sector_map, company_names=None: _base_rows())
+    prices = {f"N{i}.NS": 100.0 for i in range(5)}        # 5 of 10 priced
+    base, built, src = cv.peer_base(prices)
+    assert src == "built_thin" and base == _base_rows()
+    assert cv.PEERS_DOC_ID not in saved
+    full = {f"N{i}.NS": 100.0 for i in range(10)}
+    cv._PEER_CACHE.update({"base": None})
+    _b, _d, src2 = cv.peer_base(full)
+    assert src2 == "built" and cv.PEERS_DOC_ID in saved
+
+
+def test_the_signature_moves_with_the_valuation_code(monkeypatch):
+    smap = cv._sector_map()
+    a = cv._peer_sig(smap)
+    monkeypatch.setattr(P, "VERSION", "a-different-version", raising=False)
+    assert cv._peer_sig(smap) != a
+
+
+def test_concurrent_first_opens_build_the_peer_table_once(monkeypatch, fresh_peers):
+    import threading
+    _two_names(monkeypatch)
+    monkeypatch.setattr(db, "load_settings", lambda doc_id="default": {})
+    monkeypatch.setattr(db, "save_settings", lambda d, doc_id="default": None)
+    monkeypatch.setattr(db, "history_tails", lambda rows: _tails())
+    builds = []
+
+    def slow_base(price_of, sector_map, company_names=None):
+        builds.append(1)
+        time.sleep(0.4)
+        return _base_rows()
+
+    monkeypatch.setattr(P, "peer_base", slow_base)
+    got = []
+    ts = [threading.Thread(target=lambda: got.append(cv.peer_multiples("m1")["n"]))
+          for _ in range(3)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join(5)
+    assert builds == [1]
+    assert got == [2, 2, 2]                              # nobody read an empty table
+
+
+def test_a_second_open_while_one_computes_serves_kept_rows_only(monkeypatch):
+    calls = _fake_rows(monkeypatch, ["A1.NS", "A2.NS"])
+    kept = P.failed_record("A1.NS", "kept")
+    cv._row_cache_put(cv._row_key("A1.NS", {}, False), kept)
+    assert cv._SECTION_LOCK.acquire(blocking=False)
+    try:
+        out = cv.section(state.cfg(), state.portfolio(), "")
+    finally:
+        cv._SECTION_LOCK.release()
+    assert calls == [] and out["rows"][0] is kept
+    assert out["skipped_busy"] == 1 and "another open" in out["busy"]
+
+
+def test_a_rotation_starting_mid_render_stops_new_rows(monkeypatch):
+    from web import scheduler
+    names = ["B1.NS", "B2.NS", "B3.NS"]
+    held = []
+
+    def row(t, cfg, p, **k):
+        if not held:                                     # the scan starts after row 1
+            assert scheduler._ROTATION_LOCK.acquire(blocking=False)
+            held.append(1)
+        return P.failed_record(t, "computed")
+
+    monkeypatch.setattr(cv, "names_to_show", lambda p, typed="": list(names))
+    monkeypatch.setattr(cv, "row_for", row)
+    monkeypatch.setattr(cv, "load_assumptions", lambda: {})
+    try:
+        out = cv.section(state.cfg(), state.portfolio(), "")
+    finally:
+        if held:
+            scheduler._ROTATION_LOCK.release()
+    assert out["computed"] == 1 and out["skipped_busy"] == 2
+
+
+def test_the_row_cache_survives_concurrent_writers(monkeypatch):
+    import threading
+    monkeypatch.setattr(cv, "ROW_CACHE_MAX", 20)
+    errors = []
+
+    def writer(n):
+        try:
+            for i in range(200):
+                cv._row_cache_put((f"T{n}-{i}", "d", "{}", False), {"i": i})
+                cv._row_cache_get((f"T{n}-{i - 3}", "d", "{}", False))
+        except Exception as e:                           # noqa: BLE001
+            errors.append(e)
+
+    ts = [threading.Thread(target=writer, args=(n,)) for n in range(6)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join(10)
+    assert errors == [] and len(cv._ROW_CACHE) <= 20
+
+
+def test_an_index_reading_the_store_did_not_extend_is_asked_again(monkeypatch):
+    from trading import data_refresh as dr
+    vv.clear_series_cache()
+    monkeypatch.setattr(db, "is_connected", lambda: True)
+    monkeypatch.setattr(dr, "extend_close_series", lambda s, field: s)   # store added nothing
+    reads = []
+    real = vv._read_index_field
+    monkeypatch.setattr(vv, "_read_index_field", lambda f: reads.append(f) or real(f))
+    vv._index_field("nifty_close")
+    vv._index_field("nifty_close")
+    assert len(reads) == 2                               # not kept: the next call asks again
+
+    def extended(s, field):
+        return pd.concat([s, pd.Series({s.index.max() + pd.Timedelta(days=1): 1.0})])
+
+    monkeypatch.setattr(dr, "extend_close_series", extended)
+    vv.clear_series_cache()
+    reads.clear()
+    vv._index_field("nifty_close")
+    vv._index_field("nifty_close")
+    assert len(reads) == 1
+    vv.clear_series_cache()
+
+
+def test_a_not_computed_row_is_one_plain_line_not_a_verdict(monkeypatch):
+    monkeypatch.setattr(cv, "busy_reason", lambda: "a scan rotation is running on the box")
+    html = _owner().get("/den?chain=TCS").text
+    i = html.find("den_chain_rows_marker")
+    j = html.find("</table>", i)
+    rows = html[i:j]
+    assert "NOT COMPUTED on this open" in rows
+    assert "no stored price" not in rows and "insufficient" not in rows.lower()

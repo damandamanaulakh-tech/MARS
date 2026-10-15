@@ -180,14 +180,18 @@ def _series_key(path) -> tuple:
 
 
 def _cached_series(name: str, path, build) -> Optional[pd.Series]:
+    """`build()` returns (series, cacheable). A reading that should be
+    retried (e.g. the Mongo tail failed to extend it) is returned but not
+    kept, so the next call asks again — the old per-call behaviour."""
     import time as _time
     key = _series_key(path)
     hit = _SERIES_CACHE.get(name)
     now = _time.monotonic()
     if hit is not None and hit[0] == key and now - hit[1] < SERIES_TTL_S:
         return None if hit[2] is None else hit[2].copy()
-    s = build()
-    _SERIES_CACHE[name] = (key, now, s)
+    s, cacheable = build()
+    if cacheable:
+        _SERIES_CACHE[name] = (key, now, s)
     return None if s is None else s.copy()
 
 
@@ -197,7 +201,7 @@ def clear_series_cache() -> None:
 
 
 def _bond_series() -> Optional[pd.Series]:
-    return _cached_series("bond", _BOND_CSV, _read_bond_series)
+    return _cached_series("bond", _BOND_CSV, lambda: (_read_bond_series(), True))
 
 
 def _read_bond_series() -> Optional[pd.Series]:
@@ -219,7 +223,11 @@ def _index_field(field: str) -> Optional[pd.Series]:
                           lambda: _read_index_field(field))
 
 
-def _read_index_field(field: str) -> Optional[pd.Series]:
+def _read_index_field(field: str) -> tuple:
+    """(series, cacheable). Cacheable when the stored tail extended the
+    committed file, or when no Mongo is configured (the file IS the
+    answer); a connected store that added nothing may be a failed read,
+    so that reading is not kept (review 2026-10-15)."""
     try:
         df = pd.read_csv(_INDEX_CSV, usecols=["trade_date", field])
         s = pd.Series(pd.to_numeric(df[field], errors="coerce").to_numpy(),
@@ -228,13 +236,19 @@ def _read_index_field(field: str) -> Optional[pd.Series]:
         s = s[s.index.notna()].dropna().sort_index()
     except Exception as e:                                     # noqa: BLE001
         log.warning("valuation: index csv unreadable (%s): %s", field, e)
-        return None
+        return None, False
+    last_file = s.index.max() if len(s) else None
     try:
         from trading import data_refresh as dr
         s = dr.extend_close_series(s, field)
     except Exception as e:                                     # noqa: BLE001
         log.warning("valuation: index tail extend failed: %s", e)
-    return s
+    extended = bool(len(s)) and last_file is not None and s.index.max() > last_file
+    try:
+        connected = bool(db.is_connected())
+    except Exception:                                          # noqa: BLE001
+        connected = False
+    return s, (extended or not connected)
 
 
 def _sector_series(name: str) -> Optional[pd.Series]:

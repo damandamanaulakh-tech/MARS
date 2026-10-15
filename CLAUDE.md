@@ -799,10 +799,27 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   ebitda, revenue, debt, cash, equity, method) + `peer_rows_from_base`
   (pure pricing), `peer_table` = their composition (test proves no number
   moved); the base is STORED in settings doc `valuation_peers` {base,
-  built, sig, version, n} and rebuilt only when > PEER_BASE_MAX_AGE_DAYS
-  (7, ASSUMED), when the statement names' sector labels change (sig) or on
-  a version bump; today's peer prices = `db.history_tails(1)`; `_closes` =
-  `db.history_docs` $slice; `section()` prefetches the rows' closes in ONE
+  built, sig, version, n, n_priced, coverage} and valid only for the day it
+  was built (PEER_BASE_MAX_AGE_DAYS 1 — the old per-process-per-day
+  freshness, but a process woken after a sleep reads it back); sig = the
+  statement names' sector labels + pipeline.VERSION + a hash of route.py /
+  snapshot.py / pipeline.py, so a deploy that changes them rebuilds; a base
+  priced on < 90% of the 200 names (PEER_PRICE_COVERAGE) is used for the
+  day but NOT stored; peer prices = `_peer_prices()`: ONE
+  `db.history_tails(1)` query, names the store lacks (or all, Mongo down)
+  filled from the repo zip in ONE open — never name-by-name store reads;
+  the build runs once under `_PEER_LOCK` and `day` is set only after it
+  (a reload mid-build waits instead of caching peerless rows); `_closes` =
+  `db.history_docs` $slice then straight to the zip (no second Mongo try);
+  one computing render at a time (`_SECTION_LOCK`, a second open serves the
+  kept rows + "another open is computing"); the row cache is under
+  `_ROW_LOCK` and purges expired keys; the busy reading is re-taken before
+  every new row (a rotation starting mid-render stops it); an index series
+  the connected store did not extend is NOT cached (retried next call).
+  Not-computed rows render as ONE line ("NOT COMPUTED on this open — why"),
+  never as a fake INSUFFICIENT verdict. An independent opus review found
+  these 7 defects in the first cut (aff8e38); all fixed, 10 more tests.
+  `section()` prefetches the rows' closes in ONE
   query, keeps computed rows ROW_TTL_S (30 min, keyed by ticker + day +
   draft assumptions + terms), stops computing new rows once
   `SB_DEN_CHAIN_BUDGET_S` (default 20 s) is spent, and computes NONE while
@@ -811,12 +828,18 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   400-495, trigger layer 500-525) — those rows print NOT COMPUTED with the
   reason (den_chain_busy_marker / den_chain_budget_marker /
   den_chain_not_computed_marker / den_chain_cost_marker), cached rows
-  still show; `memory_relief.release` after a computing render. The web
+  still show; `memory_relief.release` after a computing render. HONEST
+  LIMIT: after the 14:30 rotation the process holds ~435-485 MiB until it
+  restarts (glibc keeps freed memory), so with the 380 ceiling §12 computes
+  nothing on those afternoons until the free plan's sleep restarts it —
+  the banner says so; computing there would risk the 512 kill. The web
   conftest sets both env vars to 0 (test-only, the SB_IGNORE_MARKET_HOURS
   pattern) + clears the row/series caches per test; a test pins the
   production defaults and that render.yaml sets neither. Tests
-  web/tests/test_den_chain_cost_2026_10_15.py (17; 16 fail on the old
-  code, the 17th is the no-number-moved pin). Other Den sections measured
+  web/tests/test_den_chain_cost_2026_10_15.py (27; 16 fail on the 10-14
+  code, 14 on aff8e38; the no-number-moved pin and the thread-race test
+  pass on both — the race does not reproduce reliably, the lock stands on
+  the review). Other Den sections measured
   cheap (the /scan piano summary at 1,205 names ≈ 1 s / 20 MB, left).
   **"NO NEW POSITIONS" — candidates EXIST**: on 250 public-candle names at
   the 10-14 close, 74 clear the 62 floor with a positive 6-month return

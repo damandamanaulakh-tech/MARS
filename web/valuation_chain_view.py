@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import logging
 import statistics
+import threading
 from datetime import date
 from typing import Any, Optional
 
@@ -68,10 +69,26 @@ _PEER_CACHE: dict = {"day": None, "by_method": {}, "base": None,
 
 #: Settings doc that holds the price-free peer base (see the module note).
 PEERS_DOC_ID = "valuation_peers"
-#: ASSUMED: statements change quarterly; a week-old base is current enough.
-PEER_BASE_MAX_AGE_DAYS = 7
+#: The stored base is valid for the calendar day it was built (the old
+#: code rebuilt per process per day; this keeps that freshness — a monthly
+#: fundamentals refresh or a new FY passing its publication lag is picked
+#: up the next day — while a process woken after a sleep reads it back).
+PEER_BASE_MAX_AGE_DAYS = 1
 #: Bump when the stored base's row shape changes, so an old doc is rebuilt.
-PEER_BASE_VERSION = 1
+#: The signature also hashes the valuation code, so a deploy that changes
+#: routing or the snapshot rebuilds it without a hand bump.
+PEER_BASE_VERSION = 2
+#: A base priced on fewer statement names than this share is used for the
+#: day in this process but NOT stored (a half-filled store must not fix a
+#: thin peer table — or an ADR name with no price — into the stored copy).
+PEER_PRICE_COVERAGE = 0.9
+_ZIP = vv._ROOT / "data" / "history_upstox_export_2026-07-19.zip"
+_PEER_LOCK = threading.Lock()
+_ROW_LOCK = threading.Lock()
+#: One computing render at a time: a second open while §12 is computing
+#: serves the kept rows and marks the rest "not computed" instead of
+#: doubling the memory on the 512 MB box.
+_SECTION_LOCK = threading.Lock()
 
 #: Computed §12 rows kept this long per process (re-open = instant).
 ROW_TTL_S = 1800.0
@@ -109,8 +126,40 @@ def _closes(ticker: str) -> Optional[pd.Series]:
                 return s
     except Exception:                                   # noqa: BLE001
         log.warning("valuation chain: store read failed for %s", ticker)
-    from .candle_chart import load_ohlcv
-    return _close_series(load_ohlcv(ticker, tail=PRICE_TAIL))
+    # Straight to the repo zip — load_ohlcv would ask Mongo AGAIN (a second
+    # timeout when the store is unreachable).
+    return _zip_close_series(ticker)
+
+
+def _zip_frames(tickers) -> dict:
+    """{ticker: OHLCV frame} from the committed repo zip, ONE zip open."""
+    import io
+    import zipfile
+    out: dict = {}
+    want = [t for t in (tickers or []) if t]
+    if not want:
+        return out
+    try:
+        with zipfile.ZipFile(_ZIP) as z:
+            names = set(z.namelist())
+            for t in want:
+                n = f"{t}.csv"
+                if n not in names:
+                    continue
+                try:
+                    df = pd.read_csv(io.BytesIO(z.read(n)), parse_dates=["Date"],
+                                     index_col="Date").sort_index()
+                    out[t] = df
+                except Exception:                       # noqa: BLE001
+                    continue
+    except (OSError, Exception):                        # noqa: BLE001
+        log.warning("valuation chain: repo zip unreadable")
+    return out
+
+
+def _zip_close_series(ticker: str) -> Optional[pd.Series]:
+    df = _zip_frames([ticker]).get(ticker)
+    return _close_series(df.tail(PRICE_TAIL)) if df is not None else None
 
 
 def price_now(closes: Optional[pd.Series]) -> tuple[Optional[float], str]:
@@ -265,12 +314,25 @@ def _store_closes() -> dict:
     return out
 
 
-def _price_lookup(prices: dict):
-    def _of(t: str) -> Optional[float]:
-        if prices:
-            return prices.get(t)
-        return price_now(_closes(t))[0]
-    return _of
+def _peer_prices() -> dict:
+    """{ticker: last close} for the statement names: the store's last
+    candles in ONE query, names the store lacks (or all of them when Mongo
+    is down) filled from the repo zip in ONE zip open — never name-by-name
+    store reads (review 2026-10-15: with Atlas unreachable those were two
+    timeouts per name, twice)."""
+    from trading.valuation import pipeline
+    want = [f"{sym}.NS" for sym in pipeline.statement_symbols()]
+    store = _store_closes()
+    prices = {t: store[t] for t in want if store.get(t)}
+    missing = [t for t in want if t not in prices]
+    for t, df in _zip_frames(missing).items():
+        try:
+            c = pd.to_numeric(df["Close"], errors="coerce").dropna()
+            if len(c):
+                prices[t] = float(c.iloc[-1])
+        except Exception:                               # noqa: BLE001
+            continue
+    return prices
 
 
 def _peer_sig(sector_map: dict) -> str:
@@ -284,8 +346,14 @@ def _peer_sig(sector_map: dict) -> str:
     except Exception:                                   # noqa: BLE001
         names = []
     part = {t: sector_map.get(t) for t in names}
-    return hashlib.sha1(json.dumps(part, sort_keys=True, default=str)
-                        .encode()).hexdigest()[:12]
+    h = hashlib.sha1(json.dumps(part, sort_keys=True, default=str).encode())
+    h.update(str(getattr(pipeline, "VERSION", "")).encode())
+    for mod in ("route.py", "snapshot.py", "pipeline.py"):
+        try:
+            h.update((vv._ROOT / "trading" / "valuation" / mod).read_bytes())
+        except OSError:
+            h.update(mod.encode())
+    return h.hexdigest()[:12]
 
 
 def _base_fresh(built: Any) -> bool:
@@ -317,18 +385,32 @@ def peer_base(prices: Optional[dict] = None) -> tuple[list, str, str]:
                             "sig": sig, "source": "stored"})
         return _PEER_CACHE["base"], _PEER_CACHE["built"], "stored"
     if prices is None:
-        prices = _store_closes()
-    base = pipeline.peer_base(price_of=_price_lookup(prices), sector_map=smap,
+        prices = _peer_prices()
+    base = pipeline.peer_base(price_of=prices.get, sector_map=smap,
                               company_names=_company_names())
     built = date.today().isoformat()
-    _PEER_CACHE.update({"base": base, "built": built, "sig": sig, "source": "built"})
+    try:
+        n_names = len(pipeline.statement_symbols())
+    except Exception:                                   # noqa: BLE001
+        n_names = 0
+    n_priced = sum(1 for v in prices.values() if v)
+    coverage = (n_priced / n_names) if n_names else 0.0
+    store_it = coverage >= PEER_PRICE_COVERAGE
+    src = "built" if store_it else "built_thin"
+    _PEER_CACHE.update({"base": base, "built": built, "sig": sig, "source": src,
+                        "coverage": round(coverage, 3)})
+    if not store_it:
+        log.warning("valuation chain: peer base priced on %d of %d names — "
+                    "used today, not stored", n_priced, n_names)
+        return base, built, src
     try:
         db.save_settings({"base": base, "built": built, "sig": sig, "n": len(base),
+                          "n_priced": n_priced, "coverage": round(coverage, 3),
                           "version": PEER_BASE_VERSION,
                           "ts": datetime.utcnow().isoformat()}, doc_id=PEERS_DOC_ID)
     except Exception:                                   # noqa: BLE001
         log.exception("valuation chain: peer base save failed (in-process copy kept)")
-    return base, built, "built"
+    return base, built, src
 
 
 def peer_multiples(method: str, exclude: str = "") -> dict:
@@ -340,15 +422,20 @@ def peer_multiples(method: str, exclude: str = "") -> dict:
     from trading.valuation import pipeline
     today = date.today().isoformat()
     if _PEER_CACHE["day"] != today:
-        _PEER_CACHE["day"] = today
-        _PEER_CACHE["by_method"] = {}
-        try:
-            prices = _store_closes()
-            base, _built, _src = peer_base(prices)
-            _PEER_CACHE["by_method"] = pipeline.peer_rows_from_base(
-                base, _price_lookup(prices))
-        except Exception:                               # noqa: BLE001
-            log.exception("valuation chain: peer table failed")
+        # One build per day per process, under a lock: a second render that
+        # arrives mid-build WAITS for the table instead of reading an empty
+        # one (and caching peerless rows for 30 min — review 2026-10-15).
+        with _PEER_LOCK:
+            if _PEER_CACHE["day"] != today:
+                by_method: dict = {}
+                try:
+                    prices = _peer_prices()
+                    base, _built, _src = peer_base(prices)
+                    by_method = pipeline.peer_rows_from_base(base, prices.get)
+                except Exception:                       # noqa: BLE001
+                    log.exception("valuation chain: peer table failed")
+                _PEER_CACHE["by_method"] = by_method
+                _PEER_CACHE["day"] = today
     rows = [r for r in (_PEER_CACHE["by_method"].get(method) or [])
             if r.get("ticker") != exclude]
 
@@ -529,23 +616,29 @@ def _row_key(ticker: str, overrides: Optional[dict], show_terms: bool) -> tuple:
 
 def _row_cache_get(key: tuple) -> Optional[dict]:
     import time as _time
-    hit = _ROW_CACHE.get(key)
-    if hit is None or _time.monotonic() - hit[0] >= ROW_TTL_S:
-        _ROW_CACHE.pop(key, None)
-        return None
-    return hit[1]
+    with _ROW_LOCK:
+        hit = _ROW_CACHE.get(key)
+        if hit is None or _time.monotonic() - hit[0] >= ROW_TTL_S:
+            _ROW_CACHE.pop(key, None)
+            return None
+        return hit[1]
 
 
 def _row_cache_put(key: tuple, rec: dict) -> None:
     import time as _time
-    if len(_ROW_CACHE) >= ROW_CACHE_MAX:
-        oldest = min(_ROW_CACHE, key=lambda k: _ROW_CACHE[k][0])
-        _ROW_CACHE.pop(oldest, None)
-    _ROW_CACHE[key] = (_time.monotonic(), rec)
+    now = _time.monotonic()
+    with _ROW_LOCK:
+        for k in [k for k, v in _ROW_CACHE.items() if now - v[0] >= ROW_TTL_S]:
+            _ROW_CACHE.pop(k, None)
+        while len(_ROW_CACHE) >= ROW_CACHE_MAX:
+            oldest = min(_ROW_CACHE, key=lambda k: _ROW_CACHE[k][0])
+            _ROW_CACHE.pop(oldest, None)
+        _ROW_CACHE[key] = (now, rec)
 
 
 def clear_row_cache() -> None:
-    _ROW_CACHE.clear()
+    with _ROW_LOCK:
+        _ROW_CACHE.clear()
 
 
 def not_computed_record(ticker: str, why: str) -> dict:
@@ -585,22 +678,52 @@ def section(cfg, p, typed: str = "", show_terms: bool = False) -> dict:
     out.update({"drafted": bool(overrides), "n_edited": len(overrides),
                 "drafted_keys": sorted(overrides)})
     budget = time_budget_s()
-    busy = busy_reason()
     t0 = _time.monotonic()
     rows = []
     computed = cached = skipped_budget = skipped_busy = 0
     names = names_to_show(p, typed_full)
     todo = [t for t in names
             if _row_cache_get(_row_key(t, overrides, out["show_terms"] and t == typed_full)) is None]
-    pre = _prefetch_closes(todo) if (todo and not busy) else {}
+    owns = _SECTION_LOCK.acquire(blocking=False) if todo else False
+    busy = busy_reason() if owns else ("another open of the Den is computing these rows right now"
+                                       if todo else "")
+    try:
+        pre = _prefetch_closes(todo) if (todo and not busy) else {}
+        rows, computed, cached, skipped_budget, skipped_busy, busy = _section_rows(
+            cfg, p, names, typed_full, out["show_terms"], overrides, budget, t0, busy, pre)
+    finally:
+        if owns:
+            _SECTION_LOCK.release()
+    if computed:
+        try:
+            from .memory_relief import release
+            release("den chain")
+        except Exception:                               # noqa: BLE001
+            pass
+    out.update({"rows": rows, "n": len(rows), "busy": busy,
+                "elapsed_s": round(_time.monotonic() - t0, 1),
+                "computed": computed, "cached": cached,
+                "skipped_budget": skipped_budget, "skipped_busy": skipped_busy})
+    return out
+
+
+def _section_rows(cfg, p, names, typed_full, show_terms, overrides, budget, t0,
+                  busy, pre):
+    """The row loop. The busy reading is re-taken before every NEW row, so a
+    scan rotation that starts mid-render stops it."""
+    import time as _time
+    rows = []
+    computed = cached = skipped_budget = skipped_busy = 0
     for t in names:
-        terms = out["show_terms"] and t == typed_full
+        terms = show_terms and t == typed_full
         key = _row_key(t, overrides, terms)
         hit = _row_cache_get(key)
         if hit is not None:
             rows.append(hit)
             cached += 1
             continue
+        if not busy and computed:
+            busy = busy_reason()
         if busy:
             rows.append(not_computed_record(
                 t, f"not computed — {busy}; open the Den again once it finishes"))
@@ -623,17 +746,7 @@ def section(cfg, p, typed: str = "", show_terms: bool = False) -> dict:
             log.exception("valuation chain: row failed for %s", t)
             from trading.valuation import pipeline
             rows.append(pipeline.failed_record(t, str(e)[:120]))
-    if computed:
-        try:
-            from .memory_relief import release
-            release("den chain")
-        except Exception:                               # noqa: BLE001
-            pass
-    out.update({"rows": rows, "n": len(rows), "busy": busy,
-                "elapsed_s": round(_time.monotonic() - t0, 1),
-                "computed": computed, "cached": cached,
-                "skipped_budget": skipped_budget, "skipped_busy": skipped_busy})
-    return out
+    return rows, computed, cached, skipped_budget, skipped_busy, busy
 
 
 # ------------------------------------------------------ §13 formulas page
