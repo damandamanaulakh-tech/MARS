@@ -18,7 +18,8 @@ input from STORED state only — no network on a page render:
     `valuation_peers`, so a fresh process after a sleep reads it back
     instead of rebuilding; today's multiples = that base x the last stored
     close of every name, fetched in ONE query (db.history_tails(1));
-  * which names to show: the typed one, the §11 stored targets, held names.
+  * which names to show: the typed one, held names, then the §11 stored
+    targets A-Z (cap MAX_ROWS; the cut is printed).
 
 Macro rows of the P/E bridge the app does not store (repo, CPI, GDP,
 Brent) are passed as 0 and listed as DATA_NEEDED on the row — the sheet
@@ -33,6 +34,18 @@ stored, prices come from one query, the file loaders cache per process,
 computed rows are kept ROW_TTL_S, a TIME BUDGET stops new rows once spent,
 and NO new row is computed while a scan rotation runs or the process is
 above RSS_CEILING_MB — those rows print the reason instead.
+
+CLARITY FIX 2026-10-15 (reviewers on the live Den): with Atlas unreachable
+while db._CONNECTED stays True (XR-071) every store call waited ~3 s and a
+§12 open made ~9 of them (modelled: first row 31.8 s). Within ONE render the
+first store call that fails or is slow is now the last one — the rest of
+that open reads the committed repo files only and the page says the
+database was the cause (`_StoreGate`). Busy rows name their own remedy
+(scan / memory / another tab); held names come before §11 targets and a cut
+by the 25-row cap is printed; a crashed row, a name with no statements and
+a range that could not be built each print one honest line instead of an
+INSUFFICIENT verdict; the "use as §11 target" button shows only on a judged
+verdict.
 """
 from __future__ import annotations
 
@@ -103,6 +116,101 @@ DEFAULT_TIME_BUDGET_S = 20.0
 #: rotation 400-495, the 09:20 trigger layer 500-525 = the OOM kills.
 DEFAULT_RSS_CEILING_MB = 380.0
 
+#: The snapshot source of a name with FULL statements (the committed zip);
+#: anything else (the summary-only fundamentals file, or nothing) prints
+#: one NO STATEMENTS line instead of a row of DATA_NEEDED cells.
+FULL_STATEMENTS_SOURCE = "yahoo_statements_zip"
+#: The verdicts that JUDGED the price against a range — only these may be
+#: pushed into §11 as a target (an INSUFFICIENT range is too uncertain).
+JUDGED_VERDICTS = ("attractive", "watch", "unattractive")
+
+
+# ------------------------------------------- render-scoped store gate
+
+#: Review 2026-10-15 (XR-071 on §12): web/db.py swallows pymongo's 3 s
+#: server-selection timeout and answers {} / [] — so a dead Atlas looks like
+#: a slow empty answer. Within one §12 render the first store call that
+#: raises, waits SLOW_STORE_S and brings nothing back, or is slow at all
+#: (settings / index reads over SLOW_STORE_S, the two price reads over
+#: HEAVY_SLOW_STORE_S — they legitimately move megabytes) is the LAST store
+#: call of that render. ASSUMED thresholds: the timeout is 3 s.
+SLOW_STORE_S = 2.0
+HEAVY_SLOW_STORE_S = 8.0
+#: Rows computed after the gate closed were priced from the repo copy; they
+#: are kept this long (not ROW_TTL_S) so a recovered database replaces them.
+DEGRADED_ROW_TTL_S = 300.0
+
+
+class _StoreGate:
+    """Store calls of ONE §12 render. Once `down`, every later call returns
+    its default at once (the callers then read the committed files)."""
+
+    def __init__(self) -> None:
+        self.down = False
+        self.why = ""
+        self.calls = 0
+        self.spent_s = 0.0
+
+    def call(self, label: str, fn, *a, default=None, heavy: bool = False, **k):
+        import time as _time
+        if self.down:
+            return default
+        self.calls += 1
+        t = _time.monotonic()
+        try:
+            out = fn(*a, **k)
+        except Exception as e:                          # noqa: BLE001
+            dt = _time.monotonic() - t
+            self.spent_s += dt
+            self._trip(f"the {label} failed ({type(e).__name__}) after {dt:.1f} s")
+            return default
+        dt = _time.monotonic() - t
+        self.spent_s += dt
+        empty = out is None or (hasattr(out, "__len__") and len(out) == 0)
+        limit = HEAVY_SLOW_STORE_S if heavy else SLOW_STORE_S
+        if empty and dt >= SLOW_STORE_S:
+            self._trip(f"the {label} waited {dt:.1f} s and got no answer")
+        elif dt >= limit:
+            self._trip(f"the {label} took {dt:.1f} s")
+        return out
+
+    def _trip(self, why: str) -> None:
+        self.down = True
+        self.why = why
+        log.warning("valuation chain: %s — no more database reads on this open", why)
+
+
+class _Render:
+    """Per-render state, carried thread-locally through the row helpers."""
+
+    def __init__(self, budget: float, t0: float) -> None:
+        self.gate = _StoreGate()
+        self.budget = budget
+        self.t0 = t0
+        self.index: dict = {}               # field → series, read once per render
+        self.peer_build_skipped = False
+
+    def budget_spent(self) -> bool:
+        import time as _time
+        return self.budget > 0 and _time.monotonic() - self.t0 >= self.budget
+
+
+_RENDER = threading.local()
+
+
+def _render() -> Optional[_Render]:
+    return getattr(_RENDER, "ctx", None)
+
+
+def _gate() -> _StoreGate:
+    """The current render's gate; outside a render a fresh (open) one."""
+    r = _render()
+    return r.gate if r is not None else _StoreGate()
+
+
+class _BudgetSpent(Exception):
+    """row_for could not build the peer table inside the time budget."""
+
 
 # ------------------------------------------------------------- inputs
 
@@ -119,10 +227,12 @@ def _closes(ticker: str) -> Optional[pd.Series]:
     path loaded the whole twelve-year document and dropped most of it),
     else the chart loader's repo-zip fallback."""
     from . import db
+    g = _gate()
     try:
-        if db.is_connected():
+        if g.call("database check", db.is_connected, default=False):
             from trading.history_store import records_to_df
-            doc = (db.history_docs([ticker], rows=PRICE_TAIL) or {}).get(ticker)
+            doc = (g.call("price read", db.history_docs, [ticker], rows=PRICE_TAIL,
+                          default={}, heavy=True) or {}).get(ticker)
             s = _close_series(records_to_df(doc)) if doc else None
             if s is not None:
                 return s
@@ -161,7 +271,62 @@ def _zip_frames(tickers) -> dict:
 
 def _zip_close_series(ticker: str) -> Optional[pd.Series]:
     df = _zip_frames([ticker]).get(ticker)
-    return _close_series(df.tail(PRICE_TAIL)) if df is not None else None
+    try:
+        return _close_series(df.tail(PRICE_TAIL)) if df is not None else None
+    except Exception:                                   # noqa: BLE001
+        return None
+
+
+_FILE_INDEX: dict = {}
+
+
+def _file_index_field(field: str) -> Optional[pd.Series]:
+    """One close column of the COMMITTED index file only — no stored tail.
+    Read when this render's database gate is closed (the stored tail is
+    asked through valuation_view, which would wait on the dead store
+    again). Same parse as valuation_view._read_index_field."""
+    path = getattr(vv, "_INDEX_CSV", vv._ROOT / "data" / "index_daily_15y.csv")
+    try:
+        st = path.stat()
+        key = (field, st.st_mtime_ns, st.st_size)
+    except OSError:
+        return None
+    hit = _FILE_INDEX.get(key)
+    if hit is None:
+        try:
+            df = pd.read_csv(path, usecols=["trade_date", field])
+            s = pd.Series(pd.to_numeric(df[field], errors="coerce").to_numpy(),
+                          index=pd.to_datetime(df["trade_date"], dayfirst=True,
+                                               errors="coerce"))
+            hit = s[s.index.notna()].dropna().sort_index()
+        except Exception as e:                          # noqa: BLE001
+            log.warning("valuation chain: index csv unreadable (%s): %s", field, e)
+            return None
+        if len(_FILE_INDEX) > 16:
+            _FILE_INDEX.clear()
+        _FILE_INDEX[key] = hit
+    return hit.copy()
+
+
+def _index_series(field: str) -> Optional[pd.Series]:
+    """An index close column for this render: read ONCE per render (the
+    old code asked four times per row), through valuation_view's cached
+    reader (committed file + stored tail) while the database answers, the
+    committed file alone once this render's gate is closed."""
+    r = _render()
+    if r is not None and field in r.index:
+        s = r.index[field]
+        return None if s is None else s.copy()
+    g = _gate()
+    if g.down:
+        s = _file_index_field(field)
+    else:
+        s = g.call("index tail read", vv._index_field, field, default=None)
+        if s is None and g.down:
+            s = _file_index_field(field)
+    if r is not None:
+        r.index[field] = s
+    return None if s is None else s.copy()
 
 
 def price_now(closes: Optional[pd.Series]) -> tuple[Optional[float], str]:
@@ -184,7 +349,7 @@ def price_at(closes: Optional[pd.Series], when: Any) -> Optional[float]:
 
 def index_move(field: str, start: Any, end: Any = None) -> dict:
     """{start, end, start_date, end_date} levels of one index column."""
-    s = vv._index_field(field)
+    s = _index_series(field)
     if s is None or not len(s):
         return {"start": None, "end": None}
     s = s.dropna()
@@ -219,23 +384,46 @@ def _held_names(p) -> list[str]:
         return []
 
 
-def names_to_show(p, typed: str = "") -> list[str]:
-    """Typed first, then the §11 stored targets, then held names; unique;
-    capped at MAX_ROWS."""
+class ShownNames(list):
+    """names_to_show's answer: the names shown, plus `.cut` = the names the
+    MAX_ROWS cap left out (printed on the page, never dropped silently)."""
+
+    def __init__(self, names=(), cut=()) -> None:
+        super().__init__(names)
+        self.cut = list(cut)
+
+
+def _target_names() -> list[str]:
+    """The §11 stored targets' tickers. Read through this render's gate;
+    once it is closed, the in-process copy valuation_view keeps."""
+    g = _gate()
+    doc = None
+    if not g.down:
+        doc = g.call("§11 targets read", vv.load_doc, default=None)
+    if doc is None:
+        doc = {"targets": dict((getattr(vv, "LAST", {}) or {}).get("targets") or {})}
+    return list((doc.get("targets") or {}).keys())
+
+
+def names_to_show(p, typed: str = "") -> "ShownNames":
+    """Typed first, then HELD names, then the §11 stored targets A-Z;
+    unique; capped at MAX_ROWS. Review 2026-10-15: targets used to come
+    before held names, so 25 stored targets pushed every held name off the
+    chain without a word — the book's own names now come first and `.cut`
+    names whatever the cap left out."""
     out: list[str] = []
     if typed:
         out.append(typed)
+    for t in _held_names(p):
+        if t not in out:
+            out.append(t)
     try:
-        doc = vv.load_doc()
-        for t in sorted((doc.get("targets") or {}).keys()):
+        for t in sorted(_target_names()):
             if t not in out:
                 out.append(t)
     except Exception:                                   # noqa: BLE001
         pass
-    for t in _held_names(p):
-        if t not in out:
-            out.append(t)
-    return out[:MAX_ROWS]
+    return ShownNames(out[:MAX_ROWS], out[MAX_ROWS:])
 
 
 # ------------------------------------------------------ assumption draft
@@ -247,7 +435,8 @@ def load_assumptions() -> dict:
     from . import db
     values: dict = {}
     try:
-        doc = db.load_settings(doc_id=ASSUMPTIONS_DOC_ID) or {}
+        doc = _gate().call("§13 assumption draft read", db.load_settings,
+                           doc_id=ASSUMPTIONS_DOC_ID, default={}) or {}
         values = dict(doc.get("values") or {})
     except Exception:                                   # noqa: BLE001
         log.warning("valuation chain: assumption draft unreadable — using the in-process copy")
@@ -303,7 +492,10 @@ def _store_closes() -> dict:
     from . import db
     out: dict = {}
     try:
-        for doc in db.history_tails(1) or ():
+        docs = _gate().call("last-close read of every stored name",
+                            lambda: list(db.history_tails(1) or ()),
+                            default=[], heavy=True) or []
+        for doc in docs:
             t = doc.get("ticker") or doc.get("_id")
             c = doc.get("candles") or []
             if t and c:
@@ -377,8 +569,10 @@ def peer_base(prices: Optional[dict] = None) -> tuple[list, str, str]:
     if (_PEER_CACHE.get("base") is not None and _PEER_CACHE.get("sig") == sig
             and _base_fresh(_PEER_CACHE.get("built"))):
         return _PEER_CACHE["base"], _PEER_CACHE["built"], _PEER_CACHE.get("source") or "process"
+    g = _gate()
     try:
-        doc = db.load_settings(doc_id=PEERS_DOC_ID) or {}
+        doc = g.call("stored peer base read", db.load_settings,
+                     doc_id=PEERS_DOC_ID, default={}) or {}
     except Exception:                                   # noqa: BLE001
         doc = {}
     if (doc.get("base") and doc.get("sig") == sig and _base_fresh(doc.get("built"))
@@ -406,13 +600,23 @@ def peer_base(prices: Optional[dict] = None) -> tuple[list, str, str]:
                     "used today, not stored", n_priced, n_names)
         return base, built, src
     try:
-        db.save_settings({"base": base, "built": built, "sig": sig, "n": len(base),
-                          "n_priced": n_priced, "coverage": round(coverage, 3),
-                          "version": PEER_BASE_VERSION,
-                          "ts": datetime.utcnow().isoformat()}, doc_id=PEERS_DOC_ID)
+        g.call("peer base save", db.save_settings,
+               {"base": base, "built": built, "sig": sig, "n": len(base),
+                "n_priced": n_priced, "coverage": round(coverage, 3),
+                "version": PEER_BASE_VERSION,
+                "ts": datetime.utcnow().isoformat()}, doc_id=PEERS_DOC_ID)
     except Exception:                                   # noqa: BLE001
         log.exception("valuation chain: peer base save failed (in-process copy kept)")
     return base, built, src
+
+
+def _peer_table_stale(today: str) -> bool:
+    """The priced peer table needs (re)building: another day, or it was
+    priced from the repo copy while a render's database gate was closed and
+    the current render's database still answers."""
+    if _PEER_CACHE.get("day") != today:
+        return True
+    return bool(_PEER_CACHE.get("degraded")) and not _gate().down
 
 
 def peer_multiples(method: str, exclude: str = "") -> dict:
@@ -423,12 +627,23 @@ def peer_multiples(method: str, exclude: str = "") -> dict:
     from peer_base (stored, rebuilt weekly)."""
     from trading.valuation import pipeline
     today = date.today().isoformat()
-    if _PEER_CACHE["day"] != today:
+    if _peer_table_stale(today):
+        r = _render()
+        if r is not None and r.budget_spent():
+            # Review 2026-10-15: the budget was checked only before a row,
+            # so the first row ran on into a ~9 s peer build. A build that
+            # would start after the budget is spent is not started; row_for
+            # sees the flag and prints the row NOT COMPUTED (an empty peer
+            # table here would otherwise be cached as the row's answer).
+            r.peer_build_skipped = True
+            return {"n": 0, "pe_median": None, "pb_median": None,
+                    "ev_ebitda_median": None, "ev_sales_median": None,
+                    "source": "peer table not built — the §12 time budget was spent"}
         # One build per day per process, under a lock: a second render that
         # arrives mid-build WAITS for the table instead of reading an empty
         # one (and caching peerless rows for 30 min — review 2026-10-15).
         with _PEER_LOCK:
-            if _PEER_CACHE["day"] != today:
+            if _peer_table_stale(today):
                 by_method: dict = {}
                 try:
                     prices = _peer_prices()
@@ -438,6 +653,9 @@ def peer_multiples(method: str, exclude: str = "") -> dict:
                     log.exception("valuation chain: peer table failed")
                 _PEER_CACHE["by_method"] = by_method
                 _PEER_CACHE["day"] = today
+                # Priced from the repo copy because THIS render's database
+                # gate closed: rebuilt by a later open whose database answers.
+                _PEER_CACHE["degraded"] = _gate().down
     rows = [r for r in (_PEER_CACHE["by_method"].get(method) or [])
             if r.get("ticker") != exclude]
 
@@ -494,7 +712,7 @@ def _macro_inputs(snap: dict, closes: Optional[pd.Series] = None) -> dict:
     period_end = snap.get("period_end")
     nifty = index_move("nifty_close", period_end)
     sensex = index_move("sensex_close", period_end)
-    vix = vv._index_field("india_vix_close")
+    vix = _index_series("india_vix_close")
     bond = vv._bond_series()
     out: dict = {
         "sensex_start": sensex.get("start"), "sensex_end": sensex.get("end"),
@@ -512,7 +730,7 @@ def _macro_inputs(snap: dict, closes: Optional[pd.Series] = None) -> dict:
     except Exception:                                   # noqa: BLE001
         pass
     try:
-        nifty_s = vv._index_field("nifty_close")
+        nifty_s = _index_series("nifty_close")
         if closes is not None and nifty_s is not None:
             b = vc.beta(closes, nifty_s)
             out["beta"] = b.get("beta") if isinstance(b, dict) else V.num(b)
@@ -523,17 +741,21 @@ def _macro_inputs(snap: dict, closes: Optional[pd.Series] = None) -> dict:
 
 def _prefetch_closes(tickers: list) -> dict:
     """{ticker: close series} for the rows about to be computed, in ONE
-    store query ($in + $slice). Names the store lacks are absent; row_for
-    then falls back to _closes (repo zip)."""
+    store query ($in + $slice), through this render's database gate. Names
+    the store lacks are absent; the row loop reads THOSE straight from the
+    repo zip — never a second store read for a name this query already
+    asked about (review 2026-10-15)."""
     from . import db
     out: dict = {}
     if not tickers:
         return out
+    g = _gate()
     try:
-        if not db.is_connected():
+        if not g.call("database check", db.is_connected, default=False):
             return out
         from trading.history_store import records_to_df
-        docs = db.history_docs(list(tickers), rows=PRICE_TAIL) or {}
+        docs = g.call("price read", db.history_docs, list(tickers), rows=PRICE_TAIL,
+                      default={}, heavy=True) or {}
         for t, doc in docs.items():
             s = _close_series(records_to_df(doc))
             if s is not None:
@@ -543,11 +765,19 @@ def _prefetch_closes(tickers: list) -> dict:
     return out
 
 
+#: row_for's "closes not handed in" marker (None = handed in, no price).
+_UNSET: Any = object()
+
+
 def row_for(ticker: str, cfg, p, *, show_terms: bool = False,
             overrides: Optional[dict] = None,
-            closes: Optional[pd.Series] = None) -> dict:
+            closes: Any = _UNSET, price_source: str = "") -> dict:
+    """One chain record. `closes` handed in (a series, or None = the store
+    and the repo zip both lack the name) is used as is; not handed in, it
+    is read here. `price_source` ("store" / "repo copy") is printed beside
+    the price."""
     from trading.valuation import pipeline
-    if closes is None:
+    if closes is _UNSET:
         closes = _closes(ticker)
     px, px_date = price_now(closes)
     rec = pipeline.evaluate(
@@ -560,9 +790,32 @@ def row_for(ticker: str, cfg, p, *, show_terms: bool = False,
         macro=lambda snap: _macro_inputs(snap, closes),
         overrides=overrides,
     )
+    r = _render()
+    if r is not None and r.peer_build_skipped:
+        # computed without the peer table — never shown or kept as an answer
+        r.peer_build_skipped = False
+        raise _BudgetSpent("the peer table was not built")
     rec["key_terms"] = [t for t in rec.get("terms_rows", []) if t["name"] in KEY_TERMS]
     rec["all_terms"] = rec.get("terms_rows", []) if show_terms else []
     rec["n_terms"] = len(rec.get("terms_rows", []))
+    rec["price_source"] = price_source if px is not None else ""
+    return rec
+
+
+def row_kind(rec: dict) -> str:
+    """How §12 prints a record: not_computed / failed / no_statements (one
+    honest line each) or full (the whole row)."""
+    if rec.get("not_computed"):
+        return "not_computed"
+    if rec.get("failed"):
+        return "failed"
+    if (rec.get("snapshot") or {}).get("source") != FULL_STATEMENTS_SOURCE:
+        return "no_statements"
+    return "full"
+
+
+def _marked(rec: dict) -> dict:
+    rec["row_kind"] = row_kind(rec)
     return rec
 
 
@@ -586,15 +839,30 @@ def rss_ceiling_mb() -> float:
         return DEFAULT_RSS_CEILING_MB
 
 
-def busy_reason() -> str:
-    """Why §12 must not compute right now ("" = free to compute). A scan
-    rotation holds the scheduler's rotation lock; the 09:20 trigger layer
-    runs after it is released, so the memory reading covers that one."""
+#: What the owner can do about each kind of busy box (review 2026-10-15:
+#: one banner told a memory-held box to "open the Den again once it
+#: finishes" — nothing finishes; and "stay away 15 minutes" in market
+#: hours would let the free plan sleep through the 30-minute exit checks).
+BUSY_REMEDY = {
+    "rotation": "open the Den again when the scan finishes",
+    "memory": ("the box keeps the memory a scan used until the app restarts, "
+               "so this row fills in after the next restart"),
+    "other_tab": "reload in a few seconds",
+}
+OTHER_TAB_TEXT = "another open of the Den is computing these rows right now"
+
+
+def busy_status() -> tuple[str, str]:
+    """(kind, why) §12 must not compute right now; ("", "") = free.
+    kind: "rotation" (a scan holds the scheduler's rotation lock) or
+    "memory" (the process is above the ceiling — the 09:20 trigger layer
+    runs after the rotation lock is released, so this reading covers it).
+    The third kind, "other_tab", is decided by section() (the render lock)."""
     try:
         from . import scheduler
         lock = getattr(scheduler, "_ROTATION_LOCK", None)
         if lock is not None and lock.locked():
-            return "a scan rotation is running on the box"
+            return "rotation", "a scan rotation is running on the box"
     except Exception:                                   # noqa: BLE001
         pass
     ceiling = rss_ceiling_mb()
@@ -605,9 +873,14 @@ def busy_reason() -> str:
         except Exception:                               # noqa: BLE001
             r = None
         if r is not None and r >= ceiling:
-            return (f"the app is using {r:.0f} MiB of its 512 MiB "
-                    f"(§12 computes below {ceiling:.0f})")
-    return ""
+            return "memory", (f"the app is using {r:.0f} MiB of its 512 MiB "
+                              f"(§12 computes below {ceiling:.0f})")
+    return "", ""
+
+
+def busy_reason() -> str:
+    """busy_status()'s text only ("" = free to compute)."""
+    return busy_status()[1]
 
 
 def _row_key(ticker: str, overrides: Optional[dict], show_terms: bool) -> tuple:
@@ -616,26 +889,32 @@ def _row_key(ticker: str, overrides: Optional[dict], show_terms: bool) -> tuple:
             json.dumps(overrides or {}, sort_keys=True, default=str), bool(show_terms))
 
 
+def _ttl_of(entry: tuple) -> float:
+    return entry[2] if len(entry) > 2 and entry[2] else ROW_TTL_S
+
+
 def _row_cache_get(key: tuple) -> Optional[dict]:
     import time as _time
     with _ROW_LOCK:
         hit = _ROW_CACHE.get(key)
-        if hit is None or _time.monotonic() - hit[0] >= ROW_TTL_S:
+        if hit is None or _time.monotonic() - hit[0] >= _ttl_of(hit):
             _ROW_CACHE.pop(key, None)
             return None
         return hit[1]
 
 
-def _row_cache_put(key: tuple, rec: dict) -> None:
+def _row_cache_put(key: tuple, rec: dict, ttl: Optional[float] = None) -> None:
+    """Keep a computed row ROW_TTL_S (or `ttl` — DEGRADED_ROW_TTL_S for a
+    row priced from the repo copy because the database did not answer)."""
     import time as _time
     now = _time.monotonic()
     with _ROW_LOCK:
-        for k in [k for k, v in _ROW_CACHE.items() if now - v[0] >= ROW_TTL_S]:
+        for k in [k for k, v in _ROW_CACHE.items() if now - v[0] >= _ttl_of(v)]:
             _ROW_CACHE.pop(k, None)
         while len(_ROW_CACHE) >= ROW_CACHE_MAX:
             oldest = min(_ROW_CACHE, key=lambda k: _ROW_CACHE[k][0])
             _ROW_CACHE.pop(oldest, None)
-        _ROW_CACHE[key] = (now, rec)
+        _ROW_CACHE[key] = (now, rec, ttl)
 
 
 def clear_row_cache() -> None:
@@ -649,6 +928,19 @@ def not_computed_record(ticker: str, why: str) -> dict:
     from trading.valuation import pipeline
     rec = pipeline.failed_record(ticker, why)
     rec["not_computed"] = True
+    rec["row_kind"] = "not_computed"
+    return rec
+
+
+def crashed_record(ticker: str, error: str) -> dict:
+    """failed_record's shape, flagged `failed` — the chain RAISED for this
+    name on this open. Printed as one FAILED line (never as an UNDECLARED
+    route with an INSUFFICIENT verdict) and counted on the "This open" line;
+    not kept, so the next open tries again."""
+    from trading.valuation import pipeline
+    rec = pipeline.failed_record(ticker, error)
+    rec["failed"] = True
+    rec["row_kind"] = "failed"
     return rec
 
 
@@ -663,10 +955,29 @@ def empty_section(error: str = "", typed: str = "") -> dict:
             "drafted": False, "n_edited": 0, "drafted_keys": [],
             "budget_s": time_budget_s(), "elapsed_s": 0.0,
             "computed": 0, "cached": 0, "skipped_budget": 0,
-            "skipped_busy": 0, "busy": "", "row_ttl_min": int(ROW_TTL_S // 60)}
+            "skipped_busy": 0, "busy": "", "busy_kind": "", "failed": 0,
+            "n_cut": 0, "cut_names": [], "store_down": "", "store_wait_s": 0.0,
+            "degraded_ttl_min": int(DEGRADED_ROW_TTL_S // 60),
+            "row_ttl_min": int(ROW_TTL_S // 60)}
 
 
 def section(cfg, p, typed: str = "", show_terms: bool = False) -> dict:
+    """§12 for one page render. Every store call made while building it
+    goes through ONE render-scoped database gate (see _StoreGate); the time
+    budget's clock starts here, so it includes reading the draft, the
+    targets and the rows' prices."""
+    import time as _time
+    t0 = _time.monotonic()
+    ctx = _Render(time_budget_s(), t0)
+    prev = getattr(_RENDER, "ctx", None)
+    _RENDER.ctx = ctx
+    try:
+        return _section(cfg, p, typed, show_terms, ctx)
+    finally:
+        _RENDER.ctx = prev
+
+
+def _section(cfg, p, typed: str, show_terms: bool, ctx: "_Render") -> dict:
     import time as _time
     out = empty_section("", typed)
     typed_full = ""
@@ -679,76 +990,104 @@ def section(cfg, p, typed: str = "", show_terms: bool = False) -> dict:
     overrides = load_assumptions()
     out.update({"drafted": bool(overrides), "n_edited": len(overrides),
                 "drafted_keys": sorted(overrides)})
-    budget = time_budget_s()
-    t0 = _time.monotonic()
-    rows = []
-    computed = cached = skipped_budget = skipped_busy = 0
     names = names_to_show(p, typed_full)
+    cut = list(getattr(names, "cut", None) or [])
+    out.update({"n_cut": len(cut), "cut_names": cut})
     todo = [t for t in names
             if _row_cache_get(_row_key(t, overrides, out["show_terms"] and t == typed_full)) is None]
     owns = _SECTION_LOCK.acquire(blocking=False) if todo else False
-    busy = busy_reason() if owns else ("another open of the Den is computing these rows right now"
-                                       if todo else "")
+    if owns:
+        busy_kind, busy = busy_status()
+    elif todo:
+        busy_kind, busy = "other_tab", OTHER_TAB_TEXT
+    else:
+        busy_kind, busy = "", ""
     try:
         pre = _prefetch_closes(todo) if (todo and not busy) else {}
-        rows, computed, cached, skipped_budget, skipped_busy, busy = _section_rows(
-            cfg, p, names, typed_full, out["show_terms"], overrides, budget, t0, busy, pre)
+        res = _section_rows(cfg, p, names, typed_full, out["show_terms"], overrides,
+                            ctx, busy_kind, busy, pre)
     finally:
         if owns:
             _SECTION_LOCK.release()
-    if computed:
+    if res["computed"]:
         try:
             from .memory_relief import release
             release("den chain")
         except Exception:                               # noqa: BLE001
             pass
-    out.update({"rows": rows, "n": len(rows), "busy": busy,
-                "elapsed_s": round(_time.monotonic() - t0, 1),
-                "computed": computed, "cached": cached,
-                "skipped_budget": skipped_budget, "skipped_busy": skipped_busy})
+    g = ctx.gate
+    out.update({"rows": res["rows"], "n": len(res["rows"]),
+                "busy": res["busy"], "busy_kind": res["busy_kind"],
+                "elapsed_s": round(_time.monotonic() - ctx.t0, 1),
+                "computed": res["computed"], "cached": res["cached"],
+                "failed": res["failed"],
+                "skipped_budget": res["skipped_budget"],
+                "skipped_busy": res["skipped_busy"],
+                "store_down": g.why if g.down else "",
+                "store_wait_s": round(g.spent_s, 1)})
     return out
 
 
-def _section_rows(cfg, p, names, typed_full, show_terms, overrides, budget, t0,
-                  busy, pre):
+def _budget_row_text(budget: float, gate: "_StoreGate") -> str:
+    keep = f"computed rows are kept {int(ROW_TTL_S // 60)} min"
+    if gate.down:
+        return (f"not computed — the database did not answer in time on this open "
+                f"({gate.why}) and the §12 time budget ({budget:.0f} s) ran out; "
+                f"open the Den again ({keep}) or type this name in the box")
+    return (f"not computed — the §12 time budget ({budget:.0f} s, which includes "
+            f"loading the rows' prices) ran out before this row; open the Den "
+            f"again ({keep}) or type this name in the box")
+
+
+def _section_rows(cfg, p, names, typed_full, show_terms, overrides, ctx,
+                  busy_kind, busy, pre) -> dict:
     """The row loop. The busy reading is re-taken before every NEW row, so a
-    scan rotation that starts mid-render stops it."""
-    import time as _time
+    scan rotation that starts mid-render stops it. A name the prefetch did
+    not find in the store is read from the repo zip here (not asked again)."""
     rows = []
-    computed = cached = skipped_budget = skipped_busy = 0
+    computed = cached = skipped_budget = skipped_busy = failed = 0
     for t in names:
         terms = show_terms and t == typed_full
         key = _row_key(t, overrides, terms)
         hit = _row_cache_get(key)
         if hit is not None:
-            rows.append(hit)
+            rows.append(_marked(hit))
             cached += 1
             continue
         if not busy and computed:
-            busy = busy_reason()
+            busy_kind, busy = busy_status()
         if busy:
             rows.append(not_computed_record(
-                t, f"not computed — {busy}; open the Den again once it finishes"))
+                t, f"not computed — {busy}; {BUSY_REMEDY.get(busy_kind) or BUSY_REMEDY['rotation']}"))
             skipped_busy += 1
             continue
-        if budget > 0 and _time.monotonic() - t0 >= budget:
-            rows.append(not_computed_record(
-                t, f"not computed — the §12 time budget ({budget:.0f} s) was spent on "
-                   f"the rows above; open the Den again (computed rows are kept "
-                   f"{int(ROW_TTL_S // 60)} min) or type this name in the box"))
+        if ctx.budget_spent():
+            rows.append(not_computed_record(t, _budget_row_text(ctx.budget, ctx.gate)))
             skipped_budget += 1
             continue
+        if t in pre:
+            closes, src = pre[t], "store"
+        else:
+            closes = _zip_close_series(t)
+            src = "repo copy"
         try:
             rec = row_for(t, cfg, p, show_terms=terms, overrides=overrides or None,
-                          closes=pre.get(t))
-            _row_cache_put(key, rec)
-            computed += 1
-            rows.append(rec)
+                          closes=closes, price_source=src)
+        except _BudgetSpent:
+            rows.append(not_computed_record(t, _budget_row_text(ctx.budget, ctx.gate)))
+            skipped_budget += 1
+            continue
         except Exception as e:                          # noqa: BLE001
             log.exception("valuation chain: row failed for %s", t)
-            from trading.valuation import pipeline
-            rows.append(pipeline.failed_record(t, str(e)[:120]))
-    return rows, computed, cached, skipped_budget, skipped_busy, busy
+            rows.append(crashed_record(t, f"{type(e).__name__}: {e}"[:160]))
+            failed += 1
+            continue
+        _row_cache_put(key, _marked(rec), DEGRADED_ROW_TTL_S if ctx.gate.down else None)
+        computed += 1
+        rows.append(rec)
+    return {"rows": rows, "computed": computed, "cached": cached,
+            "skipped_budget": skipped_budget, "skipped_busy": skipped_busy,
+            "failed": failed, "busy": busy, "busy_kind": busy_kind}
 
 
 # ------------------------------------------------------ §13 formulas page

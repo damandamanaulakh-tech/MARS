@@ -35,8 +35,20 @@ def _owner() -> TestClient:
 
 def _text(html: str, anchor: str = 'id="chain"') -> str:
     i = html.find(anchor)
-    assert i > 0, anchor
+    assert i >= 0, anchor
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html[i:i + 120000]))
+
+
+def _row_html(html: str, ticker: str) -> str:
+    """The §12 table row of one ticker (the page also carries held names)."""
+    i = html.find("den_chain_rows_marker")
+    j = html.find("</table>", i)
+    for row in re.findall(r"<tr\b.*?</tr>", html[i:j], re.S):
+        cell = re.search(r"<td[^>]*>(.*?)</td>", row, re.S)
+        if cell and re.sub(r"<[^>]+>|\s", "", cell.group(1)).startswith(
+                ticker.replace(".NS", "")):
+            return row
+    raise AssertionError(f"no §12 row for {ticker}")
 
 
 @pytest.fixture
@@ -69,6 +81,7 @@ def test_a_typed_name_renders_the_whole_chain(stored):
     html = _owner().get("/den?chain=TCS&terms=1").text
     assert "den_chain_rows_marker" in html and "den_chain_terms_marker" in html
     t = _text(html)
+    tcs_row = _row_html(html, "TCS.NS")
     assert "IT services / ER&amp;D" in t or "IT services / ER&D" in t
     assert "FY to 2026-03-31" in t
     assert "lock " in t                                   # the sha256 prefix printed
@@ -81,7 +94,15 @@ def test_a_typed_name_renders_the_whole_chain(stored):
     assert "not a trade permission" in t
     assert "All 52 finance terms for TCS" in t
     assert "Graham number" in t and "Altman Z" in t
-    assert "den_chain_use_marker" in html                 # the owner can push it to §11
+    # 2026-10-15 review: TCS's range is too wide to judge (INSUFFICIENT) —
+    # the "use as §11 target" button is refused on that row, with the why
+    # (the old pin asserted the button anywhere on the page, and a held
+    # name's row satisfied it). The button itself: the SAIL test below.
+    if "INSUFFICIENT" in _text(tcs_row, "<tr"):
+        assert "den_chain_use_refused_marker" in tcs_row
+        assert "den_chain_use_marker" not in tcs_row
+    else:
+        assert "den_chain_use_marker" in tcs_row
 
 
 def test_a_converted_adr_name_says_so_on_the_row(stored):
@@ -92,12 +113,15 @@ def test_a_converted_adr_name_says_so_on_the_row(stored):
 
 
 def test_an_unknown_name_reads_data_needed_never_a_500(stored):
+    # 2026-10-15 review: a name with no statements used to print ten
+    # DATA_NEEDED cells ending in INSUFFICIENT — the word TCS gets for a
+    # range too wide to judge. It now prints one NO STATEMENTS line.
     r = _owner().get("/den?chain=ZZNOSUCH")
     assert r.status_code == 200
-    t = _text(r.text)
-    assert "UNDECLARED" in t
-    assert "DATA_NEEDED — no statements for ZZNOSUCH" in t
-    assert "INSUFFICIENT" in t
+    row = _row_html(r.text, "ZZNOSUCH")
+    t = _text(row, "<tr")
+    assert "NO STATEMENTS" in t and "batch fetch" in t
+    assert "INSUFFICIENT" not in t and "UNDECLARED" not in t
 
 
 def test_a_bad_symbol_is_refused_with_a_message(stored):
@@ -107,22 +131,28 @@ def test_a_bad_symbol_is_refused_with_a_message(stored):
 
 
 def test_use_as_target_stores_the_computed_base_into_section_11(stored):
+    # 2026-10-15: the button shows only on a JUDGED verdict (TCS reads
+    # INSUFFICIENT — range too wide); SAIL is judged under these peers. The
+    # regex reads SAIL's OWN form (it used to read the first form on the
+    # page, which could belong to a held name).
     c = _owner()
-    html = c.get("/den?chain=TCS").text
-    # the hidden form the button posts — read the values the page computed
-    m = re.search(r'name="target" value="([\d.]+)"', html)
-    assert m, "no computed base on the row"
+    html = c.get("/den?chain=SAIL").text
+    row = _row_html(html, "SAIL.NS")
+    assert re.search(r"(ATTRACTIVE|WATCH|UNATTRACTIVE)", _text(row, "<tr"))
+    m = re.search(r'name="ticker" value="SAIL.NS">\s*<input type="hidden" name="target" value="([\d.]+)"',
+                  row)
+    assert m, "no computed base on the SAIL row"
     base = float(m.group(1))
     assert base > 0
-    r = c.post("/den/valuation", data={"ticker": "TCS", "target": f"{base:.2f}",
+    r = c.post("/den/valuation", data={"ticker": "SAIL", "target": f"{base:.2f}",
                                        "asof": "2026-10-14",
                                        "basis": "computed earnings base case 2026-10-14 (stage 17)"},
                follow_redirects=False)
     assert r.status_code == 303 and "val=saved" in r.headers["location"]
     doc = vv.load_doc()
-    assert "TCS.NS" in doc["targets"]
-    assert doc["targets"]["TCS.NS"]["target"] == pytest.approx(base, abs=0.01)
-    assert doc["targets"]["TCS.NS"]["basis"].startswith("computed")
+    assert "SAIL.NS" in doc["targets"]
+    assert doc["targets"]["SAIL.NS"]["target"] == pytest.approx(base, abs=0.01)
+    assert doc["targets"]["SAIL.NS"]["basis"].startswith("computed")
 
 
 def test_the_sequence_now_carries_the_chain_stages_dated_today():
@@ -145,7 +175,9 @@ def test_names_to_show_orders_typed_then_targets_then_held(stored, monkeypatch):
     vv.LAST["targets"] = {"DLF.NS": {"target": 1.0}}
     monkeypatch.setattr(vv, "load_doc", lambda: {"targets": {"DLF.NS": {"target": 1.0}},
                                                  "assumptions": {}})
-    assert cv.names_to_show(_P(), "TCS.NS") == ["TCS.NS", "DLF.NS", "SAIL.NS", "HDFCBANK.NS"]
+    # Order changed 2026-10-15 (review): typed, then HELD, then §11 targets
+    # A-Z — 25 stored targets used to push every held name off the chain.
+    assert cv.names_to_show(_P(), "TCS.NS") == ["TCS.NS", "SAIL.NS", "HDFCBANK.NS", "DLF.NS"]
 
 
 def test_held_names_appear_on_the_chain_from_the_real_book(stored):

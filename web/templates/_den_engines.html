@@ -118,26 +118,27 @@
       <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
         <tr><th class="text-left px-4 py-2 whitespace-nowrap">Category</th>
             <th class="text-right px-2 py-2 whitespace-nowrap">Floor</th>
+            <th class="text-right px-2 py-2">Cash share</th>
             <th class="text-left px-2 py-2 whitespace-nowrap">Scorer</th>
             <th class="text-right px-2 py-2 whitespace-nowrap">Stop</th>
-            <th class="text-right px-2 py-2 whitespace-nowrap">Target k</th>
-            <th class="text-right px-2 py-2 whitespace-nowrap">@ median ATR</th>
+            <th class="text-right px-2 py-2">Target k</th>
+            <th class="text-right px-2 py-2">@ median ATR</th>
             <th class="text-right px-2 py-2 whitespace-nowrap">Band</th>
             <th class="text-right px-2 py-2 whitespace-nowrap">Trail</th>
             <th class="text-right px-2 py-2 whitespace-nowrap">Decay</th>
-            <th class="text-right px-2 py-2 whitespace-nowrap">Max hold</th>
-            <th class="text-center px-2 py-2 whitespace-nowrap">Candle gate</th>
-            <th class="text-center px-2 py-2 whitespace-nowrap">Kelly check</th>
-            <th class="text-right px-4 py-2 whitespace-nowrap">Cash share</th></tr>
+            <th class="text-right px-2 py-2">Max hold</th>
+            <th class="text-center px-2 py-2">Candle gate</th>
+            <th class="text-center pl-2 pr-4 py-2">Kelly check</th></tr>
       </thead>
       <tbody>
         {% for c in eng.categories %}
         <tr class="border-b border-line last:border-0 {% if c.active %}bg-ink/[0.03]{% endif %}" data-den-category="{{ c.key }}">
-          <td class="px-4 py-2 font-semibold whitespace-nowrap">{{ c.name }}{% if c.active %} <span class="text-[9px] uppercase tracking-widest bg-ink text-white px-1.5 py-0.5">live</span>{% endif %}
+          <td class="px-4 py-2 font-semibold min-w-[9rem]">{{ c.name }}{% if c.active %} <span class="text-[9px] uppercase tracking-widest bg-ink text-white px-1.5 py-0.5">live</span>{% endif %}
             <div class="text-[10px] text-ink-faint font-normal">{{ c.bar }} bars · {{ c.history }} history{% if c.square_off %} · square-off {{ c.square_off }}{% endif %}</div></td>
           <td class="px-2 py-2 text-right tabular-nums font-bold" data-den-floor="{{ c.key }}">{{ c.floor }}{% if c.floor != c.preset_floor %}<div class="text-[10px] text-amber-700 font-normal">preset {{ c.preset_floor }}</div>{% endif %}</td>
+          <td class="px-2 py-2 text-right tabular-nums">{% if c.share_pct is not none %}{{ c.share_pct }}%{% else %}—{% endif %}</td>
           <td class="px-2 py-2 text-xs text-ink-soft min-w-[10rem]">{{ c.scorer }}</td>
-          <td class="px-2 py-2 text-right tabular-nums text-red-700 whitespace-nowrap">{{ c.stop_pct }}%{% if c.atr_stop %}<div class="text-[10px] text-amber-700">floor of {{ eng.stop.k }}×ATR, cap −{{ eng.stop.cap_pct }}%</div>{% endif %}</td>
+          <td class="px-2 py-2 text-right tabular-nums text-red-700">{{ c.stop_pct }}%{% if c.atr_stop %}<div class="text-[10px] text-amber-700">floor of {{ eng.stop.k }}×ATR, cap −{{ eng.stop.cap_pct }}%</div>{% endif %}</td>
           <td class="px-2 py-2 text-right tabular-nums" data-den-target-k="{{ c.key }}">{{ c.target_k }}×</td>
           <td class="px-2 py-2 text-right tabular-nums text-emerald-700">+{{ c.target_at_median_pct }}%</td>
           <td class="px-2 py-2 text-right tabular-nums text-xs text-ink-faint whitespace-nowrap">{{ c.band_pct[0] }}–{{ c.band_pct[1] }}%</td>
@@ -145,8 +146,7 @@
           <td class="px-2 py-2 text-right tabular-nums">{{ c.decay }}</td>
           <td class="px-2 py-2 text-right tabular-nums">{{ c.hold }}d</td>
           <td class="px-2 py-2 text-center">{{ 'ON' if c.candle_gate else 'off' }}</td>
-          <td class="px-2 py-2 text-center">{{ 'gated' if c.kelly_gated and eng.measured_kelly.enabled else '—' }}</td>
-          <td class="px-4 py-2 text-right tabular-nums">{% if c.share_pct is not none %}{{ c.share_pct }}%{% else %}—{% endif %}</td>
+          <td class="pl-2 pr-4 py-2 text-center">{{ 'gated' if c.kelly_gated and eng.measured_kelly.enabled else '—' }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -174,16 +174,16 @@
         <div class="overflow-x-auto mt-3">
         <table class="w-full text-xs">
           <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
-            <tr><th class="text-left px-2 py-1">Score</th><th class="text-right px-2 py-1">z</th><th class="text-right px-2 py-1">Kelly f</th><th class="text-right px-2 py-1">f × equity</th><th class="text-right px-2 py-1">Size</th></tr>
+            <tr><th class="text-left px-1 py-1">Score</th><th class="text-right px-1 py-1">z</th><th class="text-right px-1 py-1">Kelly f</th><th class="text-right px-1 py-1">f × equity</th><th class="text-right px-1 py-1">Size</th></tr>
           </thead>
           <tbody>
             {% for r in eng.sizing.ladder %}
             <tr class="border-b border-line last:border-0">
-              <td class="px-2 py-1 tabular-nums">{{ r.score }}</td>
-              <td class="px-2 py-1 text-right tabular-nums">{{ r.z }}</td>
-              <td class="px-2 py-1 text-right tabular-nums">{{ r.kelly_pct }}%{% if r.capped %} <span class="text-amber-700">cap</span>{% endif %}</td>
-              <td class="px-2 py-1 text-right tabular-nums">₹{{ r.raw | inr }}</td>
-              <td class="px-2 py-1 text-right tabular-nums font-bold">₹{{ r.notional | inr }}{% if r.slab_applied %} <span class="text-ink-faint font-normal">slab</span>{% endif %}</td>
+              <td class="px-1 py-1 tabular-nums">{{ r.score }}</td>
+              <td class="px-1 py-1 text-right tabular-nums">{{ r.z }}</td>
+              <td class="px-1 py-1 text-right tabular-nums">{{ r.kelly_pct }}%{% if r.capped %} <span class="text-amber-700">cap</span>{% endif %}</td>
+              <td class="px-1 py-1 text-right tabular-nums">₹{{ r.raw | inr }}</td>
+              <td class="px-1 py-1 text-right tabular-nums font-bold">₹{{ r.notional | inr }}{% if r.slab_applied %} <span class="text-ink-faint font-normal">slab</span>{% endif %}</td>
             </tr>
             {% endfor %}
           </tbody>

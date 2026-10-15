@@ -1088,7 +1088,12 @@ def _sector_index_refresh() -> None:
 
 
 SECTOR_HISTORY_DAYS = 760          # ~2 years + margin for the 252-session β
-_SECTOR_BACKFILL_DAY: dict = {}    # one attempt per process per day
+#: One attempt per process per day PER DEPTH: {"day": iso, "from": the
+#: deepest start date already attempted that day}. A request no deeper than
+#: one already tried today returns "already_tried_today" WITHOUT reading the
+#: store; a deeper one (an older valuation date typed on the Den) gets one
+#: attempt of its own.
+_SECTOR_BACKFILL_DAY: dict = {}
 
 
 def backfill_sector_history(days: int = SECTOR_HISTORY_DAYS,
@@ -1098,10 +1103,15 @@ def backfill_sector_history(days: int = SECTOR_HISTORY_DAYS,
     the oldest stored row already reaches back that far nothing is fetched;
     when it does not, every sector's missing window is fetched in ONE
     public-candle call per index (16 calls, tokenless) and stored. One
-    attempt per process per day unless `force` — a dead feed must not cost
-    16 calls on every owner tap. Returns a small report for the caller
-    (the Den's valuation POST calls this when a typed valuation date lies
-    before the store)."""
+    attempt per process per day (per depth) unless `force` — a dead feed
+    must not cost 16 calls on every owner tap. Returns a small report for
+    the caller (the Den's valuation POST calls this, with the days the
+    typed valuation date needs).
+
+    2026-10-15: the day guard is set BEFORE the store read. It used to be
+    set only when a fetch happened, so a store that was already deep enough
+    was read in FULL (the whole sector_index collection) on every 09:20 /
+    15:35 refresh and on every Den save."""
     from datetime import date as _date, timedelta as _td
 
     from trading import data as tdata, data_refresh as dr
@@ -1111,22 +1121,28 @@ def backfill_sector_history(days: int = SECTOR_HISTORY_DAYS,
     if not db.is_connected():
         rep["skipped"] = "mongo_offline"
         return rep
-    if not force and _SECTOR_BACKFILL_DAY.get("day") == today:
-        rep["skipped"] = "already_tried_today"
-        return rep
-    stored = db.load_sector_rows()
-    oldest = min((str(r.get("date") or "") for r in stored
-                  if r.get("date")), default="")
-    rep["oldest"] = oldest
     want_from = (_date.today() - _td(days=int(days))).isoformat()
-    if oldest and oldest <= want_from:
-        rep["skipped"] = "deep_enough"
+    tried = (_SECTOR_BACKFILL_DAY.get("from")
+             if _SECTOR_BACKFILL_DAY.get("day") == today else None)
+    if not force and tried is not None and tried <= want_from:
+        rep["skipped"] = "already_tried_today"
         return rep
     broker = tdata.history_broker()
     if broker is None:
         rep["skipped"] = "no_history_client"
         return rep
-    _SECTOR_BACKFILL_DAY["day"] = today
+    # BEFORE the read: the attempt counts even when the store turns out deep
+    # enough (keep the deepest start tried today, a forced shallow call
+    # must not re-open a deeper one).
+    _SECTOR_BACKFILL_DAY.update(
+        day=today, **{"from": min(tried, want_from) if tried else want_from})
+    stored = db.load_sector_rows()
+    oldest = min((str(r.get("date") or "") for r in stored
+                  if r.get("date")), default="")
+    rep["oldest"] = oldest
+    if oldest and oldest <= want_from:
+        rep["skipped"] = "deep_enough"
+        return rep
     end = ((_date.fromisoformat(oldest) - _td(days=1)).isoformat()
            if oldest else today)
     rows = dr.fetch_sector_history(broker, want_from, end)

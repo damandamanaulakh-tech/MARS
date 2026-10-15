@@ -362,7 +362,11 @@ def test_row_for_uses_handed_closes_without_another_read(monkeypatch):
 # --------------------------------------------------------------- page
 
 def test_the_den_prints_why_rows_were_not_computed(monkeypatch):
-    monkeypatch.setattr(cv, "busy_reason", lambda: "a scan rotation is running on the box")
+    # Seam moved 2026-10-15: section() reads busy_status() (kind, text) —
+    # busy_reason() returned text only, so the page could not print the
+    # remedy for the KIND of busy box (test_den_chain_clarity_2026_10_15).
+    monkeypatch.setattr(cv, "busy_status",
+                        lambda: ("rotation", "a scan rotation is running on the box"))
     r = _owner().get("/den?chain=TCS")
     assert r.status_code == 200
     html = r.text
@@ -540,7 +544,9 @@ def test_an_index_reading_the_store_did_not_extend_is_asked_again(monkeypatch):
 
 
 def test_a_not_computed_row_is_one_plain_line_not_a_verdict(monkeypatch):
-    monkeypatch.setattr(cv, "busy_reason", lambda: "a scan rotation is running on the box")
+    # seam: busy_status(), see test_the_den_prints_why_rows_were_not_computed
+    monkeypatch.setattr(cv, "busy_status",
+                        lambda: ("rotation", "a scan rotation is running on the box"))
     html = _owner().get("/den?chain=TCS").text
     i = html.find("den_chain_rows_marker")
     j = html.find("</table>", i)

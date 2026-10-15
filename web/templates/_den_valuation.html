@@ -69,27 +69,33 @@
     <div class="p-4 text-sm text-ink-faint border-b border-line"><!-- den_valuation_readonly_marker -->Owner role required to store a target. {{ val.n }} stored.</div>
     {% endif %}
 
+    {% if val.skipped_busy or val.skipped_budget %}
+    <div class="px-4 py-2 border-b border-line text-xs space-y-1">
+      {% if val.skipped_busy %}<div class="text-amber-800 font-semibold"><!-- den_valuation_busy_marker -->{{ val.skipped_busy }} row(s) NOT computed on this open — {{ val.busy }}. Reading prices and sector history now could push the app past its 512 MiB limit. Rows computed in the last {{ val.row_ttl_min }} min still show.</div>{% endif %}
+      {% if val.skipped_budget %}<div class="text-amber-800 font-semibold"><!-- den_valuation_budget_marker -->{{ val.skipped_budget }} row(s) NOT computed on this open — the {{ '%.0f' % val.budget_s }} s time budget was spent on the {{ val.computed }} row(s) above. Open the Den again to fill the rest: every computed row is kept {{ val.row_ttl_min }} min.</div>{% endif %}
+    </div>
+    {% endif %}
     {% if val.rows %}
     <div class="overflow-x-auto"><!-- den_valuation_rows_marker -->
       <table class="w-full text-xs">
         <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
           <tr><th class="text-left px-4 py-2 whitespace-nowrap">Stock · target</th>
+              <th class="text-right px-2 py-2 whitespace-nowrap">Context target<br><span class="normal-case tracking-normal">1:1 / β, after rates</span></th>
+              <th class="text-right px-2 py-2 whitespace-nowrap">Buy below<br><span class="normal-case tracking-normal">1:1 / β</span></th>
               <th class="text-left px-2 py-2 whitespace-nowrap">Sector leg since the date</th>
               <th class="text-right px-2 py-2 whitespace-nowrap">1:1 target</th>
               <th class="text-right px-2 py-2 whitespace-nowrap">Measured-β target</th>
               <th class="text-left px-2 py-2 whitespace-nowrap">Rates leg</th>
-              <th class="text-right px-2 py-2 whitespace-nowrap">Context target<br><span class="normal-case tracking-normal">1:1 / β, after rates</span></th>
               <th class="text-left px-2 py-2 whitespace-nowrap">Sentiment margin</th>
-              <th class="text-right px-2 py-2 whitespace-nowrap">Buy below<br><span class="normal-case tracking-normal">1:1 / β</span></th>
               <th class="text-left px-4 py-2 whitespace-nowrap">Verify — move split</th></tr>
         </thead>
         <tbody>
           {% for r in val.rows %}
           {% set sl = r.legs.sector %}{% set rl = r.legs.rates %}{% set sm = r.legs.sentiment %}{% set vf = r.legs.verify %}
           <tr class="border-b border-line last:border-0 align-top">
-            <td class="px-4 py-2 whitespace-nowrap">
-              <div class="font-semibold text-sm">{{ r.ticker | replace('.NS', '') }} <span class="text-ink-faint font-normal text-[10px]">{{ r.sector or 'unmapped' }}</span></div>
-              <div class="tabular-nums">₹{{ r.target | inr(2) }} on {{ r.asof }}</div>
+            <td class="px-4 py-2 min-w-[14rem]">
+              <div class="font-semibold text-sm whitespace-nowrap">{{ r.ticker | replace('.NS', '') }} <span class="text-ink-faint font-normal text-[10px]">{{ r.sector or 'unmapped' }}</span></div>
+              <div class="tabular-nums whitespace-nowrap">₹{{ r.target | inr(2) }} on {{ r.asof }}</div>
               {% if r.basis %}<div class="text-ink-faint">{{ r.basis }}</div>{% endif %}
               {% if r.status == 'OK' %}
               <div class="text-ink-faint tabular-nums">then ₹{{ r.price_then | inr(2) }} ({{ r.price_then_date }}) · now ₹{{ r.price_now | inr(2) }} ({{ r.price_now_date }}) · stock {{ '%+.1f' % r.stock_move_pct }}%</div>
@@ -98,9 +104,25 @@
               <form method="post" action="/den/valuation/clear" class="mt-1"><input type="hidden" name="ticker" value="{{ r.ticker }}"><button type="submit" class="text-[10px] tracking-widest uppercase text-ink-faint hover:text-red-700">✕ remove</button></form>
               {% endif %}
             </td>
-            {% if r.status != 'OK' %}
+            {% if r.not_computed %}
+            <td colspan="8" class="px-2 py-2 text-amber-700 font-semibold"><!-- den_valuation_not_computed_marker -->NOT COMPUTED on this open — {{ r.why }}</td>
+            {% elif r.status != 'OK' %}
             <td colspan="8" class="px-2 py-2 text-amber-700 font-semibold">DATA_NEEDED — {{ r.why }}</td>
             {% else %}
+            <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">
+              {% if r.context_one_to_one or r.context_measured %}
+              <div class="font-bold">{% if r.context_one_to_one %}₹{{ r.context_one_to_one | inr(2) }}{% else %}—{% endif %} / {% if r.context_measured %}₹{{ r.context_measured | inr(2) }}{% else %}—{% endif %}</div>
+              <div class="text-ink-faint">vs price {% if r.context_one_to_one_vs_price_pct is not none %}{{ '%+.1f' % r.context_one_to_one_vs_price_pct }}%{% else %}—{% endif %} / {% if r.context_measured_vs_price_pct is not none %}{{ '%+.1f' % r.context_measured_vs_price_pct }}%{% else %}—{% endif %}</div>
+              {% else %}
+              <div class="font-bold">₹{{ r.context_rates_only | inr(2) }}</div>
+              <div class="text-ink-faint">rates leg only · vs price {{ '%+.1f' % r.context_rates_only_vs_price_pct }}%</div>
+              {% endif %}
+            </td>
+            <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">
+              {% if sm.buy_below_one_to_one or sm.buy_below_measured %}
+              {% if sm.buy_below_one_to_one %}₹{{ sm.buy_below_one_to_one | inr(2) }}{% else %}—{% endif %} / {% if sm.buy_below_measured %}₹{{ sm.buy_below_measured | inr(2) }}{% else %}—{% endif %}
+              {% else %}₹{{ sm.buy_below_rates_only | inr(2) }} <span class="text-ink-faint">(rates only)</span>{% endif %}
+            </td>
             <td class="px-2 py-2 min-w-[12rem]">
               <div>{{ sl.label }}</div>
               {% if sl.status == 'OK' %}
@@ -121,23 +143,9 @@
               <div class="text-amber-700 font-semibold">DATA_NEEDED — {{ rl.why }}</div>
               {% endif %}
             </td>
-            <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">
-              {% if r.context_one_to_one or r.context_measured %}
-              <div class="font-bold">{% if r.context_one_to_one %}₹{{ r.context_one_to_one | inr(2) }}{% else %}—{% endif %} / {% if r.context_measured %}₹{{ r.context_measured | inr(2) }}{% else %}—{% endif %}</div>
-              <div class="text-ink-faint">vs price {% if r.context_one_to_one_vs_price_pct is not none %}{{ '%+.1f' % r.context_one_to_one_vs_price_pct }}%{% else %}—{% endif %} / {% if r.context_measured_vs_price_pct is not none %}{{ '%+.1f' % r.context_measured_vs_price_pct }}%{% else %}—{% endif %}</div>
-              {% else %}
-              <div class="font-bold">₹{{ r.context_rates_only | inr(2) }}</div>
-              <div class="text-ink-faint">rates leg only · vs price {{ '%+.1f' % r.context_rates_only_vs_price_pct }}%</div>
-              {% endif %}
-            </td>
             <td class="px-2 py-2 min-w-[12rem]">
               <div class="tabular-nums"><strong>{{ sm.discount_pct | round(1) }}%</strong> = {{ sm.base_pct | round(0) | int }}% + {{ sm.n_on }} × {{ sm.step_pp }}{% if sm.n_unknown %} · {{ sm.n_unknown }} gauge(s) DATA_NEEDED{% endif %}</div>
               {% for g in sm.gauges %}<div class="{% if g.state == 'ON' %}text-red-700{% elif g.state == 'DATA_NEEDED' %}text-amber-700{% else %}text-ink-faint{% endif %}">{{ g.state }} · {{ g.name }} — {{ g.detail }}</div>{% endfor %}
-            </td>
-            <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">
-              {% if sm.buy_below_one_to_one or sm.buy_below_measured %}
-              {% if sm.buy_below_one_to_one %}₹{{ sm.buy_below_one_to_one | inr(2) }}{% else %}—{% endif %} / {% if sm.buy_below_measured %}₹{{ sm.buy_below_measured | inr(2) }}{% else %}—{% endif %}
-              {% else %}₹{{ sm.buy_below_rates_only | inr(2) }} <span class="text-ink-faint">(rates only)</span>{% endif %}
             </td>
             <td class="px-4 py-2 min-w-[14rem]">
               {% if vf.status == 'OK' %}

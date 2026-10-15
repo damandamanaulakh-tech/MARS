@@ -1181,9 +1181,16 @@ async def den_valuation_save(request: Request):
     date and basis, plus the assumptions, in settings doc
     "valuation_targets"; the GET reads the context for every stored
     target. If the typed valuation date lies before the stored sector
-    series, the one-time sector backfill runs now (tokenless public
-    candles, once per process per day). The live Config is never
-    written."""
+    series, the sector backfill runs now for the days THAT date needs
+    (tokenless public candles, once per process per day per depth). The
+    live Config is never written.
+
+    2026-10-15: this route is async, so the blocking calls (the settings
+    write and the backfill — a store read and up to 16 network calls) run
+    in the threadpool; on the event loop they froze every request on the
+    server while they ran."""
+    from starlette.concurrency import run_in_threadpool
+
     from .. import valuation_view as vv
     user = auth.current_user(request)
     if not user:
@@ -1195,12 +1202,12 @@ async def den_valuation_save(request: Request):
     if entry is None:
         return RedirectResponse(f"/den?val=invalid&val_err={quote(err)}#valuation",
                                 status_code=303)
-    ok, err = vv.save_target(entry, assumptions)
+    ok, err = await run_in_threadpool(vv.save_target, entry, assumptions)
     if not ok:
         return RedirectResponse(f"/den?val=invalid&val_err={quote(err)}#valuation",
                                 status_code=303)
     try:
-        vv.ensure_sector_depth(entry["asof"])
+        await run_in_threadpool(vv.ensure_sector_depth, entry["asof"])
     except Exception:
         log.exception("den: sector backfill after a valuation save failed")
     return RedirectResponse("/den?val=saved#valuation", status_code=303)
@@ -1243,7 +1250,10 @@ async def den_assumptions_clear(request: Request):
 
 @router.post("/den/valuation/clear")
 async def den_valuation_clear(request: Request):
-    """Owner-only: forget one stored target. Nothing else changes."""
+    """Owner-only: forget one stored target. Nothing else changes. The
+    settings write runs in the threadpool (async route, blocking store)."""
+    from starlette.concurrency import run_in_threadpool
+
     from .. import valuation_view as vv
     user = auth.current_user(request)
     if not user:
@@ -1253,7 +1263,7 @@ async def den_valuation_clear(request: Request):
     form = await request.form()
     ticker = vv.normalise_symbol(str(form.get("ticker") or ""))
     if ticker:
-        vv.clear_target(ticker)
+        await run_in_threadpool(vv.clear_target, ticker)
     return RedirectResponse("/den?val=cleared#valuation", status_code=303)
 
 
