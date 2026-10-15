@@ -153,8 +153,16 @@ def test_healthz_reports_memory_scan_universe_and_mongo():
     su = body["scan_universe"]
     assert su and su["count"] > 0
     assert su["target"] == 0 or su["target"] >= su["count"]
-    assert mem["rss_mb"] is None or abs(mem["rss_mb"] - mem["peak_mb"]) < 200, \
-        "rss and peak must be in the same unit (MiB)"
+    # Same unit (MiB): a KiB/MiB mix-up is a factor of 1024. The first cut
+    # asserted |rss - peak| < 200, which compares the CURRENT size with the
+    # process's LIFETIME peak — a test process that once peaked high and
+    # later freed memory (CI 2026-10-15: rss 300, peak 631) failed it with
+    # both numbers in MiB. Pin the unit, not the gap: rss can never exceed
+    # the peak (allowing page-rounding), and a 1024x mix-up cannot pass.
+    if mem["rss_mb"] is not None:
+        assert mem["rss_mb"] <= mem["peak_mb"] + 8, "rss above the peak: units differ"
+        assert mem["peak_mb"] / max(mem["rss_mb"], 1.0) < 64, \
+            "peak more than 64x rss: a KiB read as MiB"
     # keys present even when Mongo is offline (the test box) — None, not absent
     assert body["mongo"] is None or "data_mb" in body["mongo"]
 
