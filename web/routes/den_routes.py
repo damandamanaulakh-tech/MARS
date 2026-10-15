@@ -1040,7 +1040,11 @@ def den_page(request: Request, draft: Optional[str] = None,
         chain_ctx = {"rows": [], "n": 0, "max_rows": valuation_chain_view.MAX_ROWS,
                      "typed": typed, "typed_full": "", "show_terms": False,
                      "error": "the valuation chain could not be read — see the log",
-                     "n_statements": 0, "assumed": {}, "today": ""}
+                     "n_statements": 0, "assumed": {}, "today": "",
+                     "row_ttl_min": int(valuation_chain_view.ROW_TTL_S // 60),
+                     "budget_s": 0.0, "elapsed_s": 0.0, "computed": 0,
+                     "cached": 0, "skipped_budget": 0, "skipped_busy": 0,
+                     "busy": ""}
     ctx = {
         "user": user, "active": "den",
         "sections": SECTIONS,

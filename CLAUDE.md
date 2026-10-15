@@ -747,6 +747,113 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   box flat at 230 MiB since 16:54, the stalled block long dead) — DEN
   §13 IS LIVE after the deploy.** Thu 10-15 16:30 = the next weekly slot
   (ledger still 09-30 → due).
+- **THU 10-15 09:20 CHAIN — SIXTH MORNING OOM KILL, same shape, 31 min
+  after the rotation started** (keep-alive 09:12-11:15 IST,
+  keepalive_1015_am.log; the script stamps UTC, add 5:30). Asleep at
+  09:12 (52.6 s cold start, rss 149 / peak 148) — but the process booted
+  BEFORE 09:20, so its cron fired (the Tue pattern, unlike Wed's lost
+  slot). Boot catch-up 09:15 (peak 243); the missed 08:30 top-up ran
+  FIRST inside the 09:20 job (162-165 flat 09:20-09:29, a 282 spike at
+  09:31 = breadth/index/sector refresh, then 187-190 flat to 09:51);
+  **rotation 09:52 IST: 272 → 401 → 438 → 482 → 493 (peak 494) by
+  09:56**, held 482-493 to 10:09 (/healthz 1-2 s); **the trigger layer
+  on top from 10:10: 509 → 511 / peak 513, held 10:11-10:21 with
+  /healthz latency 4-7 s** (swapping); **`503` from Render's edge at
+  10:22:48 IST → fresh process 10:23 (rss 153 / peak 152) = OOM kill**.
+  The new process ran the 10:30 and 11:00 in-session exit passes (peak
+  202; 169-181 flat between), so stops and the danger layer were
+  unguarded only 10:22-10:30. Whether the rotation bought and what the
+  trigger layer stored before the kill = the journal (owner's login).
+  TALLY: six observed morning kills (10-05, 10-06, 10-07, 10-13, 10-14,
+  10-15), every one with the trigger layer loading on top of the
+  ~495 MiB five-pass rotation; the 14:30 chain (no trigger layer) has
+  never been killed. Lever (b) — trigger layer after a cool-down or on
+  tap — is the targeted one, still unordered. Wakes armed: 14:20
+  (trig_01LovBPtLqTeBBGPWNnW1fDz), 16:25 (trig_01EuUMx2Aa6SmHCqzP69Hngp;
+  the block is due today, ledger 09-30; re-arms Fri 09:10). HARNESS: the
+  sandbox container was replaced right at the wake (uptime 1 min at
+  09:12) and the 2-hour background waiter dies 2 min before an 11:15
+  loop end — start the loop first, then the waiter, or cap the loop at
+  1h55m.
+- **DEN §12 TOOK THE APP DOWN — FIXED 2026-10-15 (owner: "not new
+  positions are adding / Mars den always go down nt opening"). Money
+  impact NONE (display only).** LIVE EVIDENCE (keepalive_1015_am2.log,
+  no job due): 11:21-11:26 IST rss 323 → 363, peak 403 → 461; 11:55 IST
+  /healthz took 17 s, 11:56 `503` from Render's edge, fresh process 11:57
+  (rss 155) — a Den open on the 10-14 code. The new process: one spike to
+  300 at 12:00 IST (the 12:00 exit pass), then 170 flat to 12:30 (loop end). CAUSE (mine, PR #169): every
+  §12 open loaded the peer table's ~200 FULL twelve-year price documents
+  (one process per day — and the free tier restarts the process every
+  sleep) plus one full document per row, streamed the 34,792-row
+  corporate-action file once per row and re-read the index + bond CSVs
+  four-five times per row, with no time limit. A fake-store model of the
+  live box (scratchpad tools/den_live_model.py): OLD = 225 full-document
+  loads (~491,800 candle rows to decode) per open; NEW = 2 queries (one
+  $slice batch of the rows' last 1,500 closes + one last-candle tail over
+  the store), 4.9 s first open / ~1-3 s after a sleep / 0.0 s re-open.
+  WHAT CHANGED: `shares` indexes the CA + shares files once per process as
+  per-symbol CSV TEXT (5.2 MB; as dicts it measured 35 MB — too much to
+  keep resident), every one of 2,881 symbols reads back identical;
+  `valuation_view._index_field/_bond_series` cached per process
+  (file mtime/size key, Mongo tail re-asked every SERIES_TTL_S 600 s,
+  copies handed out); `pipeline.peer_base` (price-free: eps, shares,
+  ebitda, revenue, debt, cash, equity, method) + `peer_rows_from_base`
+  (pure pricing), `peer_table` = their composition (test proves no number
+  moved); the base is STORED in settings doc `valuation_peers` {base,
+  built, sig, version, n, n_priced, coverage} and valid only for the day it
+  was built (PEER_BASE_MAX_AGE_DAYS 1 — the old per-process-per-day
+  freshness, but a process woken after a sleep reads it back); sig = the
+  statement names' sector labels + pipeline.VERSION + a hash of route.py /
+  snapshot.py / pipeline.py, so a deploy that changes them rebuilds; a base
+  priced on < 90% of the 200 names (PEER_PRICE_COVERAGE) is used for the
+  day but NOT stored; peer prices = `_peer_prices()`: ONE
+  `db.history_tails(1)` query, names the store lacks (or all, Mongo down)
+  filled from the repo zip in ONE open — never name-by-name store reads;
+  the build runs once under `_PEER_LOCK` and `day` is set only after it
+  (a reload mid-build waits instead of caching peerless rows); `_closes` =
+  `db.history_docs` $slice then straight to the zip (no second Mongo try);
+  one computing render at a time (`_SECTION_LOCK`, a second open serves the
+  kept rows + "another open is computing"); the row cache is under
+  `_ROW_LOCK` and purges expired keys; the busy reading is re-taken before
+  every new row (a rotation starting mid-render stops it); an index series
+  the connected store did not extend is NOT cached (retried next call).
+  Not-computed rows render as ONE line ("NOT COMPUTED on this open — why"),
+  never as a fake INSUFFICIENT verdict. An independent opus review found
+  these 7 defects in the first cut (aff8e38); all fixed, 10 more tests.
+  `section()` prefetches the rows' closes in ONE
+  query, keeps computed rows ROW_TTL_S (30 min, keyed by ticker + day +
+  draft assumptions + terms), stops computing new rows once
+  `SB_DEN_CHAIN_BUDGET_S` (default 20 s) is spent, and computes NONE while
+  `scheduler._ROTATION_LOCK` is held or rss ≥ `SB_DEN_CHAIN_RSS_CEILING_MB`
+  (default 380, ASSUMED from the measured box: idle 330-370, rotation
+  400-495, trigger layer 500-525) — those rows print NOT COMPUTED with the
+  reason (den_chain_busy_marker / den_chain_budget_marker /
+  den_chain_not_computed_marker / den_chain_cost_marker), cached rows
+  still show; `memory_relief.release` after a computing render. HONEST
+  LIMIT: after the 14:30 rotation the process holds ~435-485 MiB until it
+  restarts (glibc keeps freed memory), so with the 380 ceiling §12 computes
+  nothing on those afternoons until the free plan's sleep restarts it —
+  the banner says so; computing there would risk the 512 kill. The web
+  conftest sets both env vars to 0 (test-only, the SB_IGNORE_MARKET_HOURS
+  pattern) + clears the row/series caches per test; a test pins the
+  production defaults and that render.yaml sets neither. Tests
+  web/tests/test_den_chain_cost_2026_10_15.py (27; 16 fail on the 10-14
+  code, 14 on aff8e38; the no-number-moved pin and the thread-race test
+  pass on both — the race does not reproduce reliably, the lock stands on
+  the review). Other Den sections measured
+  cheap (the /scan piano summary at 1,205 names ≈ 1 s / 20 MB, left).
+  **"NO NEW POSITIONS" — candidates EXIST**: on 250 public-candle names at
+  the 10-14 close, 74 clear the 62 floor with a positive 6-month return
+  (LAURUSLABS 92.7, SONACOMS 92.2, BHEL 91.2 …) and breadth (>200DMA) is
+  38.8% on 251 names = below the 40% band edge = buyable. So the block is
+  book-level and only the owner's screens can name it: (1) the momentum
+  CASH SHARE — 40% of deployable = ~₹1.6 Cr at entry cost in a correction
+  (20% reserve), and owner BUY / Buy Desk buys COUNT as momentum (the
+  09-24 Buy Desk could alone fill it) → journal CATEGORY_BUDGET_FULL, /risk
+  category card; (2) the measured-Kelly check on the momentum record →
+  MEASURED_KELLY_BLOCKED, /risk measured-Kelly card; (3) breadth on the
+  FULL store (2,233 names) reading ≥ 40% → BREADTH_BLOCKED. Asked the
+  owner for the two /risk cards.
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:

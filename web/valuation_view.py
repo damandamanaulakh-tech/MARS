@@ -160,10 +160,54 @@ def clear_target(ticker: str) -> None:
 
 # ----------------------------------------------------------------- inputs
 
+#: Den fix 2026-10-15 (owner: "Mars den always go down nt opening"): the
+#: Den's §12 read these two committed files on EVERY call — four index
+#: reads plus one bond read per row, ~125 file parses for 25 rows, each
+#: index read also asking Mongo for the stored tail. Now one parse per
+#: process per file (keyed by the file's mtime and size, so a replaced file
+#: is re-read) and the Mongo tail re-asked at most every SERIES_TTL_S.
+#: Callers get a copy; the cached series is never handed out.
+SERIES_TTL_S = 600.0
+_SERIES_CACHE: dict = {}
+
+
+def _series_key(path) -> tuple:
+    try:
+        st = path.stat()
+        return (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return (None, None)
+
+
+def _cached_series(name: str, path, build) -> Optional[pd.Series]:
+    """`build()` returns (series, cacheable). A reading that should be
+    retried (e.g. the Mongo tail failed to extend it) is returned but not
+    kept, so the next call asks again — the old per-call behaviour."""
+    import time as _time
+    key = _series_key(path)
+    hit = _SERIES_CACHE.get(name)
+    now = _time.monotonic()
+    if hit is not None and hit[0] == key and now - hit[1] < SERIES_TTL_S:
+        return None if hit[2] is None else hit[2].copy()
+    s, cacheable = build()
+    if cacheable:
+        _SERIES_CACHE[name] = (key, now, s)
+    return None if s is None else s.copy()
+
+
+def clear_series_cache() -> None:
+    """Forget the cached index / bond series (tests, a refreshed tail)."""
+    _SERIES_CACHE.clear()
+
+
 def _bond_series() -> Optional[pd.Series]:
+    return _cached_series("bond", _BOND_CSV, lambda: (_read_bond_series(), True))
+
+
+def _read_bond_series() -> Optional[pd.Series]:
     try:
         bond = pd.read_csv(_BOND_CSV)
-        bond.columns = [c.strip().strip('"').strip("﻿") for c in bond.columns]
+        bond.columns = [c.strip().strip('"').strip("\ufeff") for c in bond.columns]
         bond["Date"] = pd.to_datetime(bond["Date"], format="%m/%d/%Y",
                                       errors="coerce")
         return (bond.dropna(subset=["Date"]).set_index("Date")["Price"]
@@ -175,6 +219,15 @@ def _bond_series() -> Optional[pd.Series]:
 
 def _index_field(field: str) -> Optional[pd.Series]:
     """One close column of the committed index file + the stored tail."""
+    return _cached_series(f"index:{field}", _INDEX_CSV,
+                          lambda: _read_index_field(field))
+
+
+def _read_index_field(field: str) -> tuple:
+    """(series, cacheable). Cacheable when the stored tail extended the
+    committed file, or when no Mongo is configured (the file IS the
+    answer); a connected store that added nothing may be a failed read,
+    so that reading is not kept (review 2026-10-15)."""
     try:
         df = pd.read_csv(_INDEX_CSV, usecols=["trade_date", field])
         s = pd.Series(pd.to_numeric(df[field], errors="coerce").to_numpy(),
@@ -183,13 +236,19 @@ def _index_field(field: str) -> Optional[pd.Series]:
         s = s[s.index.notna()].dropna().sort_index()
     except Exception as e:                                     # noqa: BLE001
         log.warning("valuation: index csv unreadable (%s): %s", field, e)
-        return None
+        return None, False
+    last_file = s.index.max() if len(s) else None
     try:
         from trading import data_refresh as dr
         s = dr.extend_close_series(s, field)
     except Exception as e:                                     # noqa: BLE001
         log.warning("valuation: index tail extend failed: %s", e)
-    return s
+    extended = bool(len(s)) and last_file is not None and s.index.max() > last_file
+    try:
+        connected = bool(db.is_connected())
+    except Exception:                                          # noqa: BLE001
+        connected = False
+    return s, (extended or not connected)
 
 
 def _sector_series(name: str) -> Optional[pd.Series]:

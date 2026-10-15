@@ -185,31 +185,91 @@ def _bare(ticker: str) -> str:
     return t
 
 
-def load_corporate_actions(symbol: str, path: Path = _CA_CSV) -> list[dict]:
-    """That symbol's raw rows from the committed CA file (one streamed pass)."""
-    sym = _bare(symbol)
-    out: list[dict] = []
+#: Den fix 2026-10-15 (owner: "Mars den always go down nt opening"): the
+#: Den's §12 called the two loaders below once per row, and each call
+#: streamed the WHOLE file (34,792 corporate-action rows) to keep one
+#: symbol's lines — ~0.3 s a row, ~7 s for 25 rows. Each file is now read
+#: ONCE per process into a symbol index keyed by (path, mtime, size), so a
+#: replaced file is re-read and a test's own `path=` gets its own index.
+#: The index holds each symbol's rows as one block of CSV TEXT (~5 MB for
+#: the CA file) — as parsed dicts it measured 35 MB, too much to keep
+#: resident on the 512 MB box. A call parses only its own symbol's block,
+#: so callers always get fresh dicts.
+_FILE_INDEX: dict = {}
+
+
+def _file_key(path: Path) -> Optional[tuple]:
+    try:
+        st = Path(path).stat()
+    except OSError:
+        return None
+    return (str(path), st.st_mtime_ns, st.st_size)
+
+
+def _symbol_index(path: Path) -> Optional[tuple]:
+    """(header_text, {SYMBOL: csv_text}) for one committed CSV, read once
+    per process."""
+    import io
+    key = _file_key(path)
+    if key is None:
+        return None
+    hit = _FILE_INDEX.get(str(path))
+    if hit is not None and hit[0] == key:
+        return hit[1]
+    bufs: dict = {}
     try:
         with open(path, newline="", encoding="utf-8") as f:
-            for r in csv.DictReader(f):
-                if (r.get("symbol") or "").strip().upper() == sym:
-                    out.append(dict(r))
+            reader = csv.reader(f)
+            header = next(reader, None)
+            if not header:
+                return None
+            cols = [h.strip() for h in header]
+            col = cols.index("symbol") if "symbol" in cols else None
+            head = io.StringIO()
+            csv.writer(head).writerow(header)
+            for row in reader:
+                sym = row[col].strip().upper() if col is not None and len(row) > col else ""
+                if not sym:
+                    continue
+                b = bufs.get(sym)
+                if b is None:
+                    sio = io.StringIO()
+                    b = bufs[sym] = (sio, csv.writer(sio))
+                b[1].writerow(row)
     except OSError:
+        return None
+    idx = (head.getvalue(), {k: v[0].getvalue() for k, v in bufs.items()})
+    _FILE_INDEX[str(path)] = (key, idx)
+    return idx
+
+
+def _symbol_rows(path: Path, symbol: str) -> Optional[list]:
+    import io
+    idx = _symbol_index(path)
+    if idx is None:
+        return None
+    text = idx[1].get(_bare(symbol))
+    if not text:
         return []
-    return out
+    return [dict(r) for r in csv.DictReader(io.StringIO(idx[0] + text))]
+
+
+def clear_file_index() -> None:
+    """Forget the per-process file indexes (tests, a hot file swap)."""
+    _FILE_INDEX.clear()
+
+
+def load_corporate_actions(symbol: str, path: Path = _CA_CSV) -> list[dict]:
+    """That symbol's raw rows from the committed CA file (file indexed once
+    per process)."""
+    return _symbol_rows(path, symbol) or []
 
 
 def load_shares_row(symbol: str, path: Path = _SHARES_CSV) -> Optional[dict]:
-    """That symbol's row of data/shares_outstanding.csv, or None."""
-    sym = _bare(symbol)
-    try:
-        with open(path, newline="", encoding="utf-8") as f:
-            for r in csv.DictReader(f):
-                if (r.get("symbol") or "").strip().upper() == sym:
-                    return dict(r)
-    except OSError:
-        return None
-    return None
+    """That symbol's row of data/shares_outstanding.csv, or None (first row
+    when the file repeats a symbol, as the old streamed read did)."""
+    rows = _symbol_rows(path, symbol)
+    return rows[0] if rows else None
 
 
 def _iso(d: str) -> Optional[str]:
