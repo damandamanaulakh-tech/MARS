@@ -780,7 +780,8 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   impact NONE (display only).** LIVE EVIDENCE (keepalive_1015_am2.log,
   no job due): 11:21-11:26 IST rss 323 → 363, peak 403 → 461; 11:55 IST
   /healthz took 17 s, 11:56 `503` from Render's edge, fresh process 11:57
-  (rss 155) — a Den open on the 10-14 code. CAUSE (mine, PR #169): every
+  (rss 155) — a Den open on the 10-14 code. The new process: one spike to
+  300 at 12:00 IST (the 12:00 exit pass), then 170 flat to 12:30 (loop end). CAUSE (mine, PR #169): every
   §12 open loaded the peer table's ~200 FULL twelve-year price documents
   (one process per day — and the free tier restarts the process every
   sleep) plus one full document per row, streamed the 34,792-row
