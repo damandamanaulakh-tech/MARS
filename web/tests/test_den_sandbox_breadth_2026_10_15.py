@@ -70,11 +70,17 @@ def test_den_opens_with_a_fresh_full_store_breadth_reading():
     try:
         r = _owner().get("/den")
         assert r.status_code == 200, r.text[:300]
-        assert "study panel" in r.text
+        # The sandbox's own source line (the engine card always says "study
+        # panel" while the gate is on, so that phrase proves nothing here).
+        assert "study panel — 189 of the 191" in r.text
         p.breadth_store = {"pct": 0.452, "sample": 2233,
                            "asof": date.today().isoformat()}
         r = _owner().get("/den")
         assert r.status_code == 200, r.text[:300]
+        # The pre-fix whole-store number is set aside by the engine gate, so
+        # the sandbox must not present it as the live reading either.
+        assert "whole store (2233 names)" not in r.text
+        assert "2233 names above their 200-DMA" not in r.text
     finally:
         p.breadth_store = old
 

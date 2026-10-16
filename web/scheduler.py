@@ -554,13 +554,16 @@ def run_register_precompute(where: str = "manual") -> dict:
         import pandas as pd
 
         import trading.register_v4 as rv
-        from trading.universes import get_nifty_200_universe
+        from trading.universes import fund_unit_tickers, get_nifty_200_universe
+        # 2026-10-16: fund units (ETFs / liquid funds) are not company
+        # shares; they leave the market panel as they left breadth.
+        funds = fund_unit_tickers()
         panel: dict = {}
         newest = ""
         for doc in db.history_tails(340):
             candles = doc.get("candles") or []
             t = doc.get("ticker") or ""
-            if not t or len(candles) < 60:
+            if not t or len(candles) < 60 or t in funds:
                 continue
             try:
                 # ALL FIVE columns — register_v4's normalizer (the 2026-08-09

@@ -1135,6 +1135,25 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
     the UTC day), and the card prints a rejected reading as history
     (breadth_store_stale_marker). Test fixtures for a FRESH reading are
     dated today (a fixed date silently turns stale after 10 days).
+  * PRE-MERGE ADVERSARIAL REVIEW (4 opus lenses + 3 refuters, Workflow
+    with NO output schema — plain-text returns worked first time, 7/7
+    agents): NO money-path defect. Fixed what they confirmed: the 6-month
+    passes no longer reuse a pre-fix `breadth_today` (no `population`) —
+    set aside like the stored one; /scan badge counts what the scan READS
+    (`scan_routes._universe_badge`: list minus unheld fund units) and names
+    the skipped funds (data-universe-funds-skipped); the batch card prints
+    `skipped_fund` (data-batch-skipped-fund); the 16:45 register panel
+    leaves fund units out; weak tests hardened (the Den test now asserts
+    the sandbox's own "study panel — 189 of the 191" line — the old "study
+    panel" check matched static engine-card text and passed vacuously;
+    PANEL_MIN_SAMPLE 150 / PANEL_STALE_DAYS 7 and gate_breadth's 1,000-name
+    whole-store bar pinned by behaviour; the two rebuild tests trim their
+    own journal lines; the dropped-fund ledger reason is exercised).
+    OPEN, told to the owner, NOT built (their 10-15 rule "held ones
+    untouched"): a liquid fund ALREADY HELD can never hit its +10% target
+    or −5% stop and its score never decays, so it sits in momentum's 40%
+    share until MAX_HOLD (200 calendar days); if /positions shows LIQUID* /
+    *BEES / CASHIETF names, a SELL from /positions frees that share.
 - **FRI 10-16 14:30 CHAIN — SURVIVED, ONE PROCESS** (keepalive_1016_pm.log,
   UTC stamps, add 5:30). The box was awake from the 14:20 wake (peak 301
   before the slot). Rotation 14:34 IST: 280 → 350 → 415 → 424 by 14:41,

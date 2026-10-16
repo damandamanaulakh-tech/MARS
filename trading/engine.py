@@ -2162,7 +2162,12 @@ class TradingEngine:
                     # failing open and letting the short-horizon passes buy
                     # into a tape momentum was just blocked from.
                     cached = getattr(self.portfolio, "breadth_today", None) or {}
-                    if cached.get("asof") == now.date().isoformat():
+                    # 2026-10-16: a reading with no `population` was taken
+                    # over the whole scan list before the fix — the
+                    # population the band was never measured on, set aside
+                    # here exactly as the stored one is above.
+                    if (cached.get("population")
+                            and cached.get("asof") == now.date().isoformat()):
                         breadth = float(cached.get("pct"))
                         sample = int(cached.get("sample") or 0)
                         source = (f"today's {cached.get('mode') or 'scan'} "

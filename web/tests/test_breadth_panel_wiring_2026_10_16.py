@@ -82,6 +82,7 @@ def test_the_weekly_rebuild_leaves_fund_units_out(monkeypatch):
     cfg, p = state.cfg(), state.portfolio()
     old_u, old_b = cfg.custom_universe, getattr(p, "universe_batch", None)
     old_l = list(getattr(p, "universe_ledger", []) or [])
+    n_journal = len(p.decision_journal)
     try:
         res = scheduler.refresh_liquid_universe("test")
         assert fund not in res["tickers"]
@@ -91,6 +92,7 @@ def test_the_weekly_rebuild_leaves_fund_units_out(monkeypatch):
         cfg.custom_universe = old_u
         p.universe_batch = old_b
         p.universe_ledger = old_l
+        del p.decision_journal[n_journal:]      # this test's own lines only
         p.save()
 
 
@@ -103,7 +105,7 @@ def test_a_held_fund_rides_along_but_never_takes_a_ranked_slot(monkeypatch):
     from trading.paper import PaperPosition
     from web import db, scheduler, state
     funds = sorted(fund_unit_tickers())
-    held_fund, watched_fund = funds[0], funds[1]
+    held_fund, watched_fund, listed_fund = funds[0], funds[1], funds[2]
     docs = ([{"ticker": held_fund, "candles": [["2026-10-01", 100, 100, 100,
                                                 100, 9e8]] * 40}]
             + [{"ticker": f"C{i}.NS", "candles": [["2026-10-01", 500, 500, 500,
@@ -118,6 +120,10 @@ def test_a_held_fund_rides_along_but_never_takes_a_ranked_slot(monkeypatch):
     old_u, old_t = cfg.custom_universe, cfg.universe_target_size
     old_b = getattr(p, "universe_batch", None)
     old_l = list(getattr(p, "universe_ledger", []) or [])
+    n_journal = len(p.decision_journal)
+    # a fund unit already on the list (the 09-30 rebuild put ~56 there): the
+    # rebuild drops it and the ledger must say WHY
+    cfg.custom_universe = ("C0.NS", listed_fund)
     p.positions[held_fund] = PaperPosition(
         ticker=held_fund, qty=10, entry_price=100.0,
         entry_date=datetime(2026, 10, 1), stop_price=95.0, target_price=110.0,
@@ -130,12 +136,17 @@ def test_a_held_fund_rides_along_but_never_takes_a_ranked_slot(monkeypatch):
                                                         "C2.NS"]
         assert held_fund in res["tickers"]            # carried for its exits
         assert watched_fund not in res["tickers"]
+        assert listed_fund not in res["tickers"]
         assert res["skipped_fund"] == 1
+        out = [r for r in p.universe_ledger
+               if r["ticker"] == listed_fund and r["move"] == "out"]
+        assert out and "fund unit" in out[-1]["reason"]
     finally:
         p.positions.pop(held_fund, None)
         cfg.custom_universe, cfg.universe_target_size = old_u, old_t
         p.universe_batch = old_b
         p.universe_ledger = old_l
+        del p.decision_journal[n_journal:]      # this test's own lines only
         p.save()
 
 
@@ -187,4 +198,75 @@ def test_the_dashboard_says_which_population_the_gate_reads():
                 assert "breadth_panel_marker" not in r.text
     finally:
         p.scan_matrix, p.breadth_store = saved_m, saved_b
+        p.save()
+
+
+def _owner_client():
+    from fastapi.testclient import TestClient
+    from web import auth as _a
+    from web.main import app
+    c = TestClient(app)
+    r = c.post("/login", data={"email": "owner@sourceborn.in",
+                               "password": _a._SEEDED_PWD})
+    assert r.status_code in (200, 303)
+    return c
+
+
+def test_scan_counts_what_it_scans_and_names_the_fund_units_skipped():
+    """Review finding: after the fix the scan drops unheld fund units, but
+    the /scan badge printed the list's full length as "scanned in full"
+    and the batch card never showed `skipped_fund`."""
+    from web import state
+    funds = sorted(fund_unit_tickers())[:3]
+    cfg, p = state.cfg(), state.portfolio()
+    old_u, old_b = cfg.custom_universe, getattr(p, "universe_batch", None)
+    cfg.custom_universe = ("TCS.NS", "SBIN.NS", *funds)
+    p.universe_batch = {"ts": "2026-10-16T11:00:00", "count": 5,
+                        "target": 1200, "sample": 10, "judged": 5,
+                        "short_by": 1195, "skipped_thin": 0,
+                        "skipped_illiquid": 5, "skipped_fund": 7,
+                        "added": [], "dropped": [], "held_added": []}
+    try:
+        r = _owner_client().get("/scan")
+        assert r.status_code == 200, r.text[:300]
+        assert "Your 2-stock universe" in r.text
+        assert "data-universe-funds-skipped" in r.text
+        assert "3 fund unit(s) on the list are skipped" in r.text
+        assert "7 fund unit(s) left out" in r.text
+    finally:
+        cfg.custom_universe = old_u
+        p.universe_batch = old_b
+        p.save()
+
+
+def test_the_register_market_panel_leaves_fund_units_out(monkeypatch):
+    """Fund units left both breadth readings; the 16:45 register panel
+    (dispersion, tail damage) must not count them as stocks either."""
+    import trading.register_v4 as rv
+    from web import db, scheduler, state
+    funds = sorted(fund_unit_tickers())[:5]
+    names = [f"S{i}.NS" for i in range(160)]
+    docs = [{"ticker": t, "end": "2026-10-15",
+             "candles": [[f"2026-{1 + i // 28:02d}-{1 + i % 28:02d}",
+                          100, 101, 99, 100, 1e6] for i in range(80)]}
+            for t in names + funds]
+    monkeypatch.setattr(db, "history_tails", lambda rows: iter(docs))
+    monkeypatch.setattr(db, "is_connected", lambda: True)
+    seen = {}
+
+    def fake_view(panel, *a, **k):
+        seen["names"] = set(panel)
+        return {}
+    monkeypatch.setattr(rv, "market_view", fake_view)
+    p = state.portfolio()
+    old_r = getattr(p, "register_market", None)
+    n_journal = len(p.decision_journal)
+    try:
+        scheduler.run_register_precompute("test")
+        assert seen, "market_view was never called"
+        assert not (seen["names"] & set(funds))
+        assert len(seen["names"]) == 160
+    finally:
+        p.register_market = old_r
+        del p.decision_journal[n_journal:]
         p.save()

@@ -21,6 +21,8 @@ from datetime import datetime
 
 import pandas as pd
 
+import inspect
+
 from trading.breadth import (PANEL_MIN_SAMPLE, PANEL_STALE_DAYS, gate_breadth,
                              study_panel)
 from trading.config import Config
@@ -150,3 +152,49 @@ def test_the_scans_own_reading_is_taken_over_the_panel_names():
     small = _history(PANEL[:5] + [f"X{i}.NS" for i in range(30)], PANEL[5:10])
     pct2, n2 = e._cache_breadth_today(small, NOW)
     assert n2 == 40 and e.portfolio.breadth_today["population"] == "scan"
+
+
+def test_the_panel_thresholds_are_the_stated_ones():
+    """The PR states 150 names and 7 days; a silent change to either moves
+    which population the money gate reads, so both are pinned by behaviour
+    as well as by value."""
+    assert PANEL_MIN_SAMPLE == 150 and PANEL_STALE_DAYS == 7
+    assert gate_breadth(_store(150, 0, 1500, 0))["population"] == "study_panel"
+    assert gate_breadth(_store(149, 0, 1500, 0))["population"] == "full_store"
+
+
+def test_the_whole_store_fallback_still_needs_a_thousand_names():
+    """With a thin panel the whole-store reading is STORED and the gate reads
+    it for all five categories, so its sample bar (~±1pp at 1,000+ names) is
+    on the money path. A 310-name store must not stand in for it."""
+    assert inspect.signature(gate_breadth).parameters[
+        "full_min_sample"].default == 1000
+    assert gate_breadth(_store(10, 10, 290, 0)) is None
+    assert gate_breadth(_store(10, 10, 990, 0))["population"] == "full_store"
+
+
+def _swing():
+    cfg = Config(mode="swing")
+    cfg.apply_mode_preset()
+    cfg.breadth_gate_enabled = True
+    return TradingEngine(cfg, Portfolio.fresh(cfg))
+
+
+def test_a_scan_reading_taken_before_the_fix_is_not_reused():
+    """The 6-month passes reuse today's momentum reading. One written before
+    the fix (no `population`) is a whole-scan-list number — the population
+    the band was never measured on — so it is set aside like the stored
+    one; a reading written by the fixed code is used."""
+    e = _swing()
+    e.portfolio.breadth_today = {"pct": 0.52, "sample": 1100,
+                                 "asof": NOW.date().isoformat(),
+                                 "mode": "nifty200_momentum"}
+    assert e._breadth_gate_blocks({}, NOW, n_picks=5) is False
+    e2 = _swing()
+    e2.portfolio.breadth_today = {"pct": 0.52, "sample": 170,
+                                  "asof": NOW.date().isoformat(),
+                                  "mode": "nifty200_momentum",
+                                  "population": "scan_panel"}
+    assert e2._breadth_gate_blocks({}, NOW, n_picks=5) is True
+    assert "study panel names in today's scan" in \
+        e2.portfolio.decision_journal[-1]["why"]

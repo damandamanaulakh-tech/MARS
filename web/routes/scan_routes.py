@@ -25,6 +25,28 @@ def _momentum_preset():
     return get_preset("nifty200_momentum")
 
 
+def _universe_badge(cfg, p) -> dict:
+    """What the 🎯 badge prints: the names the scan ACTUALLY reads.
+
+    2026-10-16: engine.scan_universe drops every fund unit (ETF / liquid
+    fund) that is not held, so a list carrying them is scanned SHORT of its
+    length until the weekly rebuild removes them. The badge counts what is
+    scanned and names how many were skipped, rather than calling the whole
+    list "scanned in full"."""
+    custom = list(getattr(cfg, "custom_universe", ()) or ())
+    if not custom:
+        return {"custom_universe_n": 0, "custom_universe_funds": 0}
+    try:
+        from trading.universes import fund_unit_tickers
+        funds = fund_unit_tickers()
+        held = set(getattr(p, "positions", {}) or {})
+        skipped = sum(1 for t in custom if t in funds and t not in held)
+    except Exception:
+        skipped = 0
+    return {"custom_universe_n": len(custom) - skipped,
+            "custom_universe_funds": skipped}
+
+
 def _next_friday():
     """The next scheduled batch rebuild: the weekly block's Friday slot."""
     from datetime import date, timedelta
@@ -141,7 +163,7 @@ def scan_view(request: Request, error: str | None = None):
             "picks": picks,
             "slots": slots,
             "buy_desk": buy_desk,
-            "custom_universe_n": len(getattr(cfg, "custom_universe", ()) or ()),
+            **_universe_badge(cfg, p),
             # Owner ask 2026-09-04: this week's batch, on the screen they buy
             # from. Rebuilt Friday 16:30 IST; Monday only if Friday is missed.
             "universe_batch": p.universe_batch or {},
