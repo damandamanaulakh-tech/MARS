@@ -1122,6 +1122,16 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
     test_breadth_study_panel_2026_10_16.py (6), web/tests/
     test_breadth_panel_wiring_2026_10_16.py (4; every stored shape renders);
     three F3 tests in test_breadth_store.py moved to the new stored shape.
+- **FRI 10-16 14:30 CHAIN — SURVIVED, ONE PROCESS** (keepalive_1016_pm.log,
+  UTC stamps, add 5:30). The box was awake from the 14:20 wake (peak 301
+  before the slot). Rotation 14:34 IST: 280 → 350 → 415 → 424 by 14:41,
+  held to 14:47, 395-401 between passes, then 433 → 443 → 457 → 470 → 477
+  → **peak 487 at ~15:01** (the 15:00 in-session exit pass inside the
+  rotation; /healthz 4.9 s that minute), 437-442, then 456-480 held to
+  15:40 IST (loop end) — no 503, no fresh process. Thu 10-15's 14:30 died
+  at 15:06 at peak 482; today's peak was 5 MiB higher and it lived, so the
+  ceiling is noise-level close. The process sits at ~480 MiB after the
+  rotation until the free plan's sleep restarts it.
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:
