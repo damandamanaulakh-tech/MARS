@@ -1041,6 +1041,28 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   (held ones untouched, owner BUY still works). Asked for /positions (any
   LIQUID*/ETF held?), /risk measured-Kelly + category cards, or today's
   journal BREADTH_BLOCKED line.
+- **FRI 10-16 09:20 CHAIN — SEVENTH MORNING OOM KILL, same shape**
+  (keepalive_1016_am.log, UTC stamps, add 5:30). The 09:10 wake's probe =
+  62.9 s cold start (rss 152 / peak 151, stats pending): asleep, but the
+  process booted ~09:12 IST, BEFORE 09:20, so the cron fired. Boot
+  catch-up peak 231 (09:14); the 09:20 job's top-up 163-185 to 09:30, a
+  225 spike at 09:31 (breadth/index/sector), 202-211 flat to 09:57, a
+  278 → 292 bump 09:58-10:00 (the 10:00 exit pass or the first pass's
+  load), then **the rotation 10:07 → 294 → 361 → 406 → 435 → 487 by
+  10:14, held 486-489 to 10:20 (/healthz 1-2.4 s)**, 458-468 10:21-10:24,
+  **the trigger layer on top 10:25 → 500 → 502 → 505 → 506 (10:28-10:29)**,
+  **`503` from Render's edge at 10:30:53 IST → fresh process 10:31 (rss 150
+  / peak 149) = OOM kill**. The new process climbed to **peak 375 by 10:39**
+  (boot catch-up — a scan re-run or the refresh/top-up; only the journal
+  says), rss 298-319 flat to 11:00, a 330 bump at 11:00 (the in-session exit
+  pass), 294-295 flat to 11:10 (loop end 11:11). Readings at 11:11 IST:
+  scan_universe 1,205 / last_rebuild still 2026-09-30, store 2,233, write
+  error None. TALLY: seven morning kills (10-05, 10-06, 10-07, 10-13,
+  10-14, 10-15, 10-16) + Thu's 14:30 — every morning one with the trigger
+  layer loading on top of the ~490 MiB rotation. Lever (b) still
+  unordered. The 10:30 exit pass fell on the dying process; 09:30 / 10:00 /
+  11:00 ran on a live one. Wakes armed: 14:20 (trig_011PZR7b6iBhHfWUk2TPCH3M),
+  16:25 (trig_012aApzX4cgreFjwcjPmgouk; block due; re-arms Mon 10-19 09:10).
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:
