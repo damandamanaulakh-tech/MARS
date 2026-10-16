@@ -1132,6 +1132,23 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   at 15:06 at peak 482; today's peak was 5 MiB higher and it lived, so the
   ceiling is noise-level close. The process sits at ~480 MiB after the
   rotation until the free plan's sleep restarts it.
+- **FRI 10-16 16:30 BLOCK — SIXTH STALL IN A ROW, same shape**
+  (keepalive_1016_block.log, UTC stamps, add 5:30). The 16:25 wake's probe
+  = 55 s cold start (asleep since the 15:40 loop ended; rss 152 / peak 151
+  fresh process), awake before 16:30. 16:30 → 162/peak 171 (16:32) → 174 …
+  **187 by 16:39** (the short feeds), flat 187 to 16:44, 16:45 → 202, then
+  266/276 (16:48), 279/286 (16:51), **peak 347-348 at 16:54** (the 16:45
+  register precompute), then **250 FLAT 16:55-17:22 and 248 FLAT to 17:45,
+  NO rebuild stamp** (`last_rebuild` 2026-09-30, store 2,233, write_error
+  None). Fri 10-09, Mon 10-12, Tue 10-13, Wed 10-14, Thu 10-15, Fri 10-16
+  identical. Only the journal (owner's login, /reports CSV from 16:30) names
+  the stuck step; the lever (a total time cap per weekly step) still
+  unordered. Consequence for the 10-16 breadth fix: the ~1,028 non-scan
+  store names stay frozen at their 09-30 close — the gate no longer reads
+  them (study panel, topped up daily), only the dashboard's whole-store
+  context number does. PR #178 merged on the quiet box after 17:45 IST
+  (flat 50 min); Mon 10-19 09:10 IST wake armed
+  (trig_01MQ9jRktzRC2yVv9pCYJr6K).
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:
