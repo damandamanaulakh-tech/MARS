@@ -95,7 +95,8 @@ def test_liquidity_rebuild_always_includes_the_owner_list(monkeypatch):
 
     seen = {}
 
-    def fake_select(docs, target, blocklist, always_include):
+    def fake_select(docs, target, blocklist, always_include, exclude=()):
+        # `exclude` = fund units (2026-10-16), never ranked
         seen["always"] = set(always_include)
         # The store must rank at least one name of its OWN: the empty-store
         # guard (PR #112) reads picked minus always_include, and a fake that

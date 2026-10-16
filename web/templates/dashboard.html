@@ -567,11 +567,24 @@
     <div class="px-4 lg:px-6 py-4">
       {% if breadth.store and breadth.store.pct is not none %}
       <div class="mb-4 px-3 py-2 bg-ink/[0.03] text-sm"><!-- breadth_store_marker -->
+        {% if breadth.store.population and not breadth.store_used %}
+        <span class="font-bold tabular-nums text-ink-faint">{{ (breadth.store.pct * 100) | round(1) }}%</span>
+        <span class="text-ink-faint">of <span class="tabular-nums">{{ breadth.store.sample }}</span> names above their 200DMA</span><!-- breadth_store_stale_marker -->
+        <span class="text-xs text-amber-700">· closes to {{ breadth.store.asof }} — older than {{ breadth.store_max_age }} days, so the breadth gate does NOT use this stored reading; it reads the scan's own study-panel reading instead (in the journal line BREADTH_BLOCKED when it blocks). History, not today's number.</span>
+        {% elif breadth.store.population == 'study_panel' %}
+        <span class="font-bold tabular-nums">{{ (breadth.store.pct * 100) | round(1) }}%</span>
+        of the <span class="tabular-nums">{{ breadth.store.sample }}</span> study-panel large caps above their 200DMA<!-- breadth_panel_marker -->
+        <span class="text-xs text-ink-faint">· closes to {{ breadth.store.asof }} · the 40–65% band was measured on these exact names, so this is the number the breadth gate
+          {% if breadth.gate_on %}reads (it blocks new buys in ALL five categories only inside {{ breadth.gate_band_low }}–{{ breadth.gate_band_high }}%; below {{ breadth.gate_band_low }}% a washed-out tape is buyable){% else %}would read — gate currently OFF{% endif %}</span>
+        {% if breadth.store.full_pct is defined and breadth.store.full_pct is not none %}
+        <div class="text-xs text-ink-faint mt-1">Whole store, for context: {{ (breadth.store.full_pct * 100) | round(1) }}% of {{ breadth.store.full_sample }} names (fund units left out) — a different population, not what the gate reads.</div>
+        {% endif %}
+        {% else %}
         <span class="font-bold tabular-nums">{{ (breadth.store.pct * 100) | round(1) }}%</span>
         of <span class="tabular-nums">{{ breadth.store.sample }}</span> stored names above their 200DMA
-        <span class="text-xs text-ink-faint">· closes to {{ breadth.store.asof }} · this full-store reading is what the breadth gate
-          {% if breadth.gate_on %}uses while fresh (blocks new buys only inside the measured dead band {{ breadth.gate_band_low }}–{{ breadth.gate_band_high }}%; below {{ breadth.gate_band_low }}% a washed-out tape is buyable){% else %}would use — gate currently OFF{% endif %}
-          — ~±1pp sampling noise vs the old 50-name bucket's ±7pp</span>
+        <span class="text-xs text-ink-faint">· closes to {{ breadth.store.asof }} · whole-store reading
+          {% if breadth.store.population == 'full_store' %}— the gate falls back to it only because too few study-panel names had a fresh close{% else %}— taken before 2026-10-16; the gate now reads the study panel the band was measured on, from the next scan{% endif %}</span>
+        {% endif %}
       </div>
       {% endif %}
       <div class="grid grid-cols-4 gap-2 text-center mb-4">

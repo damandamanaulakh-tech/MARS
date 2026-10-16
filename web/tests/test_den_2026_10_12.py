@@ -394,8 +394,12 @@ def test_sandbox_book_reads_breadth_and_shares_from_stored_state():
     p = state.portfolio()
     old = (getattr(p, "breadth_store", None), getattr(p, "breadth_today", None))
     from datetime import date
+    # 2026-10-16: the stored reading carries its population (the study
+    # panel); one without it is pre-fix and the engine — and so the sandbox
+    # that mirrors it — does not read it.
     p.breadth_store = {"pct": 0.50, "sample": 2000,
-                       "asof": date.today().isoformat()}
+                       "asof": date.today().isoformat(),
+                       "population": "study_panel"}
     try:
         live = D._live_draft(cfg)
         draft = dict(live, breadth_low=0.10, breadth_high=0.20)

@@ -238,11 +238,32 @@ def breadth_panel() -> Optional[dict]:
         # cannot drift from the rule.
         "gate_band_low": round(float(getattr(cfg, "breadth_block_low", 0.40)) * 100),
         "gate_band_high": round(float(getattr(cfg, "breadth_block_high", 0.65)) * 100),
-        # F3: the full-store reading the gate prefers while fresh. None when
-        # never computed — the template then shows only the bucket numbers.
+        # The stored reading the gate prefers while fresh — since 2026-10-16
+        # the study panel the band was measured on (`population`), with the
+        # whole store as context. None when never computed — the template
+        # then shows only the bucket numbers.
         "store": (p.breadth_store or None),
+        # The SAME test engine._breadth_gate_blocks applies (population
+        # present + is_fresh on the engine's own UTC day), so the card can
+        # never present a reading as "the number the gate reads" on a day
+        # the gate has set it aside for the scan's own reading.
+        "store_used": _store_used(p.breadth_store, cfg),
+        "store_max_age": int(getattr(cfg, "breadth_store_max_age_days", 10)),
         "ts": (p.scan_matrix or {}).get("ts"),
     }
+
+
+def _store_used(stored, cfg) -> bool:
+    from datetime import datetime as _dt
+
+    from trading.breadth import is_fresh
+    stored = stored or {}
+    try:
+        return bool(stored.get("population")) and is_fresh(
+            stored, _dt.utcnow().date(),
+            getattr(cfg, "breadth_store_max_age_days", 10))
+    except Exception:
+        return False
 
 
 def sector_panel(limit: int = 16) -> dict:

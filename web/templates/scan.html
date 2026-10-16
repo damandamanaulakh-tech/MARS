@@ -25,7 +25,8 @@
     <h1 class="font-black text-3xl lg:text-5xl tracking-tight">Scan &amp; Watchlist</h1>
     <p class="text-ink-soft mt-2">Last scan: {{ last_scan or 'never' }} · {{ picks | length }} archived (cap 50).
       {% if custom_universe_n %}<span class="ml-1 px-2 py-0.5 bg-ink text-white text-[10px] font-bold tracking-widest uppercase">🎯 Your {{ custom_universe_n }}-stock universe</span>
-      <span class="text-xs text-ink-faint">scanned in full daily, no rotation — edit it in Settings</span>{% endif %}</p>
+      <span class="text-xs text-ink-faint">scanned in full daily, no rotation — edit it in Settings</span>{% if custom_universe_funds %}
+      <span class="text-xs text-amber-800" data-universe-funds-skipped>· {{ custom_universe_funds }} fund unit(s) on the list are skipped (ETF / liquid fund — not company shares; the next weekly rebuild drops them)</span>{% endif %}{% endif %}</p>
   </div>
   <div class="flex flex-wrap gap-2 items-center">
     <a href="/scan.csv" class="px-4 py-2 border border-line text-sm font-semibold tracking-wide whitespace-nowrap hover:bg-ink/[0.03]">⬇ CSV</a>
@@ -150,7 +151,7 @@
       {% endif %}
     </div>
     <div class="text-xs text-ink-soft">
-      {{ universe_batch.skipped_thin }} skipped for too little history · {{ universe_batch.skipped_illiquid }} below the floor
+      {{ universe_batch.skipped_thin }} skipped for too little history · {{ universe_batch.skipped_illiquid }} below the floor{% if universe_batch.skipped_fund %} · <span data-batch-skipped-fund>{{ universe_batch.skipped_fund }} fund unit(s) left out (ETF / liquid fund — not company shares)</span>{% endif %}
       {% if universe_batch.held_added %} · held names carried in regardless of rank: {{ universe_batch.held_added | join(', ') }}{% endif %}
     </div>
     <div class="grid md:grid-cols-2 gap-3 pt-1">

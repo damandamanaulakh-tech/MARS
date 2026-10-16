@@ -111,7 +111,11 @@ def test_daily_topup_covers_the_custom_names_with_daily_freshness(monkeypatch):
     cfg.custom_universe = ("TCS.NS", "HFCL.NS")
     try:
         scheduler._daily_universe_topup()
-        assert seen["names"] == ["HFCL.NS", "TCS.NS"]
+        # 2026-10-16: the 191 study-panel names the breadth gate reads ride
+        # along every day (test_breadth_panel_wiring_2026_10_16.py)
+        from trading.breadth import study_panel
+        assert seen["names"] == sorted({"HFCL.NS", "TCS.NS"}
+                                       | set(study_panel()))
         assert seen["fresh"] == 1               # daily window, not weekly
     finally:
         _restore(old)

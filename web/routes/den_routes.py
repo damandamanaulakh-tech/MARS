@@ -1035,9 +1035,13 @@ def _sandbox_book(cfg, p, draft: dict) -> dict:
     reading, source = None, ""
     stored = getattr(p, "breadth_store", None) or {}
     try:
-        if is_fresh(stored, today, getattr(cfg, "breadth_store_max_age_days", 10)):
+        if (stored.get("population")
+                and is_fresh(stored, today,
+                             getattr(cfg, "breadth_store_max_age_days", 10))):
+            from trading.breadth import population_label
             reading = {"pct": float(stored["pct"]), "sample": int(stored["sample"])}
-            source = f"full store, closes to {stored.get('asof')}"
+            source = (f"{population_label(stored)}, closes to "
+                      f"{stored.get('asof')}")
     except Exception:
         reading = None
     if reading is None:

@@ -65,7 +65,7 @@
           Live band {{ (sbx.live.breadth_low * 100) | round(1) }}–{{ (sbx.live.breadth_high * 100) | round(1) }}%: <strong class="{% if bk.live_blocks %}text-red-700{% else %}text-emerald-700{% endif %}">{{ 'blocks' if bk.live_blocks else 'allows' }}</strong>
           · draft band {{ (sbx.vals.breadth_low * 100) | round(1) }}–{{ (sbx.vals.breadth_high * 100) | round(1) }}%: <strong class="{% if bk.draft_blocks %}text-red-700{% else %}text-emerald-700{% endif %}">{{ 'would block' if bk.draft_blocks else 'would allow' }}</strong> new entries.
         {% else %}
-          DATA_NEEDED — no stored breadth reading yet (the 09:20 scan or the full-store refresh writes one).
+          DATA_NEEDED — no stored breadth reading yet (the 09:20 breadth refresh or the momentum scan writes one).
         {% endif %}
         </div>
       </div>

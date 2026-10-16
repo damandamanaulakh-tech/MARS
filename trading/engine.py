@@ -115,10 +115,14 @@ class TradingEngine:
         if custom and cfg.mode != "nifty200_momentum":
             universe = list(dict.fromkeys(held + list(custom)))
             try:
-                from .universes import apply_blocklist
+                from .universes import apply_blocklist, drop_fund_units
                 universe = apply_blocklist(
                     universe, self.portfolio.positions.keys(),
                     getattr(cfg, "ticker_blocklist", ()))
+                # 2026-10-16: fund units (INF ISIN) are not stocks — see
+                # universes.drop_fund_units. Held ones stay for their exits.
+                universe = drop_fund_units(universe,
+                                           self.portfolio.positions.keys())
             except ImportError:
                 pass
             return universe, history_period
@@ -157,10 +161,12 @@ class TradingEngine:
         # Owner blocklist (2026-07-21): banned names never enter any scan
         # path; held ones stay visible so exits keep working.
         try:
-            from .universes import apply_blocklist
+            from .universes import apply_blocklist, drop_fund_units
             universe = apply_blocklist(
                 universe, self.portfolio.positions.keys(),
                 getattr(cfg, "ticker_blocklist", ()))
+            universe = drop_fund_units(universe,
+                                       self.portfolio.positions.keys())
         except ImportError:
             pass
         return universe, history_period
@@ -2119,41 +2125,55 @@ class TradingEngine:
         if not getattr(cfg, "breadth_gate_enabled", False):
             return False
         try:
-            # F3 FIX (owner order 2026-08-20: "fix F3"): PREFER the
-            # full-store reading (~2,700 names, ~±1pp sampling noise,
-            # computed by scheduler.refresh_breadth_store from one streamed
-            # Mongo query) over the scan's own ~50-name bucket (±7pp — the
-            # market sat at 50.8% vs the <=50% line and buy-or-block was
-            # decided by WHICH names the rotation served that day). The
-            # stored reading is trusted only while its closes are fresh
-            # (cfg.breadth_store_max_age_days); otherwise this degrades to
-            # exactly the pre-fix bucket behaviour, never something new.
-            from .breadth import is_fresh
+            # F3 FIX (owner order 2026-08-20: "fix F3"): PREFER the stored
+            # reading (computed by scheduler.refresh_breadth_store from one
+            # streamed Mongo query) over the scan's own reading. The stored
+            # reading is trusted only while its closes are fresh
+            # (cfg.breadth_store_max_age_days).
+            # 2026-10-16 ("new position are not added ... relook n fix"):
+            # both readings are now taken over the 191-name STUDY PANEL the
+            # 40-65% band was measured on (breadth.gate_breadth) — the
+            # whole store sat 5-7pp away from the panel and the gate held
+            # all five categories back on a number its evidence never
+            # measured.
+            from .breadth import is_fresh, population_label
             breadth = sample = None
             source = ""
             stored = getattr(self.portfolio, "breadth_store", None) or {}
-            if is_fresh(stored, now.date(),
-                        getattr(cfg, "breadth_store_max_age_days", 10)):
+            # 2026-10-16: a stored reading without a `population` was taken
+            # over the whole store — a number the band was never measured on
+            # — so it is not used; the scan's own study-panel reading is.
+            if (stored.get("population")
+                    and is_fresh(stored, now.date(),
+                                 getattr(cfg, "breadth_store_max_age_days",
+                                         10))):
                 breadth = float(stored["pct"])
                 sample = int(stored["sample"])
-                source = (f"full store ({sample} names, closes to "
-                          f"{stored.get('asof')})")
+                source = (f"{population_label(stored)}, closes to "
+                          f"{stored.get('asof')}")
             else:
                 breadth, sample = self._cache_breadth_today(history, now)
                 if breadth is not None and sample > 0:
-                    source = f"scan bucket sample ({sample} names, ±7pp noise)"
+                    source = population_label(
+                        getattr(self.portfolio, "breadth_today", None))
                 else:
                     # This pass's own history is too short (every mode but
                     # momentum pulls 6mo). Reuse today's reading rather than
                     # failing open and letting the short-horizon passes buy
                     # into a tape momentum was just blocked from.
                     cached = getattr(self.portfolio, "breadth_today", None) or {}
-                    if cached.get("asof") == now.date().isoformat():
+                    # 2026-10-16: a reading with no `population` was taken
+                    # over the whole scan list before the fix — the
+                    # population the band was never measured on, set aside
+                    # here exactly as the stored one is above.
+                    if (cached.get("population")
+                            and cached.get("asof") == now.date().isoformat()):
                         breadth = float(cached.get("pct"))
                         sample = int(cached.get("sample") or 0)
                         source = (f"today's {cached.get('mode') or 'scan'} "
-                                  f"reading ({sample} names) — this pass holds "
-                                  f"only 6mo of history, too short for a 200DMA")
+                                  f"reading, {population_label(cached)} — "
+                                  f"this pass holds only 6mo of history, too "
+                                  f"short for a 200DMA")
             lo = float(getattr(cfg, "breadth_block_low", 0.40))
             hi = float(getattr(cfg, "breadth_block_high", 0.65))
             if (breadth is not None
@@ -2187,12 +2207,31 @@ class TradingEngine:
         positional and intraday passes read no breadth at all and fell open —
         buying into a tape the band would have blocked."""
         from .regime import compute_breadth
-        breadth, sample = compute_breadth(history)
+        from .breadth import PANEL_MIN_SAMPLE, study_panel
+        try:
+            from .universes import fund_unit_tickers
+            funds = fund_unit_tickers()
+        except Exception:
+            funds = frozenset()
+        # 2026-10-16: the gate's band was measured on the study panel's
+        # breadth (breadth.gate_breadth explains), so the scan's own reading
+        # is taken over the panel names it holds; only when too few of them
+        # have a 200-DMA does it fall back to the whole scan — and a held
+        # fund unit, riding in the scan for its exits, never votes.
+        panel = study_panel()
+        population = "scan_panel"
+        breadth, sample = compute_breadth(
+            {t: h for t, h in history.items() if t in panel})
+        if breadth is None or sample < PANEL_MIN_SAMPLE:
+            population = "scan"
+            breadth, sample = compute_breadth(
+                {t: h for t, h in history.items() if t not in funds})
         if breadth is not None and sample > 0:
             self.portfolio.breadth_today = {
                 "pct": float(breadth), "sample": int(sample),
                 "asof": now.date().isoformat(),
                 "mode": getattr(self.cfg, "mode", ""),
+                "population": population,
                 "ts": now.isoformat(),
             }
             return breadth, sample

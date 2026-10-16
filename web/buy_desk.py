@@ -78,6 +78,13 @@ def shortlist(portfolio, cfg) -> dict:
         floor = float(cfg.min_score_to_enter)
     held = set(portfolio.positions.keys())
     block = set(getattr(cfg, "ticker_blocklist", ()) or ())
+    # 2026-10-16: fund units (ETFs / liquid funds) are not stocks — a list
+    # stored before the scan stopped reading them must not offer one.
+    try:
+        from trading.universes import fund_unit_tickers
+        block |= set(fund_unit_tickers())
+    except Exception:                                   # noqa: BLE001
+        pass
     out = []
     not_judged = 0
     for t, r in rows.items():

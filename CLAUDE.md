@@ -1041,6 +1041,146 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   (held ones untouched, owner BUY still works). Asked for /positions (any
   LIQUID*/ETF held?), /risk measured-Kelly + category cards, or today's
   journal BREADTH_BLOCKED line.
+- **FRI 10-16 09:20 CHAIN — SEVENTH MORNING OOM KILL, same shape**
+  (keepalive_1016_am.log, UTC stamps, add 5:30). The 09:10 wake's probe =
+  62.9 s cold start (rss 152 / peak 151, stats pending): asleep, but the
+  process booted ~09:12 IST, BEFORE 09:20, so the cron fired. Boot
+  catch-up peak 231 (09:14); the 09:20 job's top-up 163-185 to 09:30, a
+  225 spike at 09:31 (breadth/index/sector), 202-211 flat to 09:57, a
+  278 → 292 bump 09:58-10:00 (the 10:00 exit pass or the first pass's
+  load), then **the rotation 10:07 → 294 → 361 → 406 → 435 → 487 by
+  10:14, held 486-489 to 10:20 (/healthz 1-2.4 s)**, 458-468 10:21-10:24,
+  **the trigger layer on top 10:25 → 500 → 502 → 505 → 506 (10:28-10:29)**,
+  **`503` from Render's edge at 10:30:53 IST → fresh process 10:31 (rss 150
+  / peak 149) = OOM kill**. The new process climbed to **peak 375 by 10:39**
+  (boot catch-up — a scan re-run or the refresh/top-up; only the journal
+  says), rss 298-319 flat to 11:00, a 330 bump at 11:00 (the in-session exit
+  pass), 294-295 flat to 11:10 (loop end 11:11). Readings at 11:11 IST:
+  scan_universe 1,205 / last_rebuild still 2026-09-30, store 2,233, write
+  error None. TALLY: seven morning kills (10-05, 10-06, 10-07, 10-13,
+  10-14, 10-15, 10-16) + Thu's 14:30 — every morning one with the trigger
+  layer loading on top of the ~490 MiB rotation. Lever (b) still
+  unordered. The 10:30 exit pass fell on the dying process; 09:30 / 10:00 /
+  11:00 ran on a live one. Wakes armed: 14:20 (trig_011PZR7b6iBhHfWUk2TPCH3M),
+  16:25 (trig_012aApzX4cgreFjwcjPmgouk; block due; re-arms Mon 10-19 09:10).
+- **"NO NEW POSITIONS, NOT ALL 5 SEGMENTS" — FIXED 2026-10-16 (owner: "some
+  issue with the app, relook n fix / new position are not added, its not
+  using the all 5 trade segements as well"). MONEY PATH. READ BEFORE
+  TOUCHING BREADTH OR THE UNIVERSE.** Two defects, both measured with the
+  real engine on public candles for all 2,678 names to the 10-16 close
+  (scratchpad day1016/: breadth_pop.py, sim_rotation.py):
+  * **THE BREADTH GATE READ THE WRONG POPULATION.** It blocks ALL FIVE
+    categories inside 40-65%, a band FITTED (2026-09-09 re-cut) on the
+    breadth of the committed 191-name study panel; the live gate compared it
+    with the whole store (~2,200 names incl. ETFs), and its fallback with the
+    ~1,200 scan list. Over 168 sessions 2026-02-11..10-16 the whole store sat
+    −5.0pp from the panel on average and the scan list +7.0pp; gate decisions
+    agreed with the panel's on only 68% / 65% of sessions. Since 09-24 the
+    panel read 24-32% (buyable side) while a live-store estimate sat ON the
+    40% line (10-16: 39.5%, 10-01..10-16 38.2-39.9%) and the scan-list
+    fallback read 50-53% (blocked) — so whether anything could buy was
+    decided by ±1pp of population noise. FIX: `breadth.gate_breadth` (one
+    streamed pass; study-panel reading, `population` "study_panel",
+    PANEL_MIN_SAMPLE 150, PANEL_STALE_DAYS 7, whole store beside it as
+    `full_pct`/`full_sample`; thin panel -> the old whole-store reading,
+    `population` "full_store"); `breadth.study_panel()` = the study zip's
+    names; `engine._cache_breadth_today` reads the scan's panel names
+    (`scan_panel`, else whole scan `scan`); the gate IGNORES a stored reading
+    with no `population` (the pre-fix shape the live box holds until Monday's
+    09:20 refresh); the daily top-up adds the 191 panel names. NOT a
+    loosening: over those 168 sessions the panel reading is in the band on
+    75% of them vs 53% for the whole store; today it reads 31.4% = buyable.
+  * **FUND UNITS (ISIN INF…) LEFT THE SCAN, THE REBUILD AND BREADTH.**
+    `universes.fund_unit_tickers / is_fund_unit / drop_fund_units` (351 in
+    the file; held ones stay for their exits; owner BUY can still buy one);
+    `engine.scan_universe` drops them for every category;
+    `select_liquid_universe(exclude=)` + `skipped_fund` on the batch card,
+    journal and ledger reason; `store_breadth(exclude=)`. NOTE: removing
+    funds ALONE would have made the gate block MORE — equity ETFs sit below
+    their 200-DMA in this correction, so the fund-free whole store reads
+    ~41.4% (inside the band); only the population fix opens it.
+  * REPLAY, real engine, fresh Rs 5 Cr book, 10-16 close, new code: momentum
+    8 companies (LAURUSLABS, SONACOMS, SBC, PAISALO, KTKBANK, WELSPUNLIV,
+    TFCILTD, DIVISLAB) = its full Rs 1.6 Cr share, 263 picks waited;
+    intraday 4 (TECHM, TCS, TATAELXSI, LTTS), short 8, swing 8 — each its
+    full 15% share; POSITIONAL 0: all 18 of its picks were already held by
+    the earlier categories (one position per ticker; the day's leaders were
+    a narrow IT set). Re-run with positional SECOND: positional 18 (Rs 0.4
+    Cr), swing 8, short 0 (19 already held), intraday 1 — the overlap just
+    moves to short/intraday and only Rs 2.3 Cr deploys vs Rs 3.4 Cr in the
+    live order, so the rotation order was NOT changed. Not a defect: on a
+    narrow-leadership day the five pools overlap.
+  * NOT CHANGED, said to the owner, only the journal can tell whether they
+    bit: the daily loss halt (all five categories stop for the day once
+    today's losing strategy exits reach max(2, 10% of the book) — likely in a
+    falling market), measured Kelly (momentum only), momentum's share full
+    from Buy Desk buys (counted as momentum — open ask), and the OOM kill
+    that cuts the 14:30 rotation (Thu 15:06; today's 14:30 climbed to 424 MiB
+    by 14:41) so the last categories never run that afternoon — the memory
+    levers (b)/(a)/Standard are still the owner's word.
+  * Tests: trading/tests/test_fund_units_out_2026_10_16.py (7),
+    test_breadth_study_panel_2026_10_16.py (6), web/tests/
+    test_breadth_panel_wiring_2026_10_16.py (4; every stored shape renders);
+    three F3 tests in test_breadth_store.py moved to the new stored shape.
+  * REVIEW FIXES on the same PR (all three real, tests fail on the prior
+    head): (1) `breadth._reading` dates a panel reading by the newest close
+    AMONG THE NAMES THAT VOTED (`voted_newest`), not the store's newest — a
+    panel that stopped updating used to pass `is_fresh`; (2) the weekly
+    rebuild ranks NO fund unit, held ones included (a held fund with big
+    turnover took a ranked slot); held funds ride in via always_include,
+    watched / owner-listed funds do not (`carry = held | ((keep | owner) -
+    funds)`); `select_liquid_universe` no longer filters always_include by
+    `exclude` — the caller decides; (3) `market_panels.breadth_panel`
+    carries `store_used` = the engine's own test (population + is_fresh on
+    the UTC day), and the card prints a rejected reading as history
+    (breadth_store_stale_marker). Test fixtures for a FRESH reading are
+    dated today (a fixed date silently turns stale after 10 days).
+  * PRE-MERGE ADVERSARIAL REVIEW (4 opus lenses + 3 refuters, Workflow
+    with NO output schema — plain-text returns worked first time, 7/7
+    agents): NO money-path defect. Fixed what they confirmed: the 6-month
+    passes no longer reuse a pre-fix `breadth_today` (no `population`) —
+    set aside like the stored one; /scan badge counts what the scan READS
+    (`scan_routes._universe_badge`: list minus unheld fund units) and names
+    the skipped funds (data-universe-funds-skipped); the batch card prints
+    `skipped_fund` (data-batch-skipped-fund); the 16:45 register panel
+    leaves fund units out; weak tests hardened (the Den test now asserts
+    the sandbox's own "study panel — 189 of the 191" line — the old "study
+    panel" check matched static engine-card text and passed vacuously;
+    PANEL_MIN_SAMPLE 150 / PANEL_STALE_DAYS 7 and gate_breadth's 1,000-name
+    whole-store bar pinned by behaviour; the two rebuild tests trim their
+    own journal lines; the dropped-fund ledger reason is exercised).
+    OPEN, told to the owner, NOT built (their 10-15 rule "held ones
+    untouched"): a liquid fund ALREADY HELD can never hit its +10% target
+    or −5% stop and its score never decays, so it sits in momentum's 40%
+    share until MAX_HOLD (200 calendar days); if /positions shows LIQUID* /
+    *BEES / CASHIETF names, a SELL from /positions frees that share.
+- **FRI 10-16 14:30 CHAIN — SURVIVED, ONE PROCESS** (keepalive_1016_pm.log,
+  UTC stamps, add 5:30). The box was awake from the 14:20 wake (peak 301
+  before the slot). Rotation 14:34 IST: 280 → 350 → 415 → 424 by 14:41,
+  held to 14:47, 395-401 between passes, then 433 → 443 → 457 → 470 → 477
+  → **peak 487 at ~15:01** (the 15:00 in-session exit pass inside the
+  rotation; /healthz 4.9 s that minute), 437-442, then 456-480 held to
+  15:40 IST (loop end) — no 503, no fresh process. Thu 10-15's 14:30 died
+  at 15:06 at peak 482; today's peak was 5 MiB higher and it lived, so the
+  ceiling is noise-level close. The process sits at ~480 MiB after the
+  rotation until the free plan's sleep restarts it.
+- **FRI 10-16 16:30 BLOCK — SIXTH STALL IN A ROW, same shape**
+  (keepalive_1016_block.log, UTC stamps, add 5:30). The 16:25 wake's probe
+  = 55 s cold start (asleep since the 15:40 loop ended; rss 152 / peak 151
+  fresh process), awake before 16:30. 16:30 → 162/peak 171 (16:32) → 174 …
+  **187 by 16:39** (the short feeds), flat 187 to 16:44, 16:45 → 202, then
+  266/276 (16:48), 279/286 (16:51), **peak 347-348 at 16:54** (the 16:45
+  register precompute), then **250 FLAT 16:55-17:22 and 248 FLAT to 17:45,
+  NO rebuild stamp** (`last_rebuild` 2026-09-30, store 2,233, write_error
+  None). Fri 10-09, Mon 10-12, Tue 10-13, Wed 10-14, Thu 10-15, Fri 10-16
+  identical. Only the journal (owner's login, /reports CSV from 16:30) names
+  the stuck step; the lever (a total time cap per weekly step) still
+  unordered. Consequence for the 10-16 breadth fix: the ~1,028 non-scan
+  store names stay frozen at their 09-30 close — the gate no longer reads
+  them (study panel, topped up daily), only the dashboard's whole-store
+  context number does. PR #178 merged on the quiet box after 17:45 IST
+  (flat 50 min); Mon 10-19 09:10 IST wake armed
+  (trig_01MQ9jRktzRC2yVv9pCYJr6K).
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:

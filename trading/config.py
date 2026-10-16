@@ -309,6 +309,12 @@ class Config:
     # half alone (the 2026-08-13 rule: never pick a threshold by the holdout).
     # A washed-out tape (< 40%) is now BUYABLE, which is the behaviour change.
     # research/breadth_recut_2026-09-09/.
+    # WHICH NAMES (2026-10-16, owner "new position are not added ... relook
+    # n fix"): the band above was fitted on the breadth of the committed
+    # 191-name study panel, so the gate reads THAT population
+    # (trading.breadth.gate_breadth / study_panel), not the whole store —
+    # the two sit 5-7pp apart on average and agreed on the gate decision on
+    # only 65-68% of 2026's sessions.
     breadth_block_low: float = 0.40
     breadth_block_high: float = 0.65
     breadth_min_sample: int = 30
