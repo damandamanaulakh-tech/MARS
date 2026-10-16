@@ -102,10 +102,13 @@ def select_liquid_universe(docs: Iterable[dict],
                       (The return key stays `held_added` for compatibility;
                       it means "carried in regardless of rank".)
 
-    exclude         — names never ranked (2026-10-16: fund units, which are
-                      not stocks — universes.fund_unit_tickers). Counted as
-                      `skipped_fund` so the batch card can say so. The caller
-                      leaves held names out of this set.
+    exclude         — names never RANKED (2026-10-16: fund units, which are
+                      not stocks — universes.fund_unit_tickers), so none can
+                      take one of the `target` slots by turnover. Counted as
+                      `skipped_fund` so the batch card can say so. A name in
+                      both sets is still CARRIED by always_include (a held
+                      fund unit keeps its exits); the caller decides what
+                      rides along.
 
     Returns {tickers, ranked, sample, judged, skipped_thin, skipped_illiquid,
     skipped_fund, short_by} — `short_by` is how many names the target is
@@ -136,8 +139,7 @@ def select_liquid_universe(docs: Iterable[dict],
     picked = [t for _v, t in scored[:int(target)]]
 
     held = [t for t in (always_include or ())
-            if t and t not in picked and t.upper() not in banned
-            and t.upper() not in excluded]
+            if t and t not in picked and t.upper() not in banned]
     tickers = sorted(set(picked) | set(held))
 
     return {

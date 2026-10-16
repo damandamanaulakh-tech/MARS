@@ -1122,6 +1122,19 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
     test_breadth_study_panel_2026_10_16.py (6), web/tests/
     test_breadth_panel_wiring_2026_10_16.py (4; every stored shape renders);
     three F3 tests in test_breadth_store.py moved to the new stored shape.
+  * REVIEW FIXES on the same PR (all three real, tests fail on the prior
+    head): (1) `breadth._reading` dates a panel reading by the newest close
+    AMONG THE NAMES THAT VOTED (`voted_newest`), not the store's newest — a
+    panel that stopped updating used to pass `is_fresh`; (2) the weekly
+    rebuild ranks NO fund unit, held ones included (a held fund with big
+    turnover took a ranked slot); held funds ride in via always_include,
+    watched / owner-listed funds do not (`carry = held | ((keep | owner) -
+    funds)`); `select_liquid_universe` no longer filters always_include by
+    `exclude` — the caller decides; (3) `market_panels.breadth_panel`
+    carries `store_used` = the engine's own test (population + is_fresh on
+    the UTC day), and the card prints a rejected reading as history
+    (breadth_store_stale_marker). Test fixtures for a FRESH reading are
+    dated today (a fixed date silently turns stale after 10 days).
 - **FRI 10-16 14:30 CHAIN — SURVIVED, ONE PROCESS** (keepalive_1016_pm.log,
   UTC stamps, add 5:30). The box was awake from the 14:20 wake (peak 301
   before the slot). Rotation 14:34 IST: 280 → 350 → 415 → 424 by 14:41,

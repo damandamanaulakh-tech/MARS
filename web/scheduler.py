@@ -1635,14 +1635,18 @@ def refresh_liquid_universe(where: str = "weekly") -> dict:
         from trading.universes import OWNER_UNIVERSE_2026_08_20 as _OWNER
         from trading.universes import fund_unit_tickers
         owner_list = set(_OWNER)
-        # 2026-10-16: fund units (INF ISIN) are not stocks and never enter
-        # the scan list; a HELD one is not excluded (it rides along for its
-        # exits like every held name).
-        funds = set(fund_unit_tickers()) - set(p.positions.keys())
+        # 2026-10-16: fund units (INF ISIN) are not stocks. NONE is ranked —
+        # a held one included, or it would take one of the `target` stock
+        # slots by turnover — and none rides in on the watchlist or owner
+        # rule. A HELD fund unit is still CARRIED (always_include) so its
+        # exits keep running, outside the ranked count.
+        funds = set(fund_unit_tickers())
+        held = set(p.positions.keys())
+        carry = held | ((keep | owner_list) - funds)
         res = select_liquid_universe(
             db.history_tails(40), target=target,
             blocklist=getattr(cfg, "ticker_blocklist", ()) or (),
-            always_include=sorted(set(p.positions.keys()) | keep | owner_list),
+            always_include=sorted(carry),
             exclude=funds)
         picked = res["tickers"]
         # THE GUARD MUST READ WHAT THE STORE CONTRIBUTED, not the union.
@@ -1653,8 +1657,7 @@ def refresh_liquid_universe(where: str = "weekly") -> dict:
         # universe with those 83 — the exact "emptied the universe" failure
         # this branch exists to prevent, at 83 instead of 0. "Nothing ranked"
         # = every name in the result got there by rule, none by turnover.
-        always = set(p.positions.keys()) | keep | owner_list
-        ranked_by_store = [t for t in picked if t not in always]
+        ranked_by_store = [t for t in picked if t not in carry]
         if not ranked_by_store:
             _journal("UNIVERSE_BATCH_FAILED",
                      "Weekly liquidity universe produced NO names — the "
@@ -1707,7 +1710,7 @@ def refresh_liquid_universe(where: str = "weekly") -> dict:
             from trading.paper import UNIVERSE_LEDGER_CAP
             rank_of = {r["ticker"]: (i + 1, r["turnover"])
                        for i, r in enumerate(res.get("ranked") or [])}
-            always_set = set(p.positions.keys()) | keep | owner_list
+            always_set = carry
             stamp = _dt.utcnow().isoformat()
             rows = []
             for t in added:

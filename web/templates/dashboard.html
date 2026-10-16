@@ -567,7 +567,11 @@
     <div class="px-4 lg:px-6 py-4">
       {% if breadth.store and breadth.store.pct is not none %}
       <div class="mb-4 px-3 py-2 bg-ink/[0.03] text-sm"><!-- breadth_store_marker -->
-        {% if breadth.store.population == 'study_panel' %}
+        {% if breadth.store.population and not breadth.store_used %}
+        <span class="font-bold tabular-nums text-ink-faint">{{ (breadth.store.pct * 100) | round(1) }}%</span>
+        <span class="text-ink-faint">of <span class="tabular-nums">{{ breadth.store.sample }}</span> names above their 200DMA</span><!-- breadth_store_stale_marker -->
+        <span class="text-xs text-amber-700">· closes to {{ breadth.store.asof }} — older than {{ breadth.store_max_age }} days, so the breadth gate does NOT use this stored reading; it reads the scan's own study-panel reading instead (in the journal line BREADTH_BLOCKED when it blocks). History, not today's number.</span>
+        {% elif breadth.store.population == 'study_panel' %}
         <span class="font-bold tabular-nums">{{ (breadth.store.pct * 100) | round(1) }}%</span>
         of the <span class="tabular-nums">{{ breadth.store.sample }}</span> study-panel large caps above their 200DMA<!-- breadth_panel_marker -->
         <span class="text-xs text-ink-faint">· closes to {{ breadth.store.asof }} · the 40–65% band was measured on these exact names, so this is the number the breadth gate

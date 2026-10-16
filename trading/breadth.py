@@ -89,6 +89,7 @@ def _reading(rows: list, newest: Optional[str], dma: int, min_sample: int,
     cutoff = (date.fromisoformat(newest)
               - timedelta(days=stale_days)).isoformat()
     above = sample = stale = short = 0
+    voted_newest = None
     for ticker, end, is_above, why in rows:
         if include is not None and ticker not in include:
             continue
@@ -101,15 +102,23 @@ def _reading(rows: list, newest: Optional[str], dma: int, min_sample: int,
         sample += 1
         if is_above:
             above += 1
+        if voted_newest is None or end > voted_newest:
+            voted_newest = end
     if sample < min_sample:
         log.warning("store breadth: sample %d < %d — no reading", sample,
                     min_sample)
         return None
+    # A subset reading (the study panel) is dated by ITS OWN newest close,
+    # never the store's: if the panel's top-up stalled while other names
+    # kept updating, the store-wide date would let the gate trust old panel
+    # closes for another `breadth_store_max_age_days` (review fix
+    # 2026-10-16). The stale cutoff stays store-wide, the stricter rule.
+    asof = voted_newest if include is not None else newest
     return {
         "pct": round(above / sample, 4),
         "above": above,
         "sample": sample,
-        "asof": newest,
+        "asof": asof,
         "dma": dma,
         "excluded_stale": stale,
         "excluded_short": short,

@@ -72,6 +72,23 @@ def test_a_stale_panel_name_does_not_vote_and_a_thin_panel_degrades():
     assert thin["sample"] == 1520
 
 
+def test_the_reading_is_dated_by_the_names_that_voted():
+    """The store's newest close came from a name OUTSIDE the panel; the panel
+    names all stopped at their last close. The reading must carry the panel's
+    date, or a stale panel reading would pass the gate's freshness test."""
+    docs = _store(60, 100, 0, 0)
+    old = (pd.Timestamp("2026-10-15")
+           - pd.Timedelta(days=PANEL_STALE_DAYS - 2)).date().isoformat()
+    for d in docs:
+        d["end"] = old
+        d["candles"] = [[old] + c[1:] for c in d["candles"]]
+    docs += [_doc(f"R{i}.NS", True) for i in range(1500)]   # end 2026-10-15
+    r = gate_breadth(docs)
+    assert r["population"] == "study_panel" and r["sample"] == 160
+    assert r["asof"] == old
+    assert r["full_sample"] == 1660
+
+
 def _engine():
     cfg = Config(mode="nifty200_momentum")
     cfg.apply_mode_preset()

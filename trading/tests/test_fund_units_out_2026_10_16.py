@@ -98,14 +98,19 @@ def _doc(t, close=100.0, vol=1_000_000, bars=40):
                                       close, vol] for _ in range(bars)]}
 
 
-def test_the_weekly_rebuild_never_ranks_or_carries_a_fund_unit():
+def test_the_weekly_rebuild_never_ranks_a_fund_unit_even_a_held_one():
+    """A held fund unit is the heaviest turnover name here; with target 1 it
+    would take the only stock slot if it were ranked. It is carried instead
+    (its exits keep running), outside the ranked count."""
     res = select_liquid_universe(
-        [_doc("BIGFUND.NS", vol=50_000_000), _doc("CO.NS")],
-        target=10, always_include=["WATCHEDFUND.NS", "HELDCO.NS"],
-        exclude={"BIGFUND.NS", "WATCHEDFUND.NS"})
-    assert res["tickers"] == ["CO.NS", "HELDCO.NS"]
-    assert res["skipped_fund"] == 1
-    assert all(r["ticker"] != "BIGFUND.NS" for r in res["ranked"])
+        [_doc("BIGFUND.NS", vol=50_000_000), _doc("HELDFUND.NS", vol=90_000_000),
+         _doc("CO.NS")],
+        target=1, always_include=["HELDFUND.NS", "HELDCO.NS"],
+        exclude={"BIGFUND.NS", "HELDFUND.NS"})
+    assert [r["ticker"] for r in res["ranked"]] == ["CO.NS"]
+    assert res["tickers"] == ["CO.NS", "HELDCO.NS", "HELDFUND.NS"]
+    assert res["skipped_fund"] == 2 and res["short_by"] == 0
+    assert "BIGFUND.NS" not in res["tickers"]
 
 
 def _bdoc(t, rising, end="2026-10-15"):
