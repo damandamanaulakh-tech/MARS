@@ -238,8 +238,10 @@ def breadth_panel() -> Optional[dict]:
         # cannot drift from the rule.
         "gate_band_low": round(float(getattr(cfg, "breadth_block_low", 0.40)) * 100),
         "gate_band_high": round(float(getattr(cfg, "breadth_block_high", 0.65)) * 100),
-        # F3: the full-store reading the gate prefers while fresh. None when
-        # never computed — the template then shows only the bucket numbers.
+        # The stored reading the gate prefers while fresh — since 2026-10-16
+        # the study panel the band was measured on (`population`), with the
+        # whole store as context. None when never computed — the template
+        # then shows only the bucket numbers.
         "store": (p.breadth_store or None),
         "ts": (p.scan_matrix or {}).get("ts"),
     }

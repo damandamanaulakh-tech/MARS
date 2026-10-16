@@ -1394,9 +1394,15 @@ def _weekly_sebi_refresh() -> None:
 
 
 def refresh_breadth_store(where: str = "manual") -> dict:
-    """F3 fix (owner order 2026-08-20): compute market breadth over the FULL
-    Mongo OHLCV store (~2,700 names, one streamed $slice query) and persist
-    the reading on the portfolio for the A3 gate to prefer.
+    """F3 fix (owner order 2026-08-20): compute market breadth from the
+    Mongo OHLCV store (one streamed $slice query) and persist the reading on
+    the portfolio for the A3 gate to prefer.
+
+    2026-10-16 ("new position are not added ... relook n fix"): the reading
+    the gate prefers is now the 191-name STUDY PANEL the 40-65% band was
+    measured on, with the whole-store number beside it as context — the gate
+    had been comparing the band's edges with a different population (see
+    trading.breadth.gate_breadth). The paragraph below is the F3 history.
 
     The gate used to read the scan's own ~50-name bucket — ±7pp sampling
     noise against a <=50% line, so buy-or-block flapped on which 50 names the
@@ -1410,12 +1416,17 @@ def refresh_breadth_store(where: str = "manual") -> dict:
     """
     from datetime import datetime as _dt
 
-    from trading.breadth import store_breadth
+    from trading.breadth import gate_breadth
     from . import db, state
     p = state.portfolio()
     try:
         dma = 200
-        reading = store_breadth(db.history_tails(dma + 5), dma=dma)
+        from trading.universes import fund_unit_tickers
+        # 2026-10-16: ONE pass over the store gives the reading the gate
+        # reads — the study panel the 40-65% band was measured on — with the
+        # whole-store number (fund units left out) beside it as context.
+        reading = gate_breadth(db.history_tails(dma + 5), dma=dma,
+                               exclude=fund_unit_tickers())
         if reading is None:
             log.info("[breadth:%s] no usable full-store reading "
                      "(store thin or Mongo down) — gate keeps its fallback",
@@ -1424,10 +1435,13 @@ def refresh_breadth_store(where: str = "manual") -> dict:
         reading["computed"] = _dt.utcnow().isoformat()
         p.breadth_store = reading
         p.save()
-        log.info("[breadth:%s] %.1f%% of %d above 200DMA (closes to %s, "
-                 "%d stale + %d short excluded)", where,
-                 reading["pct"] * 100, reading["sample"], reading["asof"],
-                 reading["excluded_stale"], reading["excluded_short"])
+        log.info("[breadth:%s] %s: %.1f%% of %d above 200DMA (closes to "
+                 "%s, %d stale + %d short excluded; whole store %s%%)", where,
+                 reading.get("population"), reading["pct"] * 100,
+                 reading["sample"], reading["asof"],
+                 reading["excluded_stale"], reading["excluded_short"],
+                 (None if reading.get("full_pct") is None
+                  else round(reading["full_pct"] * 100, 1)))
         return reading
     except Exception as e:
         log.exception("full-store breadth refresh failed: %s", e)
@@ -1619,11 +1633,17 @@ def refresh_liquid_universe(where: str = "weekly") -> dict:
         # ranked below the cut, and "why is HAL not scanned" would have had
         # no visible answer.
         from trading.universes import OWNER_UNIVERSE_2026_08_20 as _OWNER
+        from trading.universes import fund_unit_tickers
         owner_list = set(_OWNER)
+        # 2026-10-16: fund units (INF ISIN) are not stocks and never enter
+        # the scan list; a HELD one is not excluded (it rides along for its
+        # exits like every held name).
+        funds = set(fund_unit_tickers()) - set(p.positions.keys())
         res = select_liquid_universe(
             db.history_tails(40), target=target,
             blocklist=getattr(cfg, "ticker_blocklist", ()) or (),
-            always_include=sorted(set(p.positions.keys()) | keep | owner_list))
+            always_include=sorted(set(p.positions.keys()) | keep | owner_list),
+            exclude=funds)
         picked = res["tickers"]
         # THE GUARD MUST READ WHAT THE STORE CONTRIBUTED, not the union.
         # Caught by test_an_empty_result_never_empties_the_universe the day
@@ -1658,6 +1678,7 @@ def refresh_liquid_universe(where: str = "weekly") -> dict:
             "short_by": res["short_by"],
             "skipped_thin": res["skipped_thin"],
             "skipped_illiquid": res["skipped_illiquid"],
+            "skipped_fund": res.get("skipped_fund", 0),
             "added": added, "dropped": dropped,
             "held_added": res.get("held_added", []),
             # Owner order 2026-09-10 item 8: which watched names were carried
@@ -1702,10 +1723,16 @@ def refresh_liquid_universe(where: str = "weekly") -> dict:
                 rows.append({"ts": stamp, "ticker": t, "move": "in",
                              "turnover": tv, "rank": rk, "reason": reason})
             for t in dropped:
-                reason = ("below the turnover cut (not in the top "
-                          f"{target}) and not held / watched / owner-listed"
-                          if t not in always_set else
-                          "left the tradeable file or blocklisted")
+                if t in funds:
+                    reason = ("a fund unit (ETF / liquid fund, ISIN INF...), "
+                              "not a company share — fund units are never "
+                              "scanned (2026-10-16)")
+                elif t not in always_set:
+                    reason = ("below the turnover cut (not in the top "
+                              f"{target}) and not held / watched / "
+                              "owner-listed")
+                else:
+                    reason = "left the tradeable file or blocklisted"
                 rows.append({"ts": stamp, "ticker": t, "move": "out",
                              "turnover": None, "rank": None, "reason": reason})
             ledger = list(getattr(p, "universe_ledger", []) or []) + rows
@@ -1728,7 +1755,9 @@ def refresh_liquid_universe(where: str = "weekly") -> dict:
                  f"{kept_note}"
                  f"{res['skipped_thin']} skipped for thin history, "
                  f"{res['skipped_illiquid']} below the Rs "
-                 f"{_us.MIN_TURNOVER / 1e7:.0f} crore entry-gate floor."
+                 f"{_us.MIN_TURNOVER / 1e7:.0f} crore entry-gate floor, "
+                 f"{res.get('skipped_fund', 0)} fund unit(s) (ETF / liquid "
+                 f"fund) left out — not company shares."
                  + note,
                  added=added[:25], dropped=dropped[:25],
                  sample=res["sample"], short_by=res["short_by"])
@@ -2309,7 +2338,11 @@ def _daily_universe_topup() -> None:
     try:
         from trading.brokers.upstox_instruments import to_instrument_keys
         from trading.history_store import top_up_history
-        names = sorted(set(custom) | set(eng.portfolio.positions.keys()))
+        # 2026-10-16: the breadth gate reads the 191-name study panel, so
+        # those names are kept fresh every day whatever the scan list holds.
+        from trading.breadth import study_panel
+        names = sorted(set(custom) | set(eng.portfolio.positions.keys())
+                       | set(study_panel()))
         keys = to_instrument_keys(names)
         summ = top_up_history(
             broker, keys,

@@ -60,12 +60,21 @@ def test_den_opens_after_a_scan_wrote_its_breadth_reading():
 
 
 def test_den_opens_with_a_fresh_full_store_breadth_reading():
-    p, old = _with("breadth_store", {"pct": 0.452, "sample": 2233,
-                                     "asof": date.today().isoformat()})
+    """Both stored shapes open the Den (the 500 this file pins): the
+    2026-10-16 study-panel reading, named on the page, and the pre-fix
+    whole-store reading the live box holds until its next 09:20 refresh."""
+    p, old = _with("breadth_store", {"pct": 0.314, "sample": 189,
+                                     "asof": date.today().isoformat(),
+                                     "population": "study_panel",
+                                     "panel_size": 191})
     try:
         r = _owner().get("/den")
         assert r.status_code == 200, r.text[:300]
-        assert "full store" in r.text
+        assert "study panel" in r.text
+        p.breadth_store = {"pct": 0.452, "sample": 2233,
+                           "asof": date.today().isoformat()}
+        r = _owner().get("/den")
+        assert r.status_code == 200, r.text[:300]
     finally:
         p.breadth_store = old
 

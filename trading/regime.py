@@ -336,11 +336,12 @@ def compute_breadth(history: dict, dma: int = 200) -> tuple:
     """Fraction of tickers whose last close is above their own `dma`-day SMA.
 
     A3 breadth gate (owner: "wire it", 2026-07-27; preregistered study in
-    docs/breadth_gate_results.json). Live breadth is measured on the scan's
-    own panel — the ~50-name rotating bucket plus held names — a daily
-    rotating sample of the full universe, whereas the study used the full
-    191-ticker panel. Returns (fraction 0..1 or None, sample_size); tickers
-    with fewer than `dma` bars are excluded from the sample.
+    docs/breadth_gate_results.json). Pure: it reads whatever `history` it is
+    handed. Since 2026-10-16 the engine hands it the study-panel names of the
+    scan (the 191 the 40-65% band was measured on) and only falls back to the
+    whole scan when too few of them are present — see
+    engine._cache_breadth_today. Returns (fraction 0..1 or None,
+    sample_size); tickers with fewer than `dma` bars are excluded.
     """
     above = total = 0
     for t, df in history.items():

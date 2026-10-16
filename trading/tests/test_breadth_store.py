@@ -116,21 +116,26 @@ def test_fresh_wide_reading_overrides_a_panicky_bucket(tmp_path):
     2,700 names beat 10. (Bucket moved 30% -> 50% for the 2026-09-09 band
     re-cut: 30% is now BELOW the band and would be allowed either way, so
     the old fixture could no longer tell the two sources apart.)"""
+    # 2026-10-16: a stored reading now carries its `population` (the study
+    # panel the band was measured on); one without it is a pre-fix
+    # whole-store reading and is not used — test_breadth_study_panel_*.
     eng = _engine(tmp_path)
     eng.portfolio.breadth_store = {"pct": 0.70, "sample": 2700,
-                                   "asof": "2026-08-14"}
+                                   "asof": "2026-08-14",
+                                   "population": "study_panel"}
     assert eng._breadth_gate_blocks(_bucket_history(0.5), _NOW) is False
 
 
 def test_fresh_wide_reading_blocks_and_names_its_source(tmp_path):
     eng = _engine(tmp_path)
     eng.portfolio.breadth_store = {"pct": 0.45, "sample": 2700,
-                                   "asof": "2026-08-14"}
+                                   "asof": "2026-08-14",
+                                   "population": "study_panel"}
     assert eng._breadth_gate_blocks(_bucket_history(0.9), _NOW,
                                     n_picks=3) is True
     j = eng.portfolio.decision_journal[-1]
     assert j["action"] == "BREADTH_BLOCKED"
-    assert "full store" in j["why"] and "2026-08-14" in j["why"]
+    assert "study panel" in j["why"] and "2026-08-14" in j["why"]
 
 
 def test_stale_reading_falls_back_to_the_bucket(tmp_path):
@@ -138,9 +143,12 @@ def test_stale_reading_falls_back_to_the_bucket(tmp_path):
     reads the live bucket exactly as it did before the fix."""
     eng = _engine(tmp_path)
     eng.portfolio.breadth_store = {"pct": 0.70, "sample": 2700,
-                                   "asof": "2026-07-01"}      # 45 days old
+                                   "asof": "2026-07-01",      # 45 days old
+                                   "population": "study_panel"}
     assert eng._breadth_gate_blocks(_bucket_history(0.5), _NOW) is True
-    assert "bucket" in eng.portfolio.decision_journal[-1]["why"]
+    # the T0..T9 fixture holds no study-panel name, so the scan's own
+    # reading falls back to the whole scan and says so
+    assert "scan sample" in eng.portfolio.decision_journal[-1]["why"]
 
 
 def test_no_reading_at_all_falls_back_to_the_bucket(tmp_path):
@@ -187,6 +195,8 @@ def test_scheduler_refresh_stores_and_persists(monkeypatch):
     try:
         r = scheduler.refresh_breadth_store("test")
         assert r["pct"] == 0.5 and r["sample"] == 1500
+        # no study-panel name in these docs -> the whole-store fallback
+        assert r["population"] == "full_store"
         assert state.portfolio().breadth_store["pct"] == 0.5
         assert "computed" in state.portfolio().breadth_store
     finally:

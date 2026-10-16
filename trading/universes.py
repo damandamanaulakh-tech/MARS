@@ -258,6 +258,81 @@ def apply_blocklist(universe: list[str], held, blocklist) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# FUND UNITS ARE NOT STOCKS (owner 2026-10-16: "new position are not added,
+# its not using the all 5 trade segements" -> "relook n fix").
+#
+# Upstox lists ETFs and liquid funds as NSE_EQ with instrument_type EQUITY,
+# so the universe file carries them beside company shares (351 of 2,678 on
+# 2026-10-15) and the 09-30 turnover rebuild put 56 into the scan list. The
+# ISIN says which is which: INE = a company's share, INF = a fund unit.
+#
+# Measured on the 10-15 close with the real engine: a liquid fund moves
+# ~0.2% a year with almost no volatility, so the vol-adjusted momentum score
+# saturates (LIQUIDCASE 98.25, LIQUIDBETF 94.75 ...) and slab sizing hits the
+# 5% cap on each one. Six liquid funds took Rs 1.5 Cr of momentum's Rs 2 Cr
+# share before a single company was bought — and with a 10% target, a -5%
+# stop and a score that never decays, neither exit can ever fire, so that
+# cash sits idle for 200 days. They also always sit above their own 200-DMA,
+# which lifts every breadth reading the entry gate reads.
+#
+# So fund units leave the SCAN (all five categories), the weekly turnover
+# rebuild and both breadth readings. A fund unit already HELD stays in its
+# own scan so its exits keep working; the owner's BUY ticket can still buy
+# one by hand.
+# ---------------------------------------------------------------------------
+_FUND_CACHE: dict = {}
+
+
+def fund_unit_tickers(path: str = None) -> frozenset:
+    """Tickers whose ISIN marks a fund unit (INF...), read from the universe
+    file (refreshed daily at 08:50). Cached per file version; an unreadable
+    file returns an empty set — no name is dropped on a guess."""
+    import csv
+    import os
+    if path is None:
+        path = os.path.join(os.path.dirname(__file__), "..", "data",
+                            "upstox_nse_equities.csv")
+    try:
+        st = os.stat(path)
+        key = (os.path.abspath(path), st.st_mtime_ns, st.st_size)
+    except OSError:
+        return frozenset()
+    hit = _FUND_CACHE.get("key")
+    if hit == key:
+        return _FUND_CACHE["funds"]
+    funds = set()
+    try:
+        with open(path, newline="", encoding="utf-8") as fh:
+            for row in csv.DictReader(fh):
+                isin = (row.get("isin") or "").strip().upper()
+                if not isin:
+                    isin = str(row.get("instrument_key") or "").split("|")[-1]
+                    isin = isin.strip().upper()
+                t = (row.get("ticker") or "").strip()
+                if t and isin.startswith("INF"):
+                    funds.add(t if t.endswith(".NS") else t + ".NS")
+    except OSError:
+        return frozenset()
+    out = frozenset(funds)
+    _FUND_CACHE.update(key=key, funds=out)
+    return out
+
+
+def is_fund_unit(ticker: str, path: str = None) -> bool:
+    t = str(ticker or "")
+    return (t if t.endswith(".NS") else t + ".NS") in fund_unit_tickers(path)
+
+
+def drop_fund_units(universe, held=(), path: str = None) -> list[str]:
+    """`universe` without fund units; held names always stay."""
+    funds = fund_unit_tickers(path)
+    if not funds:
+        return list(universe)
+    held = set(held or ())
+    return [t for t in universe if t in held or t not in funds]
+
+
+# ---------------------------------------------------------------------------
 # OWNER'S CUSTOM 50 (order 2026-08-20: "reduce the universe to 50 share only
 # but all fresh ... do not change codes and just work on 50 count, rest
 # remains same ... ARE SOME FOR THIS WEEK, ADD MORE AND MAKE IT 50").

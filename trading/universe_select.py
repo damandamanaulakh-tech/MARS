@@ -85,7 +85,8 @@ def select_liquid_universe(docs: Iterable[dict],
                            target: int = DEFAULT_TARGET,
                            lookback: int = 20,
                            blocklist: Iterable[str] = (),
-                           always_include: Iterable[str] = ()) -> dict:
+                           always_include: Iterable[str] = (),
+                           exclude: Iterable[str] = ()) -> dict:
     """Rank stored names by median rupee turnover and take the top `target`.
 
     docs            — raw store docs {ticker, candles}, e.g. db.history_tails
@@ -101,16 +102,26 @@ def select_liquid_universe(docs: Iterable[dict],
                       (The return key stays `held_added` for compatibility;
                       it means "carried in regardless of rank".)
 
+    exclude         — names never ranked (2026-10-16: fund units, which are
+                      not stocks — universes.fund_unit_tickers). Counted as
+                      `skipped_fund` so the batch card can say so. The caller
+                      leaves held names out of this set.
+
     Returns {tickers, ranked, sample, judged, skipped_thin, skipped_illiquid,
-    short_by} — `short_by` is how many names the target is missing, so the
-    caller can say so instead of presenting a short list as a full one.
+    skipped_fund, short_by} — `short_by` is how many names the target is
+    missing, so the caller can say so instead of presenting a short list as a
+    full one.
     """
     banned = {t.upper() for t in (blocklist or ())}
+    excluded = {t.upper() for t in (exclude or ())}
     scored: list[tuple[float, str]] = []
-    thin = illiquid = 0
+    thin = illiquid = fund = 0
     for doc in docs or []:
         ticker = (doc or {}).get("ticker") or ""
         if not ticker or ticker.upper() in banned:
+            continue
+        if ticker.upper() in excluded:
+            fund += 1
             continue
         turnover = median_turnover(doc.get("candles"), lookback)
         if turnover is None:
@@ -125,7 +136,8 @@ def select_liquid_universe(docs: Iterable[dict],
     picked = [t for _v, t in scored[:int(target)]]
 
     held = [t for t in (always_include or ())
-            if t and t not in picked and t.upper() not in banned]
+            if t and t not in picked and t.upper() not in banned
+            and t.upper() not in excluded]
     tickers = sorted(set(picked) | set(held))
 
     return {
@@ -136,6 +148,7 @@ def select_liquid_universe(docs: Iterable[dict],
         "judged": len(scored),
         "skipped_thin": thin,
         "skipped_illiquid": illiquid,
+        "skipped_fund": fund,
         "held_added": sorted(held),
         "short_by": max(0, int(target) - len(picked)),
     }
