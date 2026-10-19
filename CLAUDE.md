@@ -1178,9 +1178,58 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   unordered. Consequence for the 10-16 breadth fix: the ~1,028 non-scan
   store names stay frozen at their 09-30 close — the gate no longer reads
   them (study panel, topped up daily), only the dashboard's whole-store
-  context number does. PR #178 merged on the quiet box after 17:45 IST
-  (flat 50 min); Mon 10-19 09:10 IST wake armed
+  context number does. PR #178 merged 18:31 IST Fri 10-16 (main 7964d38),
+  after the 17:45 loop end — the box was asleep by then, so the deploy
+  restart cost nothing; Mon 10-19 09:10 IST wake armed
   (trig_01MQ9jRktzRC2yVv9pCYJr6K).
+- **MON 10-19 09:20 CHAIN — EIGHTH MORNING OOM KILL, THE HIGHEST PEAK YET,
+  on the first live morning of PR #178** (keepalive_1019_am.log, UTC
+  stamps, add 5:30). The 09:11 probe timed out at 55 s (asleep); a fresh
+  process came up ~09:12 (rss 153 / peak 153), BEFORE 09:20, so the cron
+  fired. 09:15 peak 236 (boot catch-up / 09:15 exit pass); 184-187 flat
+  09:18-09:29 (the top-up, now incl. the 191 study-panel names); a 09:30
+  spike to peak 335 (breadth/index/sector refresh + the 09:30 exit pass;
+  Fri's was 225), 201-203 flat to 10:11 (10:00 exit pass 207-214), 271 at
+  10:12-10:14; **the rotation from ~10:20: 282 → 350 → 379 → 413 → 449 →
+  491 by 10:27**, held 491 to 10:30, 406-410 between passes, 488-490
+  10:38-10:42, then **496 → 511 → 525 → peak 538 at 10:46** (/healthz to
+  4.6 s), **538 flat 10:53-10:58** (the trigger layer on top), **`503` from
+  Render's edge at 10:59 → fresh process 11:00 (rss 159 / peak 211) = OOM
+  kill**. New process: peak 301 at 11:01 (11:00 exit pass / boot
+  catch-up), 173 flat after. Exit passes at 09:15 / 09:30 / 10:00 / 11:00
+  ran on a live process; 10:30 fell inside the rotation. TALLY: eight
+  morning kills (10-05, 06, 07, 13, 14, 15, 16, 19); peaks 538 today vs
+  Fri 506 / Thu 513 / Wed 525. Whether the five passes BOUGHT under the
+  new breadth reading = the journal (BREADTH_BLOCKED / CATEGORY_BUDGET_FULL
+  / MEASURED_KELLY_BLOCKED) and /positions by category — owner's login.
+  scan_universe 1,205 / last_rebuild 2026-09-30, write_error None (09:13).
+- **MON 10-19 14:30 CHAIN — SURVIVED, ONE PROCESS, AT PEAK 521**
+  (keepalive_1019_pm.log). The 14:21 probe timed out at 55 s (asleep); a
+  fresh process at 14:22 (rss 151) booted before 14:30, so the cron fired
+  (the session container was itself fresh at the wake, uptime 50 s).
+  Rotation 14:30: 182/207 → 257 (14:34) → 327 (14:37) → 384 → 413 → 486 by
+  14:42, held 483-486 to 14:47, 398-407 between passes (14:48-14:51),
+  478-481 14:52-14:57, 491 → 502 → 518 at 15:00 (the 15:00 exit pass
+  inside the rotation), 490 15:01-15:03, **514-520 15:04-15:24 (peak 521
+  at 15:12; /healthz 1-9.1 s)**, 505-518 at the 15:25 square-off, 504-514
+  to 15:39 — no 503, no fresh process. Thu 10-15's 14:30 died at 482, Fri
+  lived at 487, today lived 40 min at 504-520: the kill line is not a
+  fixed number. 15:25 / 15:35 ran on the live process (whether they did
+  anything = the journal).
+- **MON 10-19 16:30 BLOCK — SEVENTH STALL IN A ROW, same shape**
+  (keepalive_1019_block.log, UTC stamps, add 5:30). The 16:25 wake's probe
+  = 62 s cold start (asleep since the 15:40 loop end); fresh process ~16:28
+  IST (rss 151 / peak 150), awake before 16:30. 16:30 → 154 … **188 by
+  16:40** (the short feeds), flat 187-188 to 16:44, 16:45 → 202, 266/277
+  (16:48), 277/286 (16:51), 297 (16:54), **peak 341 at ~16:55** (the 16:45
+  register precompute), then **245 FLAT 16:55-17:27 and 237 FLAT to 17:45,
+  NO rebuild stamp** (`last_rebuild` 2026-09-30, store 2,233, write_error
+  None, app db 71 MB). Fri 10-09, Mon 10-12, Tue 10-13, Wed 10-14, Thu
+  10-15, Fri 10-16, Mon 10-19 identical. Only the journal (owner's login,
+  /reports CSV from 16:30) names the stuck step; the lever (a total time
+  cap per weekly step) still unordered. PR #179 (this record) merged after
+  17:45 IST on the quiet box; Tue 10-20 09:10 IST wake armed
+  (trig_01PmPaHkEnvt9t2NCTbv52Vc).
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:
