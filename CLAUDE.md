@@ -1216,6 +1216,20 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   lived at 487, today lived 40 min at 504-520: the kill line is not a
   fixed number. 15:25 / 15:35 ran on the live process (whether they did
   anything = the journal).
+- **MON 10-19 16:30 BLOCK — SEVENTH STALL IN A ROW, same shape**
+  (keepalive_1019_block.log, UTC stamps, add 5:30). The 16:25 wake's probe
+  = 62 s cold start (asleep since the 15:40 loop end); fresh process ~16:28
+  IST (rss 151 / peak 150), awake before 16:30. 16:30 → 154 … **188 by
+  16:40** (the short feeds), flat 187-188 to 16:44, 16:45 → 202, 266/277
+  (16:48), 277/286 (16:51), 297 (16:54), **peak 341 at ~16:55** (the 16:45
+  register precompute), then **245 FLAT 16:55-17:27 and 237 FLAT to 17:45,
+  NO rebuild stamp** (`last_rebuild` 2026-09-30, store 2,233, write_error
+  None, app db 71 MB). Fri 10-09, Mon 10-12, Tue 10-13, Wed 10-14, Thu
+  10-15, Fri 10-16, Mon 10-19 identical. Only the journal (owner's login,
+  /reports CSV from 16:30) names the stuck step; the lever (a total time
+  cap per weekly step) still unordered. PR #179 (this record) merged after
+  17:45 IST on the quiet box; Tue 10-20 09:10 IST wake armed
+  (trig_01PmPaHkEnvt9t2NCTbv52Vc).
 
 **UPSTOX FII/DII FEED READING FIXED 2026-10-04 (owner: "fix the FII feed
 reading too").** The feed had been ARRIVING since 08-24 but was never READ:
