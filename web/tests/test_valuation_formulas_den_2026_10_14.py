@@ -66,7 +66,10 @@ def test_the_section_exists_and_prints_every_registry(stored):
     assert "The 52 finance terms" in t and "Graham number" in t and "Altman Z" in t
     assert "The 21 sector routes" in t and "Metals (steel/aluminium/zinc)" in t and "metals_midcycle" in t
     assert "ROUND(E22/E28,2)" in t                                 # the EPS cell formula
-    assert "E134" in t and "negative multiple" in t                 # section H caveat printed
+    # TT03 (owner order 2026-10-21): E134 refuses a bridge below -100% instead of
+    # printing a negative multiple; the footer must say so, not the old caveat.
+    assert "den_formulas_tt_marker" in html
+    assert "E134 refuses a P/E bridge below −100%" in t and "never a negative multiple" in t
     # 50 editable inputs, each with its default as placeholder
     assert html.count('name="sheet.') == 29
     assert html.count('name="case.') == 6 and html.count('name="verdict.') == 5

@@ -19,7 +19,10 @@ Rules
     fraction where a whole number is required, or a value outside the
     row's bounds is refused with the key named — nothing is stored;
   * `split()` groups a draft into exactly the keyword arguments each
-    module takes, so a key the chain does not consume cannot exist here.
+    module takes, so a key the chain does not consume cannot exist here;
+  * a row with `no_effect` set is editable but changes no target, range,
+    case or verdict yet (VAL-11, owner order 2026-10-21): the Den labels it
+    and `effective_keys()` leaves it out of the "draft in use" count.
 """
 from __future__ import annotations
 
@@ -52,9 +55,30 @@ GROUP_LABEL: Dict[str, str] = dict(GROUPS)
 
 def _row(key: str, group: str, label: str, default: float, source: str, *,
          kind: str = "num", lo: Optional[float] = None, hi: Optional[float] = None,
-         cell: str = "") -> dict:
+         cell: str = "", no_effect: Optional[str] = None) -> dict:
     return {"key": key, "group": group, "label": label, "default": default,
-            "source": source, "kind": kind, "lo": lo, "hi": hi, "cell": cell}
+            "source": source, "kind": kind, "lo": lo, "hi": hi, "cell": cell,
+            "no_effect": no_effect}
+
+
+#: VAL-11 (owner order 2026-10-21): editable, but nothing the chain prints
+#: moves when they change. Delete a line here when its number is connected.
+NO_EFFECT_REASONS: Dict[str, str] = {
+    "verdict.max_uncertainty_pct":
+        "the chain states no uncertainty figure yet, so this limit is never tested",
+    "verdict.watch_band_pct":
+        "it changes only the wording of the WATCH reason; the verdict is decided by "
+        "the attractive margin, the unattractive premium and the range high",
+    "terms.dcf_growth_cap_pct":
+        "the chain builds no cash-flow forecast yet, so the DCF value is always "
+        "DATA_NEEDED and the cap is never applied",
+    "snapshot.publication_lag_days":
+        "the Den passes no as-of date, so the lag moves only the printed publication "
+        "date; the same year's figures are used whatever the lag",
+}
+
+#: A no-effect key that does take effect when the chain is given this input.
+_EFFECT_WHEN: Dict[str, str] = {"snapshot.publication_lag_days": "asof"}
 
 
 def _build() -> List[dict]:
@@ -88,11 +112,13 @@ def _build() -> List[dict]:
             ("max_range_width_pct", "INSUFFICIENT when (high − low) / base is above this %", 1.0, 1000.0),
             ("max_uncertainty_pct", "INSUFFICIENT when the stated uncertainty is above this %", 1.0, 1000.0)):
         rows.append(_row(f"verdict.{k}", "verdict", lab, float(A.ASSUMED[k]["value"]),
-                         A.ASSUMED[k]["source"], lo=lo, hi=hi))
+                         A.ASSUMED[k]["source"], lo=lo, hi=hi,
+                         no_effect=NO_EFFECT_REASONS.get(f"verdict.{k}")))
     rows += [
         _row("snapshot.publication_lag_days", "snapshot",
              "Publication date = period end + this many days", int(S.ASSUMED["publication_lag_days"]),
-             S.ASSUMED_SOURCE["publication_lag_days"], kind="int", lo=0, hi=365),
+             S.ASSUMED_SOURCE["publication_lag_days"], kind="int", lo=0, hi=365,
+             no_effect=NO_EFFECT_REASONS["snapshot.publication_lag_days"]),
         _row("snapshot.usd_signature_pe", "snapshot",
              "USD signature: price ÷ EPS above this (ADR list AND signature must agree)",
              float(S.ASSUMED["usd_signature_pe"]), S.ASSUMED_SOURCE["usd_signature_pe"],
@@ -111,13 +137,33 @@ def _build() -> List[dict]:
              lo=0.0, hi=100.0),
         _row("terms.dcf_growth_cap_pct", "terms", "DCF terminal growth cap (%)",
              float(T.ASSUMED["dcf_growth_cap_pct"]), T.ASSUMED_SOURCE["dcf_growth_cap_pct"],
-             lo=0.0, hi=30.0),
+             lo=0.0, hi=30.0, no_effect=NO_EFFECT_REASONS["terms.dcf_growth_cap_pct"]),
     ]
     return rows
 
 
 EDITABLE: List[dict] = _build()
 BY_KEY: Dict[str, dict] = {r["key"]: r for r in EDITABLE}
+
+
+def no_effect_keys() -> List[str]:
+    """The editable keys that change no result yet (VAL-11)."""
+    return sorted(r["key"] for r in EDITABLE if r.get("no_effect"))
+
+
+def effective_keys(values: Optional[dict], *, asof: Optional[str] = None) -> List[str]:
+    """The drafted keys that really change a result — what the "DRAFT
+    ASSUMPTIONS IN USE" banner, its count and the per-row "draft" tag
+    should read. A no-effect key counts only when the input it waits for
+    is given (the publication lag with an `asof` date)."""
+    given = {"asof": asof}
+    out = []
+    for k in clean(values):
+        row = BY_KEY[k]
+        if row.get("no_effect") and not given.get(_EFFECT_WHEN.get(k, "")):
+            continue
+        out.append(k)
+    return sorted(out)
 
 
 def defaults() -> Dict[str, float]:
@@ -203,7 +249,10 @@ def split(values: Optional[dict]) -> dict:
             shares[rest] = float(val)
         elif group == "terms":
             terms[rest] = float(val)
+    eff = effective_keys(v)
     return {"values": v, "edited": sorted(v), "n_edited": len(v),
+            "effective": eff, "n_effective": len(eff),
+            "no_effect_edited": sorted(k for k in v if k not in eff),
             "sheet": sheet, "case_deltas": deltas, "verdict": verdict,
             "quality": quality, "range": rng, "snapshot": snap,
             "shares": shares, "terms": terms}
@@ -221,5 +270,6 @@ def describe(values: Optional[dict]) -> List[dict]:
     return out
 
 
-__all__ = ["EDITABLE", "BY_KEY", "GROUPS", "GROUP_LABEL", "VERSION",
-           "defaults", "clean", "coerce", "split", "describe"]
+__all__ = ["EDITABLE", "BY_KEY", "GROUPS", "GROUP_LABEL", "VERSION", "NO_EFFECT_REASONS",
+           "defaults", "clean", "coerce", "split", "describe", "no_effect_keys",
+           "effective_keys"]

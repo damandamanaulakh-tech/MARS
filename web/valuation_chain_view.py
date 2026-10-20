@@ -722,11 +722,15 @@ def _macro_inputs(snap: dict, closes: Optional[pd.Series] = None) -> dict:
         "beta": None, "usdinr_now": None, "usdinr_base": None,
         "price_now": price_now(closes)[0] if closes is not None else None,
     }
+    out["usdinr_now_date"] = out["usdinr_base_date"] = None
     try:
         fx_now = S.usdinr_at(date.today().isoformat())
         fx_base = S.usdinr_at(period_end) if period_end else None
         out["usdinr_now"] = fx_now[0] if fx_now else None
         out["usdinr_base"] = fx_base[0] if fx_base else None
+        # the dates the two rates were read on (VAL-13a / VAL-15)
+        out["usdinr_now_date"] = fx_now[1] if fx_now else None
+        out["usdinr_base_date"] = fx_base[1] if fx_base else None
     except Exception:                                   # noqa: BLE001
         pass
     try:
@@ -780,6 +784,13 @@ def row_for(ticker: str, cfg, p, *, show_terms: bool = False,
     if closes is _UNSET:
         closes = _closes(ticker)
     px, px_date = price_now(closes)
+    mac_box: dict = {}
+
+    def _macro(snap):
+        m = _macro_inputs(snap, closes)
+        mac_box["m"] = m
+        return m
+
     rec = pipeline.evaluate(
         ticker, price=px, price_date=px_date,
         sector_map=dict(getattr(cfg, "sector_map", {}) or {}),
@@ -787,7 +798,7 @@ def row_for(ticker: str, cfg, p, *, show_terms: bool = False,
         price_at=lambda when: price_at(closes, when),
         own_pe_history=lambda snap: own_pe_history(closes, snap),
         peers=peer_multiples,
-        macro=lambda snap: _macro_inputs(snap, closes),
+        macro=_macro,
         overrides=overrides,
     )
     r = _render()
@@ -799,7 +810,163 @@ def row_for(ticker: str, cfg, p, *, show_terms: bool = False,
     rec["all_terms"] = rec.get("terms_rows", []) if show_terms else []
     rec["n_terms"] = len(rec.get("terms_rows", []))
     rec["price_source"] = price_source if px is not None else ""
+    try:
+        rec["fx"] = fx_block(rec, mac_box.get("m") or {})
+    except Exception:                                   # noqa: BLE001
+        log.warning("valuation chain: rupee row block failed for %s", ticker)
+        rec["fx"] = {"applies": False}
     return rec
+
+
+# ------------------------------------------------- rupee row (E101) line
+
+#: VAL-13a: the USD-INR "now" rate is read from data/usdinr_daily.csv,
+#: which nothing refreshes; past this many days the row says it is stale.
+FX_STALE_DAYS = 10
+
+
+def fx_block(rec: dict, mac: dict, today: Optional[date] = None) -> dict:
+    """The IT rupee row (E101) as §12 prints it: the 'now' rate and its
+    date (stale past FX_STALE_DAYS, VAL-13a), the base rate the chain
+    actually divided by and its date, and E101's formula with that base
+    (VAL-15). Only IT-services routes carry the rupee leg; other rows get
+    {"applies": False}."""
+    sector = (rec.get("route") or {}).get("sector") or ""
+    if not str(sector).startswith("IT services"):
+        return {"applies": False}
+    today = today or date.today()
+    base_case = (((rec.get("detail") or {}).get("cases") or {}).get("base") or {})
+    used = ((base_case.get("inputs") or {}).get("market") or {})
+    now = V.num(used.get("usdinr"))
+    base = V.num(used.get("usdinr_base"))
+    if now is None:
+        now = V.num(mac.get("usdinr_now"))
+    if base is None:
+        base = V.num(mac.get("usdinr_base"))
+    now_date = mac.get("usdinr_now_date")
+    base_date = mac.get("usdinr_base_date")
+    age = None
+    if now_date:
+        try:
+            age = (today - date.fromisoformat(str(now_date)[:10])).days
+        except ValueError:
+            age = None
+    # the pipeline sets now = base (row counted 0) when either rate is missing
+    counted = (V.num(mac.get("usdinr_now")) is not None
+               and V.num(mac.get("usdinr_base")) is not None)
+    pct = V.num((base_case.get("cells") or {}).get("E101"))
+    try:
+        from trading.valuation import scenarios as SC
+        fmt = getattr(SC, "e101_formula", None)
+        formula = fmt(base if counted else None, base_date if counted else None) if fmt \
+            else "ROUND((E78 / USD-INR at the base year-end date - 1)*100,2)"
+    except Exception:                                   # noqa: BLE001
+        formula = "ROUND((E78 / USD-INR at the base year-end date - 1)*100,2)"
+    return {"applies": True, "counted": counted,
+            "now": now if counted else V.num(mac.get("usdinr_now")),
+            "now_date": now_date, "age_days": age,
+            "stale": bool(age is not None and age > FX_STALE_DAYS),
+            "stale_days": FX_STALE_DAYS,
+            "base": base if counted else V.num(mac.get("usdinr_base")),
+            "base_date": base_date, "pct": pct if counted else None,
+            "formula": formula}
+
+
+# ------------------------------------------------------ known faults
+
+#: VAL-01: groups whose businesses span sectors; the chain values each on
+#: the peers of ONE route (no sum-of-parts yet). Delete when VAL-01 lands.
+CONGLOMERATES = ("RELIANCE", "ADANIENT", "BAJAJFINSV", "ITC", "GRASIM", "LT",
+                 "M&M", "TATAMOTORS")
+
+
+def _ps(v: Optional[float]) -> str:
+    return f"₹{v:,.2f}/share"
+
+
+def known_faults(rec: dict) -> list:
+    """Still-open flaws that bend THIS row's printed target (owner order
+    2026-10-21: show a red '⚠ known fault' line). Every rule lives here, one
+    block per flaw, so a flag is deleted by deleting its block when the fix
+    lands. Facts come from the record's `range_flags` (pipeline); a record
+    without them (built before that field existed) falls back to the route
+    and the range notes, and says less rather than guess."""
+    out: list = []
+    if row_kind(rec) != "full":
+        return out
+    rng = rec.get("range") or {}
+    if rng.get("status") != "OK":
+        return out                                      # no target printed
+    fl = rec.get("range_flags") or {}
+    route = rec.get("route") or {}
+    family = fl.get("family") or rng.get("family") or route.get("family") or ""
+    method = fl.get("method") or route.get("method") or ""
+    sym = str(rec.get("ticker") or "").upper().replace(".NS", "").replace(".BO", "")
+
+    # VAL-07 — EV/EBITDA cases inverted, then sorted silently
+    if family not in ("ev_ebitda", "ev_sales"):
+        pass
+    elif fl:
+        if fl.get("inverted"):
+            printed = fl.get("printed_case") or {}
+            pc = fl.get("printed_base_case") or printed.get("base")
+            if pc and pc != "base":
+                txt = (f"the three cases came out inverted and were sorted, so the "
+                       f"printed target is the {pc} case, not the base case")
+            else:
+                txt = (f"the three cases came out inverted and were sorted: the printed "
+                       f"low is the {printed.get('low') or '?'} case and the high the "
+                       f"{printed.get('high') or '?'} case")
+            if fl.get("midcycle_base"):
+                txt += (" (the base uses mid-cycle EBITDA — the average of past years — "
+                        "while downside and upside use next year's forecast)")
+            out.append({"code": "VAL-07", "text": txt})
+    else:
+        notes = " ".join(str(n) for n in (rng.get("notes") or []))
+        if "inverted" in notes:
+            out.append({"code": "VAL-07",
+                        "text": "the three cases came out inverted and were sorted, so the "
+                                "printed target may be another case than the base"})
+
+    # VAL-01 — a conglomerate on one sector's peers
+    if sym in CONGLOMERATES:
+        sec = route.get("sector") or fl.get("sector") or "one route"
+        out.append({"code": "VAL-01",
+                    "text": f"a group with several businesses valued on the peers of one "
+                            f"route ({sec}); its other businesses are not valued "
+                            f"(no sum-of-parts yet)"})
+
+    # VAL-12a — the stock's EV takes minorities / short-term investments, the peers' do not
+    if family in ("ev_ebitda", "ev_sales"):
+        mi = V.num(fl.get("minorities_per_share"))
+        sti = V.num(fl.get("short_term_investments_per_share"))
+        parts = []
+        if mi is not None and abs(mi) >= 0.005:
+            parts.append(f"takes off {_ps(mi)} for minority interest")
+        if sti is not None and abs(sti) >= 0.005:
+            parts.append(f"credits {_ps(sti)} of short-term investments")
+        if parts:
+            out.append({"code": "VAL-12a",
+                        "text": "this stock's value " + " and ".join(parts) +
+                                ", but the peers' EV multiple counts neither "
+                                f"({fl.get('peer_ev_rule') or 'peer EV = price × shares + debt − cash'}), "
+                                "so the two sides are not measured the same way"})
+
+    # VAL-02 — lender's equity line unchecked
+    lender = fl.get("lender") if fl else method in ("bank_pb_roe", "nbfc_pb")
+    if lender and family == "book":
+        out.append({"code": "VAL-02",
+                    "text": "equity line from the feed not checked against the bank's "
+                            "reported net worth; an inflated equity line (as after a merger) "
+                            "lowers the ROE and pulls this target down"})
+
+    # VAL-12b — power utilities on the lender formula
+    power = fl.get("power_utility") if fl else method == "power_regulated"
+    if power and family == "book":
+        out.append({"code": "VAL-12b",
+                    "text": "valued with the bank formula; debt checks off — a power "
+                            "company carries heavy debt that this route never tests"})
+    return out
 
 
 def row_kind(rec: dict) -> str:
@@ -816,7 +983,45 @@ def row_kind(rec: dict) -> str:
 
 def _marked(rec: dict) -> dict:
     rec["row_kind"] = row_kind(rec)
+    asm = rec.get("assumptions")
+    if isinstance(asm, dict) and "drafted_effective" not in asm:
+        # a record built without the VAL-11 split: derive it here
+        eff = effective_draft_keys(asm.get("drafted_values") or {})
+        asm["drafted_effective"] = eff
+        rec["drafted"] = bool(eff)
+    try:
+        rec["known_faults"] = known_faults(rec)
+    except Exception:                                   # noqa: BLE001
+        log.warning("valuation chain: known-fault rules failed for %s", rec.get("ticker"))
+        rec["known_faults"] = []
     return rec
+
+
+# ------------------------------------------------- draft keys in effect
+
+#: VAL-11: drafted numbers that change no result yet. Mirrors
+#: assumptions.NO_EFFECT_REASONS; used only if that registry is absent.
+_NO_EFFECT_FALLBACK = ("verdict.max_uncertainty_pct", "verdict.watch_band_pct",
+                       "terms.dcf_growth_cap_pct", "snapshot.publication_lag_days")
+
+
+def effective_draft_keys(values: Optional[dict]) -> list:
+    """The drafted keys that really change a §12 result (the banner, its
+    count and the per-row tag read these; VAL-11). §12 passes no as-of
+    date, so the publication lag never counts here."""
+    from trading.valuation import assumptions as ASM
+    fn = getattr(ASM, "effective_keys", None)
+    if fn is not None:
+        return list(fn(values))
+    return sorted(k for k in (values or {}) if k not in _NO_EFFECT_FALLBACK)
+
+
+def no_effect_reason(key: str) -> str:
+    from trading.valuation import assumptions as ASM
+    reasons = getattr(ASM, "NO_EFFECT_REASONS", None) or {}
+    if key in reasons:
+        return reasons[key]
+    return "changes no result yet" if key in _NO_EFFECT_FALLBACK else ""
 
 
 def time_budget_s() -> float:
@@ -952,7 +1157,7 @@ def empty_section(error: str = "", typed: str = "") -> dict:
             "n_statements": pipeline.statement_coverage(),
             "assumed": pipeline.assumed_for_page(),
             "today": date.today().isoformat(),
-            "drafted": False, "n_edited": 0, "drafted_keys": [],
+            "drafted": False, "n_edited": 0, "drafted_keys": [], "no_effect_keys": [],
             "budget_s": time_budget_s(), "elapsed_s": 0.0,
             "computed": 0, "cached": 0, "skipped_budget": 0,
             "skipped_busy": 0, "busy": "", "busy_kind": "", "failed": 0,
@@ -988,8 +1193,11 @@ def _section(cfg, p, typed: str, show_terms: bool, ctx: "_Render") -> dict:
     out["typed_full"] = typed_full
     out["show_terms"] = bool(show_terms and typed_full)
     overrides = load_assumptions()
-    out.update({"drafted": bool(overrides), "n_edited": len(overrides),
-                "drafted_keys": sorted(overrides)})
+    # VAL-11: only the drafted numbers that change a result switch the
+    # banner on and count; the no-effect ones are listed apart
+    eff = effective_draft_keys(overrides)
+    out.update({"drafted": bool(eff), "n_edited": len(eff), "drafted_keys": eff,
+                "no_effect_keys": sorted(k for k in overrides if k not in eff)})
     names = names_to_show(p, typed_full)
     cut = list(getattr(names, "cut", None) or [])
     out.update({"n_cut": len(cut), "cut_names": cut})
@@ -1127,7 +1335,9 @@ STAGE_RULES = [
     ("17 range", "per family as listed under B2; 3×3 grid growth {−1,0,+1}pp × margin {−1,0,+1}pp and a multiple row "
                  "{−10,0,+10} points on the bridge"),
     ("17b context", "sector leg (1:1 and measured β), rates leg (r_then − g) / (r_now + shift − g), sentiment margin "
-                    "= base discount + steps per gauge ON — §11 above"),
+                    "= base discount + steps per gauge ON — §11 above; a target dated today has nothing to adjust "
+                    "yet (no context target printed); a missing 10-year yield is not applied — the context target "
+                    "is the sector leg only, labelled — and with the sector leg missing too there is none"),
     ("18 verdict", "insufficient first, when a range value is missing or unordered, (high − low) / base exceeds the "
                    "width cap or the stated uncertainty its cap; then attractive when price ≤ base × (1 − margin); "
                    "unattractive when price is above the range high, or above base × (1 + premium) with no thesis "
@@ -1137,7 +1347,8 @@ STAGE_RULES = [
 
 def empty_formulas_section(flag: str = "", error: str = "") -> dict:
     return {"flag": flag, "error": error, "groups": [], "rows": [], "n_editable": 0,
-            "n_edited": 0, "terms": [], "routes": [], "chain_cells": [],
+            "n_edited": 0, "n_stored": 0, "no_effect_keys": [], "n_no_effect_rows": 0,
+            "terms": [], "routes": [], "chain_cells": [],
             "family_rules": FAMILY_RULES, "stage_rules": STAGE_RULES}
 
 
@@ -1149,7 +1360,13 @@ def formulas_section(flag: Optional[str] = None, error: str = "") -> dict:
     from trading.valuation import scenarios as SC
     from trading.valuation import terms as T
     values = load_assumptions()
-    rows = ASM.describe(values)
+    eff = effective_draft_keys(values)
+    rows = []
+    for r in ASM.describe(values):
+        r = dict(r)
+        # VAL-11: editable, but changes no result yet — labelled, not counted
+        r["no_effect"] = r.get("no_effect") or no_effect_reason(r["key"])
+        rows.append(r)
     terms = [{"name": name, "formula": e.get("formula") or "", "stage": e.get("stage") or ""}
              for name, e in T.TERMS.items()]
     cells = SC.chain_formulas()
@@ -1166,7 +1383,9 @@ def formulas_section(flag: Optional[str] = None, error: str = "") -> dict:
                        "rule": r.get("key_drivers") or "",
                        "bad_time": r.get("bad_time_behaviour") or ""})
     return {"flag": flag or "", "error": error, "groups": ASM.GROUPS, "rows": rows,
-            "n_editable": len(rows), "n_edited": len(values),
+            "n_editable": len(rows), "n_edited": len(eff), "n_stored": len(values),
+            "no_effect_keys": sorted(k for k in values if k not in eff),
+            "n_no_effect_rows": sum(1 for r in rows if r.get("no_effect")),
             "terms": terms, "routes": routes, "chain_cells": cells,
             "chain_cols": chain_cols,
             "family_rules": FAMILY_RULES, "stage_rules": STAGE_RULES}

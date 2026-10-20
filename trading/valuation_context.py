@@ -332,7 +332,8 @@ def context(ticker: str, target: float, asof: Any,
             inflation_shift_pp: float = ASSUMED["inflation_shift_pp"],
             sentiment: Optional[dict] = None,
             news_verdict: Optional[str] = None,
-            bench_why: str = "") -> dict:
+            bench_why: str = "",
+            today: Any = None) -> dict:
     """One stock's full context reading. Pure: every input is passed in.
 
     `bench` is the sector index closes (or Nifty 50 for an unmapped name,
@@ -340,11 +341,23 @@ def context(ticker: str, target: float, asof: Any,
     `rate_now_pct` overrides its last value (the committed file ends in
     June — the owner types today's yield). `sentiment` carries the raw
     gauge inputs: {vix, breadth_pct, breadth_low_pct, fii_5d_net_cr,
-    damage_q90_on}.
+    damage_q90_on}. `today` defaults to the calendar date.
+
+    VAL-13 (owner order 2026-10-21):
+      * a target dated today (or later) has nothing to adjust yet — every
+        leg starts from today's close — so no context target is printed
+        (`dated_today`, `context_note`); the buy-below margin is read on
+        the target itself (`buy_below_on_target`);
+      * a rates leg that is DATA_NEEDED is NOT applied as × 1.0: the
+        context target is the sector leg only and `rates_note` says so;
+        with the sector leg missing too there is no context target at all
+        (`context_rates_only` is None, `context_note` says why).
     """
     out: dict = {"ticker": ticker, "target": float(target),
                  "asof": str(asof), "bench_label": bench_label,
-                 "legs": {}, "status": "OK", "why": ""}
+                 "legs": {}, "status": "OK", "why": "",
+                 "dated_today": False, "rates_applied": False,
+                 "rates_note": "", "context_note": ""}
     ts = _as_ts(asof)
     if ts is None:
         out.update(status="DATA_NEEDED", why="valuation date unreadable")
@@ -352,6 +365,10 @@ def context(ticker: str, target: float, asof: Any,
     if target is None or float(target) <= 0:
         out.update(status="DATA_NEEDED", why="standalone target must be above zero")
         return out
+    today_ts = _as_ts(today) if today is not None else None
+    if today_ts is None:
+        today_ts = pd.Timestamp(date.today())
+    dated_today = bool(ts >= today_ts)
 
     # --- price then / now
     pm = move_between(stock, ts)
@@ -395,18 +412,37 @@ def context(ticker: str, target: float, asof: Any,
     if r_then is None:
         rl["why"] = "10-year yield file has no reading at the valuation date"
     out["legs"]["rates"] = rl
-    mult = rl.get("multiplier")
+    mult = rl.get("multiplier") if rl.get("status") == "OK" else None
+    out["rates_applied"] = mult is not None
+    if mult is None:
+        yield_missing = r_then is None or rl_in_now is None
+        out["rates_note"] = ("no rates adjustment — 10-year yield DATA_NEEDED" if yield_missing
+                             else f"no rates adjustment — {rl.get('why') or 'rates leg DATA_NEEDED'}")
 
-    # --- context targets = sector column × rates multiplier
+    # --- context targets = sector column × rates multiplier; a missing
+    # rates leg leaves the sector column as it is and says so (never × 1.0)
     def _ctx(v):
         if v is None:
             return None
-        return float(v) * (mult if mult is not None else 1.0)
+        return float(v) * mult if mult is not None else float(v)
     base_1 = sl.get("one_to_one")
     base_b = sl.get("measured")
     out["context_one_to_one"] = _ctx(base_1)
     out["context_measured"] = _ctx(base_b)
-    out["context_rates_only"] = _ctx(float(target))   # when the sector leg is DATA_NEEDED
+    # the target × the rates leg alone, for when the sector leg is
+    # DATA_NEEDED; nothing when the rates leg is missing too (an unadjusted
+    # target is not a context target)
+    out["context_rates_only"] = float(target) * mult if mult is not None else None
+    if base_1 is None and base_b is None and mult is None:
+        out["context_note"] = ("no context target — the sector leg and the 10-year "
+                               "yield are both DATA_NEEDED, so nothing adjusts the target")
+    if dated_today:
+        # every leg starts from today's close: a context target would equal
+        # the target itself, so none is printed
+        out["dated_today"] = True
+        out["context_note"] = "nothing to adjust yet — the target is dated today"
+        out["context_one_to_one"] = out["context_measured"] = None
+        out["context_rates_only"] = None
     pn = out["price_now"]
     for k in ("context_one_to_one", "context_measured", "context_rates_only"):
         v = out[k]
@@ -421,6 +457,7 @@ def context(ticker: str, target: float, asof: Any,
     sm["buy_below_one_to_one"] = (out["context_one_to_one"] * d) if out["context_one_to_one"] else None
     sm["buy_below_measured"] = (out["context_measured"] * d) if out["context_measured"] else None
     sm["buy_below_rates_only"] = (out["context_rates_only"] * d) if out["context_rates_only"] else None
+    sm["buy_below_on_target"] = float(target) * d if dated_today else None
     out["legs"]["sentiment"] = sm
 
     # --- verify: split the move, flag a re-run

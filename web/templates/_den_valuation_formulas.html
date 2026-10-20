@@ -13,7 +13,7 @@
   </div>
 
   {% if fml.flag == 'saved' %}
-  <div class="mb-4 px-4 py-3 border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm">Draft stored — §12 above now reads it ({{ fml.n_edited }} number(s) differ from the defaults). The live engine is unchanged.</div>
+  <div class="mb-4 px-4 py-3 border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm">Draft stored — §12 above now reads it ({{ fml.n_edited }} number(s) differ from the defaults and change a result{% if fml.no_effect_keys %}; {{ fml.no_effect_keys | length }} more stored but with no effect yet: {{ fml.no_effect_keys | join(', ') }}{% endif %}). The live engine is unchanged.</div>
   {% elif fml.flag == 'cleared' %}
   <div class="mb-4 px-4 py-3 border border-line bg-paper text-sm">Draft cleared — every number is back to its module default.</div>
   {% elif fml.flag == 'denied' %}
@@ -25,7 +25,8 @@
   <div class="bg-white border border-line">
     <div class="px-4 py-3 border-b border-line text-xs text-ink-soft space-y-1">
       <div><strong>What it is.</strong> Part A lists the {{ fml.n_editable }} numbers the chain treats as ASSUMED, each with its default and its source. Type a replacement and save: §12 re-runs every name with your numbers and marks the rows DRAFT. Blank = default. A bad value refuses the whole form and stores nothing. Part B prints the formulas themselves — the {{ fml.terms | length }} finance terms, the {{ fml.routes | length }} sector routes, the {{ fml.chain_cells | length }} computed cells of your Tata Tech scenario chain ({{ fml.chain_cols }}, with the sheet's Excel formula beside each), the range rule per family and the verdict rule.</div>
-      <div class="text-amber-800"><strong>Boundary.</strong> A draft is a what-if for the valuation display. It is not a Setting, it never touches the live Config, and no gate, stop or size reads it (test-pinned). {% if fml.n_edited %}<strong>{{ fml.n_edited }} number(s) are currently drafted</strong> — §12 is reading them.{% else %}No draft stored — §12 reads the defaults.{% endif %}</div>
+      <div class="text-amber-800"><strong>Boundary.</strong> A draft is a what-if for the valuation display. It is not a Setting, it never touches the live Config, and no gate, stop or size reads it (test-pinned). {% if fml.n_edited %}<strong>{{ fml.n_edited }} number(s) are currently drafted</strong> — §12 is reading them.{% elif fml.n_stored %}No drafted number changes a result yet — §12 reads the defaults.{% else %}No draft stored — §12 reads the defaults.{% endif %}</div>
+      {% if fml.n_no_effect_rows %}<div class="text-ink-faint"><!-- den_formulas_no_effect_note_marker --><strong>No effect yet.</strong> {{ fml.n_no_effect_rows }} of the numbers below are editable but change no target, range, case or verdict today; each says why. Editing them alone does not switch §12 to DRAFT.</div>{% endif %}
     </div>
 
     <!-- A. editable assumptions -->
@@ -36,10 +37,12 @@
         <div class="text-xs font-semibold mb-1">{{ glabel }}</div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1">
           {% for r in fml.rows if r.group == gkey %}
-          <label class="flex items-center justify-between gap-2 border-b border-line/60 py-1 text-xs {% if r.edited %}bg-amber-50{% endif %}" title="{{ r.source }}">
-            <span class="min-w-0"><span class="{% if r.edited %}font-semibold text-amber-800{% endif %}">{{ r.label }}</span>{% if r.cell %} <span class="text-ink-faint">{{ r.cell }}</span>{% endif %}<span class="block text-ink-faint">default {{ r.default }}{% if r.edited %} · <strong class="text-amber-800">draft {{ r.value }}</strong>{% endif %}</span></span>
+          {% set live_edit = r.edited and not r.no_effect %}
+          <label class="flex items-center justify-between gap-2 border-b border-line/60 py-1 text-xs {% if live_edit %}bg-amber-50{% endif %}" title="{{ r.source }}" {% if r.no_effect %}data-den-formulas-no-effect="{{ r.key }}"{% endif %}>
+            <span class="min-w-0"><span class="{% if live_edit %}font-semibold text-amber-800{% endif %}">{{ r.label }}</span>{% if r.cell %} <span class="text-ink-faint">{{ r.cell }}</span>{% endif %}<span class="block text-ink-faint">default {{ r.default }}{% if r.edited %} · <strong class="{% if live_edit %}text-amber-800{% endif %}">draft {{ r.value }}</strong>{% endif %}</span>
+              {% if r.no_effect %}<span class="block text-ink-faint italic"><!-- den_formulas_no_effect_marker -->no effect yet — {{ r.no_effect }}</span>{% endif %}</span>
             <input name="{{ r.key }}" value="{% if r.edited %}{{ r.value }}{% endif %}" placeholder="{{ r.default }}" inputmode="decimal" {% if not is_owner %}disabled{% endif %}
-                   class="w-24 text-right border-b border-line focus:border-ink outline-none py-0.5 text-xs tabular-nums bg-transparent {% if r.edited %}font-semibold text-amber-800{% endif %}">
+                   class="w-24 text-right border-b border-line focus:border-ink outline-none py-0.5 text-xs tabular-nums bg-transparent {% if live_edit %}font-semibold text-amber-800{% endif %}">
           </label>
           {% endfor %}
         </div>
@@ -54,7 +57,7 @@
         <span class="text-xs text-ink-faint">a value equal to its default is not stored · every draft is listed on the §12 rows it changed</span>
       </div>
     </form>
-    {% if is_owner and fml.n_edited %}
+    {% if is_owner and (fml.n_stored or fml.n_edited) %}
     <form method="post" action="/den/valuation/assumptions/clear" class="px-4 py-2 border-b border-line"><!-- den_formulas_clear_marker -->
       <button type="submit" class="text-[10px] tracking-widest uppercase text-ink-faint hover:text-ink">✕ clear the draft — back to every default</button>
     </form>
@@ -93,7 +96,8 @@
           {% endfor %}
         </tbody>
       </table>
-      <div class="mt-2 text-xs text-ink-faint">Cases: downside / base / upside = the same chain with the case deltas (Part A) added to revenue growth, EBITDA margin and the P/E bridge total. Section H (E120-E134) is your ADDITIVE what-if: the twelve factor cells E120-E131 are summed into one P/E change; E134 has no floor, so a total below −100% prints a negative multiple (flagged in the 2026-10-14 upload review).</div>
+      <div class="mt-2 text-xs text-ink-faint">Cases: downside / base / upside = the same chain with the case deltas (Part A) added to revenue growth, EBITDA margin and the P/E bridge total. Section H (E120-E134) is your ADDITIVE what-if: the twelve factor cells E120-E131 are summed into one P/E change; when that total is below −100% the closing P/E E134 and every price built on it are DATA_NEEDED, never a negative multiple.</div>
+      <div class="mt-1 text-xs text-ink-faint" data-den-formulas-tt><!-- den_formulas_tt_marker --><strong>Three cells differ from your sheet — corrected on the owner's order 2026-10-21 (TT01-03):</strong> E22 PAT takes the extra depreciation and interest off net of the tax it saves (× (1 − D25/100)); E35 borrowings add the debt-funded share of the new capex (E117 × B154/100); E134 refuses a P/E bridge below −100%. At your sheet's own inputs (no extra capex, bridge above −100%) every number is unchanged. E101's base is the USD-INR rate on the base year-end date (each IT row in §12 prints the rate it used), not the 94.9 typed in your sheet.</div>
     </div>
 
     <div class="p-4 text-xs text-ink-soft space-y-1"><!-- den_formulas_rules_marker -->

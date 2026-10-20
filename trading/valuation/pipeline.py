@@ -179,8 +179,80 @@ def failed_record(ticker: str, why: str) -> dict:
                   "high": None, "method_text": "", "multiple_band": None},
         "verdict": {"verdict": "insufficient", "upside_to_base_pct": None,
                     "reasons": [why]},
-        "terms_rows": [], "data_needed": [why], "assumptions": {}, "error": why,
+        "terms_rows": [], "data_needed": [why],
+        "assumptions": {"drafted": [], "drafted_effective": [], "drafted_no_effect": [],
+                        "drafted_values": {}},
+        "error": why, "range_flags": _range_flags("", {}, {}, {}, {}),
         "detail": {"error": d},
+    }
+
+
+# ------------------------------------------------------------ range facts
+
+#: Route methods valued with the lender (bank) formula.
+LENDER_METHODS = ("bank_pb_roe", "nbfc_pb")
+#: The power / utilities route (VAL-12b reads it on the book family).
+POWER_METHODS = ("power_regulated",)
+#: How peer_rows_from_base builds a peer's EV — no short-term investments
+#: and no minorities. The stock's own EV route subtracts both (VAL-12a).
+PEER_EV_RULE = "peer EV = price × shares + total debt − cash"
+
+
+def _sti_value(snap: dict) -> Optional[float]:
+    """Short-term investments at the snapshot's period end (rupees)."""
+    h = (snap.get("extra") or {}).get("short_term_investments")
+    return num(h.get(snap.get("period_end"))) if isinstance(h, dict) else None
+
+
+def _case_values(family: str, rng: dict) -> Dict[str, Optional[float]]:
+    """The three case targets as justified_range made them, BEFORE its
+    low ≤ base ≤ high sort."""
+    if family == "earnings":
+        eps = (rng.get("bridge") or {}).get("eps") or {}
+        band = rng.get("multiple_band")
+        if isinstance(band, dict) and not is_dn(band):
+            edge = {"downside": "low", "base": "mid", "upside": "high"}
+            out: Dict[str, Optional[float]] = {}
+            for c in SC.CASES:
+                e, b = num(eps.get(c)), num(band.get(edge[c]))
+                out[c] = SC.xround(e * b, 2) if (e is not None and b is not None) else None
+            return out
+    ps = rng.get("per_share") if isinstance(rng.get("per_share"), dict) else {}
+    return {c: num(ps.get(c)) for c in SC.CASES}
+
+
+def _range_flags(family: str, rt: dict, rng: dict, kw: dict, snap: dict) -> dict:
+    """Plain facts the Den's known-fault lines read (VAL-01/02/07/12),
+    so no rule has to parse note text. Facts only — the rules live in
+    the Den."""
+    rt = rt or {}
+    rng = rng if isinstance(rng, dict) else {}
+    kw = kw or {}
+    snap = snap or {}
+    vals = _case_values(family, rng)
+    inverted = False
+    printed: Dict[str, Optional[str]] = {"low": None, "base": None, "high": None}
+    if all(vals[c] is not None for c in SC.CASES):
+        inverted = not (vals["downside"] <= vals["base"] <= vals["upside"])
+        order = sorted(SC.CASES, key=lambda c: vals[c])
+        printed = {"low": order[0], "base": order[1], "high": order[2]}
+    method = rt.get("method")
+    shares = _f(snap, "shares_outstanding")
+    sti = _sti_value(snap)
+    is_ev = family in ("ev_ebitda", "ev_sales")
+    return {
+        "family": family or None, "method": method, "sector": rt.get("sector") or "",
+        "case_values": vals, "inverted": inverted,
+        "printed_case": printed, "printed_base_case": printed["base"],
+        "midcycle_base": bool((kw.get("per_share_overrides") or {}).get("base") is not None),
+        "net_debt_per_share": num(kw.get("net_debt_per_share")) if is_ev else None,
+        "minorities_per_share": num(kw.get("minorities_per_share")) if is_ev else None,
+        "short_term_investments_per_share": (sti / shares if (is_ev and sti is not None
+                                                              and shares) else None),
+        "peer_ev_rule": PEER_EV_RULE if is_ev else "",
+        "lender": method in LENDER_METHODS,
+        "power_utility": method in POWER_METHODS,
+        "book_route": family in ("book", "nav"),
     }
 
 
@@ -360,11 +432,16 @@ def _drivers(base: dict, snap: dict, route_family: str) -> tuple[dict, List[str]
 
 
 def _market(macro: dict, snap: dict, route: dict, peer_pe: Optional[float],
-            base: dict) -> tuple[dict, List[str]]:
+            base: dict, sheet: Optional[dict] = None) -> tuple[dict, List[str]]:
     """The sheet's market inputs: stored levels where the app has them,
-    neutral values (= zero effect) where it does not, each listed."""
+    neutral values (= zero effect) where it does not, each listed.
+
+    `sheet` = the Den draft of the sheet's sensitivities. A missing CPI,
+    GDP or delivery figure is filled with the SAME comfort / trend /
+    benchmark its bridge row compares it with (draft or default), so the
+    row really counts 0 under any draft (VAL-10, owner order 2026-10-21)."""
     missing: List[str] = []
-    av = {k: v["value"] for k, v in SC.SHEET_ASSUMPTIONS.items()}
+    av = SC._assumption_values(sheet or None)
     m: Dict[str, Any] = {}
     for a, b in (("sensex_start", "sensex_end"), ("nifty_start", "nifty_end")):
         s, e = num(macro.get(a)), num(macro.get(b))
@@ -405,8 +482,11 @@ def _market(macro: dict, snap: dict, route: dict, peer_pe: Optional[float],
         missing.append("institutional holding change — not wired into the chain; counted 0")
     m["inst_holding_start"], m["inst_holding_end"] = i0, i1
     m["volume_ratio"] = 1.0
-    m["delivery_pct"] = av["delivery_benchmark_pct"]
-    missing.append("delivery % — frozen 2026-08-07 (laid off); counted 0")
+    if num(macro.get("delivery_pct")) is not None:
+        m["delivery_pct"] = num(macro.get("delivery_pct"))
+    else:
+        m["delivery_pct"] = av["delivery_benchmark_pct"]
+        missing.append("delivery % — frozen 2026-08-07 (laid off); counted 0")
     m["chart_score"] = 0.0
     m["event_pct"] = 0.0
     m["gap_close_pct"] = 0.0
@@ -508,8 +588,7 @@ def _range_inputs(family: str, snap: dict, base: dict, cases: dict, peers: dict,
             if family == "ev_sales" and rev is not None:
                 kw["ebitda_per_share"] = rev / shares     # the module reads revenue/share here
             debt, cash = _f(snap, "total_debt"), _f(snap, "cash")
-            sti_h = (snap.get("extra") or {}).get("short_term_investments")
-            sti = num(sti_h.get(snap.get("period_end"))) if isinstance(sti_h, dict) else None
+            sti = _sti_value(snap)
             if debt is not None and cash is not None:
                 kw["net_debt_per_share"] = (debt - cash - (sti or 0.0)) / shares
             mi = _f(snap, "minority_interest_bs")
@@ -689,7 +768,10 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
     `overrides` = the Den's assumption draft ({key: value} over
     assumptions.EDITABLE, owner order 2026-10-14). It is split by module
     and passed DOWN as arguments; no module default is mutated and the
-    record says which keys were drafted (`drafted`, `assumptions.drafted`)."""
+    record says which keys were drafted (`assumptions.drafted`), which of
+    them change a result (`assumptions.drafted_effective`; `drafted` is
+    True only when there is one) and which change nothing yet
+    (`assumptions.drafted_no_effect`, VAL-11)."""
     sm = sector_map or {}
     ov = ASM.split(overrides)
     price_at = price_at or (lambda when: None)
@@ -736,7 +818,8 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
     notes.extend(b_notes)
     drivers, d_notes = _drivers(base, snap, family)
     notes.extend(d_notes)
-    market, macro_missing = _market(mac, snap, rt, pr.get("pe_median"), base)
+    market, macro_missing = _market(mac, snap, rt, pr.get("pe_median"), base,
+                                    sheet=ov["sheet"])
     cases: dict = {}
     if rec["snapshot"]["status"] == "OK" and family in ("earnings", "ev_ebitda", "ev_sales"):
         cases = SC.three_cases(base, drivers, market,
@@ -756,6 +839,8 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
                               "eps": {}, "drivers": {}, "pe_bridge_pct": None,
                               "macro_data_needed": macro_missing, "notes": notes})
 
+    rng: dict = {}
+    kw: dict = {}
     if rt.get("status") != "declared":
         rng = {"status": dn(f"route UNDECLARED — {rt.get('rule') or 'no sector label'}"),
                "family": None}
@@ -773,6 +858,7 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
             log.exception("valuation chain: justified_range failed for %s", t)
             rng = {"status": dn(f"range failed: {type(e).__name__}"), "family": family}
         rec["range"] = _range_block(rng, mid_note)
+    rec["range_flags"] = _range_flags(family, rt, rng, kw, snap)
 
     v = A.assess(price, {"low": rec["range"].get("low"), "base": rec["range"].get("base"),
                          "high": rec["range"].get("high"), "family": family},
@@ -799,8 +885,13 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
                           "snapshot": dict(S.ASSUMED), "case_deltas": ov["case_deltas"],
                           "verdict": {k: v_["value"] for k, v_ in A.ASSUMED.items()},
                           "drafted": list(ov["edited"]),
+                          "drafted_effective": [],
+                          "drafted_no_effect": [],
                           "drafted_values": dict(ov["values"])}
-    rec["drafted"] = bool(ov["edited"])
+    eff = ASM.effective_keys(ov["values"], asof=asof)
+    rec["assumptions"]["drafted_effective"] = eff
+    rec["assumptions"]["drafted_no_effect"] = [k for k in ov["edited"] if k not in eff]
+    rec["drafted"] = bool(eff)
     rec["detail"] = {"snapshot_fields": snap.get("fields"), "cases": cases,
                      "normalised": ne, "quality": q, "bridge": bridge}
     return rec

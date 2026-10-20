@@ -643,7 +643,7 @@ def row_for(ticker: str, entry: dict, cfg, p, *, a: dict, bond, nifty, sent: dic
                    rate_now_pct=a.get("rate_now"), erp_pct=a["erp"],
                    growth_pct=a["growth"], inflation_shift_pp=a["infl_shift"],
                    sentiment=sent, news_verdict=_news_verdict(p, ticker),
-                   bench_why=bench_why)
+                   bench_why=bench_why, today=date.today())
     if (window_note and r.get("status") != "OK"
             and str(r.get("why") or "").startswith("stock closes: series starts")):
         r["why"] = f"stock closes: {window_note}"

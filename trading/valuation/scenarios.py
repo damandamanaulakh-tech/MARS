@@ -44,6 +44,18 @@ ASSUMED (printed on the Den, the owner can replace any of them):
     lever CASE_DELTAS uses). Every cell is re-run through fy_scenario —
     nothing is scaled.
 
+CORRECTED ON THE OWNER'S ORDER 2026-10-21 (TT01-TT03, faults in their own
+sheet). At the sheet's own inputs (no extra capex, bridge above −100%)
+every cell is unchanged:
+  * TT01 E22 PAT: the extra depreciation + interest (E118) is a pre-tax
+    cost, so it comes off net of tax: E118 × (1 − D25/100).
+  * TT02 E35 borrowings: + the debt-funded share of the new capex,
+    E117 × B154/100 (the sheet kept D35).
+  * TT03 E134 closing P/E: a bridge total E132 below −100% is DATA_NEEDED,
+    and so is every price built on it — never a negative multiple.
+  * E101 prints its base as "USD-INR at the base year-end date": the code
+    always divided by that input, never by the sheet's typed 94.9.
+
 Inputs are crore and percent exactly as the sheet holds them (20 means
 20%); per-share values in rupees. A missing input is DATA_NEEDED naming it
 and every row that depends on it is DATA_NEEDED too; nothing raises.
@@ -58,6 +70,39 @@ from trading import valuation_context as _vc
 from trading.valuation import dn, is_dn, num
 
 SHEET_SOURCE = "owner sheet 2026-10-09"
+
+# Printed beside the three corrected cells (owner order 2026-10-21).
+TT_NOTE: Dict[str, str] = {
+    "E22": " — corrected on the owner's order 2026-10-21 (TT01: tax saving on the extra "
+           "depreciation and interest)",
+    "E35": " — corrected on the owner's order 2026-10-21 (TT02: debt-funded share of the "
+           "new capex adds to borrowings)",
+    "E134": " — corrected on the owner's order 2026-10-21 (TT03: a bridge total below "
+            "−100% has no answer, never a negative P/E)",
+}
+
+# E101's base is the USD-INR rate on the base year-end date (the input
+# usdinr_base), not the sheet's typed 94.9.
+E101_FORMULA = "ROUND((E78 / USD-INR at the base year-end date - 1)*100,2)"
+
+
+def e101_formula(base_rate: Any = None, base_date: Any = None) -> str:
+    """E101's formula text for one stock row: the generic text plus the
+    base rate actually used (and its date when known)."""
+    r = num(base_rate)
+    if r is None:
+        return E101_FORMULA
+    when = f" on {base_date}" if base_date else ""
+    return f"ROUND((E78 / {r:.2f} - 1)*100,2) — {r:.2f} = USD-INR at the base year-end date{when}"
+
+
+def _closing_pe(pe0: float, total_pct: float) -> Any:
+    """E134 (TT03): below −100% the multiple would be negative — DATA_NEEDED."""
+    if total_pct < -100:
+        return dn(f"P/E bridge total E132 = {total_pct:g}% is below −100%: the closing "
+                  "P/E would be negative, so there is no answer (TT03)",
+                  missing=["E132 at or above −100%"])
+    return xround(pe0 * (1 + total_pct / 100), 2)
 
 # ------------------------------------------------------------ sheet inputs
 # The owner's Tata Technologies example. Another company replaces every
@@ -279,7 +324,9 @@ class _Chain:
         else:
             try:
                 val = fn(*vals)
-                if not isinstance(val, str):
+                if is_dn(val):
+                    pass                    # a formula may refuse (E134 below −100%)
+                elif not isinstance(val, str):
                     val = float(val)
                     if not _finite(val):
                         val = dn(f"{cell} ({key}) is not a finite number",
@@ -407,7 +454,7 @@ def fy_scenario(base: dict, drivers: dict, market: dict,
             ("D77", "brent_start", "Brent crude at base year end (US$)", True),
             ("E77", "brent_end", "Brent crude (US$ per barrel)", True),
             ("E78", "usdinr", "USD/INR", True),
-            ("X_USDINR_BASE", "usdinr_base", "USD/INR base inside E101 (sheet constant 94.9)", True),
+            ("X_USDINR_BASE", "usdinr_base", "USD/INR at the base year-end date (inside E101)", True),
             ("E79", "vix", "India VIX (display only, no formula reads it)", False),
             ("E80", "sentiment", "Investor sentiment score (-5 to +5)", True),
             ("D81", "inst_holding_start", "Institutional holding at base year end (%)", True),
@@ -452,7 +499,7 @@ def fy_scenario(base: dict, drivers: dict, market: dict,
       "ROUND(E17/(1-E100/100)*E100/100*(1-E21/100),2)", ["E17", "E100", "E21"],
       lambda r, b, m: R(r / (1 - b / 100) * b / 100 * (1 - m / 100), 2))
     F("E101", "rupee_depreciation_pct", "Rupee depreciation vs base (%)",
-      "ROUND((E78/94.9-1)*100,2)", ["E78", "X_USDINR_BASE"],
+      E101_FORMULA, ["E78", "X_USDINR_BASE"],
       lambda u, b: R((u / b - 1) * 100, 2))
     F("E114", "currency_effect", "Currency effect", "ROUND(-E17*E101*B152/100,2)",
       ["E17", "E101", "B152"], lambda r, d, k: R(-r * d * k / 100, 2))
@@ -471,9 +518,12 @@ def fy_scenario(base: dict, drivers: dict, market: dict,
       ["E19", "E17"], lambda e, r: R(e / r * 100, 1))
     F("E25", "tax_rate_pct", "Effective tax rate (%)", "D25+E102",
       ["D25", "E102"], lambda t, d: t + d)
-    F("E22", "pat", "PAT (₹ cr)", "ROUND((E19*E23/100-E118)*(1-E102/(100-D25)),2)",
+    # TT01: the extra depreciation + interest is a pre-tax cost, so it comes
+    # off PAT net of the tax it saves (× (1 − D25/100)).
+    F("E22", "pat", "PAT (₹ cr)",
+      "ROUND((E19*E23/100-E118*(1-D25/100))*(1-E102/(100-D25)),2)" + TT_NOTE["E22"],
       ["E19", "E23", "E118", "E102", "D25"],
-      lambda e, k, x, d, t: R((e * k / 100 - x) * (1 - d / (100 - t)), 2))
+      lambda e, k, x, d, t: R((e * k / 100 - x * (1 - t / 100)) * (1 - d / (100 - t)), 2))
     F("E26", "employee_cost", "Employee benefit expense (₹ cr)", "ROUND(E17*D27/100+E106,2)",
       ["E17", "D27", "E106"], lambda r, ep, i: R(r * ep / 100 + i, 2))
     F("E27", "employee_cost_pct", "Employee cost as % of revenue", "ROUND(E26/E17*100,2)",
@@ -488,7 +538,9 @@ def fy_scenario(base: dict, drivers: dict, market: dict,
       ["E32", "E28"], lambda q, s: R(q / s, 2))
     F("E34", "roe_pct", "ROE (%)", "ROUND(E22/E32*100,1)",
       ["E22", "E32"], lambda p, q: R(p / q * 100, 1))
-    F("E35", "borrowings", "Borrowings (₹ cr)", "D35", ["D35"], lambda b: b)
+    # TT02: the debt-funded share of the new capex adds to borrowings.
+    F("E35", "borrowings", "Borrowings (₹ cr)", "ROUND(D35+E117*B154/100,2)" + TT_NOTE["E35"],
+      ["D35", "E117", "B154"], lambda b, x, dshare: R(b + x * dshare / 100, 2))
     F("E37", "debt_to_equity", "Debt to equity (x)", "ROUND(E35/E32,2)",
       ["E35", "E32"], lambda b, q: R(b / q, 2))
     F("E47", "eps_growth_pct", "EPS growth (%)", "ROUND((E29/D29-1)*100,1)",
@@ -532,8 +584,10 @@ def fy_scenario(base: dict, drivers: dict, market: dict,
       lambda *xs: R(sum(xs[:-1]) + xs[-1], 2))
     F("E133", "bridge_opening_pe", "Opening P/E, base year end (x)", "D41",
       ["D41"], lambda x: x)
-    F("E134", "closing_pe", "Closing P/E, FY+1 (x)", "ROUND(E133*(1+E132/100),2)",
-      ["E133", "E132"], lambda pe0, t: R(pe0 * (1 + t / 100), 2))
+    # TT03: a bridge total below −100% would give a negative P/E — no answer.
+    F("E134", "closing_pe", "Closing P/E, FY+1 (x)",
+      'IF(E132<-100,"DATA_NEEDED",ROUND(E133*(1+E132/100),2))' + TT_NOTE["E134"],
+      ["E133", "E132"], _closing_pe)
     F("E135", "model_price", "Model share price, FY+1 (₹)", "ROUND(E29*E134,2)",
       ["E29", "E134"], lambda e, pe: R(e * pe, 2))
     F("E136", "model_market_cap", "Model valuation, market cap (₹ cr)", "ROUND(E135*E28,0)",
@@ -611,8 +665,12 @@ def fy_scenario(base: dict, drivers: dict, market: dict,
         "source": f"{SHEET_SOURCE} (Tata Technologies example) generalised",
     })
     if status == "DATA_NEEDED":
-        out["reason"] = ("missing: " + ", ".join(required_missing)) if required_missing \
-            else "model price could not be computed — see the chain"
+        if required_missing:
+            out["reason"] = "missing: " + ", ".join(required_missing)
+        elif is_dn(ch.c["E134"]) and "TT03" in str(ch.c["E134"].get("reason")):
+            out["reason"] = ch.c["E134"]["reason"]
+        else:
+            out["reason"] = "model price could not be computed — see the chain"
     return out
 
 
@@ -1007,4 +1065,4 @@ def justified_range(family: str, cases: dict, *, price: Optional[float],
 __all__ = ["SHEET_BASE", "SHEET_DRIVERS", "SHEET_MARKET", "SHEET_ASSUMPTIONS",
            "INPUT_CELLS", "CASE_DELTAS", "ASSUMED", "CASES", "FAMILIES",
            "xround", "fy_scenario", "three_cases", "multiple_band", "earnings_grid",
-           "justified_range"]
+           "justified_range", "TT_NOTE", "E101_FORMULA", "e101_formula"]
