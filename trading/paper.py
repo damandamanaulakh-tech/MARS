@@ -52,6 +52,11 @@ class PaperPosition:
                                  # these on boot (fixed 2026-07-31).
     orig_qty: int = 0           # F15: qty at first entry (pyramid tranche base; 0 = use qty)
     pyramid_adds: int = 0       # F15: how many pyramid tranches added so far
+    # Owner order 2026-10-21 (the BLSE split): corporate actions already
+    # absorbed by this position, as "SYMBOL|ex_date" keys, so the ex-date
+    # adjuster (engine.apply_corporate_actions) never applies one twice.
+    # Persisted JSON + Mongo both ways through to_dict/from_dict.
+    ca_applied: List[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -70,6 +75,8 @@ class PaperPosition:
         d.setdefault("custom_levels", False)
         d.setdefault("orig_qty", 0)
         d.setdefault("pyramid_adds", 0)
+        d.setdefault("ca_applied", [])
+        d["ca_applied"] = list(d.get("ca_applied") or [])
         return cls(**d)
 
 
@@ -95,6 +102,11 @@ class ClosedTrade:
     # closed before this field existed (measured_kelly.trade_category reads
     # the rest of the record for those).
     mode: str = ""
+    # Owner order 2026-10-21 (the BLSE split): the corporate actions this
+    # record is already stated on ("SYMBOL|ex_date"), copied from the
+    # position at close or set by an owner-tapped restatement, so the price
+    # audit never reads a restated trade as a wrongly-adjusted fill.
+    ca_applied: List[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -109,6 +121,7 @@ class ClosedTrade:
         d["exit_date"] = datetime.fromisoformat(d["exit_date"])
         d.setdefault("entry_notes", "")
         d.setdefault("tags", [])
+        d["ca_applied"] = list(d.get("ca_applied") or [])
         return cls(**d)
 
 

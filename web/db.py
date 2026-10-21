@@ -304,15 +304,17 @@ def _not_pre_mars(include_pre_mars: bool) -> dict:
     return {} if include_pre_mars else {PRE_MARS_FLAG: {"$ne": True}}
 
 
-def list_trades(limit: int = 0, include_pre_mars: bool = False) -> list:
+def list_trades(limit: int = 0, include_pre_mars: bool = False,
+                with_ids: bool = False) -> list:
     """Archived closed trades, OLDEST first (the order the CSV wants).
     `limit` > 0 keeps the newest N. [] when Mongo is down. Trades archived
-    as pre-MARS (before 2026-09-15) are left out unless asked for."""
+    as pre-MARS (before 2026-09-15) are left out unless asked for.
+    `with_ids` keeps each row's `_id` (the price audit corrects by it)."""
     if not _CONNECTED or _DB is None:
         return []
     try:
         cur = _DB.trades.find(_not_pre_mars(include_pre_mars),
-                              {"_id": 0}).sort("exit_date", -1)
+                              None if with_ids else {"_id": 0}).sort("exit_date", -1)
         if limit and limit > 0:
             cur = cur.limit(int(limit))
         return list(reversed(list(cur)))
@@ -329,6 +331,39 @@ def count_archived_trades() -> int:
     except Exception as e:
         log.warning("Mongo count_archived_trades failed: %s", e)
         return 0
+
+
+# Owner 2026-10-21 (trade price audit): the price fields of an ARCHIVED
+# closed trade, rewritten on the owner's tap from /trades?audit=1. Live-book
+# rows are rewritten in place and land through the normal save; only the
+# archive needs this. The id (ticker|entry|exit|qty|reason) carries no price,
+# so it is stable across a correction.
+_TRADE_PRICE_FIELDS = ("entry_price", "exit_price", "gross_pnl", "costs", "net_pnl")
+# qty moves only on a corporate-action restatement (a split between buy and
+# sell: qty × ratio, entry ÷ ratio). The _id keeps the ORIGINAL qty — it is a
+# key, not a figure; the row's own qty field carries the restated count.
+_TRADE_INT_FIELDS = ("qty",)
+
+
+def update_trade_prices(trade_id: str, fields: dict) -> bool:
+    """UpdateOne by _id with the price fields (+ qty on a restatement) only.
+    False when Mongo is down, the row is missing, or the write fails — the
+    caller then refuses the correction instead of moving cash for a row that
+    did not change."""
+    if not _CONNECTED or _DB is None or not fields:
+        return False
+    doc = {k: float(v) for k, v in fields.items() if k in _TRADE_PRICE_FIELDS}
+    doc.update({k: int(v) for k, v in fields.items() if k in _TRADE_INT_FIELDS})
+    if isinstance(fields.get("ca_applied"), (list, tuple)):
+        doc["ca_applied"] = [str(x) for x in fields["ca_applied"]]
+    if not doc:
+        return False
+    try:
+        res = _DB.trades.update_one({"_id": trade_id}, {"$set": doc})
+        return int(getattr(res, "matched_count", 0) or 0) > 0
+    except Exception as e:
+        log.warning("Mongo update_trade_prices failed: %s", e)
+        return False
 
 
 # ---------- backtest archive ----------
@@ -656,6 +691,47 @@ def save_sebi_orders(rows: list) -> int:
     except Exception as e:
         log.warning("Mongo save_sebi_orders failed: %s", e)
     return new
+
+
+# Owner order 2026-10-21 (the BLSE split): corporate-action rows for HELD
+# names, fetched daily from NSE's API by the 08:50 job and read by the
+# engine's ex-date adjuster through trading.corporate_actions.set_store_reader.
+def save_corporate_actions(rows: list) -> int:
+    """Upsert raw NSE CA rows keyed symbol|ex_date|subject. Returns how many
+    were NEW so the journal names fresh actions only."""
+    if not _CONNECTED or _DB is None or not rows:
+        return 0
+    new = 0
+    try:
+        for r in rows:
+            sym = str(r.get("symbol") or "").strip().upper()
+            ex = str(r.get("exDate") or r.get("ex_date") or "").strip()
+            subj = str(r.get("subject") or "").strip()
+            if not sym or not ex or not subj:
+                continue
+            key = f"{sym}|{ex}|{subj[:80].lower()}"
+            doc = {**r, "_id": key, "symbol": sym}
+            res = _DB.corporate_actions.replace_one({"_id": key}, doc, upsert=True)
+            if res.upserted_id is not None:
+                new += 1
+    except Exception as e:
+        log.warning("Mongo save_corporate_actions failed: %s", e)
+    return new
+
+
+def load_corporate_actions(symbols=None) -> list:
+    """Stored raw CA rows for the symbols (all when None). [] when Mongo is
+    down — the reader then falls back to the committed file."""
+    if not _CONNECTED or _DB is None:
+        return []
+    try:
+        q = {}
+        if symbols:
+            q = {"symbol": {"$in": [str(s).strip().upper() for s in symbols]}}
+        return list(_DB.corporate_actions.find(q).limit(5000))
+    except Exception as e:
+        log.warning("Mongo load_corporate_actions failed: %s", e)
+        return []
 
 
 def load_sebi_orders(ticker: str = "") -> list:

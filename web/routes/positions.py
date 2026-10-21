@@ -376,9 +376,21 @@ def trades_view(request: Request):
     if total >= TRADES_DOC_CAP:
         archived = db.count_archived_trades()
 
+    # Owner 2026-10-21 ("BELS ... never go beyond 200, u r showing 49% loss
+    # ... check all other"): ?audit=1 checks every fill against the public
+    # Upstox candles for its day. Owner only — a viewer gets the normal page.
+    audit = None
+    audit_msg = _audit_messages(request)
+    user = auth.current_user(request)
+    if request.query_params.get("audit") == "1" and user and user.get("role") == "owner":
+        audit = _run_trade_audit(p, cfg, db)
+
     return templates.TemplateResponse(
         request, "trades.html",
         {
+            "audit": audit,
+            "audit_msg": audit_msg,
+            "flag_ok": "OK",
             "pre_mars_count": pre_mars_count,
             "show_archive": show_archive,
             "losses": losses,
@@ -397,6 +409,125 @@ def trades_view(request: Request):
             "archived_trades": archived,
         },
     )
+
+
+def _audit_messages(request: Request) -> dict:
+    """What the last POST /trades/correct did, carried on the redirect."""
+    q = request.query_params
+    out = {}
+    if q.get("corrected") is not None:
+        out["corrected"] = q.get("corrected")
+        out["delta_cash"] = q.get("delta_cash") or "0"
+    if q.get("refused"):
+        out["refused"] = q.get("refused")
+    if q.get("audit_error"):
+        out["error"] = q.get("audit_error")
+    return out
+
+
+def _archived_trade_docs(db) -> list:
+    """Every archived closed-trade doc (overflow + pre-MARS), for the audit.
+    [] when Mongo is down — the live book is still checked."""
+    try:
+        # with the archive _id: it is the row id a correction updates by
+        return list(db.list_trades(include_pre_mars=True, with_ids=True) or [])
+    except Exception as e:                      # noqa: BLE001
+        log.warning("archived trades unreadable for the audit: %s", e)
+        return []
+
+
+def _rotation_busy() -> bool:
+    """A category rotation holds the box (~500 MiB on the 512 MB plan); the
+    audit's candle fetch must not land on top of it (the OOM-kill class)."""
+    try:
+        from .. import scheduler
+        return scheduler._ROTATION_LOCK.locked()
+    except Exception:                           # noqa: BLE001
+        return False
+
+
+def _run_trade_audit(p, cfg, db, force: bool = False) -> dict:
+    from .. import trade_audit
+    try:
+        return trade_audit.run_audit(p, _archived_trade_docs(db), cfg=cfg, force=force,
+                                     busy=_rotation_busy)
+    except Exception as e:                      # noqa: BLE001
+        log.exception("trade audit failed: %s", e)
+        return {"rows": [], "summary": None, "error": f"{type(e).__name__}: {e}",
+                "budget_s": trade_audit.budget_s(), "elapsed_s": 0, "stopped": False,
+                "tol_pct": trade_audit.TOL_PCT_DEFAULT, "tol_note": trade_audit.TOL_NOTE,
+                "asof": ""}
+
+
+@router.post("/trades/correct")
+async def correct_trade_prices(request: Request):
+    """Owner-only: rewrite the tapped trades' fills to the real Upstox candle
+    prices (both sides unless side= limits it), recompute P&L through
+    trade_costs, move cash by exactly the net delta, journal
+    TRADE_PRICE_CORRECTED once per trade, save the book. Archived rows are
+    updated in the Mongo `trades` archive as well. An unflagged id is refused
+    unless force=1. Nothing happens without this tap."""
+    user = auth.current_user(request)
+    if not user or user.get("role") != "owner":
+        return HTMLResponse("owner only", status_code=403)
+    from urllib.parse import urlencode
+
+    from starlette.concurrency import run_in_threadpool
+    form = await request.form()
+    ids = [v for v in form.getlist("id") if v]
+    all_flagged = (form.get("all_flagged") or "") == "1"
+    side = (form.get("side") or "").strip().upper()
+    if side not in ("", "BUY", "SELL"):
+        side = ""
+    force = (form.get("force") or "") == "1"
+    # the audit read can fetch candles for up to the time budget: off the
+    # event loop, so /healthz and every other page keep answering meanwhile
+    q = await run_in_threadpool(_correct_trades, ids, all_flagged, side, force)
+    return RedirectResponse("/trades?" + urlencode({"audit": "1", **q}) + "#audit",
+                            status_code=303)
+
+
+def _row_name(rid: str) -> str:
+    """The ticker in an audit row id (closed: TICKER|…, open: POS|TICKER|…)."""
+    parts = str(rid).split("|")
+    return parts[1] if parts[0] == "POS" and len(parts) > 1 else parts[0]
+
+
+def _correct_trades(ids: list, all_flagged: bool, side: str, force: bool) -> dict:
+    """Audit read + rewrite + save under trade_audit.APPLY_LOCK, so a double
+    tap can never apply one correction twice. Returns the redirect params."""
+    from .. import db, trade_audit
+    p = state.portfolio()
+    cfg = state.cfg()
+    with trade_audit.APPLY_LOCK:
+        result = _run_trade_audit(p, cfg, db)
+        if result.get("error"):
+            return {"audit_error": str(result["error"])[:200]}
+        if all_flagged:
+            # a row that needs the corporate-action record first is never
+            # corrected on a guess; it stays flagged on the page
+            ids = [r["id"] for r in result["rows"] if r["flagged"] and r.get("corrected")]
+        if not ids:
+            return {"audit_error": "nothing_selected"}
+        # the rewrite itself waits for the book like every owner tap (S-6):
+        # never mid exit pass, never beside the ex-date adjuster
+        from trading.engine import _CA_LOCK
+        from trading.modes import MODE_LOCK_WAIT_S, ModeBusy, holding_mode_lock
+        try:
+            with holding_mode_lock(timeout=MODE_LOCK_WAIT_S), _CA_LOCK:
+                out = trade_audit.apply_corrections(
+                    p, result, ids, cfg=cfg, side=side, force=force,
+                    update_archived=db.update_trade_prices, now=datetime.utcnow())
+                if out["done"]:
+                    p.save()
+        except ModeBusy:
+            return {"audit_error": "a scan or exit pass holds the book — nothing was "
+                                   "changed; tap again in a minute"}
+    q = {"corrected": str(len(out["done"])), "delta_cash": f"{out['delta_cash']:.2f}"}
+    refused = ", ".join(f"{_row_name(r['id'])}: {r['why']}" for r in out["refused"])
+    if refused:
+        q["refused"] = refused[:300]
+    return q
 
 
 @router.post("/positions/{ticker}/notes")

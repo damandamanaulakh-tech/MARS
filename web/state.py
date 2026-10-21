@@ -520,6 +520,14 @@ def _bootstrap() -> None:
         _mf.set_reader(db.load_macro_rows)
     except Exception:
         log.exception("macro_feeds reader attach failed")
+    # Owner order 2026-10-21 (the BLSE split): the engine's ex-date adjuster
+    # reads the daily NSE corporate-action fetch from Mongo through this
+    # reader; unattached or down = the committed CA file alone.
+    try:
+        from trading import corporate_actions as _tca
+        _tca.set_store_reader(db.load_corporate_actions)
+    except Exception:
+        log.exception("corporate-actions store reader attach failed")
 
     # 2026-09-11 (owner: "why system still stucking at 49"): the scan reads
     # the OHLCV store FIRST and only falls back to the network for what the

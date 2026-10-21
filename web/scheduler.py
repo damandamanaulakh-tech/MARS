@@ -279,6 +279,9 @@ def catchup_scan_if_missed(reason: str = "catchup") -> bool:
         from trading.universe_refresh import refreshed_today
         if not refreshed_today():
             _universe_refresh_job()
+        # Owner order 2026-10-21: held names absorb today's split/bonus
+        # BEFORE the scan's exit pass can read a halved quote (BLSE).
+        apply_corporate_actions_job("catchup")
         _daily_multi_mode_scan()
 
     threading.Thread(target=_catchup_run, daemon=True).start()
@@ -297,6 +300,9 @@ def _universe_refresh_job() -> None:
         return
     from . import state
     p = state.portfolio()
+    # Owner order 2026-10-21 (the BLSE split): the keys the held names had
+    # BEFORE today's master lands, so a changed ISIN is seen and journaled.
+    before_keys = _held_instrument_keys(p)
     try:
         from trading.universe_refresh import refresh_universe
         s = refresh_universe()
@@ -321,6 +327,18 @@ def _universe_refresh_job() -> None:
         _push_phone_alerts("08:50")
     except Exception:
         pass
+    # Owner order 2026-10-21: an ISIN change on a held name (a face-value
+    # change re-lists the share under a new key; Upstox refuses the old one)
+    # is journaled, the fresh key preferred everywhere, the name's history
+    # re-fetched and its corporate actions fetched now; then today's NSE
+    # corporate-action rows for every held name land in Mongo for the
+    # ex-date adjuster. Isolated: a failure here never costs the universe.
+    try:
+        changed = _note_isin_changes(p, before_keys)
+        _corporate_actions_fetch_job("08:50", force=changed)
+        _warn_isin_change_without_record(p, changed)
+    except Exception:
+        log.exception("[08:50] corporate-action fetch failed")
     # N1 series-watch (owner-approved 2026-07-26): refresh the BE/T2T
     # shadow list with real 6m returns. Slow (per-name fetch) — runs after
     # the main list so a failure here never blocks the universe.
@@ -343,6 +361,341 @@ def _universe_refresh_job() -> None:
             p.save()
         except Exception:
             pass
+
+
+# ---------------------------------------------------------------------------
+# Corporate actions on held names (owner order 2026-10-21, the BLSE split)
+# ---------------------------------------------------------------------------
+# Tickers whose OHLCV doc must be REPLACED by a fresh full fetch: a split /
+# bonus the adjuster applied, or an ISIN change the 08:50 refresh saw. The one
+# documented exception to merge-never-replace — Upstox back-adjusts the whole
+# series, so merging new adjusted bars onto old raw ones leaves a 2× step.
+_HISTORY_REFETCH_DUE: set = set()
+CA_FETCH_PACE_S = 0.5
+# After this many NSE failures in a row the rest of the held names are not
+# asked this run (a blocked or hanging NSE would otherwise cost ~15 s per
+# name, ≤ 60 names, inside the 08:50 / catch-up chain). They fall back to
+# the store + committed file and are named in the journal.
+CA_FETCH_MAX_FAILS = 3
+HISTORY_REFETCH_YEARS = 12
+# The IST day the held-name NSE fetch last completed in THIS process; the
+# adjuster job runs it first when the 08:50 slot was slept through.
+_CA_FETCH_DAY: str = ""
+
+
+def _ca_pace_s() -> float:
+    """SB_CA_FETCH_PACE_S (tests set 0), default CA_FETCH_PACE_S."""
+    import os
+    try:
+        return float(os.environ.get("SB_CA_FETCH_PACE_S", CA_FETCH_PACE_S))
+    except ValueError:
+        return CA_FETCH_PACE_S
+
+
+def _ist_today_iso() -> str:
+    from datetime import datetime as _dt, timedelta as _td
+    return (_dt.utcnow() + _td(hours=5, minutes=30)).date().isoformat()
+
+
+def _held_instrument_keys(p) -> dict:
+    """{ticker: instrument_key} for the held names from the universe FILE
+    (the thing the 08:50 refresh rewrites), {} when unreadable."""
+    try:
+        from trading.universe_refresh import default_universe_path, read_existing
+        rows = read_existing(default_universe_path())
+        return {t: (rows.get(t) or {}).get("instrument_key", "")
+                for t in p.positions.keys()}
+    except Exception as e:                      # noqa: BLE001
+        log.warning("held instrument keys unreadable: %s", e)
+        return {}
+
+
+def _note_isin_changes(p, before_keys: dict) -> list:
+    """Compare the held names' keys before/after the refresh. A change →
+    journal INSTRUMENT_ISIN_CHANGED, prefer the fresh key everywhere, queue
+    the history re-fetch. Returns the changed tickers."""
+    from datetime import datetime as _dt
+    if not before_keys:
+        return []
+    after = _held_instrument_keys(p)
+    changed = []
+    for t, old in before_keys.items():
+        new = after.get(t, "")
+        if old and new and old != new:
+            changed.append(t)
+    if not changed:
+        return []
+    try:
+        from trading.brokers.upstox_instruments import prefer_keys
+        prefer_keys({t: after[t] for t in changed})
+    except Exception:                           # noqa: BLE001
+        log.exception("prefer_keys failed")
+    # A restart puts the repo copy of the universe file (old key) back, so
+    # the next 08:50 sees the same change again: journal + re-fetch once per
+    # (ticker, new key), the key preference above every time.
+    tail = p.decision_journal[-2000:]
+    seen = {(e.get("ticker"), e.get("new_key")) for e in tail
+            if e.get("action") == "INSTRUMENT_ISIN_CHANGED"}
+    refetched = {(e.get("ticker"), e.get("key")) for e in tail
+                 if e.get("action") == "HISTORY_REFETCHED"}
+    for t in changed:
+        # the re-fetch is queued until one has landed on the NEW key (a
+        # restart between the journal line and the re-fetch must not lose it)
+        if (t, after.get(t)) not in refetched:
+            _HISTORY_REFETCH_DUE.add(t)
+    changed = [t for t in changed if (t, after.get(t)) not in seen]
+    for t in changed:
+        p.decision_journal.append({
+            "ts": _dt.utcnow().isoformat(), "action": "INSTRUMENT_ISIN_CHANGED",
+            "ticker": t, "old_key": before_keys.get(t), "new_key": after.get(t),
+            "why": ("Upstox now lists this held name under a new ISIN (a face-value "
+                    "change re-lists the share). The fresh key is used from now; the "
+                    "stored history is re-fetched; its corporate actions are fetched "
+                    "now so the ex-date adjuster can apply the split/bonus."),
+        })
+    try:
+        p.save()
+    except Exception:                           # noqa: BLE001
+        pass
+    return changed
+
+
+def _warn_isin_change_without_record(p, changed: list) -> list:
+    """A held name re-listed under a new ISIN is a face-value change; when no
+    split/bonus row for it is reachable (NSE refused, the committed file is
+    older), the ex-date adjuster cannot restate it and the next exit pass
+    reads a halved quote as a -50% crash — the BLSE fault. Journaled loudly
+    (CORPORATE_ACTION_RECORD_MISSING); nothing is sold or changed here."""
+    from datetime import date as _date, datetime as _dt, timedelta as _td
+
+    from trading import corporate_actions as tca
+    if not changed:
+        return []
+    since = (_date.today() - _td(days=21)).isoformat()
+    missing = []
+    for t in changed:
+        try:
+            acts = tca.actions_for(t)
+        except Exception:                       # noqa: BLE001
+            acts = []
+        if any(a.get("ratio") and a["kind"].split("+")[0] in tca.APPLIED_KINDS
+               and a["ex_date"] >= since for a in acts):
+            continue
+        missing.append(t)
+        p.decision_journal.append({
+            "ts": _dt.utcnow().isoformat(), "action": "CORPORATE_ACTION_RECORD_MISSING",
+            "ticker": t,
+            "why": ("This HELD name was re-listed under a new ISIN (a face-value change) but "
+                    "no split/bonus record is reachable — NSE's corporate-action API did not "
+                    "answer and the committed file is older. The ex-date adjuster cannot "
+                    "restate the position, so if the quote has halved the stop will read it "
+                    "as a crash. Check the position by hand on /positions (DATA_NEEDED)."),
+        })
+    if missing:
+        try:
+            p.save()
+        except Exception:                       # noqa: BLE001
+            pass
+    return missing
+
+
+def _corporate_actions_fetch_job(where: str = "manual", force=None,
+                                 fetch=None, symbols=None) -> dict:
+    """Fetch NSE's corporate-action rows for every HELD name (≤ ~60, paced),
+    store them in Mongo `corporate_actions` (keyed symbol|ex_date|subject).
+    Journals CORPORATE_ACTIONS_FETCHED only when a NEW split/bonus/rights row
+    landed or a fetch failed; a quiet day costs no journal line. Mongo down
+    = rows kept in process only (the engine falls back to the committed
+    file). `force` names tickers fetched even when today's fetch already ran."""
+    import time as _time
+    from datetime import datetime as _dt
+
+    from trading import corporate_actions as tca
+    from . import db, state
+    p = state.portfolio()
+    held = sorted(set(symbols or []) | set(force or []) | set(p.positions.keys()))
+    if not held:
+        return {"fetched": 0, "new": 0, "failed": [], "skipped": "no held names"}
+    fetch = fetch or tca.fetch_nse_actions
+    live = fetch is tca.fetch_nse_actions        # pace the real NSE calls only
+    pace = _ca_pace_s()
+    new_rows, failed, skipped, fetched, n_new = [], [], [], 0, 0
+    fails_in_row = 0
+    for i, t in enumerate(held):
+        sym = tca.bare(t)
+        if fails_in_row >= CA_FETCH_MAX_FAILS:
+            skipped.append(sym)                  # NSE not answering: stop asking
+            continue
+        rows = fetch(sym)
+        if rows is None:
+            failed.append(sym)
+            fails_in_row += 1
+        else:
+            fails_in_row = 0
+            fetched += 1
+            # kept in process too: a Mongo outage must not hide the split
+            tca.remember_rows(sym, rows)
+            n = db.save_corporate_actions(rows) if db.is_connected() else 0
+            if n:
+                n_new += n
+                new_rows += tca.parse_rows(rows, source="nse_api")
+        if live and i + 1 < len(held) and pace > 0:
+            _time.sleep(pace)
+    out = {"fetched": fetched, "new": n_new, "failed": failed, "skipped": skipped,
+           "names": held}
+    if symbols is None:
+        # one attempt a day over the whole held list: a blocked NSE must not
+        # cost 45 s on every 30-minute exit pass (the 08:50 slot and an ISIN
+        # change still ask again)
+        global _CA_FETCH_DAY
+        _CA_FETCH_DAY = _ist_today_iso()
+    if new_rows or failed or skipped:
+        p.decision_journal.append({
+            "ts": _dt.utcnow().isoformat(), "action": "CORPORATE_ACTIONS_FETCHED",
+            "where": where, "fetched": fetched, "failed": failed, "skipped": skipped,
+            "new": [{"symbol": c["symbol"], "ex_date": c["ex_date"], "kind": c["kind"],
+                     "ratio": c["ratio"], "subject": c["subject"]} for c in new_rows[:40]],
+            "why": (f"NSE corporate actions for {fetched} of {len(held)} held names"
+                    + (f"; {n_new} new row(s) stored, split/bonus/rights on file for "
+                       f"those names: {len(new_rows)}" if n_new else "")
+                    + (f"; FAILED for {', '.join(failed[:10])}" if failed else "")
+                    + (f"; NOT ASKED after {CA_FETCH_MAX_FAILS} failures in a row: "
+                       f"{', '.join(skipped[:10])}" if skipped else "")
+                    + ("; the store and the committed file stand in" if failed or skipped
+                       else "") + "."),
+        })
+        try:
+            p.save()
+        except Exception:                       # noqa: BLE001
+            pass
+    log.info("[%s] corporate actions: %s", where, out)
+    return out
+
+
+def _refetch_history(ticker: str, where: str, broker=None, today=None) -> bool:
+    """REPLACE the stored OHLCV doc of one name with a fresh full (adjusted)
+    fetch on its current key. Journals HISTORY_REFETCHED / _FAILED."""
+    from datetime import date, datetime as _dt
+
+    from . import db, state
+    p = state.portfolio()
+    eng = state.engine()
+    from trading.data import history_broker
+    broker = broker or getattr(eng, "broker", None) or history_broker()
+    try:
+        if broker is None:
+            raise RuntimeError("no Upstox client")
+        from trading.brokers.upstox_instruments import to_instrument_key
+        from trading.history_store import df_to_records, download_ticker_history
+        key = to_instrument_key(ticker)
+        if not key:
+            raise RuntimeError("no instrument key")
+        if not db.is_connected():
+            # save_history_doc is silent when Mongo is down — never journal a
+            # replacement that did not land
+            raise RuntimeError("Mongo offline — the stored history cannot be replaced")
+        df = download_ticker_history(broker, key, HISTORY_REFETCH_YEARS, today or date.today())
+        if df is None or df.empty:
+            raise RuntimeError("Upstox returned no candles")
+        doc = df_to_records(ticker, df)
+        db.save_history_doc(doc)                # replace_one: the whole series
+        p.decision_journal.append({
+            "ts": _dt.utcnow().isoformat(), "action": "HISTORY_REFETCHED",
+            "ticker": ticker, "key": key, "bars": doc["n"], "start": doc["start"],
+            "end": doc["end"], "where": where,
+            "why": ("Stored history REPLACED by a fresh full fetch on the current key "
+                    "(Upstox back-adjusts the series for the split/bonus; merging new "
+                    "adjusted bars onto old raw ones would leave a step). The one "
+                    "documented exception to merge-never-replace."),
+        })
+        _HISTORY_REFETCH_DUE.discard(ticker)
+        return True
+    except Exception as e:                      # noqa: BLE001
+        log.warning("history re-fetch failed for %s: %s", ticker, e)
+        # retried every exit pass until it lands; journaled once a day a name
+        day = _dt.utcnow().date().isoformat()
+        if not any(x.get("action") == "HISTORY_REFETCH_FAILED" and x.get("ticker") == ticker
+                   and str(x.get("ts", "")).startswith(day)
+                   for x in p.decision_journal[-300:]):
+            p.decision_journal.append({
+                "ts": _dt.utcnow().isoformat(), "action": "HISTORY_REFETCH_FAILED",
+                "ticker": ticker, "err": f"{type(e).__name__}: {str(e)[:120]}", "where": where,
+                "why": "Stored history NOT replaced; retried at the next run.",
+            })
+        return False
+
+
+REFETCH_OWED_DAYS = 10
+
+
+def _refetch_owed_from_journal(p) -> set:
+    """Tickers the journal shows adjusted (CORPORATE_ACTION_APPLIED) with no
+    HISTORY_REFETCHED after it, within REFETCH_OWED_DAYS. The in-process
+    queues die with a restart; the journal does not, so an adjustment made
+    just before a restart still gets its history replaced (a stored series
+    with old raw bars under new adjusted ones reads as a -50% crash to the
+    momentum score and the danger tripwires)."""
+    from datetime import datetime as _dt, timedelta as _td
+    cutoff = (_dt.utcnow() - _td(days=REFETCH_OWED_DAYS)).isoformat()
+    last_applied: dict = {}
+    last_refetch: dict = {}
+    for e in (p.decision_journal or [])[-3000:]:
+        act = e.get("action")
+        ts = str(e.get("ts") or "")
+        if act == "CORPORATE_ACTION_APPLIED" and ts >= cutoff:
+            last_applied[e.get("ticker")] = max(ts, last_applied.get(e.get("ticker"), ""))
+        elif act == "HISTORY_REFETCHED":
+            last_refetch[e.get("ticker")] = max(ts, last_refetch.get(e.get("ticker"), ""))
+    return {t for t, ts in last_applied.items() if t and last_refetch.get(t, "") < ts}
+
+
+def apply_corporate_actions_job(where: str = "manual", today=None) -> list:
+    """The ex-date adjuster, run BEFORE any exit pass: engine.apply_corporate_
+    actions (qty × ratio, entry ÷ ratio, levels ÷ ratio, journaled, no sale),
+    then the OHLCV re-fetch for every adjusted name and every ISIN change
+    the 08:50 refresh queued. Never raises — a fault here must not stop the
+    scan or the exit pass that follows."""
+    from . import state
+    # The 08:50 slot is often slept through (free plan): the held names'
+    # NSE rows are fetched first, once a day per process, so the adjuster
+    # never runs on yesterday's knowledge on an ex-date.
+    import os
+    try:
+        if (os.environ.get("SB_CA_FETCH_ON_APPLY", "1") != "0"
+                and state.portfolio().positions and _CA_FETCH_DAY != _ist_today_iso()):
+            _corporate_actions_fetch_job(where)
+    except Exception:                           # noqa: BLE001
+        log.exception("[%s] corporate-action fetch before the adjuster failed", where)
+    try:
+        eng = state.engine()
+        applied = eng.apply_corporate_actions(today=today)
+    except Exception as e:                      # noqa: BLE001
+        log.exception("[%s] corporate-action apply failed: %s", where, e)
+        applied = []
+    # names the engine adjusted on its own (top of refresh()/scan()) since
+    # the last run also need their history replaced
+    try:
+        from trading.engine import CA_REFETCH_DUE
+        engine_due = set()
+        while CA_REFETCH_DUE:                   # pop, not copy+clear: an add from
+            engine_due.add(CA_REFETCH_DUE.pop())  # another thread is never lost
+    except Exception:                           # noqa: BLE001
+        engine_due = set()
+    due = ({a["ticker"] for a in applied} | set(_HISTORY_REFETCH_DUE) | engine_due
+           | _refetch_owed_from_journal(state.portfolio()))
+    for t in sorted(due):
+        try:
+            if not _refetch_history(t, where, today=today):
+                _HISTORY_REFETCH_DUE.add(t)     # retried at the next run
+        except Exception:                       # noqa: BLE001
+            _HISTORY_REFETCH_DUE.add(t)
+            log.exception("history re-fetch crashed for %s", t)
+    if applied or due:
+        try:
+            state.portfolio().save()
+        except Exception:                       # noqa: BLE001
+            pass
+    return applied
 
 
 def _filings_job() -> None:
@@ -478,6 +831,10 @@ def _deployment_topup_scan() -> None:
         _check_pending_orders("top-up-skip")
         return
     try:
+        # Owner order 2026-10-21 (BLSE): a process woken after the morning
+        # (free plan) meets the ex-date here first — absorb the split and
+        # replace the history before the rotation's exit pass reads either.
+        apply_corporate_actions_job("14:30")
         summary = _run_category_rotation(state.engine(), state.cfg(), "14:30")
         log.info("[14:30] Top-up rotation complete: %s", " · ".join(summary))
     finally:
@@ -2137,6 +2494,9 @@ def _session_refresh() -> None:
     # (`_run_category_rotation`), so the check happens either way.
     try:
         with holding_mode_lock(timeout=SESSION_EXIT_LOCK_WAIT_S):
+            # Owner order 2026-10-21: the 09:15 pass is the FIRST exit pass
+            # of an ex-date — a split must be absorbed before it (BLSE).
+            apply_corporate_actions_job("session")
             state.engine().refresh()
             _mark_exit_pass()
     except ModeBusy:
@@ -2417,6 +2777,10 @@ def _daily_multi_mode_scan() -> None:
         log.warning("[09:20] another multi-mode scan is already running — skipped")
         return
     log.info("[09:20] Daily multi-mode scan starting (target 60-70%% deployed)")
+    # Owner order 2026-10-21 (the BLSE split): the ex-date adjuster runs
+    # FIRST — before the top-up merges adjusted bars and before any exit
+    # pass compares an adjusted quote with an unadjusted entry.
+    apply_corporate_actions_job("09:20")
     # OWNER ORDER 2026-10-02 (audit item 8): fresh bars FIRST. The top-up
     # used to run after the passes below, so they scored on bars one trading
     # day stale. Normally 08:30 already did it and this is one settings read.

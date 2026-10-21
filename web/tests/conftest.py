@@ -20,6 +20,11 @@ os.environ.setdefault("SB_LOGIN_DELAY_SEC", "0")
 os.environ.setdefault("SB_IGNORE_MARKET_HOURS", "1")
 os.environ.setdefault("SB_CHAIN_PACE_S", "0")      # no sleeps between chain names in tests
 os.environ.setdefault("SB_SKIP_UPSTOX_PREFLIGHT", "1")  # tests never GET Upstox's dialog
+# Corporate actions (owner order 2026-10-21): no NSE fetch before the
+# ex-date adjuster and no pacing sleeps in tests; production fetches the
+# held names once a day before it (test_corporate_actions_jobs pins both).
+os.environ.setdefault("SB_CA_FETCH_ON_APPLY", "0")
+os.environ.setdefault("SB_CA_FETCH_PACE_S", "0")
 # Den §12 guards (2026-10-15): the memory ceiling reads THIS process's
 # resident memory — a full test run sits far above the live box's 380 MiB,
 # so every §12 row would read "not computed"; and the 20 s time budget
@@ -77,3 +82,17 @@ def _no_upstox_network(monkeypatch):
     import httpx
     import trading.brokers.upstox as up
     monkeypatch.setattr(up, "httpx", _UpstoxNoNetwork(httpx))
+
+
+@pytest.fixture(autouse=True)
+def _no_nse_or_candle_network(monkeypatch):
+    """2026-10-21: the NSE corporate-action API and the trade audit's v3
+    candle GETs are network calls; a web test that needs them injects a
+    fetcher. Blocked here = an honest "fetch failed", never a live GET."""
+    import trading.corporate_actions as tca
+    monkeypatch.setattr(tca, "_nse_get", lambda url, timeout=None: None)
+    try:
+        from web import trade_audit as ta
+        monkeypatch.setattr(ta, "_get_json", lambda url: None)
+    except Exception:                                   # noqa: BLE001
+        pass
