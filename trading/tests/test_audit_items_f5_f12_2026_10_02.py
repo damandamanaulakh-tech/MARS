@@ -216,7 +216,9 @@ def test_the_engine_passes_reason_and_book_size():
     src = inspect.getsource(TradingEngine)
     code = "\n".join(l for l in src.splitlines()
                      if not l.strip().startswith("#"))
-    assert "record_close(now.date(), net_pnl, reason=reason)" in code
+    # owner order 2026-10-21: the close also carries its category
+    assert ("record_close(now.date(), net_pnl, reason=reason,\n"
+            "                                           category=_cb.category_of(pos))") in code
     assert "open_positions=len(self.portfolio.positions)" in code
 
 

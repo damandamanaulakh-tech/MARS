@@ -155,9 +155,11 @@ class Config:
     # 20% reserve shrinks every share alike instead of starving the last
     # category in line. A share a category does not use stays as cash; it is
     # never lent to another. Positions count at entry cost, the same as the
-    # deploy cap. Ocean is exempt (its own 8-slot limit); the owner's BUY
-    # button and Buy Desk are never refused, but what they buy counts toward
-    # its category (momentum). See trading/category_budget.py.
+    # deploy cap. Ocean is exempt (its own 8-slot limit). OWNER ORDER
+    # 2026-10-21: the owner's BUY button, limit fills and the Buy Desk are
+    # never refused by a share and what they buy sits in its OWN "owner"
+    # bucket outside the five shares (it used to count as momentum and could
+    # fill momentum's share). See trading/category_budget.py.
     category_budgets_enabled: bool = True
     budget_share_momentum: float = 0.40
     budget_share_intraday: float = 0.15
@@ -353,6 +355,12 @@ class Config:
 
     # --- Portfolio risk ---
     daily_loss_halt_pct: float = -0.02        # -2% of equity -> kill switch
+    # OWNER ORDER 2026-10-21 ("Halt only the category that lost"): the daily
+    # consecutive-loss halt (max(2, ceil(10% of the day's book)) losing
+    # strategy exits) is judged per CATEGORY — two losing momentum exits
+    # halt momentum for the day, the other four keep buying. "book" = the
+    # old book-wide rule. See trading/risk_v2.ConsecutiveLossTracker.
+    loss_halt_scope: str = "category"         # "category" | "book"
     max_sector_positions: int = 12            # loose — allow a broad 50-stock book across sectors
     # v7 (absorbed from G07 research framework): cap total open risk-at-stop.
     # Sum of (entry - stop) * qty across open positions must stay under this

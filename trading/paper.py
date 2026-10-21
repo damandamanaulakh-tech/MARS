@@ -161,6 +161,9 @@ class Portfolio:
     # a mid-day Render restart forgot it on exactly the day it exists for.
     loss_day: Optional[str] = None
     loss_count: int = 0
+    # Owner order 2026-10-21: the day's losing strategy exits PER CATEGORY
+    # ({category: count}), so the per-category halt survives a restart too.
+    loss_by_category: dict = field(default_factory=dict)
     # Drawdown governor peak (2026-07-31). DrawdownGovernor was rebuilt on
     # every boot with peak_equity=0, so after any Render restart the measured
     # drawdown was 0 and the governor's throttles/halts were disabled until a
@@ -284,6 +287,7 @@ class Portfolio:
                 "dd_cut_level": self.dd_cut_level,      # ladder level already cut
                 "loss_day": self.loss_day,               # 2-loss halt state
                 "loss_count": self.loss_count,
+                "loss_by_category": self.loss_by_category,  # per-category losers today
                 "last_save": datetime.utcnow().isoformat(),
             }
             with open(self._state_path(), "w") as f:
@@ -346,6 +350,8 @@ class Portfolio:
             p.dd_cut_level = str(data.get("dd_cut_level") or "normal")
             p.loss_day = data.get("loss_day")
             p.loss_count = int(data.get("loss_count", 0) or 0)
+            p.loss_by_category = {str(k): int(v) for k, v in
+                                  (data.get("loss_by_category") or {}).items()}
             p.last_save = data.get("last_save")
             return p
         except Exception as e:
