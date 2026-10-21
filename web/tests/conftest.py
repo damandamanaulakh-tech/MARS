@@ -43,6 +43,10 @@ def _fresh_den_chain_rows():
         from web import valuation_chain_view as cv, valuation_view as vv
         cv.clear_row_cache()
         vv.clear_series_cache()
+        # VALFIX batch 3: the day's sector totals and the remap list are kept
+        # per process too — one test's copy must not hide the next one's reads
+        from web import valuation_market_view as mv
+        mv.clear_caches()
     except Exception:                                   # noqa: BLE001
         pass
     yield
@@ -96,3 +100,25 @@ def _no_nse_or_candle_network(monkeypatch):
         monkeypatch.setattr(ta, "_get_json", lambda url: None)
     except Exception:                                   # noqa: BLE001
         pass
+
+
+def _macro_feed_blocked(*a, **k):
+    raise ConnectionError("network blocked in tests (macro feeds)")
+
+
+@pytest.fixture(autouse=True)
+def _no_macro_feed_network(monkeypatch):
+    """VALFIX batch 3 (2026-10-21): the 09:20 and 15:35 jobs now also pull
+    FRED and NSE allIndices, and a job test that sets db.is_connected True
+    (test_morning_topup …) would reach them — and batch 2's RBI pages —
+    over the real network. Every network fetcher in trading.macro_feeds is
+    blocked for every web test; a test that needs one stubs it itself
+    (monkeypatching over this, as the macro-feed job tests do)."""
+    import trading.macro_feeds as mf
+    for name in ("fetch_fred", "fetch_nse_all_indices", "fetch_rbi_home"):
+        if hasattr(mf, name):
+            monkeypatch.setattr(mf, name, _macro_feed_blocked)
+    if hasattr(mf, "fetch_gsec_list"):
+        # this one never raises: an unreachable RBI page = the committed table
+        monkeypatch.setattr(mf, "fetch_gsec_list", lambda timeout=30.0: (
+            mf.reference_securities(), "committed table (network blocked in tests)"))

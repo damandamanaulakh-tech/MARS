@@ -42,10 +42,15 @@ def test_moves_are_worst_first_and_thin_data_says_so():
 
 def test_keys_are_verified_not_guessed():
     """A wrong instrument key would store another index's prices under a
-    sector's name. The three that 400'd on 2026-09-09 stay OUT."""
+    sector's name. The three that 400'd on 2026-09-09 were a KEY-NAME
+    problem: their upper-case keys answered 200 on 2026-10-21 with closes
+    equal to NSE's own (VALFIX batch 3, owner answer that day) — they are in
+    under those keys; the mixed-case spelling that 400s stays out."""
     assert "IT" in dr.SECTOR_INDEX_KEYS and "Metal" in dr.SECTOR_INDEX_KEYS
-    for bad in ("Consumer Durables", "Oil & Gas", "Healthcare"):
-        assert bad not in dr.SECTOR_INDEX_KEYS
+    assert dr.SECTOR_INDEX_KEYS["Healthcare"] == "NSE_INDEX|NIFTY HEALTHCARE"
+    assert dr.SECTOR_INDEX_KEYS["Consumer Durables"] == "NSE_INDEX|NIFTY CONSR DURBL"
+    assert dr.SECTOR_INDEX_KEYS["Oil & Gas"] == "NSE_INDEX|NIFTY OIL AND GAS"
+    assert "NSE_INDEX|Nifty Healthcare" not in dr.SECTOR_INDEX_KEYS.values()
     assert all(k.startswith("NSE_INDEX|") for k in dr.SECTOR_INDEX_KEYS.values())
 
 

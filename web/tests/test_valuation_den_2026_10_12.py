@@ -246,8 +246,13 @@ def test_backfill_runs_only_when_the_store_is_shallow_and_once_a_day(monkeypatch
     saved: list = []
     recent = (date.today() - timedelta(days=30)).isoformat()
     monkeypatch.setattr(db, "is_connected", lambda: True)
+    # VALFIX batch 3 (2026-10-21): the backfill now reads each sector's OWN
+    # oldest row (a sector never stored is filled to today), so the shallow
+    # store holds every sector at the same recent date
+    from trading import data_refresh as _dr
     monkeypatch.setattr(db, "load_sector_rows",
-                        lambda since_iso="": [{"date": recent, "sector": "IT", "close": 1.0}])
+                        lambda since_iso="": [{"date": recent, "sector": k, "close": 1.0}
+                                              for k in _dr.SECTOR_INDEX_KEYS])
     monkeypatch.setattr(db, "save_sector_rows",
                         lambda rows: (saved.extend(rows), len(rows))[1])
     br = _Broker()
@@ -269,7 +274,8 @@ def test_backfill_runs_only_when_the_store_is_shallow_and_once_a_day(monkeypatch
     # a deep store: nothing fetched even when forced
     deep = (date.today() - timedelta(days=800)).isoformat()
     monkeypatch.setattr(db, "load_sector_rows",
-                        lambda since_iso="": [{"date": deep, "sector": "IT", "close": 1.0}])
+                        lambda since_iso="": [{"date": deep, "sector": k, "close": 1.0}
+                                              for k in _dr.SECTOR_INDEX_KEYS])
     rep3 = scheduler.backfill_sector_history(days=400, force=True)
     assert rep3["skipped"] == "deep_enough" and len(br.calls) == n_calls
     scheduler._SECTOR_BACKFILL_DAY.clear()

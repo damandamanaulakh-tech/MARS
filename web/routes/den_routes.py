@@ -1142,12 +1142,14 @@ def den_page(request: Request, draft: Optional[str] = None,
              fa: Optional[str] = None, fa_err: Optional[str] = None,
              walk: Optional[str] = None, sb: Optional[str] = None,
              sb_err: Optional[str] = None, vi: Optional[str] = None,
-             vi_err: Optional[str] = None, vp: Optional[str] = None):
+             vi_err: Optional[str] = None, vp: Optional[str] = None,
+             sfx: Optional[str] = None, sfx_err: Optional[str] = None):
     user = auth.current_user(request)
     if not user:
         return RedirectResponse("/login", status_code=303)
     from . import settings_routes
-    from .. import den_walk, valuation_chain_view, valuation_exit_feed, valuation_view
+    from .. import (den_walk, valuation_chain_view, valuation_exit_feed,
+                    valuation_market_view, valuation_view)
     cfg = state.cfg()
     p = state.portfolio()
     eng = _safe(_engines, cfg, p, default={}) or {}
@@ -1185,6 +1187,11 @@ def den_page(request: Request, draft: Optional[str] = None,
                      default={"flag": "invalid", "error": "the inputs table could not be read",
                               "rows": [], "n": 0, "max": valuation_chain_view.MAX_INPUT_SYMBOLS,
                               "doc_id": valuation_chain_view.INPUTS_DOC_ID}),
+        # VALFIX batch 3: the per-sector currency table (§13, editable)
+        "sfx": _safe(valuation_market_view.sector_fx_section, (sfx or "")[:20],
+                     (sfx_err or "")[:300],
+                     default=valuation_market_view.empty_sector_fx_section(
+                         "invalid", "the sector currency table could not be read")),
         # §1 walk tree (owner order 2026-10-21): one stock, §12's guards
         "walk": _safe(den_walk.section, cfg, p, (walk or "").strip()[:24], (sb or "")[:20],
                       (sb_err or "")[:300],
@@ -1375,6 +1382,33 @@ async def den_inputs_remove(request: Request):
     form = await request.form()
     await run_in_threadpool(cv.remove_input_row, str(form.get("ticker") or ""))
     return RedirectResponse("/den?vi=removed#chain-inputs", status_code=303)
+
+
+@router.post("/den/valuation/sector-fx")
+async def den_sector_fx_save(request: Request):
+    """Owner-only (VALFIX batch 3, owner order 2026-10-21: "one per sector,
+    editable"): the whole per-sector currency table — USD share, EUR share
+    (negative = an importer), pass-through margin points — in settings doc
+    "valuation_sector_fx". A single bad value refuses the whole table;
+    nothing stored. §12 reads it on this page; the engine never does."""
+    from starlette.concurrency import run_in_threadpool
+
+    from .. import valuation_market_view as mv
+    user = auth.current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    if user.get("role") != "owner":
+        return RedirectResponse("/den?sfx=denied#sector-fx", status_code=303)
+    form = await request.form()
+    table, errors = mv.parse_sector_fx_form(form)
+    if errors:
+        return RedirectResponse(f"/den?sfx=invalid&sfx_err={quote('; '.join(errors)[:400])}"
+                                f"#sector-fx", status_code=303)
+    ok, err = await run_in_threadpool(mv.save_sector_fx, table)
+    if not ok:
+        return RedirectResponse(f"/den?sfx=invalid&sfx_err={quote(err[:400])}#sector-fx",
+                                status_code=303)
+    return RedirectResponse("/den?sfx=saved#sector-fx", status_code=303)
 
 
 def _walk_back(form) -> str:

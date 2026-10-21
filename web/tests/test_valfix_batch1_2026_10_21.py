@@ -198,19 +198,21 @@ def test_both_legs_missing_prints_no_context_target_never_the_raw_target(ctx_inp
 
 # ---------------------------------------------------- VAL-13a / VAL-15
 
-def test_the_it_rupee_row_prints_the_rate_dates_the_base_used_and_stale(stored):
+def test_the_it_rupee_row_is_replaced_by_the_currency_leg_through_eps(stored):
+    # Owner order 2026-10-21 (VALFIX batch 3): the IT-only rupee row E101 is
+    # counted 0 in the live chain and the currency leg runs through EPS for
+    # every sector (USD + EUR, FRED) — the old E101 line (VAL-13a / VAL-15)
+    # is gone from §12; the sheet's own E101 stays (scenarios test) and
+    # fx_block keeps its rules (the next test). FRED staleness: batch-3 tests.
     html = _owner().get("/den?chain=TCS").text
     row = _chain_row(html, "TCS")
-    assert "den_chain_fx_marker" in row
+    assert "den_chain_fx_marker" not in row
+    assert "den_chain_e101_replaced_marker" in row
+    assert "den_chain_fx_leg_marker" in row
     t = _flat(row)
-    # the committed USD-INR file ends 2026-08-13 — far past 10 days
-    assert "USD-INR 95.40 on 2026-08-13" in t
-    assert "data-den-chain-fx-stale" in row and "STALE" in t and "days old" in t
-    # VAL-15: the base actually used, never the sheet's 94.9
-    assert "93.48 on 2026-03-31" in t
-    assert "E101 = ROUND((E78 / 93.48 - 1)*100,2)" in t
-    fx = re.search(r"<div[^>]*data-den-chain-fx>.*?E101 = [^<]*</div>", row, re.S)
-    assert fx and "94.9" not in fx.group(0)
+    assert "rupee row E101 counted 0 in this chain" in t
+    assert "currency through EPS" in t
+    assert "E101 = ROUND(" not in t
 
 
 def test_fx_block_stale_rule_and_non_it_rows():
@@ -400,6 +402,7 @@ def state_cfg():
 def test_a_clean_earnings_row_carries_no_known_fault(stored):
     row = _chain_row(_owner().get("/den?chain=TCS").text, "TCS")
     # the row must be a fully computed one, else 'no warning' proves nothing
-    assert "den_chain_fx_marker" in row
+    # (batch 3: a computed row prints the market block; the E101 line is gone)
+    assert "den_chain_market_marker" in row
     assert "den_chain_no_range_marker" not in row and "den_chain_not_computed_marker" not in row
     assert "den_chain_fault_marker" not in row

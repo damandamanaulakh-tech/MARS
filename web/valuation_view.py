@@ -332,16 +332,26 @@ def _sector_series(name: str) -> Optional[pd.Series]:
 
 
 def bench_for(ticker: str, cfg) -> tuple[Optional[str], str]:
-    """(NSE sector index name or None, label printed on the page)."""
-    override = vc.TICKER_INDEX_OVERRIDE.get(ticker)
-    if override:
-        return override, f"Nifty {override}"
-    sector = (getattr(cfg, "sector_map", {}) or {}).get(ticker, "")
-    idx = vc.SECTOR_INDEX_FOR.get(sector)
-    if idx:
-        return idx, f"Nifty {idx}"
-    return None, (f"{vc.MARKET_INDEX_LABEL} — no NSE sector index wired for "
-                  f"'{sector or 'unmapped'}'")
+    """(NSE sector index name or None, label printed on the page).
+
+    VALFIX batch 3 (owner answers 2026-10-21): one mapping for §11 and §12 —
+    valuation_context.index_for (override → app label → for a name with no
+    app label, its Nifty-500 industry under strict rule A plus the six
+    indices added that day → Nifty 50)."""
+    got = vc.index_for(ticker, getattr(cfg, "sector_map", {}) or {})
+    if got.get("index"):
+        return got["index"], got["label"]
+    return None, f"{vc.MARKET_INDEX_LABEL} — {got.get('why') or 'no NSE sector index'}"
+
+
+def bench_min_sessions(idx: Optional[str]) -> Optional[int]:
+    """An index launched recently (Nifty Cement 2026-05-11, Nifty Chemicals
+    2025-11-10) reads no β until it has 252 sessions of its own (owner
+    answer 2026-10-21); the long-standing indices keep the 120-pair rule."""
+    from trading import data_refresh as dr
+    if idx and idx in dr.SECTOR_INDEX_FIRST_BAR:
+        return int(vc.ASSUMED["beta_min_index_sessions"])
+    return None
 
 
 def _fii_5d() -> Optional[float]:
@@ -643,7 +653,8 @@ def row_for(ticker: str, entry: dict, cfg, p, *, a: dict, bond, nifty, sent: dic
                    rate_now_pct=a.get("rate_now"), erp_pct=a["erp"],
                    growth_pct=a["growth"], inflation_shift_pp=a["infl_shift"],
                    sentiment=sent, news_verdict=_news_verdict(p, ticker),
-                   bench_why=bench_why, today=date.today())
+                   bench_why=bench_why, today=date.today(),
+                   bench_min_sessions=bench_min_sessions(idx))
     if (window_note and r.get("status") != "OK"
             and str(r.get("why") or "").startswith("stock closes: series starts")):
         r["why"] = f"stock closes: {window_note}"

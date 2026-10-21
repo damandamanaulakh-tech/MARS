@@ -1706,14 +1706,17 @@ def _sector_index_refresh() -> None:
     try:
         from trading import data as tdata, data_refresh as dr
         stored = db.load_sector_rows()
-        last = max((str(r.get("date") or "") for r in stored), default="")
+        # each sector's own newest date (VALFIX batch 3): a sector the store
+        # never held — the six added 2026-10-21 — is seeded, not skipped
+        last_by = _sector_dates(stored, newest=True)
+        last = max(last_by.values(), default="")
         broker = tdata.history_broker()
         if broker is None:
             _refresh_journal("DATA_REFRESH_SECTOR_SKIPPED",
                              "Sector index refresh skipped: no Upstox client "
                              "object (API keys unset).")
             return
-        rows = dr.fetch_sector_tail(broker, last)
+        rows = dr.fetch_sector_tail(broker, last, last_by_sector=last_by)
         if not rows:
             log.info("sector refresh: already current to %s", last or "(empty)")
         else:
@@ -1737,6 +1740,19 @@ def _sector_index_refresh() -> None:
         backfill_sector_history()
     except Exception:
         log.exception("sector history backfill failed")
+
+
+def _sector_dates(rows: list, newest: bool) -> dict:
+    """{sector: its newest (or oldest) stored date} from stored sector rows."""
+    out: dict = {}
+    for r in rows or []:
+        sec, d = r.get("sector"), str(r.get("date") or "")[:10]
+        if not sec or not d:
+            continue
+        cur = out.get(sec)
+        if cur is None or (d > cur if newest else d < cur):
+            out[sec] = d
+    return out
 
 
 def _num_or_none(x):
@@ -1848,6 +1864,115 @@ def _macro_feeds_refresh() -> None:
                          "reading, dated.")
 
 
+def _nse_close_held(rows: list, day_iso: str) -> bool:
+    """True when the stored NSE rows hold that day's CLOSING reading."""
+    return any(str(r.get("date") or "")[:10] == day_iso and r.get("session_closed")
+               for r in rows or [])
+
+
+def _nse_new_rows(rows: list, stored: list) -> list:
+    """NSE rows that add a date, change a value, or turn a stored intraday
+    reading into the day's close."""
+    have = {(r.get("series"), str(r.get("date") or "")[:10]): r for r in stored or []}
+    out = []
+    for r in rows:
+        old = have.get((r["series"], r["date"]))
+        if (old is None or old.get("value") != r["value"]
+                or (r.get("session_closed") and not old.get("session_closed"))):
+            out.append(r)
+    return out
+
+
+def _market_feeds_refresh() -> None:
+    """Global indices, the rupee and NSE's sector P/E (owner order
+    2026-10-21, VALFIX batch 3): FRED S&P 500 / Nasdaq / Dow / USD-INR /
+    USD-per-EUR (keyless fredgraph.csv) and NSE's allIndices P/E / P/B for
+    the app's sector indices (stored daily, dated by NSE's own session).
+    DISPLAY ONLY — the valuation chain's market, currency and sector-total
+    lines read them; no gate, stop or size does.
+
+    Same slots as _macro_feeds_refresh (the 09:20 job AFTER the rotation,
+    and the 15:35 EOD pass); its own journal lines (MARKET_FEEDS /
+    MARKET_FEEDS_FAILED) so a dead foreign feed never reads as the macro
+    feeds failing. Each series is isolated. Quiet when current. Render's
+    reach to FRED and nseindia is unproven: a failure is journaled and the
+    chain prints DATA_NEEDED / STALE with the stored date — never an old
+    value as fresh.
+    """
+    from . import db
+    if not db.is_connected():
+        log.warning("market feeds skipped: Mongo offline (nowhere to store)")
+        return
+    from trading import macro_feeds as mf
+    landed: list = []
+    failed: list = []
+    today = mf._today_ist()
+
+    # FRED, one series at a time
+    for series, fid in mf.FRED_SERIES.items():
+        try:
+            old = db.load_macro_rows(series) or []
+            last = max((str(r.get("date") or "") for r in old), default="")
+            rows = mf.fetch_fred(series, last)
+            new = _macro_new_rows(rows, old)
+            if new:
+                db.save_macro_rows(new)
+                landed += new
+            else:
+                kind = mf.fred_kind(series)
+                if not last or mf.is_stale(last, today, mf.FRED_STALE_DAYS[kind]):
+                    failed.append(f"FRED {fid}: nothing new"
+                                  + (f" since {last}" if last else " and nothing stored"))
+        except Exception as e:                                 # noqa: BLE001
+            log.exception("market feed (FRED %s) failed", fid)
+            failed.append(f"FRED {fid} fetch failed: {e}")
+
+    # NSE allIndices — skipped once today's CLOSING reading is held. The
+    # 09:20 pass runs during the session, so it stores an intraday reading
+    # (labelled); the 15:35 pass replaces it with the close.
+    try:
+        names = mf.nse_index_names()
+        held = db.load_macro_rows(f"nse_pe:{names[0]}") if names else []
+        if not _nse_close_held(held, today.isoformat()):
+            payload = mf.fetch_nse_all_indices()
+            fetched = datetime.now(mf.IST).isoformat(timespec="seconds")
+            rows = mf.parse_nse_all_indices(payload, names, fetched_iso=fetched)
+            if not rows:
+                failed.append("NSE allIndices answered with no P/E for the app's indices")
+            stored = []
+            for sname in sorted({r["series"] for r in rows}):
+                stored += db.load_macro_rows(sname) or []
+            new = _nse_new_rows(rows, stored)
+            if new:
+                db.save_macro_rows(new)
+                landed += new
+    except Exception as e:                                     # noqa: BLE001
+        log.exception("market feed (NSE allIndices) failed")
+        failed.append(f"NSE allIndices fetch failed: {e}")
+
+    if landed:
+        parts = []
+        for series, fid in mf.FRED_SERIES.items():
+            x = [r for r in landed if r["series"] == series]
+            if x:
+                parts.append(f"{mf.FRED_LABEL[series]} {x[-1]['value']} ({x[-1]['date']}, "
+                             f"FRED {fid}; {len(x)} day(s))")
+        pe = [r for r in landed if str(r["series"]).startswith("nse_pe:")]
+        if pe:
+            sess = max(r["date"] for r in pe)
+            parts.append(f"NSE P/E + P/B for {len({r['index'] for r in pe})} index(es), "
+                         f"session {sess}")
+        if parts:
+            _refresh_journal("MARKET_FEEDS",
+                             "Market feeds stored: " + "; ".join(parts)
+                             + ". Display only (valuation chain).")
+    if failed:
+        _refresh_journal("MARKET_FEEDS_FAILED",
+                         "Market feeds: " + "; ".join(failed)
+                         + ". The valuation chain prints the last stored reading with "
+                         "its date (STALE when old), or DATA_NEEDED.")
+
+
 SECTOR_HISTORY_DAYS = 760          # ~2 years + margin for the 252-session β
 #: One attempt per process per day PER DEPTH: {"day": iso, "from": the
 #: deepest start date already attempted that day}. A request no deeper than
@@ -1863,9 +1988,9 @@ def backfill_sector_history(days: int = SECTOR_HISTORY_DAYS,
     (owner order 2026-10-12, the valuation context stage). Idempotent: when
     the oldest stored row already reaches back that far nothing is fetched;
     when it does not, every sector's missing window is fetched in ONE
-    public-candle call per index (16 calls, tokenless) and stored. One
-    attempt per process per day (per depth) unless `force` — a dead feed
-    must not cost 16 calls on every owner tap. Returns a small report for
+    public-candle call per index (22 indices since 2026-10-21, tokenless) and
+    stored. One attempt per process per day (per depth) unless `force` — a
+    dead feed must not cost those calls on every owner tap. Returns a small report for
     the caller (the Den's valuation POST calls this, with the days the
     typed valuation date needs).
 
@@ -1898,20 +2023,37 @@ def backfill_sector_history(days: int = SECTOR_HISTORY_DAYS,
     _SECTOR_BACKFILL_DAY.update(
         day=today, **{"from": min(tried, want_from) if tried else want_from})
     stored = db.load_sector_rows()
-    oldest = min((str(r.get("date") or "") for r in stored
-                  if r.get("date")), default="")
+    oldest_by = _sector_dates(stored, newest=False)
+    oldest = min(oldest_by.values(), default="")
     rep["oldest"] = oldest
-    if oldest and oldest <= want_from:
+    # Per sector (VALFIX batch 3): the six indices added 2026-10-21 start
+    # with an empty history while the others reach back two years, so one
+    # store-wide "oldest" would call the store deep enough and never fill
+    # them. An index launched recently is asked only from its first bar.
+    windows: dict = {}
+    for sector in dr.SECTOR_INDEX_KEYS:
+        floor = max(want_from, dr.SECTOR_INDEX_FIRST_BAR.get(sector, ""))
+        have = oldest_by.get(sector, "")
+        if have and have <= floor:
+            continue
+        end = ((_date.fromisoformat(have) - _td(days=1)).isoformat()
+               if have else today)
+        if floor > end:
+            continue
+        windows.setdefault((floor, end), []).append(sector)
+    if not windows:
         rep["skipped"] = "deep_enough"
         return rep
-    end = ((_date.fromisoformat(oldest) - _td(days=1)).isoformat()
-           if oldest else today)
-    rows = dr.fetch_sector_history(broker, want_from, end)
+    rows: list = []
+    for (floor, end), sectors in sorted(windows.items()):
+        rows += dr.fetch_sector_history(broker, floor, end, sectors=sectors)
+    end = max(e for _f, e in windows)
     rep["fetched"] = len(rows)
     if not rows:
         _refresh_journal("DATA_REFRESH_SECTOR_FAILED",
                          f"Sector history backfill fetched nothing for "
-                         f"{want_from} → {end}.")
+                         f"{want_from} → {end} ({sum(len(v) for v in windows.values())} "
+                         "sector(s) asked).")
         return rep
     rep["stored"] = db.save_sector_rows(rows)
     got = sorted({r["sector"] for r in rows})
@@ -3014,6 +3156,11 @@ def _eod_refresh() -> None:
         _macro_feeds_refresh()
     except Exception:
         log.exception("macro feeds failed after the close")
+    # VALFIX batch 3: FRED + NSE sector P/E, same slot, isolated
+    try:
+        _market_feeds_refresh()
+    except Exception:
+        log.exception("market feeds failed after the close")
     _push_phone_alerts("15:35")
 
 
@@ -3117,6 +3264,11 @@ def _daily_multi_mode_scan() -> None:
         _macro_feeds_refresh()
     except Exception:
         log.exception("macro feeds failed after daily scan")
+    # VALFIX batch 3: FRED + NSE sector P/E, same slot (after the rotation)
+    try:
+        _market_feeds_refresh()
+    except Exception:
+        log.exception("market feeds failed after daily scan")
     # The daily store top-up ("all fresh", owner order 2026-08-20) now runs
     # BEFORE the scans above (audit item 8, 2026-10-02).
     # 2026-10-05: the trigger layer loads its panels on top of whatever the

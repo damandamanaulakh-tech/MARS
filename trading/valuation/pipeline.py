@@ -64,10 +64,11 @@ ASSUMED: Dict[str, dict] = {
                  "forward net cash = base-year net cash",
         "source": "ASSUMED here 2026-10-14 — the owner's sheet types these per company"},
     "currency_effect_routes": {
-        "value": ["earnings"],
-        "source": "ASSUMED here: the sheet's +0.25pp margin per 1% rupee fall is an "
-                  "IT-exporter rule of thumb; applied only when the route's sector "
-                  "is IT services / ER&D, else the rupee leg is 0"},
+        "value": [],
+        "source": "owner choice 2026-10-21 (VALFIX batch 3): the IT-only rupee row E101 is "
+                  "counted 0 in the live chain — the currency leg runs through EPS for "
+                  "EVERY sector (trading/valuation/currency.py, shares by tier, USD + EUR); "
+                  "the owner's Tata sheet keeps its own E101 rows cell for cell"},
     "macro_counted_zero": {
         "value": ["repo", "cpi", "gdp", "brent", "institutional change", "delivery"],
         "source": "the sheet's what-if rows the app does not store — counted 0 and "
@@ -127,7 +128,7 @@ ASSUMED: Dict[str, dict] = {
 
 #: Peer base layout version (VAL-12a / VAL-02 / VAL-01 added fields). The
 #: Den's stored peer base is rebuilt when this or the code hash moves.
-PEER_BASE_VERSION = 3
+PEER_BASE_VERSION = 4          # 4 = + pat, sector, family, FY history (batch 3)
 
 KEY_TERM_KIND: Dict[str, str] = {
     # how the Den prints each term's value: pct / x / inr / num
@@ -240,7 +241,7 @@ def failed_record(ticker: str, why: str) -> dict:
         "terms_rows": [], "data_needed": [why],
         "assumptions": {"drafted": [], "drafted_effective": [], "drafted_no_effect": [],
                         "drafted_values": {}, "live_inputs": {}, "no_effect_keys": []},
-        "owner_inputs": None,
+        "owner_inputs": None, "currency_base": None,
         "error": why, "range_flags": _range_flags("", {}, {}, {}, {}),
         "detail": {"error": d},
     }
@@ -767,15 +768,11 @@ def _market(macro: dict, snap: dict, route: dict, peer_pe: Optional[float],
         b0 = b1 = 100.0
         missing.append("Brent — no feed wired; counted 0")
     m["brent_start"], m["brent_end"] = b0, b1
-    # rupee leg: IT exporters only (ASSUMED)
+    # rupee row E101: counted 0 in the live chain (owner choice 2026-10-21,
+    # VALFIX batch 3) — the currency leg now runs through EPS for every
+    # sector, after the chain (currency.py); the sheet keeps its own E101
     u_now, u_base = num(macro.get("usdinr_now")), num(macro.get("usdinr_base"))
-    is_it = (route.get("sector") or "").startswith("IT services")
-    if is_it and u_now and u_base:
-        m["usdinr"], m["usdinr_base"] = u_now, u_base
-    else:
-        m["usdinr"] = m["usdinr_base"] = u_base or u_now or 1.0
-        if is_it:
-            missing.append("USDINR now/base — rupee leg counted 0")
+    m["usdinr"] = m["usdinr_base"] = u_base or u_now or 1.0
     m["vix"] = num(macro.get("vix")) if num(macro.get("vix")) is not None else 0.0
     m["sentiment"] = 0.0
     i0, i1 = num(macro.get("inst_holding_start")), num(macro.get("inst_holding_end"))
@@ -1260,9 +1257,43 @@ def peer_base(price_of: Callable[[str], Optional[float]], sector_map: dict,
                 book, basis = _lender_book(sym, snap, snap.get("period_end"))
                 row["book"] = book * CR if book is not None else None
                 row["book_basis"] = basis
+            # VALFIX batch 3 (§4 sector totals): latest PAT, the route group
+            # and the last FY_HISTORY_YEARS FYs, read in this same pass
+            row["pat"] = _f(snap, "net_income_common")
+            row["sector"] = rt.get("sector") or ""
+            row["family"] = rt.get("sector_family") or rt.get("family") or ""
+            row["fy"] = _fy_history(sym, snap, method)
             out.append(row)
         except Exception as e:                            # noqa: BLE001
             log.warning("valuation chain: peer row failed for %s: %s", sym, e)
+    return out
+
+
+#: FYs of history a peer-base row keeps for the §4 sector totals (batch 3).
+FY_HISTORY_YEARS = 4
+
+
+def _fy_history(sym: str, snap: dict, method: Optional[str]) -> Dict[str, dict]:
+    """{period_end: {shares, pat, ebitda, debt, cash, sti, mi, equity, book}}
+    for the last FY_HISTORY_YEARS annual periods (rupees; a lender's book is
+    its VAL-02 book for that year)."""
+    hist = {k: _hist(snap, k) for k in ("shares_outstanding", "net_income_common", "ebitda",
+                                         "total_debt", "cash", "short_term_investments",
+                                         "minority_interest_bs", "equity")}
+    periods = sorted(hist["shares_outstanding"])[-FY_HISTORY_YEARS:]
+    out: Dict[str, dict] = {}
+    for p in periods:
+        row = {"shares": hist["shares_outstanding"].get(p), "pat": hist["net_income_common"].get(p),
+               "ebitda": hist["ebitda"].get(p), "debt": hist["total_debt"].get(p),
+               "cash": hist["cash"].get(p), "sti": hist["short_term_investments"].get(p),
+               "mi": hist["minority_interest_bs"].get(p), "equity": hist["equity"].get(p)}
+        if method in LENDER_METHODS:
+            try:
+                bk, _basis = _lender_book(sym, snap, p)
+                row["book"] = bk * CR if bk is not None else None
+            except Exception:                             # noqa: BLE001
+                row["book"] = None
+        out[p] = row
     return out
 
 
@@ -1350,10 +1381,10 @@ def live_inputs(macro: dict, route: dict, drivers: dict, chain_ran: bool) -> Dic
     def has(*ks: str) -> bool:
         return all(num(macro.get(k)) is not None for k in ks)
 
-    is_it = str((route or {}).get("sector") or "").startswith("IT services")
     return {
         "market": has("nifty_start", "nifty_end") or has("sensex_start", "sensex_end"),
-        "usdinr": bool(is_it and has("usdinr_now", "usdinr_base")),
+        # E101 is counted 0 in the live chain since 2026-10-21 (batch 3)
+        "usdinr": False,
         "repo": has("repo_start_pct") and (has("repo_end_pct") or has("repo_pct")),
         "cpi": has("cpi_pct"), "gdp": has("gdp_pct"),
         "brent": has("brent_start", "brent_end"),
@@ -1568,6 +1599,18 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
     rec["assumptions"]["drafted_no_effect"] = [k for k in ov["edited"] if k not in eff]
     rec["drafted"] = bool(eff)
     rec["owner_inputs"] = owner or None
+    # VALFIX batch 3: what the currency leg (through EPS) and the market legs
+    # read — the base-year EPS and EBITDA margin, and the route group
+    margin = None
+    if num(base.get("revenue")) and num(base.get("ebitda")) is not None and base["revenue"] > 0:
+        margin = base["ebitda"] / base["revenue"] * 100.0
+    eps0 = (base["pat"] / base["shares"]) if (num(base.get("pat")) is not None
+                                              and num(base.get("shares"))) else None
+    rec["currency_base"] = {"eps": eps0, "ebitda_margin_pct": margin,
+                            "margin_why": "" if margin is not None else
+                            "no EBITDA or revenue line for the base year",
+                            "sector": rt.get("sector") or "", "method": peer_method or "",
+                            "family": chain_family}
     rec["detail"] = {"snapshot_fields": snap.get("fields"), "cases": cases,
                      "normalised": ne, "quality": q, "bridge": bridge}
     return rec

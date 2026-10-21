@@ -48,7 +48,12 @@ SHAREHOLDING_CSV = _DATA / "shareholding_institutional.csv"
 #: Government Securities Market box — stored with the RBI leg, printed
 #: BESIDE the Upstox yield, never used (the owner chose Upstox; lead's note
 #: (a), 2026-10-21).
-SERIES = ("gsec10y_yield", "rbi_repo", "rbi_usdinr", "rbi_gsec10y")
+SERIES = ("gsec10y_yield", "rbi_repo", "rbi_usdinr", "rbi_gsec10y",
+          # VALFIX batch 3 (owner 2026-10-21): FRED, keyless fredgraph.csv
+          "fred_sp500", "fred_nasdaq", "fred_dow", "fred_usdinr", "fred_usdeur")
+#: Series stored per NSE index from the allIndices snapshot, one each per
+#: index: "nse_pe:NIFTY IT", "nse_pb:NIFTY IT" (pe/pb/dy as NSE publishes).
+SERIES_PREFIXES = ("nse_pe:", "nse_pb:")
 
 RBI_HOME_URL = "https://www.rbi.org.in/"
 RBI_GSEC_LIST_URL = "https://rbi.org.in/Scripts/bs_viewcontent.aspx?Id=1956"
@@ -633,3 +638,212 @@ def inst_holding(symbol: str, period_end: str) -> Optional[tuple]:
         return None
     s, e = start[-1], rows[-1]
     return (s["inst_pct"], e["inst_pct"], s["quarter"], e["quarter"])
+
+
+# ----------------------------------------------------------------- FRED
+# VALFIX batch 3 (owner order 2026-10-21): the global indices and the
+# rupee for the valuation chain's market and currency legs. Keyless
+# fredgraph.csv (HTTP/1.1), one GET per series. Parse rules verified on the
+# raw files of 2026-10-20 (scratchpad mktctx/b3data/fred_parse_check.txt):
+# header "observation_date,<ID>" (older downloads say "DATE"), ISO dates,
+# a holiday is a row with an EMPTY value — FRED's HTML table writes "." —
+# both are missing, never 0 and never carried forward.
+FRED_SERIES: dict = {
+    "fred_sp500": "SP500", "fred_nasdaq": "NASDAQCOM", "fred_dow": "DJIA",
+    "fred_usdinr": "DEXINUS", "fred_usdeur": "DEXUSEU",
+}
+FRED_LABEL: dict = {
+    "fred_sp500": "S&P 500", "fred_nasdaq": "Nasdaq Composite", "fred_dow": "Dow Jones",
+    "fred_usdinr": "USD/INR (INR per USD)", "fred_usdeur": "USD per EUR",
+}
+FRED_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={id}&cosd={cosd}"
+#: ASSUMED: the first pull asks from here — the statements start in 2021
+#: (fundamentals FY21+), so no selection date can usefully be older; a
+#: deeper seed only multiplies the first run's database writes (~250 rows a
+#: year per series). FRED serves S&P 500 / Dow for 10 years only anyway.
+FRED_SEED_START = "2021-01-01"
+#: The two FX series are the Fed's WEEKLY H.10 release (Mondays, the
+#: previous week's New York noon rates): 3 to 10 days behind, not RBI rates.
+FRED_WEEKLY = ("fred_usdinr", "fred_usdeur")
+FRED_LAG_NOTE = {
+    "daily": "US close reaches FRED the same US evening (~03:30-09:10 IST next "
+             "morning); a 1-5 day lag",
+    "weekly": "Fed H.10, a WEEKLY release (Mondays) of the previous week's New "
+              "York noon rates — 3 to 10 days behind, not an RBI/FBIL rate",
+}
+#: ASSUMED: a stored FRED reading older than this many days is STALE on the
+#: page and the job says the feed failed (daily indices / weekly FX).
+FRED_STALE_DAYS = {"daily": 7, "weekly": 14}
+
+
+def fred_kind(series: str) -> str:
+    return "weekly" if series in FRED_WEEKLY else "daily"
+
+
+def parse_fred_csv(text: str, series: str, url: str = "",
+                   fetched_iso: str = "") -> list[dict]:
+    """Stored rows {series, date, value, source, url, fetched} from one raw
+    fredgraph.csv. A missing value ('' or '.') is no row. A file whose
+    header does not name the series' FRED id returns []."""
+    fid = FRED_SERIES.get(series)
+    lines = [x.strip() for x in str(text or "").splitlines() if x.strip()]
+    if not fid or not lines:
+        return []
+    head = [h.strip().strip('"') for h in lines[0].split(",")]
+    if len(head) < 2 or head[0] not in ("observation_date", "DATE") or head[1] != fid:
+        return []
+    out = []
+    for line in lines[1:]:
+        parts = [p.strip().strip('"') for p in line.split(",")]
+        if len(parts) < 2:
+            continue
+        d, raw = parts[0], parts[1]
+        if raw in ("", "."):
+            continue
+        try:
+            date.fromisoformat(d)
+        except ValueError:
+            continue
+        v = _num(raw)
+        if v is None:
+            continue
+        out.append({"series": series, "date": d, "value": v,
+                    "source": f"FRED {fid} (fredgraph.csv)", "fred_id": fid,
+                    "url": url, "fetched": fetched_iso})
+    return out
+
+
+def fetch_fred(series: str, last_iso: str = "", timeout: float = 30.0) -> list[dict]:
+    """Rows strictly AFTER `last_iso` for one FRED series (keyless, HTTP/1.1).
+    Raises on a network failure so the caller journals it."""
+    import httpx
+    fid = FRED_SERIES[series]
+    cosd = FRED_SEED_START
+    if last_iso:
+        cosd = (date.fromisoformat(str(last_iso)[:10]) + timedelta(days=1)).isoformat()
+    url = FRED_URL.format(id=fid, cosd=cosd)
+    r = httpx.get(url, timeout=timeout, follow_redirects=True,
+                  headers={"User-Agent": "Mozilla/5.0"})
+    r.raise_for_status()
+    fetched = datetime.now(IST).isoformat(timespec="seconds")
+    rows = parse_fred_csv(r.text, series, url=url, fetched_iso=fetched)
+    return [x for x in rows if not last_iso or x["date"] > str(last_iso)[:10]]
+
+
+# ------------------------------------------------------- NSE allIndices
+# Owner order 2026-10-21 (§4 sector valuation): NSE's own published P/E and
+# P/B per index, stored DAILY so a history builds. The reading is dated by
+# the payload's own session — the top-level `timestamp` ("19-Oct-2026
+# 15:30") — NEVER by the fetch time (the 2026-10-20 snapshot, read on a
+# holiday, carries 19-Oct-2026). A row's `previousDay` is the PREVIOUS
+# trading day during a session (its `previousDayVal` is then yesterday's
+# close, not `last`), so it dates a row only when the timestamp is missing
+# AND previousDayVal == last proves it is the session of `last`. A reading
+# whose timestamp is before the 15:30 close is INTRADAY: stored under that
+# day, labelled, and replaced by the closing reading when one is read.
+# Verified 2026-10-21: HTTP 200 with a browser User-Agent, no cookie priming.
+NSE_ALL_INDICES_URL = "https://www.nseindia.com/api/allIndices"
+NSE_HOME_URL = "https://www.nseindia.com/"
+NSE_HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like "
+                   "Gecko) Chrome/124.0 Safari/537.36"),
+    "Accept": "application/json",
+}
+
+
+#: NSE's cash market closes at 15:30 IST; a snapshot stamped earlier is a
+#: live intraday reading of that day.
+NSE_CLOSE_HHMM = "15:30"
+
+
+def _nse_date(s: str) -> Optional[str]:
+    for fmt in ("%d-%b-%Y %H:%M", "%d-%b-%Y"):
+        try:
+            return datetime.strptime(str(s or "").strip(), fmt).date().isoformat()
+        except ValueError:
+            continue
+    return None
+
+
+def nse_session(timestamp: str) -> tuple:
+    """(session date ISO or None, closed) from allIndices' `timestamp`
+    ("19-Oct-2026 15:30"). closed = stamped at or after the 15:30 close."""
+    ts = str(timestamp or "").strip()
+    try:
+        dt = datetime.strptime(ts, "%d-%b-%Y %H:%M")
+    except ValueError:
+        return _nse_date(ts), False
+    return dt.date().isoformat(), dt.strftime("%H:%M") >= NSE_CLOSE_HHMM
+
+
+def _nse_ratio(x) -> Optional[float]:
+    """pe / pb / dy come as STRINGS; '0', '' and '-' mean not applicable."""
+    v = _num(str(x).strip()) if x is not None and str(x).strip() not in ("", "-") else None
+    return v if v is not None and v > 0 else None
+
+
+def parse_nse_all_indices(payload: dict, wanted: Optional[Iterable[str]] = None,
+                          fetched_iso: str = "") -> list[dict]:
+    """Stored rows "nse_pe:<INDEX>" / "nse_pb:<INDEX>" from one allIndices
+    payload (INDEX = NSE's `index` field, upper case). `wanted` limits the
+    indices kept (the app's sector indices). A row without a session date
+    or with no P/E and no P/B is skipped."""
+    if not isinstance(payload, dict):
+        return []
+    want = {str(w).upper() for w in wanted} if wanted is not None else None
+    ts = str(payload.get("timestamp") or "")
+    ts_date, ts_closed = nse_session(ts)
+    out = []
+    for row in payload.get("data") or []:
+        if not isinstance(row, dict):
+            continue
+        name = str(row.get("index") or "").strip().upper()
+        if not name or (want is not None and name not in want):
+            continue
+        d, closed = ts_date, ts_closed
+        if not d:
+            # no session stamp: previousDay dates the row only when its
+            # value IS `last` (then it is the session of last, a close)
+            last, pdv = _num(row.get("last")), _num(row.get("previousDayVal"))
+            if last is not None and pdv is not None and last == pdv:
+                d, closed = _nse_date(row.get("previousDay")), True
+        if not d:
+            continue
+        pe, pb, dy = _nse_ratio(row.get("pe")), _nse_ratio(row.get("pb")), _nse_ratio(row.get("dy"))
+        kind = "close" if closed else "intraday"
+        common = {"date": d, "index": name, "pe": pe, "pb": pb, "dy": dy,
+                  "last": _num(row.get("last")), "year_high": _num(row.get("yearHigh")),
+                  "timestamp": ts, "session_closed": bool(closed),
+                  "source": f"NSE allIndices — session {d} ({ts or 'no timestamp'}, {kind})",
+                  "url": NSE_ALL_INDICES_URL, "fetched": fetched_iso}
+        if pe is not None:
+            out.append({**common, "series": f"nse_pe:{name}", "value": pe})
+        if pb is not None:
+            out.append({**common, "series": f"nse_pb:{name}", "value": pb})
+    return out
+
+
+def fetch_nse_all_indices(timeout: float = 30.0) -> dict:
+    """The raw allIndices payload. One GET with a browser User-Agent; a
+    refusal gets ONE retry after a GET of the NSE home page (cookie
+    priming, kept as the fallback). Raises when both fail."""
+    import httpx
+    with httpx.Client(timeout=timeout, headers=NSE_HEADERS, follow_redirects=True) as c:
+        r = c.get(NSE_ALL_INDICES_URL)
+        if r.status_code != 200:
+            c.get(NSE_HOME_URL)
+            r = c.get(NSE_ALL_INDICES_URL)
+        r.raise_for_status()
+        return r.json()
+
+
+def nse_index_names() -> list[str]:
+    """The NSE names of the app's sector indices (+ Nifty 50) — what the
+    daily snapshot keeps (the other ~115 indices are not stored)."""
+    from trading import data_refresh as dr
+    return sorted(set(dr.SECTOR_NSE_NAME.values()))
+
+
+def series_points(series: str) -> list[tuple]:
+    """[(date_iso, value)] of one stored series, ascending ([] = never read)."""
+    return [(str(r["date"])[:10], float(r["value"])) for r in stored_rows(series)]

@@ -166,6 +166,11 @@ def test_a_name_the_price_read_missed_goes_to_the_zip_not_the_store(monkeypatch)
     monkeypatch.setattr(cv, "peer_multiples", lambda method, exclude="": dict(FIXED_PEERS))
     monkeypatch.setattr(cv, "load_assumptions", lambda: {})
     monkeypatch.setattr(vv, "load_doc", lambda: {"targets": {}, "assumptions": {}})
+    # VALFIX batch 3: the §4 sector totals are built once a day with their own
+    # two batched reads (pinned in test_valfix_b3_den_2026_10_21) — this pin
+    # is about the rows' price read only
+    from web import valuation_market_view as mv
+    monkeypatch.setattr(mv, "totals_built", lambda base: ({}, "not built in this test"))
     out = cv.section(state.cfg(), _Book(["TCS.NS", "INFY.NS"]), "")
     assert reads == [["TCS.NS", "INFY.NS"]]                 # one read, never per name
     src = {r["ticker"]: r.get("price_source") for r in out["rows"]}

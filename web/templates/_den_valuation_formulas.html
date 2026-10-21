@@ -64,6 +64,37 @@
     </form>
     {% endif %}
 
+    <!-- VALFIX batch 3 (owner 2026-10-21: "one per sector, editable"): the
+         currency leg's sector defaults — settings doc valuation_sector_fx. -->
+    {% set sx = sfx | default({"rows": [], "loaded": false, "flag": "", "error": "", "doc_id": "valuation_sector_fx", "n_set": 0, "pp_default": 0.25}) %}
+    <div id="sector-fx" class="p-4 border-b border-line scroll-mt-20 text-xs"><!-- den_sector_fx_marker -->
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-1">A2 · Currency leg through EPS — your sector defaults ({{ sx.n_set }} of {{ sx.rows | length }} set) · settings doc {{ sx.doc_id }}</div>
+      <div class="text-ink-soft mb-2">EPS × (1 + USD share × ΔUSD/INR% × pt + EUR share × ΔEUR/INR% × pt), pt = pass-through margin points ÷ the stock's EBITDA margin %, ΔFX = the rupee's move since the selection date (FRED; EUR/INR = USD/INR × USD per EUR). The shares a row uses come from the FIRST tier that has them: your typed share (inputs table) → the company's filed geographic split → BRSR exports as % of turnover (counted USD, the EUR part by this sector's EUR : USD) → the sector default below → DATA_NEEDED, counted 0. A negative share = an importer. Pass-through blank = {{ sx.pp_default }} (your sheet's B152). Applies to every sector's shares; FX never multiplies the price. Display only.</div>
+      {% if sx.flag == 'saved' %}<div class="mb-2 text-emerald-800 font-semibold">Sector table stored — §12 above recomputed.</div>
+      {% elif sx.flag == 'denied' %}<div class="mb-2 text-amber-800 font-semibold">Owner role required to change the sector table.</div>
+      {% elif sx.flag == 'invalid' %}<div class="mb-2 text-red-700 font-semibold">Not stored — {{ sx.error or 'the form could not be read' }}. Nothing changed.</div>{% endif %}
+      {% if not sx.loaded %}<div class="mb-2 text-amber-800" data-den-sector-fx-unread>The stored table could not be read on this open — the form is shown empty and saving is refused until it can be read (so blanks never overwrite your numbers).</div>{% endif %}
+      <form method="post" action="/den/valuation/sector-fx"><!-- den_sector_fx_form_marker -->
+        <input type="hidden" name="loaded" value="{{ 1 if sx.loaded else 0 }}">
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line"><tr><th class="text-left py-1 pr-3">Route sector</th><th class="text-right py-1 pr-3">USD share %</th><th class="text-right py-1 pr-3">EUR share %</th><th class="text-right py-1 pr-3">Pass-through (margin pts per 1%)</th></tr></thead>
+            <tbody>
+              {% for r in sx.rows %}
+              <tr class="border-b border-line/60" data-den-sector-fx-row="{{ r.i }}">
+                <td class="py-1 pr-3">{{ r.sector }}</td>
+                <td class="py-1 pr-3 text-right"><input name="fx_usd_{{ r.i }}" value="{{ '%g' % r.usd_share_pct if r.usd_share_pct is not none else '' }}" inputmode="decimal" {% if not is_owner %}disabled{% endif %} class="w-20 text-right border-b border-line focus:border-ink outline-none py-0.5 tabular-nums bg-transparent"></td>
+                <td class="py-1 pr-3 text-right"><input name="fx_eur_{{ r.i }}" value="{{ '%g' % r.eur_share_pct if r.eur_share_pct is not none else '' }}" inputmode="decimal" {% if not is_owner %}disabled{% endif %} class="w-20 text-right border-b border-line focus:border-ink outline-none py-0.5 tabular-nums bg-transparent"></td>
+                <td class="py-1 pr-3 text-right"><input name="fx_pp_{{ r.i }}" value="{{ '%g' % r.pass_through_pp if r.pass_through_pp is not none else '' }}" placeholder="{{ sx.pp_default }}" inputmode="decimal" {% if not is_owner %}disabled{% endif %} class="w-20 text-right border-b border-line focus:border-ink outline-none py-0.5 tabular-nums bg-transparent"></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if is_owner %}<button type="submit" class="mt-2 px-3 py-1.5 bg-ink text-white text-xs font-semibold tracking-wide hover:bg-black">STORE SECTOR TABLE &rarr; re-read §12</button>{% endif %}
+      </form>
+    </div>
+
     <!-- B. the formulas -->
     <div class="p-4 border-b border-line"><!-- den_formulas_terms_marker -->
       <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">B1 · The {{ fml.terms | length }} finance terms — name · formula · stage</div>
@@ -98,7 +129,7 @@
         </tbody>
       </table>
       <div class="mt-2 text-xs text-ink-faint">Cases: downside / base / upside = the same chain with the case deltas (Part A) added to revenue growth, EBITDA margin and the P/E bridge total. Section H (E120-E134) is your ADDITIVE what-if: the twelve factor cells E120-E131 are summed into one P/E change; when that total is below −100% the closing P/E E134 and every price built on it are DATA_NEEDED, never a negative multiple.</div>
-      <div class="mt-1 text-xs text-ink-faint" data-den-formulas-tt><!-- den_formulas_tt_marker --><strong>Three cells differ from your sheet — corrected on the owner's order 2026-10-21 (TT01-03):</strong> E22 PAT takes the extra depreciation and interest off net of the tax it saves (× (1 − D25/100)); E35 borrowings add the debt-funded share of the new capex (E117 × B154/100); E134 refuses a P/E bridge below −100%. At your sheet's own inputs (no extra capex, bridge above −100%) every number is unchanged. E101's base is the USD-INR rate on the base year-end date (each IT row in §12 prints the rate it used), not the 94.9 typed in your sheet.</div>
+      <div class="mt-1 text-xs text-ink-faint" data-den-formulas-tt><!-- den_formulas_tt_marker --><strong>Three cells differ from your sheet — corrected on the owner's order 2026-10-21 (TT01-03):</strong> E22 PAT takes the extra depreciation and interest off net of the tax it saves (× (1 − D25/100)); E35 borrowings add the debt-funded share of the new capex (E117 × B154/100); E134 refuses a P/E bridge below −100%. At your sheet's own inputs (no extra capex, bridge above −100%) every number is unchanged. E101's base is the USD-INR rate on the base year-end date, not the 94.9 typed in your sheet; since 2026-10-21 the live §12 chain counts E101 0 — the currency leg runs through EPS for every sector (the A2 table above) — while the sheet's own reproduction keeps E101.</div>
     </div>
 
     <div class="p-4 text-xs text-ink-soft space-y-1"><!-- den_formulas_rules_marker -->
