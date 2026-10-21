@@ -32,6 +32,10 @@ def _pos(ticker="BLSE.NS", qty=100, entry=320.16, when=datetime(2026, 10, 1, 4, 
 def held(monkeypatch):
     p = state.portfolio()
     saved = (dict(p.positions), list(p.trades), p.cash, list(p.decision_journal))
+    # The shared singleton's journal carries lines from earlier tests in the
+    # same process, and _refetch_history's once-a-day guard reads it —
+    # a FAILED line left by another test silenced this one in CI.
+    p.decision_journal = []
     pos = _pos()
     p.positions = {pos.ticker: pos}
     p.trades = []
