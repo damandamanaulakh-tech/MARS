@@ -21,6 +21,13 @@ import pandas as pd
 
 log = logging.getLogger(__name__)
 
+# Owner order 2026-10-21 (the BLSE split): one ex-date adjustment at a time
+# (the scheduler thread and a web refresh must never both double a position),
+# and the names adjusted since the scheduler last re-fetched their history.
+import threading as _threading
+_CA_LOCK = _threading.Lock()
+CA_REFETCH_DUE: set = set()
+
 from .config import Config, STUB_COMPONENTS
 from .costs import slippage_price, trade_costs
 from .data import fetch_daily
@@ -294,6 +301,11 @@ class TradingEngine:
         # marks on the held book; can_open then blocks every new entry with
         # "kill_switch_active". No live quotes -> can't measure honestly ->
         # leave it to refresh (never trip a halt on entry-price marks).
+        # Owner order 2026-10-21 (BLSE): a held name's split must be absorbed
+        # before the kill switch below marks the book on live quotes — a
+        # halved quote on an unadjusted position reads as a crash.
+        if self.portfolio.positions:
+            self._absorb_corporate_actions("scan")
         held_now = list(self.portfolio.positions.keys())
         held_px: dict = {}
         if held_now:
@@ -1193,6 +1205,10 @@ class TradingEngine:
             self._roll_risk_day(self.portfolio.equity(prices), datetime.utcnow())
             return self._summary_dict(prices)
 
+        # Owner order 2026-10-21 (BLSE): absorb today's split/bonus on held
+        # names BEFORE any quote is compared with an entry — whichever path
+        # (scheduler, owner button, rotation) called this pass.
+        self._absorb_corporate_actions("refresh")
         tickers = list(self.portfolio.positions.keys())
         prices = routed_fetch_quotes(tickers, upstox_client=self.broker)
         if not prices:
@@ -2034,6 +2050,7 @@ class TradingEngine:
             entry_notes=getattr(pos, "entry_notes", "") or "",
             tags=list(getattr(pos, "tags", []) or []),
             mode=getattr(pos, "mode", "") or "",
+            ca_applied=list(getattr(pos, "ca_applied", []) or []),
         ))
         pos.qty -= half
 
@@ -2054,6 +2071,7 @@ class TradingEngine:
             entry_notes=getattr(pos, "entry_notes", "") or "",
             tags=list(getattr(pos, "tags", []) or []),
             mode=getattr(pos, "mode", "") or "",
+            ca_applied=list(getattr(pos, "ca_applied", []) or []),
         ))
         # WHY-SOLD journal entry — full exit context, never deleted
         hold_days = (now.date() - pos.entry_date.date()).days
@@ -2614,6 +2632,137 @@ class TradingEngine:
         except Exception:
             log.exception("ocean picks failed")
             return []   # Ocean is bonus; never block the Everest path
+
+    def apply_corporate_actions(self, today=None, actions_for=None, now=None) -> list:
+        """OWNER ORDER 2026-10-21 ("Yes — adjust held positions on the
+        ex-date"), the BLSE lesson: a 10 → 5 split on a held name halved
+        the quote, nothing adjusted the position, the −5% stop fired and a
+        −49% loss was booked on a −1% move. Runs at the start of the 09:20
+        job, the 14:30 rotation, the boot catch-up and the in-session exit
+        pass (web/scheduler, which also re-fetches the name's history), AND
+        at the top of refresh() and scan() themselves — so no exit check,
+        kill switch or rotation sale can read an adjusted quote against an
+        unadjusted entry, whichever path woke the process.
+
+        For every held name with a split / consolidation / bonus whose
+        ex-date is after the buy, on or before today and within the last
+        LOOKBACK_SESSIONS sessions (the app sleeps), not yet in
+        pos.ca_applied: qty × ratio (whole shares; the fractional remainder
+        is credited to cash at the adjusted entry, cost-neutral), entry ÷
+        ratio, stop / target / peak ÷ ratio, custom_levels kept. On the
+        ex-date itself this waits for 09:15 IST (before the open the quote is
+        yesterday's unadjusted last trade). Journals
+        CORPORATE_ACTION_APPLIED once per action. NO sale, ever. Rights
+        issues are reported (CORPORATE_ACTION_UNAPPLIED, once a day per
+        name) and left alone — their price effect needs the issue price. A
+        crash in one name never stops the others or the job; the book is
+        saved when anything changed. One application at a time (a lock), so
+        two threads can never both double one position. Returns the applied
+        journal bodies; the tickers also land in CA_REFETCH_DUE for the
+        scheduler's history re-fetch."""
+        from . import corporate_actions as _ca
+        now = now or datetime.utcnow()
+        now_ist = now + timedelta(hours=5, minutes=30)
+        today = today or _ca._ist_date(now)
+        if isinstance(today, datetime):
+            today = today.date()
+        applied = []
+        with _CA_LOCK:
+            held = list(self.portfolio.positions.items())
+            if not held:
+                return []
+            if actions_for is None:
+                try:
+                    batch = _ca.actions_for_many([t for t, _ in held])
+                except Exception as e:              # noqa: BLE001
+                    log.warning("corporate actions unreadable: %s", e)
+                    return []
+                lookup = lambda sym: batch.get(sym, [])  # noqa: E731
+            else:
+                lookup = actions_for
+            sessions = None
+            for ticker, pos in held:
+                try:
+                    acts = lookup(_ca.bare(ticker))
+                except Exception as e:              # noqa: BLE001
+                    log.warning("corporate actions unreadable for %s: %s", ticker, e)
+                    continue
+                if not acts:
+                    continue
+                try:
+                    for ca in _ca.pending_for_position(pos, acts, today, now_ist=now_ist):
+                        if _ca.ca_key(ca) in (pos.ca_applied or []):
+                            continue                # belt and braces: never twice
+                        if not _ca.leaves_whole_share(pos, ca):
+                            # a qty-0 position would break every later pass;
+                            # named for a hand settlement, once a day
+                            self._journal_ca_unapplied(
+                                ticker, ca, now,
+                                f"{ca['subject']} would leave less than one whole share "
+                                f"({pos.qty} × {ca['ratio']:g}) — not applied; settle the "
+                                f"holding by hand (cash in lieu).")
+                            continue
+                        body = _ca.apply_to_position(pos, ca)
+                        self.portfolio.cash += float(body["cash_credit"])
+                        line = {"ts": now.isoformat(), "action": "CORPORATE_ACTION_APPLIED",
+                                **body,
+                                "why": (f"{ticker}: {ca['subject']} ex {ca['ex_date']} "
+                                        f"(ratio {ca['ratio']:g}) — qty "
+                                        f"{body['before']['qty']} → {body['after']['qty']}, "
+                                        f"entry {body['before']['entry_price']:.2f} → "
+                                        f"{body['after']['entry_price']:.2f}, stop/target/"
+                                        f"peak ÷ {ca['ratio']:g}. Nothing sold; the exit pass "
+                                        f"now compares like with like (owner order 2026-10-21)."),
+                                "cash_after": round(self.portfolio.cash, 2)}
+                        self.portfolio.decision_journal.append(line)
+                        applied.append(line)
+                        CA_REFETCH_DUE.add(ticker)
+                    # a rights issue is named, never applied (issue price unknown)
+                    entry_day = _ca._ist_date(pos.entry_date).isoformat()
+                    for ca in acts:
+                        if ca["kind"] != "rights":
+                            continue
+                        if not (entry_day < ca["ex_date"] <= today.isoformat()):
+                            continue
+                        if sessions is None:
+                            sessions = set(_ca.recent_sessions(today))
+                        if ca["ex_date"] not in sessions:
+                            continue
+                        self._journal_ca_unapplied(
+                            ticker, ca, now,
+                            "Rights issue on a held name — not applied: the price "
+                            "effect depends on the issue price (DATA_NEEDED). Check "
+                            "the position by hand.")
+                except Exception as e:              # noqa: BLE001
+                    log.exception("corporate action apply failed for %s: %s", ticker, e)
+            if applied:
+                try:
+                    self.portfolio.save()
+                except Exception:                   # noqa: BLE001
+                    log.exception("save after corporate actions failed")
+        return applied
+
+    def _journal_ca_unapplied(self, ticker: str, ca: dict, now, why: str) -> None:
+        """CORPORATE_ACTION_UNAPPLIED, at most once a day per name."""
+        today_iso = now.date().isoformat()
+        if any(e.get("action") == "CORPORATE_ACTION_UNAPPLIED"
+               and e.get("ticker") == ticker
+               and str(e.get("ts", "")).startswith(today_iso)
+               for e in self.portfolio.decision_journal[-200:]):
+            return
+        self.portfolio.decision_journal.append({
+            "ts": now.isoformat(), "action": "CORPORATE_ACTION_UNAPPLIED",
+            "ticker": ticker, "subject": ca["subject"], "ex_date": ca["ex_date"],
+            "why": why,
+        })
+
+    def _absorb_corporate_actions(self, where: str) -> None:
+        """The ex-date adjuster as the first step of refresh() / scan().
+        Never raises — a fault here must not cost the exit pass."""
+        try:
+            self.apply_corporate_actions()
+        except Exception:                           # noqa: BLE001
+            log.exception("corporate-action adjuster failed before %s", where)
 
     def _roll_risk_day(self, current_equity: float, now: datetime) -> None:
         """Re-baseline the daily loss halt once per trading day.

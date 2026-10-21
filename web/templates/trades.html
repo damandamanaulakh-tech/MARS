@@ -13,8 +13,126 @@
       {% if show_archive %}<a href="/trades" class="underline">Hide them</a>{% else %}<a href="/trades?archive=1" class="underline">Show them</a>{% endif %}
     </p>
     {% endif %}
+    {% if user and user.role == 'owner' and not audit %}
+    <p class="text-xs text-ink-faint mt-1"><!-- trade_audit_link_marker --><a href="/trades?audit=1" class="underline">🔎 Check every buy/sell price against the Upstox candles of its day</a> (your ask 2026-10-21; nothing changes until you tap Correct).</p>
+    {% endif %}
   </div>
 </div>
+
+{% if audit %}
+<!-- trade_audit_marker — owner 2026-10-21: every fill vs the day's Upstox candles -->
+<div class="bg-white border border-line p-4 lg:p-6 mb-6 lg:mb-8" id="audit">
+  <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+    <div>
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase">PRICE AUDIT · STORED FILL vs UPSTOX CANDLE OF THAT DAY</div>
+      {% if audit.error %}
+      <p class="text-sm text-red-700 mt-2"><!-- trade_audit_error_marker -->Audit could not run: {{ audit.error }}</p>
+      {% elif audit.summary %}
+      <p class="text-sm mt-2"><!-- trade_audit_summary_marker -->
+        <b>{{ audit.summary.outside }} of {{ audit.summary.fills }} fills</b> outside the day's low–high ({{ audit.summary.flagged_rows }} trade{{ '' if audit.summary.flagged_rows == 1 else 's' }});
+        <b>{{ audit.summary.with_ca }}</b> with a corporate action between buy and sell;
+        {% if audit.summary.needs_ca_record %}<span class="text-amber-800"><!-- trade_audit_needs_ca_marker -->{{ audit.summary.needs_ca_record }} look split but have NO corporate-action record reachable (not corrected on a guess — the 08:50 NSE fetch or a later tap supplies it);</span> {% endif %}
+        {% if audit.summary.no_candle %}{{ audit.summary.no_candle }} with no candle served; {% endif %}
+        cash would change by <b>₹{{ audit.summary.cash_delta | inr }}</b> if every flagged row were corrected.
+        Checked {{ audit.summary.checked }} of {{ audit.summary.total }} rows in {{ audit.elapsed_s }} s.
+      </p>
+      {% endif %}
+      <p class="text-xs text-ink-faint mt-1">Real price = close of the 1-minute Upstox candle at the fill minute (30-min, then the day's close when none is served), ± the engine's own 5 bps slippage. {{ audit.tol_note }}. Candles are back-adjusted for later splits/bonuses; a fill before one is compared on its own-day basis. <b>A split or bonus BETWEEN buy and sell</b> (your rule 2026-10-21): the sell stays as booked, the buy is restated on the post-action basis — entry ÷ ratio, qty × ratio — and P&amp;L is recomputed on the restated legs (a 2-for-1 split turns a booked −49% into the real move). Corrected P&amp;L runs the same trade_costs maths as the engine. Every correction is your tap, journaled TRADE_PRICE_CORRECTED, cash moved by exactly the net difference; today's loss-halt baseline and the drawdown peak move with it, so a correction never reads as a trading loss (the kill switch and the drawdown ladder both sell). Held names now absorb a split on its ex-date automatically (CORPORATE_ACTION_APPLIED, 09:20 / boot / in-session pass) — nothing is sold for it.</p>
+      {% if audit.stopped %}
+      <p class="text-xs text-amber-800 mt-1"><!-- trade_audit_budget_marker -->{{ audit.summary.unchecked }} row(s) not checked this open — the {{ audit.budget_s | int }} s time budget ran out (SB_TRADE_AUDIT_BUDGET_S). Tap <a href="/trades?audit=1" class="underline">again</a>: candles already fetched are kept 30 min, so the next open gets further.</p>
+      {% endif %}
+      {% if audit_msg.corrected is defined %}
+      <p class="text-sm text-emerald-800 mt-2"><!-- trade_audit_done_marker -->Corrected {{ audit_msg.corrected }} row(s); cash moved by ₹{{ audit_msg.delta_cash }}. Journal: TRADE_PRICE_CORRECTED.</p>
+      {% endif %}
+      {% if audit_msg.refused %}
+      <p class="text-sm text-amber-800 mt-1"><!-- trade_audit_refused_marker -->Refused: {{ audit_msg.refused }}</p>
+      {% endif %}
+      {% if audit_msg.error %}
+      <p class="text-sm text-red-700 mt-1">{{ audit_msg.error }}</p>
+      {% endif %}
+    </div>
+    {% if audit.summary and audit.summary.flagged_rows > audit.summary.needs_ca_record %}
+    <form method="post" action="/trades/correct" onsubmit="return confirm('Rewrite every flagged trade to the real candle prices and move cash by the net difference?');">
+      <input type="hidden" name="all_flagged" value="1">
+      <button type="submit" class="text-xs font-semibold tracking-widest uppercase border border-ink px-3 py-2 hover:bg-ink hover:text-white" data-correct-all>Correct all {{ audit.summary.flagged_rows - audit.summary.needs_ca_record }} flagged</button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if audit.rows %}
+  <div class="overflow-x-auto">
+  <table class="w-full text-xs">
+    <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+      <tr>
+        <th class="text-left px-2 py-2 whitespace-nowrap">Trade</th>
+        <th class="text-left px-2 py-2 whitespace-nowrap">Side · day (IST)</th>
+        <th class="text-right px-2 py-2 whitespace-nowrap">Stored ₹</th>
+        <th class="text-right px-2 py-2 whitespace-nowrap">Day low – high</th>
+        <th class="text-right px-2 py-2 whitespace-nowrap">Real ₹ (source)</th>
+        <th class="text-left px-2 py-2 whitespace-nowrap">Flag</th>
+        <th class="text-left px-2 py-2 whitespace-nowrap">Why (journal)</th>
+        <th class="text-right px-2 py-2 whitespace-nowrap">Stored net</th>
+        <th class="text-right px-2 py-2 whitespace-nowrap">Corrected net</th>
+        <th class="text-right px-2 py-2 whitespace-nowrap">Change</th>
+        <th class="px-2 py-2"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in audit.rows %}
+      {% set sides = [r.buy, r.sell] if r.sell else [r.buy] %}
+      {% for s in sides %}
+      <tr class="border-b border-line {% if r.flagged %}bg-amber-50{% elif r.pre_mars %}bg-slate-50 text-ink-faint{% endif %}" data-audit-row="{{ r.id }}">
+        {% if loop.first %}
+        <td class="px-2 py-2 font-semibold whitespace-nowrap align-top" rowspan="{{ sides | length }}"><!-- trade_audit_row_marker -->
+          {{ r.ticker }} × {{ r.qty }}<br>
+          <span class="text-[10px] uppercase tracking-widest text-ink-faint">{{ r.reason }}{% if r.kind == 'open' %} · open position{% endif %}{% if r.archived %} · archived{% endif %}</span>
+          {% if r.ca_between %}<br><span class="text-[10px] text-amber-800" title="{{ r.ca_between | join('; ') }}">⚠ corporate action: {{ r.ca_between | join('; ') }}</span>{% endif %}
+          {% if r.restate %}<br><span class="text-[10px] text-amber-900" data-audit-restate="{{ r.ticker }}"><!-- trade_audit_restate_marker -->↳ {{ r.restate.why }}</span>{% endif %}
+          {% if r.rights_between %}<br><span class="text-[10px] text-ink-faint">rights issue {{ r.rights_between | join('; ') }} — price effect needs the issue price (DATA_NEEDED), not applied</span>{% endif %}
+          {% if r.needs_ca_record %}<br><span class="text-[10px] text-amber-800" data-audit-needs-ca="{{ r.ticker }}">needs the corporate-action record before any correction</span>{% endif %}
+        </td>
+        {% endif %}
+        {% if s %}
+        <td class="px-2 py-2 whitespace-nowrap">{{ s.side }} · {{ s.date_ist }} {{ s.time_ist }}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">₹{{ s.stored | inr(2) }}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">{% if s.day_low is not none %}{{ s.day_low | inr(2) }} – {{ s.day_high | inr(2) }}{% if s.factor != 1 %} <span class="text-[10px] text-ink-faint" title="candles back-adjusted; × {{ s.factor }} on that day">(adj)</span>{% endif %}{% else %}—{% endif %}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">{% if s.minute_price is not none %}₹{{ s.minute_price | inr(2) }} <span class="text-[10px] text-ink-faint" title="{{ s.real_source }}">({{ s.real_source }})</span>{% else %}—{% endif %}</td>
+        <td class="px-2 py-2 whitespace-nowrap">
+          {% if s.flag == flag_ok %}<span class="text-emerald-700">OK</span>
+          {% elif s.flag == 'NO_CANDLE' %}<span class="text-ink-faint" title="{{ s.note }}">NO CANDLE</span>
+          {% else %}<span class="font-semibold text-red-700" title="{{ s.note }}">{{ s.flag }}</span>{% endif %}
+          {% if s.ratio_hint %}<span class="text-[10px] text-ink-faint" title="{{ s.note }}"> ×{{ '%.4g' % s.ratio_hint }} fits</span>{% endif %}
+          {% if s.note and s.flag != flag_ok %}<div class="text-[10px] text-ink-faint max-w-[22rem] whitespace-normal">{{ s.note }}</div>{% endif %}
+        </td>
+        <td class="px-2 py-2 text-ink-soft whitespace-nowrap" title="journal line within 2 min of the fill">{{ s.source or '—' }}</td>
+        {% else %}
+        <td class="px-2 py-2 text-ink-faint whitespace-nowrap" colspan="6">{{ r.note }}</td>
+        {% endif %}
+        {% if loop.first %}
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap align-top" rowspan="{{ sides | length }}">{% if r.kind == 'closed' %}₹{{ r.stored_net | inr }}{% else %}—{% endif %}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap align-top" rowspan="{{ sides | length }}">{% if r.corrected and r.corrected.net is not none %}₹{{ r.corrected.net | inr }}{% if r.restate %}<br><span class="text-[10px] text-ink-faint">{{ r.restate.qty }} × ₹{{ r.restate.entry | inr(2) }} → ₹{{ r.corrected.exit | inr(2) }}</span>{% endif %}{% elif r.corrected and r.kind == 'open' %}entry → ₹{{ r.corrected.entry | inr(2) }}{% if r.restate %}<br><span class="text-[10px] text-ink-faint">qty → {{ r.restate.qty }}</span>{% endif %}{% elif r.needs_ca_record %}<span class="text-[10px] text-amber-800">needs CA record</span>{% else %}—{% endif %}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap align-top {% if r.delta_cash > 0 %}text-emerald-700{% elif r.delta_cash < 0 %}text-red-700{% endif %}" rowspan="{{ sides | length }}">{% if r.checked %}₹{{ r.delta_cash | inr }}{% else %}—{% endif %}</td>
+        <td class="px-2 py-2 align-top" rowspan="{{ sides | length }}">
+          {% if r.flagged and r.corrected %}
+          <form method="post" action="/trades/correct" onsubmit="return confirm('Rewrite {{ r.ticker }} to the real candle prices and move cash by ₹{{ r.delta_cash | inr }}?');">
+            <input type="hidden" name="id" value="{{ r.id }}">
+            <button type="submit" class="text-[10px] font-semibold tracking-widest uppercase border border-ink px-2 py-1 hover:bg-ink hover:text-white whitespace-nowrap" data-correct-one="{{ r.ticker }}">Correct</button>
+          </form>
+          {% endif %}
+        </td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% elif not audit.error %}
+  <p class="text-sm text-ink-faint">No closed trades or open positions to check.</p>
+  {% endif %}
+  <p class="text-[10px] text-ink-faint mt-3">Root causes a wrong fill can have (code read 2026-10-21): a yfinance daily close served as the quote (quote_router.fetch_quotes yf_close), the scan's prev_close from a stale or back-adjusted stored candle (engine.scan fill_source prev_close), a price you typed on SELL (OWNER_SELL owner_typed), a bare quote on the owner BUY button (no slippage), and a split/bonus on a held name with no position adjustment. The "Why" column names the journal's source for each fill. <a href="/trades" class="underline">Close the audit</a>.</p>
+</div>
+{% endif %}
 
 <!-- F9: P&L vs win-rate at a glance -->
 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4 mb-6 lg:mb-8">

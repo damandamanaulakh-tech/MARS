@@ -43,6 +43,28 @@ CACHE_TTL_SECONDS = 24 * 60 * 60  # 24 hours
 # In-memory lookup map, built lazily on first call
 _LOOKUP: dict[str, str] | None = None
 _LOOKUP_BUILT_AT: float = 0.0
+# Owner order 2026-10-21 (the BLSE split changed its ISIN INE0NLT01010 →
+# INE0NLT01028 and Upstox refused the old key): keys the 08:50 universe
+# refresh saw CHANGE for a held name. Consulted before the 24-hour cached
+# master by every lookup path (get_lookup, to_instrument_key[s] and
+# data._instrument_key all read the dict get_lookup returns), so a held
+# name is never priced or re-fetched on yesterday's key.
+_OVERRIDES: dict[str, str] = {}
+
+
+def prefer_keys(mapping: dict) -> None:
+    """Remember fresh {ticker: instrument_key} pairs and apply them to the
+    lookup in use right now; a later rebuild re-applies them."""
+    global _LOOKUP
+    for t, k in (mapping or {}).items():
+        if t and k:
+            _OVERRIDES[t] = k
+    if _LOOKUP is not None and _OVERRIDES:
+        _LOOKUP.update(_OVERRIDES)
+
+
+def preferred_keys() -> dict:
+    return dict(_OVERRIDES)
 
 
 def _download_csv() -> Optional[bytes]:
@@ -175,6 +197,7 @@ def get_lookup(force_refresh: bool = False) -> dict[str, str]:
     csv_bytes = _ensure_cached(force=force_refresh)
     built = _build_lookup(csv_bytes) if csv_bytes else {}
     if built:
+        built.update(_OVERRIDES)
         _LOOKUP, _LOOKUP_SOURCE = built, "upstox_master"
         _LOOKUP_BUILT_AT = now
         log.info("Upstox instrument lookup built: %d NSE equities", len(_LOOKUP))
@@ -182,6 +205,7 @@ def get_lookup(force_refresh: bool = False) -> dict[str, str]:
 
     fallback = committed_lookup()
     if fallback:
+        fallback.update(_OVERRIDES)
         log.error("Upstox instrument master unusable (%s) — falling back to the "
                   "committed CSV: %d tickers. LIVE PRICES ARE DEGRADED TO THE "
                   "SHIPPED UNIVERSE.",
@@ -195,6 +219,7 @@ def get_lookup(force_refresh: bool = False) -> dict[str, str]:
               "fail. Prices will show as unavailable, never as stale.")
     if _LOOKUP is None:
         _LOOKUP = {}
+    _LOOKUP.update(_OVERRIDES)
     _LOOKUP_SOURCE = "none"
     return _LOOKUP
 
@@ -233,6 +258,7 @@ def to_instrument_keys(yf_tickers: list[str]) -> dict[str, str]:
 def status() -> dict:
     return {
         "lookup_size": len(_LOOKUP) if _LOOKUP is not None else 0,
+        "preferred_keys": len(_OVERRIDES),
         "lookup_source": _LOOKUP_SOURCE,
         "lookup_built_at": _LOOKUP_BUILT_AT,
         "cache_file_exists": CACHE_FILE.exists(),
