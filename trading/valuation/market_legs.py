@@ -7,6 +7,10 @@
         × rates leg (10-year yield, batch 2's feed)
         × the currency factor through EPS (currency.py; 1 when DATA_NEEDED)
 
+The sector leg is applied only when its window matches the Sensex move's
+(start and end within ASSUMED sector_window_tol_days = 7 days, windows_match);
+otherwise it is not applied and the note names both windows.
+
 Two columns side by side, as §11 prints its sector leg:
     typed    : β_mkt = 1 (the sheet's B156) and c = 1 (1:1)
     measured : β_mkt = the stock's 252-session OLS slope on the Sensex,
@@ -82,6 +86,12 @@ ASSUMED: Dict[str, dict] = {
     "verdict_now_column": {"value": "measured when β and c are both measured, else typed",
                            "source": "ASSUMED here 2026-10-21 — the other column's verdict "
                                      "prints beside it"},
+    "sector_window_tol_days": {
+        "value": 7,
+        "source": "VALFIX batch-3 review 2026-10-21 (B4): a sector refresh that failed leaves "
+                  "the sector store days behind the index file; 7 calendar days = one missed "
+                  "week. Sensex and sector windows (start or end) further apart than this = "
+                  "the sector leg is not applied, both windows named"},
 }
 
 GLOBAL_LEGS = (("sp500", "S&P 500"), ("nasdaq", "Nasdaq"), ("dow", "Dow Jones"))
@@ -252,6 +262,31 @@ def regress(stock: Optional[pd.Series], sensex: Optional[pd.Series],
 
 # ------------------------------------------------------------------- legs
 
+def windows_match(sensex_move: Optional[dict], sector_move: Optional[dict],
+                  tol_days: Optional[int] = None, *,
+                  sector_name: Optional[str] = None) -> tuple:
+    """(ok, why): do the Sensex and sector moves cover the same window?
+    Compares the `start_date` / `end_date` that valuation_context.
+    move_between puts on every OK move. Either end further apart than
+    `tol_days` (ASSUMED sector_window_tol_days, 7) = not ok — subtracting a
+    sector move that stops days before the Sensex move would book the gap as
+    a sector effect. `why` names both windows. A move without its dates
+    cannot be compared: ok, and `why` says so (no live path builds one)."""
+    tol = int(ASSUMED["sector_window_tol_days"]["value"] if tol_days is None else tol_days)
+    name = sector_name or "the sector index"
+    s, x = sensex_move or {}, sector_move or {}
+    sa, se = _iso(s.get("start_date")), _iso(s.get("end_date"))
+    xa, xe = _iso(x.get("start_date")), _iso(x.get("end_date"))
+    if None in (sa, se, xa, xe):
+        return True, "window dates not on the moves — not compared"
+    gap = max(abs((sa - xa).days), abs((se - xe).days))
+    span = (f"Sensex {sa.isoformat()}→{se.isoformat()}, {name} "
+            f"{xa.isoformat()}→{xe.isoformat()}: the windows differ by {gap} day(s)")
+    if gap > tol:
+        return False, f"{span} (more than {tol})"
+    return True, (f"{span} (within {tol})" if gap else "")
+
+
 def _column(own: float, s_pct: float, rel_pct: Optional[float], beta: float,
             coef: Optional[float], rates_mult: Optional[float], fx: float) -> dict:
     m = 1.0 + beta * s_pct / 100.0
@@ -264,11 +299,15 @@ def _column(own: float, s_pct: float, rel_pct: Optional[float], beta: float,
 
 def market_adjust(own_target: Optional[float], *, sensex_move: dict, sector_move: Optional[dict],
                   sector_is_market: bool, reg: dict, rates: dict, fx_factor: float = 1.0,
-                  dated_today: bool = False) -> dict:
+                  dated_today: bool = False, sector_name: Optional[str] = None,
+                  window_tol_days: Optional[int] = None) -> dict:
     """Both columns. Missing legs are named: the market leg missing = no
     market-adjusted target; a missing sector or rates leg is NOT applied
     (× 1 avoided in words — the note says so); FX is the EPS factor (1 when
-    its own block says DATA_NEEDED)."""
+    its own block says DATA_NEEDED). A sector move whose window differs from
+    the Sensex move's by more than ASSUMED sector_window_tol_days is not
+    applied either (`windows_match`; `sector_name` names the index in the
+    note)."""
     out: Dict[str, Any] = {"status": "OK", "why": "", "notes": [], "typed": None,
                            "measured": None, "measured_why": "", "dated_today": dated_today}
     own = num(own_target)
@@ -290,7 +329,13 @@ def market_adjust(own_target: Optional[float], *, sensex_move: dict, sector_move
         out["notes"].append("no NSE sector index for this name — the sector-vs-market leg "
                             "is counted 0 (the market leg carries it)")
     elif (sector_move or {}).get("status") == "OK":
-        rel_pct = float(sector_move["pct"]) - s_pct
+        ok, wwhy = windows_match(sensex_move, sector_move, window_tol_days,
+                                 sector_name=sector_name)
+        out["sector_window"] = {"ok": ok, "why": wwhy}
+        if ok:
+            rel_pct = float(sector_move["pct"]) - s_pct
+        else:
+            out["notes"].append("sector leg not applied — " + wwhy)
     else:
         out["notes"].append("sector leg not applied — "
                             + ((sector_move or {}).get("why") or "no sector index move"))

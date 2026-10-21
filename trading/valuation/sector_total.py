@@ -16,7 +16,10 @@ route — the peer group the range already uses):
                         equity)                       (book routes)
     4-yr FY-end average = the mean of the four latest FY-end aggregates on a
                         CONSTANT panel (names with every one of the four
-                        FYs), each = Σ(FY-end close × that FY's shares) ÷
+                        FYs; the four = the newest held by at least half
+                        the group, so an off-cycle Sep/Dec-year name cannot
+                        pull the window ahead of the rest — it is left
+                        out and named), each = Σ(FY-end close × that FY's shares) ÷
                         Σ that FY's PAT (the app's own_pe_history
                         convention); "now" is recomputed on that same panel
     % below 52-week high = the group total now against the highest daily
@@ -32,6 +35,8 @@ from __future__ import annotations
 
 from datetime import date
 from typing import Any, Dict, Iterable, List, Optional
+
+import math
 
 import pandas as pd
 
@@ -50,6 +55,12 @@ ASSUMED: Dict[str, dict] = {
                            "same FY column as the March-year names"},
     "panel": {"value": "constant panel: names with all four FYs priced",
               "source": "REPORT_sector_val.md (study 2) method"},
+    "fy_window_quorum": {
+        "value": "the four FY labels = the newest four held by at least half the group's "
+                 "priced names (ceil(n/2); at least 1 when one name, 2 when two or more)",
+        "source": "VALFIX batch-3 review 2026-10-21 (B3): a Sep- or Dec-year name (SIEMENS, "
+                  "ENRIN, ABB, VBL) files its FY27 before any March-year name, so 'the newest "
+                  "four labels anyone holds' shrank the panel to that one name"},
     "fy_years": {"value": 4, "source": "owner 2026-10-21 ('4-yr FY-end average')"},
     "high_window": {"value": 252,
                     "source": "52 weeks of sessions; a name enters the high only when its "
@@ -172,10 +183,26 @@ def _fy_rows(row: dict) -> Dict[str, dict]:
     return out
 
 
+def _quorum(n: int) -> int:
+    """Names that must hold an FY label before it can be one of the four
+    (ASSUMED fy_window_quorum): half the group, at least 1 (one name) / 2."""
+    if n <= 1:
+        return 1
+    return max(2, math.ceil(n / 2))
+
+
 def fy_history(rows: Iterable[dict], fy_closes: Dict[str, Dict[str, float]],
                prices: Dict[str, float], years: int = int(ASSUMED["fy_years"]["value"])) -> dict:
-    """{labels, panel, by_fy: {label: {pe, ev_ebitda, pb}}, avg, now} on a
-    constant panel. `fy_closes` = {ticker: {period_end: close on/before it}}."""
+    """{labels, panel, off_cycle, by_fy: {label: {pe, ev_ebitda, pb}}, avg,
+    now} on a constant panel. `fy_closes` = {ticker: {period_end: close
+    on/before it}}.
+
+    The four labels are the newest four held by at least half the group
+    (`_quorum`), so one off-cycle name (a Sep- or Dec-year company whose
+    FY27 is filed before any March-year FY27) can no longer pull the window
+    forward and leave itself as the whole panel. A priced name without all
+    four stays out of the panel, is listed in `off_cycle`, and `why` names
+    it; the average is still read on the names that hold all four."""
     rows = list(rows)
     per: Dict[str, Dict[str, dict]] = {}
     labels: set = set()
@@ -191,18 +218,28 @@ def fy_history(rows: Iterable[dict], fy_closes: Dict[str, Dict[str, float]],
         if ok:
             per[t] = ok
             labels |= set(ok)
-    want = sorted(labels)[-years:]
-    out: Dict[str, Any] = {"labels": want, "panel": [], "by_fy": {}, "avg": {}, "now": {},
-                           "why": ""}
+    n = len(per)
+    need = _quorum(n)
+    held = {lab: sum(1 for ok in per.values() if lab in ok) for lab in labels}
+    want = sorted(lab for lab in labels if held[lab] >= need)[-years:]
+    out: Dict[str, Any] = {"labels": want, "panel": [], "off_cycle": [], "by_fy": {},
+                           "avg": {}, "now": {}, "why": "", "quorum": need, "n_names": n}
     if len(want) < years:
-        out["why"] = (f"only {len(want)} FY-end(s) priced for this group — the "
-                      f"{years}-yr average needs {years}")
+        out["why"] = (f"only {len(want)} FY-end(s) priced for this group by at least {need} "
+                      f"of its {n} priced name(s) — the {years}-yr average needs {years}")
         return out
     panel = sorted(t for t, ok in per.items() if all(lab in ok for lab in want))
     out["panel"] = panel
+    out["off_cycle"] = sorted(t for t in per if t not in set(panel))
     if not panel:
-        out["why"] = "no name in the group has all four FY-ends priced"
+        out["why"] = f"no name in the group has all four FY-ends ({'/'.join(want)}) priced"
         return out
+    if len(panel) < n:
+        left = out["off_cycle"]
+        out["why"] = (f"{len(left)} of {n} priced name(s) left out of the constant panel — "
+                      f"not every one of {'/'.join(want)} priced (a year-end off the March "
+                      f"cycle, or fewer years filed): {', '.join(left[:12])}"
+                      + (" …" if len(left) > 12 else ""))
     for lab in want:
         m = pat = ev = eb = bm = bk = 0.0
         n_ev = n_bk = n_pe = 0
@@ -294,8 +331,9 @@ def block(rows: List[dict], prices: Dict[str, float], family: str, built: Option
                            "multiple_label": MULTIPLE_LABEL[key], "multiple_now": now.get(key),
                            "panel_n": 0, "avg": None, "panel_now": None, "vs_avg_pct": None,
                            "pe_avg": None, "pe_panel_now": None, "pe_vs_avg_pct": None,
-                           "labels": [], "fy_why": "", "high_cr": None, "high_date": None,
-                           "below_high_pct": None, "high_why": "", "unpriced": now["unpriced"]}
+                           "labels": [], "fy_why": "", "off_cycle": [], "high_cr": None,
+                           "high_date": None, "below_high_pct": None, "high_why": "",
+                           "unpriced": now["unpriced"]}
     if not now["n_priced"]:
         out.update(status="DATA_NEEDED", fy_why="no group name is priced")
         return out
@@ -305,12 +343,20 @@ def block(rows: List[dict], prices: Dict[str, float], family: str, built: Option
     else:
         out["labels"] = fy.get("labels") or []
         out["panel_n"] = len(fy.get("panel") or [])
-        if fy.get("why"):
-            out["fy_why"] = fy["why"]
-        else:
+        out["off_cycle"] = list(fy.get("off_cycle") or [])
+        # with a panel the `why` is a note (who was left out), not a failure
+        out["fy_why"] = fy.get("why") or ""
+        if fy.get("panel"):
             panel_rows = [r for r in rows if r.get("ticker") in set(fy.get("panel") or [])]
             pn = totals(panel_rows, prices)
             out["avg"] = (fy.get("avg") or {}).get(key)
+            if out["avg"] is None:
+                # the reason the average is missing comes first; who was left
+                # out of the panel (if anyone) follows as a note
+                out["fy_why"] = "; ".join(x for x in (
+                    f"a year on the {out['panel_n']}-name panel has no positive "
+                    f"{MULTIPLE_LABEL[key]} (a loss year or no figures on file)",
+                    fy.get("why") or "") if x)
             out["panel_now"] = pn.get(key)
             if out["avg"] and out["panel_now"]:
                 out["vs_avg_pct"] = (out["panel_now"] / out["avg"] - 1.0) * 100.0

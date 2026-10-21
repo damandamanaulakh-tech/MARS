@@ -118,3 +118,78 @@ def test_a_year_with_no_pat_on_file_stays_out_of_that_years_pe():
     assert h["panel"] == ["A.NS", "B.NS"]
     assert h["by_fy"]["FY24"]["pe"] == pytest.approx(10.0)   # A alone: 1000 ÷ 100 (old: 20)
     assert h["by_fy"]["FY23"]["pe"] == pytest.approx(10.0)
+
+
+# ------------------------------------------------- batch-3 review fix (B3)
+
+def _period_row(t, periods, pat=100.0, shares=100):
+    fy = {p: {"shares": shares, "pat": pat} for p in periods}
+    return {"ticker": t, "shares_outstanding": shares, "pat": pat, "fy": fy}
+
+
+MARCH = [f"{y}-03-31" for y in (2023, 2024, 2025, 2026)]                 # FY23-FY26
+SEP = [f"{y}-09-30" for y in (2023, 2024, 2025, 2026)]                   # FY24-FY27
+
+
+def _group(sep_periods):
+    rows = [_period_row(f"M{i}.NS", MARCH) for i in range(9)]
+    rows.append(_period_row("SEPYR.NS", sep_periods))
+    closes = {r["ticker"]: {p: 10.0 for p in r["fy"]} for r in rows}
+    return rows, closes
+
+
+def test_an_off_cycle_name_cannot_shrink_the_four_year_window_to_itself():
+    # 9 March-year names hold FY23-FY26; one Sep-year name (SIEMENS / ENRIN
+    # shape) holds FY24-FY27 — its FY27 arrives before any March-year FY27.
+    # The old window took the newest four labels ANYONE held (FY24-FY27)
+    # and the panel came out as the Sep name alone.
+    rows, closes = _group(SEP)
+    h = ST.fy_history(rows, closes, {})
+    assert h["labels"] == ["FY23", "FY24", "FY25", "FY26"]
+    assert h["panel"] == [f"M{i}.NS" for i in range(9)]
+    assert "SEPYR.NS" in h["why"] and "1 of 10" in h["why"]
+    assert h["avg"]["pe"] == pytest.approx(10.0)               # 10 × 100 ÷ 100
+    assert h["off_cycle"] == ["SEPYR.NS"]
+    assert h["quorum"] == 5 and h["n_names"] == 10
+    # the Sep name joins when it holds all four of the group's labels
+    rows2, closes2 = _group(["2022-09-30"] + SEP)              # FY23-FY27
+    h2 = ST.fy_history(rows2, closes2, {})
+    assert h2["labels"] == ["FY23", "FY24", "FY25", "FY26"]
+    assert len(h2["panel"]) == 10 and h2["off_cycle"] == [] and h2["why"] == ""
+
+
+def test_the_quorum_is_half_the_group_at_least_two():
+    # two names: a label one of them alone holds is not in the window
+    rows = [_period_row("A.NS", MARCH), _period_row("B.NS", SEP)]
+    closes = {r["ticker"]: {p: 10.0 for p in r["fy"]} for r in rows}
+    h = ST.fy_history(rows, closes, {})
+    assert h["labels"] == ["FY24", "FY25", "FY26"] and "needs 4" in h["why"]
+    assert h["panel"] == [] and "at least 2 of its 2" in h["why"]
+    assert [ST._quorum(n) for n in (0, 1, 2, 3, 4, 9, 10, 11)] == [1, 1, 2, 2, 2, 5, 5, 6]
+
+
+def test_the_block_reads_the_average_when_names_were_left_out_and_names_them():
+    # the left-out note is a note, not a failure: the average still prints.
+    # The stored FY dict is written out here (the shape fy_history now
+    # stores), so this pins block() itself — the old block() read any
+    # `why` as "no average"
+    rows, _closes = _group(SEP)
+    panel = [f"M{i}.NS" for i in range(9)]
+    labels = ["FY23", "FY24", "FY25", "FY26"]
+    fy = {"labels": labels, "panel": panel, "off_cycle": ["SEPYR.NS"],
+          "why": ("1 of 10 priced name(s) left out of the constant panel — not every one of "
+                  "FY23/FY24/FY25/FY26 priced (a year-end off the March cycle, or fewer "
+                  "years filed): SEPYR.NS"),
+          "by_fy": {lab: {"pe": 10.0, "ev_ebitda": None, "pb": None} for lab in labels},
+          "avg": {"pe": 10.0, "ev_ebitda": None, "pb": None}}
+    prices = {r["ticker"]: 12.0 for r in rows}
+    blk = ST.block(rows, prices, "earnings", {"fy": fy, "high": None})
+    assert blk["avg"] == pytest.approx(10.0) and blk["panel_now"] == pytest.approx(12.0)
+    assert blk["vs_avg_pct"] == pytest.approx(20.0) and blk["panel_n"] == 9
+    assert "SEPYR.NS" in blk["fy_why"]
+    assert blk.get("off_cycle") == ["SEPYR.NS"]
+    # a panel with a loss year gives no average — the reason comes first
+    loss = dict(fy, avg={"pe": None, "ev_ebitda": None, "pb": None})
+    b2 = ST.block(rows, prices, "earnings", {"fy": loss, "high": None})
+    assert b2["avg"] is None and b2["fy_why"].startswith("a year on the 9-name panel has no "
+                                                         "positive P/E")

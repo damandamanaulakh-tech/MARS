@@ -120,8 +120,13 @@ def test_a_table_mixing_business_lines_and_regions_gives_no_share():
 def test_brsr_is_third_counted_usd_with_the_eur_part_by_the_sector_ratio():
     r = CUR.resolve_shares("TCS", None, "IT services / ER&D", TABLE)
     assert r["tier"] == "brsr" and r["caveat"] == "exports from India only"
-    assert r["usd_pct"] + r["eur_pct"] == pytest.approx(94.1, abs=0.01)
-    assert r["eur_pct"] == pytest.approx(94.1 * 20 / 80, abs=0.01)
+    # batch-3 review B6: the two parts add back to the filed 94.1 EXACTLY at
+    # 2 decimals (the defect rounded each part on its own: 70.57 + 23.52 =
+    # 94.09, which the old abs=0.01 tolerance let through)
+    eur = round(94.1 * 20 / 80, 2)                      # 23.52 (23.524999… in floats)
+    assert (eur, round(94.1 - eur, 2)) == (23.52, 70.58)
+    assert r["eur_pct"] == eur and r["usd_pct"] == round(94.1 - eur, 2)
+    assert round(r["usd_pct"] + r["eur_pct"], 2) == 94.1
     plain = CUR.resolve_shares("TCS", None, "IT services / ER&D", {})
     assert plain["tier"] == "brsr" and plain["usd_pct"] == pytest.approx(94.1)
     assert plain["eur_pct"] == 0.0 and "all counted as USD" in plain["detail"]
@@ -191,3 +196,92 @@ def test_a_zero_share_needs_no_margin_and_is_counted():
     fx = CUR.fx_eps(50.0, None, 0.25, r["usd_pct"], r["eur_pct"], 1.0, 1.0)
     assert fx["status"] == "OK" and fx["counted"] and fx["factor"] == 1.0
     assert "no currency effect" in fx["note"]
+
+
+# ------------------------------------------------- batch-3 review fixes (B1, B2, B7)
+
+def test_a_selection_on_or_after_the_newest_fred_reading_is_data_needed_never_0pct():
+    # B1: FRED is weekly and 3-10 days late — a recent selection date finds
+    # the same newest reading at both ends. That is NO reading, not a 0% move.
+    u, e = _fred("fred_usdinr", "DEXINUS"), _fred("fred_usdeur", "DEXUSEU")
+    newest = u.index[-1].date().isoformat()
+    assert newest == "2026-10-16"
+    for sel in (newest, "2026-10-20"):
+        mv = CUR.fx_moves(u, e, sel)
+        for k in ("usd", "eur"):
+            assert mv[k]["status"] == "DATA_NEEDED" and mv[k]["pct"] is None, (sel, k)
+        assert mv["usd"]["why"] == ("no USD/INR (FRED DEXINUS) reading after the selection "
+                                    "date (newest 2026-10-16)")
+        assert "reading after the selection date" in mv["eur"]["why"]
+    # the row's own "now" sitting on the selection-date reading: the same
+    weekly = pd.Series([95.0, 96.0], index=pd.to_datetime(["2026-10-09", "2026-10-16"]))
+    mid = CUR.fx_moves(weekly, None, "2026-10-12", end="2026-10-14")["usd"]
+    assert mid["status"] == "DATA_NEEDED" and "(newest 2026-10-09)" in mid["why"]
+    # the currency block is then not counted: factor 1 = "not applied", said
+    mv = CUR.fx_moves(u, e, newest)
+    fx = CUR.fx_eps(136.0, 27.07, 0.25, 48.3, 15.2, mv["usd"]["pct"], mv["eur"]["pct"],
+                    usd_why=mv["usd"]["why"], eur_why=mv["eur"]["why"])
+    assert fx["status"] == "DATA_NEEDED" and fx["counted"] is False and fx["applied"] is False
+    assert fx["factor"] == 1.0
+    assert any("reading after the selection date" in w and "USD part is counted 0" in w
+               for w in fx["why"])
+    assert any("not applied" in w for w in fx["why"])
+    # a selection date before the newest reading still reproduces the study
+    a = CUR.fx_moves(u, e, "2026-05-15")
+    assert a["usd"]["pct"] == pytest.approx(-1.05, abs=0.005)
+    ok = CUR.fx_eps(136.0, 27.07, 0.25, 48.3, 15.2, a["usd"]["pct"], a["eur"]["pct"])
+    assert ok["counted"] and ok["factor"] == pytest.approx(0.9891, abs=0.0001)
+
+
+def test_one_missing_part_beside_a_real_zero_move_is_still_counted():
+    # B1: "not counted" only when EVERY part with a share lacks its move —
+    # a USD move of exactly 0% is a real reading (the old code read the
+    # total 0 + one missing part as DATA_NEEDED)
+    fx = CUR.fx_eps(10.0, 20.0, 0.25, 40.0, 20.0, 0.0, None)
+    assert fx["status"] == "OK" and fx["counted"] is True and fx["factor"] == 1.0
+    assert fx["why"] == ["EUR/INR move DATA_NEEDED — the EUR part is counted 0"]
+
+
+def test_a_blank_sector_share_reads_zero_in_the_brsr_tier_as_in_the_sector_tier(tmp_path):
+    # B2: one owner entry, one reading — EUR 30 / USD blank means USD 0 in
+    # the BRSR ratio exactly as it does in the sector tier
+    eur_only = {"IT services / ER&D": {"eur_share_pct": 30.0}}
+    r = CUR.resolve_shares("TCS", None, "IT services / ER&D", eur_only)
+    assert r["tier"] == "brsr"
+    assert r["eur_pct"] == 94.1 and r["usd_pct"] == 0.0
+    assert "USD left blank, read as 0" in r["detail"]
+    usd_only = {"IT services / ER&D": {"usd_share_pct": 50.0}}
+    u = CUR.resolve_shares("TCS", None, "IT services / ER&D", usd_only)
+    assert (u["usd_pct"], u["eur_pct"]) == (94.1, 0.0)
+    assert "EUR left blank, read as 0" in u["detail"]
+    zero = CUR.resolve_shares("TCS", None, "IT services / ER&D",
+                              {"IT services / ER&D": {"usd_share_pct": 0.0, "eur_share_pct": 0.0}})
+    assert zero["usd_pct"] == 94.1 and "no sector default ratio — all counted as USD" in zero["detail"]
+    # the sector tier reads the same entry the same way
+    empty = tmp_path / "empty.csv"
+    empty.write_text("symbol,status,export_pct_of_turnover\n")
+    orig = CUR.BRSR_CSV
+    try:
+        CUR.BRSR_CSV = empty
+        CUR._CACHE.clear()
+        s = CUR.resolve_shares("TCS", None, "IT services / ER&D", eur_only)
+        assert s["tier"] == "sector" and (s["usd_pct"], s["eur_pct"]) == (0.0, 30.0)
+    finally:
+        CUR.BRSR_CSV = orig
+        CUR._CACHE.clear()
+
+
+def test_the_deck_based_split_names_the_deck_and_says_why_the_xbrl_was_not_used():
+    # B7: KPITTECH reads its investor deck — the row must not also call it
+    # the NSE results XBRL, and the reason the XBRL was set aside is printed
+    k = CUR.resolve_shares("KPITTECH", None, "IT services / ER&D", TABLE)
+    assert k["tier"] == "filed"
+    assert k["source"].startswith("the company's investor deck, FY to 2026-03-31 (")
+    assert "XBRL)" not in k["source"] and "NSE results XBRL" not in k["source"]
+    assert CUR.MEASURED["KPITTECH"]["note"] in k["detail"]          # printed on the row
+    assert k["note"] == CUR.MEASURED["KPITTECH"]["note"]
+    assert k.get("source_kind") == "investor_deck"
+    w = CUR.resolve_shares("WIPRO", None, "IT services / ER&D", TABLE)
+    assert w["source"].startswith("the company's filed geographic split (NSE results XBRL), FY to")
+    assert "investor deck" not in w["source"]
+    assert w.get("source_kind") == "xbrl"

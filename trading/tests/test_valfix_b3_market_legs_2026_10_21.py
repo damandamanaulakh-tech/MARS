@@ -186,3 +186,69 @@ def test_every_constant_is_sourced():
         for k, v in d.items():
             assert v.get("source"), k
     assert ML.MEASURED["global_delta"]["value"] == {"nasdaq": 0.332, "sp500": 0.286}
+
+
+# ------------------------------------------------- batch-3 review fix (B4)
+
+def _mv(pct, start, end):
+    # the exact keys valuation_context.move_between puts on an OK move
+    return {"status": "OK", "pct": pct, "start_date": start, "start": 100.0,
+            "end_date": end, "end": 100.0 * (1 + pct / 100.0)}
+
+
+def test_the_mover_dict_carries_the_dates_windows_match_reads():
+    from trading import valuation_context as vc
+    s = pd.Series([100.0, 101.0, 102.0],
+                  index=pd.to_datetime(["2026-05-14", "2026-07-01", "2026-10-16"]))
+    m = vc.move_between(s, "2026-05-15", "2026-10-16")
+    assert (m["start_date"], m["end_date"]) == ("2026-05-14", "2026-10-16")
+
+
+def test_the_sector_leg_needs_the_same_window_as_the_sensex():
+    sensex = _mv(-2.0, "2026-05-14", "2026-10-16")
+    reg = {"beta_mkt": 0.9, "rel_coef": 1.1}
+    kw = dict(sector_is_market=False, reg=reg, rates=RATES)
+    # the sector store 10 days behind (a failed refresh) → NOT applied, both windows named
+    behind = ML.market_adjust(1000.0, sensex_move=sensex,
+                              sector_move=_mv(5.0, "2026-05-14", "2026-10-06"), **kw)
+    assert behind["rel_pct"] is None
+    assert behind["typed"]["sector_factor"] is None and behind["measured"]["sector_factor"] is None
+    assert behind["typed"]["target"] == pytest.approx(1000 * 0.98 * 0.95)
+    assert any(n.startswith("sector leg not applied — Sensex 2026-05-14→2026-10-16, the sector "
+                            "index 2026-05-14→2026-10-06") for n in behind["notes"])
+    named = ML.market_adjust(1000.0, sensex_move=sensex,
+                             sector_move=_mv(5.0, "2026-05-14", "2026-10-06"),
+                             sector_name="Nifty IT", **kw)
+    assert ("sector leg not applied — Sensex 2026-05-14→2026-10-16, Nifty IT "
+            "2026-05-14→2026-10-06: the windows differ by 10 day(s) (more than 7)") in named["notes"]
+    # identical windows → applied
+    same = ML.market_adjust(1000.0, sensex_move=sensex,
+                            sector_move=_mv(5.0, "2026-05-14", "2026-10-16"), **kw)
+    assert same["rel_pct"] == pytest.approx(7.0)
+    assert same["typed"]["sector_factor"] == pytest.approx(1.07)
+    assert same["sector_window"] == {"ok": True, "why": ""}
+    # 3 days behind → inside the tolerance, applied (the gap is recorded)
+    near = ML.market_adjust(1000.0, sensex_move=sensex,
+                            sector_move=_mv(5.0, "2026-05-14", "2026-10-13"), **kw)
+    assert near["rel_pct"] == pytest.approx(7.0)
+    assert near["sector_window"]["ok"] is True and "3 day(s)" in near["sector_window"]["why"]
+    assert not any("sector leg not applied" in n for n in near["notes"])
+    # a start 8 days apart is a different window too
+    start = ML.market_adjust(1000.0, sensex_move=sensex,
+                             sector_move=_mv(5.0, "2026-05-22", "2026-10-16"), **kw)
+    assert start["rel_pct"] is None
+    assert any("the sector index 2026-05-22→2026-10-16" in n and "8 day(s)" in n
+               for n in start["notes"])
+    assert ML.ASSUMED["sector_window_tol_days"]["value"] == 7
+
+
+def test_windows_match_compares_both_ends_and_says_when_it_cannot():
+    s = _mv(1.0, "2026-05-14", "2026-10-16")
+    assert ML.windows_match(s, _mv(1.0, "2026-05-14", "2026-10-09")) == (
+        True, "Sensex 2026-05-14→2026-10-16, the sector index 2026-05-14→2026-10-09: the "
+              "windows differ by 7 day(s) (within 7)")
+    ok, why = ML.windows_match(s, _mv(1.0, "2026-05-14", "2026-10-08"), sector_name="Nifty Bank")
+    assert ok is False and why.endswith("8 day(s) (more than 7)") and "Nifty Bank" in why
+    assert ML.windows_match(s, _mv(1.0, "2026-05-14", "2026-10-13"), tol_days=2)[0] is False
+    assert ML.windows_match(s, {"status": "OK", "pct": 1.0}) == (
+        True, "window dates not on the moves — not compared")

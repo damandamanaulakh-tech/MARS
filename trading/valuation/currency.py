@@ -5,7 +5,8 @@ share, it will be used on all sector shares").
     EPS × (1 + s_USD × ΔUSD/INR% × pt + s_EUR × ΔEUR/INR% × pt)
 
     ΔFX = the rupee's move since the selection date (FRED DEXINUS; EUR/INR =
-          DEXINUS × DEXUSEU on the dates both carry a value); + = rupee weaker
+          DEXINUS × DEXUSEU on the dates both carry a value); + = rupee weaker;
+          no reading after the selection date = DATA_NEEDED, never 0%
     pt  = pass-through margin points ÷ EBITDA margin %, read as the EPS %
           one 1% rupee move gives per 100% of revenue in that currency
           (100 × pp ÷ m: TCS 0.25 ÷ 27.07 = 0.924%; PAT is a fixed share of
@@ -15,10 +16,13 @@ share, it will be used on all sector shares").
               eur_share_pct)
           (b) the company's filed geographic split (data/geography_splits.csv,
               NSE results XBRL; Americas → USD, Europe → EUR, UK → GBP shown
-              but not used, India → INR, other → USD by the owner's rule)
+              but not used, India → INR, other → USD by the owner's rule;
+              KPITTECH reads its investor deck instead, and the row says so
+              and why)
           (c) BRSR "exports as % of turnover" (data/geography_brsr_exports.csv)
               counted as USD, the EUR part from the sector default's EUR:USD
-              ratio — exports from India ONLY, said on every row
+              ratio (a blank share beside a filled one reads 0, as in (d)) —
+              exports from India ONLY, said on every row
           (d) the owner's SECTOR default (Den table, settings doc
               valuation_sector_fx; a negative share = an importer)
           (e) DATA_NEEDED — the leg is counted 0 and the row says so.
@@ -66,8 +70,19 @@ ASSUMED: Dict[str, dict] = {
         "source": "owner 2026-10-21: a UK line is reported, not used (no GBP leg)"},
     "brsr_counts_as_usd": {
         "value": "exports % → USD; EUR part = exports × the sector default's EUR ÷ (USD + EUR) "
-                 "when the sector default holds both shares ≥ 0, else all USD",
+                 "when the sector default holds a share, none negative and the two above 0, "
+                 "else all USD",
         "source": "owner answer 2026-10-21 (FX share tiers)"},
+    "blank_share_reads_zero": {
+        "value": "a blank sector-default share beside a filled one is read as 0 — in the BRSR "
+                 "ratio (tier c) exactly as in the sector tier (d); both blank = no ratio",
+        "source": "VALFIX batch-3 review 2026-10-21 (B2): one owner entry, one reading — "
+                  "tier (d) already read a blank as 0, tier (c) read it as 'no ratio'"},
+    "fx_reading_after_selection": {
+        "value": "a currency move needs a FRED reading dated AFTER the reading it starts from; "
+                 "the same newest reading at both ends = DATA_NEEDED, never a 0% move",
+        "source": "VALFIX batch-3 review 2026-10-21 (B1): FRED is weekly (H.10) and 3-10 days "
+                  "late, so a recent selection date finds the same newest reading at both ends"},
     "target_scaling": {
         "value": "target × the EPS factor (the route's multiple held fixed)",
         "source": "REPORT_market_fx.md S2: FX enters through EPS, never the price"},
@@ -80,6 +95,7 @@ MEASURED: Dict[str, dict] = {
     "KPITTECH": {
         "fy_end": "2026-03-31", "basis": "investor deck (FY26 revenue, USD mn)",
         "lines": [("US", "USD", 27.4), ("Europe", "EUR", 48.0), ("Asia", "OTHER", 24.6)],
+        "source_kind": "investor_deck",
         "source_url": ("https://nsearchives.nseindia.com/corporate/MeghanaPhadnis_"
                        "06052026134642_CovletInvestorPresentationMar26_Signed.pdf"),
         "note": "KPIT investor presentation Mar-26: US 198.81 / Europe 348.04 / Asia 177.95 "
@@ -96,6 +112,7 @@ PASS_THROUGH_BOUNDS = (0.0, 5.0)
 TIER_TEXT = {
     "typed": "your typed share (inputs table)",
     "filed": "the company's filed geographic split (NSE results XBRL)",
+    "filed_deck": "the company's investor deck",
     "brsr": "BRSR exports as % of turnover — exports from India only",
     "sector": "your sector default (Den table)",
     "none": "DATA_NEEDED — no typed share, no filed split, no BRSR export figure, "
@@ -154,7 +171,7 @@ def filed_split(sym: Any, path: Optional[Path] = None) -> Optional[dict]:
         m = MEASURED[s]
         return {**_split_from_lines(m["lines"]), "fy_end": m["fy_end"], "basis": m["basis"],
                 "source_url": m["source_url"], "lines": [list(x) for x in m["lines"]],
-                "note": m["note"]}
+                "note": m["note"], "source_kind": m.get("source_kind") or "investor_deck"}
     rows = [r for r in _read(path or GEO_CSV) if _bare(r.get("symbol")) == s]
     if not rows or any(str(r.get("bucket")) == "BUSINESS_LINE" for r in rows):
         return None
@@ -163,7 +180,8 @@ def filed_split(sym: Any, path: Optional[Path] = None) -> Optional[dict]:
     notes = sorted({str(r.get("mapping_note") or "").strip() for r in rows} - {""})
     return {**_split_from_lines(lines), "fy_end": rows[0].get("fy_end") or "",
             "basis": rows[0].get("basis") or "", "source_url": rows[0].get("source_url") or "",
-            "lines": [list(x) for x in lines], "note": " | ".join(notes)[:300]}
+            "lines": [list(x) for x in lines], "note": " | ".join(notes)[:300],
+            "source_kind": "xbrl"}
 
 
 def brsr_exports(sym: Any, path: Optional[Path] = None) -> Optional[dict]:
@@ -221,27 +239,46 @@ def resolve_shares(sym: Any, typed: Optional[dict], sector: str,
             parts.append(f"GBP {fs['gbp_pct']:g}% reported, not used")
         if fs["inr_pct"]:
             parts.append(f"India {fs['inr_pct']:g}%")
+        # the row names the split it really read: the NSE results XBRL, or
+        # (KPITTECH) the investor deck used because its XBRL regions are
+        # gross of unallocated inter-segment revenue — the reason is printed
+        deck = fs.get("source_kind") == "investor_deck"
+        src = TIER_TEXT["filed_deck"] if deck else TIER_TEXT["filed"]
+        note = fs.get("note") or ""
+        if deck and note:
+            parts.append(note)
         return {"tier": "filed", "usd_pct": fs["usd_pct"], "eur_pct": fs["eur_pct"],
-                "source": f"{TIER_TEXT['filed']}, FY to {fs['fy_end']} ({fs['basis']})",
+                "source": f"{src}, FY to {fs['fy_end']} ({fs['basis']})",
                 "caveat": "", "detail": " · ".join(parts), "lines": fs["lines"],
-                "url": fs["source_url"], "note": fs.get("note") or ""}
+                "url": fs["source_url"], "note": note,
+                "source_kind": fs.get("source_kind") or "xbrl"}
     sd = _sector_row(sector, sector_table)
     s_usd, s_eur = num(sd.get("usd_share_pct")), num(sd.get("eur_share_pct"))
     br = brsr_exports(sym)
     if br is not None:
         e = float(br["export_pct"])
-        if s_usd is not None and s_eur is not None and s_usd >= 0 and s_eur >= 0 \
-                and (s_usd + s_eur) > 0:
-            eur = e * s_eur / (s_usd + s_eur)
-            ratio = f"EUR part by your {sector} default EUR {s_eur:g} : USD {s_usd:g}"
-        else:
-            eur = 0.0
+        # one owner entry, one reading: a blank share beside a filled one is
+        # read as 0 here exactly as the sector tier (d) reads it below
+        # (ASSUMED blank_share_reads_zero); both blank = no ratio
+        r_usd = s_usd if s_usd is not None else (0.0 if s_eur is not None else None)
+        r_eur = s_eur if s_eur is not None else (0.0 if s_usd is not None else None)
+        blank = [c for c, v in (("USD", s_usd), ("EUR", s_eur)) if v is None]
+        eur = 0.0
+        if r_usd is None or r_eur is None:
             ratio = "no sector default ratio — all counted as USD"
-        if (s_usd is not None and s_usd < 0) or (s_eur is not None and s_eur < 0):
+        elif r_usd < 0 or r_eur < 0:
             # your order puts BRSR first; an importer's net cost is not an export
-            ratio += (f"; your {sector} default is an importer's (USD {s_usd if s_usd is not None else 0:g} "
-                      f"/ EUR {s_eur if s_eur is not None else 0:g}) — not used, BRSR comes first "
-                      "in your tier order")
+            ratio = (f"all counted as USD — your {sector} default is an importer's "
+                     f"(USD {r_usd:g} / EUR {r_eur:g}) — not used, BRSR comes first in your "
+                     "tier order")
+        elif r_usd + r_eur > 0:
+            eur = e * r_eur / (r_usd + r_eur)
+            ratio = f"EUR part by your {sector} default EUR {r_eur:g} : USD {r_usd:g}"
+            if blank:
+                ratio += f" ({blank[0]} left blank, read as 0)"
+        else:
+            ratio = (f"no sector default ratio — all counted as USD (your {sector} default's "
+                     "USD + EUR is 0)")
         eur = round(eur, 2)                 # the two parts add back to the filed figure
         return {"tier": "brsr", "usd_pct": round(e - eur, 2), "eur_pct": eur,
                 "source": f"{TIER_TEXT['brsr']}, FY {br['fy']} ({br['boundary']})",
@@ -294,6 +331,12 @@ def _move(s: Optional[pd.Series], start: Any, name: str, end: Any = None) -> dic
                        f"selection date"}
     a_d, a = part.index[-1].date().isoformat(), float(part.iloc[-1])
     b_d, b = s.index[-1].date().isoformat(), float(s.iloc[-1])
+    if b_d <= a_d:
+        # FRED is weekly and 3-10 days late: a recent selection date finds the
+        # same newest reading at both ends — that is no reading, not a 0% move
+        # (ASSUMED fx_reading_after_selection)
+        return {"status": "DATA_NEEDED", "pct": None, "start": a, "start_date": a_d,
+                "why": f"no {name} reading after the selection date (newest {a_d})"}
     if a <= 0:
         return {"status": "DATA_NEEDED", "why": f"{name}: non-positive rate", "pct": None}
     return {"status": "OK", "start": a, "start_date": a_d, "end": b, "end_date": b_d,
@@ -320,14 +363,19 @@ def fx_moves(usdinr: Optional[pd.Series], usdeur: Optional[pd.Series],
 
 def fx_eps(eps: Optional[float], margin_pct: Optional[float], pass_through_pp: float,
            usd_pct: Optional[float], eur_pct: Optional[float],
-           d_usd_pct: Optional[float], d_eur_pct: Optional[float]) -> dict:
+           d_usd_pct: Optional[float], d_eur_pct: Optional[float],
+           usd_why: str = "", eur_why: str = "") -> dict:
     """The EPS factor. Every missing input counts its part 0 and is named —
-    the leg is never silently 1.0."""
+    the leg is never silently 1.0. `usd_why` / `eur_why` = the move's own
+    DATA_NEEDED reason (e.g. "no … reading after the selection date"),
+    carried into the row's text. When EVERY part that has a share is
+    DATA_NEEDED the block is not counted (counted False): its factor 1 means
+    "not applied", and says so."""
     out: Dict[str, Any] = {"status": "OK", "factor": 1.0, "counted": True, "why": [],
                            "pt": None, "usd_part_pct": 0.0, "eur_part_pct": 0.0,
-                           "eps": num(eps), "eps_adjusted": num(eps)}
+                           "eps": num(eps), "eps_adjusted": num(eps), "applied": True}
     if usd_pct is None and eur_pct is None:
-        out.update(status="DATA_NEEDED", counted=False,
+        out.update(status="DATA_NEEDED", counted=False, applied=False,
                    why=["no currency share on any tier — the leg is counted 0"])
         return out
     if (num(usd_pct) or 0.0) == 0.0 and (num(eur_pct) or 0.0) == 0.0:
@@ -337,7 +385,7 @@ def fx_eps(eps: Optional[float], margin_pct: Optional[float], pass_through_pp: f
         return out
     m = num(margin_pct)
     if m is None or m <= 0:
-        out.update(status="DATA_NEEDED", counted=False,
+        out.update(status="DATA_NEEDED", counted=False, applied=False,
                    why=["EBITDA margin missing or not positive — pt cannot be read; "
                         "the leg is counted 0"])
         return out
@@ -347,14 +395,18 @@ def fx_eps(eps: Optional[float], margin_pct: Optional[float], pass_through_pp: f
     pt = 100.0 * float(pass_through_pp) / m
     out["pt"] = pt
     why: List[str] = []
-    for cur, share, move, key in (("USD", usd_pct, d_usd_pct, "usd_part_pct"),
-                                  ("EUR", eur_pct, d_eur_pct, "eur_part_pct")):
+    n_parts = n_missing = 0
+    for cur, share, move, key, mwhy in (("USD", usd_pct, d_usd_pct, "usd_part_pct", usd_why),
+                                        ("EUR", eur_pct, d_eur_pct, "eur_part_pct", eur_why)):
         sh = num(share) or 0.0
         if sh == 0.0:
             continue
+        n_parts += 1
         mv = num(move)
         if mv is None:
-            why.append(f"{cur}/INR move DATA_NEEDED — the {cur} part is counted 0")
+            n_missing += 1
+            reason = f" ({mwhy})" if mwhy else ""
+            why.append(f"{cur}/INR move DATA_NEEDED{reason} — the {cur} part is counted 0")
             continue
         out[key] = sh / 100.0 * mv * pt
     total = out["usd_part_pct"] + out["eur_part_pct"]
@@ -363,8 +415,12 @@ def fx_eps(eps: Optional[float], margin_pct: Optional[float], pass_through_pp: f
     if out["eps"] is not None:
         out["eps_adjusted"] = out["eps"] * out["factor"]
     out["why"] = why
-    if why and total == 0.0:
-        out.update(status="DATA_NEEDED", counted=False)
+    if n_parts and n_missing == n_parts:
+        # every part with a share lacks its move: the factor 1 is "not
+        # applied", said — never an OK "no currency effect"
+        why.append("currency leg not applied — no rupee move could be read (× 1 here means "
+                   "not applied, not 'no effect')")
+        out.update(status="DATA_NEEDED", counted=False, applied=False)
     return out
 
 
