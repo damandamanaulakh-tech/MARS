@@ -106,6 +106,7 @@ EDITABLE_FIELDS = [
     ("correction_brake_enabled","Correction Brake On (1/0)","Strategy","number", 1,   "0 = OWNER ORDER 2026-08-09: engine buys even when Nifty is below its 200DMA (correction). 1 = restore the old brake. Panic always blocks", False),
     ("rotation_auto_enabled",  "Auto Rotation On (1/0)",  "Strategy","number", 1,    "OWNER ORDER 2026-09-04: a position >=90% of the way to its target is SOLD at the scan to fund a pick THIS scan is buying, when cash is short for those picks, when the pick's category cash share is full (then only a holding of the same category is sold), or when cash is under 5% of the book. Only as many as needed; owner picks never rotated; no live quote = skipped", False),
     ("danger_layer_enabled",   "Danger Layer On (1/0)",   "Strategy","number", 1,    "OWNER ORDER 2026-08-11: 12 calibration-VERIFIED tripwires (10 price + 2 sector/index panel) guard held names. 1 fire = the stop is raised to a leash below the live price, the WIDER of 2.5%, the position's own category stop and its own entry stop width (never loosened); 2+ fires = exit half. Sell side only. KNOWN BUG XR-060 (fix awaits your word): today only 2 of the 10 price tripwires (T12W_0079, T12W_0096) plus the 2 panel ones can fire", False),
+    ("loss_halt_scope",         "Loss halt scope",         "Strategy", "text",   None, "OWNER ORDER 2026-10-21 ('Halt only the category that lost'). category = (default) the daily loss halt counts losing strategy exits PER CATEGORY: two losing momentum exits halt momentum for the day, the other four keep buying; limit per category = max(2, 10% of that category's open + lost today). book = the old rule, every category halted once the whole book's losers reach max(2, 10% of the book). Only these two words are accepted", False),
     ("measured_kelly_enabled", "Measured Kelly Check On (1/0)", "Strategy","number", 1, "AUDIT F-9, owner order 2026-10-02 ('write it'). 1 = the scan reads Kelly from your OWN closed strategy exits (never your sells, square-offs, kill switch or ladder): no measured edge = NO new scan entries; measured edge = each new trade capped at that size (never below the Rs 1.5L slab, never raised). Your BUY button and Buy Desk are never blocked. 0 = off. Reading on the Risk page. OWNER ORDER 2026-10-05 ('make it momentum only'): it counts MOMENTUM exits only and gates MOMENTUM buys only — intraday, short, swing, positional and Ocean are neither counted nor blocked.", False),
     ("multi_formula_gate",     "Three-Formula Filter On (1/0)", "Strategy","number", 1, "OWNER ORDER 2026-09-11. 0 = show the ASH08 (68) and AshStocks (70) verdicts on every stock but let AM07 decide (default). 1 = a pick must clear those floors too. MEASURED before you switch it on: ASH08's floor removes only 3% of our candidates (its quality leg is data coverage, so 68 means '6m return above +0.385%'), and AshStocks' live 20-day rule scored -0.77 train / -0.45 test. See research/ash_formula_study/", False),
     ("breakout_threshold_pct",  "Breakout Threshold %",    "Strategy","number", 0.5,  "Within N% of 20-day high", True),
@@ -516,6 +517,14 @@ def _settings_save_body(form):
     if float(getattr(cfg, "kelly_fraction", 0.5)) > 1.0:
         cfg.kelly_fraction = 1.0
         overrides["kelly_fraction"] = 1.0
+    # Owner order 2026-10-21: the loss-halt scope is one of two words; a typo
+    # lands on the owner's choice (category), never on the old rule.
+    _scope = str(getattr(cfg, "loss_halt_scope", "category") or "").strip().lower()
+    if _scope not in ("category", "book"):
+        _scope = "category"
+    if getattr(cfg, "loss_halt_scope", None) != _scope:
+        cfg.loss_halt_scope = _scope
+        overrides["loss_halt_scope"] = _scope
 
     # Re-apply mode preset (overwrites stops/targets per the chosen mode)
     cfg.apply_mode_preset()

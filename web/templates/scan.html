@@ -199,7 +199,7 @@
 <div class="bg-white border border-line mb-6" x-data="{ otype: 'market' }">
   <div class="px-4 lg:px-6 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
     <span class="text-xs tracking-widest text-ink-faint uppercase">🟢 Place paper order — blank fields = app decides</span>
-    <span class="text-[10px] text-ink-faint">Limit orders: day validity, checked at every engine price pass, expire 15:25</span>
+    <span class="text-[10px] text-ink-faint">Limit orders: day validity, checked at every engine price pass, expire 15:25 · <span title="Owner order 2026-10-21: positions you open yourself sit in their own bucket, like Ocean, and never fill momentum's 40% share.">counts under owner, outside the five shares</span></span>
   </div>
   <form method="post" action="/scan/buy" class="px-4 lg:px-6 py-4 flex flex-wrap items-end gap-3 lg:gap-4"
         onsubmit="return confirm('Place ' + this.order_type.value.toUpperCase() + ' BUY for ' + this.ticker.value.toUpperCase() + (this.qty.value ? ' × ' + this.qty.value : ' (auto qty)') + '?');">
@@ -498,6 +498,7 @@
     Sizes are the live slab ladder (score-driven, same arithmetic as the engine), filled in score order until the budget is spent.
     Preview qty uses each name's last scan close; the buy uses the live quote at tap time, slippage applied like an engine fill.
     A name with no live quote is skipped and reported, never filled at a made-up price. Nothing here buys by itself.
+    What it buys <span title="Owner order 2026-10-21: Buy Desk positions sit in the owner bucket, like Ocean, so they never fill momentum's 40% share. The desk checks cash and its budget only, as before; what it holds still counts in the deploy cap and heat the engine's own scan buys are judged against.">counts under owner, outside the five shares</span>.
   </div>
   {% if bd.plan.rows %}
   <div class="overflow-x-auto">

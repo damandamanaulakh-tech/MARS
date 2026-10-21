@@ -50,16 +50,42 @@
 {% if cl %}
 <div class="bg-white border border-line p-4 lg:p-6 mb-6
             {% if cl.halted %}border-l-4 border-l-red-600{% else %}border-l-4 border-l-emerald-500{% endif %}">
-  <div class="text-xs tracking-widest text-ink-faint uppercase mb-2">CONSECUTIVE LOSS HALT</div>
+  <div class="text-xs tracking-widest text-ink-faint uppercase mb-2">CONSECUTIVE LOSS HALT{% if cl.scope == 'category' %} — PER CATEGORY{% else %} — WHOLE BOOK{% endif %}</div>
   <div class="font-black text-2xl lg:text-3xl tracking-tight">
-    {{ cl.losses_today }} / {{ cl.max_allowed }} losers today
+    {{ cl.losses_today }} / {{ cl.max_allowed }} losers today{% if cl.scope == 'category' %} <span class="text-base font-normal text-ink-faint">(whole book, for reference)</span>{% endif %}
   </div>
   <div class="mt-2 text-sm {% if cl.halted %}text-red-700 font-bold{% else %}text-ink-faint{% endif %}">
-    {% if cl.halted %}HALT ACTIVE — no new entries today.{% else %}OK — entries allowed.{% endif %}
+    {% if cl.scope == 'category' %}
+      {% if cl.uncategorised and cl.book_halted %}HALT ACTIVE — every category: {{ cl.uncategorised }} of today's losers were recorded before per-category counting began, so the whole-book rule stands for the rest of today.{% elif cl.halted %}HALT ACTIVE for {{ cl.halted_categories|join(', ')|replace('nifty200_momentum', 'momentum') }} — no new entries in {% if cl.halted_categories|length == 1 %}that category{% else %}those categories{% endif %} today; the others keep buying.{% else %}OK — no category is halted.{% endif %}
+    {% else %}
+      {% if cl.halted %}HALT ACTIVE — no new entries today.{% else %}OK — entries allowed.{% endif %}
+    {% endif %}
   </div>
+  {% if cl.categories %}
+  <div class="mt-3 overflow-x-auto" data-loss-halt-category="loss_halt_category_marker">
+  <table class="w-full text-sm">
+    <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+      <tr><th class="text-left py-1 pr-3">Category</th><th class="text-right pr-3">Lost today</th><th class="text-right pr-3">Open</th><th class="text-right pr-3">Limit</th><th class="text-right">Now</th></tr>
+    </thead>
+    <tbody>
+      {% for r in cl.categories %}
+      <tr class="border-b border-line last:border-0" data-loss-halt-row="{{ r.category }}">
+        <td class="py-1 pr-3 font-bold">{{ r.label or r.category }}</td>
+        <td class="text-right pr-3 tabular-nums">{{ r.losses }}</td>
+        <td class="text-right pr-3 tabular-nums">{{ r.open }}</td>
+        <td class="text-right pr-3 tabular-nums">{{ r.max_allowed }}</td>
+        <td class="text-right font-bold {% if r.halted and cl.scope == 'category' %}text-red-700{% elif not r.gated %}text-ink-faint{% else %}text-emerald-700{% endif %}">{% if not r.gated %}not gated (your own buys){% elif r.halted and cl.scope == 'category' %}HALTED{% elif r.halted %}past its own limit (scope: book){% else %}buying{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="mt-2 text-xs text-ink-faint" data-loss-halt-category="loss_halt_category_marker">No losing strategy exit today and nothing held — every category is buying.</div>
+  {% endif %}
   <div class="mt-1 text-xs text-ink-faint">
     Counts losing strategy exits only (stop, decay, trail, max-hold, danger) — never your own sells, the kill switch or the drawdown ladder.
-    Limit = the larger of 2 or 10% of the day's book (the 10% is an assumed number, not measured).
+    {% if cl.scope == 'category' %}Owner order 2026-10-21 ("Halt only the category that lost"): each category's limit = the larger of 2 or 10% of (its open positions + its losers today); a halted category sits out the rest of the day while the others keep buying. Owner buys are not gated by it. Loss halt scope = book (Den §9) restores the whole-book rule.{% else %}Limit = the larger of 2 or 10% of the day's book (the 10% is an assumed number, not measured). Loss halt scope = category (Den §9) halts only the category that lost — the owner's 2026-10-21 order.{% endif %}
   </div>
 </div>
 {% endif %}
@@ -114,6 +140,16 @@
         <td class="text-right tabular-nums">{{ b.open }}</td>
       </tr>
       {% endfor %}
+      {% if owner_row %}
+      <tr class="border-t-2 border-line" data-category-owner="category_owner_marker">
+        <td class="py-1 pr-3 font-bold">{{ owner_row.label }} <span class="text-ink-faint font-normal text-xs">· outside the shares — {{ owner_row.note }}</span></td>
+        <td class="text-right pr-3 tabular-nums text-ink-faint">—</td>
+        <td class="text-right pr-3 tabular-nums text-ink-faint">—</td>
+        <td class="text-right pr-3 tabular-nums">₹{{ owner_row.used|inr }}</td>
+        <td class="text-right pr-3 tabular-nums text-ink-faint">—</td>
+        <td class="text-right tabular-nums">{{ owner_row.open }}</td>
+      </tr>
+      {% endif %}
     </tbody>
   </table>
   </div>
@@ -123,7 +159,7 @@
   <div class="mt-2 text-xs text-ink-faint">
     Shares are of the deployable capital: equity (at entry prices on this page) minus the regime reserve{% if cfg.cash_reserve_pct > 0 %} — {{ "%.0f%%"|format(cfg.cash_reserve_pct * 100) }} right now{% endif %}.
     Spent counts each position at its entry cost. A share a category does not use stays as cash; it is never lent to another category.
-    Ocean is outside these shares (its own {{ cfg.ocean_max_positions }}-slot limit). Your BUY button and the Buy Desk are never refused here, but what they buy counts as momentum.
+    Ocean is outside these shares (its own {{ cfg.ocean_max_positions }}-slot limit). Your BUY button, limit fills and the Buy Desk are never refused here; what they buy counts under <strong>owner</strong>, outside the five shares (owner order 2026-10-21 — before it, those buys counted as momentum and could fill its share). Your own buys are checked against cash only, as before — no share, deploy cap or heat limit refuses your tap — but what they hold still counts in the deploy cap and the heat every scan entry is judged against.
     A remainder smaller than the ₹{{ cfg.position_slab_value|inr }} slab counts as full.
   </div>
 </div>

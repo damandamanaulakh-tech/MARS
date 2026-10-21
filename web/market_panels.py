@@ -705,7 +705,11 @@ def fund_summary(p, cfg, prices: dict, live_count: int) -> dict:
                    * int(getattr(cfg, "ocean_max_positions", 0) or 0))
     rows.append(_row(cb.OCEAN, "Ocean", ocean_limit or None, None,
                      note="ticket × slots, outside the five shares"))
-    known = set(cb.SHARE_FIELDS) | {cb.OCEAN}
+    # Owner order 2026-10-21: owner BUY / limit fills / Buy Desk positions
+    # are their own bucket outside the five shares (like Ocean).
+    rows.append(_row(cb.OWNER, "Owner", None, None,
+                     note="your BUY button / Buy Desk, outside the five shares"))
+    known = set(cb.SHARE_FIELDS) | {cb.OCEAN, cb.OWNER}
     for cat in sorted({cb.category_of(x) for x in positions} - known):
         rows.append(_row(cat, cat.replace("_", " ").title(), None, None,
                          note="no budget applies to this category"))

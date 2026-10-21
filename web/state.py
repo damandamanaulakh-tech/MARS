@@ -75,6 +75,9 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.dd_cut_level = str(doc.get("dd_cut_level") or "normal")
     p.loss_day = doc.get("loss_day")
     p.loss_count = int(doc.get("loss_count", 0) or 0)
+    # owner order 2026-10-21: per-category losers ride the mirror BOTH ways
+    p.loss_by_category = {str(k): int(v) for k, v in
+                          (doc.get("loss_by_category") or {}).items()}
     p.trigger_watch = dict(doc.get("trigger_watch", {}) or {})
     # Mirror BOTH ways or a Render restart silently loses it — the risk_day
     # lesson from 2026-07-27.
@@ -158,6 +161,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "dd_cut_level": getattr(self, "dd_cut_level", "normal"),
             "loss_day": self.loss_day,
             "loss_count": self.loss_count,
+            "loss_by_category": getattr(self, "loss_by_category", {}) or {},
             "trigger_watch": self.trigger_watch,
             "news_watch": self.news_watch,
             "universe_batch": self.universe_batch,

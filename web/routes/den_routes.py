@@ -555,6 +555,7 @@ def _risk_block(cfg) -> dict:
         "liquidity_mcap_cr": risk_v2.LiquidityRules.min_market_cap_cr,
         "liquidity_spread_pct": _pct(risk_v2.LiquidityRules.max_spread_pct, 2),
         "loss_halt_fraction_pct": _pct(risk_v2.LOSS_HALT_BOOK_FRACTION, 0),
+        "loss_halt_scope": str(getattr(cfg, "loss_halt_scope", "category") or "category"),
         "correction_brake": bool(getattr(cfg, "correction_brake_enabled", False)),
         "vix_reentry": bool(getattr(cfg, "correction_vix_reentry", False)),
         "rotation": bool(getattr(cfg, "rotation_auto_enabled", False)),

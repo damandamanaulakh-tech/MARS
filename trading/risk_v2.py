@@ -268,6 +268,15 @@ def dynamic_cash_reserve_pct(regime_name: Optional[str], floor: float = 0.20) ->
 # estimator uses, trading/measured_kelly.classify — one definition, not two;
 # an unrecognised reason still counts, the conservative side), and the limit
 # grows with the book: max(2, ceil(10% of the day's book)).
+#
+# OWNER ORDER 2026-10-21 ("Halt only the category that lost"): each losing
+# close is recorded with its category (momentum / intraday / short / swing /
+# positional / owner / ocean, category_budget.category_of at close) and the
+# halt is judged PER CATEGORY — losing exits today in that category >=
+# max(2, ceil(10% x (open positions in that category + its losing exits
+# today))). Two losing momentum exits halt momentum for the day; the other
+# four keep buying. cfg.loss_halt_scope = "book" keeps the old book-wide
+# rule (the backtest never ran this halt at all).
 # LOSS_HALT_BOOK_FRACTION is ASSUMED — no study in this repo measured it; 2
 # stays the floor so a small book behaves exactly as before.
 LOSS_HALT_BOOK_FRACTION = 0.10
@@ -281,43 +290,143 @@ def counts_toward_loss_halt(reason: Optional[str]) -> bool:
     return classify(reason) != "excluded"
 
 
+LOSS_HALT_SCOPES = ("category", "book")
+# Categories whose new entries this halt never stops: the owner's own buys
+# (BUY button, limit fills, Buy Desk) are not gated. Their losers are still
+# counted and shown — never printed as a halt.
+LOSS_HALT_UNGATED = ("owner",)
+
+
 @dataclass
 class ConsecutiveLossTracker:
     today: Optional[date] = None
     losses_today: int = 0
     max_consecutive: int = 2  # the floor: halt at 2 losers on a small book
     book_size: int = 0        # open positions + today's counted losers
+    # Owner order 2026-10-21: losing exits today PER CATEGORY, and the last
+    # open-position count read for each (for the per-category 10% rule).
+    by_category: dict = field(default_factory=dict)
+    open_by_category: dict = field(default_factory=dict)
 
     def limit(self, book_size: Optional[int] = None) -> int:
         n = self.book_size if book_size is None else int(book_size)
         return max(int(self.max_consecutive),
                    int(math.ceil(LOSS_HALT_BOOK_FRACTION * max(0, n))))
 
+    def losses_in(self, category: Optional[str]) -> int:
+        return int(self.by_category.get(category, 0) or 0) if category else 0
+
+    def category_limit(self, category: str,
+                       open_in_category: Optional[int] = None) -> int:
+        """max(2, ceil(10% x (open in the category + its losers today))."""
+        if open_in_category is not None:
+            self.open_by_category[category] = int(open_in_category)
+        n = int(self.open_by_category.get(category, 0) or 0)
+        return self.limit(n + self.losses_in(category))
+
     def record_close(self, exit_date: date, net_pnl: float,
-                     reason: Optional[str] = None) -> None:
-        """Call when a position closes. Resets count on a new day."""
+                     reason: Optional[str] = None,
+                     category: Optional[str] = None) -> None:
+        """Call when a position closes. Resets count on a new day.
+        `category` = the closed position's category (category_budget.
+        category_of); None keeps the book-wide count only."""
         if self.today != exit_date:
             self.today = exit_date
             self.losses_today = 0
+            self.by_category = {}
         if net_pnl < 0 and counts_toward_loss_halt(reason):
             self.losses_today += 1
+            if category:
+                self.by_category[category] = self.losses_in(category) + 1
 
     def halted(self, today: Optional[date] = None,
-               open_positions: Optional[int] = None) -> bool:
+               open_positions: Optional[int] = None,
+               category: Optional[str] = None,
+               open_in_category: Optional[int] = None,
+               scope: str = "book") -> bool:
+        """scope "book" (the pre-2026-10-21 rule, the default here so old
+        callers keep their meaning) judges the whole book; "category" judges
+        ONLY `category`'s own losers against its own 10% rule."""
         if open_positions is not None:
             # the book the day started with: still open + already lost
             self.book_size = int(open_positions) + int(self.losses_today)
         today = today or self.today
         if today != self.today:
             return False
+        if scope == "category" and category:
+            if (self.losses_in(category)
+                    >= self.category_limit(category, open_in_category)):
+                return True
+            # Losers saved by the code before this order carry no category
+            # (the deploy itself is a restart). Until today's record is
+            # fully categorised the whole-book rule stands, so a restart
+            # never forgets a halt that was already on.
+            return bool(self.uncategorised()) and self.losses_today >= self.limit()
         return self.losses_today >= self.limit()
 
-    def snapshot(self, open_positions: Optional[int] = None) -> dict:
+    def uncategorised(self) -> int:
+        """Today's losers recorded with no category (a book saved before
+        2026-10-21); 0 once every loser carries one."""
+        return max(0, int(self.losses_today)
+                   - sum(int(v or 0) for v in self.by_category.values()))
+
+    def _live(self, today: Optional[date]) -> bool:
+        """Are the counts today's? None = trust the tracker's own day."""
+        return today is None or today == self.today
+
+    def category_rows(self, open_by_category: Optional[dict] = None,
+                      today: Optional[date] = None) -> list:
+        """One row per category seen today or holding positions: losses,
+        open, max_allowed, gated, halted (the per-category rule)."""
+        if open_by_category is not None:
+            # the caller's map is the whole book: replace, never merge, or a
+            # category whose positions all closed keeps its old count
+            self.open_by_category = {str(k): int(v)
+                                     for k, v in open_by_category.items()}
+        live = self._live(today)
+        lost_map = dict(self.by_category) if live else {}
+        cats = sorted(set(lost_map) | set(self.open_by_category))
+        rows = []
+        for c in cats:
+            lost = int(lost_map.get(c, 0) or 0)
+            n = int(self.open_by_category.get(c, 0) or 0)
+            lim = self.limit(n + lost)
+            gated = c not in LOSS_HALT_UNGATED
+            rows.append({"category": c, "losses": lost, "open": n,
+                         "max_allowed": lim, "gated": gated,
+                         "halted": gated and lost >= lim})
+        return rows
+
+    def snapshot(self, open_positions: Optional[int] = None,
+                 open_by_category: Optional[dict] = None,
+                 scope: str = "book",
+                 today: Optional[date] = None) -> dict:
+        """`today` = the engine's date. Counts from an earlier day read 0:
+        the gate halts nothing on a new day and the counts reset at its
+        first close, so the screen must not print yesterday's halt."""
         if open_positions is not None:
             self.book_size = int(open_positions) + int(self.losses_today)
+        live = self._live(today)
+        rows = self.category_rows(open_by_category, today=today)
+        losses = int(self.losses_today) if live else 0
+        if open_positions is not None:
+            max_allowed = self.limit(int(open_positions) + losses)
+        else:
+            max_allowed = self.limit()
+        book_halted = live and losses >= max_allowed
+        uncat = self.uncategorised() if live else 0
+        halted_cats = [r["category"] for r in rows if r["halted"]]
         return {
             "today": self.today.isoformat() if self.today else None,
-            "losses_today": self.losses_today,
-            "max_allowed": self.limit(),
-            "halted": self.halted(),
+            "losses_today": losses,
+            "max_allowed": max_allowed,
+            "scope": scope,
+            "categories": rows,
+            "halted_categories": halted_cats,
+            "book_halted": book_halted,
+            # losers saved before per-category counting: the book rule stands
+            "uncategorised": uncat,
+            # what is halted NOW under the live scope
+            "halted": (book_halted if scope != "category"
+                       else bool(halted_cats) or (bool(uncat) and book_halted)),
         }

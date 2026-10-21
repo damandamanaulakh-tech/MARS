@@ -202,18 +202,25 @@ def test_rotation_never_sells_another_category_for_a_full_share(tmp_path,
     """Momentum full, cash plentiful, a SWING holding near target: selling it
     frees cash momentum still cannot spend. Nothing is sold."""
     e = _momentum_full_engine(tmp_path, monkeypatch)
-    e.portfolio.positions["HELD.NS"].tags.append("owner_pick")  # not rotatable
+    # HELD.NS (momentum, 0% to target, no live quote in the fixture) is not
+    # rotatable. It used to carry an owner_pick tag here; since the
+    # 2026-10-21 owner bucket that tag would move it OUT of momentum's share
+    # and the share would no longer be full, so the tag is gone and the
+    # "why" line is the one the refused pick writes (CATEGORY_BUDGET_FULL).
     sw = _near_target("SWG.NS")
     sw.mode = "swing"
     e.portfolio.positions["SWG.NS"] = sw
     n0 = len(e.portfolio.decision_journal)
     e.scan()
     assert "SWG.NS" in e.portfolio.positions
+    assert "HELD.NS" in e.portfolio.positions
     assert not [t for t in e.portfolio.trades if t.reason == "ROTATION_EXIT"]
     # and it says why — the share, not the cash, was short
     mine = e.portfolio.decision_journal[n0:]
-    line = [x for x in mine if x.get("action") == "ROTATION_BUDGET_FULL"]
+    line = [x for x in mine if x.get("action") == "CATEGORY_BUDGET_FULL"]
     assert line and line[0]["category"] == MOM
+    reasons = {s["ticker"]: s["reason"] for s in e.portfolio.last_scan_skipped}
+    assert reasons.get("UPP.NS") == "category_budget_full"
 
 
 def test_rotation_may_sell_within_the_category_to_free_its_share(tmp_path,

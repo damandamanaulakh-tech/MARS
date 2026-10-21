@@ -34,8 +34,23 @@ def risk_view(request: Request):
     except AttributeError:
         dd = None
     try:
+        # Owner order 2026-10-21: per-category counts + which categories
+        # are halted now, under the live scope.
+        # today = the engine's own date (naive UTC, as scan() uses), so a
+        # count from an earlier day never reads as a halt now.
+        from datetime import datetime as _now_dt
         cl = eng.loss_tracker.snapshot(
-            open_positions=len(eng.portfolio.positions))
+            open_positions=len(eng.portfolio.positions),
+            open_by_category=eng._open_by_category(),
+            scope=eng._loss_halt_scope(cfg),
+            today=_now_dt.utcnow().date())
+        try:
+            from trading import category_budget as _cb
+            for row in cl.get("categories") or []:
+                row["label"] = _cb.LABELS.get(
+                    row["category"], row["category"].replace("_", " ").title())
+        except Exception:
+            pass
     except AttributeError:
         cl = None
 
@@ -103,11 +118,15 @@ def risk_view(request: Request):
     # cost, and what is left — the numbers risk.can_open refuses on.
     budgets = None
     budget_total = None
+    owner_row = None
     try:
         from trading import category_budget as cb
         if cb.enabled(cfg):
             budgets = cb.usage(cfg, eng.portfolio.positions, equity)
             budget_total = cb.share_total(cfg)
+            # Owner order 2026-10-21: owner BUY / Buy Desk positions sit in
+            # their own bucket outside the five shares (like Ocean).
+            owner_row = cb.owner_usage(eng.portfolio.positions)
     except Exception:
         budgets = None
 
@@ -127,5 +146,6 @@ def risk_view(request: Request):
             "mk_modes": mk_modes,
             "budgets": budgets,
             "budget_total": budget_total,
+            "owner_row": owner_row,
         },
     )

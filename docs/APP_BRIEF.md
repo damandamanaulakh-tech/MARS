@@ -64,8 +64,10 @@ one-page record, every number checked against the code, is
    does not use stays as cash — it is never lent to another. In a correction
    the 20% safety reserve shrinks all five shares alike (momentum ₹1.6 crore,
    the others ₹60 lakh). Ocean sits outside the shares (its own 8 slots).
-   Your BUY button and the Buy Desk are never refused, but what they buy
-   counts as momentum. The Risk page shows each share, spent and left;
+   Your BUY button, limit fills and the Buy Desk are never refused, and
+   what they buy sits in its own "owner" bucket outside the five shares,
+   like Ocean (owner order 2026-10-21; before it those buys counted as
+   momentum and could fill its share). The Risk page shows each share, spent and left;
    Settings can change the five numbers or switch the shares off.
    **Momentum buys no longer wait for a candle pattern** (your order
    2026-10-04, "off for momentum" — 12 years measured, the wait added

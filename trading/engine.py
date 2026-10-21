@@ -75,6 +75,10 @@ class TradingEngine:
             if getattr(portfolio, "loss_day", None):
                 self.loss_tracker.today = _date.fromisoformat(portfolio.loss_day)
                 self.loss_tracker.losses_today = int(portfolio.loss_count or 0)
+                # owner order 2026-10-21: the per-category counts too
+                self.loss_tracker.by_category = {
+                    str(k): int(v) for k, v in
+                    (getattr(portfolio, "loss_by_category", None) or {}).items()}
         except (ValueError, TypeError, AttributeError):
             pass
 
@@ -775,13 +779,22 @@ class TradingEngine:
                     "reason": f"drawdown_{self.drawdown_gov.active_level}",
                 })
                 continue
-            # v5: consecutive-loss halt
+            # v5: consecutive-loss halt. OWNER ORDER 2026-10-21 ("Halt only
+            # the category that lost"): judged for THIS pick's category —
+            # ocean for an Ocean pick, else the pass's mode — against that
+            # category's own losers and open count. cfg.loss_halt_scope
+            # "book" = the old book-wide rule.
+            halt_cat = self._loss_halt_category(pick, cfg)
             if self.loss_tracker.halted(
                     today=now.date(),
-                    open_positions=len(self.portfolio.positions)):
+                    open_positions=len(self.portfolio.positions),
+                    category=halt_cat,
+                    open_in_category=self._open_in_category(halt_cat),
+                    scope=self._loss_halt_scope(cfg)):
                 skipped.append({
                     "ticker": pick["ticker"],
                     "reason": "consecutive_loss_halt",
+                    "category": halt_cat,
                 })
                 continue
             if pick["ticker"] in self.portfolio.positions:
@@ -991,6 +1004,7 @@ class TradingEngine:
             opened.append(pick["ticker"])
 
         self._journal_budget_full(skipped, now)
+        self._journal_loss_halt(skipped, now)
 
         self.portfolio.last_scan = now.isoformat()
         if self._trading_allowed(now):
@@ -2061,13 +2075,18 @@ class TradingEngine:
             "entry_notes": getattr(pos, "entry_notes", "") or "",
             "cash_after": round(self.portfolio.cash, 2),
         })
-        # v5: feed the consecutive-loss tracker
+        # v5: feed the consecutive-loss tracker. Owner order 2026-10-21:
+        # with the closed position's category, so the halt can be judged
+        # per category.
         try:
-            self.loss_tracker.record_close(now.date(), net_pnl, reason=reason)
+            from . import category_budget as _cb
+            self.loss_tracker.record_close(now.date(), net_pnl, reason=reason,
+                                           category=_cb.category_of(pos))
             # AUDIT FIX C11: persist so a restart can't forget the halt
             self.portfolio.loss_day = (self.loss_tracker.today.isoformat()
                                        if self.loss_tracker.today else None)
             self.portfolio.loss_count = int(self.loss_tracker.losses_today)
+            self.portfolio.loss_by_category = dict(self.loss_tracker.by_category)
         except AttributeError:
             pass  # backward compat if engine was built before risk_v2
 
@@ -2393,6 +2412,99 @@ class TradingEngine:
                     f"waited. The other categories keep their own shares — "
                     f"owner order 2026-10-04."),
         })
+
+    # ------------------------------------------------- loss halt per category
+    # Owner order 2026-10-21 ("Halt only the category that lost").
+    @staticmethod
+    def _loss_halt_scope(cfg) -> str:
+        s = str(getattr(cfg, "loss_halt_scope", "category") or "category")
+        return s if s in ("category", "book") else "category"
+
+    @staticmethod
+    def _loss_halt_category(pick: dict, cfg) -> str:
+        if pick.get("ocean"):
+            return "ocean"
+        return getattr(cfg, "mode", "") or MOMENTUM_MODE
+
+    def _open_in_category(self, category: str) -> int:
+        from . import category_budget as cb
+        return sum(1 for p in self.portfolio.positions.values()
+                   if cb.category_of(p) == category)
+
+    def _open_by_category(self) -> dict:
+        from . import category_budget as cb
+        out: dict = {}
+        for p in self.portfolio.positions.values():
+            c = cb.category_of(p)
+            out[c] = out.get(c, 0) + 1
+        return out
+
+    def _journal_loss_halt(self, skipped: list, now: datetime) -> None:
+        """One CONSECUTIVE_LOSS_HALT line per category per day when this
+        pass refused picks on the loss halt, carrying the category and the
+        per-category counts (owner order 2026-10-21)."""
+        refused = [s for s in skipped
+                   if s.get("reason") == "consecutive_loss_halt"]
+        if not refused:
+            return
+        cfg = self.cfg
+        scope = self._loss_halt_scope(cfg)
+        by_cat: dict = {}
+        for s in refused:
+            by_cat.setdefault(s.get("category") or (getattr(cfg, "mode", "")
+                                                    or MOMENTUM_MODE),
+                              []).append(s["ticker"])
+        today_iso = now.date().isoformat()
+        # Today's lines already written, by category. Walk back through
+        # TODAY's entries only (the journal is in time order): a fixed
+        # last-60 window let a second line through on a busy day.
+        written: set = set()
+        for e in reversed(self.portfolio.decision_journal):
+            ts = str(e.get("ts", ""))[:10]
+            if ts and ts < today_iso:
+                break
+            if e.get("action") == "CONSECUTIVE_LOSS_HALT" and ts == today_iso:
+                written.add(e.get("category"))
+        from . import category_budget as cb
+        for cat, names in by_cat.items():
+            if cat in written:
+                continue
+            t = self.loss_tracker
+            n_open = self._open_in_category(cat)
+            lim = (t.category_limit(cat, n_open) if scope == "category"
+                   else t.limit())
+            lost = t.losses_in(cat) if scope == "category" else t.losses_today
+            label = cb.LABELS.get(cat, cat.replace("_", " "))
+            uncat = t.uncategorised()
+            # the pre-order record: today's losers carry no category, so the
+            # whole-book rule held this category (risk_v2 halted())
+            legacy = scope == "category" and lost < lim and uncat > 0
+            if legacy:
+                why = (f"{uncat} of today's {t.losses_today} losing strategy "
+                       f"exit(s) were recorded before per-category counting "
+                       f"began, so the whole-book limit of {t.limit()} stands "
+                       f"for the rest of today; {len(names)} "
+                       f"{label.lower()} pick(s) waited.")
+            elif scope == "category":
+                why = (f"{label} lost {lost} strategy exit(s) today, at or "
+                       f"past its limit of {lim} (max(2, 10% of its {n_open} "
+                       f"open + {lost} lost)); {len(names)} {label.lower()} "
+                       f"pick(s) waited. The other categories keep buying "
+                       f"— owner order 2026-10-21 ('Halt only the category "
+                       f"that lost').")
+            else:
+                why = (f"The book lost {lost} strategy exit(s) today, at or "
+                       f"past the book-wide limit of {lim}; {len(names)} "
+                       f"pick(s) waited (Loss halt scope = book).")
+            self.portfolio.decision_journal.append({
+                "ts": now.isoformat(), "action": "CONSECUTIVE_LOSS_HALT",
+                "category": cat, "scope": scope,
+                "losses": lost, "max_allowed": lim, "open_in_category": n_open,
+                "by_category": dict(t.by_category),
+                "uncategorised": uncat,
+                "refused": names[:20], "refused_count": len(names),
+                "why": why,
+            })
 
     def _journal_once_a_day(self, action: str, now: datetime,
                             fields: dict) -> None:
