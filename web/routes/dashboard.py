@@ -157,7 +157,12 @@ def dashboard(request: Request):
 
     # The "why not today" block (item 32) left the page on the owner's
     # 2026-10-12 screenshot markup; market_panels.why_not_today stays (pure,
-    # tested) for the day it is asked for again.
+    # tested). Owner 2026-10-21 ("why there is no pop for gates or book, how
+    # do i know its blocked"): the WHY NO BUY card reads the rotation's own
+    # per-category record (web/why_no_buy.py) — the engine's words, no guess.
+    from ..clock import ist_today_iso
+    from .. import why_no_buy as _wnb
+    why_no_buy = _panel(_wnb.card, p, cfg, ist_today_iso())
 
     deployed_pct = (deployed / cfg.starting_capital * 100) if cfg.starting_capital else 0
 
@@ -269,6 +274,7 @@ def dashboard(request: Request):
             "index_strip": _panel(mp.index_strip),
             "international_note": mp.INTERNATIONAL_NOTE,
             "breadth": _panel(mp.breadth_panel),
+            "why_no_buy": why_no_buy,
             "events": _panel(mp.events_panel),
             "horizons": _panel(mp.horizons_panel),
             "gates": _panel(mp.gates_in_force, cfg),

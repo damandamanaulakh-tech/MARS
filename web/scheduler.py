@@ -2181,6 +2181,15 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
     from trading.modes import MODE_LOCK
     from .memory_relief import release as release_memory
     summary: list = []
+    # Owner 2026-10-21 ("how do i know its blocked"): every pass is recorded
+    # on portfolio.rotation_report and ONE ROTATION_SUMMARY line is journaled
+    # (pushed to the phone) when the loop ends — web/why_no_buy.py.
+    from datetime import datetime as _dt
+    from .clock import ist_today_iso
+    from . import why_no_buy as wnb
+    rot: dict = {"date": ist_today_iso(), "where": where,
+                 "started": _dt.utcnow().isoformat(), "order": list(_DAILY_MODE_ORDER),
+                 "passes": {}, "opened_total": 0, "finished": None}
     # AUDIT S-6 (2026-10-02): the lock is held for the WHOLE rotation,
     # restore included. Releasing it between passes left cfg.mode on the
     # previous pass's category, so an owner buy that slipped in between read
@@ -2196,11 +2205,19 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
                     _mark_exit_pass()
                 except Exception:
                     log.exception("[%s] exit pass inside the rotation failed", where)
+            j0 = len(eng.portfolio.decision_journal)
             try:
                 cfg.mode = m
                 cfg.apply_mode_preset()
                 res = eng.scan()
                 summary.append(f"{m}={len(res.opened)} opened/{len(res.skipped)} skipped")
+                try:
+                    rot["passes"][m] = wnb.pass_record(
+                        m, res, eng.portfolio.decision_journal[j0:],
+                        float(getattr(cfg, "min_score_to_enter", 0) or 0),
+                        getattr(eng.portfolio, "breadth_today", None))
+                except Exception:
+                    log.exception("[%s] why-no-buy record for %s failed", where, m)
                 # OWNER 2026-10-11 item 28: the watchlist capture is taken
                 # RIGHT AFTER the momentum pass, while scan_matrix /
                 # last_scan_skipped / last_scan_opened still hold THAT pass —
@@ -2212,6 +2229,7 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
             except Exception as e:
                 log.exception("[%s] scan for mode=%s failed: %s", where, m, e)
                 summary.append(f"{m}=error")
+                rot["passes"][m] = wnb.failed_record(m, f"{type(e).__name__}: {str(e)[:120]}")
                 # Silent dead mornings are forbidden: the failure goes into the
                 # journal so the dashboard trigger card SHOWS it the same day.
                 try:
@@ -2239,7 +2257,30 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
             cfg.apply_mode_preset()
         finally:
             MODE_LOCK.release()
+    _record_rotation(eng, rot)
     return summary
+
+
+def _record_rotation(eng, rot: dict) -> None:
+    """Store the rotation record and journal the ROTATION_SUMMARY line.
+    Never raises — a failure here must not cost the scan."""
+    from datetime import datetime as _dt
+    from . import why_no_buy as wnb
+    try:
+        rot["finished"] = _dt.utcnow().isoformat()
+        rot["opened_total"] = sum(int(r.get("opened") or 0) for r in rot["passes"].values())
+        text = wnb.summary_text(rot)
+        eng.portfolio.rotation_report = wnb.add_rotation(
+            getattr(eng.portfolio, "rotation_report", None), rot)
+        eng.portfolio.decision_journal.append({
+            "ts": rot["finished"], "action": "ROTATION_SUMMARY",
+            "where": rot["where"], "opened_total": rot["opened_total"],
+            "categories": {m: wnb.stopped_by(r) for m, r in rot["passes"].items()},
+            "why": text,
+        })
+        eng.portfolio.save()
+    except Exception:
+        log.exception("[%s] rotation record failed", rot.get("where"))
 
 
 def _capture_watchlist(eng, cfg, where: str) -> dict:
