@@ -282,7 +282,11 @@ def test_engine_reaches_the_adjuster_but_never_the_network_fetch():
     src = _code(ROOT / "trading" / "engine.py")
     assert "corporate_actions" in src
     assert "fetch_nse_actions" not in src
-    assert "valuation" not in src
+    # Item 19 (owner order 2026-10-21) lets the engine read trading/valuation_exit
+    # (pure, injected readers); the valuation PIPELINE package stays out — the
+    # authoritative pin is test_valuation_boundary_2026_10_14.
+    assert "from .valuation import" not in src and "from .valuation." not in src
+    assert "trading.valuation." not in src and "trading.valuation import" not in src
 
 
 def test_store_reader_is_the_injection_seam():

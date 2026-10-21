@@ -83,7 +83,10 @@ class PaperPosition:
         d.setdefault("ca_applied", [])
         d["ca_applied"] = list(d.get("ca_applied") or [])
         d["val_target"] = dict(d.get("val_target") or {})
-        return cls(**d)
+        # A field a NEWER build wrote (ca_applied, val_target, the next one) must
+        # not stop an older build from loading the book after a rollback: keys
+        # this version does not know are dropped, never fatal (2026-10-21).
+        return cls(**{k: v for k, v in d.items() if k in cls.__dataclass_fields__})
 
 
 @dataclass
@@ -128,7 +131,7 @@ class ClosedTrade:
         d.setdefault("entry_notes", "")
         d.setdefault("tags", [])
         d["ca_applied"] = list(d.get("ca_applied") or [])
-        return cls(**d)
+        return cls(**{k: v for k, v in d.items() if k in cls.__dataclass_fields__})
 
 
 @dataclass
