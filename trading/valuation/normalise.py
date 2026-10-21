@@ -262,10 +262,14 @@ def _band_score(v: float, zero_at: float, full_at: float) -> float:
 
 
 def quality(snap: dict, route_family: str = "",
-            thresholds: Optional[dict] = None) -> dict:
+            thresholds: Optional[dict] = None, lender: Optional[bool] = None) -> dict:
     """Stage 12 — earnings quality and balance-sheet stress. For a lender
-    (route_family "book") the leverage/coverage/working-capital lines are
-    DATA_NEEDED and so is the score."""
+    the leverage/coverage/working-capital lines are DATA_NEEDED and so is
+    the score.
+
+    `lender` (VAL-12b, owner 2026-10-21): the caller says whether the stock
+    is a lender (pipeline: route method bank / NBFC). None = the old rule,
+    every route_family "book" name — which wrongly took power utilities in."""
     snap = snap or {}
     f = _fields(snap)
     g = lambda k: num(f.get(k))                                   # noqa: E731
@@ -275,7 +279,7 @@ def quality(snap: dict, route_family: str = "",
     for k, v in (thresholds or {}).items():
         if k in th and num(v) is not None:
             th[k] = float(v)
-    lender = route_family == "book"
+    lender = (route_family == "book") if lender is None else bool(lender)
     flags: list[str] = []
     notes: list[str] = []
 

@@ -310,8 +310,20 @@ def test_statements_but_no_range_prints_no_range_not_insufficient(monkeypatch, n
     out = cv.section(state.cfg(), _Book(), "DLF")           # NAV route: no project NAV stored
     rec = out["rows"][0]
     assert rec["row_kind"] == "full" and rec["range"]["status"] != "OK"
+    # 2026-10-21 (VAL-01 / VAL-14b): a NAV route with nothing typed is "no
+    # target by design — type NAV per share in the Den inputs table", not a
+    # fault; any other missing range still prints NO RANGE — both, never an
+    # INSUFFICIENT verdict
     row = _row_html(_render(out), "DLF.NS")
-    assert "den_chain_no_range_marker" in row and "NO RANGE — " in _flat(row)
+    if "no target by design" in (rec["range"].get("why") or ""):
+        assert "den_chain_by_design_marker" in row and "NO TARGET BY DESIGN" in _flat(row)
+        assert "inputs table" in _flat(row)
+    else:
+        assert "den_chain_no_range_marker" in row and "NO RANGE — " in _flat(row)
+    assert "INSUFFICIENT" not in _flat(row)
+    rec["range"]["why"] = "range not computable"
+    row = _row_html(_render(out), "DLF.NS")
+    assert "den_chain_no_range_marker" in row and "NO RANGE — range not computable" in _flat(row)
     assert "INSUFFICIENT" not in _flat(row)
 
 

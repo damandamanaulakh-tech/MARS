@@ -507,6 +507,14 @@ def _bootstrap() -> None:
     except Exception:
         log.exception("data_refresh reader attach failed")
 
+    # VALFIX 2026-10-21: the valuation chain's macro feeds (10-year yield,
+    # RBI repo, RBI USD/INR) read their stored rows through this reader.
+    try:
+        from trading import macro_feeds as _mf
+        _mf.set_reader(db.load_macro_rows)
+    except Exception:
+        log.exception("macro_feeds reader attach failed")
+
     # 2026-09-11 (owner: "why system still stucking at 49"): the scan reads
     # the OHLCV store FIRST and only falls back to the network for what the
     # store lacks or holds stale. Without this reader every name was fetched

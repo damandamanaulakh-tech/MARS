@@ -1,18 +1,25 @@
 <!-- 1. SEQUENCE — the owner's 24-stage selection sequence. The status column
      is the one hand-written table on this page (den_routes.SEQUENCE) and is
-     dated; everything else on /den is read from code. -->
+     dated; everything else on /den is read from code.
+     2026-10-21 (owner order: "walk tree + stock picker + owner branches"):
+     the table folds away; below it every stage opens into the formula
+     branches the code runs (web/den_walk.py, built from the registries),
+     with ONE stock's numbers on every node when one is walked, and the
+     owner's own branches hung under any node. Display only. -->
 <section id="sequence" class="scroll-mt-20"><!-- den_sequence_marker -->
   <div class="flex flex-wrap items-end justify-between gap-2 mb-3">
     <h2 class="font-black text-2xl tracking-tight">1 · Sequence</h2>
     <div class="text-xs text-ink-faint">status as of <strong>{{ seq.asof }}</strong> — hand-written, the only such table here</div>
   </div>
   <div class="bg-white border border-line">
-    <div class="px-4 lg:px-6 py-3 border-b border-line text-sm flex flex-wrap gap-x-6 gap-y-1">
+    <details class="border-b border-line" data-den-sequence-table><!-- den_sequence_table_marker -->
+    <summary class="px-4 lg:px-6 py-3 text-sm flex flex-wrap gap-x-6 gap-y-1 cursor-pointer">
       <span><strong>{{ seq.n }}</strong> stages</span>
       <span class="text-emerald-700"><strong>{{ seq.exists }}</strong> exist</span>
       <span class="text-amber-700"><strong>{{ seq.partly }}</strong> partly</span>
       <span class="text-ink-faint"><strong>{{ seq.not_yet }}</strong> not yet</span>
-    </div>
+      <span class="text-ink-faint">· tap for the status table</span>
+    </summary>
     <div class="overflow-x-auto">
     <table class="w-full text-sm">
       <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
@@ -37,6 +44,109 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
+    </details>
+
+    <!-- the walk -->
+    {% set walk = walk | default({"nodes": [], "ids": [], "branches": [], "orphans": [], "n_nodes": 0, "n_owner": 0, "max_branches": 500, "doc_id": "sequence_branches", "typed": "", "ticker": "", "status": "", "why": "", "flag": "", "error": "", "has_stock": false}) %}
+    <div id="walk" class="scroll-mt-20"><!-- den_walk_marker -->
+      <div class="px-4 lg:px-6 py-3 border-b border-line text-xs text-ink-soft space-y-1">
+        <div><strong>The walk.</strong> Every stage opens into the formula branches the code runs — built from the code's own registries ({{ walk.n_nodes }} nodes: the route methods, the share bridge, normalised earnings, the quality lines, the market and rates inputs, your scenario chain's cells, the range rule per family, the context legs, the verdict rules and the 52 finance terms under the stage each belongs to). Type a stock and every node shows that stock's number, or DATA_NEEDED with the reason. Your own branches hang under any node, tagged as yours; nothing computes them. Display only — no gate, stop or size reads it.</div>
+        {% if walk.flag == 'saved' %}<div class="text-emerald-800 font-semibold">Branch stored.</div>
+        {% elif walk.flag == 'removed' %}<div class="text-ink-soft font-semibold">Branch removed (with everything under it).</div>
+        {% elif walk.flag == 'denied' %}<div class="text-amber-800 font-semibold">Owner role required to add or remove a branch.</div>
+        {% elif walk.flag == 'invalid' %}<div class="text-red-700 font-semibold">Not stored — {{ walk.error or 'the form could not be read' }}. Nothing changed.</div>{% endif %}
+      </div>
+      <form method="get" action="/den" class="px-4 lg:px-6 py-3 border-b border-line flex flex-wrap gap-3 items-end"><!-- den_walk_picker_marker -->
+        <div>
+          <label class="text-[10px] tracking-widest text-ink-faint uppercase block">Walk one stock</label>
+          <input name="walk" value="{{ walk.typed or '' }}" placeholder="TCS" class="border-b border-line focus:border-ink outline-none py-1.5 text-sm font-mono bg-transparent uppercase w-40">
+        </div>
+        <button type="submit" class="px-4 py-2 bg-ink text-white text-xs font-semibold tracking-wide hover:bg-black">WALK &rarr;</button>
+        {% if walk.ticker %}
+        <span class="text-xs {% if walk.has_stock %}text-ink-soft{% else %}text-amber-800 font-semibold{% endif %}" data-den-walk-status="{{ walk.status }}">
+          {% if walk.has_stock %}{{ walk.ticker | replace('.NS', '') }}{% if walk.price %} · ₹{{ walk.price | inr(2) }} ({{ walk.price_date }}){% endif %} · {% if walk.status == 'cached' %}kept from an earlier open{% else %}computed in {{ walk.elapsed_s }} s{% endif %}
+          {% else %}{{ walk.ticker | replace('.NS', '') }} NOT COMPUTED on this open — {{ walk.why }}{% endif %}
+        </span>
+        {% elif walk.status == 'error' %}<span class="text-xs text-red-700">{{ walk.why }}</span>{% endif %}
+        {% if walk.store_down %}<span class="text-xs text-amber-800">the database did not answer in time ({{ walk.store_down }}) — prices from the repo copy</span>{% endif %}
+      </form>
+
+      {# ~400 nodes: compact markup (scoped style, no template whitespace) keeps the page light #}
+      <style>
+        .wk ul{margin:0;padding:0;list-style:none}
+        .wk li{padding-left:.75rem;border-left:1px solid #e5e7eb}
+        .wk li.st{padding:.25rem 0;border-left:0;border-bottom:1px solid #e5e7eb}
+        .wk summary{cursor:pointer}
+        .wk .i{font:10px ui-monospace,monospace;color:#64748b}
+        .wk .n{font-weight:600}
+        .wk li.st>details>summary>.n,.wk li.st>div>.n{font-weight:700;font-size:.875rem}
+        .wk .s{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:0 .25rem}
+        .wk .s-exists{background:#d1fae5;color:#065f46}.wk .s-partly{background:#fef3c7;color:#78350f}.wk .s-not{background:#f1f5f9;color:#64748b}
+        .wk .v{font-weight:600}.wk .v.c{color:#065f46}
+        .wk .d{color:#b45309}
+        .wk .f{font:11px ui-monospace,monospace;color:#64748b;padding-left:.5rem;white-space:normal;overflow-wrap:anywhere}
+        .wk .o{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#3730a3;background:#eef2ff;padding:0 .25rem}
+        .wk .nt{color:#334155;padding-left:.5rem}
+      </style>
+      <div class="wk px-2 lg:px-4 py-3 text-xs overflow-x-auto"><!-- den_walk_tree_marker -->
+        <ul>
+        {%- for n in walk.nodes recursive -%}
+<li data-walk-node="{{ n.id }}"{% if n.kind == 'stage' %} class="st"{% endif %}><!-- den_walk_node_marker -->
+{%- if n.children %}<details{% if n.open %} open{% endif %}><summary>{% else %}<div>{% endif -%}
+<span class="i">{{ n.id }}</span> <span class="n">{{ n.name }}</span>
+{%- if n.kind == 'stage' %} <span class="s s-{{ 'exists' if n.status == 'exists' else ('partly' if n.status == 'partly' else 'not') }}">{{ n.status }}</span>{% endif -%}
+{%- if n.kind == 'owner' %} <span class="o" data-den-walk-owner="{{ n.id }}"><!-- den_walk_owner_branch_marker -->your branch · not yet computed</span>{% endif -%}
+{%- if n.value %} <span class="v{% if n.current %} c{% endif %}" data-walk-value>= {{ n.value }}</span>{% elif n.why %} <span class="d" data-walk-dn>= DATA_NEEDED — {{ n.why }}</span>{% endif -%}
+{%- if n.children %} <span class="i">({{ n.children | length }})</span></summary>{% endif -%}
+{%- if n.formula %}<div class="f">{{ n.formula }}</div>{% endif -%}
+{%- if n.note %}<div class="nt">note: {{ n.note }}</div>{% endif -%}
+{%- if n.children %}<ul>{{ loop(n.children) }}</ul></details>{% else %}</div>{% endif -%}
+</li>
+        {%- endfor %}
+        </ul>
+        {% if walk.orphans %}
+        <div class="mt-3 text-amber-800 font-semibold" data-den-walk-orphans><!-- den_walk_orphans_marker -->{{ walk.orphans | length }} of your branch(es) hang under a node that no longer exists:
+          {% for o in walk.orphans %}<span class="font-mono">{{ o.id }}</span> {{ o.name }} (parent {{ o.parent }}){% if not loop.last %} · {% endif %}{% endfor %}</div>
+        {% endif %}
+      </div>
+
+      <div class="px-4 lg:px-6 py-3 border-t border-line text-xs"><!-- den_walk_form_marker -->
+        <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">Your branches — {{ walk.n_owner }} of {{ walk.max_branches }} · settings doc {{ walk.doc_id }}</div>
+        {% if is_owner %}
+        <form method="post" action="/den/sequence/branch" class="flex flex-wrap gap-3 items-end">
+          <input type="hidden" name="walk" value="{{ walk.typed or '' }}">
+          <div><label class="text-[10px] tracking-widest text-ink-faint uppercase block">Under node</label>
+            <input name="parent" list="den-walk-ids" placeholder="s15" required class="border-b border-line focus:border-ink outline-none py-1 font-mono bg-transparent w-44"></div>
+          <div><label class="text-[10px] tracking-widest text-ink-faint uppercase block">Name</label>
+            <input name="name" maxlength="80" required class="border-b border-line focus:border-ink outline-none py-1 bg-transparent w-48"></div>
+          <div class="flex-1 min-w-[12rem]"><label class="text-[10px] tracking-widest text-ink-faint uppercase block">Formula (your words)</label>
+            <input name="formula" maxlength="300" class="border-b border-line focus:border-ink outline-none py-1 font-mono bg-transparent w-full"></div>
+          <div class="min-w-[10rem]"><label class="text-[10px] tracking-widest text-ink-faint uppercase block">Note</label>
+            <input name="note" maxlength="300" class="border-b border-line focus:border-ink outline-none py-1 bg-transparent w-full"></div>
+          <div><label class="text-[10px] tracking-widest text-ink-faint uppercase block">Edit id (blank = new)</label>
+            <input name="id" placeholder="ob1" class="border-b border-line focus:border-ink outline-none py-1 font-mono bg-transparent w-20"></div>
+          <button type="submit" class="px-3 py-1.5 bg-ink text-white text-xs font-semibold tracking-wide hover:bg-black">ADD / SAVE BRANCH</button>
+          <datalist id="den-walk-ids">{% for i in walk.ids %}<option value="{{ i }}">{% endfor %}{% for b in walk.branches %}<option value="{{ b.id }}">{% endfor %}</datalist>
+        </form>
+        {% else %}
+        <div class="text-amber-700">Owner role required to add a branch.</div>
+        {% endif %}
+        {% if walk.branches %}
+        <div class="mt-3 space-y-1">
+          {% for b in walk.branches %}
+          <div class="flex flex-wrap items-center gap-2 border-b border-line/60 py-0.5" data-den-walk-branch="{{ b.id }}">
+            <span class="font-mono text-ink-faint">{{ b.id }}</span><span class="font-semibold">{{ b.name }}</span>
+            <span class="text-ink-faint">under <span class="font-mono">{{ b.parent }}</span>{% if b.ts %} · {{ b.ts }}{% endif %}</span>
+            {% if is_owner %}
+            <form method="post" action="/den/sequence/branch/remove" class="inline"><input type="hidden" name="id" value="{{ b.id }}"><input type="hidden" name="walk" value="{{ walk.typed or '' }}">
+              <button type="submit" class="text-[10px] tracking-widest uppercase text-ink-faint hover:text-red-700">✕ remove (and what hangs under it)</button></form>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
     </div>
   </div>
 </section>

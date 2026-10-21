@@ -159,11 +159,16 @@ def test_context_dates_every_input_and_never_invents_a_missing_one():
     assert r["context_rates_only"] == pytest.approx(1000.0 * r["legs"]["rates"]["multiplier"])
     assert r["legs"]["verify"]["status"] == "DATA_NEEDED"
 
-    # no bond file and no typed rate: the rates leg is DATA_NEEDED, the
-    # sector columns still print at multiplier 1
+    # no bond file and no typed rate: the rates leg is DATA_NEEDED and NOT
+    # applied as × 1.0 (VAL-13, owner order 2026-10-21): the context target
+    # is the sector leg only, labelled; the target alone is never printed
+    # as a "rates leg only" context target
     r = vc.context("X.NS", 1000.0, "2025-01-15", s, b, "Nifty IT", bond=None)
     assert r["legs"]["rates"]["status"] == "DATA_NEEDED"
     assert r["context_one_to_one"] == pytest.approx(r["legs"]["sector"]["one_to_one"])
+    assert r["rates_applied"] is False
+    assert r["rates_note"] == "no rates adjustment — 10-year yield DATA_NEEDED"
+    assert r["context_rates_only"] is None
 
     # a target of zero or an unreadable date is refused, not computed
     assert vc.context("X.NS", 0.0, "2025-01-15", s, b, "x")["status"] == "DATA_NEEDED"

@@ -15,8 +15,9 @@
   <div class="bg-white border border-line">
     <div class="px-4 py-3 border-b border-line text-xs text-ink-soft space-y-1">
       <div><strong>What it does.</strong> For each name below: locks the latest audited year (period end, publication date, currency — the US-dollar trap for ADR names is converted at the period-end rate and labelled, never silently), picks the valuation route from the sector-method table (unmapped names read UNDECLARED, never forced), reconciles the share count, strips one-offs from reported profit (checked against the audited normalised line), scores earnings quality, runs your Tata Tech scenario model as three cases (downside / base / upside) and prints the justified range per route, then the verdict: attractive · watch · unattractive · insufficient. <strong>Not a trade permission</strong> — the engine still buys on its own scores (the momentum blend for momentum, the AM07 composite for the other four categories); nothing here is read by a gate, a stop or a size.</div>
-      <div><strong>Coverage.</strong> Statements exist for the {{ chain.n_statements }} Nifty-200 names fetched 2026-08-09 (+ the monthly refresh); any other name reads DATA_NEEDED until the batch fetch you have not yet approved runs. Peer multiples are derived: the median of the same route among those names (ASSUMED until you give peer groups). Rows of your P/E bridge the app does not store — RBI repo, CPI, GDP, Brent, institutional-holding change and delivery % (plus the Sensex / Nifty legs or USDINR when their stored levels are missing) — count 0 and are listed on each row.</div>
+      <div><strong>Coverage.</strong> Statements exist for the {{ chain.n_statements }} Nifty-200 names fetched 2026-08-09 (+ the monthly refresh); any other name reads DATA_NEEDED until the batch fetch you have not yet approved runs. Peer multiples are derived: the median of the same route among those names (ASSUMED) — a peer list you type in the <a href="#chain-inputs" class="underline">inputs table</a> replaces it for that stock. Fed since 2026-10-21, each dated on its row: the 10-year G-sec yield (Upstox), the RBI repo rate and USD/INR (RBI, stored daily), FII + DII holding per stock. Rows of your P/E bridge the app does not feed — CPI, GDP, Brent (your choice), sentiment, chart score, delivery %, a repo start the RBI pages cannot verify (plus the Sensex / Nifty legs or USDINR when their stored levels are missing) — count 0 and are listed on each row.</div>
       {% if chain.drafted %}<div class="text-amber-800 font-semibold"><!-- den_chain_draft_marker -->DRAFT ASSUMPTIONS IN USE — {{ chain.n_edited }} number(s) differ from the defaults ({{ chain.drafted_keys | join(', ') }}); every row below is computed with them. Defaults, sources and the edit form: <a href="#formulas" class="underline">§13</a>.</div>{% endif %}
+      {% if chain.no_effect_keys %}<div class="text-ink-faint"><!-- den_chain_no_effect_marker -->Also drafted in <a href="#formulas" class="underline">§13</a> but with no effect yet on any result: {{ chain.no_effect_keys | join(', ') }}.</div>{% endif %}
       {% if chain.store_down %}<div class="text-amber-800 font-semibold"><!-- den_chain_store_marker -->THE DATABASE DID NOT ANSWER IN TIME on this open — {{ chain.store_down }}. The rest of this open asked it nothing more: prices came from the committed repo copy (rows say "repo copy" beside the price, and are kept only {{ chain.degraded_ttl_min }} min so the database's prices replace them once it answers), index levels from the committed file.</div>{% endif %}
       {% if chain.skipped_busy %}<div class="text-amber-800 font-semibold" data-den-chain-busy-kind="{{ chain.busy_kind }}"><!-- den_chain_busy_marker -->{{ chain.skipped_busy }} row(s) NOT computed on this open — {{ chain.busy }}.
         {% if chain.busy_kind == 'other_tab' %}Another open of the Den (another tab or device) is computing these rows now; reload in a few seconds and they show.
@@ -82,7 +83,7 @@
           {% else %}
           <tr class="border-b border-line last:border-0 align-top">
             <td class="px-4 py-2 whitespace-nowrap">
-              <div class="font-semibold text-sm">{{ r.ticker | replace('.NS', '') }} <span class="text-ink-faint font-normal text-[10px]">{{ r.route.label or 'unmapped' }}</span>{% if r.drafted %} <span class="text-[10px] tracking-widest uppercase text-amber-800 font-bold" title="{{ r.assumptions.drafted | join(', ') }}">draft</span>{% endif %}</div>
+              <div class="font-semibold text-sm">{{ r.ticker | replace('.NS', '') }} <span class="text-ink-faint font-normal text-[10px]">{{ r.route.label or 'unmapped' }}</span>{% if r.drafted %} <span class="text-[10px] tracking-widest uppercase text-amber-800 font-bold" title="{{ (r.assumptions.drafted_effective or []) | join(', ') }}">draft</span>{% endif %}</div>
               <div class="tabular-nums">{% if r.price %}₹{{ r.price | inr(2) }} ({{ r.price_date }}){% else %}<span class="text-amber-700">no stored price</span>{% endif %}</div>
               {% if r.price and r.price_source == 'repo copy' %}<div class="text-[10px] text-ink-faint" title="the store did not hold this name (or the database did not answer) — the close is the committed repo copy's">price: repo copy</div>{% endif %}
               {% if is_owner and r.range.base and r.verdict.verdict in ('attractive', 'watch', 'unattractive') %}
@@ -102,28 +103,78 @@
               <div class="font-bold {% if r.verdict.verdict == 'attractive' %}text-emerald-700{% elif r.verdict.verdict == 'unattractive' %}text-red-700{% elif r.verdict.verdict == 'watch' %}text-amber-700{% else %}text-ink-faint{% endif %}">{{ r.verdict.verdict | upper }}</div>
               {% if r.verdict.upside_to_base_pct is not none %}<div class="tabular-nums">{{ '%+.1f' % r.verdict.upside_to_base_pct }}% to base</div>{% endif %}
               {% for why in r.verdict.reasons[:3] %}<div class="text-ink-faint">{{ why }}</div>{% endfor %}
+              {% elif 'no target by design' in (r.range.why or '') %}
+              {# VAL-01 / VAL-14b: a NAV / embedded-value / sum-of-parts route with nothing typed — not a fault #}
+              <div class="font-bold text-ink-soft" data-den-chain-by-design><!-- den_chain_by_design_marker -->NO TARGET BY DESIGN — {{ r.range.why | replace('no target by design — ', '') }} <a href="#chain-inputs" class="underline font-normal">inputs table ›</a></div>
               {% else %}
               <div class="font-bold text-amber-700"><!-- den_chain_no_range_marker -->NO RANGE — {{ r.range.why }}</div>
               {% endif %}
+              {% for w in (r.verdict.warnings or []) %}<div class="text-amber-800" data-den-chain-warning><!-- den_chain_warning_marker -->⚠ warning — {{ w }}</div>{% endfor %}
+              {% for f in r.known_faults or [] %}<div class="text-red-700 font-semibold" data-den-chain-fault="{{ f.code }}"><!-- den_chain_fault_marker -->⚠ known fault {{ f.code }} — {{ f.text }}</div>{% endfor %}
               <div class="text-ink-faint">not a trade permission</div>
             </td>
             <td class="px-2 py-2 text-right tabular-nums min-w-[14rem] max-w-[20rem]">
               {% if r.range.status == 'OK' %}
               <div class="whitespace-nowrap">₹{{ r.range.low | inr(0) }} / <strong>₹{{ r.range.base | inr(0) }}</strong> / ₹{{ r.range.high | inr(0) }}</div>
+              {% if r.range.inverted %}<div class="text-left whitespace-normal" data-den-chain-inverted><!-- den_chain_inverted_marker --><span class="text-[10px] tracking-widest uppercase font-bold text-white bg-red-700 px-1">cases inverted</span> <span class="text-red-700 font-semibold">{{ r.range.inverted_note or 'the three cases are out of order — kept as computed, never sorted; no verdict' }}</span></div>{% endif %}
               <div class="text-ink-faint text-left whitespace-normal">{{ r.range.method_text }}</div>
               {% if r.range.multiple_band %}<div class="text-ink-faint text-left whitespace-normal">multiple {{ r.range.multiple_band.low | round(1) }}–{{ r.range.multiple_band.high | round(1) }}× ({{ r.range.multiple_band.source }})</div>{% endif %}
+              {% if r.range.whatif %}
+              {# VAL-09: the owner's sheet price per case sits BESIDE the range, never in it #}
+              <div class="text-left whitespace-normal" data-den-chain-whatif><!-- den_chain_whatif_marker -->what-if (your sheet): ₹{{ r.range.whatif.downside | inr(0) }} / ₹{{ r.range.whatif.base | inr(0) }} / ₹{{ r.range.whatif.upside | inr(0) }} <span class="text-ink-faint">— moves with your P/E bridge, not the range</span></div>
+              {% endif %}
+              {% if r.range.single_route and r.range.single_route.base %}<div class="text-ink-faint text-left whitespace-normal">single route ({{ r.range.single_route.family }}): ₹{{ r.range.single_route.low | inr(0) }} / ₹{{ r.range.single_route.base | inr(0) }} / ₹{{ r.range.single_route.high | inr(0) }} — kept beside the sum-of-parts</div>{% endif %}
+              {% else %}
+              {% if 'no target by design' in (r.range.why or '') %}
+              <div class="text-ink-soft font-semibold text-left whitespace-normal">no target by design — <a href="#chain-inputs" class="underline">type it in the inputs table</a></div>
               {% else %}
               <div class="text-amber-700 font-semibold text-left whitespace-normal">DATA_NEEDED — {{ r.range.why }}</div>
+              {% endif %}
               {% if r.range.fallback and r.range.fallback.base %}<div class="text-ink-faint text-left whitespace-normal">fallback {{ r.range.fallback.label or 'P/B' }}: ₹{{ r.range.fallback.base | inr(0) }} (not the route's NAV)</div>{% endif %}
+              {% endif %}
+              {% set sb = r.range.bridge if (r.range.bridge and r.range.bridge.variant == 'conglomerate') else none %}
+              {% if sb %}
+              {# sum-of-parts (VAL-01 / VAL-14b): every segment with the multiple it was priced on #}
+              <div class="text-left whitespace-normal text-ink-faint" data-den-chain-segments><!-- den_chain_segments_marker -->segments: {% for sg in sb.segments %}{{ sg.segment }} {% if sg.multiple is not none %}{{ '%.2f' % sg.multiple }}× EV/EBIT{% if 'typed' in (sg.multiple_source or '') %} <span class="text-ink font-semibold">(typed)</span>{% endif %}{% else %}<span class="text-amber-700">no multiple</span>{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</div>
+              <div class="text-left whitespace-normal text-ink-faint" data-den-chain-segments-note><!-- den_chain_segments_note_marker -->segment multiples are yours to type in the <a href="#chain-inputs" class="underline">inputs table</a> (NAME=x — the name as printed above, its bracketed short name or its group); until then each segment reads its default peers' median EV/EBIT (ASSUMED)</div>
+              {% if sb.typed_unmatched %}<div class="text-left whitespace-normal text-amber-700 font-semibold" data-den-chain-segments-unmatched><!-- den_chain_segments_unmatched_marker -->typed segment multiple(s) NOT applied — no segment named {{ sb.typed_unmatched | join(', ') }}; this stock's segments: {{ sb.segment_names | join('; ') }}</div>{% endif %}
+              {% endif %}
+              {% set oh = r.range.own_history or [] %}
+              {% if oh %}
+              {# VAL-14a: FY-end close ÷ (normalised PAT ÷ that FY's shares); odd years flagged, never dropped #}
+              <div class="text-left whitespace-normal" data-den-chain-own-history><!-- den_chain_own_history_marker --><span class="text-ink-faint">own P/E by FY:</span>
+                {% for h in oh %}{% if h.pe is not none %}<span class="{% if h.flag %}text-amber-800 font-semibold{% else %}text-ink-faint{% endif %}" title="{{ h.eps_basis }}{% if h.flag %} · {{ h.flag }}{% endif %}">{{ (h.period or '')[:7] }} {{ h.pe | round(1) }}×{% if h.flag %} ⚑{% endif %}</span>{% if not loop.last %} · {% endif %}{% endif %}{% endfor %}
+                {% for h in oh if h.flag %}<div class="text-amber-800" data-den-chain-odd-year>⚑ {{ h.period }}: {{ h.flag }}</div>{% endfor %}
+              </div>
               {% endif %}
             </td>
             <td class="px-2 py-2 text-right tabular-nums min-w-[12rem] max-w-[18rem]">
               {% if r.scenarios.status == 'OK' %}
               <div class="whitespace-nowrap">{{ r.scenarios.eps.downside | round(2) }} / <strong>{{ r.scenarios.eps.base | round(2) }}</strong> / {{ r.scenarios.eps.upside | round(2) }}</div>
               <div class="text-ink-faint whitespace-normal">growth {{ r.scenarios.drivers.revenue_growth_pct | round(1) }}% · margin {{ r.scenarios.drivers.base_margin_pct | round(1) }}% · PAT/EBITDA {{ r.scenarios.drivers.pat_pct_of_ebitda | round(1) }}%</div>
-              <div class="text-ink-faint whitespace-normal">P/E bridge {{ '%+.2f' % r.scenarios.pe_bridge_pct }}% ({{ r.scenarios.macro_data_needed | length }} macro inputs DATA_NEEDED, counted 0)</div>
+              <div class="text-ink-faint whitespace-normal">P/E bridge {{ '%+.2f' % r.scenarios.pe_bridge_pct }}%{% if r.range.multiple_band and r.range.whatif %} <span data-den-chain-bridge-whatif>— moves the what-if price, not the range</span>{% endif %} ({{ r.scenarios.macro_data_needed | length }} macro inputs DATA_NEEDED, counted 0)</div>
+              {% if r.fx and r.fx.applies %}
+              {# VAL-13a / VAL-15: the IT rupee row — the 'now' rate's date and the base actually used #}
+              <div class="text-left whitespace-normal" data-den-chain-fx><!-- den_chain_fx_marker -->
+                {% if r.fx.counted %}
+                <div class="text-ink-faint">rupee row E101: USD-INR {{ '%.2f' % r.fx.now }} on {{ r.fx.now_date }}{% if r.fx.now_from_feed %} (RBI reference rate){% endif %}{% if r.fx.stale %} <span class="text-amber-700 font-semibold" data-den-chain-fx-stale>STALE — {{ r.fx.age_days }} days old, {% if r.fx.now_from_feed %}the RBI feed has stored no newer rate{% else %}nothing refreshes the USD-INR file{% endif %} (stale past {{ r.fx.stale_days }} days)</span>{% endif %} vs {{ '%.2f' % r.fx.base }} on {{ r.fx.base_date }}{% if r.fx.pct is not none %} → {{ '%+.2f' % r.fx.pct }}%{% endif %}</div>
+                {% else %}
+                <div class="text-amber-700">rupee row E101 counted 0 — USD-INR {% if r.fx.now is none %}now{% else %}at the base year end{% endif %} is missing{% if r.fx.now_date %} (now read on {{ r.fx.now_date }}{% if r.fx.stale %}, STALE — {{ r.fx.age_days }} days old{% endif %}){% endif %}</div>
+                {% endif %}
+                <div class="text-ink-faint font-mono text-[10px]">E101 = {{ r.fx.formula }}</div>
+              </div>
+              {% endif %}
               {% else %}
               <div class="text-amber-700 font-semibold text-left whitespace-normal">DATA_NEEDED — {{ r.scenarios.why }}</div>
+              {% endif %}
+              {% set mi = r.macro_inputs or {} %}
+              {% if mi %}
+              {# item 10: what the stored feeds gave this row, each dated #}
+              <div class="text-left whitespace-normal text-ink-faint" data-den-chain-macro><!-- den_chain_macro_marker -->
+                {% if mi.rf_pct is not none %}10y {{ '%.2f' % mi.rf_pct }}% ({% if mi.rf_feed %}<span data-den-chain-rf-bond>{{ mi.rf_bond or 'bond not named' }}</span>, Upstox G-sec close {{ mi.rf_date or '—' }}{% else %}June file, {{ mi.rf_date or '—' }}{% endif %}){% if mi.rf_stale %} <span class="text-amber-700 font-semibold" data-den-chain-rf-stale>STALE</span>{% endif %}{% if mi.rbi_benchmark_pct is not none %} · <span data-den-chain-rbi-benchmark title="RBI home page, Government Securities Market — shown beside the Upstox yield, never used: you chose Upstox as the source">RBI benchmark {{ '%.2f' % mi.rbi_benchmark_pct }}% ({{ mi.rbi_benchmark_date or '—' }}{% if mi.rbi_benchmark_bond %}, {{ mi.rbi_benchmark_bond }}{% endif %}) — display only</span>{% endif %}{% else %}10y yield DATA_NEEDED{% endif %}
+                · {% if mi.repo_start_pct is not none and mi.repo_end_pct is not none %}repo {{ '%.2f' % mi.repo_start_pct }}% → {{ '%.2f' % mi.repo_end_pct }}% ({{ mi.repo_end_date or '—' }}){% else %}<span title="{{ mi.repo_start_why or mi.repo_why or '' }}">repo counted 0{% if mi.repo_start_why %} — start not RBI-verified{% elif mi.repo_start_pct is not none %} — start {{ '%.2f' % mi.repo_start_pct }}% ({{ mi.repo_start_date }}) verified, no current RBI reading stored yet{% endif %}</span>{% endif %}
+                · {% if mi.inst_holding_start is not none and mi.inst_holding_end is not none %}FII+DII {{ '%.1f' % mi.inst_holding_start }}% → {{ '%.1f' % mi.inst_holding_end }}% ({{ mi.inst_holding_end_date or '—' }}){% else %}<span title="{{ mi.inst_holding_why or '' }}">FII+DII counted 0</span>{% endif %}
+              </div>
               {% endif %}
             </td>
             <td class="px-2 py-2 min-w-[11rem]">
@@ -158,6 +209,10 @@
               <div class="text-ink-faint">{{ r.earnings.n_adjustments }} adjustment(s){% if r.earnings.matches_yahoo is true %} · matches audited normalised line{% elif r.earnings.matches_yahoo is false %} · <span class="text-amber-700">differs from audited normalised line</span>{% endif %}</div>
               {% else %}
               <div class="text-amber-700 font-semibold text-left">DATA_NEEDED — {{ r.earnings.why }}</div>
+              {% endif %}
+              {% if r.earnings.target_starts_from %}
+              {# VAL-08: which profit the target starts from #}
+              <div class="text-left {% if r.earnings.target_starts_from == 'normalised' %}text-ink-faint{% else %}text-amber-700 font-semibold{% endif %}" data-den-chain-target-basis="{{ r.earnings.target_starts_from }}"><!-- den_chain_target_basis_marker -->target starts from {% if r.earnings.target_starts_from == 'normalised' %}normalised PAT{% else %}{{ r.earnings.target_starts_from }}{% endif %}</div>
               {% endif %}
             </td>
             <td class="px-2 py-2 min-w-[10rem]">
@@ -195,5 +250,57 @@
     {% else %}
     <div class="p-4 text-sm text-ink-faint"><!-- den_chain_empty_marker -->No name to read yet — type one above, store a §11 target, or hold a position.</div>
     {% endif %}
+
+    <!-- The inputs table (VAL-01 / VAL-14b, owner choice 2026-10-21): what no
+         file holds — typed NAV, embedded value, holding discount, segment
+         multiples, a peer list. Settings doc valuation_inputs; display only. -->
+    {% set vin = vin | default({"n": 0, "max": 40, "rows": [], "flag": "", "error": "", "doc_id": "valuation_inputs"}) %}
+    <div id="chain-inputs" class="px-4 py-3 border-t border-line scroll-mt-20 text-xs"><!-- den_inputs_marker -->
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-1">Your inputs table — {{ vin.n }} of {{ vin.max }} symbols · settings doc {{ vin.doc_id }}</div>
+      <div class="text-ink-soft mb-2">The numbers no file holds. NAV per share (developers) and embedded value per share (insurers) give the range as value × (1 ∓ the typed-value band in <a href="#formulas" class="underline">§13</a>); a holding discount sets a holding company's sum-of-parts (default 50%, ASSUMED); segment multiples (<span class="font-mono">O2C=7.5; Retail=30</span>) replace the default peers' EV/EBIT for a group's segments — type the segment's name as printed on its §12 row (any case), its bracketed short name, or its group (O2C, Oil &amp; Gas, Retail, Digital, Others){% if vin.segments_on_file %}; segments on file: {% for sf in vin.segments_on_file %}<span class="font-mono" data-den-inputs-segments="{{ sf.symbol }}">{{ sf.symbol }}</span> — {{ sf.names | join(' · ') }}{% if not loop.last %}; {% endif %}{% endfor %}{% endif %}; a peer list (<span class="font-mono">IOC BPCL</span>) replaces the route median for that stock. A row with none of these prints "no target by design". §12 reads it on this page; the engine never does.</div>
+      {% if vin.flag == 'saved' %}<div class="mb-2 text-emerald-800 font-semibold">Row stored — §12 above recomputed it.</div>
+      {% elif vin.flag == 'removed' %}<div class="mb-2 font-semibold">Row removed.</div>
+      {% elif vin.flag == 'denied' %}<div class="mb-2 text-amber-800 font-semibold">Owner role required to change the inputs table.</div>
+      {% elif vin.flag == 'invalid' %}<div class="mb-2 text-red-700 font-semibold">Not stored — {{ vin.error or 'the form could not be read' }}. Nothing changed.</div>{% endif %}
+      {% if vin.rows %}
+      <div class="overflow-x-auto mb-2"><!-- den_inputs_rows_marker -->
+        <table class="w-full text-xs">
+          <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line"><tr><th class="text-left py-1 pr-3">Stock</th><th class="text-right py-1 pr-3">NAV/share</th><th class="text-right py-1 pr-3">EV/share · VNB</th><th class="text-right py-1 pr-3">Holding disc.</th><th class="text-left py-1 pr-3">Segment multiples</th><th class="text-left py-1 pr-3">Peer list</th><th class="text-left py-1 pr-3">Note · saved</th><th></th></tr></thead>
+          <tbody>
+            {% for i in vin.rows %}
+            <tr class="border-b border-line/60 align-top" data-den-inputs-row="{{ i.symbol }}">
+              <td class="py-1 pr-3 font-semibold">{{ i.symbol }}</td>
+              <td class="py-1 pr-3 text-right tabular-nums">{% if i.nav_ps is defined and i.nav_ps is not none %}₹{{ i.nav_ps | inr(2) }}{% if i.nav_asof %} <span class="text-ink-faint">({{ i.nav_asof }})</span>{% endif %}{% else %}—{% endif %}</td>
+              <td class="py-1 pr-3 text-right tabular-nums">{% if i.ev_ps is defined and i.ev_ps is not none %}₹{{ i.ev_ps | inr(2) }}{% else %}—{% endif %}{% if i.vnb_ps is defined and i.vnb_ps is not none %} · VNB ₹{{ i.vnb_ps | inr(2) }}{% endif %}{% if i.ev_asof %} <span class="text-ink-faint">({{ i.ev_asof }})</span>{% endif %}</td>
+              <td class="py-1 pr-3 text-right tabular-nums">{% if i.holding_discount_pct is defined and i.holding_discount_pct is not none %}{{ i.holding_discount_pct }}%{% else %}—{% endif %}</td>
+              <td class="py-1 pr-3 font-mono">{{ i.segments_text or '—' }}</td>
+              <td class="py-1 pr-3 font-mono">{{ i.peers_text or '—' }}</td>
+              <td class="py-1 pr-3 text-ink-faint">{{ i.note or '' }}{% if i.ts %} · {{ i.ts }}{% endif %}</td>
+              <td class="py-1">{% if is_owner %}<form method="post" action="/den/valuation/inputs/remove"><input type="hidden" name="ticker" value="{{ i.symbol }}"><button type="submit" class="text-[10px] tracking-widest uppercase text-ink-faint hover:text-red-700">✕ remove</button></form>{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+      {% if is_owner %}
+      <form method="post" action="/den/valuation/inputs" class="flex flex-wrap gap-3 items-end"><!-- den_inputs_form_marker -->
+        <div><label class="text-[10px] tracking-widest text-ink-faint uppercase block">Stock</label><input name="ticker" required placeholder="DLF" class="border-b border-line focus:border-ink outline-none py-1 font-mono bg-transparent uppercase w-24"></div>
+        <div><label class="text-[10px] tracking-widest text-ink-faint uppercase block">NAV/share ₹</label><input name="nav_ps" inputmode="decimal" class="border-b border-line focus:border-ink outline-none py-1 tabular-nums bg-transparent w-24"></div>
+        <div><label class="text-[10px] tracking-widest text-ink-faint uppercase block">NAV as of</label><input name="nav_asof" placeholder="YYYY-MM-DD" class="border-b border-line focus:border-ink outline-none py-1 font-mono bg-transparent w-28"></div>
+        <div><label class="text-[10px] tracking-widest text-ink-faint uppercase block">Embedded value/share ₹</label><input name="ev_ps" inputmode="decimal" class="border-b border-line focus:border-ink outline-none py-1 tabular-nums bg-transparent w-24"></div>
+        <div><label class="text-[10px] tracking-widest text-ink-faint uppercase block">VNB/share ₹</label><input name="vnb_ps" inputmode="decimal" class="border-b border-line focus:border-ink outline-none py-1 tabular-nums bg-transparent w-20"></div>
+        <div><label class="text-[10px] tracking-widest text-ink-faint uppercase block">EV as of</label><input name="ev_asof" placeholder="YYYY-MM-DD" class="border-b border-line focus:border-ink outline-none py-1 font-mono bg-transparent w-28"></div>
+        <div><label class="text-[10px] tracking-widest text-ink-faint uppercase block">Holding discount %</label><input name="holding_discount_pct" inputmode="decimal" class="border-b border-line focus:border-ink outline-none py-1 tabular-nums bg-transparent w-20"></div>
+        <div class="min-w-[12rem]"><label class="text-[10px] tracking-widest text-ink-faint uppercase block">Segment multiples</label><input name="segment_multiples" placeholder="O2C=7.5; Retail=30" class="border-b border-line focus:border-ink outline-none py-1 font-mono bg-transparent w-full"></div>
+        <div class="min-w-[10rem]"><label class="text-[10px] tracking-widest text-ink-faint uppercase block">Peer list</label><input name="peer_list" placeholder="IOC BPCL" class="border-b border-line focus:border-ink outline-none py-1 font-mono bg-transparent w-full uppercase"></div>
+        <div class="min-w-[10rem]"><label class="text-[10px] tracking-widest text-ink-faint uppercase block">Note</label><input name="note" maxlength="200" class="border-b border-line focus:border-ink outline-none py-1 bg-transparent w-full"></div>
+        <button type="submit" class="px-3 py-1.5 bg-ink text-white text-xs font-semibold tracking-wide hover:bg-black">STORE ROW &rarr; re-read §12</button>
+        <span class="text-ink-faint">storing a symbol again replaces its whole row</span>
+      </form>
+      {% else %}
+      <div class="text-amber-700">Owner role required to change the inputs table.</div>
+      {% endif %}
+    </div>
   </div>
 </section>

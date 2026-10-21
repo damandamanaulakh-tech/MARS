@@ -1,0 +1,3 @@
+holdco,subsidiary,holder_name,shares_held,stake_pct,asof,filed,xbrl_url,list_url,fetched
+BAJAJHLDNG,BAJAJ-AUTO,BAJAJ HOLDINGS AND INVESTMENT LIMITED,95547251,34.77,2026-09-30,2026-10-15,https://nsearchives.nseindia.com/corporate/xbrl/SHP_1738840_15102026033814_WEB.xml,https://www.nseindia.com/api/corporate-share-holdings-master?index=equities&symbol=BAJAJ-AUTO,2026-10-21
+BAJAJHLDNG,BAJAJFINSV,BAJAJ HOLDINGS AND INVESTMENT LIMITED,614832190,38.38,2026-09-30,2026-10-16,https://nsearchives.nseindia.com/corporate/xbrl/SHP_1740318_16102026063210_WEB.xml,https://www.nseindia.com/api/corporate-share-holdings-master?index=equities&symbol=BAJAJFINSV,2026-10-21

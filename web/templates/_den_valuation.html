@@ -24,7 +24,7 @@
   <div class="bg-white border border-line">
     <div class="px-4 py-3 border-b border-line text-xs text-ink-soft space-y-1">
       <div><strong>What it does.</strong> Takes a dated standalone target (normalised earnings × justified P/E — typed here until the sequence produces it) and shows what the <em>context</em> says about it today: the sector leg both ways (your 1:1 rule beside the stock's measured β), the rates leg through the discount rate, a sentiment margin that only widens the buy discount, and a verify split of the stock's actual move into the sector part and the stock-specific residual. A residual beyond ±{{ val.assumed.rerun_residual_pct | round(0) | int }}% flags the standalone valuation for a re-run (your event loop).</div>
-      <div><strong>Formulas.</strong> 1:1 = target × (1 + sector move) · measured = target × (1 + β × sector move), β = slope of daily returns on the sector over the last {{ val.assumed.beta_window_days | int }} sessions (at least {{ val.assumed.beta_min_obs | int }}) · rates multiplier = (r<sub>then</sub> − g) / (r<sub>now</sub> + shift − g), r = 10-year yield + equity risk premium · buy-below = context target × (1 − discount), discount = {{ val.assumed.base_buy_discount_pct | round(1) }}% + {{ val.assumed.fear_step_pp | round(1) }} points per fear gauge ON.</div>
+      <div><strong>Formulas.</strong> 1:1 = target × (1 + sector move) · measured = target × (1 + β × sector move), β = slope of daily returns on the sector over the last {{ val.assumed.beta_window_days | int }} sessions (at least {{ val.assumed.beta_min_obs | int }}) · rates multiplier = (r<sub>then</sub> − g) / (r<sub>now</sub> + shift − g), r = 10-year yield + equity risk premium · buy-below = context target × (1 − discount), discount = {{ val.assumed.base_buy_discount_pct | round(1) }}% + {{ val.assumed.fear_step_pp | round(1) }} points per fear gauge ON. A target dated today has nothing to adjust yet; a missing 10-year yield is not applied (the context target is the sector leg only, and says so).</div>
       <div><strong>Sensitivity today.</strong> {% if val.sensitivity_per_pp is not none %}At a 10-year yield of {{ val.rate_now_used | round(2) }}%, ERP {{ val.assumptions.erp | round(1) }}% and growth {{ val.assumptions.growth | round(1) }}%, <strong>one extra point on the rate (or of inflation) moves every context target {{ val.sensitivity_per_pp | round(1) }}%</strong>.{% else %}DATA_NEEDED — no 10-year yield to compute the sensitivity.{% endif %}
         10-year yield file: {% if val.bond_last %}last row {{ val.bond_last[0] }} at {{ val.bond_last[1] | round(3) }}% — type today's yield below to replace it{% else %}unreadable{% endif %}.</div>
       <div><strong>Sector indices.</strong> Indian only, as you chose: {% for s, i in val.sector_index_map.items() %}{{ s }} → Nifty {{ i }}{% if not loop.last %} · {% endif %}{% endfor %}; realty names → Nifty Realty. Any other sector reads Nifty 50 and says so. Global sector indices: DATA_NEEDED, no free feed reaches the box.</div>
@@ -108,20 +108,31 @@
             <td colspan="8" class="px-2 py-2 text-amber-700 font-semibold"><!-- den_valuation_not_computed_marker -->NOT COMPUTED on this open — {{ r.why }}</td>
             {% elif r.status != 'OK' %}
             <td colspan="8" class="px-2 py-2 text-amber-700 font-semibold">DATA_NEEDED — {{ r.why }}</td>
+            {% elif r.dated_today %}
+            {# VAL-13: every leg starts from today's close, so a context target would equal the target itself #}
+            <td colspan="8" class="px-2 py-2" data-den-valuation-row="dated_today"><!-- den_valuation_dated_today_marker -->
+              <div class="font-semibold text-amber-800">{{ r.context_note }}.</div>
+              <div class="text-ink-faint">The sector, rates and market legs all start from today's close, so a context target would just repeat ₹{{ r.target | inr(2) }}. The first reading comes after the next close.</div>
+              {% if sm.buy_below_on_target %}<div class="tabular-nums">Buy below on the target itself at today's {{ sm.discount_pct | round(1) }}% margin: <strong>₹{{ sm.buy_below_on_target | inr(2) }}</strong>{% if sm.n_unknown %} <span class="text-ink-faint">({{ sm.n_unknown }} gauge(s) DATA_NEEDED)</span>{% endif %}</div>{% endif %}
+            </td>
             {% else %}
             <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">
               {% if r.context_one_to_one or r.context_measured %}
               <div class="font-bold">{% if r.context_one_to_one %}₹{{ r.context_one_to_one | inr(2) }}{% else %}—{% endif %} / {% if r.context_measured %}₹{{ r.context_measured | inr(2) }}{% else %}—{% endif %}</div>
               <div class="text-ink-faint">vs price {% if r.context_one_to_one_vs_price_pct is not none %}{{ '%+.1f' % r.context_one_to_one_vs_price_pct }}%{% else %}—{% endif %} / {% if r.context_measured_vs_price_pct is not none %}{{ '%+.1f' % r.context_measured_vs_price_pct }}%{% else %}—{% endif %}</div>
-              {% else %}
+              {% if not r.rates_applied %}<div class="text-amber-700 font-semibold whitespace-normal" data-den-valuation-no-rates><!-- den_valuation_no_rates_marker -->sector leg only · {{ r.rates_note }}</div>{% endif %}
+              {% elif r.context_rates_only %}
               <div class="font-bold">₹{{ r.context_rates_only | inr(2) }}</div>
-              <div class="text-ink-faint">rates leg only · vs price {{ '%+.1f' % r.context_rates_only_vs_price_pct }}%</div>
+              <div class="text-ink-faint">rates leg only (sector leg DATA_NEEDED){% if r.context_rates_only_vs_price_pct is not none %} · vs price {{ '%+.1f' % r.context_rates_only_vs_price_pct }}%{% endif %}</div>
+              {% else %}
+              <div class="text-amber-700 font-semibold whitespace-normal text-left" data-den-valuation-no-context><!-- den_valuation_no_context_marker -->{{ r.context_note or 'no context target' }}</div>
               {% endif %}
             </td>
             <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">
               {% if sm.buy_below_one_to_one or sm.buy_below_measured %}
               {% if sm.buy_below_one_to_one %}₹{{ sm.buy_below_one_to_one | inr(2) }}{% else %}—{% endif %} / {% if sm.buy_below_measured %}₹{{ sm.buy_below_measured | inr(2) }}{% else %}—{% endif %}
-              {% else %}₹{{ sm.buy_below_rates_only | inr(2) }} <span class="text-ink-faint">(rates only)</span>{% endif %}
+              {% elif sm.buy_below_rates_only %}₹{{ sm.buy_below_rates_only | inr(2) }} <span class="text-ink-faint">(rates only)</span>
+              {% else %}—{% endif %}
             </td>
             <td class="px-2 py-2 min-w-[12rem]">
               <div>{{ sl.label }}</div>
@@ -141,6 +152,7 @@
               <div class="text-ink-faint tabular-nums">+1pp from here = {{ rl.per_pp_pct | round(1) }}%</div>
               {% else %}
               <div class="text-amber-700 font-semibold">DATA_NEEDED — {{ rl.why }}</div>
+              <div class="text-ink-faint">not applied — the context target is not adjusted for rates</div>
               {% endif %}
             </td>
             <td class="px-2 py-2 min-w-[12rem]">

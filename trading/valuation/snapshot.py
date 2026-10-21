@@ -179,6 +179,9 @@ EXTRA_LINE_ITEMS: Dict[str, Tuple[Tuple[str, str], ...]] = {
     "restructuring": (("is", "Restructuring And Mergern Acquisition"),),
     "write_off": (("is", "Write Off"),),
     "issuance": (("cf", "Issuance Of Capital Stock"), ("cf", "Common Stock Issuance")),
+    # VAL-02 (owner 2026-10-21): the lender book when the feed's equity agrees
+    # with the bank's filed net worth (pipeline._lender_book).
+    "tangible_book": (("bs", "Tangible Book Value"),),
 }
 
 # Curated fundamentals CSV (source "fundamentals_csv") → canonical names.
