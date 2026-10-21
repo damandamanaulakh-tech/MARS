@@ -68,7 +68,10 @@ ASSUMED: Dict[str, dict] = {
         "source": "owner choice 2026-10-21 (VALFIX batch 3): the IT-only rupee row E101 is "
                   "counted 0 in the live chain — the currency leg runs through EPS for "
                   "EVERY sector (trading/valuation/currency.py, shares by tier, USD + EUR); "
-                  "the owner's Tata sheet keeps its own E101 rows cell for cell"},
+                  "the owner's Tata sheet keeps its own E101 rows cell for cell; the item-19 "
+                  "exit record is built with e101_it_rupee=True — the rule the "
+                  "pre-registered study measured (2026-10-21: E101 live for IT-services "
+                  "routes, the batch-2 branch)"},
     "macro_counted_zero": {
         "value": ["repo", "cpi", "gdp", "brent", "institutional change", "delivery"],
         "source": "the sheet's what-if rows the app does not store — counted 0 and "
@@ -723,14 +726,21 @@ def _drivers(base: dict, snap: dict, route_family: str) -> tuple[dict, List[str]
 
 
 def _market(macro: dict, snap: dict, route: dict, peer_pe: Optional[float],
-            base: dict, sheet: Optional[dict] = None) -> tuple[dict, List[str]]:
+            base: dict, sheet: Optional[dict] = None,
+            e101_it_rupee: bool = False) -> tuple[dict, List[str]]:
     """The sheet's market inputs: stored levels where the app has them,
     neutral values (= zero effect) where it does not, each listed.
 
     `sheet` = the Den draft of the sheet's sensitivities. A missing CPI,
     GDP or delivery figure is filled with the SAME comfort / trend /
     benchmark its bridge row compares it with (draft or default), so the
-    row really counts 0 under any draft (VAL-10, owner order 2026-10-21)."""
+    row really counts 0 under any draft (VAL-10, owner order 2026-10-21).
+
+    `e101_it_rupee` (batch-3 review, 2026-10-21): True = the rupee row
+    E101 reads USD/INR now vs the base year-end for IT-services routes —
+    the batch-2 rule the item-19 pre-registered study measured, used for
+    the exit RECORD only. False (default) = batch 3: E101 counted 0, the
+    currency leg runs through EPS after the chain."""
     missing: List[str] = []
     av = SC._assumption_values(sheet or None)
     m: Dict[str, Any] = {}
@@ -772,7 +782,19 @@ def _market(macro: dict, snap: dict, route: dict, peer_pe: Optional[float],
     # VALFIX batch 3) — the currency leg now runs through EPS for every
     # sector, after the chain (currency.py); the sheet keeps its own E101
     u_now, u_base = num(macro.get("usdinr_now")), num(macro.get("usdinr_base"))
-    m["usdinr"] = m["usdinr_base"] = u_base or u_now or 1.0
+    if e101_it_rupee:
+        # the item-19 exit record (batch-3 review, 2026-10-21): the batch-2
+        # branch VERBATIM — the rule the pre-registered study measured.
+        # rupee leg: IT exporters only (ASSUMED)
+        is_it = (route.get("sector") or "").startswith("IT services")
+        if is_it and u_now and u_base:
+            m["usdinr"], m["usdinr_base"] = u_now, u_base
+        else:
+            m["usdinr"] = m["usdinr_base"] = u_base or u_now or 1.0
+            if is_it:
+                missing.append("USDINR now/base — rupee leg counted 0")
+    else:
+        m["usdinr"] = m["usdinr_base"] = u_base or u_now or 1.0
     m["vix"] = num(macro.get("vix")) if num(macro.get("vix")) is not None else 0.0
     m["sentiment"] = 0.0
     i0, i1 = num(macro.get("inst_holding_start")), num(macro.get("inst_holding_end"))
@@ -1373,18 +1395,26 @@ _COST_DRIVERS = ("sector_move_pct", "wfh_shift_pp", "other_capex", "electricity_
                  "bid_discount_pct", "tax_rate_change_pp", "one_off_costs")
 
 
-def live_inputs(macro: dict, route: dict, drivers: dict, chain_ran: bool) -> Dict[str, bool]:
+def live_inputs(macro: dict, route: dict, drivers: dict, chain_ran: bool,
+                e101_it_rupee: bool = False) -> Dict[str, bool]:
     """Which bridge / cost inputs THIS record really fed (item 9, owner
-    2026-10-21) — assumptions.no_effect_keys(live=…) reads it."""
+    2026-10-21) — assumptions.no_effect_keys(live=…) reads it.
+    `e101_it_rupee` = the item-19 exit record's rule (see _market)."""
     macro = macro or {}
 
     def has(*ks: str) -> bool:
         return all(num(macro.get(k)) is not None for k in ks)
 
+    if e101_it_rupee:
+        # the batch-2 reading (the item-19 exit record, batch-3 review)
+        is_it = str((route or {}).get("sector") or "").startswith("IT services")
+        usdinr_fed = bool(is_it and has("usdinr_now", "usdinr_base"))
+    else:
+        # E101 is counted 0 in the live chain since 2026-10-21 (batch 3)
+        usdinr_fed = False
     return {
         "market": has("nifty_start", "nifty_end") or has("sensex_start", "sensex_end"),
-        # E101 is counted 0 in the live chain since 2026-10-21 (batch 3)
-        "usdinr": False,
+        "usdinr": usdinr_fed,
         "repo": has("repo_start_pct") and (has("repo_end_pct") or has("repo_pct")),
         "cpi": has("cpi_pct"), "gdp": has("gdp_pct"),
         "brent": has("brent_start", "brent_end"),
@@ -1412,7 +1442,8 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
              overrides: Optional[dict] = None,
              owner_inputs: Optional[dict] = None,
              peer_rows: Any = None,
-             price_of: Optional[Callable[[str], Optional[float]]] = None) -> dict:
+             price_of: Optional[Callable[[str], Optional[float]]] = None,
+             e101_it_rupee: bool = False) -> dict:
     """Stages 07-18 for one name. Every outside input is injected.
 
     `overrides` = the Den's assumption draft ({key: value} over
@@ -1437,7 +1468,12 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
           peer_rows_from_base, or a callable returning it): a typed
           peer_list and the conglomerate segment multiples read it;
       price_of — today's price of any ticker (holding-company subsidiaries);
-          the peer table's price is the fallback."""
+          the peer table's price is the fallback.
+
+    `e101_it_rupee` (batch-3 review, 2026-10-21): True = the rupee row E101
+    is live for IT-services routes (the batch-2 branch) — what the item-19
+    exit record is built with, because the pre-registered study measured
+    that rule. False (default) = batch 3: E101 counted 0."""
     sm = sector_map or {}
     price_at = price_at or (lambda when: None)
     peers = peers or (lambda method, exclude: {})
@@ -1513,7 +1549,7 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
     drivers, d_notes = _drivers(base, snap, chain_family)
     notes.extend(d_notes)
     market, macro_missing = _market(mac, snap, rt, pr.get("pe_median"), base,
-                                    sheet=ov["sheet"])
+                                    sheet=ov["sheet"], e101_it_rupee=bool(e101_it_rupee))
     cases: dict = {}
     if rec["snapshot"]["status"] == "OK" and chain_family in ("earnings", "ev_ebitda", "ev_sales"):
         cases = SC.three_cases(base, drivers, market,
@@ -1584,7 +1620,7 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
         data_needed.append(f"bridge: {m}")
     rec["data_needed"] = data_needed
     rec["notes"] = notes
-    live = live_inputs(mac, rt, drivers, bool(cases))
+    live = live_inputs(mac, rt, drivers, bool(cases), e101_it_rupee=bool(e101_it_rupee))
     rec["assumptions"] = {"pipeline": {k: v_["value"] for k, v_ in ASSUMED.items()},
                           "snapshot": dict(S.ASSUMED), "case_deltas": ov["case_deltas"],
                           "verdict": {k: v_["value"] for k, v_ in A.ASSUMED.items()},

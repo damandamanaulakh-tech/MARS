@@ -1184,7 +1184,8 @@ def _valuation_precompute_body(where: str, p, cfg, _journal) -> dict:
                     else:
                         closes, src = cv._zip_close_series(t), "repo copy"
                     try:
-                        rec = cv.row_for(t, cfg, p, closes=closes, price_source=src)
+                        rec = cv.row_for(t, cfg, p, closes=closes, price_source=src,
+                                         tested_rule=True)
                     except cv._BudgetSpent:
                         stopped = stopped or f"the {budget:g} s budget"
                         _keep(t)

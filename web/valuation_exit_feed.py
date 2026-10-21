@@ -20,6 +20,13 @@ IST, the weekly block, a boot catch-up and the owner's Den button), which
 reduces each Den §12 chain row (valuation_chain_view.row_for, DEFAULT
 assumptions — the tested rule; a Den draft never reaches the money path)
 to the RECORD shape below.
+
+Batch-3 review (2026-10-21): the row is built with `tested_rule=True` — the
+P/E bridge read to the valuation day, E101 live for IT-services routes, and
+the sector index from valuation_view.bench_for_tested (the map the study
+measured, not the batch-3 remap). A date typed in the inputs table or
+pushed to §11 does not reach the record. The §12 display row keeps the
+batch-3 definitions.
 """
 from __future__ import annotations
 
@@ -44,6 +51,10 @@ DOC_ID = "valuation_records"
 #: n_judged, skipped, ...}. Mongo is the durable copy.
 LAST: dict = {}
 _LOCK = threading.Lock()
+#: The rule every record is built under (batch-3 review, 2026-10-21): the
+#: definitions the item-19 pre-registered study measured. Moving the
+#: record onto the batch-3 definitions = re-run that test + the owner's word.
+RECORD_RULE = "tested-2026-10-21"
 #: An empty store read is asked again after this many seconds, not on
 #: every 30-minute pass and every buy.
 MISS_RETRY_S = 300.0
@@ -214,7 +225,13 @@ def _n(x: Any) -> Optional[float]:
 
 def record_from_row(ticker: str, rec: dict, closes: Optional[pd.Series],
                     sensex: Optional[pd.Series], cfg, where: str = "") -> dict:
-    """One Den §12 chain row reduced to the RECORD the engine reads."""
+    """One Den §12 chain row reduced to the RECORD the engine reads.
+
+    `sector_index` comes from valuation_view.bench_for_tested — the map the
+    item-19 study measured (override → the pre-2026-10-21 app labels →
+    Nifty 50), never the batch-3 remap the §12 display uses: the engine's
+    monthly re-mark reads it. `tested_rule` is True only when the row was
+    built with row_for(tested_rule=True) — the precompute always does."""
     rng = rec.get("range") or {}
     vd = rec.get("verdict") or {}
     rt = rec.get("route") or {}
@@ -224,7 +241,8 @@ def record_from_row(ticker: str, rec: dict, closes: Optional[pd.Series],
             b = vc.beta(closes, sensex)
         except Exception:                                # noqa: BLE001
             b = {"beta": None, "n": 0}
-    idx_name, _label = vv.bench_for(ticker, cfg)
+    idx_name, _label = vv.bench_for_tested(ticker, cfg)
+    tested = bool(rec.get("tested_rule"))
     src = rec.get("price_source") or ""
     return {
         "ticker": ticker, "asof": str(rec.get("price_date") or "")[:10],
@@ -238,7 +256,10 @@ def record_from_row(ticker: str, rec: dict, closes: Optional[pd.Series],
         "beta": _n(b.get("beta")), "beta_n": int(b.get("n") or 0),
         "version": rec.get("version") or "", "drafted": bool(rec.get("drafted")),
         "price": _n(rec.get("price")),
+        "rule": RECORD_RULE, "tested_rule": tested,
         "note": (f"{where or 'precompute'}: default assumptions"
+                 + ("; valued as the pre-registered study valued it" if tested
+                    else "; NOT valued by the tested rule (row built without it)")
                  + (f"; price from {src}" if src else "")
                  + ("" if b.get("beta") is not None
                     else f"; beta needs 120 sessions ({int(b.get('n') or 0)}) — 1 used")),

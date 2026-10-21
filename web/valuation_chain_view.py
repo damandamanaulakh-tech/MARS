@@ -1372,13 +1372,22 @@ _ALL = _AllNames()
 def row_for(ticker: str, cfg, p, *, show_terms: bool = False,
             overrides: Optional[dict] = None,
             closes: Any = _UNSET, price_source: str = "",
-            owner_inputs: Any = _UNSET) -> dict:
+            owner_inputs: Any = _UNSET, tested_rule: bool = False) -> dict:
     """One chain record. `closes` handed in (a series, or None = the store
     and the repo zip both lack the name) is used as is; not handed in, it
     is read here. `price_source` ("store" / "repo copy") is printed beside
     the price. `owner_inputs` = the Den inputs table {SYMBOL: row}; not
     handed in, it is read here. The own P/E history is the pipeline's own
-    (own_pe_rows, VAL-14a) — this module no longer passes one."""
+    (own_pe_rows, VAL-14a) — this module no longer passes one.
+
+    `tested_rule` (batch-3 review, 2026-10-21) = the item-19 exit RECORD
+    (web/scheduler.run_valuation_precompute): the own target is valued the
+    way the pre-registered study valued it — the P/E bridge reads the
+    Sensex / Nifty to the newest close (never to a selection date, so a
+    date typed in the inputs table or pushed to §11 cannot move it) and the
+    rupee row E101 is live for IT-services routes (pipeline e101_it_rupee).
+    The row carries `tested_rule: True`. False (default) = the §12 display
+    row with every batch-3 definition, unchanged."""
     from trading.valuation import pipeline
     if closes is _UNSET:
         closes = _closes(ticker)
@@ -1395,7 +1404,12 @@ def row_for(ticker: str, cfg, p, *, show_terms: bool = False,
         # read here, once, and the bridge's market rows end at it
         sel = ML.selection_date(snap, owner_row.get("selection_date"), pushed=pushed)
         mac_box["sel"] = sel
-        m = _macro_inputs(snap, closes, ticker, end_date=ML.bridge_end(sel))
+        if tested_rule:
+            # the item-19 exit record: the bridge reads to the newest close,
+            # as the study did — the selection date never reaches it
+            m = _macro_inputs(snap, closes, ticker, end_date=None)
+        else:
+            m = _macro_inputs(snap, closes, ticker, end_date=ML.bridge_end(sel))
         mac_box["m"] = m
         return m
 
@@ -1411,8 +1425,16 @@ def row_for(ticker: str, cfg, p, *, show_terms: bool = False,
     accepted = _evaluate_kwargs()
     extra = {"owner_inputs": owner_inputs or None, "peer_rows": peer_table_rows,
              "price_of": subsidiary_price}
+    if tested_rule:
+        # the item-19 exit record: E101 live for IT-services routes
+        if "e101_it_rupee" not in accepted:
+            raise RuntimeError("pipeline.evaluate does not accept e101_it_rupee — the "
+                               "exit record cannot be valued by the tested rule")
+        extra["e101_it_rupee"] = True
     kwargs.update({k: v for k, v in extra.items() if k in accepted})
     rec = pipeline.evaluate(ticker, **kwargs)
+    if tested_rule:
+        rec["tested_rule"] = True
     r = _render()
     if r is not None and r.peer_build_skipped:
         # computed without the peer table — never shown or kept as an answer
@@ -1431,6 +1453,10 @@ def row_for(ticker: str, cfg, p, *, show_terms: bool = False,
     # sector inside the market block below (fx_block stays for the sheet's
     # own reading)
     rec["fx"] = {"applies": False, "e101_replaced": True}
+    if tested_rule:
+        # the exit record keeps E101 live for IT-services routes — it was
+        # not replaced in this row (never shown on §12; said for honesty)
+        rec["fx"] = {"applies": False, "e101_replaced": False, "e101_live_it_routes": True}
     from . import valuation_market_view as mv
     try:
         rec["market"] = mv.market_block(ticker, rec, closes, cfg, p, mac_box.get("m") or {},

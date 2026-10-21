@@ -344,6 +344,29 @@ def bench_for(ticker: str, cfg) -> tuple[Optional[str], str]:
     return None, f"{vc.MARKET_INDEX_LABEL} — {got.get('why') or 'no NSE sector index'}"
 
 
+def bench_for_tested(ticker: str, cfg) -> tuple[Optional[str], str]:
+    """(NSE sector index name or None, label) — the map the item-19 study
+    measured (2026-10-21); the §11/§12 display uses bench_for (the batch-3
+    remap).
+
+    The pre-batch-3 rule: the ticker override → the app label, for the ten
+    labels that had an index before 2026-10-21 → Nifty 50 (None). Built on
+    valuation_context.label_only_index, which is that rule; checked equal
+    to the old bench_for body (read against the old label map) for all
+    2,680 names on 2026-10-21. A name the batch-3 remap moved (no app
+    label, a Nifty-500 industry) and an app label that got its index that
+    day (Chemicals) stay on Nifty 50 here. The item-19 exit record's sector
+    leg reads this; moving it onto the remap needs the pre-registered test
+    re-run and the owner's word."""
+    sm = getattr(cfg, "sector_map", {}) or {}
+    idx = vc.label_only_index(ticker, sm)
+    if idx:
+        return idx, f"Nifty {idx}"
+    sector = sm.get(ticker, "")
+    return None, (f"{vc.MARKET_INDEX_LABEL} — no NSE sector index wired for "
+                  f"'{sector or 'unmapped'}'")
+
+
 def bench_min_sessions(idx: Optional[str]) -> Optional[int]:
     """An index launched recently (Nifty Cement 2026-05-11, Nifty Chemicals
     2025-11-10) reads no β until it has 252 sessions of its own (owner
