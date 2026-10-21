@@ -57,6 +57,11 @@ class PaperPosition:
     # adjuster (engine.apply_corporate_actions) never applies one twice.
     # Persisted JSON + Mongo both ways through to_dict/from_dict.
     ca_applied: List[str] = field(default_factory=list)
+    # Item 19 (owner order 2026-10-21): how the target was set — the
+    # valuation base (source valuation / retarget, with its legs and the
+    # monthly re-marks) or k x ATR (source k_atr, with the reason). {} on
+    # positions opened before this field existed.
+    val_target: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -77,7 +82,11 @@ class PaperPosition:
         d.setdefault("pyramid_adds", 0)
         d.setdefault("ca_applied", [])
         d["ca_applied"] = list(d.get("ca_applied") or [])
-        return cls(**d)
+        d["val_target"] = dict(d.get("val_target") or {})
+        # A field a NEWER build wrote (ca_applied, val_target, the next one) must
+        # not stop an older build from loading the book after a rollback: keys
+        # this version does not know are dropped, never fatal (2026-10-21).
+        return cls(**{k: v for k, v in d.items() if k in cls.__dataclass_fields__})
 
 
 @dataclass
@@ -122,7 +131,7 @@ class ClosedTrade:
         d.setdefault("entry_notes", "")
         d.setdefault("tags", [])
         d["ca_applied"] = list(d.get("ca_applied") or [])
-        return cls(**d)
+        return cls(**{k: v for k, v in d.items() if k in cls.__dataclass_fields__})
 
 
 @dataclass

@@ -2,11 +2,20 @@
 DISPLAY ONLY (owner order 2026-10-14 "lets hit the formulas work
 completion"; money impact stated as NONE before the build).
 
+OWNER ORDER 2026-10-21 (item 19, "Wire A3" + "Exit as tested", after the
+pre-registered test): the money path MAY now import ONE module,
+trading/valuation_exit.py — the exit-target rule, which reads records the
+web side precomputes. It still never imports the valuation pipeline
+(trading/valuation/), the context stage or web; and valuation_exit.py
+itself is held to the same purity sweep as the package.
+
 Pins:
   * no money-path module (engine, risk, orders, danger, sizing, targets,
-    exits, scoring) references the valuation package;
+    exits, scoring) imports the valuation package, valuation_context or
+    web — trading.valuation_exit is the one allowed import;
   * every module in trading/valuation/ is pure: no network client, no
     web import, no engine/risk/orders/danger import, no config mutation;
+    trading/valuation_exit.py likewise, and it never imports the pipeline;
   * the package's DATA_NEEDED shape is the one every module uses.
 Comment lines and docstrings are stripped before the source is read — a
 pin that trips on its own explanatory comment is the documented
@@ -61,10 +70,62 @@ def _operative_source(path: Path) -> str:
     return "\n".join(keep)
 
 
-def test_money_path_never_references_the_valuation_package():
+ALLOWED = "trading.valuation_exit"     # owner order 2026-10-21 (item 19)
+
+
+def _imports(path: Path) -> list[str]:
+    """Every module name a file imports, relative imports resolved
+    against the trading package ("from . import x" -> trading.x)."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    out: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            out += [a.name for a in node.names]
+        elif isinstance(node, ast.ImportFrom):
+            base = node.module or ""
+            if node.level:
+                base = "trading" + (f".{base}" if base else "")
+            out.append(base)
+            out += [f"{base}.{a.name}" for a in node.names]
+    return out
+
+
+def _forbidden(mod: str) -> bool:
+    if mod == ALLOWED or mod.startswith(ALLOWED + "."):
+        return False
+    return (mod.startswith("trading.valuation") or mod == "web"
+            or mod.startswith("web."))
+
+
+def test_money_path_never_imports_the_valuation_chain_or_web():
     for name in MONEY_PATH:
+        bad = [m for m in _imports(ROOT / "trading" / name) if _forbidden(m)]
+        assert not bad, f"trading/{name} imports {bad}"
         src = _operative_source(ROOT / "trading" / name)
-        assert "valuation" not in src, f"trading/{name} reaches the valuation chain"
+        for pat in (r"trading\.valuation(?!_exit)", r"\bvaluation_context\b",
+                    r"\bvaluation_view\b", r"\bvaluation_chain_view\b",
+                    r"\bvaluation\.pipeline\b", r"import_module"):
+            assert not re.search(pat, src), f"trading/{name}: {pat!r}"
+
+
+def test_the_one_allowed_import_is_the_exit_rule():
+    """The engine reaches valuation only through valuation_exit (the order
+    moved the boundary on purpose — this pin says so)."""
+    mods = _imports(ROOT / "trading" / "engine.py")
+    assert ALLOWED in mods
+    assert not any(_forbidden(m) for m in mods)
+
+
+def test_the_exit_rule_module_is_pure():
+    f = ROOT / "trading" / "valuation_exit.py"
+    src = _operative_source(f)
+    for pat in _BANNED_IN_PACKAGE:
+        assert not re.search(pat, src), f"valuation_exit.py: forbidden {pat!r}"
+    bad = [m for m in _imports(f)
+           if m.startswith("trading.valuation.") or m == "trading.valuation"
+           or m.startswith("web") or m.startswith("trading.engine")]
+    assert not bad, bad
+    assert not re.search(r"\bpipeline\b", src)
 
 
 #: Display-only feed modules outside the package (VALFIX 2026-10-21): the

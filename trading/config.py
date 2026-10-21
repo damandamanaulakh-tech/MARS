@@ -337,6 +337,17 @@ class Config:
     # they were opened with. The owner's switch; the numbers are measured
     # constants in targets.py, not knobs.
     atr_stop_enabled: bool = True
+    # OWNER ORDER 2026-10-21 (item 19, "Wire A3" + "Exit as tested"): a new
+    # buy whose stored valuation record is judged (attractive / watch,
+    # range OK, base above fill x 1.05, record <= 35 days old) takes the
+    # valuation base as its target; held positions on k x ATR are
+    # re-targeted once when their record qualifies; every valuation target
+    # is re-marked with the Sensex / sector each closed month and a
+    # re-marked target at or below the month-end close exits
+    # (VAL_TARGET_DOWN). Measured first (docs/VALUATION_EXIT_2026-10-21.md).
+    # Off = no new valuation targets, re-targets, re-marks or VAL_TARGET_DOWN
+    # exits; held positions keep the target they have.
+    valuation_exit_enabled: bool = True
     # OWNER ORDER 2026-10-05 ("make it momentum only"): the measured-Kelly
     # check (F-9) reads ONLY this category's closed trades and gates ONLY
     # this category's scan pass. One pooled reading let a run of losing

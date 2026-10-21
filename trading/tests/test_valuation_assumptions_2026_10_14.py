@@ -178,7 +178,13 @@ def test_the_money_path_never_imports_the_registry_or_the_draft():
     for mod in (engine, risk, orders, danger, sizing, targets, exits):
         src = "\n".join(l for l in inspect.getsource(mod).splitlines()
                         if not l.strip().startswith("#"))
-        assert "valuation" not in src, mod.__name__
+        # Item 19 (owner order 2026-10-21): the engine may read
+        # trading.valuation_exit (pure, injected readers) — never the
+        # registry, the Den draft or the valuation package itself.
+        for banned in ("valuation.assumptions", "valuation import assumptions",
+                       "LAST_ASSUMPTIONS", "load_assumptions", "valuation_chain_view",
+                       "from .valuation import", "from .valuation.", "trading.valuation."):
+            assert banned not in src, (mod.__name__, banned)
     src = inspect.getsource(ASM)
     for banned in ("from web", "import web", "trading.engine", "trading.risk", "httpx", "requests"):
         assert banned not in src, banned

@@ -94,6 +94,7 @@ EDITABLE_FIELDS = [
     ("stop_loss_pct",           "Stop Loss %",             "Risk",    "number", 0.5,  "The category's stop (negative % e.g. -5). For momentum it is the FLOOR: the ATR stop below can only widen it. Applies to new trades; held positions keep the stop they were opened with", True),
     ("atr_stop_enabled",        "ATR Stop On (1/0)",       "Risk",    "number", 1,    "OWNER ORDER 2026-10-05 ('Go for A'). 1 = a new MOMENTUM buy's stop is the wider of the category stop (-5%) and 2 x its own 14-day ATR, capped at -15%. MEASURED (research/stop_cooldown_study): beat the fixed -5% in train (+2.82 vs +0.88) and in the holdout (+21.14 vs +19.33), 30% fewer stop-outs. Cost: trade size is unchanged, so a losing trade on a jumpy name can lose more than 5% (6.8% on average, 15% at most). 0 = fixed stop. Other categories always use their fixed stop", False),
     ("take_profit_pct",         "Take Profit %",           "Risk",    "number", 0.5,  "FALLBACK target only. A new trade's target is k x its own 14-day ATR, kept inside the category's band (Den section 2); this % is used only when the ATR cannot be computed. Held positions keep the target they were opened with", True),
+    ("valuation_exit_enabled",  "Valuation exit target (1/0)", "Risk", "number", 1,   "OWNER ORDER 2026-10-21 (item 19, 'Wire A3' + 'Exit as tested'). 1 = a new buy (not intraday) whose stored valuation record is attractive/watch, range OK, at most 35 days old and with a base above fill x 1.05 takes that BASE as its target instead of k x ATR; a held k x ATR position is re-targeted once when its record qualifies; every valuation target is re-marked each closed month with the Sensex and its sector index, and one re-marked at or below the month-end close is sold at the next in-session pass (VAL_TARGET_DOWN). MEASURED before wiring: TEST +5.68% vs +5.46% on k x ATR, max DD -4.18 vs -4.11, 33% of entries covered (docs/VALUATION_EXIT_2026-10-21.md). 0 = no new valuation targets, re-targets, re-marks or VAL_TARGET_DOWN exits; positions already on a valuation target KEEP the target they have (nothing on a held name changes silently)", False),
     ("trailing_stop_pct",       "Trailing Stop %",         "Risk",    "number", 0.5,  "From peak price (negative %)", True),
     ("score_decay_exit",        "Score Decay Exit",        "Risk",    "number", 1,    "Exit if score drops below this", False),
     ("max_hold_days",           "Max Hold (days)",         "Risk",    "number", 1,    "Safety cap on holding period", False),
@@ -394,9 +395,18 @@ def _settings_save_body(form):
         names = [n.upper() for n in _re.split(r"[,\s]+", raw_u) if n.strip()]
         names = [n if n.endswith(".NS") else n + ".NS" for n in names]
         names = list(dict.fromkeys(names))
+        current = list(getattr(cfg, "custom_universe", ()) or ())
         if not names:
             cfg.custom_universe = ()
             overrides["custom_universe"] = []
+        elif current and set(names) == set(current):
+            # The box came back exactly as it was shown: nothing to check.
+            # The cap and the name check guard an EDIT. Checking the list
+            # the app is already running refused EVERY save while the weekly
+            # rebuild held 1,205 names (> 1,200) — every other field on the
+            # form, the item 19 valuation-exit switch included, could not be
+            # changed (review 2026-10-21; upload review ROOT-ROUTE-07).
+            pass
         elif len(names) > _universe_paste_cap(cfg):
             # The cap exists because an unbounded paste once meant the scan
             # downloaded 2 years x every name daily (PR #68). That premise

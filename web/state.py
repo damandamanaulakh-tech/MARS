@@ -540,6 +540,17 @@ def _bootstrap() -> None:
     except Exception:
         log.exception("history store reader attach failed")
 
+    # Item 19 (owner order 2026-10-21): the engine reads the stored valuation
+    # records and the index / sector closes through injected readers — the
+    # same pattern; trading/ never imports web.
+    try:
+        from trading import valuation_exit as _vexit
+        from . import valuation_exit_feed as _vfeed
+        _vexit.set_record_reader(_vfeed.records_for)
+        _vexit.set_level_reader(_vfeed.level)
+    except Exception:
+        log.exception("valuation exit readers attach failed")
+
     # Load portfolio: prefer Mongo (survives restarts), fall back to JSON
     _PORTFOLIO = Portfolio.load_or_fresh(_CFG)
     persisted = db.load_portfolio()

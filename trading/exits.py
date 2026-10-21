@@ -54,7 +54,12 @@ def retag_positions_per_mode(portfolio, now: datetime | None = None) -> int:
         # whose category is still valid keeps the target it was opened with.
         # Only a blank, unknown or stale-intraday tag (the case this retag
         # exists for) or a missing target gets the preset target.
-        if retagged or old_target <= 0:
+        # Item 19 (owner order 2026-10-21): a valuation target (set at entry
+        # or by the re-target) is kept even on a blank legacy tag — the
+        # preset target would undo it on every boot.
+        val_src = (getattr(pos, "val_target", None) or {}).get("source")
+        keep_val = val_src in ("valuation", "retarget") and old_target > 0
+        if (retagged and not keep_val) or old_target <= 0:
             new_target = round(pos.entry_price * (1 + preset.take_profit_pct), 2)
         else:
             new_target = round(old_target, 2)
