@@ -217,6 +217,7 @@
     </div>
     {% endfor %}
   </div>
+  <div class="mt-2 text-ink-soft" data-target-source-legend="1"><span class="font-bold text-indigo-800">VAL base ₹x · asof d · verdict</span> under a target = the position's target is its VALUATION base (item 19, your order 2026-10-21): set at the buy, or re-targeted once from k×ATR when its record turned attractive/watch, and re-marked each closed month with the Sensex and its sector index; <span class="text-red-700 font-semibold">VAL_TARGET_DOWN</span> = the re-marked target fell to or below the month-end close, so it sells at the next in-session pass. <span class="font-bold">k×ATR</span> = no judged valuation applied (hover for why) — the k × ATR target as before.</div>
   <div class="mt-2 text-ink-faint">Every marker is read from the position's own stored fields (tags, hand-set levels, the danger journal) — nothing here is a guess.</div>
 </div>
 <div class="bg-white border border-line overflow-x-auto">
@@ -265,6 +266,15 @@
         <td class="px-3 lg:px-4 py-4 tabular-nums text-right text-emerald-700 whitespace-nowrap">
           {% if r.to_target_pct <= 0 %}<span class="font-semibold" title="Price is already beyond the target — exit fires on the next refresh">🎯 target passed</span>
           {% else %}{{ '%+.1f' % r.to_target_pct }}%{% endif %}<div class="text-xs text-ink-faint">₹{{ r.target_price | inr(2) }}</div>
+          {% set ts = r.target_src %}<div class="text-[10px] text-ink-soft whitespace-nowrap" data-val-target="{{ ts.kind }}"><!-- val_target_marker -->
+            {%- if ts.kind in ('valuation', 'retarget') -%}
+              <span class="font-semibold text-indigo-800" title="Item 19: the valuation base is this position's target{% if ts.retarget_date %} (re-targeted {{ ts.retarget_date }} from k×ATR){% endif %}; re-marked each closed month with the Sensex and its sector index">VAL base ₹{{ ts.base | inr(2) }} · asof {{ ts.asof }} · {{ ts.verdict }}</span>
+              {%- if ts.remark_month %}<div class="text-ink-faint">re-marked {{ ts.remark_month }} → ₹{{ ts.remark_target | inr(2) }}</div>{% endif %}
+              {%- if ts.exit_due %}<div class="text-red-700 font-semibold">VAL_TARGET_DOWN — sells next in-session pass</div>{% endif %}
+            {%- elif ts.kind == 'owner' -%}<span title="{{ ts.reason }}">hand-set target</span>
+            {%- elif ts.kind == 'k_atr' -%}<span title="no valuation target: {{ ts.reason }}">k×ATR</span>
+            {%- else -%}<span title="opened before item 19 (2026-10-21) — k×ATR or the preset; re-targeted once its valuation record qualifies">k×ATR</span>{%- endif -%}
+          </div>
         </td>
         <td class="px-3 lg:px-4 py-4 tabular-nums text-right text-red-700 whitespace-nowrap">
           {{ '%+.1f' % r.to_stop_pct }}%<div class="text-xs text-ink-faint">₹{{ r.stop_price | inr(2) }}</div>

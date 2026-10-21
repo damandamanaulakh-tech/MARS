@@ -163,8 +163,11 @@ def test_the_sequence_now_carries_the_chain_stages_dated_today():
             or "normalise" in rows[code]["where"] or "route" in rows[code]["where"] \
             or "snapshot" in rows[code]["where"] or "assess" in rows[code]["where"], code
     assert rows["07"]["status"] == "partly"               # 200 of ~1,205 names
-    assert rows["21"]["status"] == "not yet"              # permission stays unbuilt
-    # 2026-10-21: valuation batch 2 re-worded the stage rows it changed
+    # Owner order 2026-10-21 (item 19, "Wire A3" + "Exit as tested"): stage 21
+    # exists now — a judged verdict permits ONE decision, the exit target —
+    # and the status is re-dated (pinned in test_valuation_precompute_2026_10_21).
+    assert rows["21"]["status"] == "exists"
+    assert "valuation_exit" in rows["21"]["where"]
     assert D.SEQUENCE_STATUS_ASOF == "2026-10-21"
 
 

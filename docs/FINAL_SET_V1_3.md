@@ -1,5 +1,7 @@
 # FINAL SET V1.3 — the live recipe as of 2026-10-05
 
+> **Pointer, 2026-10-21 (item 19, your order "Wire A3" + "Exit as tested"):** the Target column in section 3 is now replaced by the stock's judged VALUATION base where one exists (not intraday), re-marked monthly — the record is `docs/VALUATION_EXIT_2026-10-21.md`; everything else on this page is unchanged.
+
 *Owner order 2026-10-04: "also make these things as finale set V 1.1";
 2026-10-05: "Go for A" (the ATR stop) = V1.2; 2026-10-05: "make it momentum
 only" (the measured-Kelly check) = V1.3.*

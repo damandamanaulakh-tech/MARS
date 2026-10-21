@@ -193,6 +193,15 @@ def start_if_enabled() -> None:
             day_of_week="mon-fri", hour=16, minute=45,
             id="register_precompute",
         )
+        # Item 19 (owner order 2026-10-21): the valuation records the
+        # engine's exit target reads — after the register precompute, on a
+        # quiet box. The 09:20 chain gets NO new load: a buy reads last
+        # evening's record (the study used month-old valuations).
+        _SCHED.add_job(
+            _valuation_precompute_job, "cron",
+            day_of_week="mon-fri", hour=16, minute=50,
+            id="valuation_precompute",
+        )
 
     if daily and os.environ.get("SB_DISABLE_CATCHUP") != "1":
         # Deploy-restart healing: if the process boots after a missed 09:20
@@ -209,6 +218,11 @@ def start_if_enabled() -> None:
         _SCHED.add_job(lambda: catchup_scan_if_missed("startup"), "date",
                        run_date=startup_catchup_run_date(ist, _td(seconds=120)),
                        id="startup_catchup")
+        # Item 19: stale valuation records are rebuilt after a boot — only
+        # in the evening (>= 15:45 IST) or on a holiday, on a quiet box.
+        _SCHED.add_job(lambda: valuation_catchup_if_stale("catchup"), "date",
+                       run_date=startup_catchup_run_date(ist, _td(seconds=300)),
+                       id="valuation_catchup")
 
     _SCHED.start()
     log.info("Schedulers started (intraday=%s, daily=%s)", intraday, daily)
@@ -871,7 +885,32 @@ def _push_phone_alerts(where: str) -> None:
         log.warning("[%s] phone-alert push failed: %s", where, e)
 
 
+#: Item 19 (2026-10-21): the register precompute and the valuation
+#: precompute never run at the same time. On the live box the register
+#: precompute peaks ~350 MiB between 16:45 and 16:55; the valuation job
+#: starts at 16:50 and waits for it instead of stacking on top.
+_PRECOMPUTE_LOCK = threading.Lock()
+#: The register precompute waits at most this long for the lock, then runs
+#: anyway (the old behaviour) — a hung holder must never stall the weekly
+#: block behind it.
+REGISTER_WAIT_S = 900.0
+
+
 def run_register_precompute(where: str = "manual") -> dict:
+    """The register precompute (see _register_precompute_body), one at a
+    time with the valuation precompute (item 19)."""
+    got = _PRECOMPUTE_LOCK.acquire(timeout=REGISTER_WAIT_S)
+    if not got:
+        log.warning("[register:%s] the shared precompute lock was held for "
+                    "%.0f s — running anyway", where, REGISTER_WAIT_S)
+    try:
+        return _register_precompute_body(where)
+    finally:
+        if got:
+            _PRECOMPUTE_LOCK.release()
+
+
+def _register_precompute_body(where: str = "manual") -> dict:
     """Node 10 (owner order 2026-08-24: "continue with node 10"): the
     register's MARKET view precomputed nightly over the FULL stored panel.
 
@@ -979,6 +1018,259 @@ def run_register_precompute(where: str = "manual") -> dict:
         except Exception:
             pass
         return {}
+
+
+VALUATION_PRECOMPUTE_MAX = 120
+VALUATION_PRECOMPUTE_BUDGET_S_DEFAULT = 120.0
+VALUATION_PRECOMPUTE_CHUNK = 25        # names per price query (the Den's row cap)
+VALUATION_CATCHUP_AFTER_IST = (15, 45)  # the boot catch-up never runs before this
+#: How long the 16:50 job / the catch-up wait for a running register
+#: precompute (it ran ~10 min on the live box). The owner's button never waits.
+VALUATION_WAIT_FOR_REGISTER_S = 1200.0
+#: How long it waits for a Den §12 open that is computing rows (its own
+#: budget is 20 s).
+VALUATION_WAIT_FOR_DEN_S = 30.0
+_VALUATION_LOCK = threading.Lock()
+
+
+def valuation_precompute_budget_s() -> float:
+    """Seconds the valuation precompute may spend (env
+    SB_VALUATION_PRECOMPUTE_BUDGET_S; <= 0 = no budget)."""
+    try:
+        return float(os.environ.get("SB_VALUATION_PRECOMPUTE_BUDGET_S",
+                                    VALUATION_PRECOMPUTE_BUDGET_S_DEFAULT))
+    except ValueError:
+        return VALUATION_PRECOMPUTE_BUDGET_S_DEFAULT
+
+
+def _valuation_busy() -> tuple[str, str]:
+    """(kind, why) the precompute must not run now; ("", "") = free."""
+    if _ROTATION_LOCK.locked():
+        return "busy", "a scan rotation is running"
+    from . import valuation_chain_view as cv
+    ceiling = cv.rss_ceiling_mb()
+    if ceiling > 0:
+        try:
+            from .memory_relief import rss_mb
+            r = rss_mb()
+        except Exception:                               # noqa: BLE001
+            r = None
+        if r is not None and r >= ceiling:
+            return "memory", (f"the app is using {r:.0f} MiB (the valuation "
+                              f"precompute runs below {ceiling:.0f})")
+    return "", ""
+
+
+def run_valuation_precompute(where: str = "manual") -> dict:
+    """ITEM 19 (owner order 2026-10-21, "Wire A3" + "Exit as tested"): the
+    valuation RECORDS the engine's exit target reads (trading/
+    valuation_exit.py), one per name in scope — held names, the momentum
+    shortlist by score, the last scan picks, the Den §11 targets (capped
+    VALUATION_PRECOMPUTE_MAX, held first).
+
+    Each record is the Den §12 chain row (valuation_chain_view.row_for, the
+    stored peer base, closes in one query per chunk, DEFAULT assumptions —
+    the tested rule) reduced to the RECORD shape, plus beta on the Sensex
+    (252 sessions) and the sector index. A time budget stops new names
+    (they keep their previous record, or none); nothing runs while a scan
+    rotation holds the lock or the process is above the Den's memory
+    ceiling (checked again before every chunk of names) — journaled
+    VALUATION_PRECOMPUTE_SKIPPED with the reason. It waits for a running
+    register precompute (the owner's button does not wait) and for a Den
+    §12 open that is computing, so the evening jobs never stack in memory.
+
+    Stored in settings doc "valuation_records" + the in-process copy."""
+    from datetime import datetime as _dt
+
+    from . import state
+    from . import valuation_chain_view as cv
+
+    p = state.portfolio()
+    cfg = state.cfg()
+
+    def _journal(action: str, fields: dict) -> None:
+        try:
+            p.decision_journal.append({"ts": _dt.utcnow().isoformat(),
+                                       "action": action, **fields})
+            p.save()
+        except Exception:                               # noqa: BLE001
+            pass
+
+    def _skip(kind: str, why: str) -> dict:
+        _journal("VALUATION_PRECOMPUTE_SKIPPED", {
+            "where": where, "reason": kind,
+            "why": f"Valuation records not rebuilt: {why}. The engine keeps "
+                   "reading the records it has (k x ATR where none qualifies)."})
+        return {"status": "skipped", "reason": kind, "why": why}
+
+    kind, why = _valuation_busy()
+    if kind:
+        return _skip(kind, why)
+    if not _VALUATION_LOCK.acquire(blocking=False):
+        return {"status": "skipped", "reason": "running",
+                "why": "a valuation precompute is already running"}
+    held: list = []
+    try:
+        # never at the same time as the register precompute (16:45) or a
+        # Den §12 open that is computing — the three would stack in memory
+        wait = 0.0 if where == "owner-button" else VALUATION_WAIT_FOR_REGISTER_S
+        got = (_PRECOMPUTE_LOCK.acquire(timeout=wait) if wait > 0
+               else _PRECOMPUTE_LOCK.acquire(blocking=False))
+        if not got:
+            return _skip("register", "the register precompute is still running")
+        held.append(_PRECOMPUTE_LOCK)
+        if not cv._SECTION_LOCK.acquire(timeout=VALUATION_WAIT_FOR_DEN_S):
+            return _skip("den", "a Den §12 open is computing valuation rows")
+        held.append(cv._SECTION_LOCK)
+        kind, why = _valuation_busy()          # again, after any wait
+        if kind:
+            return _skip(kind, why)
+        return _valuation_precompute_body(where, p, cfg, _journal)
+    finally:
+        for lock in reversed(held):
+            lock.release()
+        _VALUATION_LOCK.release()
+        try:
+            from .memory_relief import release
+            release("valuation precompute")
+        except Exception:                               # noqa: BLE001
+            pass
+
+
+def _valuation_precompute_body(where: str, p, cfg, _journal) -> dict:
+    """The records loop (run_valuation_precompute holds the locks)."""
+    import time as _time
+    from datetime import datetime as _dt
+
+    from . import valuation_chain_view as cv
+    from . import valuation_exit_feed as feed
+
+    t0 = _time.monotonic()
+    try:
+        names, cut = feed.precompute_scope(p, VALUATION_PRECOMPUTE_MAX)
+        prev_rows = dict(feed.current_doc().get("rows") or {})
+        budget = valuation_precompute_budget_s()
+        ctx = cv._Render(budget, t0)
+        prev_ctx = getattr(cv._RENDER, "ctx", None)
+        cv._RENDER.ctx = ctx
+        rows: dict = {}
+        kept: list = []
+        failed: list = []
+        stopped = ""
+
+        def _keep(t: str) -> None:
+            if t in prev_rows:
+                rows[t] = prev_rows[t]
+            kept.append(t)
+        try:
+            sensex = cv._index_series("sensex_close")
+            for i in range(0, len(names), VALUATION_PRECOMPUTE_CHUNK):
+                chunk = names[i:i + VALUATION_PRECOMPUTE_CHUNK]
+                if not stopped and not ctx.budget_spent():
+                    # a rotation that starts, or memory that climbs, while
+                    # this runs stops it at the next chunk
+                    kind, why = _valuation_busy()
+                    if kind:
+                        stopped = why
+                pre = {} if (stopped or ctx.budget_spent()) else cv._prefetch_closes(chunk)
+                for t in chunk:
+                    if not stopped and ctx.budget_spent():
+                        stopped = f"the {budget:g} s budget"
+                    if stopped:
+                        _keep(t)
+                        continue
+                    if t in pre:
+                        closes, src = pre[t], "store"
+                    else:
+                        closes, src = cv._zip_close_series(t), "repo copy"
+                    try:
+                        rec = cv.row_for(t, cfg, p, closes=closes, price_source=src)
+                    except cv._BudgetSpent:
+                        stopped = stopped or f"the {budget:g} s budget"
+                        _keep(t)
+                        continue
+                    except Exception as e:              # noqa: BLE001
+                        log.warning("valuation precompute: %s failed: %s", t, e)
+                        failed.append(t)
+                        continue
+                    rows[t] = feed.record_from_row(t, rec, closes, sensex, cfg, where)
+                pre = None
+                try:
+                    from .memory_relief import release
+                    release("valuation precompute")
+                except Exception:                       # noqa: BLE001
+                    pass
+        finally:
+            cv._RENDER.ctx = prev_ctx
+        judged = sorted(t for t, r in rows.items()
+                        if r.get("verdict") in ("attractive", "watch")
+                        and r.get("range_status") == "OK")
+        asofs = [r.get("asof") for r in rows.values() if r.get("asof")]
+        elapsed = round(_time.monotonic() - t0, 1)
+        doc = {"rows": rows, "built": _dt.utcnow().isoformat(),
+               "asof": max(asofs) if asofs else "", "n": len(rows),
+               "n_judged": len(judged), "where": where, "elapsed_s": elapsed,
+               "stopped": stopped,
+               "skipped": {"budget": len(kept), "failed": len(failed),
+                           "cap": len(cut)}}
+        stored = feed.store(doc)
+        _journal("VALUATION_PRECOMPUTE", {
+            "where": where, "n": len(rows), "n_judged": len(judged),
+            "skipped": doc["skipped"], "elapsed_s": elapsed,
+            "stopped": stopped or None, "stored": stored,
+            "why": (f"Valuation records rebuilt for {len(rows)} name(s) "
+                    f"({len(judged)} judged: {', '.join(judged[:12])}"
+                    f"{' …' if len(judged) > 12 else ''}) in {elapsed} s"
+                    + (f"; STOPPED on {stopped}, {len(kept)} name(s) kept their "
+                       "previous record (or none)" if stopped else "")
+                    + (f"; {len(failed)} failed" if failed else "")
+                    + (f"; {len(cut)} past the {VALUATION_PRECOMPUTE_MAX}-name cap"
+                       if cut else "")
+                    + ("" if stored else "; NOT saved to the database (write "
+                       "refused or no database) — this process keeps them in "
+                       "memory until it restarts") + ".")})
+        log.info("[valuation:%s] %d records, %d judged, %.1fs", where,
+                 len(rows), len(judged), elapsed)
+        return {"status": "ok", **doc}
+    except Exception as e:                              # noqa: BLE001
+        log.exception("valuation precompute failed: %s", e)
+        _journal("VALUATION_PRECOMPUTE_FAILED", {
+            "where": where,
+            "why": f"Valuation precompute crashed: {e} — the previous records stand."})
+        return {"status": "failed", "why": str(e)}
+
+
+def _valuation_precompute_job() -> None:
+    """16:50 IST mon-fri: the records on a trading day."""
+    from trading.calendars import is_trading_day
+    if not is_trading_day():
+        return
+    run_valuation_precompute("16:50")
+
+
+def valuation_catchup_if_stale(where: str = "catchup", now_ist=None) -> bool:
+    """After a boot: rebuild the valuation records when they are older than
+    one trading day — only in the evening (>= 15:45 IST) or on a holiday,
+    so the 09:20 and 14:30 chains never carry this load. The precompute's
+    own guards (rotation lock, memory ceiling) still apply."""
+    from trading.calendars import is_trading_day
+
+    from . import valuation_exit_feed as feed
+    if not daily_enabled() or os.environ.get("SB_DISABLE_CATCHUP") == "1":
+        return False
+    if now_ist is None:
+        from datetime import datetime as _dt
+        try:
+            from pytz import timezone
+            now_ist = _dt.now(timezone("Asia/Kolkata"))
+        except Exception:                               # noqa: BLE001
+            return False
+    today = now_ist.date()
+    if is_trading_day(today) and (now_ist.hour, now_ist.minute) < VALUATION_CATCHUP_AFTER_IST:
+        return False
+    if not feed.records_stale(feed.built_date(), today):
+        return False
+    return run_valuation_precompute(where).get("status") == "ok"
 
 
 def run_option_chain_snapshot(where: str = "manual") -> dict:
@@ -2432,6 +2724,8 @@ def _weekly_history_topup() -> None:
         ("breadth store", lambda: refresh_breadth_store("post-topup")),
         # Node 10: refresh the precomputed register view over the store.
         ("register precompute", lambda: run_register_precompute("post-topup")),
+        # Item 19: the valuation records over the fresh closes.
+        ("valuation precompute", lambda: run_valuation_precompute("post-topup")),
         # The universe rebuild runs a SECOND time here, now that the pull has
         # added names: the pre-pull run guarantees it happens at all, this one
         # picks up whatever the pull just landed. Idempotent — same ranking

@@ -11,6 +11,7 @@ A typical day:
 
 from __future__ import annotations
 
+import copy
 import logging
 import math
 from dataclasses import dataclass
@@ -1295,6 +1296,20 @@ class TradingEngine:
             if e.get("action") == "HOLD" and e.get("ts", "").startswith(today_iso)
         }
 
+        # ITEM 19 (owner order 2026-10-21): re-target held k x ATR positions
+        # whose valuation record now qualifies (once), and re-mark every
+        # valuation target when a month has closed — BEFORE the exit loop, so
+        # a target set or moved here is judged on this same pass. The
+        # re-target runs in-session only: the study set it and judged the
+        # exit on one close, so a target set at night never sells on the
+        # next morning's gap.
+        try:
+            self._valuation_pass(prices, history, now, retarget=not marking_only)
+        except Exception:
+            log.exception("valuation exit pass failed")
+            self._journal_once_a_day("VALUATION_PASS_FAILED", now, {
+                "why": "valuation re-target / re-mark raised; targets untouched this pass"})
+
         exits: list[str] = []
         no_quote_held: list[str] = []
         for ticker in list(self.portfolio.positions.keys()):
@@ -1341,6 +1356,15 @@ class TradingEngine:
             xcfg = self._exit_cfg(pos, cfg)
             should_exit, reason = check_exit(
                 pos, price, current_score, xcfg, now)
+            # ITEM 19: a month-end re-mark put the valuation target at or
+            # below that month-end's close — exit at this pass's price. The
+            # stop keeps its priority, as in the tested check_exit order. It
+            # is a target exit, so buy-and-hold (disable_exits) holds it too.
+            if (reason != "STOP_LOSS"
+                    and (getattr(pos, "val_target", None) or {}).get("exit_due")
+                    and bool(getattr(cfg, "valuation_exit_enabled", True))
+                    and not getattr(xcfg, "disable_exits", False)):
+                should_exit, reason = True, "VAL_TARGET_DOWN"
             if should_exit and marking_only:
                 # Owner order 2026-09-10: outside 09:15-15:30 the rule is SEEN
                 # and RECORDED, never executed — a fill after the close is a
@@ -1446,7 +1470,7 @@ class TradingEngine:
         # Audit S-12 (2026-10-02): the target is computed BEFORE the BUY line
         # so the line can carry how it was set (k, ATR, band) — it used to be
         # computed after, and the journal never said.
-        target_price = self._target_for(pick, fill_price, cfg=cfg)
+        target_price = self._target_for(pick, fill_price, cfg=cfg, now=now)
         # OWNER ORDER 2026-10-05 ("Go for A"): the stop is sized the same way
         # — the wider of the category stop and 2 x the name's own ATR, capped
         # (momentum only; see targets.py for the measurement). Computed here
@@ -1518,6 +1542,8 @@ class TradingEngine:
             target_price=target_price,
             # the tag is the Ocean slot counter (max 8) and the audit trail
             tags=(["ocean"] if pick.get("ocean") else []),
+            # Item 19: where the target came from (valuation base or k x ATR)
+            val_target=copy.deepcopy(pick.pop("val_target", None) or {}),
         )
 
     def _store_momentum_shortlist(self, ranked: list, history: dict,
@@ -1585,8 +1611,11 @@ class TradingEngine:
         return out
 
     def _target_for(self, pick: dict, fill_price: float,
-                    cfg: Optional[Config] = None) -> float:
-        """k x ATR target for a new position (owner order 2026-09-10).
+                    cfg: Optional[Config] = None,
+                    now: Optional[datetime] = None) -> float:
+        """Target for a new position: k x ATR (owner order 2026-09-10),
+        replaced by the valuation base when the name's stored record is
+        judged (item 19, owner order 2026-10-21) — see _valuation_target.
 
         `pick` carries the scan's own history frame under "history" when the
         caller has one; without it the fallback is the mode's fixed percentage
@@ -1601,10 +1630,283 @@ class TradingEngine:
                 float(cfg.take_profit_pct))
         except Exception:
             log.exception("ATR target failed — mode percentage used")
-            pick["target_diag"] = {"source": "fixed", "reason": "atr_failed"}
-            return round(float(fill_price) * (1 + cfg.take_profit_pct), 2)
+            diag = {"source": "fixed", "reason": "atr_failed"}
+            price = round(float(fill_price) * (1 + cfg.take_profit_pct), 2)
         pick["target_diag"] = diag
-        return price
+        try:
+            return self._valuation_target(pick, float(fill_price), price, cfg, now)
+        except Exception:
+            log.exception("valuation exit target failed — k x ATR kept")
+            pick["val_target"] = {"source": "k_atr", "reason": "valuation_failed"}
+            return price
+
+    def _valuation_target(self, pick: dict, fill: float, k_atr: float,
+                          cfg: Config, now: Optional[datetime]) -> float:
+        """ITEM 19 (owner order 2026-10-21, "Wire A3" + "Exit as tested").
+
+        Every new buy — scan, Ocean, owner BUY, Buy Desk, limit fill (they
+        all come through _open) — takes the name's valuation base as its
+        target when the stored record is judged (attractive / watch, range
+        OK), at most RECORD_MAX_AGE_DAYS old and above fill x 1.05: the rule
+        measured in the pre-registered study (TEST +5.68% vs k x ATR
+        +5.46%). Else k x ATR exactly as before, with the reason. Intraday
+        is left out: it is squared off the same day. A hand-typed target on
+        the owner ticket replaces either one afterwards (orders.py)."""
+        from . import valuation_exit as VE
+        k_diag = dict(pick.get("target_diag") or {})
+        now = now or datetime.utcnow()
+        today = self._ist(now).date()
+        mode = getattr(cfg, "mode", "") or MOMENTUM_MODE
+        enabled = bool(getattr(cfg, "valuation_exit_enabled", True))
+        rec = None
+        if not enabled:
+            target, vdiag = None, {"reason": "disabled"}
+        elif mode == "intraday":
+            target, vdiag = None, {"reason": "intraday"}
+        elif not VE.ready():
+            target, vdiag = None, {"reason": "no_reader"}
+        else:
+            rec = VE.records_for([pick["ticker"]]).get(pick["ticker"])
+            target, vdiag = VE.target_from_record(rec, fill, today)
+        if target is None:
+            pick["val_target"] = {"source": "k_atr", "reason": vdiag.get("reason"),
+                                  "k_atr_target": k_atr}
+            pick["target_diag"] = {**k_diag, "k_atr_target": k_atr,
+                                   "valuation": vdiag.get("reason")}
+            return k_atr
+        sector_index = rec.get("sector_index") or VE.MARKET_SECTOR
+        kind, name = VE.leg_for(sector_index)
+        pick["val_target"] = {
+            "source": "valuation", "base": target, "asof": vdiag["asof"],
+            "verdict": vdiag["verdict"], "family": vdiag["family"],
+            "t_entry": target, "k_atr_target": k_atr,
+            # levels at the BUY (the latest stored close); the re-mark reads
+            # the anchor day's own close and falls back to these
+            "sensex_entry": VE.level("sensex"),
+            "sector_entry": VE.level(kind, name),
+            "sector_index": sector_index, "beta": rec.get("beta"),
+            "entry_fill_date": today.isoformat(), "anchor_date": today.isoformat(),
+            "last_remark_month": None, "remarks": [], "exit_due": False,
+        }
+        pick["target_diag"] = {"source": "valuation", "base": target,
+                               "asof": vdiag["asof"], "verdict": vdiag["verdict"],
+                               "family": vdiag["family"], "k_atr_target": k_atr,
+                               "k_atr_source": k_diag.get("source")}
+        return target
+
+    def _valuation_pass(self, prices: dict, history: dict, now: datetime,
+                        retarget: bool = True) -> None:
+        """ITEM 19 on HELD positions: the A3 re-target (in-session passes
+        only — `retarget`), then the monthly re-mark (see
+        trading/valuation_exit.py). Switched off = nothing here runs and
+        every held target stays as it is."""
+        from . import valuation_exit as VE
+        if not bool(getattr(self.cfg, "valuation_exit_enabled", True)):
+            return
+        if not self.portfolio.positions or not VE.ready():
+            return
+        today = self._ist(now).date()
+        if retarget:
+            self._valuation_retarget(VE, today, now, prices)
+        for ticker in list(self.portfolio.positions.keys()):
+            pos = self.portfolio.positions[ticker]
+            vt = getattr(pos, "val_target", None) or {}
+            if vt.get("source") not in VE.SOURCE_SET:
+                continue
+            month = VE.month_closed(today, vt.get("last_remark_month"))
+            if month is None:
+                continue
+            try:
+                self._valuation_remark(VE, pos, vt, month, history, prices, now)
+            except Exception:
+                # one bad position never stops the others' re-marks
+                log.exception("valuation re-mark failed for %s", ticker)
+                self._journal_once_a_day("VALUATION_PASS_FAILED", now, {
+                    "ticker": ticker,
+                    "why": f"re-mark of {ticker} raised; its target is unchanged"})
+
+    def _valuation_retarget(self, VE, today, now: datetime,
+                            prices: Optional[dict] = None) -> None:
+        """A3 ("also do it on open positions"): a held position still on
+        k x ATR (or opened before item 19) whose record NOW qualifies —
+        judged, fresh, base above its ENTRY price x 1.05, and still judged at
+        this pass's price (VE.retarget_price_ok) — takes the base as its
+        target, once. Hand-set levels and intraday positions are left
+        alone. Legs are anchored at today."""
+        cand = []
+        for t, pos in self.portfolio.positions.items():
+            vt = getattr(pos, "val_target", None) or {}
+            if vt.get("source") not in (None, "", "k_atr") or vt.get("retargeted"):
+                continue
+            if getattr(pos, "custom_levels", False):
+                continue
+            if (getattr(pos, "mode", "") or "") == "intraday":
+                continue
+            cand.append(t)
+        if not cand:
+            return
+        recs = VE.records_for(cand)
+        for t in cand:
+            try:
+                self._valuation_retarget_one(VE, t, recs.get(t), today, now,
+                                             (prices or {}).get(t))
+            except Exception:
+                # one bad position never stops the others' re-targets
+                log.exception("valuation re-target failed for %s", t)
+                self._journal_once_a_day("VALUATION_PASS_FAILED", now, {
+                    "ticker": t,
+                    "why": f"re-target of {t} raised; its target is unchanged"})
+
+    def _valuation_retarget_one(self, VE, t: str, rec, today, now: datetime,
+                                price=None) -> None:
+        """A3 for one held position (see _valuation_retarget)."""
+        pos = self.portfolio.positions[t]
+        target, diag = VE.target_from_record(rec, pos.entry_price, today)
+        if target is None:
+            return
+        # the study's re-target read a verdict on that same close: a price
+        # now above base x 1.10 or the range high would read unattractive
+        if not VE.retarget_price_ok(rec, price)[0]:
+            return
+        old = float(getattr(pos, "target_price", 0.0) or 0.0)
+        sector_index = rec.get("sector_index") or VE.MARKET_SECTOR
+        kind, name = VE.leg_for(sector_index)
+        entry_day = VE.as_date(getattr(pos, "entry_date", None))
+        # built in full before anything on the position changes
+        vt = {
+            "source": "retarget", "retargeted": True,
+            "retarget_date": today.isoformat(), "old_target": round(old, 2),
+            "base": target, "asof": diag["asof"], "verdict": diag["verdict"],
+            "family": diag["family"], "t_entry": target, "k_atr_target": round(old, 2),
+            "sensex_entry": VE.level("sensex"), "sector_entry": VE.level(kind, name),
+            "sector_index": sector_index, "beta": rec.get("beta"),
+            "entry_fill_date": entry_day.isoformat() if entry_day else "",
+            "anchor_date": today.isoformat(),
+            "last_remark_month": None, "remarks": [], "exit_due": False,
+        }
+        pos.target_price = target
+        pos.val_target = vt
+        self.portfolio.decision_journal.append({
+            "ts": now.isoformat(), "action": "VALUATION_RETARGET",
+            "ticker": t, "old_target": round(old, 2), "new_target": target,
+            "asof": diag["asof"], "verdict": diag["verdict"],
+            "family": diag["family"], "price": round(float(price), 2),
+            "why": (f"Held on k x ATR ({old:,.2f}); its valuation record of "
+                    f"{diag['asof']} is {diag['verdict']} with base "
+                    f"{target:,.2f} above entry {pos.entry_price:,.2f} x "
+                    f"{VE.VALUATION_EXIT_MARGIN} — the base is its target "
+                    "now (owner order 2026-10-21, 'also do it on open "
+                    "positions'), re-marked each closed month."
+                    + (f" The price {float(price):,.2f} is already at or above "
+                       "it, so it takes profit on this pass."
+                       if float(price) >= target else "")),
+        })
+
+    def _valuation_remark(self, VE, pos, vt: dict, month: str, history: dict,
+                          prices: dict, now: datetime) -> None:
+        """A2: re-mark ONE valuation target for a closed month."""
+        me = VE.month_end(month)
+        anchor = VE.as_date(vt.get("anchor_date"))
+        if me is None or anchor is None or anchor >= me:
+            # bought / re-targeted after that month-end: nothing to re-mark
+            vt["last_remark_month"] = month
+            return
+        me_iso, an_iso = me.isoformat(), anchor.isoformat()
+        sx_me = VE.level("sensex", None, me_iso)
+        if sx_me is None:
+            # the month-end close is not stored yet — retried next pass
+            self._journal_once_a_day("VALUATION_REMARK_WAITING", now, {
+                "month": month,
+                "why": (f"Month {month} closed but the Sensex close of {me_iso} "
+                        "is not stored yet; valuation targets are re-marked on "
+                        "the next pass that has it.")})
+            return
+        sx_an = VE.level("sensex", None, an_iso) or VE.num(vt.get("sensex_entry"))
+        kind, name = VE.leg_for(vt.get("sector_index"))
+        leg = vt.get("sector_index") or VE.MARKET_SECTOR
+        k_me = VE.level(kind, name, me_iso)
+        k_an = VE.level(kind, name, an_iso) or (
+            VE.num(vt.get("sector_entry")) if k_me is not None else None)
+        if kind == "sector" and (k_me is None or k_an is None):
+            # the sector index does not reach these dates: the market leg
+            k_me = VE.level("nifty", None, me_iso)
+            k_an = VE.level("nifty", None, an_iso)
+            leg = f"{VE.MARKET_SECTOR} (no stored {name} close)"
+        t_m = VE.remarked_target(vt.get("t_entry"), sx_an, sx_me, k_an, k_me,
+                                 vt.get("beta"))
+        if t_m is None:
+            vt["last_remark_month"] = month
+            self.portfolio.decision_journal.append({
+                "ts": now.isoformat(), "action": "VALUATION_REMARK",
+                "ticker": pos.ticker, "month": month, "skipped": True,
+                "why": (f"{month}: a leg level is missing (Sensex {sx_an}->{sx_me}, "
+                        f"{leg} {k_an}->{k_me}) — target left at "
+                        f"{pos.target_price:,.2f} this month, as the study skipped it.")})
+            return
+        close, close_src = self._month_end_close(pos.ticker, history, me, prices)
+        if (close_src != "history"
+                and (self._ist(now).date() - me).days <= VE.REMARK_CLOSE_WAIT_DAYS):
+            # the study compared T_m with the stock's OWN month-end close; the
+            # store gets it with the next morning's top-up — wait for it
+            # rather than judge on today's price (retried next pass)
+            self._journal_once_a_day("VALUATION_REMARK_WAITING", now, {
+                "month": month, "ticker": pos.ticker,
+                "why": (f"Month {month} closed but {pos.ticker}'s own close of "
+                        f"{me_iso} is not stored yet; its valuation target is "
+                        "re-marked on the next pass that has it (after "
+                        f"{VE.REMARK_CLOSE_WAIT_DAYS} days the pass's own price "
+                        "is used and named).")})
+            return
+        down = VE.target_down(t_m, close)
+        old = float(pos.target_price or 0.0)
+        sm, sc = sx_me / sx_an - 1.0, k_me / k_an - 1.0
+        beta = VE.num(vt.get("beta"))
+        # the history row is built before the position changes
+        rows = list(vt.get("remarks") or [])
+        rows.append(VE.remark_entry(month, me, sm, sc, beta if beta is not None else 1.0,
+                                    t_m, close, leg))
+        pos.target_price = round(float(t_m), 2)
+        vt["remarks"] = rows[-VE.REMARKS_CAP:]
+        vt["last_remark_month"] = month
+        if down:
+            vt["exit_due"] = True
+        pos.val_target = vt
+        self.portfolio.decision_journal.append({
+            "ts": now.isoformat(), "action": "VALUATION_REMARK",
+            "ticker": pos.ticker, "month": month, "month_end": me_iso,
+            "old_target": round(old, 2), "new_target": pos.target_price,
+            "sensex_move_pct": round(sm * 100, 2), "sector_move_pct": round(sc * 100, 2),
+            "sector_leg": leg, "beta": beta if beta is not None else 1.0,
+            "beta_source": "record" if beta is not None else "fallback_1",
+            "close": None if close is None else round(close, 2),
+            "close_source": close_src, "exit_due": bool(down),
+            "why": (f"{month} closed: target {old:,.2f} -> {pos.target_price:,.2f} "
+                    f"(Sensex {sm * 100:+.2f}%, {leg} {sc * 100:+.2f}%, beta "
+                    f"{beta if beta is not None else 1.0:.2f}). "
+                    + (f"At or below the {me_iso} close {close:,.2f} — exits on "
+                       "the next in-session pass (VAL_TARGET_DOWN)."
+                       if down else "Above the month-end close — held.")),
+        })
+
+    @staticmethod
+    def _month_end_close(ticker: str, history: dict, me, prices: dict):
+        """(close, source): the stock's own stored close on or before the
+        month-end when its history reaches that day, else the live price
+        of this pass ("live_mark"), else (None, "none")."""
+        frame = (history or {}).get(ticker)
+        try:
+            c = frame["Close"].dropna()
+            c.index = pd.to_datetime(c.index)
+            if len(c) and c.index[-1].date() >= me:
+                part = c[c.index <= pd.Timestamp(me)]
+                if len(part):
+                    return float(part.iloc[-1]), "history"
+        except Exception:
+            pass
+        px = (prices or {}).get(ticker)
+        if px and float(px) > 0:
+            return float(px), "live_mark"
+        return None, "none"
 
     def _stop_for(self, pick: dict, fill_price: float,
                   cfg: Optional[Config] = None) -> float:

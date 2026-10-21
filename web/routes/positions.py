@@ -118,6 +118,32 @@ def _decay_floor_for(pos, cfg, cache: dict) -> float:
     return cache[mode]
 
 
+def _target_source(pos) -> dict:
+    """Where THIS position's target came from (item 19, owner order
+    2026-10-21), read from its stored val_target only: the valuation base
+    (at entry or re-targeted), a hand-typed level, k x ATR with the reason
+    no valuation applied, or a position opened before item 19."""
+    vt = getattr(pos, "val_target", None) or {}
+    src = vt.get("source") or ""
+    out = {"kind": "legacy", "base": None, "asof": "", "verdict": "",
+           "retarget_date": "", "exit_due": False, "remark_month": "",
+           "remark_target": None, "reason": ""}
+    if src in ("valuation", "retarget"):
+        rows = vt.get("remarks") or []
+        last = rows[-1] if rows else {}
+        out.update({"kind": src, "base": vt.get("base"),
+                    "asof": str(vt.get("asof") or ""), "verdict": vt.get("verdict") or "",
+                    "retarget_date": vt.get("retarget_date") or "",
+                    "exit_due": bool(vt.get("exit_due")),
+                    "remark_month": last.get("month") or "",
+                    "remark_target": last.get("target")})
+    elif src == "owner":
+        out.update({"kind": "owner", "reason": vt.get("reason") or ""})
+    elif src == "k_atr":
+        out.update({"kind": "k_atr", "reason": vt.get("reason") or ""})
+    return out
+
+
 def _decay_exempt(pos) -> bool:
     """exits.check_exit never sells an owner pick or an Ocean position on
     score decay (audit A4 2026-08-09, F-2 2026-10-02)."""
@@ -237,6 +263,7 @@ def positions_view(
             "decay_floor": decay_floor,
             "decay_exempt": _decay_exempt(pos),
             "target_price": target_price,
+            "target_src": _target_source(pos),
             "stop_price": stop_price,
             "to_target_pct": (target_price / ltp - 1) * 100 if ltp else 0.0,
             "to_stop_pct": (stop_price / ltp - 1) * 100 if ltp else 0.0,

@@ -84,6 +84,12 @@ def apply_custom_levels(pos, stop_pct: float = None,
         pos.target_price = round(pos.entry_price * (1 + abs(target_pct) / 100), 2)
         pos.custom_levels = True
         notes.append(f"target +{abs(target_pct):g}% (₹{pos.target_price})")
+        # Item 19: a hand-typed target always wins over the valuation /
+        # k x ATR target and is never re-marked or re-targeted.
+        if hasattr(pos, "val_target"):
+            prev = (getattr(pos, "val_target", None) or {}).get("source")
+            pos.val_target = {"source": "owner", "replaced": prev or "",
+                              "reason": "hand-typed target on the order ticket"}
     return ", ".join(notes)
 
 

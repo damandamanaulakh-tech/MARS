@@ -173,15 +173,24 @@ SEQUENCE: list[tuple[str, str, str, str]] = [
     ("18", "Financial-selection assessment", "exists",
      "trading/valuation/assess.py — attractive / watch / unattractive / "
      "insufficient with the reasons and warnings beside it (quality, share "
-     "bridge — 2026-10-21); printed on Den §12; NOT a trade permission "
-     "(stage 21 and Phase 4 wait on the pre-registered test)"),
+     "bridge — 2026-10-21); printed on Den §12; NOT a buy permission — since "
+     "2026-10-21 a judged verdict sets the EXIT target (stage 21, item 19)"),
     ("19", "IFR state", "exists",
      "trading/ifr.py — frozen thresholds over the 191 reference names, "
      "throttle applied in engine.scan"),
     ("20", "Unified risk governor", "exists",
      "risk.can_open (cash, reserve, category share, sector, heat, ceiling, "
      "minimum) + drawdown governor + kill switch"),
-    ("21", "Permitted decision conditions", "not yet", ""),
+    # Owner order 2026-10-21 ("Wire A3" + "Exit as tested"), after the
+    # pre-registered test (TEST +5.68% vs k x ATR +5.46%): the first
+    # decision a valuation verdict is permitted to drive is the EXIT target.
+    ("21", "Permitted decision conditions", "exists",
+     "item 19 — trading/valuation_exit.py: a judged record (attractive / "
+     "watch, range OK, base above fill x 1.05, <= 35 days old) sets a new "
+     "buy's target, re-targets held k x ATR positions once, re-marks every "
+     "closed month with the Sensex / sector (VAL_TARGET_DOWN exit); records "
+     "precomputed 16:50 IST (scheduler.run_valuation_precompute). Entries "
+     "still never read a verdict"),
     ("22", "Paper-engine decision capture", "partly",
      "BUY/SELL journal with config snapshot, stop/target/sizing diagnostics; "
      "no decision-conditions record"),
@@ -843,8 +852,10 @@ def _register(p) -> dict:
     min_names = None
     try:
         from .. import scheduler
-        v = _literal(inspect.getsource(scheduler.run_register_precompute),
-                     r"MIN_NAMES\s*=\s*(\d+)")
+        # item 19: the body moved behind a lock wrapper; the guard lives there
+        body = getattr(scheduler, "_register_precompute_body",
+                       scheduler.run_register_precompute)
+        v = _literal(inspect.getsource(body), r"MIN_NAMES\s*=\s*(\d+)")
         min_names = int(v) if v is not None else None
     except Exception:
         log.exception("den: register precompute guard unreadable")
@@ -1131,12 +1142,12 @@ def den_page(request: Request, draft: Optional[str] = None,
              fa: Optional[str] = None, fa_err: Optional[str] = None,
              walk: Optional[str] = None, sb: Optional[str] = None,
              sb_err: Optional[str] = None, vi: Optional[str] = None,
-             vi_err: Optional[str] = None):
+             vi_err: Optional[str] = None, vp: Optional[str] = None):
     user = auth.current_user(request)
     if not user:
         return RedirectResponse("/login", status_code=303)
     from . import settings_routes
-    from .. import den_walk, valuation_chain_view, valuation_view
+    from .. import den_walk, valuation_chain_view, valuation_exit_feed, valuation_view
     cfg = state.cfg()
     p = state.portfolio()
     eng = _safe(_engines, cfg, p, default={}) or {}
@@ -1186,6 +1197,10 @@ def den_page(request: Request, draft: Optional[str] = None,
                          "invalid", "the formulas could not be read — see the log")),
         "is_owner": user.get("role") == "owner",
         "db_status": state.db_status(),
+        # Item 19: the stored valuation records the exit target reads
+        "vexit": _safe(valuation_exit_feed.summary, default={}) or {},
+        "vexit_on": bool(getattr(cfg, "valuation_exit_enabled", True)),
+        "vexit_note": VP_NOTES.get(vp or "", ""),
     }
     # Section 9: the algo half of Settings, same form/action/field names.
     ctx.update(_safe(settings_routes.algo_context, default={}) or {})
@@ -1249,6 +1264,40 @@ async def den_valuation_save(request: Request):
     except Exception:
         log.exception("den: sector backfill after a valuation save failed")
     return RedirectResponse("/den?val=saved#valuation", status_code=303)
+
+
+VP_NOTES = {
+    "ok": "Valuation records rebuilt — the counts are below.",
+    "skipped": ("Not rebuilt: the box is busy (a scan rotation, or memory above the "
+                "Den's ceiling) or a rebuild is already running — the journal line "
+                "VALUATION_PRECOMPUTE_SKIPPED says which. The records it has stand."),
+    "failed": ("The rebuild crashed — journal line VALUATION_PRECOMPUTE_FAILED; "
+               "the previous records stand."),
+    "denied": "Only the owner can rebuild the valuation records.",
+}
+
+
+@router.post("/den/valuation/precompute")
+async def den_valuation_precompute(request: Request):
+    """Owner-only (item 19, 2026-10-21): rebuild the valuation records the
+    exit target reads, now. Runs in the threadpool (it reads the store and
+    computes up to 120 chain rows inside its time budget); the same guards
+    as the 16:50 job apply."""
+    from starlette.concurrency import run_in_threadpool
+
+    from .. import scheduler
+    user = auth.current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    if user.get("role") != "owner":
+        return RedirectResponse("/den?vp=denied#chain", status_code=303)
+    try:
+        res = await run_in_threadpool(scheduler.run_valuation_precompute, "owner-button")
+    except Exception:
+        log.exception("den: valuation precompute failed")
+        res = {"status": "failed"}
+    status = (res or {}).get("status") or "failed"
+    return RedirectResponse(f"/den?vp={quote(status)}#chain", status_code=303)
 
 
 @router.post("/den/valuation/assumptions")

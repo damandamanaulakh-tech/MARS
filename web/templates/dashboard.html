@@ -574,6 +574,7 @@
       <div class="text-[10px] tracking-widest text-ink-faint uppercase">🎚️ Trade Horizons — real exit presets</div>
       <div class="text-[10px] text-ink-faint" data-horizon-legend="1">highlighted = live right now · target = k × each stock's own 14-day ATR, shown here at the median ATR · momentum stop = the wider of −5% and 2 × ATR (cap −15%) · hold = calendar days</div>
     </div>
+    <div class="text-[10px] text-ink-soft mb-2" data-horizon-valuation="1">momentum target = valuation base when judged (owner 2026-10-21), else k×ATR — the same for short / swing / positional buys (your "all new buys"; measured on momentum only), never intraday; re-marked monthly with the Sensex and its sector · records on Den §12</div>
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
       {% for h in horizons %}
       <div class="border px-2.5 py-2 text-xs {% if h.active %}border-ink bg-ink/[0.03]{% else %}border-line{% endif %}">

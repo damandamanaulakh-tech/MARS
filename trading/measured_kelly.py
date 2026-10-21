@@ -73,6 +73,9 @@ FULL_CONFIDENCE = 300
 STRATEGY_REASONS = frozenset({
     "STOP_LOSS", "TAKE_PROFIT", "TRAILING_STOP", "MAX_HOLD",
     "SCORE_DECAY", "ROTATION_EXIT",
+    # item 19 (2026-10-21): the re-marked valuation target fell to or below
+    # the month-end close — an exit rule's verdict, like TAKE_PROFIT
+    "VAL_TARGET_DOWN",
 })
 # Prefix match too — the danger layer writes a described reason like
 # "DANGER_EXIT_HALF (ATR Shock + Close Low ...)".
