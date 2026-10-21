@@ -780,13 +780,24 @@ def _t_pb(snap, price, market):
             "roe": roe_in, "roe_source": roe_src, "coe": coe, "coe_source": coe_src}
 
 
+def _sti(snap) -> float:
+    """Short-term investments (Yahoo 'Other Short Term Investments', the
+    extras line pipeline._sti reads); absent = 0, the pipeline's convention."""
+    v = _extra(snap, "short_term_investments")
+    return float(v) if num(v) is not None else 0.0
+
+
 def _ev(snap, price):
+    """EV = market cap + debt − cash − short-term investments + minorities:
+    the ONE EV rule (VAL-12a, owner 2026-10-21) the peer table, the stock's
+    EV bridge and these terms all use — reviewer defect 2 (2026-10-21) found
+    the terms still on the old mcap + debt − cash + minorities."""
     mc = _mcap(snap, price)
     v, bad = _need(market_cap=mc, total_debt=_f(snap, "total_debt"),
                    cash=_f(snap, "cash"))
     if bad:
         return bad
-    core = v["market_cap"] + v["total_debt"] - v["cash"]
+    core = v["market_cap"] + v["total_debt"] - v["cash"] - _sti(snap)
     mi = _f(snap, "minority_interest_bs")
     if num(mi) is None:
         return dn("missing input: minority_interest_bs"
@@ -803,7 +814,8 @@ def _t_ps(snap, price, market):
 
 
 def _t_ev(snap, price, market):
-    return _ev(snap, price)
+    return {"value": _ev(snap, price), "short_term_investments": _sti(snap),
+            "rule": "mcap + debt − cash − short-term investments + minorities (VAL-12a)"}
 
 
 def _t_ev_ebitda(snap, price, market):
@@ -1048,8 +1060,8 @@ TERMS: Dict[str, dict] = {
                  "Banks: justified P/B = (ROE−g)/(COE−g)", _t_pb),
     "P/S, EV/Sales": _term("Mcap / revenue; EV / revenue", "17",
                            "Loss-making / early", _t_ps),
-    "EV": _term("Mcap + debt − cash + minorities", "17", "EV→equity bridge",
-                _t_ev),
+    "EV": _term("Mcap + debt − cash − short-term investments + minorities", "17",
+                "EV→equity bridge (one EV rule, VAL-12a)", _t_ev),
     "EV/EBITDA": _term("EV / EBITDA", "17", "Mid-cycle for cyclicals",
                        _t_ev_ebitda),
     "Dividend yield / payout": _term("DPS / price; DPS / EPS", "17", "PSU floor",

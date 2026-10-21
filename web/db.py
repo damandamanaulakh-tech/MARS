@@ -463,6 +463,40 @@ def load_sector_rows(since_iso: str = "") -> list:
         return []
 
 
+def save_macro_rows(rows: list) -> int:
+    """Upsert macro readings (VALFIX 2026-10-21: 10-year G-sec yield, RBI
+    repo, RBI USD/INR). Keyed series|date so a re-read overwrites its own
+    day and never duplicates."""
+    if not _CONNECTED or _DB is None or not rows:
+        return 0
+    n = 0
+    try:
+        for r in rows:
+            s, d = str(r.get("series") or ""), str(r.get("date") or "")
+            if not s or not d:
+                continue
+            _DB.macro_daily.replace_one(
+                {"_id": f"{s}|{d}"}, {**r, "_id": f"{s}|{d}"}, upsert=True)
+            n += 1
+    except Exception as e:
+        log.warning("Mongo save_macro_rows failed: %s", e)
+    return n
+
+
+def load_macro_rows(series: str = None) -> list:
+    """Stored macro readings, ascending by date (one series or all). []
+    when Mongo is down — the valuation view then says the feed was never
+    read, never an invented value."""
+    if not _CONNECTED or _DB is None:
+        return []
+    try:
+        q = {"series": series} if series else {}
+        return list(_DB.macro_daily.find(q).sort("date", 1))
+    except Exception as e:
+        log.warning("Mongo load_macro_rows failed: %s", e)
+        return []
+
+
 def load_index_rows(since_iso: str = "") -> list:
     """Stored index-daily rows, ascending. [] when Mongo is down — every
     consumer then behaves exactly as before Node 3 (committed CSV alone)."""

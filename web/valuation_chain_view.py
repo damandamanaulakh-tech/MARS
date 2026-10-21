@@ -46,6 +46,15 @@ by the 25-row cap is printed; a crashed row, a name with no statements and
 a range that could not be built each print one honest line instead of an
 INSUFFICIENT verdict; the "use as §11 target" button shows only on a judged
 verdict.
+
+BATCH 2 (owner choices 2026-10-21): the macro inputs read the stored feeds
+(trading.macro_feeds — the Upstox 10-year G-sec yield, the RBI repo rate
+and USD/INR, FII + DII holding per stock), each dated and marked STALE when
+old; the owner's inputs table (settings doc `valuation_inputs`: typed NAV,
+embedded value, holding discount, segment multiples, peer list) is passed
+to the chain; the priced peer table is handed in so a typed peer list and
+the sum-of-parts segment multiples can read it; known-fault lines whose fix
+landed are gone; the "no effect yet" labels follow what each render feeds.
 """
 from __future__ import annotations
 
@@ -92,7 +101,17 @@ PEER_BASE_MAX_AGE_DAYS = 1
 #: Bump when the stored base's row shape changes, so an old doc is rebuilt.
 #: The signature also hashes the valuation code, so a deploy that changes
 #: routing or the snapshot rebuilds it without a hand bump.
-PEER_BASE_VERSION = 2
+#: 3 = 2026-10-21: + short-term investments, minorities, EBIT and the lender
+#: book (VAL-12a / VAL-01 / VAL-02). The pipeline's own number wins when higher.
+PEER_BASE_VERSION = 3
+
+
+def _peer_base_version() -> int:
+    try:
+        from trading.valuation import pipeline
+        return max(PEER_BASE_VERSION, int(getattr(pipeline, "PEER_BASE_VERSION", 0) or 0))
+    except Exception:                                   # noqa: BLE001
+        return PEER_BASE_VERSION
 #: A base priced on fewer statement names than this share is used for the
 #: day in this process but NOT stored (a half-filled store must not fix a
 #: thin peer table — or an ADR name with no price — into the stored copy).
@@ -359,17 +378,9 @@ def index_move(field: str, start: Any, end: Any = None) -> dict:
             "end_date": s.index[-1].date().isoformat() if end is None else str(end)[:10]}
 
 
-def own_pe_history(closes: Optional[pd.Series], snap: dict) -> list[float]:
-    """FY-end close ÷ that FY's basic EPS, for every FY in the snapshot
-    history — the stock's own multiple range (needs the long tail)."""
-    out: list[float] = []
-    eps_hist = ((snap.get("history") or {}).get("basic_eps") or {})
-    for period_end, eps in sorted(eps_hist.items()):
-        e = V.num(eps)
-        px = price_at(closes, period_end)
-        if e and e > 0 and px:
-            out.append(px / e)
-    return out
+# The stock's own P/E history is the pipeline's (pipeline.own_pe_rows, VAL-14a,
+# owner choice 2026-10-21: FY-end close ÷ normalised PAT ÷ that FY's shares,
+# odd years flagged); the old basic-EPS reader that lived here is gone.
 
 
 def _held_names(p) -> list[str]:
@@ -482,6 +493,217 @@ def parse_assumptions_form(form) -> tuple[dict, list]:
     return ASM.coerce(raw)
 
 
+# ------------------------------------------------- owner inputs table
+
+#: VAL-01 / VAL-14b (owner choice 2026-10-21): the numbers the chain cannot
+#: read from any file — typed NAV, embedded value, holding discount, segment
+#: multiples and a peer list per stock. Settings doc + in-process copy (the
+#: assumption-draft pattern). Display only: the engine never reads it.
+INPUTS_DOC_ID = "valuation_inputs"
+MAX_INPUT_SYMBOLS = 40
+MAX_INPUT_PEERS = 20
+MAX_INPUT_SEGMENTS = 12
+LAST_INPUTS: dict = {}
+INPUT_NUMBER_FIELDS = ("nav_ps", "ev_ps", "vnb_ps")
+INPUT_DATE_FIELDS = ("nav_asof", "ev_asof")
+_SEGMENT_RE = re.compile(r"^[A-Za-z0-9&/.,() \-]{1,40}$")
+_ISO_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _bare_symbol(t: Any) -> str:
+    s = str(t or "").strip().upper()
+    return s[:-3] if s.endswith((".NS", ".BO")) else s
+
+
+READ_FAILED = ("the stored inputs table could not be read (database) — nothing changed; "
+               "try again when the store answers")
+
+
+def _read_inputs() -> tuple[dict, bool]:
+    """({SYMBOL: row}, ok) straight from the settings doc. ok is False when
+    the read did not happen or failed (this render's store gate was, or
+    became, down) — reviewer defect 5 (2026-10-21): a failed read used to
+    come back as an EMPTY table, and the save that followed wrote that
+    emptiness over every stored row."""
+    from . import db
+    g = _gate()
+    if g.down:
+        return {}, False
+    doc = g.call("inputs table read", db.load_settings, doc_id=INPUTS_DOC_ID, default=None)
+    if g.down or doc is None:
+        return {}, False
+    table = dict(doc.get("inputs") or {}) if isinstance(doc, dict) else {}
+    return {str(k).upper(): dict(v) for k, v in table.items() if isinstance(v, dict)}, True
+
+
+def load_inputs() -> dict:
+    """{SYMBOL: row} of the inputs table — the Mongo doc first, the
+    in-process copy when the doc cannot be read (display only; a SAVE never
+    builds on this fallback, see save_input_row)."""
+    table, ok = _read_inputs()
+    if not ok:
+        log.warning("valuation chain: inputs table unreadable — using the in-process copy")
+    if not table and LAST_INPUTS:
+        table = {str(k).upper(): dict(v) for k, v in LAST_INPUTS.items()
+                 if isinstance(v, dict)}
+    return table
+
+
+def _store_inputs(table: dict) -> bool:
+    from datetime import datetime
+    from . import db
+    LAST_INPUTS.clear()
+    LAST_INPUTS.update(table)
+    try:
+        db.save_settings({"inputs": dict(table), "ts": datetime.utcnow().isoformat()},
+                         doc_id=INPUTS_DOC_ID)
+        return True
+    except Exception:                                   # noqa: BLE001
+        log.exception("valuation chain: inputs table save failed (in-memory copy kept)")
+        return False
+
+
+def save_input_row(symbol: str, row: dict) -> tuple[bool, str]:
+    """Add or replace ONE symbol's row. (ok, error). Refused — nothing
+    written, nothing changed — when the stored table could not be read."""
+    from datetime import datetime
+    sym = _bare_symbol(symbol)
+    table, ok = _read_inputs()
+    if not ok:
+        return False, READ_FAILED
+    if sym not in table and len(table) >= MAX_INPUT_SYMBOLS:
+        return False, f"the inputs table holds at most {MAX_INPUT_SYMBOLS} symbols — remove one first"
+    table[sym] = {**row, "ts": datetime.utcnow().isoformat(timespec="seconds")}
+    _store_inputs(table)
+    clear_row_cache()
+    return True, ""
+
+
+def remove_input_row(symbol: str) -> bool:
+    """Drop one symbol's row; False when it is not there OR the stored
+    table could not be read (a failed read must never write)."""
+    sym = _bare_symbol(symbol)
+    table, ok = _read_inputs()
+    if not ok or sym not in table:
+        return False
+    table.pop(sym, None)
+    _store_inputs(table)
+    clear_row_cache()
+    return True
+
+
+def _pos_num(raw: Any, name: str, errors: list, *, lo: float = 0.0, hi: float = 1e7,
+             allow_zero: bool = False) -> Optional[float]:
+    import math
+    s = str(raw or "").strip().replace(",", "")
+    if not s:
+        return None
+    try:
+        v = float(s)
+    except ValueError:
+        errors.append(f"{name}: '{s[:20]}' is not a number")
+        return None
+    if not math.isfinite(v) or v > hi or v < lo or (v == lo and not allow_zero):
+        errors.append(f"{name}: {s[:20]} is outside {lo:g}–{hi:g}")
+        return None
+    return v
+
+
+def parse_inputs_form(form) -> tuple[str, dict, list]:
+    """Form → (SYMBOL, row, errors). Every field is optional, but at least
+    one number, a peer list or segment multiples must be typed. A single bad
+    field refuses the whole row (nothing stored)."""
+    errors: list = []
+    full = vv.normalise_symbol(str(form.get("ticker") or ""))
+    sym = _bare_symbol(full)
+    if not sym:
+        return "", {}, ["the symbol is missing or not an NSE symbol"]
+    row: dict = {}
+    for k in INPUT_NUMBER_FIELDS:
+        v = _pos_num(form.get(k), k, errors)
+        if v is not None:
+            row[k] = v
+    d = _pos_num(form.get("holding_discount_pct"), "holding_discount_pct", errors,
+                 lo=0.0, hi=95.0, allow_zero=True)
+    if d is not None:
+        row["holding_discount_pct"] = d
+    for k in INPUT_DATE_FIELDS:
+        s = str(form.get(k) or "").strip()
+        if not s:
+            continue
+        try:
+            if not _ISO_RE.match(s):
+                raise ValueError
+            date.fromisoformat(s)
+            row[k] = s
+        except ValueError:
+            errors.append(f"{k}: '{s[:20]}' is not a date (YYYY-MM-DD)")
+    segs: dict = {}
+    raw_segs = str(form.get("segment_multiples") or "").strip()
+    for part in [x for x in re.split(r"[;\n]+", raw_segs) if x.strip()]:
+        if "=" not in part:
+            errors.append(f"segment multiples: '{part.strip()[:30]}' needs SEGMENT=multiple")
+            continue
+        name, val = (x.strip() for x in part.split("=", 1))
+        if not _SEGMENT_RE.match(name):
+            errors.append(f"segment multiples: '{name[:30]}' is not a segment name")
+            continue
+        v = _pos_num(val, f"segment multiple {name}", errors, hi=500.0)
+        if v is not None:
+            segs[name] = v
+    if len(segs) > MAX_INPUT_SEGMENTS:
+        errors.append(f"segment multiples: at most {MAX_INPUT_SEGMENTS}")
+    if segs:
+        row["segment_multiples"] = segs
+    peers: list = []
+    for raw_t in re.split(r"[,\s]+", str(form.get("peer_list") or "")):
+        if not raw_t.strip():
+            continue
+        t = _bare_symbol(vv.normalise_symbol(raw_t))
+        if not t:
+            errors.append(f"peer list: '{raw_t.strip()[:20]}' is not an NSE symbol")
+        elif t != sym and t not in peers:
+            peers.append(t)
+    if len(peers) > MAX_INPUT_PEERS:
+        errors.append(f"peer list: at most {MAX_INPUT_PEERS} names")
+    if peers:
+        row["peer_list"] = peers
+    note = str(form.get("note") or "").strip()
+    if note:
+        row["note"] = note[:200]
+    if not errors and not (set(row) - {"note", "nav_asof", "ev_asof"}):
+        errors.append("nothing typed — enter a NAV, embedded value, holding discount, "
+                      "segment multiples or a peer list (remove deletes a row)")
+    return sym, row, errors
+
+
+def segments_on_file() -> list:
+    """[{symbol, names}] — the stocks with segment rows in
+    data/segment_ebit.csv and their segment names AS PRINTED, so the owner
+    can type a segment multiple against the real name (reviewer defect 1)."""
+    try:
+        from trading.valuation import segments as SG
+        return [{"symbol": sym, "names": [r["segment"] for r in SG.segment_ebit(sym)]}
+                for sym in SG.symbols_with_segments()]
+    except Exception:                                   # noqa: BLE001
+        return []
+
+
+def inputs_section(flag: str = "", error: str = "") -> dict:
+    """The inputs table as the Den prints it (rows A-Z)."""
+    table = load_inputs()
+    rows = []
+    for sym in sorted(table):
+        r = table[sym]
+        rows.append({"symbol": sym, **r,
+                     "segments_text": "; ".join(f"{k}={v:g}" for k, v in
+                                                (r.get("segment_multiples") or {}).items()),
+                     "peers_text": " ".join(r.get("peer_list") or [])})
+    return {"flag": flag or "", "error": error, "rows": rows, "n": len(rows),
+            "max": MAX_INPUT_SYMBOLS, "doc_id": INPUTS_DOC_ID,
+            "segments_on_file": segments_on_file()}
+
+
 # --------------------------------------------------------------- peers
 
 def _store_closes() -> dict:
@@ -517,6 +739,8 @@ def _peer_prices() -> dict:
     from trading.valuation import pipeline
     want = [f"{sym}.NS" for sym in pipeline.statement_symbols()]
     store = _store_closes()
+    # kept for the day: a holding company's subsidiaries are priced from it
+    _PEER_CACHE["store_closes"] = dict(store)
     prices = {t: store[t] for t in want if store.get(t)}
     missing = [t for t in want if t not in prices]
     for t, df in _zip_frames(missing).items():
@@ -576,7 +800,7 @@ def peer_base(prices: Optional[dict] = None) -> tuple[list, str, str]:
     except Exception:                                   # noqa: BLE001
         doc = {}
     if (doc.get("base") and doc.get("sig") == sig and _base_fresh(doc.get("built"))
-            and doc.get("version") == PEER_BASE_VERSION):
+            and doc.get("version") == _peer_base_version()):
         _PEER_CACHE.update({"base": list(doc["base"]), "built": str(doc["built"])[:10],
                             "sig": sig, "source": "stored"})
         return _PEER_CACHE["base"], _PEER_CACHE["built"], "stored"
@@ -603,7 +827,7 @@ def peer_base(prices: Optional[dict] = None) -> tuple[list, str, str]:
         g.call("peer base save", db.save_settings,
                {"base": base, "built": built, "sig": sig, "n": len(base),
                 "n_priced": n_priced, "coverage": round(coverage, 3),
-                "version": PEER_BASE_VERSION,
+                "version": _peer_base_version(),
                 "ts": datetime.utcnow().isoformat()}, doc_id=PEERS_DOC_ID)
     except Exception:                                   # noqa: BLE001
         log.exception("valuation chain: peer base save failed (in-process copy kept)")
@@ -619,43 +843,92 @@ def _peer_table_stale(today: str) -> bool:
     return bool(_PEER_CACHE.get("degraded")) and not _gate().down
 
 
+def _ensure_peer_table() -> bool:
+    """Build the priced peer table once per process per day (False = not
+    built because this render's time budget was already spent)."""
+    from trading.valuation import pipeline
+    today = date.today().isoformat()
+    if not _peer_table_stale(today):
+        return True
+    r = _render()
+    if r is not None and r.budget_spent():
+        # Review 2026-10-15: the budget was checked only before a row,
+        # so the first row ran on into a ~9 s peer build. A build that
+        # would start after the budget is spent is not started; row_for
+        # sees the flag and prints the row NOT COMPUTED (an empty peer
+        # table here would otherwise be cached as the row's answer).
+        r.peer_build_skipped = True
+        return False
+    # One build per day per process, under a lock: a second render that
+    # arrives mid-build WAITS for the table instead of reading an empty
+    # one (and caching peerless rows for 30 min — review 2026-10-15).
+    with _PEER_LOCK:
+        if _peer_table_stale(today):
+            by_method: dict = {}
+            try:
+                prices = _peer_prices()
+                base, _built, _src = peer_base(prices)
+                by_method = pipeline.peer_rows_from_base(base, prices.get)
+            except Exception:                           # noqa: BLE001
+                log.exception("valuation chain: peer table failed")
+            _PEER_CACHE["by_method"] = by_method
+            _PEER_CACHE["day"] = today
+            # Priced from the repo copy because THIS render's database
+            # gate closed: rebuilt by a later open whose database answers.
+            _PEER_CACHE["degraded"] = _gate().down
+    return True
+
+
+def peer_table_rows() -> dict:
+    """The priced peer table {method: [rows]} — handed to the chain so a
+    typed peer list and the sum-of-parts segment multiples can read any
+    statement name's multiples (VAL-01). {} when it could not be built."""
+    if not _ensure_peer_table():
+        return {}
+    return dict(_PEER_CACHE.get("by_method") or {})
+
+
+#: At most this many subsidiaries of one holding company are read from the
+#: repo zip when the store has no close for them.
+SUBSIDIARY_ZIP_MAX = 12
+
+
+def subsidiary_price(ticker: str) -> Optional[float]:
+    """Today's close of a holding company's subsidiary (VAL-14b), from the
+    SAME place the peers are priced: the day's one-query store closes, the
+    priced peer table, then the repo zip."""
+    t = str(ticker or "").upper()
+    if not t:
+        return None
+    if not t.endswith((".NS", ".BO")):
+        t += ".NS"
+    px = (_PEER_CACHE.get("store_closes") or {}).get(t)
+    if px:
+        return float(px)
+    for rows in (_PEER_CACHE.get("by_method") or {}).values():
+        for r in rows:
+            if r.get("ticker") == t and V.num(r.get("price")):
+                return float(r["price"])
+    seen = _PEER_CACHE.setdefault("zip_subsidiaries", {})
+    if t in seen:
+        return seen[t]
+    if len(seen) >= SUBSIDIARY_ZIP_MAX:
+        return None
+    s = _zip_close_series(t)
+    seen[t] = float(s.iloc[-1]) if s is not None and len(s) else None
+    return seen[t]
+
+
 def peer_multiples(method: str, exclude: str = "") -> dict:
     """Median trailing multiples (P/E, P/B, EV/EBITDA, EV/Sales) of the
     names on the same route among the Nifty-200 statement set. ASSUMED
     peer definition — the owner has not supplied peer groups. Priced once
     per process per day from ONE store query; the price-free base comes
     from peer_base (stored, rebuilt weekly)."""
-    from trading.valuation import pipeline
-    today = date.today().isoformat()
-    if _peer_table_stale(today):
-        r = _render()
-        if r is not None and r.budget_spent():
-            # Review 2026-10-15: the budget was checked only before a row,
-            # so the first row ran on into a ~9 s peer build. A build that
-            # would start after the budget is spent is not started; row_for
-            # sees the flag and prints the row NOT COMPUTED (an empty peer
-            # table here would otherwise be cached as the row's answer).
-            r.peer_build_skipped = True
-            return {"n": 0, "pe_median": None, "pb_median": None,
-                    "ev_ebitda_median": None, "ev_sales_median": None,
-                    "source": "peer table not built — the §12 time budget was spent"}
-        # One build per day per process, under a lock: a second render that
-        # arrives mid-build WAITS for the table instead of reading an empty
-        # one (and caching peerless rows for 30 min — review 2026-10-15).
-        with _PEER_LOCK:
-            if _peer_table_stale(today):
-                by_method: dict = {}
-                try:
-                    prices = _peer_prices()
-                    base, _built, _src = peer_base(prices)
-                    by_method = pipeline.peer_rows_from_base(base, prices.get)
-                except Exception:                       # noqa: BLE001
-                    log.exception("valuation chain: peer table failed")
-                _PEER_CACHE["by_method"] = by_method
-                _PEER_CACHE["day"] = today
-                # Priced from the repo copy because THIS render's database
-                # gate closed: rebuilt by a later open whose database answers.
-                _PEER_CACHE["degraded"] = _gate().down
+    if not _ensure_peer_table():
+        return {"n": 0, "pe_median": None, "pb_median": None,
+                "ev_ebitda_median": None, "ev_sales_median": None,
+                "source": "peer table not built — the §12 time budget was spent"}
     rows = [r for r in (_PEER_CACHE["by_method"].get(method) or [])
             if r.get("ticker") != exclude]
 
@@ -702,34 +975,258 @@ def _company_names() -> dict:
 
 # ---------------------------------------------------------------- rows
 
-def _macro_inputs(snap: dict, closes: Optional[pd.Series] = None) -> dict:
+#: Item 10 (owner choices 2026-10-21): a stored daily feed older than this
+#: prints STALE beside its value (same rule as the USD-INR row, VAL-13a).
+FEED_STALE_DAYS = 10
+#: Feed readings are kept this long per process (they move once a day).
+FEED_TTL_S = 600.0
+_FEED_CACHE: dict = {}
+
+
+def _macro_feeds():
+    """trading.macro_feeds (builder D) or None while it is absent."""
+    try:
+        from trading import macro_feeds as MF
+        return MF
+    except Exception:                                   # noqa: BLE001
+        return None
+
+
+def _reading(x: Any) -> Optional[tuple]:
+    """A feed answer → (value, date_iso, source) or None. Accepts the
+    contract's tuple, a {value, date, source} dict or a bare number."""
+    if x is None:
+        return None
+    if isinstance(x, dict):
+        v = V.num(x.get("value"))
+        return (v, str(x.get("date") or "")[:10], str(x.get("source") or "")) if v is not None else None
+    if isinstance(x, (tuple, list)):
+        v = V.num(x[0]) if x else None
+        if v is None:
+            return None
+        d = str(x[1])[:10] if len(x) > 1 and x[1] else ""
+        s = str(x[2]) if len(x) > 2 and x[2] else ""
+        return v, d, s
+    v = V.num(x)
+    return (v, "", "") if v is not None else None
+
+
+def _feed(fn_name: str, *args, store: bool = True) -> Any:
+    """One trading.macro_feeds call, kept FEED_TTL_S per process. `store`
+    readings go through this render's database gate (the module's reader
+    asks Mongo); a call made while the gate is closed is skipped and not
+    kept, so a later open asks again."""
+    import time as _time
+    mf = _macro_feeds()
+    fn = getattr(mf, fn_name, None) if mf is not None else None
+    if fn is None:
+        return None
+    key = (fn_name,) + tuple(str(a) for a in args)
+    now = _time.monotonic()
+    hit = _FEED_CACHE.get(key)
+    if hit is not None and now - hit[0] < FEED_TTL_S:
+        return hit[1]
+    if store:
+        g = _gate()
+        if g.down:
+            return None
+        out = g.call(f"macro feed read ({fn_name} {args[0] if args else ''})", fn, *args,
+                     default=None)
+        if g.down:
+            return out
+    else:
+        try:
+            out = fn(*args)
+        except Exception:                               # noqa: BLE001
+            log.warning("valuation chain: macro feed %s failed", fn_name)
+            return None
+    if len(_FEED_CACHE) > 256:
+        _FEED_CACHE.clear()
+    _FEED_CACHE[key] = (now, out)
+    return out
+
+
+def clear_feed_cache() -> None:
+    _FEED_CACHE.clear()
+
+
+def _stale_days() -> int:
+    """macro_feeds.STALE_DAYS when the module is there (one rule), else ours."""
+    mf = _macro_feeds()
+    try:
+        return int(getattr(mf, "STALE_DAYS", FEED_STALE_DAYS)) if mf is not None else FEED_STALE_DAYS
+    except (TypeError, ValueError):
+        return FEED_STALE_DAYS
+
+
+def _age_days(d: Any, today: Optional[date] = None) -> Optional[int]:
+    try:
+        return ((today or date.today()) - date.fromisoformat(str(d)[:10])).days
+    except (TypeError, ValueError):
+        return None
+
+
+_BOND_NAME_RE = re.compile(r"(\d+(?:\.\d+)?%\s*GS\s*\d{4})")
+
+
+def _bond_name(row: Any, source: str = "") -> str:
+    """The G-sec's name from a stored row's `bond` field, else from its
+    source text ("… · 7.54% GS 2036 (IN…) close …")."""
+    if isinstance(row, dict) and str(row.get("bond") or "").strip():
+        return str(row["bond"]).strip()
+    m = _BOND_NAME_RE.search(str(source or ""))
+    return m.group(1) if m else ""
+
+
+def _rbi_benchmark() -> dict:
+    """RBI's own 10-year benchmark yield from the home page's Government
+    Securities Market box (series rbi_gsec10y, stored with the RBI leg) —
+    printed BESIDE the Upstox yield, never used: the owner chose Upstox as
+    the source (lead's note (a), 2026-10-21)."""
+    got = _reading(_feed("latest", "rbi_gsec10y"))
+    if got is None:
+        return {"rbi_benchmark_pct": None, "rbi_benchmark_date": None,
+                "rbi_benchmark_bond": ""}
+    v, d, src = got
+    return {"rbi_benchmark_pct": v, "rbi_benchmark_date": d or None,
+            "rbi_benchmark_bond": _bond_name(_feed("latest_row", "rbi_gsec10y"), src)}
+
+
+def _rf_inputs(today: Optional[date] = None) -> dict:
+    """The 10-year yield (owner chose Upstox only): the latest stored
+    Upstox G-sec yield, dated, STALE past FEED_STALE_DAYS; none ever stored
+    → the committed June file, labelled stale. `rf_bond` names the paper
+    the yield was read from (reviewer defect 8); the RBI benchmark rides
+    beside it as display only."""
+    got = _reading(_feed("latest", "gsec10y_yield"))
+    if got is not None:
+        v, d, src = got
+        age = _age_days(d, today)
+        return {"rf_pct": v, "rf_date": d or None,
+                "rf_source": src or "Upstox 10-year G-sec (stored daily)",
+                "rf_bond": _bond_name(_feed("latest_row", "gsec10y_yield"), src),
+                "rf_stale": bool(age is None or age > _stale_days()), "rf_age_days": age,
+                "rf_feed": True, **_rbi_benchmark()}
+    bond = vv._bond_series()
+    if bond is not None and len(bond.dropna()):
+        b = bond.dropna()
+        d = b.index[-1].date().isoformat()
+        return {"rf_pct": float(b.iloc[-1]), "rf_date": d,
+                "rf_source": "June file (stale) — the committed 10-year yield file; "
+                             "no Upstox G-sec yield stored yet",
+                "rf_bond": "", "rf_stale": True, "rf_age_days": _age_days(d, today),
+                "rf_feed": False, **_rbi_benchmark()}
+    return {"rf_pct": None, "rf_date": None, "rf_source": "", "rf_bond": "",
+            "rf_stale": False, "rf_age_days": None, "rf_feed": False, **_rbi_benchmark()}
+
+
+def _repo_inputs(period_end: Any, today: Optional[date] = None) -> dict:
+    """RBI repo rate at the base period end (start) and now (end). The
+    start reads only RBI-verified history; unverifiable = DATA_NEEDED with
+    the reason, and the bridge row counts 0 (item 10)."""
+    out: dict = {"repo_start_pct": None, "repo_start_date": None, "repo_end_pct": None,
+                 "repo_end_date": None, "repo_source": "", "repo_end_stale": False}
+    if _macro_feeds() is None:
+        out["repo_start_why"] = "the RBI repo feed is not wired in this build"
+        return out
+    end = _reading(_feed("latest", "rbi_repo"))
+    if end is not None:
+        out["repo_end_pct"], out["repo_end_date"], out["repo_source"] = end
+        age = _age_days(end[1], today)
+        out["repo_end_stale"] = bool(age is None or age > _stale_days())
+    start = _reading(_feed("at", "rbi_repo", str(period_end)[:10])) if period_end else None
+    if start is not None:
+        out["repo_start_pct"], out["repo_start_date"] = start[0], start[1] or str(period_end)[:10]
+    elif period_end:
+        out["repo_start_why"] = (f"no RBI-verified repo rate on file for {str(period_end)[:10]} "
+                                 "(data/rbi_repo_history.csv holds only rates read from RBI pages)")
+    if end is None:
+        out["repo_why"] = "no RBI repo rate stored yet (the RBI home page is read daily)"
+    return out
+
+
+def _usdinr_now(today: Optional[date] = None) -> tuple:
+    """(rate, date, source) for USD/INR now: the latest RBI reference rate
+    stored, else the committed usdinr_daily.csv's last row."""
+    from trading.valuation import snapshot as S
+    got = _reading(_feed("latest", "rbi_usdinr"))
+    if got is not None:
+        return got[0], got[1] or None, got[2] or "RBI reference rate (stored daily)"
+    fx = S.usdinr_at((today or date.today()).isoformat())
+    if fx:
+        return fx[0], fx[1], "the committed USD-INR file (nothing refreshes it)"
+    return None, None, ""
+
+
+def _inst_inputs(ticker: str, period_end: Any) -> dict:
+    """FII + DII holding % at the quarter at/just before the base period end
+    (start) and the latest quarter (end), per stock, dated."""
+    sym = str(ticker or "").upper().replace(".NS", "").replace(".BO", "")
+    out: dict = {"inst_holding_start": None, "inst_holding_end": None,
+                 "inst_holding_start_date": None, "inst_holding_end_date": None}
+    if _macro_feeds() is None or not period_end:
+        out["inst_holding_why"] = ("the shareholding feed is not wired in this build"
+                                   if period_end else "no base period end")
+        return out
+    got = _feed("inst_holding", sym, str(period_end)[:10], store=False)
+    if isinstance(got, (tuple, list)) and len(got) >= 2 and V.num(got[0]) is not None \
+            and V.num(got[1]) is not None:
+        out["inst_holding_start"], out["inst_holding_end"] = float(got[0]), float(got[1])
+        out["inst_holding_start_date"] = str(got[2])[:10] if len(got) > 2 and got[2] else None
+        out["inst_holding_end_date"] = str(got[3])[:10] if len(got) > 3 and got[3] else None
+    else:
+        out["inst_holding_why"] = (f"no FII + DII quarter on file for {sym} at/before "
+                                   f"{str(period_end)[:10]} and a later one "
+                                   "(data/shareholding_institutional.csv)")
+    return out
+
+
+def _macro_inputs(snap: dict, closes: Optional[pd.Series] = None,
+                  ticker: str = "") -> dict:
     """The owner's P/E-bridge market inputs from STORED state: Sensex /
-    Nifty levels at the period end and now, VIX, the 10-year yield (rf),
-    the stock's measured β on Nifty 50, USDINR now and at the period end.
-    Repo / CPI / GDP / Brent are not stored — the pipeline counts them 0
-    and lists them DATA_NEEDED."""
+    Nifty levels at the period end and now, VIX, the 10-year yield (rf,
+    the Upstox G-sec feed), the stock's measured β on Nifty 50, the RBI
+    repo rate at the period end and now, USD/INR now (RBI feed) and at the
+    period end (the committed file), FII + DII holding then and now. CPI /
+    GDP / Brent are not fed (owner chose none) — the pipeline counts them 0
+    and lists them DATA_NEEDED. Each fed value carries its date."""
     from trading.valuation import snapshot as S
     period_end = snap.get("period_end")
     nifty = index_move("nifty_close", period_end)
     sensex = index_move("sensex_close", period_end)
     vix = _index_series("india_vix_close")
-    bond = vv._bond_series()
     out: dict = {
         "sensex_start": sensex.get("start"), "sensex_end": sensex.get("end"),
         "nifty_start": nifty.get("start"), "nifty_end": nifty.get("end"),
+        "index_end_date": nifty.get("end_date"),
         "vix": float(vix.dropna().iloc[-1]) if vix is not None and len(vix.dropna()) else None,
-        "rf_pct": float(bond.dropna().iloc[-1]) if bond is not None and len(bond.dropna()) else None,
         "beta": None, "usdinr_now": None, "usdinr_base": None,
         "price_now": price_now(closes)[0] if closes is not None else None,
+        "period_end": period_end,
     }
-    out["usdinr_now_date"] = out["usdinr_base_date"] = None
     try:
-        fx_now = S.usdinr_at(date.today().isoformat())
+        out.update(_rf_inputs())
+    except Exception:                                   # noqa: BLE001
+        log.warning("valuation chain: 10-year yield read failed")
+        out.setdefault("rf_pct", None)
+    try:
+        out.update(_repo_inputs(period_end))
+    except Exception:                                   # noqa: BLE001
+        log.warning("valuation chain: repo read failed")
+    try:
+        out.update(_inst_inputs(ticker, period_end))
+    except Exception:                                   # noqa: BLE001
+        log.warning("valuation chain: institutional holding read failed")
+    out["usdinr_now_date"] = out["usdinr_base_date"] = None
+    out["usdinr_now_source"] = ""
+    try:
+        now_v, now_d, now_src = _usdinr_now()
         fx_base = S.usdinr_at(period_end) if period_end else None
-        out["usdinr_now"] = fx_now[0] if fx_now else None
+        out["usdinr_now"] = now_v
         out["usdinr_base"] = fx_base[0] if fx_base else None
         # the dates the two rates were read on (VAL-13a / VAL-15)
-        out["usdinr_now_date"] = fx_now[1] if fx_now else None
+        out["usdinr_now_date"] = now_d
+        out["usdinr_now_source"] = now_src
         out["usdinr_base_date"] = fx_base[1] if fx_base else None
     except Exception:                                   # noqa: BLE001
         pass
@@ -773,34 +1270,66 @@ def _prefetch_closes(tickers: list) -> dict:
 _UNSET: Any = object()
 
 
+def _evaluate_kwargs() -> Any:
+    """The keyword arguments pipeline.evaluate accepts (builders work in
+    parallel: a seam not there yet is simply not passed). A `**kwargs`
+    parameter accepts everything."""
+    import inspect
+    from trading.valuation import pipeline
+    try:
+        params = inspect.signature(pipeline.evaluate).parameters
+    except (TypeError, ValueError):
+        return set()
+    if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()):
+        return _ALL
+    return set(params)
+
+
+class _AllNames:
+    def __contains__(self, _name: Any) -> bool:
+        return True
+
+
+_ALL = _AllNames()
+
+
 def row_for(ticker: str, cfg, p, *, show_terms: bool = False,
             overrides: Optional[dict] = None,
-            closes: Any = _UNSET, price_source: str = "") -> dict:
+            closes: Any = _UNSET, price_source: str = "",
+            owner_inputs: Any = _UNSET) -> dict:
     """One chain record. `closes` handed in (a series, or None = the store
     and the repo zip both lack the name) is used as is; not handed in, it
     is read here. `price_source` ("store" / "repo copy") is printed beside
-    the price."""
+    the price. `owner_inputs` = the Den inputs table {SYMBOL: row}; not
+    handed in, it is read here. The own P/E history is the pipeline's own
+    (own_pe_rows, VAL-14a) — this module no longer passes one."""
     from trading.valuation import pipeline
     if closes is _UNSET:
         closes = _closes(ticker)
+    if owner_inputs is _UNSET:
+        owner_inputs = load_inputs()
     px, px_date = price_now(closes)
     mac_box: dict = {}
 
     def _macro(snap):
-        m = _macro_inputs(snap, closes)
+        m = _macro_inputs(snap, closes, ticker)
         mac_box["m"] = m
         return m
 
-    rec = pipeline.evaluate(
-        ticker, price=px, price_date=px_date,
+    kwargs = dict(
+        price=px, price_date=px_date,
         sector_map=dict(getattr(cfg, "sector_map", {}) or {}),
         company_name=_company_names().get(ticker, ""),
         price_at=lambda when: price_at(closes, when),
-        own_pe_history=lambda snap: own_pe_history(closes, snap),
         peers=peer_multiples,
         macro=_macro,
         overrides=overrides,
     )
+    accepted = _evaluate_kwargs()
+    extra = {"owner_inputs": owner_inputs or None, "peer_rows": peer_table_rows,
+             "price_of": subsidiary_price}
+    kwargs.update({k: v for k, v in extra.items() if k in accepted})
+    rec = pipeline.evaluate(ticker, **kwargs)
     r = _render()
     if r is not None and r.peer_build_skipped:
         # computed without the peer table — never shown or kept as an answer
@@ -810,6 +1339,10 @@ def row_for(ticker: str, cfg, p, *, show_terms: bool = False,
     rec["all_terms"] = rec.get("terms_rows", []) if show_terms else []
     rec["n_terms"] = len(rec.get("terms_rows", []))
     rec["price_source"] = price_source if px is not None else ""
+    # the inputs this row was fed, with their dates (the walk and the
+    # row's inputs line print them)
+    rec["macro_inputs"] = {k: v for k, v in (mac_box.get("m") or {}).items()
+                           if isinstance(v, (int, float, str, bool)) or v is None}
     try:
         rec["fx"] = fx_block(rec, mac_box.get("m") or {})
     except Exception:                                   # noqa: BLE001
@@ -862,9 +1395,12 @@ def fx_block(rec: dict, mac: dict, today: Optional[date] = None) -> dict:
             else "ROUND((E78 / USD-INR at the base year-end date - 1)*100,2)"
     except Exception:                                   # noqa: BLE001
         formula = "ROUND((E78 / USD-INR at the base year-end date - 1)*100,2)"
+    src = str(mac.get("usdinr_now_source") or "")
     return {"applies": True, "counted": counted,
             "now": now if counted else V.num(mac.get("usdinr_now")),
             "now_date": now_date, "age_days": age,
+            # item 10: the RBI feed when stored, else the committed file
+            "now_source": src, "now_from_feed": src.startswith("RBI"),
             "stale": bool(age is not None and age > FX_STALE_DAYS),
             "stale_days": FX_STALE_DAYS,
             "base": base if counted else V.num(mac.get("usdinr_base")),
@@ -874,14 +1410,11 @@ def fx_block(rec: dict, mac: dict, today: Optional[date] = None) -> dict:
 
 # ------------------------------------------------------ known faults
 
-#: VAL-01: groups whose businesses span sectors; the chain values each on
-#: the peers of ONE route (no sum-of-parts yet). Delete when VAL-01 lands.
+#: VAL-01: groups whose businesses span sectors. Since 2026-10-21 a name
+#: with segment rows on file (sum-of-parts) or a typed peer list carries no
+#: warning; the others still do (owner order: keep VAL-01 for them).
 CONGLOMERATES = ("RELIANCE", "ADANIENT", "BAJAJFINSV", "ITC", "GRASIM", "LT",
                  "M&M", "TATAMOTORS")
-
-
-def _ps(v: Optional[float]) -> str:
-    return f"₹{v:,.2f}/share"
 
 
 def known_faults(rec: dict) -> list:
@@ -890,7 +1423,16 @@ def known_faults(rec: dict) -> list:
     block per flaw, so a flag is deleted by deleting its block when the fix
     lands. Facts come from the record's `range_flags` (pipeline); a record
     without them (built before that field existed) falls back to the route
-    and the range notes, and says less rather than guess."""
+    and says less rather than guess.
+
+    Batch 2 (2026-10-21) removed the blocks whose fix landed: VAL-07 (the
+    cases are never sorted now — an inverted row carries the red "cases
+    inverted" tag instead), VAL-12a (one EV rule for the stock and its
+    peers) and VAL-12b (power keeps the book method but its debt checks are
+    back). VAL-02 stays only for a lender whose book could use neither the
+    filed net worth nor the tangible book (an equity line CHECKED against a
+    filing within 10% counts as checked — reviewer defect 9); VAL-01 only
+    for a group with no sum-of-parts and no typed peer list."""
     out: list = []
     if row_kind(rec) != "full":
         return out
@@ -903,69 +1445,25 @@ def known_faults(rec: dict) -> list:
     method = fl.get("method") or route.get("method") or ""
     sym = str(rec.get("ticker") or "").upper().replace(".NS", "").replace(".BO", "")
 
-    # VAL-07 — EV/EBITDA cases inverted, then sorted silently
-    if family not in ("ev_ebitda", "ev_sales"):
-        pass
-    elif fl:
-        if fl.get("inverted"):
-            printed = fl.get("printed_case") or {}
-            pc = fl.get("printed_base_case") or printed.get("base")
-            if pc and pc != "base":
-                txt = (f"the three cases came out inverted and were sorted, so the "
-                       f"printed target is the {pc} case, not the base case")
-            else:
-                txt = (f"the three cases came out inverted and were sorted: the printed "
-                       f"low is the {printed.get('low') or '?'} case and the high the "
-                       f"{printed.get('high') or '?'} case")
-            if fl.get("midcycle_base"):
-                txt += (" (the base uses mid-cycle EBITDA — the average of past years — "
-                        "while downside and upside use next year's forecast)")
-            out.append({"code": "VAL-07", "text": txt})
-    else:
-        notes = " ".join(str(n) for n in (rng.get("notes") or []))
-        if "inverted" in notes:
-            out.append({"code": "VAL-07",
-                        "text": "the three cases came out inverted and were sorted, so the "
-                                "printed target may be another case than the base"})
-
-    # VAL-01 — a conglomerate on one sector's peers
-    if sym in CONGLOMERATES:
+    # VAL-01 — a conglomerate on one sector's peers (no segments, no typed peers)
+    if sym in CONGLOMERATES and not fl.get("sum_of_parts") and not fl.get("peer_list") \
+            and family != "sotp":
         sec = route.get("sector") or fl.get("sector") or "one route"
         out.append({"code": "VAL-01",
                     "text": f"a group with several businesses valued on the peers of one "
-                            f"route ({sec}); its other businesses are not valued "
-                            f"(no sum-of-parts yet)"})
+                            f"route ({sec}); its other businesses are not valued — no "
+                            f"segment rows on file; a peer list typed in the Den inputs "
+                            f"table replaces the route median"})
 
-    # VAL-12a — the stock's EV takes minorities / short-term investments, the peers' do not
-    if family in ("ev_ebitda", "ev_sales"):
-        mi = V.num(fl.get("minorities_per_share"))
-        sti = V.num(fl.get("short_term_investments_per_share"))
-        parts = []
-        if mi is not None and abs(mi) >= 0.005:
-            parts.append(f"takes off {_ps(mi)} for minority interest")
-        if sti is not None and abs(sti) >= 0.005:
-            parts.append(f"credits {_ps(sti)} of short-term investments")
-        if parts:
-            out.append({"code": "VAL-12a",
-                        "text": "this stock's value " + " and ".join(parts) +
-                                ", but the peers' EV multiple counts neither "
-                                f"({fl.get('peer_ev_rule') or 'peer EV = price × shares + debt − cash'}), "
-                                "so the two sides are not measured the same way"})
-
-    # VAL-02 — lender's equity line unchecked
+    # VAL-02 — a lender's book that is neither the filing nor the tangible book
     lender = fl.get("lender") if fl else method in ("bank_pb_roe", "nbfc_pb")
-    if lender and family == "book":
+    if lender and family == "book" and fl.get("lender_book_source") not in (
+            "filing", "tangible", "filing_checked"):
+        basis = fl.get("lender_book_basis") or "the feed's equity line"
         out.append({"code": "VAL-02",
-                    "text": "equity line from the feed not checked against the bank's "
-                            "reported net worth; an inflated equity line (as after a merger) "
-                            "lowers the ROE and pulls this target down"})
-
-    # VAL-12b — power utilities on the lender formula
-    power = fl.get("power_utility") if fl else method == "power_regulated"
-    if power and family == "book":
-        out.append({"code": "VAL-12b",
-                    "text": "valued with the bank formula; debt checks off — a power "
-                            "company carries heavy debt that this route never tests"})
+                    "text": f"book = {basis}: no filed net worth and no tangible-book line on "
+                            f"file, so the equity line is unchecked; an inflated equity line "
+                            f"(as after a merger) lowers the ROE and pulls this target down"})
     return out
 
 
@@ -1005,23 +1503,83 @@ _NO_EFFECT_FALLBACK = ("verdict.max_uncertainty_pct", "verdict.watch_band_pct",
                        "terms.dcf_growth_cap_pct", "snapshot.publication_lag_days")
 
 
-def effective_draft_keys(values: Optional[dict]) -> list:
+def effective_draft_keys(values: Optional[dict], live: Optional[dict] = None) -> list:
     """The drafted keys that really change a §12 result (the banner, its
     count and the per-row tag read these; VAL-11). §12 passes no as-of
-    date, so the publication lag never counts here."""
+    date, so the publication lag never counts here. `live` = which inputs
+    this render feeds (item 9): a sheet number whose input is not fed
+    changes nothing."""
     from trading.valuation import assumptions as ASM
     fn = getattr(ASM, "effective_keys", None)
     if fn is not None:
-        return list(fn(values))
+        try:
+            return list(fn(values, live=live))
+        except TypeError:                               # an older assumptions module
+            return list(fn(values))
     return sorted(k for k in (values or {}) if k not in _NO_EFFECT_FALLBACK)
 
 
-def no_effect_reason(key: str) -> str:
+def no_effect_reason(key: str, live: Optional[dict] = None) -> str:
     from trading.valuation import assumptions as ASM
+    fn = getattr(ASM, "no_effect_reason", None)
+    if fn is not None:
+        try:
+            return fn(key, live) or ""
+        except TypeError:
+            pass
     reasons = getattr(ASM, "NO_EFFECT_REASONS", None) or {}
     if key in reasons:
         return reasons[key]
     return "changes no result yet" if key in _NO_EFFECT_FALLBACK else ""
+
+
+def _feeds_live() -> dict:
+    """Which bridge inputs the app can feed at all right now, with no
+    stock in hand (§13 on a render with no §12 row): the index store, the
+    stored RBI repo rate with a verified start at the last March year end,
+    the FII + DII file. Everything else stays at assumptions.DEFAULT_LIVE."""
+    out: dict = {}
+    try:
+        s = _index_series("nifty_close")
+        out["market"] = bool(s is not None and len(s.dropna()))
+    except Exception:                                   # noqa: BLE001
+        pass
+    if _macro_feeds() is not None:
+        today = date.today()
+        fy = date(today.year if today.month > 3 else today.year - 1, 3, 31).isoformat()
+        try:
+            out["repo"] = bool(_reading(_feed("latest", "rbi_repo"))
+                               and _reading(_feed("at", "rbi_repo", fy)))
+        except Exception:                               # noqa: BLE001
+            out["repo"] = False
+        try:
+            got = _feed("inst_holding", "RELIANCE", fy, store=False)
+            out["inst_holding"] = bool(isinstance(got, (tuple, list)) and len(got) >= 2
+                                       and V.num(got[0]) is not None)
+        except Exception:                               # noqa: BLE001
+            out["inst_holding"] = False
+    return out
+
+
+def page_live(rows: Optional[list] = None) -> dict:
+    """The inputs fed on THIS render (item 9, owner 2026-10-21): an input
+    counts as live when ANY computed §12 row fed it (each record carries
+    its own `assumptions.live_inputs`); with no computed row, what the app
+    can feed at all (_feeds_live). A no-effect label disappears once its
+    input is live."""
+    from trading.valuation import assumptions as ASM
+    maps = [((r.get("assumptions") or {}).get("live_inputs") or {}) for r in (rows or [])
+            if r.get("row_kind", row_kind(r)) == "full"]
+    maps = [m for m in maps if m]
+    base = dict(getattr(ASM, "DEFAULT_LIVE", {}) or {})
+    if maps:
+        out = {k: False for k in set(base) | {k for m in maps for k in m}}
+        for m in maps:
+            for k, v in m.items():
+                out[k] = bool(out.get(k)) or bool(v)
+        return out
+    base.update(_feeds_live())
+    return base
 
 
 def time_budget_s() -> float:
@@ -1088,10 +1646,19 @@ def busy_reason() -> str:
     return busy_status()[1]
 
 
-def _row_key(ticker: str, overrides: Optional[dict], show_terms: bool) -> tuple:
+def _row_key(ticker: str, overrides: Optional[dict], show_terms: bool,
+             owner_row: Optional[dict] = None) -> tuple:
+    """Kept-row key: the ticker, the day, the draft, terms on/off and the
+    stock's row of the inputs table (a saved input recomputes the row)."""
     import json
     return (ticker, date.today().isoformat(),
-            json.dumps(overrides or {}, sort_keys=True, default=str), bool(show_terms))
+            json.dumps(overrides or {}, sort_keys=True, default=str), bool(show_terms),
+            json.dumps(owner_row or {}, sort_keys=True, default=str))
+
+
+def _owner_row_of(table: Optional[dict], ticker: str) -> dict:
+    t = table or {}
+    return dict(t.get(_bare_symbol(ticker)) or {})
 
 
 def _ttl_of(entry: tuple) -> float:
@@ -1123,8 +1690,11 @@ def _row_cache_put(key: tuple, rec: dict, ttl: Optional[float] = None) -> None:
 
 
 def clear_row_cache() -> None:
+    """Forget the kept rows and the kept feed readings (the web conftest
+    calls this before every test; an inputs-table save calls it too)."""
     with _ROW_LOCK:
         _ROW_CACHE.clear()
+    _FEED_CACHE.clear()
 
 
 def not_computed_record(ticker: str, why: str) -> dict:
@@ -1158,6 +1728,7 @@ def empty_section(error: str = "", typed: str = "") -> dict:
             "assumed": pipeline.assumed_for_page(),
             "today": date.today().isoformat(),
             "drafted": False, "n_edited": 0, "drafted_keys": [], "no_effect_keys": [],
+            "live": {}, "inputs": {"n": 0, "symbols": []},
             "budget_s": time_budget_s(), "elapsed_s": 0.0,
             "computed": 0, "cached": 0, "skipped_budget": 0,
             "skipped_busy": 0, "busy": "", "busy_kind": "", "failed": 0,
@@ -1193,16 +1764,13 @@ def _section(cfg, p, typed: str, show_terms: bool, ctx: "_Render") -> dict:
     out["typed_full"] = typed_full
     out["show_terms"] = bool(show_terms and typed_full)
     overrides = load_assumptions()
-    # VAL-11: only the drafted numbers that change a result switch the
-    # banner on and count; the no-effect ones are listed apart
-    eff = effective_draft_keys(overrides)
-    out.update({"drafted": bool(eff), "n_edited": len(eff), "drafted_keys": eff,
-                "no_effect_keys": sorted(k for k in overrides if k not in eff)})
+    inputs = load_inputs()
     names = names_to_show(p, typed_full)
     cut = list(getattr(names, "cut", None) or [])
     out.update({"n_cut": len(cut), "cut_names": cut})
     todo = [t for t in names
-            if _row_cache_get(_row_key(t, overrides, out["show_terms"] and t == typed_full)) is None]
+            if _row_cache_get(_row_key(t, overrides, out["show_terms"] and t == typed_full,
+                                       _owner_row_of(inputs, t))) is None]
     owns = _SECTION_LOCK.acquire(blocking=False) if todo else False
     if owns:
         busy_kind, busy = busy_status()
@@ -1213,7 +1781,7 @@ def _section(cfg, p, typed: str, show_terms: bool, ctx: "_Render") -> dict:
     try:
         pre = _prefetch_closes(todo) if (todo and not busy) else {}
         res = _section_rows(cfg, p, names, typed_full, out["show_terms"], overrides,
-                            ctx, busy_kind, busy, pre)
+                            ctx, busy_kind, busy, pre, inputs)
     finally:
         if owns:
             _SECTION_LOCK.release()
@@ -1223,6 +1791,19 @@ def _section(cfg, p, typed: str, show_terms: bool, ctx: "_Render") -> dict:
             release("den chain")
         except Exception:                               # noqa: BLE001
             pass
+    # VAL-11 / item 9: a drafted number counts when it changes ANY row shown
+    # (each record says which of its drafted keys changed it, by what that
+    # row was fed); with no computed row, by what the app feeds at all
+    full = [r for r in res["rows"] if r.get("row_kind") == "full"]
+    if full:
+        eff = sorted({k for r in full
+                      for k in ((r.get("assumptions") or {}).get("drafted_effective") or [])})
+    else:
+        eff = effective_draft_keys(overrides, live=page_live([]))
+    out.update({"drafted": bool(eff), "n_edited": len(eff), "drafted_keys": eff,
+                "no_effect_keys": sorted(k for k in overrides if k not in eff),
+                "live": page_live(res["rows"]),
+                "inputs": {"n": len(inputs), "symbols": sorted(inputs)}})
     g = ctx.gate
     out.update({"rows": res["rows"], "n": len(res["rows"]),
                 "busy": res["busy"], "busy_kind": res["busy_kind"],
@@ -1233,6 +1814,77 @@ def _section(cfg, p, typed: str, show_terms: bool, ctx: "_Render") -> dict:
                 "skipped_busy": res["skipped_busy"],
                 "store_down": g.why if g.down else "",
                 "store_wait_s": round(g.spent_s, 1)})
+    return out
+
+
+def walk_record(cfg, p, typed: str) -> dict:
+    """The ONE stock the Den §1 walk shows (owner order 2026-10-21: "?walk=
+    TCS"). Same guards as §12: a kept row is reused; a new one is computed
+    only when no scan rotation holds the lock, the process is under the
+    memory ceiling, no other open is computing, and inside the time budget.
+    {typed, ticker, rec, status, why, elapsed_s, store_down}; status is
+    "" (nothing typed) / error / cached / computed / busy / budget / failed."""
+    import time as _time
+    out: dict = {"typed": typed or "", "ticker": "", "rec": None, "status": "", "why": "",
+                 "elapsed_s": 0.0, "store_down": ""}
+    if not typed:
+        return out
+    full = vv.normalise_symbol(typed)
+    if not full:
+        out.update(status="error", why=f"'{typed}' is not a symbol")
+        return out
+    out["ticker"] = full
+    ctx = _Render(time_budget_s(), _time.monotonic())
+    prev = getattr(_RENDER, "ctx", None)
+    _RENDER.ctx = ctx
+    computed = False
+    try:
+        overrides = load_assumptions()
+        inputs = load_inputs()
+        key = _row_key(full, overrides, False, _owner_row_of(inputs, full))
+        hit = _row_cache_get(key)
+        if hit is not None:
+            out.update(rec=_marked(hit), status="cached")
+            return out
+        if not _SECTION_LOCK.acquire(blocking=False):
+            out.update(status="busy", why=f"{OTHER_TAB_TEXT}; {BUSY_REMEDY['other_tab']}")
+            return out
+        try:
+            kind, why = busy_status()
+            if why:
+                out.update(status="busy",
+                           why=f"{why}; {BUSY_REMEDY.get(kind) or BUSY_REMEDY['rotation']}")
+                return out
+            pre = _prefetch_closes([full])
+            if full in pre:
+                closes, src = pre[full], "store"
+            else:
+                closes, src = _zip_close_series(full), "repo copy"
+            try:
+                rec = row_for(full, cfg, p, overrides=overrides or None, closes=closes,
+                              price_source=src, owner_inputs=inputs)
+            except _BudgetSpent:
+                out.update(status="budget", why=_budget_row_text(ctx.budget, ctx.gate))
+                return out
+            except Exception as e:                      # noqa: BLE001
+                log.exception("valuation chain: walk row failed for %s", full)
+                out.update(status="failed", why=f"{type(e).__name__}: {e}"[:160])
+                return out
+            _row_cache_put(key, _marked(rec), DEGRADED_ROW_TTL_S if ctx.gate.down else None)
+            computed = True
+            out.update(rec=rec, status="computed")
+        finally:
+            _SECTION_LOCK.release()
+    finally:
+        _RENDER.ctx = prev
+        out["elapsed_s"] = round(_time.monotonic() - ctx.t0, 1)
+        out["store_down"] = ctx.gate.why if ctx.gate.down else ""
+        if computed:
+            try:
+                from .memory_relief import release
+                release("den walk")
+            except Exception:                           # noqa: BLE001
+                pass
     return out
 
 
@@ -1248,15 +1900,16 @@ def _budget_row_text(budget: float, gate: "_StoreGate") -> str:
 
 
 def _section_rows(cfg, p, names, typed_full, show_terms, overrides, ctx,
-                  busy_kind, busy, pre) -> dict:
+                  busy_kind, busy, pre, inputs: Optional[dict] = None) -> dict:
     """The row loop. The busy reading is re-taken before every NEW row, so a
     scan rotation that starts mid-render stops it. A name the prefetch did
     not find in the store is read from the repo zip here (not asked again)."""
     rows = []
     computed = cached = skipped_budget = skipped_busy = failed = 0
+    inputs = inputs or {}
     for t in names:
         terms = show_terms and t == typed_full
-        key = _row_key(t, overrides, terms)
+        key = _row_key(t, overrides, terms, _owner_row_of(inputs, t))
         hit = _row_cache_get(key)
         if hit is not None:
             rows.append(_marked(hit))
@@ -1280,7 +1933,7 @@ def _section_rows(cfg, p, names, typed_full, show_terms, overrides, ctx,
             src = "repo copy"
         try:
             rec = row_for(t, cfg, p, show_terms=terms, overrides=overrides or None,
-                          closes=closes, price_source=src)
+                          closes=closes, price_source=src, owner_inputs=inputs)
         except _BudgetSpent:
             rows.append(not_computed_record(t, _budget_row_text(ctx.budget, ctx.gate)))
             skipped_budget += 1
@@ -1300,19 +1953,43 @@ def _section_rows(cfg, p, names, typed_full, show_terms, overrides, ctx,
 
 # ------------------------------------------------------ §13 formulas page
 
-FAMILY_RULES = [
-    ("earnings", "value per share = scenario EPS × band [min(peer P/E, own low), mean(peer, own median), max(peer, own high)]; "
-                 "no own history → the three cases' own closing P/E"),
+#: Used only if scenarios carries no FAMILY_RULE_TEXT (the owner's
+#: 2026-10-21 choices, worded as scenarios words them).
+_FAMILY_RULES_FALLBACK = [
+    ("earnings", "value per share = scenario EPS × band [min(peer P/E, own low), mean(peer, own median), "
+                 "max(peer, own high)]; own history of 4+ readings drops its single lowest and highest first; "
+                 "no own history → the three cases' own closing P/E; with a band the P/E bridge moves only "
+                 "the what-if price"),
     ("book", "justified P/B = (ROE − g) / (COE − g), COE = rf + β × ERP; value = P/B × BVPS; "
              "downside / upside = ROE ∓ step; g = min(long-run g, ROE × (1 − payout))"),
-    ("ev_ebitda", "EV = multiple × EBITDA per share; equity per share = EV − net debt − minorities; "
-                  "the BASE case uses mid-cycle EBITDA per share (the mean of every stored FY, when 3 or more "
-                  "exist — any EV/EBITDA route, not metals only); downside / upside keep their own case EBITDA"),
+    ("ev_ebitda", "EV = multiple × EBITDA per share; equity per share = EV − net debt (debt − cash − "
+                  "short-term investments) − minorities; each case on its own EBITDA, the metals row on a "
+                  "mid-cycle EBITDA margin"),
     ("ev_sales", "EV = multiple × sales per share; equity per share = EV − net debt − minorities"),
-    ("nav", "NAV per share = DATA_NEEDED (no project NAV stored); the P/B route is shown as a labelled fallback"),
-    ("embedded_value", "EV/VNB = DATA_NEEDED (no embedded-value disclosure stored)"),
-    ("sotp", "sum of parts = DATA_NEEDED (no segment values stored)"),
+    ("nav", "typed NAV per share × (1 − b, 1, 1 + b); nothing typed → no target, P/B shown as a fallback"),
+    ("embedded_value", "typed embedded value per share × (1 − b, 1, 1 + b); nothing typed → no target"),
+    ("sotp", "holding company: listed stakes at market less a holding discount; conglomerate: Σ segment "
+             "EBIT × segment EV/EBIT less net debt and minorities"),
 ]
+
+
+def family_rules() -> list:
+    """(family, rule text) for §13 B2 and the walk — scenarios' own text
+    (FAMILY_RULE_TEXT, builder A) so the page cannot drift from the code."""
+    try:
+        from trading.valuation import scenarios as SC
+        txt = getattr(SC, "FAMILY_RULE_TEXT", None)
+    except Exception:                                   # noqa: BLE001
+        txt = None
+    if not isinstance(txt, dict) or not txt:
+        return list(_FAMILY_RULES_FALLBACK)
+    out = [(k, str(v)) for k, v in txt.items() if k != "all"]
+    if txt.get("all"):
+        out.append(("all routes", str(txt["all"])))
+    return out
+
+
+FAMILY_RULES = family_rules()
 
 STAGE_RULES = [
     ("07-08 snapshot lock", "latest audited FY from the statements zip (+ monthly refresh); publication date = "
@@ -1327,13 +2004,19 @@ STAGE_RULES = [
                   "reconciles within ± tolerance (Part A) else 'unexplained'; rights / buyback / issuance carry no factor; "
                   "ESOP pool = DATA_NEEDED"),
     ("11 normalised PAT", "normalised = reported − unusual items + their tax effect (tax effect = unusual × effective "
-                          "rate, bounded 0-50%); checked against the audited Normalized Income line when present"),
+                          "rate, bounded 0-50%); checked against the audited Normalized Income line when present; "
+                          "the target starts from normalised PAT on EVERY route when it is a number, else reported "
+                          "PAT, labelled (owner choice 2026-10-21, banks included)"),
     ("12 quality", "cash conversion = OCF ÷ PAT, net debt ÷ EBITDA, interest cover = EBIT ÷ interest, each flagged at "
-                   "the thresholds in Part A; lenders' leverage lines DATA_NEEDED; score = ASSUMED weights"),
+                   "the thresholds in Part A; lenders' leverage lines DATA_NEEDED, power utilities keep them; "
+                   "score = ASSUMED weights; a low score and an unexplained share bridge print as warnings beside "
+                   "the verdict, never gates"),
     ("15-16 cases", "the chain in Part B3 run three times with the case deltas (Part A) added to revenue growth, "
-                    "EBITDA margin and the P/E bridge total; constant-currency growth for converted names"),
-    ("17 range", "per family as listed under B2; 3×3 grid growth {−1,0,+1}pp × margin {−1,0,+1}pp and a multiple row "
-                 "{−10,0,+10} points on the bridge"),
+                    "EBITDA margin and the P/E bridge total; constant-currency growth for converted names; with a "
+                    "P/E band the bridge moves only the what-if price printed beside the range"),
+    ("17 range", "per family as listed under B2; own P/E history = FY-end close ÷ (normalised PAT ÷ that year's "
+                 "shares), odd years flagged not dropped; 3×3 grid growth {−1,0,+1}pp × margin {−1,0,+1}pp × the "
+                 "band mid and a multiple row {−10,0,+10} points; the three cases are never sorted"),
     ("17b context", "sector leg (1:1 and measured β), rates leg (r_then − g) / (r_now + shift − g), sentiment margin "
                     "= base discount + steps per gauge ON — §11 above; a target dated today has nothing to adjust "
                     "yet (no context target printed); a missing 10-year yield is not applied — the context target "
@@ -1348,24 +2031,34 @@ STAGE_RULES = [
 def empty_formulas_section(flag: str = "", error: str = "") -> dict:
     return {"flag": flag, "error": error, "groups": [], "rows": [], "n_editable": 0,
             "n_edited": 0, "n_stored": 0, "no_effect_keys": [], "n_no_effect_rows": 0,
-            "terms": [], "routes": [], "chain_cells": [],
-            "family_rules": FAMILY_RULES, "stage_rules": STAGE_RULES}
+            "terms": [], "routes": [], "chain_cells": [], "live": {},
+            "family_rules": family_rules(), "stage_rules": STAGE_RULES}
 
 
-def formulas_section(flag: Optional[str] = None, error: str = "") -> dict:
+def formulas_section(flag: Optional[str] = None, error: str = "",
+                     live: Optional[dict] = None) -> dict:
     """Den §13: the editable assumption rows (with the stored draft) and
-    every formula registry the chain runs. Stored inputs only."""
+    every formula registry the chain runs. Stored inputs only. `live` = the
+    inputs fed on this render (page_live of §12's rows); a sheet number
+    whose input is not fed is labelled "no effect yet" with the reason, and
+    the label goes when its input is live (item 9)."""
     from trading.valuation import assumptions as ASM
     from trading.valuation import route as R
     from trading.valuation import scenarios as SC
     from trading.valuation import terms as T
     values = load_assumptions()
-    eff = effective_draft_keys(values)
+    if live is None:
+        live = page_live([])
+    eff = effective_draft_keys(values, live=live)
+    try:
+        described = ASM.describe(values, live=live)
+    except TypeError:                                   # an older assumptions module
+        described = ASM.describe(values)
     rows = []
-    for r in ASM.describe(values):
+    for r in described:
         r = dict(r)
-        # VAL-11: editable, but changes no result yet — labelled, not counted
-        r["no_effect"] = r.get("no_effect") or no_effect_reason(r["key"])
+        # VAL-11: editable, but changes no result on this render — labelled
+        r["no_effect"] = no_effect_reason(r["key"], live) or ""
         rows.append(r)
     terms = [{"name": name, "formula": e.get("formula") or "", "stage": e.get("stage") or ""}
              for name, e in T.TERMS.items()]
@@ -1387,5 +2080,5 @@ def formulas_section(flag: Optional[str] = None, error: str = "") -> dict:
             "no_effect_keys": sorted(k for k in values if k not in eff),
             "n_no_effect_rows": sum(1 for r in rows if r.get("no_effect")),
             "terms": terms, "routes": routes, "chain_cells": cells,
-            "chain_cols": chain_cols,
-            "family_rules": FAMILY_RULES, "stage_rules": STAGE_RULES}
+            "chain_cols": chain_cols, "live": dict(live or {}),
+            "family_rules": family_rules(), "stage_rules": STAGE_RULES}

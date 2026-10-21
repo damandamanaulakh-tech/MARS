@@ -56,12 +56,28 @@ every cell is unchanged:
   * E101 prints its base as "USD-INR at the base year-end date": the code
     always divided by that input, never by the sheet's typed 94.9.
 
+OWNER CHOICES 2026-10-21 (valuation fixes batch 2), stage 17 only:
+  * VAL-07: the three cases are NEVER sorted — low / base / high stay the
+    downside / base / upside case; out of order = `inverted` + a "CASES
+    INVERTED — …" note, and stage 18 gives no verdict on it.
+  * VAL-03: 4+ own P/E readings → the single lowest and highest are dropped
+    before the band rule (BAND_TRIM_MIN_READINGS, ASSUMED); the source text
+    names them. The band mid (so the base target) does not move.
+  * VAL-09: the P/E bridge sits BESIDE a banded target as `whatif` (each
+    case's own sheet price); the grid prices EPS × band mid when a band
+    exists, so its centre is the range base.
+  * VAL-01 / VAL-14b: typed NAV / embedded value per share × (1 ∓ 15%);
+    holding companies = Σ listed stakes × price ÷ shares × (1 − discount),
+    discount +10 / typed (default 50%) / −10; conglomerates = Σ segment EBIT
+    × EV/EBIT − net debt − minorities, × (1 ∓ 15%). All bands ASSUMED.
+
 Inputs are crore and percent exactly as the sheet holds them (20 means
 20%); per-share values in rupees. A missing input is DATA_NEEDED naming it
 and every row that depends on it is DATA_NEEDED too; nothing raises.
 """
 from __future__ import annotations
 
+import re
 from decimal import ROUND_HALF_UP, Decimal
 from statistics import median
 from typing import Any, Callable, Dict, List, Optional
@@ -219,6 +235,15 @@ GRID_GROWTH_STEPS_PP: List[float] = [-1.0, 0.0, 1.0]
 GRID_MARGIN_STEPS_PP: List[float] = [-1.0, 0.0, 1.0]
 GRID_MULTIPLE_STEPS_PCT: List[float] = [-10.0, 0.0, 10.0]
 BOOK_ROE_STEP_PP = 2.0
+# VAL-03 (owner 2026-10-21): 4+ own readings → drop the single lowest and highest.
+BAND_TRIM_MIN_READINGS = 4
+# VAL-01 / VAL-14b (owner 2026-10-21): typed NAV / embedded value / sum-of-parts
+# range = value × (1 − b, 1, 1 + b); Den §13 range.typed_value_band_pct.
+TYPED_VALUE_BAND_PCT = 15.0
+# Holding companies: low / base / high at discount +10pp / typed / −10pp.
+HOLDING_DISCOUNT_PCT = 50.0
+HOLDING_DISCOUNT_STEP_PP = 10.0
+CR = 1e7  # rupees in one crore
 
 ASSUMED: Dict[str, dict] = {
     "case_deltas": {"value": CASE_DELTAS,
@@ -242,23 +267,69 @@ ASSUMED: Dict[str, dict] = {
     "grid_margin_steps_pp": {"value": GRID_MARGIN_STEPS_PP, "source": "ASSUMED here"},
     "grid_multiple_steps_pct": {"value": GRID_MULTIPLE_STEPS_PCT,
                                 "source": "ASSUMED here: points on the P/E bridge, the "
-                                          "CASE_DELTAS lever"},
+                                          "CASE_DELTAS lever; with a band, % on the band "
+                                          "mid (owner choice 2026-10-21, VAL-09 grid g1)"},
+    "band_trim_min_readings": {"value": BAND_TRIM_MIN_READINGS,
+                               "source": "owner choice 2026-10-21 (VAL-03): with this many "
+                                         "own readings or more, the single lowest and highest "
+                                         "are dropped before the band rule — ASSUMED"},
+    "typed_value_band_pct": {"value": TYPED_VALUE_BAND_PCT,
+                             "source": "owner choice 2026-10-21 (VAL-01 / VAL-14b): typed NAV, "
+                                       "embedded value and sum-of-parts range = value × "
+                                       "(1 ∓ this %) — ASSUMED, Den §13 "
+                                       "range.typed_value_band_pct"},
+    "holding_discount_pct": {"value": HOLDING_DISCOUNT_PCT,
+                             "source": "owner choice 2026-10-21 (VAL-14b): default holding "
+                                       "discount when none is typed — ASSUMED, the owner "
+                                       "types their own in the Den inputs table"},
+    "holding_discount_step_pp": {"value": HOLDING_DISCOUNT_STEP_PP,
+                                 "source": "owner choice 2026-10-21: low / high at the "
+                                           "discount +10pp / −10pp — ASSUMED"},
 }
 
 CASES = ("downside", "base", "upside")
 FAMILIES = ("earnings", "book", "ev_ebitda", "ev_sales", "nav",
             "embedded_value", "sotp")
 
-# Reasons from the task book's "Sector methods" sheet (2026-10-12).
+# Plain rule per family as justified_range applies it (for the Den §13 page,
+# so the printed rule and the code cannot drift). Owner choices 2026-10-21.
+FAMILY_RULE_TEXT: Dict[str, str] = {
+    "earnings": "value per share = scenario EPS × band [min(peer P/E, own low), mean(peer, own "
+                "median), max(peer, own high)]; own history of 4+ readings drops its single "
+                "lowest and highest first; no own history → the three cases' own closing P/E. "
+                "With a band, the P/E bridge moves only the what-if price shown beside it",
+    "book": "justified P/B = (ROE − g) / (COE − g), COE = rf + β × ERP; value = P/B × BVPS; "
+            "downside / upside = ROE ∓ step",
+    "ev_ebitda": "EV = multiple × EBITDA per share; equity per share = EV − net debt (debt − "
+                 "cash − short-term investments) − minorities; each case on its own forecast "
+                 "EBITDA, the metals row on a mid-cycle EBITDA margin",
+    "ev_sales": "EV = multiple × sales per share; equity per share = EV − net debt − minorities",
+    "nav": "typed NAV per share × (1 − b, 1, 1 + b), b = range.typed_value_band_pct; nothing "
+           "typed → no target, the P/B route shown as a labelled fallback",
+    "embedded_value": "typed embedded value per share × (1 − b, 1, 1 + b); VNB per share "
+                      "printed beside; nothing typed → no target",
+    "sotp": "holding company: Σ (shares held × subsidiary price) ÷ own shares × (1 − holding "
+            "discount), low / base / high at discount +10pp / typed (default 50%) / −10pp. "
+            "Conglomerate: EV = Σ segment EBIT × segment EV/EBIT; equity per share = (EV − net "
+            "debt incl. short-term investments − minorities) ÷ shares, × (1 − b, 1, 1 + b)",
+    "all": "the three cases are never sorted: out of order = CASES INVERTED and no verdict",
+}
+
+# What a row prints when the owner has typed nothing yet (owner choice
+# 2026-10-21, VAL-14b): "no target by design — type <X> in the Den inputs
+# table". Sources: the task book's "Sector methods" sheet (2026-10-12).
 _UNHELD = {
-    "embedded_value": "embedded value (P/EV) needs EV, VNB margin and persistency — insurers "
-                      "publish them in investor decks, the statements store does not hold "
-                      "them (task book, Sector methods: Insurance)",
-    "sotp": "sum-of-parts needs the listed-stake map and unlisted asset values with a "
-            "holding discount (40-60%) — not held (task book item 11, Sector methods: "
-            "Holding companies)",
-    "nav": "project-level NAV not held; P/B shown as fallback (task book, Sector "
-           "methods: Real estate — pre-sales and NAV missing)",
+    "embedded_value": "no target by design — type the embedded value per share (and VNB) "
+                      "in the Den inputs table; embedded value (P/EV) is published in "
+                      "insurers' investor decks, the statements store does not hold it "
+                      "(task book, Sector methods: Insurance)",
+    "sotp": "no target by design — sum-of-parts needs the listed-stake rows "
+            "(data/holdco_stakes.csv) or segment EBIT rows (data/segment_ebit.csv); then "
+            "type a holding discount or segment multiples in the Den inputs table "
+            "(task book item 11, Sector methods: Holding companies)",
+    "nav": "no target by design — type the NAV per share in the Den inputs table "
+           "(project-level NAV not held; P/B shown as fallback — task book, Sector "
+           "methods: Real estate)",
 }
 
 
@@ -739,24 +810,67 @@ def _case_num(cases: Any, case: str, key: str) -> Optional[float]:
     return num(sc.get(key)) if isinstance(sc, dict) else None
 
 
+def _history_readings(own_multiple_history: Any) -> List[tuple]:
+    """[(multiple, period-or-None)] of the usable (positive) readings. An item
+    is a number, or a row {"pe" | "multiple", "period"} (pipeline.own_pe_rows)."""
+    out: List[tuple] = []
+    for x in (own_multiple_history or []):
+        if isinstance(x, dict):
+            v = num(x.get("pe")) if num(x.get("pe")) is not None else num(x.get("multiple"))
+            per = x.get("period")
+            per = str(per) if per not in (None, "") else None
+        else:
+            v, per = num(x), None
+        if v is not None and v > 0:
+            out.append((v, per))
+    return out
+
+
+def _reading_text(v: float, per: Optional[str]) -> str:
+    return f"{v:.2f} ({per})" if per else f"{v:.2f}"
+
+
 def multiple_band(peer_multiple: Any = None,
                   own_multiple_history: Optional[list] = None,
-                  *, peer_only_point: bool = False) -> Optional[dict]:
+                  *, peer_only_point: bool = False,
+                  trim_min_readings: Optional[int] = None) -> Optional[dict]:
     """[min(peer, own low), mean(peer, own median), max(peer, own high)].
     Own history alone → [low, median, high]. Peer alone → a point band only
-    when `peer_only_point` (the EV routes); else None."""
-    hist = [h for h in (num(x) for x in (own_multiple_history or [])) if h is not None and h > 0]
+    when `peer_only_point` (the EV routes); else None.
+
+    VAL-03 (owner 2026-10-21): with `trim_min_readings` (default
+    BAND_TRIM_MIN_READINGS = 4, ASSUMED) or more own readings, the single
+    lowest AND highest are dropped first; the source text names both. The
+    median — so the band mid — is the same with or without the trim."""
+    rd = _history_readings(own_multiple_history)
     p = num(peer_multiple)
     if p is not None and p <= 0:
         p = None
-    if hist:
+    if rd:
+        n_all = len(rd)
+        k = num(trim_min_readings)
+        k = int(k) if k is not None and k >= 3 else BAND_TRIM_MIN_READINGS
+        dropped = None
+        core = sorted(rd, key=lambda r: r[0])
+        if n_all >= k:
+            dropped = {"lowest": core[0][0], "lowest_period": core[0][1],
+                       "highest": core[-1][0], "highest_period": core[-1][1]}
+            core = core[1:-1]
+        hist = [v for v, _p in core]
         lo, hi, med = min(hist), max(hist), float(median(hist))
+        trim_txt = ""
+        if dropped:
+            trim_txt = (f"; dropped the lowest {_reading_text(dropped['lowest'], dropped['lowest_period'])}"
+                        f" and the highest {_reading_text(dropped['highest'], dropped['highest_period'])}"
+                        f" (trim at {k}+ readings, ASSUMED), {len(hist)} kept")
         if p is not None:
             return {"low": min(p, lo), "mid": (p + med) / 2.0, "high": max(p, hi),
-                    "source": f"peer {p:.2f} + own history ({len(hist)} readings, "
-                              f"low {lo:.2f} / median {med:.2f} / high {hi:.2f})"}
+                    "source": f"peer {p:.2f} + own history ({n_all} readings{trim_txt}; "
+                              f"low {lo:.2f} / median {med:.2f} / high {hi:.2f})",
+                    "dropped": dropped, "readings": n_all, "readings_used": len(hist)}
         return {"low": lo, "mid": med, "high": hi,
-                "source": f"own history only ({len(hist)} readings)"}
+                "source": f"own history only ({n_all} readings{trim_txt})",
+                "dropped": dropped, "readings": n_all, "readings_used": len(hist)}
     if p is not None and peer_only_point:
         return {"low": p, "mid": p, "high": p,
                 "source": f"peer {p:.2f} only — a single multiple, no own history"}
@@ -776,17 +890,33 @@ def _per_case_metric(cases, overrides, case, single, num_key, den_key="shares"):
     return a / b, "case"
 
 
+def _inverted_note(lo: float, ba: float, hi: float) -> str:
+    """"" when downside ≤ base ≤ upside, else the plain words naming the pair
+    that is out of order (owner order 2026-10-21, VAL-07: never sort)."""
+    bits = []
+    if lo > ba:
+        bits.append(f"downside ₹{lo:,.2f} above base ₹{ba:,.2f}")
+    if ba > hi:
+        bits.append(f"base ₹{ba:,.2f} above upside ₹{hi:,.2f}")
+    if not bits and lo > hi:
+        bits.append(f"downside ₹{lo:,.2f} above upside ₹{hi:,.2f}")
+    return ("CASES INVERTED — " + "; ".join(bits)) if bits else ""
+
+
 def _finish(family: str, method_text: str, vals: Dict[str, Any], band: Any,
             per_share: dict, bridge: dict, sensitivity: Any, assumptions_used: dict,
             data_needed: List[str], notes: List[str], price: Any) -> dict:
     low, base, high = vals.get("low"), vals.get("base"), vals.get("high")
     nums = [num(low), num(base), num(high)]
+    inv_note = ""
     if all(x is not None for x in nums):
-        if not (nums[0] <= nums[1] <= nums[2]):
-            nums = sorted(nums)
-            notes.append("a case inverted (downside above base or base above upside) — "
-                         "values sorted so low ≤ base ≤ high")
+        # VAL-07 (owner 2026-10-21): the cases keep their own order — low is
+        # the downside case, high the upside case. Out of order = flagged,
+        # never sorted (assess gives no verdict on it).
         low, base, high = (xround(x, 2) for x in nums)
+        inv_note = _inverted_note(low, base, high)
+        if inv_note:
+            notes.append(inv_note)
         status = "OK"
     else:
         reason = "; ".join(data_needed) or "range incomplete"
@@ -801,6 +931,7 @@ def _finish(family: str, method_text: str, vals: Dict[str, Any], band: Any,
               "high": round((high / p - 1) * 100, 2)}
     out = {"family": family, "method_text": method_text, "status": status,
            "low": low, "base": base, "high": high,
+           "inverted": bool(inv_note), "inverted_note": inv_note,
            "multiple_band": band, "per_share": per_share, "bridge": bridge,
            "sensitivity": sensitivity, "assumptions_used": assumptions_used,
            "data_needed": data_needed, "notes": notes,
@@ -810,10 +941,24 @@ def _finish(family: str, method_text: str, vals: Dict[str, Any], band: Any,
     return out
 
 
-def earnings_grid(cases: Any) -> dict:
+def _band_mid(band: Any) -> Optional[float]:
+    """The mid of a real multiple band (None for no band / DATA_NEEDED)."""
+    if not isinstance(band, dict) or is_dn(band):
+        return None
+    m = num(band.get("mid"))
+    return m if m is not None and m > 0 else None
+
+
+def earnings_grid(cases: Any, band: Any = None) -> dict:
     """3×3 price grid over growth {−1,0,+1}pp × margin {−1,0,+1}pp plus a
-    multiple row of {−10,0,+10} points on the P/E bridge. Every cell is a
-    fresh fy_scenario run from the base case's own inputs — nothing scaled."""
+    multiple row. Every cell's EPS is a fresh fy_scenario run from the base
+    case's own inputs — nothing scaled.
+
+    No band: cell = that run's model price (EPS × closing P/E); the multiple
+    row adds {−10,0,+10} points to the P/E bridge total.
+    With a real band (VAL-09 grid g1, owner 2026-10-21): cell = that run's
+    EPS × band mid; the multiple row = base EPS × band mid × (1 + step/100).
+    The centre is then the range base."""
     sc = cases.get("base") if isinstance(cases, dict) else None
     inp = sc.get("inputs") if isinstance(sc, dict) else None
     if not isinstance(inp, dict):
@@ -823,28 +968,327 @@ def earnings_grid(cases: Any) -> dict:
     if g0 is None or m0 is None:
         return dn("revenue_growth_pct / base_ebitda_margin_pct missing in the base case")
     x0 = num(d.get("pe_bridge_extra_pct")) or 0.0
+    mid = _band_mid(band)
+
+    def _cell(s: dict) -> Any:
+        if mid is None:
+            return s["model_price"]
+        e = num(s.get("eps"))
+        return xround(e * mid, 2) if e is not None else s.get("eps")
+
     prices: List[List[Any]] = []
     for dg in GRID_GROWTH_STEPS_PP:
         row = []
         for dm in GRID_MARGIN_STEPS_PP:
             s = fy_scenario(b, {**d, "revenue_growth_pct": g0 + dg,
                                 "base_ebitda_margin_pct": m0 + dm}, m, a)
-            row.append(s["model_price"])
+            row.append(_cell(s))
         prices.append(row)
     mult_row = []
-    for dx in GRID_MULTIPLE_STEPS_PCT:
-        s = fy_scenario(b, {**d, "pe_bridge_extra_pct": x0 + dx}, m, a)
-        mult_row.append({"multiple_pct": dx, "closing_pe": s["closing_pe"],
-                         "price": s["model_price"]})
-    return {"status": "OK",
-            "method": "each cell re-run through fy_scenario from the base case's inputs",
+    if mid is None:
+        for dx in GRID_MULTIPLE_STEPS_PCT:
+            s = fy_scenario(b, {**d, "pe_bridge_extra_pct": x0 + dx}, m, a)
+            mult_row.append({"multiple_pct": dx, "closing_pe": s["closing_pe"],
+                             "price": s["model_price"]})
+        method = "each cell re-run through fy_scenario from the base case's inputs"
+        m_note = "points added to the P/E bridge total (E132), the CASE_DELTAS lever"
+    else:
+        e0 = num(fy_scenario(b, d, m, a).get("eps"))
+        for dx in GRID_MULTIPLE_STEPS_PCT:
+            mult = mid * (1 + dx / 100.0)
+            mult_row.append({"multiple_pct": dx, "multiple": round(mult, 4),
+                             "closing_pe": round(mult, 4),
+                             "price": (xround(e0 * mult, 2) if e0 is not None
+                                       else dn("base EPS missing"))})
+        method = (f"each cell = EPS re-run through fy_scenario from the base case's inputs "
+                  f"× band mid {mid:.2f} — the same multiple as the range base")
+        m_note = "% on the band mid, with the base case's EPS"
+    return {"status": "OK", "method": method,
+            "basis": "band_mid" if mid is not None else "case_pe",
+            "band_mid": mid,
             "rows_are": "revenue growth step (pp)", "cols_are": "base EBITDA margin step (pp)",
             "growth_steps_pp": list(GRID_GROWTH_STEPS_PP),
             "margin_steps_pp": list(GRID_MARGIN_STEPS_PP),
             "prices": prices, "centre": prices[1][1],
             "multiple_steps_pct": list(GRID_MULTIPLE_STEPS_PCT),
             "multiple_row": mult_row,
-            "multiple_note": "points added to the P/E bridge total (E132), the CASE_DELTAS lever"}
+            "multiple_note": m_note}
+
+
+# ------------------------------------------- typed values and sum-of-parts
+# Owner choices 2026-10-21 (VAL-01 / VAL-14b). Inputs come from the Den
+# inputs table (owner_inputs), data/holdco_stakes.csv and data/segment_ebit.csv
+# through the pipeline; this module only does the arithmetic.
+
+_NO_GRID = "grid built for the earnings route only"
+
+
+def _band_pct(typed: Any) -> tuple:
+    """(b %, source) for the typed-value range; a value outside 0-100 is
+    ignored and the default used, said so."""
+    b = num(typed)
+    if b is not None and 0 <= b < 100:
+        return float(b), "Den §13 range.typed_value_band_pct"
+    src = "ASSUMED default (range.typed_value_band_pct)"
+    if b is not None:
+        src += f"; the typed {b:g}% is outside 0-100 and was not used"
+    return TYPED_VALUE_BAND_PCT, src
+
+
+def _oi(owner_inputs: Any) -> dict:
+    return owner_inputs if isinstance(owner_inputs, dict) else {}
+
+
+def _asof_text(v: Any) -> str:
+    return f" (as of {v})" if v not in (None, "") else " (date not typed)"
+
+
+def _typed_value_range(fam: str, label: str, value: float, asof: Any, typed_band: Any,
+                       price: Any, bridge: dict, notes: List[str]) -> dict:
+    """value × (1 − b, 1, 1 + b) for a typed NAV / embedded value per share."""
+    b, b_src = _band_pct(typed_band)
+    lo_m, hi_m = 1 - b / 100.0, 1 + b / 100.0
+    vals = {"low": value * lo_m, "base": value, "high": value * hi_m}
+    band = {"low": lo_m, "mid": 1.0, "high": hi_m,
+            "source": f"typed {label} × (1 − {b:g}%, 1, 1 + {b:g}%) — {b_src}"}
+    method = (f"typed {label} per share ₹{value:,.2f}{_asof_text(asof)} — owner input from "
+              f"the Den inputs table; low / base / high = value × ({lo_m:g}, 1, {hi_m:g})")
+    bridge = {**bridge, "band_pct": b, "band_source": b_src, "source": "owner input"}
+    used = {"typed_value_band_pct": {"value": b, "source": b_src}}
+    per_share = {"downside": xround(vals["low"], 2), "base": xround(value, 2),
+                 "upside": xround(vals["high"], 2)}
+    return _finish(fam, method, vals, band, per_share, bridge, dn(_NO_GRID), used, [],
+                   notes, price)
+
+
+def _row_text(r: dict, *keys: str) -> Any:
+    for k in keys:
+        v = r.get(k)
+        if v not in (None, ""):
+            return v
+    return None
+
+
+def _holdco_sotp(stakes: Any, sub_prices: Any, shares_outstanding: Any,
+                 owner_inputs: Any, price: Any) -> dict:
+    """Holding company: Σ(stake shares × subsidiary price) ÷ holdco shares ×
+    (1 − discount); low / base / high at discount +10pp / typed / −10pp."""
+    notes: List[str] = []
+    missing: List[str] = []
+    prices = sub_prices if isinstance(sub_prices, dict) else {}
+    rows: List[dict] = []
+    total = 0.0
+    for r in stakes or []:
+        if not isinstance(r, dict):
+            continue
+        sym = str(_row_text(r, "subsidiary", "symbol", "ticker") or "").strip().upper()
+        if sym.endswith(".NS"):
+            sym = sym[:-3]
+        if not sym:
+            continue
+        sh = num(_row_text(r, "shares_held", "shares", "stake_shares"))
+        px = num(prices.get(sym))
+        if px is None:
+            px = num(prices.get(f"{sym}.NS"))
+        val = sh * px if (sh is not None and px is not None) else None
+        if sh is None or sh <= 0:
+            missing.append(f"{sym}: share count missing in the stake row")
+        if px is None or px <= 0:
+            missing.append(f"{sym}: no price for the listed subsidiary")
+        elif val is not None:
+            total += val
+        rows.append({"subsidiary": sym, "shares_held": sh,
+                     "stake_pct": num(_row_text(r, "stake_pct", "pct", "holding_pct")),
+                     "price": px, "value_cr": round(val / CR, 2) if val is not None else None,
+                     "source": _row_text(r, "source", "source_url"),
+                     "asof": _row_text(r, "asof", "as_of", "date", "period_end")})
+    if not rows:
+        missing.append("no usable listed-stake rows")
+    hs = num(shares_outstanding)
+    if hs is None or hs <= 0:
+        missing.append("the holding company's own share count is missing")
+    oi = _oi(owner_inputs)
+    d_typed = num(oi.get("holding_discount_pct"))
+    if d_typed is not None and 0 <= d_typed <= 100:
+        d, d_src = float(d_typed), "typed in the Den inputs table"
+    else:
+        d, d_src = HOLDING_DISCOUNT_PCT, "ASSUMED default 50% — type your own in the Den inputs table"
+        if d_typed is not None:
+            d_src += f" (the typed {d_typed:g}% is outside 0-100 and was not used)"
+    step = HOLDING_DISCOUNT_STEP_PP
+    d_lo, d_hi = min(d + step, 100.0), max(d - step, 0.0)
+    method = ("holding company sum-of-parts: Σ (shares held × today's subsidiary price) ÷ "
+              "the holding company's shares × (1 − holding discount); low / base / high at "
+              f"discount {d_lo:g}% / {d:g}% / {d_hi:g}%. Cash and unlisted assets are not "
+              "counted.")
+    gross = total / hs if (not missing and hs) else None
+    bridge = {"variant": "holding_company", "stakes": rows,
+              "gross_value_cr": round(total / CR, 2) if not missing else None,
+              "gross_per_share": round(gross, 4) if gross is not None else None,
+              "shares_outstanding": hs,
+              "discount_pct": {"low": d_lo, "base": d, "high": d_hi},
+              "discount_source": d_src}
+    used = {"holding_discount_pct": {"value": d, "source": d_src},
+            "holding_discount_step_pp": ASSUMED["holding_discount_step_pp"]}
+    if missing:
+        return _finish("sotp", method, {}, dn(missing[0]),
+                       {c: dn("; ".join(missing)) for c in CASES}, bridge, dn(_NO_GRID),
+                       used, missing, notes, price)
+    mult = {"low": 1 - d_lo / 100.0, "base": 1 - d / 100.0, "high": 1 - d_hi / 100.0}
+    vals = {k: gross * m for k, m in mult.items()}
+    band = {"low": mult["low"], "mid": mult["base"], "high": mult["high"],
+            "source": "1 − holding discount, × the gross listed-stake value per share "
+                      f"₹{gross:,.2f}"}
+    per_share = {"downside": xround(vals["low"], 2), "base": xround(vals["base"], 2),
+                 "upside": xround(vals["high"], 2)}
+    return _finish("sotp", method, vals, band, per_share, bridge, dn(_NO_GRID), used,
+                   missing, notes, price)
+
+
+def _usable_segments(segments: Any) -> bool:
+    return isinstance(segments, list) and any(
+        isinstance(r, dict) and str(r.get("segment") or "").strip()
+        and num(r.get("ebit_cr")) is not None for r in segments)
+
+
+def _seg_norm(s: Any) -> str:
+    """A segment label with case, punctuation and spacing flattened."""
+    return re.sub(r"[^a-z0-9]+", " ", str(s or "").lower()).strip()
+
+
+def _seg_bracket(seg: str) -> str:
+    """The text in brackets of a segment name ("Oil to Chemicals (O2C)" →
+    "O2C"), else ""."""
+    m = re.search(r"\(([^)]+)\)", str(seg or ""))
+    return m.group(1).strip() if m else ""
+
+
+def typed_segment_multiple(seg: str, typed: Any, group: str = "") -> tuple:
+    """(multiple, the typed key that matched) for ONE segment — or
+    (None, None). Reviewer defect 1 (2026-10-21): `typed.get(seg)` needed
+    the owner to type the CSV name letter for letter ("Oil to Chemicals
+    (O2C)"), so "O2C=20" was silently ignored. A typed key now matches the
+    segment's name without regard to case or punctuation, then its
+    bracketed short name, then the default-peer group the pipeline put the
+    segment in ("Digital" ← "Digital Services")."""
+    if not isinstance(typed, dict) or not typed:
+        return None, None
+    keys = {_seg_norm(k): k for k in typed if _seg_norm(k)}
+    for cand in (seg, _seg_bracket(seg), group):
+        k = keys.get(_seg_norm(cand)) if cand else None
+        if k is None:
+            continue
+        v = num(typed.get(k))
+        if v is not None and v > 0:
+            return v, k
+    return None, None
+
+
+def _segment_multiple(seg: str, typed: dict, given: dict) -> tuple:
+    """(multiple, source, peers, typed_key) — the owner's typed multiple
+    wins; `typed_key` names the typed entry it came from (None when the
+    multiple is the peer median)."""
+    g = given.get(seg) if isinstance(given, dict) else None
+    group = str(g.get("group") or "") if isinstance(g, dict) else ""
+    t, tk = typed_segment_multiple(seg, typed, group)
+    if t is not None:
+        return t, f"typed in the Den inputs table as {tk}", [], tk
+    if isinstance(g, dict):
+        m = num(g.get("multiple"))
+        if m is not None and m > 0:
+            return (m, str(g.get("source") or "peer median EV/EBIT"),
+                    list(g.get("peers") or []), None)
+    elif num(g) is not None and num(g) > 0:
+        return num(g), "peer median EV/EBIT", [], None
+    return None, "", [], None
+
+
+def _conglomerate_sotp(segments: Any, segment_multiples: Any, owner_inputs: Any,
+                       typed_band: Any, shares_outstanding: Any, net_debt_per_share: Any,
+                       minorities_per_share: Any, price: Any) -> dict:
+    """Conglomerate: EV = Σ segment EBIT × segment EV/EBIT; equity per share =
+    (EV − net debt incl. short-term investments − minorities) ÷ shares;
+    low / base / high = equity × (1 − b, 1, 1 + b)."""
+    notes: List[str] = []
+    missing: List[str] = []
+    typed = _oi(owner_inputs).get("segment_multiples")
+    typed = typed if isinstance(typed, dict) else {}
+    rows: List[dict] = []
+    ev_cr = 0.0
+    typed_used: set = set()
+    for r in segments or []:
+        if not isinstance(r, dict):
+            continue
+        seg = str(r.get("segment") or "").strip()
+        if not seg:
+            continue
+        ebit = num(r.get("ebit_cr"))
+        m, msrc, peers, tkey = _segment_multiple(seg, typed, segment_multiples)
+        if tkey is not None:
+            typed_used.add(tkey)
+        if ebit is None:
+            missing.append(f"segment {seg}: EBIT missing")
+        if m is None:
+            missing.append(f"segment {seg}: no EV/EBIT multiple — type one in the Den "
+                           "inputs table")
+        seg_ev = ebit * m if (ebit is not None and m is not None) else None
+        if seg_ev is not None:
+            ev_cr += seg_ev
+        if ebit is not None and ebit < 0:
+            notes.append(f"segment {seg} has a negative EBIT ₹{ebit:,.0f} cr — counted at "
+                         "its EBIT × multiple, so it lowers the value")
+        rows.append({"segment": seg, "ebit_cr": ebit, "multiple": m,
+                     "multiple_source": msrc, "peers": peers,
+                     "ev_cr": round(seg_ev, 2) if seg_ev is not None else None,
+                     "fy_end": r.get("fy_end"), "source": r.get("source")})
+    # a typed key that matched no segment is SAID, never swallowed
+    seg_names = [r["segment"] for r in rows]
+    unmatched = [k for k in typed if k not in typed_used] if isinstance(typed, dict) else []
+    if unmatched:
+        shown = ", ".join(f"{k}={num(typed[k]):g}" if num(typed[k]) is not None else str(k)
+                          for k in unmatched)
+        notes.append(f"typed segment multiple(s) {shown} matched no segment of this stock "
+                     f"and were NOT applied — its segments are: {'; '.join(seg_names)} "
+                     "(type the name as printed, its bracketed short name, or its group)")
+    hs = num(shares_outstanding)
+    if hs is None or hs <= 0:
+        missing.append("shares outstanding missing")
+    nd, mi = num(net_debt_per_share), num(minorities_per_share)
+    if nd is None:
+        missing.append("net debt per share missing")
+    if mi is None:
+        missing.append("minorities per share missing (pass 0 when there are none)")
+    b, b_src = _band_pct(typed_band)
+    method = ("sum of the parts: EV = Σ segment EBIT × that segment's EV/EBIT multiple; "
+              "equity per share = (EV − net debt incl. short-term investments − "
+              f"minorities) ÷ shares; low / base / high = equity × (1 − {b:g}%, 1, "
+              f"1 + {b:g}%)")
+    ev_ps = ev_cr * CR / hs if (hs and not missing) else None
+    eq = (ev_ps - nd - mi) if ev_ps is not None else None
+    bridge = {"variant": "conglomerate", "segments": rows,
+              "segment_names": seg_names, "typed_unmatched": unmatched,
+              "ev_cr": round(ev_cr, 2) if not missing else None,
+              "ev_per_share": round(ev_ps, 4) if ev_ps is not None else None,
+              "net_debt_per_share": nd, "minorities_per_share": mi,
+              "equity_per_share": round(eq, 4) if eq is not None else None,
+              "shares_outstanding": hs, "band_pct": b, "band_source": b_src}
+    used = {"typed_value_band_pct": {"value": b, "source": b_src}}
+    if missing:
+        return _finish("sotp", method, {}, dn(missing[0]),
+                       {c: dn("; ".join(missing)) for c in CASES}, bridge, dn(_NO_GRID),
+                       used, missing, notes, price)
+    lo_m, hi_m = 1 - b / 100.0, 1 + b / 100.0
+    vals = {"low": eq * lo_m, "base": eq, "high": eq * hi_m}
+    band = {"low": lo_m, "mid": 1.0, "high": hi_m,
+            "source": f"sum-of-parts equity per share ₹{eq:,.2f} × (1 − {b:g}%, 1, "
+                      f"1 + {b:g}%) — {b_src}"}
+    if eq <= 0:
+        notes.append("net debt and minorities exceed the segments' value — no positive "
+                     "equity per share")
+    per_share = {"downside": xround(vals["low"], 2), "base": xround(eq, 2),
+                 "upside": xround(vals["high"], 2)}
+    return _finish("sotp", method, vals, band, per_share, bridge, dn(_NO_GRID), used,
+                   missing, notes, price)
 
 
 def justified_range(family: str, cases: dict, *, price: Optional[float],
@@ -858,7 +1302,15 @@ def justified_range(family: str, cases: dict, *, price: Optional[float],
                     rf_pct: Optional[float] = None, beta: Optional[float] = None,
                     erp_pct: Optional[float] = None,
                     growth_pct: Optional[float] = None,
-                    roe_step_pp: Optional[float] = None) -> dict:
+                    roe_step_pp: Optional[float] = None,
+                    band_trim_min_readings: Optional[int] = None,
+                    owner_inputs: Optional[dict] = None,
+                    typed_value_band_pct: Optional[float] = None,
+                    holdco_stakes: Optional[list] = None,
+                    subsidiary_prices: Optional[dict] = None,
+                    shares_outstanding: Optional[float] = None,
+                    segments: Optional[list] = None,
+                    segment_multiples: Optional[dict] = None) -> dict:
     """Stage 17: the justified per-share range for the stock's route.
 
     `roe_step_pp` (Den draft, owner order 2026-10-14) replaces the ASSUMED
@@ -868,8 +1320,42 @@ def justified_range(family: str, cases: dict, *, price: Optional[float],
     `per_share_overrides` = {case: metric} replaces the per-share metric the
     route reads from the cases (EPS for earnings, BVPS for book, EBITDA per
     share for ev_ebitda, revenue per share for ev_sales) — e.g. a metal's
-    MID-CYCLE EBITDA per share."""
+    MID-CYCLE EBITDA per share.
+
+    Owner choices 2026-10-21 (VAL-01 / VAL-14b), all optional:
+      owner_inputs          one symbol's row of the Den inputs table
+                            {nav_ps, nav_asof, ev_ps, vnb_ps, ev_asof,
+                             holding_discount_pct, segment_multiples, ...}
+      typed_value_band_pct  Den §13 range.typed_value_band_pct (default 15)
+      holdco_stakes         listed-stake rows {subsidiary, shares_held, ...}
+      subsidiary_prices     {SUBSIDIARY: price ₹}
+      shares_outstanding    the stock's own share COUNT (same unit as the
+                            stake share counts)
+      segments              segment rows {segment, ebit_cr, fy_end, source}
+      segment_multiples     {segment: EV/EBIT x} or {segment: {multiple,
+                            source, peers}}; owner_inputs wins per segment
+    Any family called with usable `segments` returns the conglomerate
+    sum-of-parts and keeps the route's own range under `single_route`."""
     fam = str(family or "").strip().lower()
+    if fam != "sotp" and _usable_segments(segments):
+        route = justified_range(
+            fam, cases, price=price, peer_multiple=peer_multiple,
+            own_multiple_history=own_multiple_history,
+            per_share_overrides=per_share_overrides, roe_pct=roe_pct, bvps=bvps,
+            ebitda_per_share=ebitda_per_share, net_debt_per_share=net_debt_per_share,
+            minorities_per_share=minorities_per_share, rf_pct=rf_pct, beta=beta,
+            erp_pct=erp_pct, growth_pct=growth_pct, roe_step_pp=roe_step_pp,
+            band_trim_min_readings=band_trim_min_readings, owner_inputs=owner_inputs,
+            typed_value_band_pct=typed_value_band_pct)
+        out = _conglomerate_sotp(segments, segment_multiples, owner_inputs,
+                                 typed_value_band_pct, shares_outstanding,
+                                 net_debt_per_share, minorities_per_share, price)
+        out["route_family"] = fam
+        out["single_route"] = route
+        out["notes"].append(f"conglomerate: sum-of-parts replaces the single {fam} route "
+                            "(its peers do not represent every segment, VAL-01); the "
+                            "single-route range is kept beside it")
+        return out
     overrides = per_share_overrides if isinstance(per_share_overrides, dict) else {}
     notes: List[str] = []
     missing: List[str] = []
@@ -887,8 +1373,12 @@ def justified_range(family: str, cases: dict, *, price: Optional[float],
                 per_share[c] = xround(eps[c] * pe[c], 2)
             else:
                 per_share[c] = dn(f"{c}: EPS or closing P/E missing")
-        band = multiple_band(peer_multiple, own_multiple_history)
-        used = {"band_mid_rule": ASSUMED["band_mid_rule"]}
+        band = multiple_band(peer_multiple, own_multiple_history,
+                             trim_min_readings=band_trim_min_readings)
+        used = {"band_mid_rule": ASSUMED["band_mid_rule"],
+                "band_trim_min_readings": ASSUMED["band_trim_min_readings"]}
+        whatif: Optional[dict] = None
+        has_band = band is not None
         if band is None:
             peer_note = (f" (peer P/E {num(peer_multiple):.2f} noted; own 5-year history "
                          f"missing, so no band)") if num(peer_multiple) is not None else ""
@@ -906,6 +1396,10 @@ def justified_range(family: str, cases: dict, *, price: Optional[float],
                 vals[{"downside": "low", "base": "base", "upside": "high"}[c]] = (
                     xround(eps[c] * band[edge], 2) if eps[c] is not None
                     else dn(f"{c}: EPS missing"))
+            # VAL-09 (owner 2026-10-21): the P/E bridge sits BESIDE the
+            # target — each case's own sheet price (EPS × opening P/E ×
+            # (1 + bridge)), never folded into the band range.
+            whatif = {c: _case_num(cases, c, "model_price") for c in CASES}
         for c in CASES:
             if eps[c] is None:
                 missing.append(f"{c} EPS")
@@ -913,17 +1407,24 @@ def justified_range(family: str, cases: dict, *, price: Optional[float],
         bridge = {"eps": eps, "eps_source": src, "case_closing_pe": pe,
                   "forward_pe_at_price": (round(num(price) / b_eps, 2)
                                           if num(price) and b_eps else None),
-                  "pe_bridge_additive_whatif": True}
+                  "pe_bridge_additive_whatif": True,
+                  "pe_bridge_moves_range": not has_band}
         method = ("price = EPS × P/E per case. With a peer/own band: low = downside EPS × "
-                  "band low, base = base EPS × band mid, high = upside EPS × band high; "
-                  "without one, each case's own closing P/E (the owner's additive "
-                  "what-if bridge).")
-        sens = earnings_grid(cases)
+                  "band low, base = base EPS × band mid, high = upside EPS × band high "
+                  "(own history of 4+ readings drops its single lowest and highest first); "
+                  "the P/E bridge then moves only the what-if price beside it. Without a "
+                  "band, each case's own closing P/E (the owner's additive what-if bridge).")
+        sens = earnings_grid(cases, band if has_band else None)
         used["case_deltas"] = ASSUMED["case_deltas"]
         used["grid_steps"] = {"growth_pp": GRID_GROWTH_STEPS_PP, "margin_pp": GRID_MARGIN_STEPS_PP,
                               "multiple_pct": GRID_MULTIPLE_STEPS_PCT}
-        return _finish(fam, method, vals, band, per_share, bridge, sens, used,
-                       missing, notes, price)
+        out = _finish(fam, method, vals, band, per_share, bridge, sens, used,
+                      missing, notes, price)
+        out["whatif"] = whatif
+        out["whatif_note"] = (
+            "what-if (your sheet): each case's EPS × the opening P/E × (1 + P/E bridge) — "
+            "moves with your P/E bridge, not the range" if whatif is not None else "")
+        return out
 
     if fam == "book":
         rf, bt = num(rf_pct), num(beta)
@@ -1008,9 +1509,15 @@ def justified_range(family: str, cases: dict, *, price: Optional[float],
                   "EV − net debt per share − minorities per share; low / base / high = "
                   "downside × band low / base × band mid / upside × band high")
         if fam == "ev_ebitda":
-            notes.append("Metals and other cyclicals: feed MID-CYCLE EBITDA per share "
-                         "(per_share_overrides), never a peak or trough year — task book "
-                         "Sector methods")
+            # VAL-07 (owner 2026-10-21): mid-cycle for the METALS row only, as a
+            # mid-cycle margin the caller works out per case
+            if any(msrc.get(c) == "override" for c in CASES):
+                notes.append("MID-CYCLE: the case EBITDA per share comes from the caller — "
+                             "the metals row runs each case on a mid-cycle EBITDA margin "
+                             "(owner choice 2026-10-21, VAL-07), never a peak or trough year")
+            else:
+                notes.append("each case's own forecast EBITDA per share — mid-cycle applies "
+                             "to the metals row only (owner choice 2026-10-21, VAL-07)")
         bridge = {"metric": mkey, "metric_per_share": metric, "metric_source": msrc,
                   "net_debt_per_share": nd, "net_debt_source": nd_src if nd is not None else None,
                   "minorities_per_share": mi, "ev_per_share": {}}
@@ -1042,19 +1549,50 @@ def justified_range(family: str, cases: dict, *, price: Optional[float],
                                        roe_step_pp=roe_step_pp)
         else:
             notes.append("no BVPS — the P/B fallback cannot be shown either")
-        out = _finish(fam, "NAV per share (discounted land / project value) − net debt",
-                      {}, dn(reason), {c: dn(reason) for c in CASES}, {},
-                      dn("grid built for the earnings route only"), {}, [reason],
-                      notes, price)
+        oi = _oi(owner_inputs)
+        nav_ps = num(oi.get("nav_ps"))
+        if nav_ps is not None and nav_ps > 0:
+            # VAL-14b (owner 2026-10-21): the owner's typed NAV per share;
+            # the P/B range stays beside it as a cross-check
+            out = _typed_value_range("nav", "NAV", nav_ps, oi.get("nav_asof"),
+                                     typed_value_band_pct, price,
+                                     {"nav_ps": nav_ps, "nav_asof": oi.get("nav_asof")}, notes)
+            if fallback is not None:
+                out["notes"].append("P/B (book route) shown beside as a cross-check only")
+        else:
+            out = _finish(fam, "NAV per share (discounted land / project value) − net debt",
+                          {}, dn(reason), {c: dn(reason) for c in CASES}, {},
+                          dn(_NO_GRID), {}, [reason], notes, price)
         out["fallback"] = fallback
         return out
 
-    if fam in _UNHELD:
+    if fam == "embedded_value":
+        oi = _oi(owner_inputs)
+        ev_ps = num(oi.get("ev_ps"))
+        if ev_ps is not None and ev_ps > 0:
+            vnb = num(oi.get("vnb_ps"))
+            if vnb is not None:
+                notes.append(f"VNB per share ₹{vnb:,.2f} printed beside — not in the range")
+            return _typed_value_range("embedded_value", "embedded value", ev_ps,
+                                      oi.get("ev_asof"), typed_value_band_pct, price,
+                                      {"ev_ps": ev_ps, "vnb_ps": vnb,
+                                       "ev_asof": oi.get("ev_asof")}, notes)
         reason = _UNHELD[fam]
-        return _finish(fam, {"embedded_value": "P/EV on embedded value per share",
-                             "sotp": "sum of the parts less a holding discount"}[fam],
-                       {}, dn(reason), {c: dn(reason) for c in CASES}, {},
-                       dn("grid built for the earnings route only"), {}, [reason],
+        return _finish(fam, "P/EV on embedded value per share", {}, dn(reason),
+                       {c: dn(reason) for c in CASES}, {}, dn(_NO_GRID), {}, [reason],
+                       notes, price)
+
+    if fam == "sotp":
+        if _usable_segments(segments):
+            return _conglomerate_sotp(segments, segment_multiples, owner_inputs,
+                                      typed_value_band_pct, shares_outstanding,
+                                      net_debt_per_share, minorities_per_share, price)
+        if isinstance(holdco_stakes, list) and holdco_stakes:
+            return _holdco_sotp(holdco_stakes, subsidiary_prices, shares_outstanding,
+                                owner_inputs, price)
+        reason = _UNHELD[fam]
+        return _finish(fam, "sum of the parts less a holding discount", {}, dn(reason),
+                       {c: dn(reason) for c in CASES}, {}, dn(_NO_GRID), {}, [reason],
                        notes, price)
 
     reason = f"unknown valuation family {family!r} (known: {', '.join(FAMILIES)})"
@@ -1065,4 +1603,6 @@ def justified_range(family: str, cases: dict, *, price: Optional[float],
 __all__ = ["SHEET_BASE", "SHEET_DRIVERS", "SHEET_MARKET", "SHEET_ASSUMPTIONS",
            "INPUT_CELLS", "CASE_DELTAS", "ASSUMED", "CASES", "FAMILIES",
            "xround", "fy_scenario", "three_cases", "multiple_band", "earnings_grid",
-           "justified_range", "TT_NOTE", "E101_FORMULA", "e101_formula"]
+           "justified_range", "TT_NOTE", "E101_FORMULA", "e101_formula",
+           "BAND_TRIM_MIN_READINGS", "TYPED_VALUE_BAND_PCT", "HOLDING_DISCOUNT_PCT",
+           "HOLDING_DISCOUNT_STEP_PP", "FAMILY_RULE_TEXT"]

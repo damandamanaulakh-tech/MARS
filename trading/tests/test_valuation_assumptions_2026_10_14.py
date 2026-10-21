@@ -54,7 +54,10 @@ def _eval(ticker, **kw):
 
 
 def test_the_registry_mirrors_every_module_default():
-    assert len(ASM.EDITABLE) == 50
+    # batch 2 (owner 2026-10-21): + range.typed_value_band_pct (VAL-01 / VAL-14b)
+    assert len(ASM.EDITABLE) == 51
+    assert ASM.defaults()["range.typed_value_band_pct"] == float(
+        getattr(SC, "TYPED_VALUE_BAND_PCT", 15.0)) == 15.0
     d = ASM.defaults()
     for name, cell, val, _label in SC._A:                 # the sheet's 29
         assert d[f"sheet.{name}"] == float(val), name
@@ -116,8 +119,12 @@ def test_split_routes_every_key_to_the_argument_that_consumes_it():
 def test_a_draft_changes_exactly_what_it_names_and_the_defaults_stay():
     before = (dict(SC.CASE_DELTAS["upside"]), int(S.ASSUMED["publication_lag_days"]),
               float(A.ASSUMED["max_range_width_pct"]["value"]))
-    a = _eval("TCS.NS")
-    b = _eval("TCS.NS", overrides={"case.upside.revenue_growth_pct": 15.0,
+    # 3 own readings: the VAL-03 trim (4+ readings, owner 2026-10-21) would
+    # narrow the 4-reading fixture band and judge TCS without the draft
+    hist3 = lambda s: [18.0, 24.0, 30.0]                   # noqa: E731
+    a = _eval("TCS.NS", own_pe_history=hist3)
+    b = _eval("TCS.NS", own_pe_history=hist3,
+              overrides={"case.upside.revenue_growth_pct": 15.0,
                                    "verdict.max_range_width_pct": 200.0,
                                    "snapshot.publication_lag_days": 60})
     assert a["drafted"] is False and b["drafted"] is True
@@ -148,7 +155,12 @@ def test_the_bank_route_reads_the_roe_step_and_erp_draft():
     assert a["route"]["family"] == "book"
     assert (a["range"]["low"], a["range"]["base"], a["range"]["high"]) != \
            (b["range"]["low"], b["range"]["base"], b["range"]["high"])
-    assert b["range"]["high"] < a["range"]["high"]        # a smaller ROE step = a narrower range
+    # a smaller ROE step = a narrower range. Batch 2 (VAL-02, owner 2026-10-21):
+    # the bank's ROE now reads ~14% on its average tangible book, so the lower
+    # ERP lifts every value more than the step trims the high — judge the width
+    wa = (a["range"]["high"] - a["range"]["low"]) / a["range"]["base"]
+    wb = (b["range"]["high"] - b["range"]["low"]) / b["range"]["base"]
+    assert wb < wa
     assert b["drafted"] and "range.equity_risk_premium_pct" in b["assumptions"]["drafted"]
 
 

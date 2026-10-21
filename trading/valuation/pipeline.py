@@ -23,10 +23,18 @@ ASSUMED (printed on the Den): the base-year drivers are the latest FY's
 own numbers (growth = last FY revenue growth, margin = last FY EBITDA
 margin, PAT/EBITDA = last FY, payout = last FY); forward net cash =
 base-year net cash; the currency effect applies to IT exporters only;
-peers = the same route among the Nifty-200 statement set; mid-cycle
-EBITDA for metals = the 5-year mean; publication date = period end +
-45 days (snapshot.py); case deltas (scenarios.py); verdict bands
-(assess.py).
+peers = the same route among the Nifty-200 statement set (a typed peer
+list replaces them); mid-cycle MARGIN for the metals row only;
+publication date = period end + 45 days (snapshot.py); case deltas
+(scenarios.py); verdict bands (assess.py).
+
+Batch 2 (owner choices 2026-10-21): the target starts from NORMALISED
+PAT on every route (VAL-08); own P/E history on each year's normalised
+PAT and own share count, odd years flagged (VAL-14a); one EV rule for the
+stock and its peers (VAL-12a); lenders on filed net worth / tangible
+book with ROE on the average book (VAL-02); power is not a lender
+(VAL-12b); typed NAV / embedded value, holding-company and conglomerate
+sum-of-parts (VAL-01 / VAL-14b).
 """
 from __future__ import annotations
 
@@ -46,7 +54,7 @@ from trading.valuation import terms as T
 
 log = logging.getLogger(__name__)
 
-VERSION = "2026-10-14"
+VERSION = "2026-10-21"
 CR = 1e7                              # rupees → crore (the sheet's unit)
 
 ASSUMED: Dict[str, dict] = {
@@ -69,11 +77,57 @@ ASSUMED: Dict[str, dict] = {
                  "names with statements",
         "source": "ASSUMED here until the owner supplies peer groups (task book ask)"},
     "midcycle_ebitda": {
-        "value": "mean EBITDA per share over the available FYs (≥3) for metals",
-        "source": "ASSUMED here — task book: 'EV/EBITDA at MID-CYCLE margin'"},
+        "value": "metals row only: each case's EBITDA = E19 − E17 × (base-case margin E21 − "
+                 "mean EBITDA margin of the stored FYs) ÷ 100, ÷ shares E28 (needs 3+ FYs); "
+                 "every other EV row: the case's own EBITDA ÷ shares, no mid-cycle",
+        "source": "owner choice 2026-10-21 (VAL-07): the sector table's 'EV/EBITDA at "
+                  "MID-CYCLE margin', metals row only"},
     "min_history_for_own_band": {
         "value": 3, "source": "ASSUMED here: fewer FY-end multiples = no own band"},
+    "ev_rule": {
+        "value": "EV = price × shares + debt − cash − short-term investments + minorities, "
+                 "for the stock AND its peers; equity per share = EBITDA per share × "
+                 "multiple − (debt − cash − short-term investments) ÷ shares − minorities "
+                 "÷ shares",
+        "source": "owner choice 2026-10-21 (VAL-12a); 'Other Short Term Investments' counts "
+                  "as cash; a line the feed leaves out counts 0"},
+    "target_starts_from": {
+        "value": "normalised PAT (stage 11) on every route when it is a number, else "
+                 "reported PAT, labelled",
+        "source": "owner choice 2026-10-21 (VAL-08), banks included"},
+    "own_history_basis": {
+        "value": "FY-end close ÷ (normalised PAT ÷ that FY's own period-end share count); "
+                 "basic EPS when either is missing, labelled",
+        "source": "owner choice 2026-10-21 (VAL-14a)"},
+    "eps_spike_ratio": {
+        "value": 1.5,
+        "source": "owner choice 2026-10-21 (VAL-14a): an INTERIOR FY whose EPS is above "
+                  "1.5× or below 1/1.5× BOTH neighbours is flagged and shown, never dropped "
+                  "(end years are not judged) — ASSUMED"},
+    "lender_book": {
+        "value": "book = the bank's FILED net worth when the feed's equity differs from it "
+                 "by more than 10%, else the feed's tangible book (same rule each year); "
+                 "ROE = PAT ÷ average(book this FY, book last FY), year-end alone when "
+                 "only one year is on file; BVPS = book ÷ shares; peer P/B on the same book",
+        "source": "owner choice 2026-10-21 (VAL-02) — bank and NBFC routes only"},
+    "lender_filing_tolerance_pct": {
+        "value": 10.0, "source": "owner choice 2026-10-21 (VAL-02)"},
+    "quality_warning_below": {
+        "value": 50.0,
+        "source": "ASSUMED here 2026-10-21 (VAL-08): a quality score below this prints a "
+                  "warning beside the verdict — never a gate"},
+    "segment_default_peers": {
+        "value": {"O2C": ["IOC", "BPCL", "HINDPETRO"], "Oil & Gas": ["ONGC", "OIL"],
+                  "Retail": ["DMART", "TRENT"], "Digital": ["BHARTIARTL"],
+                  "Others": ["IOC", "BPCL", "HINDPETRO"]},
+        "source": "owner choice 2026-10-21 (VAL-01): default segment multiple = median "
+                  "EV/EBIT of these peers (HPCL trades as HINDPETRO); a typed segment "
+                  "multiple, then a typed peer list, replaces it"},
 }
+
+#: Peer base layout version (VAL-12a / VAL-02 / VAL-01 added fields). The
+#: Den's stored peer base is rebuilt when this or the code hash moves.
+PEER_BASE_VERSION = 3
 
 KEY_TERM_KIND: Dict[str, str] = {
     # how the Den prints each term's value: pct / x / inr / num
@@ -161,7 +215,8 @@ def failed_record(ticker: str, why: str) -> dict:
         "asof": None, "drafted": False,
         "route": {"status": "UNDECLARED", "label": "", "label_source": "", "method": None,
                   "family": None, "sector": "", "basis": "", "per_share_metric": "",
-                  "rule": why, "overlays": []},
+                  "rule": why, "overlays": [], "sector_method": None,
+                  "sector_family": None},
         "snapshot": {"status": "DATA_NEEDED", "why": why, "period_end": None,
                      "publication_date": None, "publication_assumed": None,
                      "currency": "", "converted": False, "fx": "", "basis": "",
@@ -170,18 +225,22 @@ def failed_record(ticker: str, why: str) -> dict:
                    "note": why},
         "earnings": {"status": "DATA_NEEDED", "why": why, "reported_pat": None,
                      "normalised_pat": None, "reported_eps": None, "normalised_eps": None,
-                     "n_adjustments": 0, "matches_yahoo": None},
+                     "n_adjustments": 0, "matches_yahoo": None, "target_starts_from": ""},
         "quality": {"score": None, "why": why, "flags": [], "cash_conversion": None,
                     "net_debt_ebitda": None, "interest_cover": None},
         "scenarios": {"status": "DATA_NEEDED", "why": why, "eps": {}, "drivers": {},
                       "pe_bridge_pct": None, "macro_data_needed": []},
         "range": {"status": "DATA_NEEDED", "why": why, "low": None, "base": None,
-                  "high": None, "method_text": "", "multiple_band": None},
+                  "high": None, "method_text": "", "multiple_band": None,
+                  "inverted": False, "inverted_note": "", "whatif": None,
+                  "route_family": None, "single_route": None, "own_history": [],
+                  "own_history_source": "computed"},
         "verdict": {"verdict": "insufficient", "upside_to_base_pct": None,
-                    "reasons": [why]},
+                    "reasons": [why], "warnings": []},
         "terms_rows": [], "data_needed": [why],
         "assumptions": {"drafted": [], "drafted_effective": [], "drafted_no_effect": [],
-                        "drafted_values": {}},
+                        "drafted_values": {}, "live_inputs": {}, "no_effect_keys": []},
+        "owner_inputs": None,
         "error": why, "range_flags": _range_flags("", {}, {}, {}, {}),
         "detail": {"error": d},
     }
@@ -193,15 +252,212 @@ def failed_record(ticker: str, why: str) -> dict:
 LENDER_METHODS = ("bank_pb_roe", "nbfc_pb")
 #: The power / utilities route (VAL-12b reads it on the book family).
 POWER_METHODS = ("power_regulated",)
-#: How peer_rows_from_base builds a peer's EV — no short-term investments
-#: and no minorities. The stock's own EV route subtracts both (VAL-12a).
-PEER_EV_RULE = "peer EV = price × shares + total debt − cash"
+#: How peer_rows_from_base builds a peer's EV — the SAME rule as the
+#: stock's own equity bridge (VAL-12a, owner choice 2026-10-21).
+PEER_EV_RULE = ("peer EV = price × shares + total debt − cash − short-term "
+                "investments + minorities (the same rule as the stock)")
 
 
-def _sti_value(snap: dict) -> Optional[float]:
-    """Short-term investments at the snapshot's period end (rupees)."""
-    h = (snap.get("extra") or {}).get("short_term_investments")
-    return num(h.get(snap.get("period_end"))) if isinstance(h, dict) else None
+def _sti(snap: dict, period: Optional[str] = None) -> Optional[float]:
+    """Short-term investments (Yahoo 'Other Short Term Investments', rupees)
+    at `period` (default the snapshot's period end). The ONE definition the
+    stock's net cash, its EV bridge, the peer EV and the quality check use
+    (VAL-12a); None when the feed leaves the line out (counted 0)."""
+    return N._extra(snap, "short_term_investments", period)
+
+
+# ------------------------------------------------- own P/E history (VAL-14a)
+
+def own_pe_rows(snap: dict, price_at: Callable[[Any], Optional[float]],
+                ne: Optional[dict] = None) -> List[dict]:
+    """The stock's own FY-end P/E readings, oldest first (owner choice
+    2026-10-21, VAL-14a): FY-end close ÷ (normalised PAT ÷ THAT year's own
+    period-end share count); basic EPS when either is missing (labelled).
+    An interior year whose EPS is above eps_spike_ratio × or below
+    1/eps_spike_ratio × BOTH neighbours is FLAGGED (shown, never dropped —
+    the band's trim removes extremes); end years are never judged.
+    Rows {period, eps, eps_basis, shares, price, pe, flag}. Pure."""
+    ne = ne if isinstance(ne, dict) else N.normalised_earnings(snap)
+    norm = ne.get("history") if isinstance(ne.get("history"), dict) else {}
+    shares_h = _hist(snap, "shares_outstanding")
+    eps_h = _hist(snap, "basic_eps")
+    rows: List[dict] = []
+    for p in sorted(set(norm) | set(eps_h)):
+        n, sh = num(norm.get(p)), shares_h.get(p)
+        if n is not None and sh:
+            eps, basis = n / sh, "normalised PAT ÷ that FY's period-end shares"
+        elif eps_h.get(p) is not None:
+            eps = eps_h[p]
+            basis = ("basic EPS — " + ("that FY's share count missing" if n is not None
+                                       else "normalised PAT missing for that FY"))
+        else:
+            continue
+        try:
+            px = price_at(p)
+        except Exception:                                 # noqa: BLE001
+            px = None
+        px = num(px)
+        pe = px / eps if (px and eps and eps > 0) else None
+        rows.append({"period": p, "eps": eps, "eps_basis": basis, "shares": sh,
+                     "price": px, "pe": pe, "flag": None})
+    k = float(ASSUMED["eps_spike_ratio"]["value"])
+    for i in range(1, len(rows) - 1):
+        e, a, b = rows[i]["eps"], rows[i - 1]["eps"], rows[i + 1]["eps"]
+        if not (e > 0 and a > 0 and b > 0):
+            continue
+        if e > k * a and e > k * b:
+            rows[i]["flag"] = (f"odd year: EPS {e:,.2f} is above {k:g}× both neighbours "
+                               f"({a:,.2f}, {b:,.2f}) — shown, not dropped")
+        elif e < a / k and e < b / k:
+            rows[i]["flag"] = (f"odd year: EPS {e:,.2f} is below 1/{k:g} of both neighbours "
+                               f"({a:,.2f}, {b:,.2f}) — shown, not dropped")
+    return rows
+
+
+# ------------------------------------------------- outside data (builder D)
+
+def _filing_net_worth(sym: str, period: Optional[str]) -> Optional[tuple]:
+    """(net worth ₹ crore, source) the lender FILED for `period`, from
+    data/lender_networth_filings.csv via trading.valuation.filings; None
+    when the module or the row is missing."""
+    if not period:
+        return None
+    try:
+        from trading.valuation import filings as _FL
+        got = _FL.net_worth(sym, str(period)[:10])
+    except Exception:                                     # noqa: BLE001
+        return None
+    if not got:
+        return None
+    try:
+        cr, src = float(got[0]), str(got[1] if len(got) > 1 else "filing")
+    except (TypeError, ValueError, IndexError):
+        return None
+    return (cr, src) if cr > 0 else None
+
+
+def _lender_book(sym: str, snap: dict, period: Optional[str]) -> tuple:
+    """(book ₹ crore or None, basis text) for a lender at one FY end
+    (VAL-02, owner choice 2026-10-21): the FILED net worth when the feed's
+    equity differs from it by more than 10%, else the feed's tangible book;
+    a missing filing → tangible book, labelled; no tangible line → the
+    feed's equity, labelled."""
+    if not period:
+        return None, "no period"
+    feed = _hist(snap, "equity").get(period)
+    if feed is None and period == snap.get("period_end"):
+        feed = _f(snap, "equity")
+    tb = N._extra(snap, "tangible_book", period)
+    filing = _filing_net_worth(sym, period)
+    tol = float(ASSUMED["lender_filing_tolerance_pct"]["value"])
+    if filing is not None:
+        f_cr, f_src = filing
+        if feed is None:
+            return f_cr, f"filed net worth ₹{f_cr:,.0f} cr ({f_src}); no feed equity"
+        gap = abs(feed / CR - f_cr) / f_cr * 100
+        if gap > tol:
+            return f_cr, (f"filed net worth ₹{f_cr:,.0f} cr ({f_src}) — the feed's equity "
+                          f"₹{feed / CR:,.0f} cr is {gap:.0f}% off it")
+        if tb is not None and tb > 0:
+            return tb / CR, (f"feed tangible book (the feed's equity is within {tol:g}% of "
+                             f"the filing, {gap:.1f}%)")
+        # reviewer defect 9 (2026-10-21): no tangible line, but the equity
+        # WAS checked against the filing — say so (it is not unchecked)
+        return feed / CR, (f"feed equity checked against the filing (within {tol:g}% of "
+                           f"the filed net worth ₹{f_cr:,.0f} cr, {gap:.1f}% off; {f_src}) "
+                           "— no tangible-book line")
+    if tb is not None and tb > 0:
+        return tb / CR, ("feed tangible book (Yahoo 'Tangible Book Value')" +
+                         ("" if filing is not None else " — no filing on file"))
+    if feed is not None:
+        return feed / CR, "feed equity — no tangible-book line, no filing on file"
+    return None, "no book on file"
+
+
+def _segment_rows(sym: str) -> List[dict]:
+    """Segment EBIT rows {segment, ebit_cr, fy_end, source} of a
+    conglomerate (data/segment_ebit.csv via trading.valuation.segments);
+    [] when the module or the rows are missing."""
+    try:
+        from trading.valuation import segments as _SG
+        rows = _SG.segment_ebit(sym) or []
+    except Exception:                                     # noqa: BLE001
+        return []
+    return [dict(r) for r in rows if isinstance(r, dict)]
+
+
+def _holdco_rows(sym: str) -> List[dict]:
+    """Listed-stake rows of a holding company (data/holdco_stakes.csv via
+    trading.valuation.segments); [] when missing."""
+    try:
+        from trading.valuation import segments as _SG
+        rows = _SG.holdco_stakes(sym) or []
+    except Exception:                                     # noqa: BLE001
+        return []
+    return [dict(r) for r in rows if isinstance(r, dict)]
+
+
+def _bare(t: Any) -> str:
+    t = str(t or "").strip().upper()
+    return t[:-3] if t.endswith((".NS", ".BO")) else t
+
+
+def _peer_index(peer_rows: Any) -> Dict[str, dict]:
+    """{SYMBOL: priced peer row} from what the caller injected: the priced
+    table {method: [rows]} (peer_rows_from_base), a flat {ticker: row} or a
+    list of rows."""
+    try:
+        tbl = peer_rows() if callable(peer_rows) else peer_rows
+    except Exception:                                     # noqa: BLE001
+        return {}
+    out: Dict[str, dict] = {}
+    if isinstance(tbl, dict):
+        for k, v in tbl.items():
+            if isinstance(v, list):
+                for r in v:
+                    if isinstance(r, dict) and r.get("ticker"):
+                        out[_bare(r["ticker"])] = dict(r, method=r.get("method") or k)
+            elif isinstance(v, dict):
+                out[_bare(v.get("ticker") or k)] = dict(v)
+    elif isinstance(tbl, list):
+        for r in tbl:
+            if isinstance(r, dict) and r.get("ticker"):
+                out[_bare(r["ticker"])] = dict(r)
+    return out
+
+
+def _median_of(index: Dict[str, dict], tickers: List[str], key: str,
+               exclude: str = "") -> tuple:
+    """(median of `key` over the named tickers, [tickers used])."""
+    used, xs = [], []
+    for t in tickers:
+        b = _bare(t)
+        if not b or b == _bare(exclude):
+            continue
+        v = num((index.get(b) or {}).get(key))
+        if v is not None and v > 0:
+            xs.append(v)
+            used.append(b)
+    if not xs:
+        return None, []
+    xs.sort()
+    n = len(xs)
+    m = xs[n // 2] if n % 2 else (xs[n // 2 - 1] + xs[n // 2]) / 2.0
+    return m, used
+
+
+def _segment_key(name: str) -> str:
+    """A segment label → the default-peer group it belongs to."""
+    s = str(name or "").upper().replace("&", " AND ")
+    if "O2C" in s or "OIL TO CHEMICAL" in s or "REFIN" in s or "PETROCHEM" in s:
+        return "O2C"
+    if "OIL" in s and "GAS" in s or "EXPLORATION" in s or "UPSTREAM" in s:
+        return "Oil & Gas"
+    if "RETAIL" in s:
+        return "Retail"
+    if "DIGITAL" in s or "JIO" in s or "TELECOM" in s:
+        return "Digital"
+    return "Others"
 
 
 def _case_values(family: str, rng: dict) -> Dict[str, Optional[float]]:
@@ -221,38 +477,57 @@ def _case_values(family: str, rng: dict) -> Dict[str, Optional[float]]:
     return {c: num(ps.get(c)) for c in SC.CASES}
 
 
-def _range_flags(family: str, rt: dict, rng: dict, kw: dict, snap: dict) -> dict:
+def _range_flags(family: str, rt: dict, rng: dict, kw: dict, snap: dict,
+                 facts: Optional[dict] = None) -> dict:
     """Plain facts the Den's known-fault lines read (VAL-01/02/07/12),
     so no rule has to parse note text. Facts only — the rules live in
-    the Den."""
+    the Den. `facts` = what the pipeline decided for this row (lender
+    book basis, typed peer list, sum-of-parts variant)."""
     rt = rt or {}
     rng = rng if isinstance(rng, dict) else {}
     kw = kw or {}
     snap = snap or {}
+    facts = facts or {}
     vals = _case_values(family, rng)
     inverted = False
     printed: Dict[str, Optional[str]] = {"low": None, "base": None, "high": None}
     if all(vals[c] is not None for c in SC.CASES):
         inverted = not (vals["downside"] <= vals["base"] <= vals["upside"])
-        order = sorted(SC.CASES, key=lambda c: vals[c])
-        printed = {"low": order[0], "base": order[1], "high": order[2]}
+        if "inverted" in rng:
+            # stage 17 never sorts (VAL-07, owner 2026-10-21): low IS the
+            # downside case, high the upside case
+            printed = {"low": "downside", "base": "base", "high": "upside"}
+        else:
+            order = sorted(SC.CASES, key=lambda c: vals[c])
+            printed = {"low": order[0], "base": order[1], "high": order[2]}
+    if "inverted" in rng:
+        inverted = bool(rng.get("inverted")) or inverted
     method = rt.get("method")
     shares = _f(snap, "shares_outstanding")
-    sti = _sti_value(snap)
+    sti = _sti(snap)
     is_ev = family in ("ev_ebitda", "ev_sales")
+    midcycle = bool(is_ev and (kw.get("per_share_overrides") or {}))
     return {
         "family": family or None, "method": method, "sector": rt.get("sector") or "",
         "case_values": vals, "inverted": inverted,
+        "inverted_note": str(rng.get("inverted_note") or "") if inverted else "",
         "printed_case": printed, "printed_base_case": printed["base"],
-        "midcycle_base": bool((kw.get("per_share_overrides") or {}).get("base") is not None),
+        # kept name; since 2026-10-21 = the metals mid-cycle MARGIN on all three cases
+        "midcycle_base": midcycle, "midcycle_margin": midcycle,
         "net_debt_per_share": num(kw.get("net_debt_per_share")) if is_ev else None,
         "minorities_per_share": num(kw.get("minorities_per_share")) if is_ev else None,
         "short_term_investments_per_share": (sti / shares if (is_ev and sti is not None
                                                               and shares) else None),
         "peer_ev_rule": PEER_EV_RULE if is_ev else "",
+        "ev_rule_unified": bool(is_ev),
         "lender": method in LENDER_METHODS,
         "power_utility": method in POWER_METHODS,
         "book_route": family in ("book", "nav"),
+        "lender_book_source": facts.get("lender_book_source"),
+        "lender_book_basis": facts.get("lender_book_basis") or "",
+        "peer_list": list(facts.get("peer_list") or []) or None,
+        "sum_of_parts": facts.get("sum_of_parts"),
+        "target_starts_from": facts.get("target_starts_from") or "",
     }
 
 
@@ -270,7 +545,10 @@ def _route_block(rt: dict) -> dict:
             "sector": rt.get("sector") or "", "basis": rt.get("basis") or "",
             "per_share_metric": rt.get("per_share_metric") or "",
             "rule": rt.get("rule") or "", "overlays": overlays,
-            "nearest": rt.get("nearest")}
+            "nearest": rt.get("nearest"),
+            # a conglomerate's sector route, kept beside its sum-of-parts
+            "sector_method": rt.get("sector_method"),
+            "sector_family": rt.get("sector_family")}
 
 
 def _snapshot_block(snap: dict) -> dict:
@@ -348,8 +626,20 @@ def _quality_block(q: dict) -> dict:
 
 # ------------------------------------------------------------ scenarios
 
-def _base_year(snap: dict, price_at: Callable[[Any], Optional[float]]) -> tuple[dict, List[str]]:
-    """The sheet's column D from the snapshot, in ₹ crore / crore shares."""
+def target_pat(ne: Optional[dict], snap: dict) -> tuple[Optional[float], str]:
+    """(PAT in rupees, basis) the target starts from (VAL-08, owner choice
+    2026-10-21): normalised PAT on every route when it is a number, else
+    reported PAT, labelled."""
+    n = num((ne or {}).get("normalised_pat")) if isinstance(ne, dict) else None
+    if n is not None:
+        return n, "normalised"
+    return _f(snap, "net_income_common"), "reported (normalised DATA_NEEDED)"
+
+
+def _base_year(snap: dict, price_at: Callable[[Any], Optional[float]],
+               ne: Optional[dict] = None) -> tuple[dict, List[str]]:
+    """The sheet's column D from the snapshot, in ₹ crore / crore shares.
+    PAT = normalised PAT when `ne` carries it, else reported (VAL-08)."""
     notes: List[str] = []
     rev = _f(snap, "revenue")
     ebitda = _f(snap, "ebitda")
@@ -358,7 +648,9 @@ def _base_year(snap: dict, price_at: Callable[[Any], Optional[float]]) -> tuple[
         if oi is not None and da is not None:
             ebitda = oi + da
             notes.append("EBITDA = operating income + D&A (no EBITDA line)")
-    pat = _f(snap, "net_income_common")
+    pat, pat_basis = target_pat(ne, snap)
+    if pat_basis != "normalised":
+        notes.append("target starts from REPORTED PAT — normalised PAT is DATA_NEEDED")
     tax = _f(snap, "tax")
     emp = _f(snap, "employee_cost")
     if emp is None:
@@ -367,9 +659,7 @@ def _base_year(snap: dict, price_at: Callable[[Any], Optional[float]]) -> tuple[
                      "driver is disabled (counted 0)")
     shares = _f(snap, "shares_outstanding")
     cash = _f(snap, "cash")
-    sti = num(((snap.get("extra") or {}).get("short_term_investments") or {}).get(
-        snap.get("period_end"))) if isinstance((snap.get("extra") or {}).get(
-            "short_term_investments"), dict) else None
+    sti = _sti(snap)
     debt = _f(snap, "total_debt")
     equity = _f(snap, "equity")
     div_paid = _f(snap, "dividends_paid")
@@ -449,11 +739,23 @@ def _market(macro: dict, snap: dict, route: dict, peer_pe: Optional[float],
             s = e = 100.0
             missing.append(f"{a.split('_')[0]} level since the period end — counted 0")
         m[a], m[b] = s, e
-    for k in ("repo", "cpi", "gdp", "brent"):
-        pass
-    m["repo_start"] = m["repo_end"] = num(macro.get("repo_pct")) or 0.0
-    if num(macro.get("repo_pct")) is None:
-        missing.append("RBI repo rate — no feed wired; counted 0")
+    # repo: the rate at the base period end vs now (item 10, owner 2026-10-21 —
+    # the two were set to the same number before, so the row always read 0)
+    r0, r1 = num(macro.get("repo_start_pct")), num(macro.get("repo_end_pct"))
+    if r1 is None:
+        r1 = num(macro.get("repo_pct"))                  # older callers: today's rate
+    if r0 is None or r1 is None:
+        m["repo_start"] = m["repo_end"] = r1 if r1 is not None else (r0 or 0.0)
+        why = str(macro.get("repo_start_why") or macro.get("repo_why") or "").strip()
+        if r1 is None and r0 is None:
+            missing.append("RBI repo rate — no rate on file; counted 0"
+                           + (f" ({why})" if why else ""))
+        else:
+            side = "at the base period end" if r0 is None else "now"
+            missing.append(f"RBI repo rate {side} — DATA_NEEDED"
+                           + (f" ({why})" if why else "") + "; counted 0")
+    else:
+        m["repo_start"], m["repo_end"] = r0, r1
     m["cpi"] = num(macro.get("cpi_pct")) if num(macro.get("cpi_pct")) is not None else av["inflation_comfort_pct"]
     if num(macro.get("cpi_pct")) is None:
         missing.append("CPI — no feed wired (MOSPI / FRED); counted 0")
@@ -479,7 +781,10 @@ def _market(macro: dict, snap: dict, route: dict, peer_pe: Optional[float],
     i0, i1 = num(macro.get("inst_holding_start")), num(macro.get("inst_holding_end"))
     if i0 is None or i1 is None:
         i0 = i1 = 0.0
-        missing.append("institutional holding change — not wired into the chain; counted 0")
+        why = str(macro.get("inst_holding_why") or "").strip()
+        missing.append("institutional holding change — no FII + DII quarter on file for "
+                       "both the base period end and now; counted 0"
+                       + (f" ({why})" if why else ""))
     m["inst_holding_start"], m["inst_holding_end"] = i0, i1
     m["volume_ratio"] = 1.0
     if num(macro.get("delivery_pct")) is not None:
@@ -522,22 +827,108 @@ def _scenario_block(cases: dict, drivers: dict, macro_missing: List[str],
             "case_deltas": {c: (cases.get(c) or {}).get("case_deltas") for c in SC.CASES}}
 
 
+#: The multiple a typed peer list replaces, per route family (VAL-01).
+_PEER_KEY = {"earnings": "pe", "book": "pb", "nav": "pb", "ev_ebitda": "ev_ebitda",
+             "ev_sales": "ev_sales"}
+
+
+def _midcycle_margin_overrides(snap: dict, cases: dict) -> tuple[Optional[dict], str]:
+    """VAL-07 (owner choice 2026-10-21), metals row only: each case's EBITDA
+    = E19 − E17 × (base-case margin E21 − mean EBITDA margin of the stored
+    FYs) ÷ 100, ÷ shares E28. ({case: EBITDA per share}, note) or (None, why)."""
+    he, hr = _hist(snap, "ebitda"), _hist(snap, "revenue")
+    ms = [he[k] / hr[k] * 100 for k in he if hr.get(k)]
+    if len(ms) < 3:
+        return None, (f"mid-cycle margin needs 3+ FYs of EBITDA and revenue "
+                      f"({len(ms)} on file) — the cases' own EBITDA used")
+    cells = {c: ((cases.get(c) or {}).get("cells") or {}) for c in SC.CASES}
+    m0 = num(cells["base"].get("E21"))
+    if m0 is None:
+        return None, "the base case carries no margin (E21) — the cases' own EBITDA used"
+    mm = sum(ms) / len(ms)
+    out: Dict[str, float] = {}
+    for c in SC.CASES:
+        e19, e17, e28 = (num(cells[c].get(k)) for k in ("E19", "E17", "E28"))
+        if e19 is None or e17 is None or not e28:
+            return None, f"{c} case lacks EBITDA / revenue / shares — the cases' own EBITDA used"
+        out[c] = (e19 - e17 * (m0 - mm) / 100.0) / e28
+    return out, (f"metals mid-cycle MARGIN {mm:.2f}% (mean of {len(ms)} FYs) in place of the "
+                 f"base-year {m0:.1f}% on all three cases (owner choice 2026-10-21)")
+
+
+def _prior_period(snap: dict, period: Optional[str]) -> Optional[str]:
+    """The FY end before `period` that carries an equity or tangible-book line."""
+    tb = (snap.get("extra") or {}).get("tangible_book")
+    ps = set(_hist(snap, "equity")) | (set(tb) if isinstance(tb, dict) and not is_dn(tb)
+                                       else set())
+    ps = sorted(p for p in ps if period and p < period)
+    return ps[-1] if ps else None
+
+
+def _lender_inputs(sym: str, snap: dict, base: dict) -> tuple[Optional[float], Optional[float],
+                                                              str, dict]:
+    """(ROE %, BVPS, note, facts) for a lender on the VAL-02 book."""
+    pe = snap.get("period_end")
+    book, basis = _lender_book(sym, snap, pe)
+    facts = {"lender_book_basis": basis,
+             "lender_book_source": ("filing" if basis.startswith("filed") else
+                                    "tangible" if basis.startswith("feed tangible") else
+                                    "filing_checked" if basis.startswith("feed equity checked")
+                                    else "feed_equity" if basis.startswith("feed equity")
+                                    else None)}
+    if book is None or not base.get("shares") or base.get("pat") is None:
+        return None, None, f"lender book: {basis}", facts
+    prev_p = _prior_period(snap, pe)
+    prev, prev_basis = _lender_book(sym, snap, prev_p) if prev_p else (None, "")
+    if prev is not None and prev > 0:
+        roe = base["pat"] / ((book + prev) / 2.0) * 100
+        note = (f"lender book {pe}: {basis}; {prev_p}: {prev_basis}; ROE = PAT ÷ average "
+                f"book = {roe:.2f}% (owner choice 2026-10-21, VAL-02)")
+    else:
+        roe = base["pat"] / book * 100
+        note = (f"lender book {pe}: {basis}; ROE = PAT ÷ YEAR-END book = {roe:.2f}% — only "
+                "one year's book on file (VAL-02)")
+    facts["lender_roe_pct"] = roe
+    return roe, book / base["shares"], note, facts
+
+
 def _range_inputs(family: str, snap: dict, base: dict, cases: dict, peers: dict,
-                  own_pe_hist: List[float], macro: dict,
-                  ov: Optional[dict] = None) -> dict:
+                  own_pe_hist: List[Any], macro: dict,
+                  ov: Optional[dict] = None, *, method: Optional[str] = None,
+                  sym: str = "", owner: Optional[dict] = None,
+                  peer_index: Optional[Dict[str, dict]] = None,
+                  price_of: Optional[Callable[[str], Optional[float]]] = None,
+                  segments: Optional[List[dict]] = None) -> dict:
     """The keyword arguments justified_range needs for this family. `ov` =
-    the Den draft's range inputs (ERP, long-run g, ROE step) by name."""
+    the Den draft's range inputs (ERP, long-run g, ROE step, typed-value
+    band) by name; `owner` = the symbol's row of the Den inputs table.
+    Private keys (popped by evaluate): _midcycle_note, _growth_note,
+    _peer_note, _facts."""
     kw: Dict[str, Any] = {}
     ov = ov or {}
+    owner = owner if isinstance(owner, dict) else {}
+    peer_index = peer_index or {}
+    facts: Dict[str, Any] = {}
     shares = _f(snap, "shares_outstanding")
     if family == "earnings":
         kw["peer_multiple"] = peers.get("pe_median")
-        kw["own_multiple_history"] = own_pe_hist if len(own_pe_hist) >= int(
+        usable = [h for h in (own_pe_hist or [])
+                  if (num(h.get("pe")) if isinstance(h, dict) else num(h)) is not None]
+        kw["own_multiple_history"] = usable if len(usable) >= int(
             ASSUMED["min_history_for_own_band"]["value"]) else None
     elif family in ("book", "nav"):
-        roe = (base["pat"] / base["equity"] * 100) if (base.get("pat") is not None and base.get("equity")) else None
+        lender = method in LENDER_METHODS
+        lender_note = ""
+        if lender:
+            roe, bvps, lender_note, lf = _lender_inputs(sym, snap, base)
+            facts.update(lf)
+        else:
+            roe = (base["pat"] / base["equity"] * 100) if (base.get("pat") is not None
+                                                            and base.get("equity")) else None
+            bvps = (base["equity"] / base["shares"]) if (base.get("equity") is not None
+                                                          and base.get("shares")) else None
         kw["roe_pct"] = roe
-        kw["bvps"] = (base["equity"] / base["shares"]) if (base.get("equity") is not None and base.get("shares")) else None
+        kw["bvps"] = bvps
         kw["rf_pct"] = num(macro.get("rf_pct"))
         kw["beta"] = num(macro.get("beta")) if num(macro.get("beta")) is not None else float(
             SC.SHEET_ASSUMPTIONS["beta"]["value"])
@@ -559,7 +950,11 @@ def _range_inputs(family: str, snap: dict, base: dict, cases: dict, peers: dict,
             kw["growth_pct"] = min(g_lr, g_sus)
             kw["_growth_note"] = (f"g = min(long-run {g_lr:g}%, sustainable ROE × (1 − payout) = "
                                   f"{g_sus:.1f}%) (ASSUMED here)")
-        if family == "nav":
+        if lender_note:
+            kw["_growth_note"] = (lender_note + " · " + kw.get("_growth_note", "")).strip(" ·")
+        if family == "nav" and num(owner.get("nav_ps")) is None:
+            # reviewer defect 3 (2026-10-21): with a typed NAV the range IS
+            # the NAV — the fallback note belongs to the untyped case only
             kw["_growth_note"] = ("NAV not held — P/B fallback shown with " +
                                   kw.get("_growth_note", "the book-route inputs"))
     elif family in ("ev_ebitda", "ev_sales"):
@@ -576,25 +971,119 @@ def _range_inputs(family: str, snap: dict, base: dict, cases: dict, peers: dict,
                 # FY's figure is only the fallback when no case exists
                 if not cases:
                     kw["ebitda_per_share"] = ebitda / shares
-                hist = _hist(snap, "ebitda")
-                if len(hist) >= 3:
-                    # base case = mid-cycle EBITDA per share; the downside /
-                    # upside keep the scenario chain's own EBITDA so the range
-                    # has a width (a point band would read as false precision)
-                    mid = sum(hist.values()) / len(hist) / shares
-                    kw["per_share_overrides"] = {"base": mid}
-                    kw["_midcycle_note"] = (f"base = mid-cycle EBITDA/share, mean of {len(hist)} FYs "
-                                            f"({ASSUMED['midcycle_ebitda']['source']})")
+                elif method == "metals_midcycle":
+                    ovr, note = _midcycle_margin_overrides(snap, cases)
+                    if ovr:
+                        kw["per_share_overrides"] = ovr
+                    kw["_midcycle_note"] = note
             if family == "ev_sales" and rev is not None:
                 kw["ebitda_per_share"] = rev / shares     # the module reads revenue/share here
+        kw["peer_multiple"] = peers.get("ev_ebitda_median") if family == "ev_ebitda" else peers.get("ev_sales_median")
+    if family in ("ev_ebitda", "ev_sales") or segments:
+        # one EV rule (VAL-12a): net debt takes short-term investments off,
+        # minorities are added back to the claim on the EV
+        if shares:
             debt, cash = _f(snap, "total_debt"), _f(snap, "cash")
-            sti = _sti_value(snap)
+            sti = _sti(snap)
             if debt is not None and cash is not None:
                 kw["net_debt_per_share"] = (debt - cash - (sti or 0.0)) / shares
             mi = _f(snap, "minority_interest_bs")
             kw["minorities_per_share"] = (mi / shares) if mi is not None else 0.0
-        kw["peer_multiple"] = peers.get("ev_ebitda_median") if family == "ev_ebitda" else peers.get("ev_sales_median")
+
+    # a typed peer list replaces the route median (VAL-01, owner 2026-10-21)
+    plist = [str(x) for x in (owner.get("peer_list") or []) if str(x).strip()]
+    pkey = _PEER_KEY.get(family)
+    if plist and pkey:
+        m, used = _median_of(peer_index, plist, pkey, exclude=sym)
+        if m is not None:
+            kw["peer_multiple"] = m
+            facts["peer_list"] = used
+            if family in ("book", "nav"):
+                # reviewer defect 4 (2026-10-21): the book route prices on
+                # (ROE − g)/(COE − g) × BVPS; peer P/B only sits beside it
+                kw["_peer_note"] = (f"peer P/B cross-check only — median {pkey} {m:.2f} of "
+                                    f"YOUR peer list ({', '.join(used)}); the range does "
+                                    "not use it")
+            else:
+                kw["_peer_note"] = (f"peer multiple = median {pkey} {m:.2f} of YOUR peer "
+                                    f"list ({', '.join(used)}) in place of the route median")
+        else:
+            kw["_peer_note"] = (f"your peer list ({', '.join(plist)}) has no usable {pkey} in "
+                                "the peer table — the route median stays")
+
+    # owner inputs (typed NAV / EV / holding discount / segment multiples)
+    if owner:
+        kw["owner_inputs"] = dict(owner)
+    if num(ov.get("typed_value_band_pct")) is not None:
+        kw["typed_value_band_pct"] = float(ov["typed_value_band_pct"])
+
+    # holding company: listed stakes priced like the peers (VAL-14b)
+    if method == "holding_sotp":
+        stakes = _holdco_rows(sym)
+        if stakes:
+            kw["holdco_stakes"] = stakes
+            kw["subsidiary_prices"] = _subsidiary_prices(stakes, peer_index, price_of)
+            kw["shares_outstanding"] = shares
+            facts["sum_of_parts"] = "holding_company"
+
+    # conglomerate: segment EBIT × segment EV/EBIT (VAL-01)
+    if segments:
+        kw["segments"] = segments
+        kw["segment_multiples"] = _segment_multiples(segments, peer_index, owner, sym)
+        kw["shares_outstanding"] = shares
+        facts["sum_of_parts"] = "conglomerate"
+    kw["_facts"] = facts
     return kw
+
+
+def _subsidiary_prices(stakes: List[dict], peer_index: Dict[str, dict],
+                       price_of: Optional[Callable[[str], Optional[float]]]) -> Dict[str, float]:
+    """{SUBSIDIARY: price ₹} from the injected price source, else the peer
+    table's price (the same source the peers are priced from)."""
+    out: Dict[str, float] = {}
+    for r in stakes:
+        sub = _bare(r.get("subsidiary") or r.get("symbol") or r.get("ticker"))
+        if not sub:
+            continue
+        px = None
+        if price_of is not None:
+            try:
+                px = num(price_of(f"{sub}.NS"))
+            except Exception:                             # noqa: BLE001
+                px = None
+        if px is None:
+            px = num((peer_index.get(sub) or {}).get("price"))
+        if px is not None and px > 0:
+            out[sub] = px
+    return out
+
+
+def _segment_multiples(segments: List[dict], peer_index: Dict[str, dict],
+                       owner: dict, sym: str) -> Dict[str, dict]:
+    """{segment: {multiple, source, peers}} — median EV/EBIT of the
+    segment's default peers, or of the owner's typed peer list. A typed
+    segment multiple (owner_inputs.segment_multiples) wins inside
+    scenarios.justified_range."""
+    dflt = ASSUMED["segment_default_peers"]["value"]
+    plist = [str(x) for x in (owner.get("peer_list") or []) if str(x).strip()]
+    out: Dict[str, dict] = {}
+    for r in segments:
+        seg = str(r.get("segment") or "").strip()
+        if not seg:
+            continue
+        if plist:
+            peers_, src = plist, "median EV/EBIT of your typed peer list"
+        else:
+            key = _segment_key(seg)
+            peers_, src = list(dflt.get(key) or dflt["Others"]), (
+                f"median EV/EBIT of the default {key} peers (ASSUMED)")
+        m, used = _median_of(peer_index, peers_, "ev_ebit", exclude=sym)
+        # the group rides along even with no peer median, so a typed group
+        # name can still reach this segment (reviewer defect 1, 2026-10-21)
+        out[seg] = {"multiple": m, "group": _segment_key(seg),
+                    "source": f"{src}: {', '.join(used)}" if m is not None else "",
+                    "peers": used if m is not None else []}
+    return out
 
 
 def _fallback_block(fb: Any) -> Optional[dict]:
@@ -608,16 +1097,46 @@ def _fallback_block(fb: Any) -> Optional[dict]:
             "method_text": fb.get("method_text") or ""}
 
 
+def _whatif_block(w: Any) -> Optional[dict]:
+    """VAL-09: the owner's sheet price per case (EPS × opening P/E × (1 +
+    bridge)) printed BESIDE the band range — never the range itself."""
+    if not isinstance(w, dict) or is_dn(w):
+        return None
+    out = {c: num(w.get(c)) for c in SC.CASES}
+    return out if any(v is not None for v in out.values()) else None
+
+
+def _single_route_block(r: Any) -> Optional[dict]:
+    """A conglomerate's single-route range, kept beside its sum-of-parts."""
+    if not isinstance(r, dict) or is_dn(r):
+        return None
+    lo, ba, hi = num(r.get("low")), num(r.get("base")), num(r.get("high"))
+    return {"family": r.get("family"), "low": lo, "base": ba, "high": hi,
+            "status": "OK" if None not in (lo, ba, hi) else "DATA_NEEDED",
+            "method_text": r.get("method_text") or ""}
+
+
+def _band_out(band: Any) -> Optional[dict]:
+    if isinstance(band, dict) and not is_dn(band) and num(band.get("low")) is not None:
+        out = {"low": num(band.get("low")), "mid": num(band.get("mid")),
+               "high": num(band.get("high")), "source": band.get("source") or ""}
+        if isinstance(band.get("dropped"), dict):
+            out["dropped"] = band["dropped"]          # VAL-03 trim: the two readings dropped
+        return out
+    return None
+
+
 def _range_block(rng: dict, extra_note: str = "") -> dict:
     lo, ba, hi = num(rng.get("low")), num(rng.get("base")), num(rng.get("high"))
-    band = rng.get("multiple_band")
-    band_out = None
-    if isinstance(band, dict) and not is_dn(band) and num(band.get("low")) is not None:
-        band_out = {"low": num(band.get("low")), "mid": num(band.get("mid")),
-                    "high": num(band.get("high")), "source": band.get("source") or ""}
+    band_out = _band_out(rng.get("multiple_band"))
     method = (rng.get("method_text") or "")
     if extra_note:
         method = f"{method} · {extra_note}"
+    common = {"inverted": bool(rng.get("inverted")),
+              "inverted_note": str(rng.get("inverted_note") or ""),
+              "whatif": _whatif_block(rng.get("whatif")),
+              "route_family": rng.get("route_family"),
+              "single_route": _single_route_block(rng.get("single_route"))}
     if None in (lo, ba, hi):
         why_src = rng.get("base") if is_dn(rng.get("base")) else (
             rng.get("low") if is_dn(rng.get("low")) else rng.get("high"))
@@ -627,19 +1146,40 @@ def _range_block(rng: dict, extra_note: str = "") -> dict:
         return {"status": "DATA_NEEDED", "why": why[:220], "low": lo, "base": ba, "high": hi,
                 "method_text": method, "multiple_band": band_out, "family": rng.get("family"),
                 "fallback": _fallback_block(rng.get("fallback")),
-                "notes": rng.get("notes") or []}
+                "notes": rng.get("notes") or [], "bridge": rng.get("bridge"), **common}
     return {"status": "OK", "why": "", "low": lo, "base": ba, "high": hi,
             "method_text": method, "multiple_band": band_out, "family": rng.get("family"),
             "vs_price_pct": rng.get("vs_price_pct"), "notes": rng.get("notes") or [],
-            "sensitivity": rng.get("sensitivity"), "bridge": rng.get("bridge")}
+            "sensitivity": rng.get("sensitivity"), "bridge": rng.get("bridge"), **common}
 
 
-def _verdict_block(v: dict) -> dict:
+def _verdict_block(v: dict, warnings: Optional[List[str]] = None) -> dict:
     return {"verdict": v.get("verdict") or "insufficient",
             "upside_to_base_pct": num(v.get("upside_to_base_pct")),
             "discount_to_low_pct": num(v.get("discount_to_low_pct")),
             "range_width_pct": num(v.get("range_width_pct")),
-            "reasons": [str(x) for x in (v.get("reasons") or [])]}
+            "reasons": [str(x) for x in (v.get("reasons") or [])],
+            "warnings": [str(x) for x in (warnings or [])]}
+
+
+def verdict_warnings(q: dict, bridge: dict) -> List[str]:
+    """VAL-08 (owner choice 2026-10-21): the earnings-quality score and an
+    unexplained share bridge print as WARNINGS beside the verdict — never
+    gates."""
+    out: List[str] = []
+    th = float(ASSUMED["quality_warning_below"]["value"])
+    sc = num((q or {}).get("score"))
+    if sc is not None and sc < th:
+        out.append(f"earnings quality {sc:.0f}/100 is below {th:g} (ASSUMED) — read the "
+                   "quality flags before trusting this target")
+    st = (bridge or {}).get("status")
+    if st == "unexplained":
+        pairs = [str(x) for x in ((bridge or {}).get("unexplained_pairs") or [])]
+        what = f" ({', '.join(pairs[:2])})" if pairs else ""
+        out.append("share count change not explained by a recorded split, bonus, buyback "
+                   f"or issue{what} — a merger, IPO or QIP may sit behind it; EPS years "
+                   "before it may not compare")
+    return out
 
 
 def _fmt(kind: str, v: Optional[float]) -> str:
@@ -679,19 +1219,26 @@ def _terms_rows(snap: dict, price: Optional[float], market: dict) -> List[dict]:
 
 #: The fundamentals each peer row needs, stored by `peer_base` so the
 #: multiples can be re-priced without re-opening 200 statements.
+#: 2026-10-21 (PEER_BASE_VERSION 3): + minorities and short-term
+#: investments (one EV rule, VAL-12a), EBIT (segment EV/EBIT, VAL-01) and
+#: the lender book (VAL-02).
 PEER_BASE_FIELDS = ("basic_eps", "shares_outstanding", "ebitda", "revenue",
-                    "total_debt", "cash", "equity")
+                    "total_debt", "cash", "equity", "minority_interest_bs")
 
 
 def peer_base(price_of: Callable[[str], Optional[float]], sector_map: dict,
               company_names: Optional[dict] = None) -> List[dict]:
     """The PRICE-FREE half of the peer table: one row per statement name
     {ticker, method, basic_eps, shares_outstanding, ebitda, revenue,
-    total_debt, cash, equity}. The price is passed to the snapshot only for
-    the ADR currency check (a USD-filed name converts at the period-end
+    total_debt, cash, equity, minority_interest_bs, short_term_investments,
+    ebit, book, book_basis, version}. The price is passed to the snapshot only
+    for the ADR currency check (a USD-filed name converts at the period-end
     USDINR, not at the price), so the stored figures stay valid while the
     statements do. Den fix 2026-10-15: this is the slow part (200 statement
-    reads, ~9 s) and it is now built rarely and stored."""
+    reads, ~9 s) and it is now built rarely and stored.
+
+    A conglomerate stays in its SECTOR's peer group (route `sector_method`)
+    so the other names' medians do not move when it gets a sum-of-parts."""
     out: List[dict] = []
     names = company_names or {}
     for sym in statement_symbols():
@@ -700,12 +1247,19 @@ def peer_base(price_of: Callable[[str], Optional[float]], sector_map: dict,
             px = price_of(t)
             snap = S.snapshot(sym, price=px)
             rt = R.route_for(t, sector_map, names.get(t, ""))
-            method = rt.get("method")
+            method = rt.get("sector_method") or rt.get("method")
             if not method or snap.get("source") == "none":
                 continue
-            row = {"ticker": t, "method": method}
+            row = {"ticker": t, "method": method, "version": PEER_BASE_VERSION}
             for k in PEER_BASE_FIELDS:
                 row[k] = _f(snap, k)
+            row["short_term_investments"] = _sti(snap)
+            ebit = _f(snap, "ebit")
+            row["ebit"] = ebit if ebit is not None else _f(snap, "operating_income")
+            if method in LENDER_METHODS:
+                book, basis = _lender_book(sym, snap, snap.get("period_end"))
+                row["book"] = book * CR if book is not None else None
+                row["book_basis"] = basis
             out.append(row)
         except Exception as e:                            # noqa: BLE001
             log.warning("valuation chain: peer row failed for %s: %s", sym, e)
@@ -714,8 +1268,11 @@ def peer_base(price_of: Callable[[str], Optional[float]], sector_map: dict,
 
 def peer_rows_from_base(base: List[dict], price_of: Callable[[str], Optional[float]]
                         ) -> Dict[str, List[dict]]:
-    """{method: [{ticker, pe, ev_ebitda, pb, ev_sales}]} — the base rows
-    priced at `price_of(ticker)`. Pure arithmetic, no file or network."""
+    """{method: [{ticker, price, pe, ev_ebitda, ev_ebit, pb, ev_sales}]} — the
+    base rows priced at `price_of(ticker)`. Pure arithmetic, no file or
+    network. EV = price × shares + debt − cash − short-term investments +
+    minorities (the stock's own rule, VAL-12a; a missing line counts 0). A
+    lender's P/B reads its VAL-02 book (filed net worth or tangible book)."""
     out: Dict[str, List[dict]] = {}
     for b in base or []:
         t = b.get("ticker")
@@ -726,18 +1283,26 @@ def peer_rows_from_base(base: List[dict], price_of: Callable[[str], Optional[flo
             px = price_of(t)
         except Exception:                                 # noqa: BLE001
             px = None
+        px = num(px)
         eps, sh = num(b.get("basic_eps")), num(b.get("shares_outstanding"))
         ebitda, rev = num(b.get("ebitda")), num(b.get("revenue"))
         debt, cash, eq = num(b.get("total_debt")), num(b.get("cash")), num(b.get("equity"))
-        row = {"ticker": t, "pe": None, "ev_ebitda": None, "pb": None, "ev_sales": None}
+        sti = num(b.get("short_term_investments")) or 0.0
+        mi = num(b.get("minority_interest_bs")) or 0.0
+        ebit = num(b.get("ebit"))
+        book = num(b.get("book")) if b.get("book") is not None else eq
+        row = {"ticker": t, "price": px, "pe": None, "ev_ebitda": None, "ev_ebit": None,
+               "pb": None, "ev_sales": None}
         if px and eps and eps > 0:
             row["pe"] = px / eps
-        if px and sh and eq and eq > 0:
-            row["pb"] = px / (eq / sh)
+        if px and sh and book and book > 0:
+            row["pb"] = px / (book / sh)
         if px and sh and debt is not None and cash is not None:
-            ev = px * sh + debt - cash
+            ev = px * sh + debt - cash - sti + mi
             if ebitda and ebitda > 0:
                 row["ev_ebitda"] = ev / ebitda
+            if ebit and ebit > 0:
+                row["ev_ebit"] = ev / ebit
             if rev and rev > 0:
                 row["ev_sales"] = ev / rev
         out.setdefault(method, []).append(row)
@@ -755,6 +1320,57 @@ def peer_table(price_of: Callable[[str], Optional[float]], sector_map: dict,
 
 # --------------------------------------------------------------- evaluate
 
+def _owner_row(owner_inputs: Any, sym: str) -> dict:
+    """The symbol's row of the Den inputs table. Accepts the row itself, the
+    table {SYMBOL: row} or the settings doc {"inputs": {SYMBOL: row}}."""
+    if not isinstance(owner_inputs, dict) or not owner_inputs:
+        return {}
+    tbl = owner_inputs.get("inputs") if isinstance(owner_inputs.get("inputs"), dict) else None
+    if tbl is None and any(isinstance(v, dict) and k.upper() == k and not k.islower()
+                           for k, v in owner_inputs.items()):
+        tbl = owner_inputs
+    if tbl is not None:
+        row = tbl.get(sym) or tbl.get(f"{sym}.NS") or {}
+        return dict(row) if isinstance(row, dict) else {}
+    return dict(owner_inputs)
+
+
+#: The cost / capex / work-from-home / attrition drivers (all 0 in the app).
+_COST_DRIVERS = ("sector_move_pct", "wfh_shift_pp", "other_capex", "electricity_tariff_pct",
+                 "fuel_price_pct", "hardware_cost_pct", "rent_facility_pct", "wage_hike_pct",
+                 "attrition_change_pp", "other_cost_inflation_pct", "order_wins_pct",
+                 "bid_discount_pct", "tax_rate_change_pp", "one_off_costs")
+
+
+def live_inputs(macro: dict, route: dict, drivers: dict, chain_ran: bool) -> Dict[str, bool]:
+    """Which bridge / cost inputs THIS record really fed (item 9, owner
+    2026-10-21) — assumptions.no_effect_keys(live=…) reads it."""
+    macro = macro or {}
+
+    def has(*ks: str) -> bool:
+        return all(num(macro.get(k)) is not None for k in ks)
+
+    is_it = str((route or {}).get("sector") or "").startswith("IT services")
+    return {
+        "market": has("nifty_start", "nifty_end") or has("sensex_start", "sensex_end"),
+        "usdinr": bool(is_it and has("usdinr_now", "usdinr_base")),
+        "repo": has("repo_start_pct") and (has("repo_end_pct") or has("repo_pct")),
+        "cpi": has("cpi_pct"), "gdp": has("gdp_pct"),
+        "brent": has("brent_start", "brent_end"),
+        "sentiment": False, "chart": False,
+        "inst_holding": has("inst_holding_start", "inst_holding_end"),
+        "delivery": has("delivery_pct"),
+        "drivers": any((num((drivers or {}).get(k)) or 0.0) != 0.0 for k in _COST_DRIVERS),
+        "chain": bool(chain_ran),
+    }
+
+
+def _row_safe(r: dict) -> dict:
+    return {"period": r.get("period"), "eps": num(r.get("eps")),
+            "eps_basis": r.get("eps_basis") or "", "shares": num(r.get("shares")),
+            "price": num(r.get("price")), "pe": num(r.get("pe")), "flag": r.get("flag")}
+
+
 def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
              sector_map: Optional[dict] = None, company_name: str = "",
              price_at: Optional[Callable[[Any], Optional[float]]] = None,
@@ -762,7 +1378,10 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
              peers: Optional[Callable[[str, str], dict]] = None,
              macro: Optional[Callable[[dict], dict]] = None,
              asof: Optional[str] = None,
-             overrides: Optional[dict] = None) -> dict:
+             overrides: Optional[dict] = None,
+             owner_inputs: Optional[dict] = None,
+             peer_rows: Any = None,
+             price_of: Optional[Callable[[str], Optional[float]]] = None) -> dict:
     """Stages 07-18 for one name. Every outside input is injected.
 
     `overrides` = the Den's assumption draft ({key: value} over
@@ -771,26 +1390,52 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
     record says which keys were drafted (`assumptions.drafted`), which of
     them change a result (`assumptions.drafted_effective`; `drafted` is
     True only when there is one) and which change nothing yet
-    (`assumptions.drafted_no_effect`, VAL-11)."""
+    (`assumptions.drafted_no_effect`, VAL-11 — per render: a sheet number
+    whose input is not fed counts as no effect, item 9).
+
+    Batch 2 (owner choices 2026-10-21):
+      own P/E history — computed HERE (own_pe_rows: normalised PAT ÷ each
+          year's own shares, odd years flagged); `own_pe_history` (a
+          callable returning multiples) replaces it only when a caller
+          passes one (tests, what-ifs) and the record says so;
+      owner_inputs — the Den inputs table (settings doc
+          `valuation_inputs`): the symbol's row, the {SYMBOL: row} table or
+          the whole doc; typed NAV / EV / holding discount / segment
+          multiples / peer_list;
+      peer_rows — the priced peer table ({method: [rows]} from
+          peer_rows_from_base, or a callable returning it): a typed
+          peer_list and the conglomerate segment multiples read it;
+      price_of — today's price of any ticker (holding-company subsidiaries);
+          the peer table's price is the fallback."""
     sm = sector_map or {}
-    ov = ASM.split(overrides)
     price_at = price_at or (lambda when: None)
-    own_pe_history = own_pe_history or (lambda snap: [])
     peers = peers or (lambda method, exclude: {})
     macro = macro or (lambda snap: {})
     t = ticker if ticker.endswith(".NS") else f"{ticker}.NS"
     sym = t[:-3]
     data_needed: List[str] = []
     notes: List[str] = []
+    ov = ASM.split(overrides)
 
     snap = S.snapshot(sym, price=price, asof=asof,
                       publication_lag_days=ov["snapshot"].get("publication_lag_days"),
                       usd_signature_pe=ov["snapshot"].get("usd_signature_pe"))
     rt = R.route_for(t, sm, company_name)
     family = rt.get("family") or ""
+    method = rt.get("method")
+    # a conglomerate runs the chain on its sector's family; the segments
+    # turn the range into a sum-of-parts (scenarios keeps the single route)
+    segments = _segment_rows(sym) if method == R.CONGLOMERATE_METHOD else []
+    chain_family = (rt.get("sector_family") or family) if segments else family
+    if method == R.CONGLOMERATE_METHOD and not segments:
+        chain_family = rt.get("sector_family") or family
+        notes.append("conglomerate route but no segment rows on file — single-route range")
     bridge = SH.share_bridge(sym, snap, tol_pct=ov["shares"].get("reconcile_tol_pct"))
     ne = N.normalised_earnings(snap)
-    q = N.quality(snap, family, thresholds=ov["quality"] or None)
+    q = N.quality(snap, chain_family, thresholds=ov["quality"] or None,
+                  lender=method in LENDER_METHODS)
+    owner = _owner_row(owner_inputs, sym)
+    peer_index = _peer_index(peer_rows) if peer_rows is not None else {}
 
     rec: Dict[str, Any] = {
         "ticker": t, "version": VERSION, "price": price, "price_date": price_date,
@@ -798,6 +1443,8 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
         "shares": _shares_block(bridge), "earnings": _earnings_block(ne, snap),
         "quality": _quality_block(q),
     }
+    _pat, pat_basis = target_pat(ne, snap)
+    rec["earnings"]["target_starts_from"] = pat_basis
     for k, why in (snap.get("data_needed") or {}).items():
         data_needed.append(f"snapshot.{k}: {why}")
 
@@ -807,33 +1454,49 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
     except Exception as e:                                # noqa: BLE001
         log.warning("valuation chain: macro inputs failed for %s: %s", t, e)
     pr = {}
-    if rt.get("method"):
+    peer_method = rt.get("sector_method") or method
+    if peer_method:
         try:
-            pr = peers(rt["method"], t) or {}
+            pr = peers(peer_method, t) or {}
         except Exception as e:                            # noqa: BLE001
             log.warning("valuation chain: peers failed for %s: %s", t, e)
 
+    # ---- own P/E history (VAL-14a): computed here from the snapshot
+    rows: List[dict] = []
+    try:
+        rows = own_pe_rows(snap, price_at, ne) if snap.get("period_end") else []
+    except Exception as e:                                # noqa: BLE001
+        log.warning("valuation chain: own P/E rows failed for %s: %s", t, e)
+    own_hist: List[Any] = [r for r in rows if r.get("pe") is not None]
+    own_src = "computed"
+    if own_pe_history is not None:
+        try:
+            own_hist = list(own_pe_history(snap) or [])
+            own_src = "caller"
+        except Exception as e:                            # noqa: BLE001
+            log.warning("valuation chain: own_pe_history failed for %s: %s", t, e)
+
     # ---- stages 15-17
-    base, b_notes = _base_year(snap, price_at)
+    base, b_notes = _base_year(snap, price_at, ne)
     notes.extend(b_notes)
-    drivers, d_notes = _drivers(base, snap, family)
+    drivers, d_notes = _drivers(base, snap, chain_family)
     notes.extend(d_notes)
     market, macro_missing = _market(mac, snap, rt, pr.get("pe_median"), base,
                                     sheet=ov["sheet"])
     cases: dict = {}
-    if rec["snapshot"]["status"] == "OK" and family in ("earnings", "ev_ebitda", "ev_sales"):
+    if rec["snapshot"]["status"] == "OK" and chain_family in ("earnings", "ev_ebitda", "ev_sales"):
         cases = SC.three_cases(base, drivers, market,
                                assumptions=ov["sheet"] or None,
                                deltas=ov["case_deltas"])
-    elif rec["snapshot"]["status"] == "OK" and family in ("book", "nav"):
+    elif rec["snapshot"]["status"] == "OK" and chain_family in ("book", "nav"):
         # the sheet's chain needs EBITDA; lenders and developers go straight
         # to the book/NAV route in justified_range (ROE and BVPS from the
         # snapshot). The cases dict stays empty and says so.
-        notes.append(f"{family} route: scenario EPS not run (no EBITDA chain for this "
+        notes.append(f"{chain_family} route: scenario EPS not run (no EBITDA chain for this "
                      "route); range from ROE / BVPS")
     rec["scenarios"] = (_scenario_block(cases, drivers, macro_missing, notes) if cases
                         else {"status": "DATA_NEEDED",
-                              "why": (notes[-1] if notes and family in ("book", "nav")
+                              "why": (notes[-1] if notes and chain_family in ("book", "nav")
                                       else (rec["snapshot"]["why"] or
                                             f"{family or 'UNDECLARED'} route: no scenario chain")),
                               "eps": {}, "drivers": {}, "pe_bridge_pct": None,
@@ -841,6 +1504,7 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
 
     rng: dict = {}
     kw: dict = {}
+    facts: dict = {}
     if rt.get("status") != "declared":
         rng = {"status": dn(f"route UNDECLARED — {rt.get('rule') or 'no sector label'}"),
                "family": None}
@@ -848,22 +1512,30 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
     elif rec["snapshot"]["status"] != "OK":
         rec["range"] = _range_block({"status": dn(rec["snapshot"]["why"]), "family": family})
     else:
-        kw = _range_inputs(family, snap, base, cases, pr, own_pe_history(snap), mac,
-                           ov=ov["range"])
+        kw = _range_inputs(chain_family, snap, base, cases, pr, own_hist, mac,
+                           ov=ov["range"], method=method, sym=sym, owner=owner,
+                           peer_index=peer_index, price_of=price_of, segments=segments)
+        facts = kw.pop("_facts", {}) or {}
         mid_note = " · ".join(x for x in (kw.pop("_midcycle_note", ""),
-                                          kw.pop("_growth_note", "")) if x)
+                                          kw.pop("_growth_note", ""),
+                                          kw.pop("_peer_note", "")) if x)
         try:
-            rng = SC.justified_range(family, cases, price=price, **kw)
+            rng = SC.justified_range(chain_family, cases, price=price, **kw)
         except Exception as e:                            # noqa: BLE001
             log.exception("valuation chain: justified_range failed for %s", t)
-            rng = {"status": dn(f"range failed: {type(e).__name__}"), "family": family}
+            rng = {"status": dn(f"range failed: {type(e).__name__}"), "family": chain_family}
         rec["range"] = _range_block(rng, mid_note)
-    rec["range_flags"] = _range_flags(family, rt, rng, kw, snap)
+    rec["range"]["own_history"] = [_row_safe(r) for r in rows]
+    rec["range"]["own_history_source"] = own_src
+    facts["target_starts_from"] = pat_basis
+    rec["range_flags"] = _range_flags(rng.get("family") or chain_family, rt, rng, kw, snap,
+                                      facts)
 
     v = A.assess(price, {"low": rec["range"].get("low"), "base": rec["range"].get("base"),
-                         "high": rec["range"].get("high"), "family": family},
+                         "high": rec["range"].get("high"),
+                         "family": rng.get("family") or chain_family},
                  bands=ov["verdict"] or None)
-    rec["verdict"] = _verdict_block(v)
+    rec["verdict"] = _verdict_block(v, verdict_warnings(q, bridge))
 
     # ---- the 52 terms
     t_market = {"rf_pct": num(mac.get("rf_pct")),
@@ -881,17 +1553,21 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
         data_needed.append(f"bridge: {m}")
     rec["data_needed"] = data_needed
     rec["notes"] = notes
+    live = live_inputs(mac, rt, drivers, bool(cases))
     rec["assumptions"] = {"pipeline": {k: v_["value"] for k, v_ in ASSUMED.items()},
                           "snapshot": dict(S.ASSUMED), "case_deltas": ov["case_deltas"],
                           "verdict": {k: v_["value"] for k, v_ in A.ASSUMED.items()},
                           "drafted": list(ov["edited"]),
                           "drafted_effective": [],
                           "drafted_no_effect": [],
-                          "drafted_values": dict(ov["values"])}
-    eff = ASM.effective_keys(ov["values"], asof=asof)
+                          "drafted_values": dict(ov["values"]),
+                          "live_inputs": live,
+                          "no_effect_keys": ASM.no_effect_keys(live)}
+    eff = ASM.effective_keys(ov["values"], asof=asof, live=live)
     rec["assumptions"]["drafted_effective"] = eff
     rec["assumptions"]["drafted_no_effect"] = [k for k in ov["edited"] if k not in eff]
     rec["drafted"] = bool(eff)
+    rec["owner_inputs"] = owner or None
     rec["detail"] = {"snapshot_fields": snap.get("fields"), "cases": cases,
                      "normalised": ne, "quality": q, "bridge": bridge}
     return rec

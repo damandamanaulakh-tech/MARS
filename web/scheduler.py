@@ -1090,6 +1090,115 @@ def _sector_index_refresh() -> None:
         log.exception("sector history backfill failed")
 
 
+def _num_or_none(x):
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return None
+
+
+def _macro_new_rows(rows: list, stored: list) -> list:
+    """Rows that add a date or change a stored value (quiet-when-current)."""
+    have = {(r.get("series"), r.get("date")): r.get("value") for r in stored}
+    return [r for r in rows
+            if have.get((r["series"], r["date"]), object()) != r["value"]]
+
+
+def _macro_feeds_refresh() -> None:
+    """Valuation macro feeds (owner order 2026-10-21, VALFIX batch 2 item 10):
+    the 10-year G-sec yield from Upstox's public candles (owner chose Upstox
+    only), and the policy repo rate + USD/INR reference rate from RBI's home
+    page. DISPLAY ONLY — the valuation chain reads them; no gate, stop or
+    size does.
+
+    Same slots as the sector refresh (the 09:20 job — AFTER the rotation,
+    reviewer defect 6 — and the 15:35 EOD pass, so the 1.30pm reference
+    rate lands the same day). Each leg is isolated; a failure journals
+    MACRO_FEEDS_FAILED and never costs the job. Quiet when current: a
+    journal line only when a new date or a changed value lands — and the
+    repo rate, dated the day it is read, is journaled only when the RATE
+    changes (the daily row is still stored; reviewer defect 7).
+    """
+    from . import db
+    if not db.is_connected():
+        log.warning("macro feeds skipped: Mongo offline (nowhere to store)")
+        return
+    from trading import macro_feeds as mf
+    stored = db.load_macro_rows() or []
+    repo_prev = max((r for r in stored if r.get("series") == "rbi_repo"),
+                    key=lambda r: str(r.get("date") or ""), default=None)
+    repo_prev_v = _num_or_none(repo_prev.get("value")) if repo_prev else None
+    landed: list = []
+    failed: list = []
+
+    # Leg 1: 10-year G-sec yield (tokenless Upstox candles).
+    try:
+        from trading import data as tdata
+        g_old = [r for r in stored if r.get("series") == "gsec10y_yield"]
+        last = max((str(r.get("date") or "") for r in g_old), default="")
+        rows = mf.fetch_gsec10y(tdata.history_broker(), last)
+        new = _macro_new_rows(rows, stored)
+        if new:
+            db.save_macro_rows(new)
+            landed += new
+        elif not last or mf.is_stale(last):
+            failed.append("10-year yield: no Upstox candles for any 9-11-year "
+                          "G-sec" + (f" since {last}" if last else ""))
+    except Exception as e:                                     # noqa: BLE001
+        log.exception("macro feed (G-sec) failed")
+        failed.append(f"10-year yield crashed: {e}")
+
+    # Leg 2: RBI home page (repo + USD/INR). Skipped once both are read
+    # today (the 15:35 pass still runs when only yesterday's rate is held).
+    try:
+        today = mf._today_ist().isoformat()
+        have_today = {r.get("series") for r in stored if r.get("date") == today}
+        if not {"rbi_repo", "rbi_usdinr"} <= have_today:
+            rows = mf.fetch_rbi_home()
+            got = {r["series"] for r in rows}
+            missing = [s for s in ("rbi_repo", "rbi_usdinr") if s not in got]
+            if missing:
+                failed.append("RBI home page answered without "
+                              + " and ".join(missing))
+            new = _macro_new_rows(rows, stored)
+            if new:
+                db.save_macro_rows(new)
+                landed += new
+    except Exception as e:                                     # noqa: BLE001
+        log.exception("macro feed (RBI home) failed")
+        failed.append(f"RBI home page fetch failed: {e}")
+
+    if landed:
+        parts = []
+        g = [r for r in landed if r["series"] == "gsec10y_yield"]
+        if g:
+            r = g[-1]
+            parts.append(f"10-year yield {r['value']:.2f}% ({r.get('bond')}, "
+                         f"close {r.get('price')} on {r['date']}, Upstox; "
+                         f"{len(g)} day(s))")
+        for s, label in (("rbi_repo", "RBI repo"), ("rbi_usdinr", "USD/INR")):
+            x = [r for r in landed if r["series"] == s]
+            if s == "rbi_repo" and repo_prev_v is not None:
+                # an unchanged repo is today's row, not news (defect 7)
+                x = [r for r in x if _num_or_none(r.get("value")) != repo_prev_v]
+            if x:
+                parts.append(f"{label} {x[-1]['value']} ({x[-1]['date']})")
+        b = [r for r in landed if r["series"] == "rbi_gsec10y"]
+        if b:
+            parts.append(f"RBI 10-year benchmark {float(b[-1]['value']):.2f}% "
+                         f"({b[-1].get('bond') or 'bond not named'}, {b[-1]['date']}; "
+                         "display only beside the Upstox yield)")
+        if parts:
+            _refresh_journal("MACRO_FEEDS",
+                             "Macro feeds stored: " + "; ".join(parts)
+                             + ". Display only (valuation chain).")
+    if failed:
+        _refresh_journal("MACRO_FEEDS_FAILED",
+                         "Macro feeds: " + "; ".join(failed)
+                         + ". The valuation chain keeps the last stored "
+                         "reading, dated.")
+
+
 SECTOR_HISTORY_DAYS = 760          # ~2 years + margin for the 252-session β
 #: One attempt per process per day PER DEPTH: {"day": iso, "from": the
 #: deepest start date already attempted that day}. A request no deeper than
@@ -2204,6 +2313,12 @@ def _eod_refresh() -> None:
         _sector_index_refresh()
     except Exception:
         log.exception("sector refresh failed after the close")
+    # VALFIX 2026-10-21: today's 1.30pm USD/INR reference rate and today's
+    # bond close land here; isolated like the two refreshes above.
+    try:
+        _macro_feeds_refresh()
+    except Exception:
+        log.exception("macro feeds failed after the close")
     _push_phone_alerts("15:35")
 
 
@@ -2295,6 +2410,14 @@ def _daily_multi_mode_scan() -> None:
     finally:
         _ROTATION_LOCK.release()
     _check_pending_orders("post-scan")
+    # Valuation macro feeds (display only) AFTER the rotation — reviewer
+    # defect 6 (2026-10-21): their legs run in series with 30 s timeouts
+    # each (RBI bond list, ~6 Upstox candle calls, the RBI home page), so
+    # ahead of the scan a hanging RBI or Upstox could hold it back 4-5 min.
+    try:
+        _macro_feeds_refresh()
+    except Exception:
+        log.exception("macro feeds failed after daily scan")
     # The daily store top-up ("all fresh", owner order 2026-08-20) now runs
     # BEFORE the scans above (audit item 8, 2026-10-02).
     # 2026-10-05: the trigger layer loads its panels on top of whatever the

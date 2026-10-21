@@ -107,7 +107,12 @@ def test_stored_gdp_and_delivery_move_their_rows_and_leave_the_missing_list():
 # ------------------------------------------------------------ VAL-11
 
 def test_the_four_no_effect_rows_are_named_and_still_editable():
-    assert ASM.no_effect_keys() == NO_EFFECT
+    # batch 2 (item 9, owner 2026-10-21): the sheet sensitivities whose input
+    # the app feeds as a neutral 0 are no-effect too, worked out per render —
+    # the four fixed rows stay; with every sheet input live only they remain
+    every_input_live = {k: True for k in ASM.DEFAULT_LIVE}
+    assert ASM.no_effect_keys(every_input_live) == NO_EFFECT
+    assert set(NO_EFFECT) < set(ASM.no_effect_keys())
     for r in ASM.EDITABLE:
         if r["key"] in NO_EFFECT:
             assert isinstance(r["no_effect"], str) and len(r["no_effect"]) > 20
@@ -150,10 +155,16 @@ def test_a_draft_of_only_the_no_effect_rows_is_not_a_draft_in_use():
 
 # ------------------------------------------------------------ known-fault facts
 
+# batch 2 (owner 2026-10-21) added the facts the Den reads to retire the
+# fixed warnings: lender book basis (VAL-02), typed peer list / sum-of-parts
+# (VAL-01), the unified EV rule (VAL-12a), the mid-cycle margin (VAL-07)
 FLAG_KEYS = {"family", "method", "sector", "case_values", "inverted", "printed_case",
              "printed_base_case", "midcycle_base", "net_debt_per_share",
              "minorities_per_share", "short_term_investments_per_share",
-             "peer_ev_rule", "lender", "power_utility", "book_route"}
+             "peer_ev_rule", "lender", "power_utility", "book_route",
+             "inverted_note", "midcycle_margin", "ev_rule_unified",
+             "lender_book_source", "lender_book_basis", "peer_list", "sum_of_parts",
+             "target_starts_from"}
 
 
 def test_ev_route_with_an_inverted_case_names_the_printed_base_case():
@@ -162,9 +173,13 @@ def test_ev_route_with_an_inverted_case_names_the_printed_base_case():
     assert set(f) == FLAG_KEYS
     assert f["family"] == "ev_ebitda" and f["midcycle_base"] is True
     cv = f["case_values"]
-    assert cv["base"] < cv["downside"]                    # mid-cycle base below downside
-    assert f["inverted"] is True and f["printed_base_case"] == "downside"
-    assert r["range"]["base"] == cv[f["printed_base_case"]]
+    # batch 2 (VAL-07, owner 2026-10-21): the mid-cycle MARGIN now applies to
+    # all three metals cases, so they come out in order (the old mid-cycle
+    # base sat below the downside); stage 17 never sorts — low IS downside
+    assert cv["downside"] < cv["base"] < cv["upside"]
+    assert f["inverted"] is False and f["printed_base_case"] == "base"
+    assert (r["range"]["low"], r["range"]["base"], r["range"]["high"]) == (
+        cv["downside"], cv["base"], cv["upside"])
     assert isinstance(f["minorities_per_share"], float)
     assert isinstance(f["short_term_investments_per_share"], float)
     assert isinstance(f["net_debt_per_share"], float)

@@ -164,7 +164,8 @@ def test_the_sequence_now_carries_the_chain_stages_dated_today():
             or "snapshot" in rows[code]["where"] or "assess" in rows[code]["where"], code
     assert rows["07"]["status"] == "partly"               # 200 of ~1,205 names
     assert rows["21"]["status"] == "not yet"              # permission stays unbuilt
-    assert D.SEQUENCE_STATUS_ASOF == "2026-10-14"
+    # 2026-10-21: valuation batch 2 re-worded the stage rows it changed
+    assert D.SEQUENCE_STATUS_ASOF == "2026-10-21"
 
 
 def test_names_to_show_orders_typed_then_targets_then_held(stored, monkeypatch):

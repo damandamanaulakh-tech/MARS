@@ -67,6 +67,28 @@ def test_money_path_never_references_the_valuation_package():
         assert "valuation" not in src, f"trading/{name} reaches the valuation chain"
 
 
+#: Display-only feed modules outside the package (VALFIX 2026-10-21): the
+#: money path may not reach them either. filings.py / segments.py live inside
+#: trading/valuation/ and are covered by the package pins.
+DISPLAY_ONLY_FEEDS = ("macro_feeds",)
+
+
+def test_money_path_never_references_the_display_only_feeds():
+    for name in MONEY_PATH:
+        src = _operative_source(ROOT / "trading" / name)
+        for mod in DISPLAY_ONLY_FEEDS:
+            assert mod not in src, f"trading/{name} reaches {mod}"
+
+
+def test_new_valuation_data_modules_exist_and_are_pure():
+    for name in ("filings.py", "segments.py"):
+        f = PKG / name
+        assert f.exists(), f"trading/valuation/{name} missing"
+        src = _operative_source(f)
+        for pat in _BANNED_IN_PACKAGE:
+            assert not re.search(pat, src), f"{name}: forbidden reference {pat!r}"
+
+
 def test_every_valuation_module_is_pure():
     files = sorted(PKG.glob("*.py"))
     assert files, "trading/valuation/ has no modules"

@@ -104,11 +104,17 @@ def test_tcs_pe_on_reported_basic_eps_because_its_ttm_has_a_gap(tcs):
 
 def test_tcs_ev_and_ev_to_ebitda(tcs):
     mcap = TCS_PX * 3_618_087_518
-    ev = mcap + 112_830_000_000 - 64_050_000_000 + 12_380_000_000
+    # ONE EV rule (VAL-12a, owner 2026-10-21; reviewer defect 2 found the
+    # terms still on the old rule): short-term investments come off net
+    # debt — TCS's 'Other Short Term Investments' line is ₹34,968 cr
+    sti = tcs["extras"]["short_term_investments"]
+    assert sti == pytest.approx(349_680_000_000)
+    ev = mcap + 112_830_000_000 - 64_050_000_000 - sti + 12_380_000_000
     assert T.compute("EV", tcs, price=TCS_PX) == pytest.approx(ev)
+    assert T.detail("EV", tcs, price=TCS_PX)["parts"]["short_term_investments"] == sti
     v = T.compute("EV/EBITDA", tcs, price=TCS_PX)
     assert v == pytest.approx(ev / 722_740_000_000)
-    assert round(v, 3) == 10.878
+    assert round(v, 3) == 10.394                       # was 10.878 on the old rule
     assert T.detail("EV/EBITDA", tcs, price=TCS_PX)["parts"]["ebitda_source"] \
         == "EBITDA line"
 

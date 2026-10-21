@@ -24,7 +24,8 @@ ASSUMED (printed on the Den; every one a choice, not a measurement):
                   no thesis recorded;
   * insufficient= low / base / high missing (DATA_NEEDED), range width
                   (high − low) / base above 60%, or a stated uncertainty
-                  above 60%.
+                  above 60%, or the cases out of order ("CASES INVERTED —
+                  …": stage 17 never sorts them, owner choice 2026-10-21).
 A thesis {text, horizon, falsifier} is RECORDED (stage 14 is not built —
 this is its placeholder). Its content is never judged; the only place it
 counts is the rule above: a price between base + 10% and the high stays on
@@ -73,6 +74,21 @@ def _thesis(thesis: Any) -> Optional[dict]:
             if thesis.get("falsifier") is not None else None}
 
 
+def _inverted_reason(rng: dict, lo: float, ba: float, hi: float) -> str:
+    """Plain words for a range whose cases are out of order."""
+    note = rng.get("inverted_note")
+    if not (isinstance(note, str) and note.startswith("CASES INVERTED")):
+        bits = []
+        if lo > ba:
+            bits.append(f"downside ₹{lo:,.2f} above base ₹{ba:,.2f}")
+        if ba > hi:
+            bits.append(f"base ₹{ba:,.2f} above upside ₹{hi:,.2f}")
+        if not bits:
+            bits.append(f"downside ₹{lo:,.2f} above upside ₹{hi:,.2f}")
+        note = "CASES INVERTED — " + "; ".join(bits)
+    return note + " — the cases are shown in their own order; no verdict on an unordered range"
+
+
 def assess(price: Any, rng: dict, *, thesis: Optional[dict] = None,
            uncertainty_pct: Optional[float] = None,
            bands: Optional[dict] = None) -> dict:
@@ -99,6 +115,7 @@ def assess(price: Any, rng: dict, *, thesis: Optional[dict] = None,
         "upside_to_base_pct": None, "discount_to_low_pct": None,
         "premium_to_high_pct": None, "range_width_pct": None,
         "uncertainty_pct": unc, "thesis": th, "reasons": reasons,
+        "inverted": False,
         "not_a_trade_permission": True,
         "assumptions": {k: dict(v) for k, v in ASSUMED.items()},
     }
@@ -126,7 +143,10 @@ def assess(price: Any, rng: dict, *, thesis: Optional[dict] = None,
         if ba <= 0:
             reasons.append("range base at or below zero")
         elif not (lo <= ba <= hi):
-            reasons.append("range not ordered low ≤ base ≤ high")
+            # VAL-07 (owner 2026-10-21): stage 17 never sorts the cases, so
+            # an unordered range reaches here as downside / base / upside.
+            out["inverted"] = True
+            reasons.append(_inverted_reason(rng, lo, ba, hi))
         elif out["range_width_pct"] > a["max_range_width_pct"]:
             reasons.append(f"range width {out['range_width_pct']:g}% above "
                            f"{a['max_range_width_pct']:g}% — too uncertain to judge")

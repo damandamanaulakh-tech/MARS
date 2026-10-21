@@ -303,73 +303,98 @@ def _codes(rec: dict) -> list:
 
 
 def test_known_fault_rules_live_in_one_function():
+    # 2026-10-21 (valuation batch 2): the blocks whose fix landed are gone —
+    # VAL-07 (cases never sorted; an inverted row carries the red "cases
+    # inverted" tag instead), VAL-12a (one EV rule for stock and peers),
+    # VAL-12b (power keeps its debt checks). VAL-01 stays only for a group
+    # with no sum-of-parts and no typed peer list; VAL-02 only for a lender
+    # whose book is neither the filing nor the tangible book.
     inv = _full("SAIL.NS", family="ev_ebitda", method="metals_midcycle", inverted=True,
                 printed_base_case="downside", midcycle_base=True)
-    f = cv.known_faults(inv)
-    assert [x["code"] for x in f] == ["VAL-07"]
-    assert "printed target is the downside case" in f[0]["text"]
-    assert "mid-cycle" in f[0]["text"]
+    assert _codes(inv) == []
     assert "VAL-01" in _codes(_full("RELIANCE.NS", family="ev_ebitda", method="oil_gas"))
     assert "VAL-01" in _codes(_full("M&M.NS", family="ev_ebitda", method="auto"))
+    assert _codes(_full("RELIANCE.NS", family="sotp", method="conglomerate_sotp",
+                        sum_of_parts="conglomerate")) == []
+    assert _codes(_full("M&M.NS", family="ev_ebitda", method="auto",
+                        peer_list=["TATAMOTORS", "MARUTI"])) == []
     mi = _full("X.NS", family="ev_ebitda", method="auto", minorities_per_share=12.5,
                short_term_investments_per_share=0.0)
-    f = cv.known_faults(mi)
-    assert [x["code"] for x in f] == ["VAL-12a"]
-    assert "₹12.50/share for minority interest" in f[0]["text"]
-    assert _codes(_full("HDFCBANK.NS", family="book", method="bank_pb_roe", lender=True)) == ["VAL-02"]
+    assert _codes(mi) == []
+    assert _codes(_full("HDFCBANK.NS", family="book", method="bank_pb_roe", lender=True,
+                        lender_book_source="feed_equity")) == ["VAL-02"]
+    # "filing_checked" = no tangible line but the feed's equity sits within
+    # 10% of the filing — checked, not VAL-02 (reviewer defect 9, 2026-10-21)
+    for src in ("filing", "tangible", "filing_checked"):
+        assert _codes(_full("HDFCBANK.NS", family="book", method="bank_pb_roe", lender=True,
+                            lender_book_source=src)) == [], src
     assert _codes(_full("NTPC.NS", family="book", method="power_regulated",
-                        power_utility=True)) == ["VAL-12b"]
+                        power_utility=True)) == []
     # nothing printed, nothing flagged; a plain row is clean
     clean = _full("TCS.NS", family="earnings", method="earnings", inverted=False)
     assert _codes(clean) == []
     no_range = _full("RELIANCE.NS", family="ev_ebitda", method="oil_gas")
     no_range["range"]["status"] = "DATA_NEEDED"
     assert _codes(no_range) == []
-    # a record built before range_flags existed falls back to the route / notes
+    # a record built before range_flags existed falls back to the route
     old = _full("HDFCBANK.NS", family="book", method="bank_pb_roe")
     old.pop("range_flags")
     assert _codes(old) == ["VAL-02"]
     old_inv = _full("SAIL.NS", family="ev_ebitda", method="metals_midcycle")
     old_inv.pop("range_flags")
     old_inv["range"]["notes"] = ["a case inverted (downside above base …) — values sorted"]
-    assert _codes(old_inv) == ["VAL-07"]
+    assert _codes(old_inv) == []
 
 
-def test_an_inverted_ev_row_prints_the_val07_warning_naming_the_case(stored, monkeypatch):
+def test_an_inverted_row_prints_the_cases_inverted_tag_not_a_known_fault(stored, monkeypatch):
+    # 2026-10-21: was the VAL-07 known-fault line; the cases are never sorted
+    # now, so an inverted row carries the red "cases inverted" tag (VAL-07,
+    # owner choice) and no known fault
     real = cv.row_for
 
     def inverted(t, *a, **k):
         rec = real(t, *a, **k)
         if t == "TCS.NS":
-            rec["range_flags"] = {**(rec.get("range_flags") or {}), "family": "ev_ebitda",
-                                  "inverted": True, "printed_base_case": "upside",
-                                  "printed_case": {"low": "base", "base": "upside",
-                                                   "high": "downside"},
-                                  "midcycle_base": True, "minorities_per_share": 0.0,
-                                  "short_term_investments_per_share": 0.0}
+            rec["range"]["inverted"] = True
+            rec["range"]["inverted_note"] = "CASES INVERTED — downside ₹5,000 above base ₹4,000"
+            rec["range_flags"] = {**(rec.get("range_flags") or {}), "inverted": True}
         return rec
 
     monkeypatch.setattr(cv, "row_for", inverted)
     html = _owner().get("/den?chain=TCS").text
     row = _chain_row(html, "TCS")
-    assert "den_chain_fault_marker" in row and 'data-den-chain-fault="VAL-07"' in row
-    assert "⚠ known fault VAL-07 — " in _flat(row)
-    assert "the printed target is the upside case, not the base case" in _flat(row)
+    assert "den_chain_inverted_marker" in row
+    assert "cases inverted" in _flat(row)
+    assert "CASES INVERTED — downside ₹5,000 above base ₹4,000" in _flat(row)
+    assert 'data-den-chain-fault="VAL-07"' not in row
 
 
-def test_reliance_lender_and_power_rows_carry_their_known_faults(stored):
+def test_reliance_lender_and_power_rows_follow_the_narrowed_rules(stored):
+    # 2026-10-21: VAL-01 only without a sum-of-parts / typed peer list,
+    # VAL-02 only when the book is neither the filing nor the tangible book,
+    # VAL-12b never (power keeps its debt checks)
     c = _owner()
-    for typed, code in (("RELIANCE", "VAL-01"), ("HDFCBANK", "VAL-02"), ("NTPC", "VAL-12b")):
-        html = c.get(f"/den?chain={typed}").text
-        row = _chain_row(html, typed)
-        assert f'data-den-chain-fault="{code}"' in row, typed
-        assert f"⚠ known fault {code} — " in _flat(row), typed
-    rel = _flat(_chain_row(c.get("/den?chain=RELIANCE").text, "RELIANCE"))
-    assert "no sum-of-parts yet" in rel
-    hdfc = _flat(_chain_row(c.get("/den?chain=HDFCBANK").text, "HDFCBANK"))
-    assert "equity line from the feed not checked against the bank's reported net worth" in hdfc
-    ntpc = _flat(_chain_row(c.get("/den?chain=NTPC").text, "NTPC"))
-    assert "valued with the bank formula; debt checks off" in ntpc
+    for typed in ("RELIANCE", "HDFCBANK", "NTPC"):
+        rec = cv.row_for(f"{typed}.NS", state_cfg(), None)
+        fl = rec.get("range_flags") or {}
+        row = _chain_row(c.get(f"/den?chain={typed}").text, typed)
+        if typed == "RELIANCE":
+            want = (rec["range"].get("status") == "OK" and not fl.get("sum_of_parts")
+                    and not fl.get("peer_list") and fl.get("family") != "sotp")
+            assert ('data-den-chain-fault="VAL-01"' in row) == want
+        if typed == "HDFCBANK":
+            want = (rec["range"].get("status") == "OK"
+                    and fl.get("lender_book_source") not in ("filing", "tangible",
+                                                             "filing_checked"))
+            assert ('data-den-chain-fault="VAL-02"' in row) == want
+        assert 'data-den-chain-fault="VAL-12b"' not in row
+        assert 'data-den-chain-fault="VAL-07"' not in row
+        assert 'data-den-chain-fault="VAL-12a"' not in row
+
+
+def state_cfg():
+    from web import state
+    return state.cfg()
 
 
 def test_a_clean_earnings_row_carries_no_known_fault(stored):

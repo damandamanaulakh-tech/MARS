@@ -243,30 +243,48 @@ def test_splitting_the_peer_table_changed_no_number(monkeypatch):
     prices = {f"{s}.NS": 100.0 + 37.0 * i for i, s in enumerate(syms)}
     sm = dict(state.cfg().sector_map)
     old: dict = {}
+    # 2026-10-21 (valuation batch 2, owner choices): the one-step reference
+    # below follows the NEW rules — peer EV = price × shares + debt − cash −
+    # short-term investments + minorities (VAL-12a, the stock's own rule), a
+    # lender's P/B on its VAL-02 book, peers grouped by the route's
+    # sector_method. The split (base + pricing) must still change no number;
+    # only the keys this reference builds are compared (the priced rows now
+    # also carry price and EV/EBIT).
     for sym in syms:
         t = f"{sym}.NS"
         px = prices[t]
         snap = S.snapshot(sym, price=px)
-        method = R.route_for(t, sm, "").get("method")
+        rt = R.route_for(t, sm, "")
+        method = rt.get("sector_method") or rt.get("method")
         if not method or snap.get("source") == "none":
             continue
         f = lambda k: P._f(snap, k)                      # noqa: E731
         row = {"ticker": t, "pe": None, "ev_ebitda": None, "pb": None, "ev_sales": None}
         eps, sh, eq = f("basic_eps"), f("shares_outstanding"), f("equity")
         debt, cash, ebitda, rev = f("total_debt"), f("cash"), f("ebitda"), f("revenue")
+        sti = P._sti(snap) or 0.0
+        mi = f("minority_interest_bs") or 0.0
+        book = eq
+        if method in P.LENDER_METHODS:
+            b, _basis = P._lender_book(sym, snap, snap.get("period_end"))
+            book = b * P.CR if b is not None else None
         if eps and eps > 0:
             row["pe"] = px / eps
-        if sh and eq and eq > 0:
-            row["pb"] = px / (eq / sh)
+        if sh and book and book > 0:
+            row["pb"] = px / (book / sh)
         if sh and debt is not None and cash is not None:
-            ev = px * sh + debt - cash
+            ev = px * sh + debt - cash - sti + mi
             if ebitda and ebitda > 0:
                 row["ev_ebitda"] = ev / ebitda
             if rev and rev > 0:
                 row["ev_sales"] = ev / rev
         old.setdefault(method, []).append(row)
     new = P.peer_table(lambda t: prices.get(t), sm, {})
-    assert old and new == old
+    assert old and set(new) == set(old)
+    for m, rows in old.items():
+        assert len(new[m]) == len(rows), m
+        for a, b in zip(rows, new[m]):
+            assert {k: b.get(k) for k in a} == a, (m, a["ticker"])
 
 
 # ---------------------------------------------------- budget and guard

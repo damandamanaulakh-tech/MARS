@@ -79,11 +79,14 @@ SECTIONS = [
 # one place that is acceptable on this page) and dated. "exists" = the stage
 # runs in code today; "partly" = a piece of it runs, named in `where`;
 # "not yet" = nothing in the repo does this.
-SEQUENCE_STATUS_ASOF = "2026-10-14"
+SEQUENCE_STATUS_ASOF = "2026-10-21"
 SEQUENCE: list[tuple[str, str, str, str]] = [
     # Owner order 2026-10-14 ("lets hit the formulas work completion"): the
     # valuation chain stages 07-18 run as code in trading/valuation/* and
     # print on Den §12. Display only — no gate reads any of it.
+    # 2026-10-21 (valuation fixes batch 2, owner's choice cards): rows 07,
+    # 11, 12, 13, 15, 16, 17 and 18 re-worded for what changed; statuses
+    # unchanged (13 stays partly — CPI / GDP / Brent are not fed).
     ("00", "Valuation basis by sector", "exists",
      "trading/valuation/route.py — the 21-row sector-method table, label from "
      "cfg.sector_map then the Nifty-500 industry file, keyword rules for the "
@@ -105,8 +108,9 @@ SEQUENCE: list[tuple[str, str, str, str]] = [
      "ledger of its own"),
     ("07", "Financial snapshot", "partly",
      "trading/valuation/snapshot.py over the committed statements zip (200 "
-     "Nifty-200 names) + the monthly Yahoo refresh; the other ~1,000 scan "
-     "names read DATA_NEEDED until the batch fetch is approved"),
+     "Nifty-200 names) + the monthly Yahoo refresh (+ the tangible-book line "
+     "for lenders, 2026-10-21); the other ~1,000 scan names read DATA_NEEDED "
+     "until the batch fetch is approved"),
     ("08", "Point-in-time validation + source lock", "exists",
      "snapshot.py — period end, publication date (45-day lag ASSUMED until "
      "NSE result dates are fetched), the ADR currency trap converted at the "
@@ -121,27 +125,40 @@ SEQUENCE: list[tuple[str, str, str, str]] = [
      "reconciled or named unexplained; ESOP pool DATA_NEEDED"),
     ("11", "Normalised earnings", "exists",
      "trading/valuation/normalise.py — one-offs and their tax effect stripped "
-     "from reported PAT, cross-checked against the audited normalised line"),
+     "from reported PAT, cross-checked against the audited normalised line; "
+     "since 2026-10-21 the target starts from normalised PAT on every route "
+     "(banks included), reported PAT only when normalised is DATA_NEEDED"),
     ("12", "Earnings quality + balance sheet", "exists",
      "normalise.quality — cash conversion (3 FYs), FCF margin, receivable / "
      "working-capital days, net debt/EBITDA, interest cover, D/E, score with "
-     "ASSUMED weights; lenders read DATA_NEEDED on the leverage lines"),
+     "ASSUMED weights; lenders read DATA_NEEDED on the leverage lines, power "
+     "utilities keep them (2026-10-21); a low score prints as a warning "
+     "beside the verdict, never a gate"),
     ("13", "Company/sector/market conditions", "partly",
-     "regime + breadth band + sector feed + damage store; no per-company "
+     "regime + breadth band + sector feed + damage store; since 2026-10-21 "
+     "the chain reads the Upstox 10-year G-sec yield, the RBI repo rate and "
+     "USD/INR (stored daily, dated, STALE when old) and FII + DII holding per "
+     "stock; CPI / GDP / Brent not fed (owner's choice) — no per-company "
      "conditions sheet"),
     ("14", "Thesis + falsifier", "not yet", ""),
     ("15", "Revenue/margin/financing scenarios", "exists",
      "trading/valuation/scenarios.py — the owner's Tata Tech P/E-driver sheet "
      "reproduced cell for cell (164 cells, zero difference), three cases with "
-     "ASSUMED deltas; the macro what-if rows the app does not store count 0 "
-     "and are listed DATA_NEEDED"),
+     "ASSUMED deltas; the repo and institutional rows are fed since "
+     "2026-10-21, the rows the app does not store count 0 and are listed "
+     "DATA_NEEDED"),
     ("16", "Scenario EPS", "exists",
      "scenarios.three_cases — downside / base / upside EPS, closing P/E, model "
-     "price; BVPS for the book route, EBITDA per share for the EV routes"),
+     "price (printed beside the range as the what-if price when a P/E band "
+     "exists, 2026-10-21); BVPS for the book route, EBITDA per share for the "
+     "EV routes"),
     ("17", "Justified valuation range", "exists",
      "scenarios.justified_range per route family: EPS × P/E band (peer median "
-     "+ own 5-year range), justified P/B for lenders, EV/EBITDA → equity bridge, "
-     "NAV DATA_NEEDED with a P/B fallback; sensitivity grid"),
+     "+ own history on normalised EPS, extremes trimmed at 4+ readings), "
+     "justified P/B for lenders on the filed / tangible book, one EV rule for "
+     "the stock and its peers, typed NAV / embedded value and sum-of-parts "
+     "from the Den inputs table (2026-10-21); cases never sorted; "
+     "sensitivity grid"),
     # Owner order 2026-10-12 ("both, indian sector only, discount rate -
     # go"): the context stage sits between the justified range and the
     # selection — it verifies a standalone target against the sector, the
@@ -155,8 +172,9 @@ SEQUENCE: list[tuple[str, str, str, str]] = [
      "standalone target is typed until stages 09-17 produce it"),
     ("18", "Financial-selection assessment", "exists",
      "trading/valuation/assess.py — attractive / watch / unattractive / "
-     "insufficient with the reasons; printed on Den §12; NOT a trade "
-     "permission (stage 21 and Phase 4 wait on the pre-registered test)"),
+     "insufficient with the reasons and warnings beside it (quality, share "
+     "bridge — 2026-10-21); printed on Den §12; NOT a trade permission "
+     "(stage 21 and Phase 4 wait on the pre-registered test)"),
     ("19", "IFR state", "exists",
      "trading/ifr.py — frozen thresholds over the 191 reference names, "
      "throttle applied in engine.scan"),
@@ -1109,12 +1127,15 @@ def _sandbox(cfg, p, saved_flag: Optional[str]) -> dict:
 def den_page(request: Request, draft: Optional[str] = None,
              val: Optional[str] = None, val_err: Optional[str] = None,
              chain: Optional[str] = None, terms: Optional[str] = None,
-             fa: Optional[str] = None, fa_err: Optional[str] = None):
+             fa: Optional[str] = None, fa_err: Optional[str] = None,
+             walk: Optional[str] = None, sb: Optional[str] = None,
+             sb_err: Optional[str] = None, vi: Optional[str] = None,
+             vi_err: Optional[str] = None):
     user = auth.current_user(request)
     if not user:
         return RedirectResponse("/login", status_code=303)
     from . import settings_routes
-    from .. import valuation_chain_view, valuation_view
+    from .. import den_walk, valuation_chain_view, valuation_view
     cfg = state.cfg()
     p = state.portfolio()
     eng = _safe(_engines, cfg, p, default={}) or {}
@@ -1147,7 +1168,19 @@ def den_page(request: Request, draft: Optional[str] = None,
                      default=valuation_view.empty_section(
                          "invalid", "the context could not be read — see the log")),
         "chain": chain_ctx,
+        # owner's inputs table (VAL-01 / VAL-14b), printed under §12
+        "vin": _safe(valuation_chain_view.inputs_section, (vi or "")[:20], (vi_err or "")[:300],
+                     default={"flag": "invalid", "error": "the inputs table could not be read",
+                              "rows": [], "n": 0, "max": valuation_chain_view.MAX_INPUT_SYMBOLS,
+                              "doc_id": valuation_chain_view.INPUTS_DOC_ID}),
+        # §1 walk tree (owner order 2026-10-21): one stock, §12's guards
+        "walk": _safe(den_walk.section, cfg, p, (walk or "").strip()[:24], (sb or "")[:20],
+                      (sb_err or "")[:300],
+                      default=den_walk.empty_section("the walk could not be read — see the log")),
+        # item 9: §13's "no effect yet" labels follow what §12 fed on this render
         "fml": _safe(valuation_chain_view.formulas_section, fa, (fa_err or "")[:200],
+                     _safe(valuation_chain_view.page_live, chain_ctx.get("rows") or [],
+                           default=None),
                      default=valuation_chain_view.empty_formulas_section(
                          "invalid", "the formulas could not be read — see the log")),
         "is_owner": user.get("role") == "owner",
@@ -1250,6 +1283,96 @@ async def den_assumptions_clear(request: Request):
         return RedirectResponse("/den?fa=denied#formulas", status_code=303)
     cv.clear_assumptions()
     return RedirectResponse("/den?fa=cleared#formulas", status_code=303)
+
+
+@router.post("/den/valuation/inputs")
+async def den_inputs_save(request: Request):
+    """Owner-only (VAL-01 / VAL-14b, 2026-10-21): add or replace ONE
+    symbol's row of the Den inputs table (settings doc "valuation_inputs" +
+    in-process copy). A single bad field refuses the row; nothing stored.
+    §12 reads it on this page; the live Config and the engine never do."""
+    from starlette.concurrency import run_in_threadpool
+
+    from .. import valuation_chain_view as cv
+    user = auth.current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    if user.get("role") != "owner":
+        return RedirectResponse("/den?vi=denied#chain-inputs", status_code=303)
+    form = await request.form()
+    sym, row, errors = cv.parse_inputs_form(form)
+    if errors:
+        return RedirectResponse(f"/den?vi=invalid&vi_err={quote('; '.join(errors)[:400])}"
+                                f"#chain-inputs", status_code=303)
+    ok, err = await run_in_threadpool(cv.save_input_row, sym, row)
+    if not ok:
+        return RedirectResponse(f"/den?vi=invalid&vi_err={quote(err[:400])}#chain-inputs",
+                                status_code=303)
+    return RedirectResponse(f"/den?vi=saved&chain={quote(sym)}#chain-inputs", status_code=303)
+
+
+@router.post("/den/valuation/inputs/remove")
+async def den_inputs_remove(request: Request):
+    """Owner-only: drop one symbol's row from the inputs table."""
+    from starlette.concurrency import run_in_threadpool
+
+    from .. import valuation_chain_view as cv
+    user = auth.current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    if user.get("role") != "owner":
+        return RedirectResponse("/den?vi=denied#chain-inputs", status_code=303)
+    form = await request.form()
+    await run_in_threadpool(cv.remove_input_row, str(form.get("ticker") or ""))
+    return RedirectResponse("/den?vi=removed#chain-inputs", status_code=303)
+
+
+def _walk_back(form) -> str:
+    """Keep the walked stock across a branch save."""
+    w = re.sub(r"[^A-Za-z0-9&\-.]", "", str(form.get("walk") or ""))[:24]
+    return f"&walk={quote(w)}" if w else ""
+
+
+@router.post("/den/sequence/branch")
+async def den_branch_save(request: Request):
+    """Owner-only (2026-10-21): add a branch under any node of the §1 walk
+    tree, or edit one of yours (form `id`). Settings doc
+    "sequence_branches"; nothing computes it."""
+    from starlette.concurrency import run_in_threadpool
+
+    from .. import den_walk
+    user = auth.current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    if user.get("role") != "owner":
+        return RedirectResponse("/den?sb=denied#walk", status_code=303)
+    form = await request.form()
+    ok, err, _nid = await run_in_threadpool(den_walk.save_branch, form)
+    back = _walk_back(form)
+    if not ok:
+        return RedirectResponse(f"/den?sb=invalid&sb_err={quote(err[:300])}{back}#walk",
+                                status_code=303)
+    return RedirectResponse(f"/den?sb=saved{back}#walk", status_code=303)
+
+
+@router.post("/den/sequence/branch/remove")
+async def den_branch_remove(request: Request):
+    """Owner-only: remove one of your branches and everything under it."""
+    from starlette.concurrency import run_in_threadpool
+
+    from .. import den_walk
+    user = auth.current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    if user.get("role") != "owner":
+        return RedirectResponse("/den?sb=denied#walk", status_code=303)
+    form = await request.form()
+    n = await run_in_threadpool(den_walk.remove_branch, str(form.get("id") or ""))
+    # −1 = the stored branches could not be read; nothing was written
+    flag = ("removed" if n > 0 else
+            "invalid&sb_err=" + quote(den_walk.READ_FAILED if n < 0
+                                      else "no branch of yours with that id"))
+    return RedirectResponse(f"/den?sb={flag}{_walk_back(form)}#walk", status_code=303)
 
 
 @router.post("/den/valuation/clear")

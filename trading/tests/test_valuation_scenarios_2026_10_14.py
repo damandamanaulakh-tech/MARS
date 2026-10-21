@@ -209,21 +209,26 @@ def test_earnings_range_with_peer_and_own_history_band(cases):
     r = sc.justified_range("earnings", cases, price=715.85, peer_multiple=28.5,
                            own_multiple_history=[61.0, 40.5, 37.8, 52.2, 45.0])
     band = r["multiple_band"]
-    assert band["low"] == 28.5 and band["high"] == 61.0
+    # VAL-03 (owner 2026-10-21): 5 readings → the lowest 37.8 and highest
+    # 61.0 are dropped first, so the high is 52.2 (was 61.0, the flaw)
+    assert band["low"] == 28.5 and band["high"] == 52.2
     assert band["mid"] == pytest.approx((28.5 + 45.0) / 2)
     assert r["low"] == sc.xround(16.46 * 28.5, 2)
     assert r["base"] == sc.xround(18.28 * band["mid"], 2)
-    assert r["high"] == sc.xround(20.18 * 61.0, 2)
+    assert r["high"] == sc.xround(20.18 * 52.2, 2)
     assert r["low"] <= r["base"] <= r["high"]
 
 
-def test_an_inverted_case_is_sorted_and_noted():
+def test_an_inverted_case_is_kept_in_order_and_flagged():
+    # VAL-07 (owner 2026-10-21): never sorted — was "sorted and noted"
     r = sc.justified_range("earnings", {}, price=None,
                            per_share_overrides={"downside": 30.0, "base": 20.0, "upside": 10.0},
                            own_multiple_history=[10.0, 15.0, 20.0])
     assert r["status"] == "OK"
-    assert r["low"] <= r["base"] <= r["high"]
-    assert any("sorted" in n for n in r["notes"])
+    assert (r["low"], r["base"], r["high"]) == (300.0, 300.0, 200.0)
+    assert r["inverted"] is True
+    assert any(n.startswith("CASES INVERTED") for n in r["notes"])
+    assert not any("sorted" in n for n in r["notes"])
 
 
 # --------------------------------------------------------- (4) book route

@@ -218,10 +218,45 @@ SECTOR_METHODS[19]["overlay_only"] = True          # row 20 (PSU)
 _BY_METHOD: dict[str, dict] = {r["method"]: r for r in SECTOR_METHODS}
 
 
+# ---------------------------------------------------------------------------
+# Conglomerate sum-of-parts (owner choice 2026-10-21, VAL-01): any symbol with
+# segment EBIT rows in data/segment_ebit.csv. Not one of the owner's 21 rows
+# (they stay verbatim); it sits ON TOP of the stock's sector route, which is
+# kept as `sector_method` / `sector_family` (the chain runs on it, the stock
+# stays in that sector's peer group, its single-route range is shown beside).
+# ---------------------------------------------------------------------------
+CONGLOMERATE_METHOD = "conglomerate_sotp"
+CONGLOMERATE_ROW: dict = {
+    "row": None, "sector": "Conglomerate (sum of the parts)",
+    "primary_basis": "Sum of the parts: Σ segment EBIT × segment EV/EBIT − net debt "
+                     "(incl. short-term investments) − minorities",
+    "per_share_metric": "Equity value per share",
+    "key_drivers": "Each segment's EBIT and the EV/EBIT its own peers trade at",
+    "bad_time_behaviour": "Segments re-rate on their own; a holding discount is not applied",
+    "policy_links": "Per segment",
+    "data_have": "Segment EBIT from the exchange filing (data/segment_ebit.csv)",
+    "data_missing": "Segment net debt; unlisted stakes",
+    "method": CONGLOMERATE_METHOD, "family": "sotp",
+}
+
+
 def method_row(method: str) -> Optional[dict]:
-    """The SECTOR_METHODS row for a method code (a copy), or None."""
+    """The SECTOR_METHODS row for a method code (a copy), or None. The
+    conglomerate route's own row for CONGLOMERATE_METHOD."""
+    if method == CONGLOMERATE_METHOD:
+        return dict(CONGLOMERATE_ROW)
     r = _BY_METHOD.get(method)
     return dict(r) if r else None
+
+
+def _default_segment_lookup(sym: str) -> list:
+    """Segment EBIT rows (builder D's trading.valuation.segments); [] when
+    the module or the rows are missing."""
+    try:
+        from trading.valuation import segments as _SG
+        return list(_SG.segment_ebit(sym) or [])
+    except Exception:                                   # noqa: BLE001
+        return []
 
 
 # ---------------------------------------------------------------------------
@@ -501,12 +536,47 @@ def _holding_hit(name_n: str) -> Optional[str]:
 
 
 def route_for(ticker: str, sector_map: dict, company_name: str = "",
-              industry_lookup: Optional[dict] = None) -> dict:
+              industry_lookup: Optional[dict] = None,
+              segment_lookup=None) -> dict:
     """Stage 00/09 — the valuation basis for one stock, chosen FIRST.
 
     Returns {ticker, label, label_source, status "declared"|"UNDECLARED",
     method, family, basis, per_share_metric, drivers, defended_by,
-    policy_links, data_have, data_missing, rule, overlays, nearest?}."""
+    policy_links, data_have, data_missing, rule, overlays, nearest?}.
+
+    A symbol with segment EBIT rows (`segment_lookup(sym)`, default
+    trading.valuation.segments.segment_ebit) gets the conglomerate
+    sum-of-parts route on top of its sector route (owner 2026-10-21,
+    VAL-01): method CONGLOMERATE_METHOD, family "sotp", and the sector
+    route kept as sector_method / sector_family / sector_route."""
+    out = _route_for(ticker, sector_map, company_name, industry_lookup)
+    look = segment_lookup if segment_lookup is not None else _default_segment_lookup
+    try:
+        segs = look(_bare(ticker)) or []
+    except Exception:                                   # noqa: BLE001
+        segs = []
+    if not segs or out.get("method") == "holding_sotp":
+        return out
+    under = {k: out.get(k) for k in ("method", "family", "sector", "rule", "status")}
+    row = CONGLOMERATE_ROW
+    out.update({"status": "declared", "method": CONGLOMERATE_METHOD, "family": "sotp",
+                "row": None, "sector": row["sector"], "basis": row["primary_basis"],
+                "per_share_metric": row["per_share_metric"], "drivers": row["key_drivers"],
+                "defended_by": row["bad_time_behaviour"],
+                "policy_links": row["policy_links"], "data_have": row["data_have"],
+                "data_missing": row["data_missing"],
+                "sector_method": under["method"], "sector_family": under["family"],
+                "sector_route": under,
+                "rule": (f"{len(segs)} segment EBIT row(s) on file → conglomerate "
+                         f"sum-of-parts (owner choice 2026-10-21); sector route kept "
+                         f"beside: {under['method'] or 'UNDECLARED'}")})
+    out.pop("nearest", None)
+    return out
+
+
+def _route_for(ticker: str, sector_map: dict, company_name: str = "",
+               industry_lookup: Optional[dict] = None) -> dict:
+    """The sector route alone (the 21 rows + keyword rules + overlays)."""
     sym = _bare(ticker)
     label, source = label_for(ticker, sector_map, industry_lookup)
     if not company_name:
@@ -574,4 +644,5 @@ def route_for(ticker: str, sector_map: dict, company_name: str = "",
 
 
 __all__ = ["SECTOR_METHODS", "FAMILIES", "ASSUMED", "method_row",
-           "load_nifty500_industry", "label_for", "route_for"]
+           "load_nifty500_industry", "label_for", "route_for",
+           "CONGLOMERATE_METHOD", "CONGLOMERATE_ROW"]

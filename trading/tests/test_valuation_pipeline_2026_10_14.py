@@ -171,7 +171,9 @@ def test_the_peer_table_groups_by_method_with_four_multiples(monkeypatch):
     assert it["TCS.NS"]["pe"] == pytest.approx(2156.0 / 136.01, rel=1e-3)
     assert it["INFY.NS"]["pe"] and 10 < it["INFY.NS"]["pe"] < 20     # converted, not 1,263
     for row in tbl["metals_midcycle"]:
-        assert set(row) == {"ticker", "pe", "ev_ebitda", "pb", "ev_sales"}
+        # batch 2 (owner 2026-10-21): + the price (holding-company subsidiaries)
+        # and EV/EBIT (conglomerate segment multiples, VAL-01)
+        assert set(row) == {"ticker", "price", "pe", "ev_ebitda", "ev_ebit", "pb", "ev_sales"}
 
 
 def test_assumed_for_page_prints_the_numbers_the_den_header_reads():
