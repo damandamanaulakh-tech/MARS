@@ -92,6 +92,12 @@ def test_den_carries_the_scope_row_and_the_save_accepts_only_two_words():
     assert "loss_halt_scope" in [row[0] for row in settings_routes.EDITABLE_FIELDS]
     cfg = state.cfg()
     before = cfg.loss_halt_scope
+    # The save posts the WHOLE algo form, so whatever numbers the live cfg
+    # shows get stored as this mode's preset overrides. Restore them, or a
+    # mode-mixed cfg left by an earlier test is baked into momentum for
+    # every later test (found 2026-10-21: owner-buy target +10%, decay 45).
+    po_before = {k: dict(v) for k, v in (getattr(cfg, "preset_overrides", {}) or {}).items()}
+    mode_before = cfg.mode
     try:
         c = _client()
         fields = _save_settings_page(c)
@@ -106,7 +112,11 @@ def test_den_carries_the_scope_row_and_the_save_accepts_only_two_words():
         c.post("/settings", data=fields, follow_redirects=False)
         assert state.cfg().loss_halt_scope == "category"
     finally:
-        state.cfg().loss_halt_scope = before
+        live = state.cfg()
+        live.loss_halt_scope = before
+        live.preset_overrides = po_before
+        live.mode = mode_before
+        live.apply_mode_preset()
 
 
 def test_the_den_engine_card_says_per_category():
