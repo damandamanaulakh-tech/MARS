@@ -41,6 +41,9 @@ DOC_ID = "push"
 # Journal actions worth a phone buzz. Everything else is dashboard material.
 PUSH_ACTIONS = {
     "BUY": "🟢",
+    # Owner 2026-10-21 ("how do i know its blocked"): one line per rotation
+    # saying what each category did and what stopped it.
+    "ROTATION_SUMMARY": "📋",
     "SELL": "🔴",
     "DANGER_ALERT": "🚨",
     "DANGER_TIGHTEN": "🚨",

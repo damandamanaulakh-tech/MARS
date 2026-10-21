@@ -136,6 +136,7 @@ class Portfolio:
     virtual_book: Dict[str, dict] = field(default_factory=dict)  # F8: unbought YES picks, marked to market
     scan_matrix: dict = field(default_factory=dict)  # 🎹 full scan hit-map (overwritten each scan)
     momentum_shortlist: dict = field(default_factory=dict)  # momentum pass's own record (audit S-11/S-13)
+    rotation_report: dict = field(default_factory=dict)  # why-no-buy: the last rotations' per-category record (owner 2026-10-21)
     trigger_watch: dict = field(default_factory=dict)  # ⚡ owner's trigger-layer daily result (display+watchlist only)
     news_watch: dict = field(default_factory=dict)     # 📰 news verdict per stock (display only, never blocks)
     universe_batch: dict = field(default_factory=dict)  # 📦 this week's liquidity batch: what came in/out (owner ask 2026-09-04)
@@ -267,6 +268,7 @@ class Portfolio:
                 "virtual_book": self.virtual_book,             # F8 shadow book of unbought YES picks
                 "scan_matrix": self.scan_matrix,               # 🎹 one scan's hit-map, fixed size
                 "momentum_shortlist": self.momentum_shortlist,  # momentum pass record (S-11/S-13)
+                "rotation_report": self.rotation_report,       # why-no-buy record (owner 2026-10-21)
                 "trigger_watch": self.trigger_watch,           # ⚡ trigger-layer daily result
                 "news_watch": self.news_watch,                 # 📰 news verdict per stock
                 "universe_batch": self.universe_batch,         # 📦 weekly batch details
@@ -322,6 +324,7 @@ class Portfolio:
             p.virtual_book = dict(data.get("virtual_book", {}))
             p.scan_matrix = dict(data.get("scan_matrix", {}))
             p.momentum_shortlist = dict(data.get("momentum_shortlist", {}) or {})
+            p.rotation_report = dict(data.get("rotation_report", {}) or {})
             p.trigger_watch = dict(data.get("trigger_watch", {}))
             p.news_watch = dict(data.get("news_watch", {}))
             p.universe_batch = dict(data.get("universe_batch", {}) or {})

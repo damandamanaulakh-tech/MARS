@@ -275,6 +275,60 @@
      beside them left on the owner's 2026-10-12 markup: a tall right column
      stretched it into an empty box with a sideways scroll ("this gap is not
      good"); the book is one tap away on /positions (button in the header). -->
+{#- WHY NO BUY (owner 2026-10-21: "why there is no pop for gates or book, how do i
+    know its blocked"). Reads the rotation's own per-category record; the same
+    text goes to the phone as ROTATION_SUMMARY. -#}
+{% if why_no_buy %}
+{% set wnb = why_no_buy %}
+<div class="border border-line bg-white mb-6" data-why-no-buy="why_no_buy_marker">
+  <div class="px-4 lg:px-6 py-3 border-b border-line flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+    <div class="text-[10px] tracking-widest text-ink-faint uppercase">Why no buy today</div>
+    {% if wnb.rotation %}
+      {% set tot = wnb.rotation.opened_total or 0 %}
+      <div class="font-black text-lg tabular-nums {% if tot == 0 %}text-red-700{% else %}text-emerald-700{% endif %}" data-why-no-buy-head="1">
+        {{ wnb.rotation.where }} rotation · {% if tot == 0 %}NO BUYS{% else %}{{ tot }} buys{% endif %}
+        {% if wnb.earlier %}<span class="text-[10px] font-normal text-ink-faint">· earlier today: {% for e in wnb.earlier %}{{ e.where }} = {{ e.opened_total }}{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}
+      </div>
+    {% else %}
+      <div class="text-sm text-ink-faint" data-why-no-buy-none="1">{{ wnb.note }}</div>
+    {% endif %}
+  </div>
+  {% if wnb.rows %}
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm" data-why-no-buy-rows="1">
+    <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+      <tr>
+        <th class="text-left px-4 lg:px-6 py-2 whitespace-nowrap">Category</th>
+        <th class="text-right px-2 py-2 whitespace-nowrap" title="names the pass scored">Scanned</th>
+        <th class="text-right px-2 py-2 whitespace-nowrap" title="names at or above the category's own floor">&ge; floor</th>
+        <th class="text-right px-2 py-2 whitespace-nowrap" title="cleared floor, momentum, timing and liquidity">Picks</th>
+        <th class="text-right px-2 py-2 whitespace-nowrap">Bought</th>
+        <th class="text-left px-4 lg:px-6 py-2">Stopped by</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in wnb.rows %}
+      <tr class="border-b border-line/60 last:border-0" data-why-no-buy-row="{{ r.mode }}">
+        <td class="px-4 lg:px-6 py-2 font-semibold whitespace-nowrap">{{ r.label }} <span class="text-[10px] font-normal text-ink-faint">floor {{ r.floor | round(0) | int }}</span></td>
+        <td class="px-2 py-2 text-right tabular-nums">{{ r.scanned }}</td>
+        <td class="px-2 py-2 text-right tabular-nums">{{ r.above_floor }}</td>
+        <td class="px-2 py-2 text-right tabular-nums">{{ r.picks }}</td>
+        <td class="px-2 py-2 text-right tabular-nums font-semibold {% if r.opened %}text-emerald-700{% else %}text-red-700{% endif %}">{{ r.opened }}</td>
+        <td class="px-4 lg:px-6 py-2 {% if r.opened %}text-ink{% else %}text-red-700{% endif %}">{{ r.stopped_by }}{% if r.opened_names %} <span class="text-[10px] text-ink-faint">{{ r.opened_names | join(', ') }}</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+  {% if wnb.book %}
+  <ul class="px-4 lg:px-6 py-2 text-xs space-y-1" data-why-no-buy-book="1">
+    {% for line in wnb.book %}<li>{{ line }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  <div class="px-4 lg:px-6 pb-3 text-[10px] text-ink-faint">The engine's own record of the last rotation (09:20 or 14:30). The same line reaches your phone as ROTATION_SUMMARY when alerts are on.</div>
+</div>
+{% endif %}
 <div class="space-y-4 mb-6" data-picks-and-watchlist="picks_watchlist_marker">
   <div class="border border-line bg-white">
     <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
