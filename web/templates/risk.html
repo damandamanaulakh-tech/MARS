@@ -92,7 +92,7 @@
 
 {% if mk_on %}
 <div class="bg-white border border-line p-4 lg:p-6 mb-6
-            {% if mk and mk.block_new_entries %}border-l-4 border-l-red-600{% elif mk and mk.status == 'ACTIVE' %}border-l-4 border-l-emerald-500{% else %}border-l-4 border-l-slate-300{% endif %}"
+            {% if mk and mk_thin %}border-l-4 border-l-amber-500{% elif mk and mk.block_new_entries %}border-l-4 border-l-red-600{% elif mk and mk.status == 'ACTIVE' %}border-l-4 border-l-emerald-500{% else %}border-l-4 border-l-slate-300{% endif %}"
      data-measured-kelly="measured_kelly_marker">
   <div class="text-xs tracking-widest text-ink-faint uppercase mb-2">MEASURED KELLY (from your own closed trades{% if mk_modes %} — {{ mk_modes|join(', ')|replace('nifty200_momentum', 'momentum') }} only{% endif %})</div>
   {% if not mk %}
@@ -100,10 +100,18 @@
   <div class="mt-2 text-sm text-ink-faint">The reading could not be computed on this page. The scan skips the check when it cannot compute it (it never blocks on a failure).</div>
   {% else %}
   <div class="font-black text-xl lg:text-2xl tracking-tight">
-    {% if mk.block_new_entries %}<span class="text-red-700">NO MEASURED EDGE — NEW SCAN ENTRIES BLOCKED</span>
+    {% if mk_thin %}<span class="text-amber-700">THIN RECORD — MOMENTUM BUYS CAPPED AT ₹{{ mk_slab|inr }}, NOT BLOCKED</span>
+    {% elif mk.block_new_entries %}<span class="text-red-700">NO MEASURED EDGE — NEW SCAN ENTRIES BLOCKED</span>
     {% elif mk.status == 'ACTIVE' %}<span class="text-emerald-700">EDGE MEASURED — SIZE CAP ₹{{ mk_cap|inr }} PER NEW TRADE</span>
     {% else %}<span class="text-ink-soft">NOT ENOUGH EXITS YET — NO CAP, NO BLOCK</span>{% endif %}
   </div>
+  {#- Owner card 2026-10-22 ("Block only on 30+ usable trades"): which of the
+      two modes a negative reading is in, in the owner's words. -#}
+  {% if mk_thin %}
+  <div class="mt-1 text-sm text-amber-800" data-mk-mode="thin">Thin record ({{ mk.usable }} of {{ mk_min_block }} usable exits): a negative reading CAPS momentum buys at the ₹{{ mk_slab|inr }} slab, it does not block. Once there are {{ mk_min_block }} or more usable exits, a negative reading blocks new momentum scan buys (owner card 2026-10-22).</div>
+  {% elif mk.block_new_entries and mk.usable >= mk_min_block %}
+  <div class="mt-1 text-sm text-red-800" data-mk-mode="block">Full record ({{ mk.usable }} usable exits, {{ mk_min_block }} or more): the negative reading blocks new momentum scan buys. Below {{ mk_min_block }} usable exits it would only cap them at the ₹{{ mk_slab|inr }} slab (owner card 2026-10-22).</div>
+  {% endif %}
   <div class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
     <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">Exits used</div><div class="tabular-nums font-bold">{{ mk.usable }}</div></div>
     <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">Left out</div><div class="tabular-nums font-bold">{{ mk.excluded + mk.unknown }}{% if mk.category %} <span class="text-ink-faint font-normal" title="closed trades of other categories (swing, short, positional, intraday, Ocean) — not this reading's evidence">+ {{ mk.other_category }} other categories</span>{% endif %}</div></div>
@@ -124,6 +132,11 @@
 <div class="bg-white border border-line p-4 lg:p-6 mb-6 border-l-4 border-l-slate-400"
      data-category-budget="category_budget_marker">
   <div class="text-xs tracking-widest text-ink-faint uppercase mb-2">CASH SHARE PER CATEGORY (owner order 2026-10-04)</div>
+  {% if share_base %}
+  <div class="mb-2 text-sm text-ink-soft" data-category-share-base="share_base_marker">
+    {% if share_base.after_owner_ocean %}Each share is of <strong>₹{{ share_base.base|inr }}</strong> left after your own buys ₹{{ share_base.owner|inr }} and Ocean ₹{{ share_base.ocean|inr }} (of the deployable ₹{{ share_base.deployable|inr }}, at entry cost — owner card 2026-10-22), so all five stay reachable however much you buy yourself.{% else %}Each share is of the whole deployable <strong>₹{{ share_base.deployable|inr }}</strong>; your own buys (₹{{ share_base.owner|inr }}) and Ocean (₹{{ share_base.ocean|inr }}) are not taken off first.{% endif %}
+  </div>
+  {% endif %}
   <div class="overflow-x-auto">
   <table class="w-full text-sm">
     <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
@@ -157,9 +170,9 @@
   <div class="mt-2 text-sm text-amber-800">The five shares add up to {{ "%.0f%%"|format(budget_total * 100) }}, not 100% — {% if budget_total < 1 %}the rest stays as cash no category can spend{% else %}the deploy cap still stops the book at 100%, so the last category in the 09:20 order can be squeezed{% endif %}.</div>
   {% endif %}
   <div class="mt-2 text-xs text-ink-faint">
-    Shares are of the deployable capital: equity (at entry prices on this page) minus the regime reserve{% if cfg.cash_reserve_pct > 0 %} — {{ "%.0f%%"|format(cfg.cash_reserve_pct * 100) }} right now{% endif %}.
+    {% if share_base and share_base.after_owner_ocean %}Deployable = equity (at entry prices on this page) minus the regime reserve{% if cfg.cash_reserve_pct > 0 %} — {{ "%.0f%%"|format(cfg.cash_reserve_pct * 100) }} right now{% endif %}; the five shares are taken from what is left of it after your own buys and Ocean.{% else %}Shares are of the deployable capital: equity (at entry prices on this page) minus the regime reserve{% if cfg.cash_reserve_pct > 0 %} — {{ "%.0f%%"|format(cfg.cash_reserve_pct * 100) }} right now{% endif %}.{% endif %}
     Spent counts each position at its entry cost. A share a category does not use stays as cash; it is never lent to another category.
-    Ocean is outside these shares (its own {{ cfg.ocean_max_positions }}-slot limit). Your BUY button, limit fills and the Buy Desk are never refused here; what they buy counts under <strong>owner</strong>, outside the five shares (owner order 2026-10-21 — before it, those buys counted as momentum and could fill its share). Your own buys are checked against cash only, as before — no share, deploy cap or heat limit refuses your tap — but what they hold still counts in the deploy cap and the heat every scan entry is judged against.
+    Ocean is outside these shares (its own {{ cfg.ocean_max_positions }}-slot limit). Your BUY button, limit fills and the Buy Desk are never refused here; what they buy counts under <strong>owner</strong>, outside the five shares (owner order 2026-10-21 — before it, those buys counted as momentum and could fill its share). Your own buys are checked against cash only, as before — no share, deploy cap or heat limit refuses your tap — but what they hold still counts in the deploy cap and the heat every scan entry is judged against{% if share_base and share_base.after_owner_ocean %}, and comes off the base the five shares are taken from{% endif %}.
     A remainder smaller than the ₹{{ cfg.position_slab_value|inr }} slab counts as full.
   </div>
 </div>
@@ -208,7 +221,7 @@
   <div class="font-bold mb-3">Active filters (always-on pre-entry gates)</div>
   <ul class="text-sm text-ink-soft space-y-2">
     <li>• Liquidity: ₹5+ Cr daily rupee turnover (5d avg) — rupees, not a share count (share floor removed 2026-09-08, it blocked high-priced liquid names)</li>
-    <li>• Spread: skip stuck-at-circuit stocks and wide bid-ask spreads</li>
+    <li>• Circuit: skip a stock stuck at its circuit (open = high = low = close). The bid-ask spread check is switched off (owner card 2026-10-22) — the ₹5 Cr turnover rule above is the one liquidity gate</li>
     <li>• Correlation: reject candidates with &gt; 85% return correlation to any open position</li>
     <li>• Daily kill switch: −2% day loss halts all new entries (checked at scan time and 15:35)</li>
     <li>• Calendar: 3-day halt before elections / Budget (real dates only — no guessed events). RBI MPC days are shown, never a halt (owner order 2026-09-30)</li>

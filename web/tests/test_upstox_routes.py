@@ -33,6 +33,18 @@ def _logged_in(monkeypatch_env=None) -> TestClient:
     return c
 
 
+def _start_login(c: TestClient) -> str:
+    """Hit /upstox/login and return the state it sent to Upstox.
+
+    Repointed 2026-10-22 (ROOT-ROUTE-08): the callback now REFUSES a reply
+    with no state, so the tests that log in must echo the state back exactly
+    as Upstox does ("If specified, will be returned after authentication").
+    """
+    from urllib.parse import parse_qs, urlparse
+    r = c.get("/upstox/login", follow_redirects=False)
+    return parse_qs(urlparse(r.headers["location"]).query)["state"][0]
+
+
 def test_login_redirects_to_upstox_when_env_set(env_set):
     c = _logged_in()
     r = c.get("/upstox/login", follow_redirects=False)
@@ -74,7 +86,7 @@ def test_callback_with_error_param(env_set):
 def test_callback_success_stores_token_in_session(env_set):
     c = _logged_in()
     # First hit /upstox/login so the session has the state cookie set
-    c.get("/upstox/login", follow_redirects=False)
+    st = _start_login(c)
 
     fake_response = MagicMock()
     fake_response.status_code = 200
@@ -84,7 +96,8 @@ def test_callback_success_stores_token_in_session(env_set):
         "user_name": "Daman",
     }
     with patch("trading.brokers.upstox.httpx.post", return_value=fake_response):
-        r = c.get("/upstox/callback?code=AUTH_CODE", follow_redirects=False)
+        r = c.get(f"/upstox/callback?code=AUTH_CODE&state={st}",
+                  follow_redirects=False)
     assert r.status_code == 303
     assert "upstox_connected=1" in r.headers["location"]
 
@@ -109,26 +122,27 @@ def test_callback_state_mismatch_blocks(env_set):
 
 def test_callback_token_exchange_failure(env_set):
     c = _logged_in()
-    c.get("/upstox/login", follow_redirects=False)
+    st = _start_login(c)
     bad = MagicMock()
     bad.status_code = 401
     bad.text = "invalid_grant"
     with patch("trading.brokers.upstox.httpx.post", return_value=bad):
-        r = c.get("/upstox/callback?code=BAD", follow_redirects=False)
+        r = c.get(f"/upstox/callback?code=BAD&state={st}",
+                  follow_redirects=False)
     assert r.status_code == 303
     assert "token_exchange_failed" in r.headers["location"]
 
 
 def test_disconnect_clears_session(env_set):
     c = _logged_in()
-    c.get("/upstox/login", follow_redirects=False)
+    st = _start_login(c)
     fake = MagicMock()
     fake.status_code = 200
     fake.json.return_value = {
         "access_token": "T", "user_id": "U", "user_name": "X",
     }
     with patch("trading.brokers.upstox.httpx.post", return_value=fake):
-        c.get("/upstox/callback?code=A", follow_redirects=False)
+        c.get(f"/upstox/callback?code=A&state={st}", follow_redirects=False)
     assert c.get("/upstox/status").json()["connected"] is True
 
     r = c.post("/upstox/disconnect", follow_redirects=False)
@@ -167,13 +181,13 @@ def test_sidebar_shows_connect_button_when_not_connected(env_set):
 
 def test_sidebar_shows_user_name_when_connected(env_set):
     c = _logged_in()
-    c.get("/upstox/login", follow_redirects=False)
+    st = _start_login(c)
     fake = MagicMock()
     fake.status_code = 200
     fake.json.return_value = {
         "access_token": "T", "user_id": "U", "user_name": "Daman",
     }
     with patch("trading.brokers.upstox.httpx.post", return_value=fake):
-        c.get("/upstox/callback?code=A", follow_redirects=False)
+        c.get(f"/upstox/callback?code=A&state={st}", follow_redirects=False)
     r = c.get("/")
     assert "Upstox: Daman" in r.text

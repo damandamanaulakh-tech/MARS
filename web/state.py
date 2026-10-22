@@ -113,23 +113,31 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
         if db.archive_trades([t.to_dict() for t in overflow]):
             self.trades = self.trades[-TRADES_DOC_CAP:]
 
-    def _save_with_mirror(self: Portfolio) -> None:
-        # Durable-archive the journal overflow BEFORE original_save trims RAM,
-        # so the full append-only trail survives in Mongo (journal_archive)
-        # while RAM stays bounded on the always-on process.
-        from trading.paper import JOURNAL_RAM_CAP
-        if len(self.decision_journal) > JOURNAL_RAM_CAP:
-            overflow = self.decision_journal[:-JOURNAL_RAM_CAP]
-            # AUDIT FIX C2 (2026-08-09): if Mongo dies mid-session the archive
-            # used to fail with a log line while original_save trimmed the RAM
-            # copy — append-only journal entries were PERMANENTLY lost. Failed
-            # archives now spill to a local JSONL and replay on reconnect.
-            if not db.archive_journal(overflow):
-                _spill_journal_overflow(self, overflow)
-        _archive_trade_overflow(self)
-        original_save(self)
-        if not db.is_connected():
-            return
+    def _save_with_mirror(self: Portfolio, _doc_only: bool = False):
+        # XR-070 (2026-10-22): `_doc_only=True` builds the mirror document and
+        # RETURNS it — nothing archived, nothing written to disk or Mongo — so
+        # the recovery path can park a conflicting local book in exactly the
+        # shape the live mirror stores (one builder, no second list of fields
+        # to drift). Every ordinary save passes nothing and behaves as before.
+        if not _doc_only:
+            # Durable-archive the journal overflow BEFORE original_save trims
+            # RAM, so the full append-only trail survives in Mongo
+            # (journal_archive) while RAM stays bounded on the always-on
+            # process.
+            from trading.paper import JOURNAL_RAM_CAP
+            if len(self.decision_journal) > JOURNAL_RAM_CAP:
+                overflow = self.decision_journal[:-JOURNAL_RAM_CAP]
+                # AUDIT FIX C2 (2026-08-09): if Mongo dies mid-session the
+                # archive used to fail with a log line while original_save
+                # trimmed the RAM copy — append-only journal entries were
+                # PERMANENTLY lost. Failed archives now spill to a local JSONL
+                # and replay on reconnect.
+                if not db.archive_journal(overflow):
+                    _spill_journal_overflow(self, overflow)
+            _archive_trade_overflow(self)
+            original_save(self)
+            if not db.is_connected():
+                return None
         doc = {
             "cash": self.cash,
             "positions": {k: v.to_dict() for k, v in self.positions.items()},
@@ -176,7 +184,10 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "danger_alerts_start": self.danger_alerts_start,
             "last_save": self.last_save,
         }
+        if _doc_only:
+            return doc
         db.save_portfolio(doc)
+        return None
 
     Portfolio.save = _save_with_mirror  # type: ignore[assignment]
     _PORTFOLIO_SAVE_PATCHED = True
@@ -213,8 +224,12 @@ def heal_after_reconnect() -> None:
     (2) If the BOOT happened during the outage (phantom fresh book) and the
         local book is still virgin — no positions, no trades — hydrate the
         real book from Mongo instead of overwriting it at the next save.
-        A local book that already has activity is NEVER clobbered; the
-        conflict is journaled for the owner instead.
+        XR-070 (2026-10-22): when the local book ALSO has activity, the Mongo
+        book still wins and the local one is parked (portfolio_conflict_<ts>
+        in the database + a JSON file), never merged and never written over
+        Mongo — see _resolve_recovery_conflict. (Before this the journal said
+        "NOTHING was overwritten" and the save below then wrote the local
+        book over the Mongo one.)
     """
     if not db.recovered_pending():
         return
@@ -246,15 +261,131 @@ def heal_after_reconnect() -> None:
                         "has been restored from Mongo (local book was empty)."),
             })
         elif persisted:
-            p.decision_journal.append({
-                "ts": _dt.utcnow().isoformat(),
-                "action": "MONGO_RECOVERED_CONFLICT",
-                "why": ("Mongo is back but this session already traded on a "
-                        "fresh book started during the outage. NOTHING was "
-                        "overwritten — owner must reconcile (the Mongo book "
-                        "is untouched until the next save)."),
-            })
+            _resolve_recovery_conflict(p, persisted)
     p.save()
+
+
+#: XR-070 (entry-path batch 2026-10-22). The conflict branch used to journal
+#: "NOTHING was overwritten" and then fall through to p.save(), which mirrors
+#: the LOCAL book straight over the Mongo one — the words were false and the
+#: real book was replaced by the outage-day phantom. The lead's call, stated
+#: in the journal line itself: the MONGO book wins (it is the real one, with
+#: its whole history; the local one was started fresh during the outage) and
+#: the local book is PARKED, never merged, for the owner to compare.
+CONFLICT_DOC_PREFIX = "portfolio_conflict_"
+
+
+def _mirror_doc(p: Portfolio) -> dict:
+    """The book exactly as the Mongo mirror stores it (same builder as every
+    save, so the parked copy reads back through the same hydrate)."""
+    _patch_portfolio_save_to_mirror_mongo()
+    return Portfolio.save(p, _doc_only=True)          # type: ignore[call-arg]
+
+
+def _park_local_book(p: Portfolio, stamp: str) -> dict:
+    """Park the local book twice: as its own document in Mongo's portfolio
+    collection (read back to prove it landed) and as a JSON file in the state
+    dir. Returns where it went and why not, never raises."""
+    import json as _json
+    import os
+    doc_id = f"{CONFLICT_DOC_PREFIX}{stamp}"
+    out = {"doc_id": doc_id, "mongo": False, "mongo_error": None,
+           "file": None, "file_error": None}
+    try:
+        doc = _mirror_doc(p)
+    except Exception as e:                                    # noqa: BLE001
+        out["mongo_error"] = out["file_error"] = f"{type(e).__name__}: {e}"[:200]
+        return out
+    try:
+        if not db.is_connected():
+            out["mongo_error"] = "mongo_disconnected"
+        else:
+            res = db.save_portfolio(doc, doc_id=doc_id)
+            err = getattr(db, "LAST_WRITE_ERROR", None)
+            back = db.load_portfolio(doc_id=doc_id) if res is not False and not err else None
+            if (back is not None
+                    and len(back.get("positions") or {}) == len(doc["positions"])
+                    and len(back.get("trades") or []) == len(doc["trades"])):
+                out["mongo"] = True
+            else:
+                out["mongo_error"] = err or "the read-back did not match what was written"
+    except Exception as e:                                    # noqa: BLE001
+        out["mongo_error"] = f"{type(e).__name__}: {e}"[:200]
+    try:
+        path = os.path.join(p.cfg.state_dir, f"{doc_id}.json")
+        with open(path, "w") as f:
+            _json.dump(doc, f, default=str)
+        out["file"] = path
+    except Exception as e:                                    # noqa: BLE001
+        out["file_error"] = f"{type(e).__name__}: {e}"[:200]
+    return out
+
+
+def _resolve_recovery_conflict(p: Portfolio, persisted: dict) -> None:
+    """Mongo came back and BOTH books have activity: keep the Mongo book as
+    the live one, park the local one, carry the local session's journal lines
+    across (the journal is append-only), and say all of it in one line."""
+    from datetime import datetime as _dt
+    now = _dt.utcnow()
+    stamp = now.strftime("%Y%m%dT%H%M%SZ")
+    local_positions = [
+        {"ticker": t, "qty": int(getattr(pos, "qty", 0) or 0),
+         "entry_price": float(getattr(pos, "entry_price", 0.0) or 0.0),
+         "entry_date": str(getattr(pos, "entry_date", "") or ""),
+         "mode": getattr(pos, "mode", "") or ""}
+        for t, pos in p.positions.items()]
+    local_trades = len(p.trades)
+    local_cash = float(p.cash)
+    local_journal = list(p.decision_journal)
+    parked = _park_local_book(p, stamp)
+
+    _hydrate_portfolio_from_mongo(p, persisted)
+
+    def _key(e: dict) -> tuple:
+        return (e.get("ts"), e.get("action"), e.get("ticker"))
+    seen = {_key(e) for e in p.decision_journal}
+    carried = 0
+    for e in local_journal:
+        if _key(e) in seen:
+            continue
+        p.decision_journal.append({**e, "parked_book": parked["doc_id"]})
+        carried += 1
+
+    where = []
+    if parked["mongo"]:
+        where.append(f"in the database as {parked['doc_id']}")
+    if parked["file"]:
+        where.append(f"on this server's disk as {parked['file']} (a restart wipes it)")
+    if where:
+        parked_text = ("The local book was parked " + " and ".join(where)
+                       + " — nothing from it is merged; compare and decide.")
+    else:
+        parked_text = ("The local book could NOT be parked (database: "
+                       f"{parked['mongo_error']}; disk: {parked['file_error']}) — "
+                       "its positions are listed in this line so they are not lost.")
+    held = ", ".join(f"{r['ticker']} x{r['qty']}" for r in local_positions[:20]) or "none"
+    p.decision_journal.append({
+        "ts": now.isoformat(),
+        "action": "MONGO_RECOVERED_CONFLICT",
+        "kept": "mongo",
+        "parked_as": parked["doc_id"],
+        "parked_in_mongo": parked["mongo"],
+        "parked_file": parked["file"],
+        "park_errors": {"mongo": parked["mongo_error"], "file": parked["file_error"]},
+        "local_positions": local_positions,
+        "local_trades": local_trades,
+        "local_cash": round(local_cash, 2),
+        "carried_journal_lines": carried,
+        "why": ("Mongo is back, but this session had already traded on a fresh "
+                "book started during the outage. The MONGO book is kept as the "
+                "live book — it is the real one, with its full history; the local "
+                f"one was started from scratch while the database was away "
+                f"(it held {len(local_positions)} position(s): {held}; "
+                f"{local_trades} closed trade(s); cash Rs {local_cash:,.0f}). "
+                + parked_text
+                + (f" Its {carried} journal line(s) are kept just above this "
+                   "line, marked parked_book." if carried else "")),
+    })
 
 
 def _coerce_override(cfg, key: str, value):

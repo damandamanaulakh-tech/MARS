@@ -377,11 +377,17 @@ def _settings_save_body(form):
     cfg_fields = {f.name: f.type for f in fields(cfg)}
     overrides: dict = {}
 
-    # Mode selector
+    # Mode selector. ROOT-ROUTE-06 (entry-path batch 2026-10-22): the mode
+    # used to be written to the live Config HERE, before the universe checks
+    # below — a refused save (universe_too_big / universe_unknown) then
+    # returned with the new mode in memory and the OLD mode's preset numbers,
+    # unsaved, until the next restart, and the next rotation restored to it.
+    # The choice is held in a local now and written only once every check has
+    # passed (just below the universe block), so a refused save changes
+    # nothing.
     new_mode = form.get("mode")
-    if new_mode in {m[0] for m in MODE_CHOICES}:
-        cfg.mode = new_mode
-        overrides["mode"] = new_mode
+    if new_mode not in {m[0] for m in MODE_CHOICES}:
+        new_mode = None
 
     # OWNER ORDER 2026-08-20: the custom 50-name universe, editable weekly.
     # Comma/space/newline separated; .NS appended if missing; EVERY name
@@ -439,6 +445,11 @@ def _settings_save_body(form):
                     status_code=303)
             cfg.custom_universe = tuple(names)
             overrides["custom_universe"] = names
+
+    # Every refusal above has had its chance; the mode is written now.
+    if new_mode is not None:
+        cfg.mode = new_mode
+        overrides["mode"] = new_mode
 
     # Editable scalar fields
     preset_submitted: dict = {}

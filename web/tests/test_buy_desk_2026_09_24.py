@@ -104,10 +104,19 @@ def test_plan_fills_the_budget_in_score_order_and_stops(book, desk_cfg):
     pl = buy_desk.plan(book, desk_cfg, sl["rows"], 3_00_000.0, prices,
                        lambda t: _close_series())
     top, wait = pl["rows"]
-    assert top["recommended"] and top["qty"] == 3000 and top["cost"] == 3_00_000.0
+    # Repointed 2026-10-22 (XR-083): qty is sized on the slippage-applied
+    # fill (100 x 1.0005 = 100.05), so Rs 3,00,000 buys 2,998 shares for
+    # Rs 2,99,949.90 — the old pin (3,000 shares, cost read at the raw quote)
+    # was exactly the overspend: those 3,000 shares really paid Rs 3,00,150.
+    fill = 100.0 * (1 + desk_cfg.slippage_bps / 10_000)
+    assert top["recommended"] and top["qty"] == 2998
+    assert top["cost"] == pytest.approx(2998 * fill) and top["cost"] <= 3_00_000.0
     assert top["notional"] >= 3_00_000.0          # the ladder wanted more; budget capped it
-    assert not wait["recommended"] and wait["reason"] == "budget_exhausted"
-    assert pl["planned_total"] == 3_00_000.0 and pl["recommended_count"] == 1
+    # the Rs 50.10 left over is below the slab, so WAIT is not funded (it
+    # read "budget_exhausted" when the raw-quote sizing spent the budget to
+    # the rupee)
+    assert not wait["recommended"] and wait["reason"] == "budget_remainder_below_slab"
+    assert pl["planned_total"] <= 3_00_000.0 and pl["recommended_count"] == 1
 
 
 def test_plan_never_invents_a_price(book, desk_cfg):
@@ -143,8 +152,11 @@ def test_execute_opens_through_the_engine_and_journals(book, desk_cfg):
     assert [o["ticker"] for o in summary["opened"]] == ["TOP.NS"]
     pos = book.positions["TOP.NS"]
     assert "owner_pick" in pos.tags and "buy_desk" in pos.tags
-    assert pos.qty == 3000 and pos.entry_price >= 100.0      # slippage applied like an engine fill
-    assert book.cash == pytest.approx(cash_before - 3000 * pos.entry_price)
+    # Repointed 2026-10-22 (XR-083): 2,998 shares, sized on the fill price,
+    # so the batch pays no more than the Rs 3,00,000 budget.
+    assert pos.qty == 2998 and pos.entry_price >= 100.0      # slippage applied like an engine fill
+    assert book.cash == pytest.approx(cash_before - 2998 * pos.entry_price)
+    assert summary["spent"] <= 3_00_000.0
     assert summary["market_hours_bypassed"] is True
     assert {s["ticker"] for s in summary["skipped"]} == {"WAIT.NS"}
     j = book.decision_journal[-1]

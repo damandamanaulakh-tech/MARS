@@ -83,6 +83,11 @@ CONNECT_NOTICES = {
     "state_mismatch": ("error",
         "The login came back with a different security state than this browser "
         "started with (two login tabs open?). Start Connect again from here."),
+    "state_missing": ("error",
+        "The login came back without its security check — either Upstox's "
+        "reply had no state, or this browser lost the app's session between "
+        "Connect and the reply. Nothing was connected. Tap Connect Upstox "
+        "again from here, in the same browser tab."),
     "no_code": ("error",
         "Upstox sent the browser back without a login code — the login was "
         "cancelled or declined on Upstox's side."),
@@ -182,9 +187,23 @@ def callback(
             f"/?upstox_error={error or 'no_code'}", status_code=303,
         )
 
-    # CSRF check
+    # CSRF check. ROOT-ROUTE-08 (entry-path batch 2026-10-22): this used to
+    # refuse only when BOTH values were present and differed, so a reply with
+    # no state, or a session that never held one, passed the forgery check.
+    # Both must be present now. Upstox returns the state it was given
+    # (documented: "If specified, will be returned after authentication"),
+    # and /upstox/login always sends one, so a normal login is unaffected.
     expected_state = request.session.pop("upstox_oauth_state", None)
-    if state and expected_state and state != expected_state:
+    if not state or not expected_state:
+        where = ("Upstox's reply" if not state and expected_state
+                 else "this browser's session" if state
+                 else "both the reply and the session")
+        log.warning("Upstox callback refused: OAuth state missing from %s", where)
+        _journal_connect_failed(
+            "state_missing",
+            f"OAuth state missing from {where} — the login was refused")
+        return RedirectResponse("/?upstox_error=state_missing", status_code=303)
+    if state != expected_state:
         log.warning("Upstox callback state mismatch")
         _journal_connect_failed("state_mismatch", "OAuth state did not match")
         return RedirectResponse("/?upstox_error=state_mismatch", status_code=303)

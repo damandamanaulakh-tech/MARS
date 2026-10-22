@@ -29,6 +29,11 @@ WHAT IT IS NOT
   * Not a new sizing rule. Budget only caps the TOTAL; each name's size is
     the ladder's. When the budget's remainder is below the slab the desk
     stops rather than open a sub-slab dust position.
+  * XR-083 (entry-path batch 2026-10-22): quantities are sized on the
+    SLIPPAGE-APPLIED fill price — the price the buy really pays — not the raw
+    quote, and the buy keeps a running total and skips a name
+    ("budget_short") rather than pass the typed budget. Before this a
+    Rs 2.5 Cr batch could spend Rs 2.5 Cr + 5 bps (about Rs 12,500 more).
 
 Every run journals OWNER_BATCH_BUY with the budget, what opened at what
 price, what was skipped and why, and whether market hours were bypassed.
@@ -136,6 +141,7 @@ def plan(portfolio, cfg, rows: list, budget_rs: float, prices: dict,
     returns a Close series or None; None = "no price history" and the ladder
     honestly falls to the slab (sizing.py's own rule).
     """
+    from trading.costs import slippage_price
     from trading.sizing import position_notional_for
 
     marks = {pos.ticker: pos.entry_price for pos in portfolio.positions.values()}
@@ -146,7 +152,7 @@ def plan(portfolio, cfg, rows: list, budget_rs: float, prices: dict,
     for r in rows:
         t = r["ticker"]
         row = dict(r)
-        row.update({"price": None, "notional": None, "qty": 0,
+        row.update({"price": None, "fill": None, "notional": None, "qty": 0,
                     "cost": 0.0, "recommended": False, "reason": ""})
         price = prices.get(t)
         if not price or float(price) <= 0:
@@ -155,6 +161,10 @@ def plan(portfolio, cfg, rows: list, budget_rs: float, prices: dict,
             continue
         price = float(price)
         row["price"] = price
+        # XR-083: what the buy will really pay per share (execute fills at
+        # exactly this), so qty x fill — the cost — never passes the budget.
+        fill = float(slippage_price(price, "BUY", cfg))
+        row["fill"] = fill
         try:
             close = close_of(t)
         except Exception:                                     # noqa: BLE001
@@ -176,12 +186,12 @@ def plan(portfolio, cfg, rows: list, budget_rs: float, prices: dict,
             row["reason"] = "budget_remainder_below_slab"
             planned.append(row)
             continue
-        qty = int(take // price)
+        qty = int(take // fill)
         if qty < 1:
             row["reason"] = "price_above_size"
             planned.append(row)
             continue
-        cost = qty * price
+        cost = qty * fill
         remaining -= cost
         row.update({"qty": qty, "cost": cost, "recommended": True})
         planned.append(row)
@@ -205,6 +215,8 @@ def execute(eng, portfolio, cfg, planned_rows: list, now: datetime, *,
     from trading.costs import slippage_price
 
     opened, skipped = [], []
+    budget = float(budget_rs)
+    spent_so_far = 0.0
     for r in planned_rows:
         t = r["ticker"]
         if not r.get("recommended"):
@@ -219,6 +231,13 @@ def execute(eng, portfolio, cfg, planned_rows: list, now: datetime, *,
         if qty < 1 or cost > portfolio.cash:
             skipped.append({"ticker": t, "reason": "cash_short"})
             continue
+        # XR-083: the typed budget is a ceiling on what the batch PAYS. The
+        # plan already sizes on this fill; this catches a stale or hand-built
+        # plan, so the total can never pass the budget.
+        if spent_so_far + cost > budget + 1e-6:
+            skipped.append({"ticker": t, "reason": "budget_short"})
+            continue
+        spent_so_far += cost
         src = (price_sources or {}).get(t) or "live_quote"
         pick = {
             "ticker": t, "score": float(r["score"]),
