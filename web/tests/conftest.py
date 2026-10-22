@@ -8,6 +8,9 @@ import pytest
 # The startup catchup-scan (scheduler.py) must never fire inside a test
 # run — it would launch a real multi-mode network scan mid-suite.
 os.environ.setdefault("SB_DISABLE_CATCHUP", "1")
+# 2026-10-22: the app scheduler is BUILT but never STARTED under tests — a
+# CI run crossing 09:20 IST had the real rotation cron fire mid-suite.
+os.environ.setdefault("SB_SCHEDULER_NO_START", "1")
 
 # The login brute-force throttle (1s per attempt) would add minutes to the
 # suite — hundreds of tests log in. Off under tests, on in production.

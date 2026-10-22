@@ -224,6 +224,16 @@ def start_if_enabled() -> None:
                        run_date=startup_catchup_run_date(ist, _td(seconds=300)),
                        id="valuation_catchup")
 
+    if os.environ.get("SB_SCHEDULER_NO_START") == "1":
+        # TEST-ONLY (2026-10-22). The web test suite boots the app, and the
+        # app used to START this scheduler inside the test process: a CI run
+        # that crossed 09:20 IST had the REAL 09:20 rotation fire mid-suite
+        # (it took _ROTATION_LOCK, ten later tests read "busy", and a test's
+        # cleanup released the job's lock). Every job is still registered —
+        # tests inspect them — but none can ever run. Production never sets
+        # this (render.yaml pinned); web/tests/conftest.py does.
+        log.info("Scheduler built but NOT started (SB_SCHEDULER_NO_START=1 — tests)")
+        return
     _SCHED.start()
     log.info("Schedulers started (intraday=%s, daily=%s)", intraday, daily)
 
