@@ -189,11 +189,20 @@ def test_owner_and_portfolio_exits_never_reach_the_estimator():
 
 
 def test_no_positive_edge_blocks_new_entries():
-    trades = [_T("TAKE_PROFIT", 0.02)] * 5 + [_T("STOP_LOSS", -0.05)] * 20
+    # REPOINTED 2026-10-22 (owner card "Block only on 30+ usable trades"):
+    # a negative reading blocks only on 30+ usable exits, so the fixture is
+    # the same 1:4 ratio on 35 trades (was 5 + 20 = 25, now a thin record
+    # that caps at the slab — pinned in test_entryfix_gates_2026_10_22.py).
+    trades = [_T("TAKE_PROFIT", 0.02)] * 7 + [_T("STOP_LOSS", -0.05)] * 28
     r = measured_kelly.measure(trades, fraction=0.29)
     assert r.status == "NO_POSITIVE_EDGE"
     assert r.block_new_entries is True
     assert r.max_position_pct == 0.0
+    thin = measured_kelly.measure(
+        [_T("TAKE_PROFIT", 0.02)] * 5 + [_T("STOP_LOSS", -0.05)] * 20,
+        fraction=0.29)
+    assert thin.status == "NO_POSITIVE_EDGE" and thin.thin_record
+    assert thin.block_new_entries is False
 
 
 def test_a_thin_sample_sizes_small_through_the_confidence_ramp():

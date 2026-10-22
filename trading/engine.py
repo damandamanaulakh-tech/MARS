@@ -314,7 +314,17 @@ class TradingEngine:
                 held_px = routed_fetch_quotes(held_now, upstox_client=self.broker)
             except Exception:
                 held_px = {}
-            if held_px and self.risk.check_kill_switch(self.portfolio.equity(held_px)):
+            # OWNER ORDER 2026-10-22 (entry-path review, confirmed finding):
+            # the book is marked at the SAME freshest prices refresh() and the
+            # day's baseline use — live quote, else the latest stored close.
+            # Valuing the names that did not answer a quote at their ENTRY
+            # price read their unrealised gains as a loss against a baseline
+            # that included them, so a partial quote reply could trip a false
+            # -2% halt: every category stopped buying and the next pass sold
+            # the quoted book. `history` (fetched above) carries the held
+            # names. No quotes at all still leaves the check to refresh.
+            if held_px and self.risk.check_kill_switch(self.portfolio.equity(
+                    self._freshest_marks(held_px, history))):
                 if not self.portfolio.risk_day_killed:
                     self.portfolio.decision_journal.append({
                         "ts": now.isoformat(), "action": "KILL_SWITCH_SCAN",
@@ -753,6 +763,9 @@ class TradingEngine:
         # check runs. One reading per scan, from the book's OWN closed trades
         # (trading/measured_kelly.py). NO_POSITIVE_EDGE blocks every new scan
         # entry; ACTIVE caps each new entry's size; NO_SAMPLE does nothing.
+        # Owner card 2026-10-22: NO_POSITIVE_EDGE on fewer than 30 usable
+        # exits is a THIN record — it caps each buy at the slab
+        # (_measured_kelly_cap) and blocks nothing (block_new_entries False).
         mk = self._measured_kelly(now) if picks else None
         cleared: list = []
         for pick in picks:
@@ -815,6 +828,7 @@ class TradingEngine:
                 continue
             # v5: liquidity hard floor
             tic_hist = history.get(pick["ticker"])
+            cand_ret = None
             if tic_hist is not None:
                 # P2: never buy on stale candles (dead feed / unnoticed holiday).
                 try:
@@ -835,19 +849,15 @@ class TradingEngine:
                 # fails from cloud IPs. The rupee-turnover floor already
                 # block illiquid names; live mcap was a redundant second gate.
                 mcap_cr = None
-                spread_pct = None
-                if self.broker is not None:
-                    try:
-                        bid, ask = self.broker.bid_ask(pick["ticker"])
-                        if bid and ask and bid > 0:
-                            spread_pct = (ask - bid) / ((ask + bid) / 2)
-                    except Exception:
-                        pass
+                # Owner 2026-10-22 ("Switch the spread check off"): no
+                # bid-ask read here any more — the gate does not use it, so
+                # a top-of-book call per pick would be a wasted quote call.
+                # Only the Rs 5 Cr 5-day rupee turnover rule gates liquidity.
                 ok_liq, reason_liq = passes_liquidity(
                     tic_hist["Close"], tic_hist["Volume"],
                     last_high=last_high, last_low=last_low,
                     last_open=last_open, last_close=last_close,
-                    market_cap_cr=mcap_cr, spread_pct=spread_pct,
+                    market_cap_cr=mcap_cr,
                 )
                 if not ok_liq:
                     skipped.append({
@@ -887,6 +897,17 @@ class TradingEngine:
                             "reason": f"candle_wait_{candle_why}",
                         })
                         continue
+            # XR-051 (owner order 2026-10-22): a pick that clears EVERY gate
+            # joins the set the next pick's correlation is checked against,
+            # so two 0.85+-correlated new names can no longer both open in
+            # one pass (the set used to be built once, from the book held
+            # before the pass). Picks run in rank order, so the stronger of a
+            # correlated pair keeps the slot. Done here, in pass 1, not after
+            # the fill: rotation (between the passes) funds only cleared
+            # picks, and a refusal after it could sell a holding for a pick
+            # that then never buys (the S-4 rule).
+            if cand_ret is not None:
+                open_returns[pick["ticker"]] = cand_ret
             cleared.append(pick)
 
         # OWNER ORDER 2026-09-04: rotation executes. Runs BEFORE the opening
@@ -901,7 +922,8 @@ class TradingEngine:
         if rotated_out:
             cleared = [pk for pk in cleared if pk["ticker"] not in rotated_out]
 
-        for pick in cleared:
+        budget_refusal = None          # the gate's numbers at the first
+        for pick in cleared:           # category_budget_full (A1-5)
             live_px = live_fill_px.get(pick["ticker"])
             if live_px and live_px > 0:
                 # 2026-08-26: the router can now serve a ~1-minute-delayed
@@ -947,22 +969,51 @@ class TradingEngine:
                     want = (notional_arg if notional_arg is not None
                             else float(cfg.position_notional()))
                     size_diag = dict(size_diag)
+                    thin = bool(getattr(mk, "thin_record", False))
                     size_diag["measured_kelly"] = {
                         "status": mk.status, "usable": mk.usable,
                         "fraction": mk.fraction, "cap": round(cap_rs, 0),
                         "wanted": round(float(want), 0),
-                        "capped": bool(want > cap_rs)}
+                        "capped": bool(want > cap_rs),
+                        # owner card 2026-10-22: a negative reading on a
+                        # thin record caps at the slab instead of blocking
+                        "thin_record": thin,
+                        "cap_rule": ("slab (thin record)" if thin
+                                     else "fraction x equity, slab floor")}
                     if want > cap_rs:
                         notional_arg = cap_rs
             # OWNER ORDER 2026-10-04: each category spends only its own share
             # (momentum 40%, the other four 15% each). Ocean is exempt.
+            # Owner card 2026-10-22: the share is of what is left after your
+            # own buys and Ocean (category_budget.share_base).
+            # XR-026 (2026-10-22): the heat gate counts this entry at the
+            # stop _open will really set (_stop_for: an ATR-widened momentum
+            # stop can be 15%), not at the flat 5%.
+            pick_cat = (None if pick.get("ocean")
+                        else (getattr(cfg, "mode", "") or MOMENTUM_MODE))
             ok, reason, qty = can_open(
                 self.risk, self.portfolio.cash, current_eq,
                 self.portfolio.positions, pick["ticker"], fill, cfg,
                 notional_override=notional_arg,
-                category=(None if pick.get("ocean")
-                          else (getattr(cfg, "mode", "") or MOMENTUM_MODE)),
+                category=pick_cat,
+                stop_frac=self._planned_stop_frac(pick, fill, cfg),
             )
+            if (not ok and reason == "category_budget_full" and pick_cat
+                    and budget_refusal is None):
+                # A1-5 (2026-10-22): keep the numbers the gate refused on —
+                # the marked equity it read and the share of what is left
+                # after your own buys and Ocean — so the journal line prints
+                # the gate's own limit, not a recomputation.
+                from . import category_budget as _cb
+                budget_refusal = {
+                    "limit": _cb.limit(cfg, pick_cat, current_eq,
+                                       positions=self.portfolio.positions),
+                    "used": _cb.used(self.portfolio.positions.values(),
+                                     pick_cat),
+                    **_cb.share_base_parts(cfg, self.portfolio.positions,
+                                           current_eq),
+                    "equity": current_eq,
+                }
             pick["size_diag"] = size_diag
             # v7: size throttle = MIN of (strength, IFR) instead of product.
             # Previously we multiplied them, which compounded to 0.25-0.35x
@@ -1016,7 +1067,8 @@ class TradingEngine:
             self._open(pick, qty, fill, now)
             opened.append(pick["ticker"])
 
-        self._journal_budget_full(skipped, now)
+        self._journal_budget_full(skipped, now, seen=budget_refusal,
+                                  equity=self.portfolio.equity(marks))
         self._journal_loss_halt(skipped, now)
 
         self.portfolio.last_scan = now.isoformat()
@@ -1930,6 +1982,24 @@ class TradingEngine:
         pick["stop_diag"] = diag
         return price
 
+    def _planned_stop_frac(self, pick: dict, fill_price: float,
+                           cfg: Optional[Config] = None) -> Optional[float]:
+        """XR-026 (owner order 2026-10-22): the stop width _open will set for
+        this pick, as a positive fraction of the fill — read through the very
+        same _stop_for, so the heat gate and the booked stop can never
+        disagree. None when it cannot be read (the gate then uses the flat
+        category percentage, as before)."""
+        try:
+            fill = float(fill_price)
+            if fill <= 0:
+                return None
+            stop = float(self._stop_for(pick, fill, cfg=cfg))
+            if stop <= 0:
+                return None
+            return max(0.0, (fill - stop) / fill)
+        except Exception:
+            return None
+
     def _danger_pass(self, prices: dict, history: dict, now: datetime) -> None:
         """Mode C (alerts, first 7 days) then mode B (auto per-stock defence).
         1 VERIFIED danger trigger on a held name -> tighten stop to -2.5%
@@ -2203,7 +2273,9 @@ class TradingEngine:
         # the shares.
         from . import category_budget as cb
         cat = getattr(cfg, "mode", "") or MOMENTUM_MODE
-        share_limit = cb.limit(cfg, cat, eq)
+        # owner card 2026-10-22: the share of what is left after your own
+        # buys and Ocean — the same base the gate (can_open) refuses on
+        share_limit = cb.limit(cfg, cat, eq, positions=held)
         budget_need = sum(tickets[pk["ticker"]] for pk in fresh
                           if not pk.get("ocean"))
         room_now = (share_limit - cb.used(held.values(), cat)
@@ -2677,7 +2749,26 @@ class TradingEngine:
                 "usable": r.usable, "excluded": r.excluded,
                 "win_rate": r.raw_win_rate, "payoff": r.payoff_ratio,
                 "kelly": r.raw_kelly, "why": r.note})
+        elif getattr(r, "thin_record", False):
+            # Owner card 2026-10-22 ("Block only on 30+ usable trades"): a
+            # negative reading on a thin record caps each scan buy at the
+            # slab — it is NOT a block, so the BLOCKED line is not written.
+            self._journal_once_a_day("MEASURED_KELLY_THIN_CAP", now, {
+                "category": r.category, "other_category": r.other_category,
+                "usable": r.usable, "excluded": r.excluded,
+                "min_block_trades": getattr(r, "min_block_trades", None),
+                "win_rate": r.raw_win_rate, "payoff": r.payoff_ratio,
+                "kelly": r.raw_kelly,
+                "cap": round(self._slab_floor(cfg), 0), "why": r.note})
         return r
+
+    @staticmethod
+    def _slab_floor(cfg) -> float:
+        """The smallest trade a scan opens: the Rs 1.5 lakh slab under slab
+        sizing, the dust guard (min_position_value) otherwise."""
+        if str(getattr(cfg, "sizing_mode", "")) == "slab":
+            return float(getattr(cfg, "position_slab_value", 0) or 0)
+        return float(getattr(cfg, "min_position_value", 0) or 0)
 
     @staticmethod
     def _measured_kelly_cap(mk, cfg, equity: float):
@@ -2687,21 +2778,36 @@ class TradingEngine:
         Rs 1.5 lakh is a stated MINIMUM ("150000 slab as minimum"), so the
         measured cap trims the score ladder above it and never opens a trade
         smaller than the slab. Under fixed sizing the floor is the dust guard
-        (min_position_value) instead.
+        (min_position_value) instead. A THIN negative reading (owner card
+        2026-10-22, fewer than 30 usable exits) caps at that floor exactly.
         """
-        if mk is None or mk.status != "ACTIVE" or not mk.fraction:
+        if mk is None:
+            return None
+        floor = TradingEngine._slab_floor(cfg)
+        # Owner card 2026-10-22 ("Block only on 30+ usable trades"): a
+        # negative reading on fewer than 30 usable exits does not block —
+        # each new scan buy opens AT the slab and no larger.
+        if (getattr(mk, "thin_record", False)
+                and mk.status == "NO_POSITIVE_EDGE" and floor > 0):
+            return floor
+        if mk.status != "ACTIVE" or not mk.fraction:
             return None
         cap = float(mk.fraction) * float(equity)
-        if str(getattr(cfg, "sizing_mode", "")) == "slab":
-            floor = float(getattr(cfg, "position_slab_value", 0) or 0)
-        else:
-            floor = float(getattr(cfg, "min_position_value", 0) or 0)
         return max(cap, floor)
 
-    def _journal_budget_full(self, skipped: list, now: datetime) -> None:
+    def _journal_budget_full(self, skipped: list, now: datetime,
+                             seen: Optional[dict] = None,
+                             equity: Optional[float] = None) -> None:
         """One CATEGORY_BUDGET_FULL line per category per day when this pass
         refused picks because its share was spent (owner order 2026-10-04).
-        A refusal the owner cannot see is the lying-screen class."""
+        A refusal the owner cannot see is the lying-screen class.
+
+        A1-5 (2026-10-22): the line prints the limit the GATE refused on.
+        `seen` = the numbers kept at the first refusal (marked equity, the
+        share of what is left after your own buys and Ocean); without it the
+        limit is recomputed the gate's way — on the marked `equity` and the
+        held book — never on cash + entry cost, which drifted from the
+        gate's number whenever the book was in profit or loss."""
         names = [s["ticker"] for s in skipped
                  if s.get("reason") == "category_budget_full"]
         if not names:
@@ -2716,18 +2822,40 @@ class TradingEngine:
             return
         from . import category_budget as cb
         positions = self.portfolio.positions
-        base = self.portfolio.cash + sum(
-            float(p.qty) * float(p.entry_price) for p in positions.values())
-        lim = cb.limit(cfg, cat, base) or 0.0
-        spent = cb.used(positions.values(), cat)
+        if seen:
+            lim = float(seen.get("limit") or 0.0)
+            spent = float(seen.get("used") or 0.0)
+            parts = {k: seen.get(k) for k in
+                     ("deployable", "owner", "ocean", "base")}
+            eq_used = seen.get("equity")
+        else:
+            eq_used = (float(equity) if equity and equity > 0 else
+                       self.portfolio.cash + sum(
+                           float(p.qty) * float(p.entry_price)
+                           for p in positions.values()))
+            lim = cb.limit(cfg, cat, eq_used, positions=positions) or 0.0
+            spent = cb.used(positions.values(), cat)
+            parts = cb.share_base_parts(cfg, positions, eq_used)
+        left_after = ""
+        if (parts.get("owner") or 0) > 0 or (parts.get("ocean") or 0) > 0:
+            left_after = (f" of the Rs {float(parts.get('base') or 0):,.0f} "
+                          f"left after your own buys "
+                          f"(Rs {float(parts.get('owner') or 0):,.0f}) and "
+                          f"Ocean (Rs {float(parts.get('ocean') or 0):,.0f})")
         self.portfolio.decision_journal.append({
             "ts": now.isoformat(), "action": "CATEGORY_BUDGET_FULL",
             "category": cat,
             "share": cb.share(cfg, cat),
             "limit": round(lim, 0), "used": round(spent, 0),
+            "share_base": (None if parts.get("base") is None
+                           else round(float(parts["base"]), 0)),
+            "owner_bucket": round(float(parts.get("owner") or 0), 0),
+            "ocean_bucket": round(float(parts.get("ocean") or 0), 0),
+            "equity": (None if eq_used is None else round(float(eq_used), 0)),
             "refused": names[:20], "refused_count": len(names),
             "why": (f"{cb.LABELS.get(cat, cat)} has spent its "
-                    f"{(cb.share(cfg, cat) or 0) * 100:.0f}% share "
+                    f"{(cb.share(cfg, cat) or 0) * 100:.0f}% share"
+                    f"{left_after} "
                     f"(Rs {spent:,.0f} of Rs {lim:,.0f}); {len(names)} pick(s) "
                     f"waited. The other categories keep their own shares — "
                     f"owner order 2026-10-04."),

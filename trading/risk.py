@@ -55,6 +55,7 @@ def can_open(
     cfg: Config,
     notional_override: float | None = None,
     category: str | None = None,
+    stop_frac: float | None = None,
 ) -> tuple[bool, str, int]:
     """Decide whether a new position can open. Returns (ok, reason, qty).
 
@@ -64,9 +65,16 @@ def can_open(
     portfolio heat, min position value. Sizing got smarter; nothing got looser.
 
     `category` is the trade category the entry opens under (owner order
-    2026-10-04, "fix it so all 5 categories get cash"): its share of the
-    deployable capital is one more ceiling on the headroom. None (the
-    default, and Ocean) = no category budget, the pre-2026-10-04 gate."""
+    2026-10-04, "fix it so all 5 categories get cash"): its share of what
+    is left after your own buys and Ocean (category_budget.share_base,
+    owner card 2026-10-22) is one more ceiling on the headroom. None (the
+    default, and Ocean) = no category budget, the pre-2026-10-04 gate.
+
+    `stop_frac` (XR-026, owner order 2026-10-22) is the NEW entry's own stop
+    width as a positive fraction of the fill — what engine._stop_for will
+    set (an ATR-widened momentum stop can be up to 15%). The heat gate
+    counts the new entry at it, like every held name at its own stop. None
+    = the category's flat stop percentage (the pre-2026-10-22 reading)."""
     if risk.kill_switch:
         return False, "kill_switch_active", 0
 
@@ -153,7 +161,7 @@ def can_open(
     # entry if adding it would push heat above max_portfolio_heat_pct of equity.
     heat_cap_pct = getattr(cfg, "max_portfolio_heat_pct", None)
     if heat_cap_pct is not None and current_equity > 0:
-        stop_frac = abs(cfg.stop_loss_pct)  # e.g. 0.05 -> 5% risk per position
+        stop_frac_flat = abs(cfg.stop_loss_pct)  # e.g. 0.05 -> 5% risk per position
 
         # 2026-10-05 ("Go for A"): a held position's risk at stop is read off
         # ITS OWN stop (an ATR-widened momentum stop, an owner's custom stop,
@@ -165,23 +173,28 @@ def can_open(
             ep = float(getattr(p, "entry_price", 0.0) or 0.0)
             if sp > 0 and ep > 0:
                 return max(0.0, (ep - sp) / ep)
-            return stop_frac
+            return stop_frac_flat
         existing_heat = sum(
             p.qty * p.entry_price * _risk_frac(p) for p in open_positions.values()
         )
-        # The NEW entry's own stop is set after this gate (engine._stop_for),
-        # so its heat is counted at the category percentage here.
-        new_heat = qty * fill_price * stop_frac
+        # XR-026 (owner order 2026-10-22): the NEW entry is counted at ITS
+        # OWN planned stop (engine._stop_for, passed in as `stop_frac`) —
+        # the same reading every held name gets. A momentum ATR stop can be
+        # three times the flat 5%, so the flat number understated the heat.
+        # No planned stop given = the category percentage, as before.
+        new_frac = (float(stop_frac) if stop_frac is not None
+                    and float(stop_frac) > 0 else stop_frac_flat)
+        new_heat = qty * fill_price * new_frac
         if (existing_heat + new_heat) / current_equity > heat_cap_pct:
             # Try to shrink qty to fit remaining heat budget before rejecting.
             remaining = heat_cap_pct * current_equity - existing_heat
             if remaining <= 0:
                 return False, "portfolio_heat_cap", 0
-            qty = int(remaining / (fill_price * stop_frac))
+            qty = int(remaining / (fill_price * new_frac)) if new_frac > 0 else qty
             if qty <= 0:
                 return False, "portfolio_heat_cap", 0
-            if stop_frac > 0:
-                hard_room = min(hard_room, remaining / stop_frac)
+            if new_frac > 0:
+                hard_room = min(hard_room, remaining / new_frac)
 
     # OWNER ORDER 2026-10-04: nothing below the minimum opens. A trade that
     # whole-share rounding or a trim left just short (93 x Rs 1,600 =

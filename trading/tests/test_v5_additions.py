@@ -1,6 +1,7 @@
 """Tests for v5 risk/scoring additions:
 
-- mcap + spread filters in passes_liquidity
+- mcap filter in passes_liquidity (the spread filter was switched off by
+  the owner 2026-10-22 — pinned as off below)
 - dynamic_cash_reserve_pct
 - score-decay trailing tighten
 - compute_hot_sectors / scoring context
@@ -63,13 +64,16 @@ def test_mcap_none_skipped():
 
 # -------- spread filter --------
 
-def test_spread_filter_blocks_wide_spread():
+def test_spread_filter_is_switched_off():
+    # REPOINTED 2026-10-22 (owner card "Switch the spread check off"): a
+    # 0.5% bid-ask spread used to fail here; only the Rs 5 Cr 5-day rupee
+    # turnover rule gates liquidity now, and the spread is ignored.
     df = _ohlcv()
     ok, reason = passes_liquidity(
         df["Close"], df["Volume"], spread_pct=0.005,  # 0.5%
     )
-    assert ok is False
-    assert "spread" in reason
+    assert ok is True
+    assert "spread" not in reason
 
 
 def test_spread_filter_passes_tight_spread():
