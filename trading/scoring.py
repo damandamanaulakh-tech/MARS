@@ -8,7 +8,10 @@ Weights match what the user specified:
 
 All ten components now compute (the last stub fell 2026-08-23, Node 7):
 catalyst = live news sentiment (neutral 50 without the API key),
-analyst_revision = consensus revisions (live 2026-07-16), short_interest =
+analyst_revision = consensus rating, earnings_growth = year-on-year net
+income — both read the app's STORED files first since 2026-10-22 (owner card
+D2; trading/stored_feeds.py) and Yahoo only second, because Yahoo blocks the
+Render box and both legs sat at 50 for every name there; short_interest =
 a LABELLED PROXY from the committed futures-OI panel (short build-up low /
 covering high; non-F&O names and a stale panel read neutral 50). Weights
 and engine code were untouched at every unstub — only the per-component
@@ -68,12 +71,41 @@ def score_volume_expansion(volume: pd.Series, cfg: Config,
     return _clip((ratio - 1) * 100 + 50)
 
 
+class _Sourced(float):
+    """A leg's score that remembers where its number came from. Behaves as a
+    plain float everywhere; compute_score reads `.source` for the reasoning
+    text. A plain float (e.g. a test stub) simply has no source."""
+    source: Optional[str] = None
+
+    def __new__(cls, value: float, source: Optional[str] = None):
+        obj = super().__new__(cls, value)
+        obj.source = source
+        return obj
+
+
+def _growth_band(g: float) -> float:
+    """THE earnings-growth band, one function for every source:
+    +20% YoY -> 100, -20% YoY -> 0, 0% -> 50."""
+    return _clip(50 + g * 2.5)
+
+
 def score_earnings_growth(ticker: str) -> float:
+    """OWNER CARD 2026-10-22 (D2, "Feed the two legs from stored data"):
+    stored statements first (trading/stored_feeds — committed fundamentals
+    file + the monthly Mongo refresh), Yahoo second (blocked on the Render
+    box, so on the live app this leg was 50 for every name), neutral 50 last.
+    Same band for both sources, so the score scale is unchanged."""
+    try:
+        from .stored_feeds import earnings_growth as _stored_growth
+        st = _stored_growth(ticker)
+    except Exception:                                       # noqa: BLE001
+        st = None
+    if st is not None:
+        return _Sourced(_growth_band(st["growth_pct"]), st["source"])
     g = fetch_earnings_growth(ticker)
     if g is None:
         return 50.0  # neutral when data missing
-    # +20% YoY -> 100, -20% YoY -> 0
-    return _clip(50 + g * 2.5)
+    return _Sourced(_growth_band(g), "Yahoo, latest quarter vs a year ago")
 
 
 def score_relative_strength(stock_close: pd.Series, bench_close: pd.Series, cfg: Config) -> float:
@@ -151,15 +183,41 @@ def _short_interest_score(ticker: str, close) -> float:
 
 
 def _analyst_revision_score(ticker: str) -> float:
-    """Live analyst consensus (TESTED 2026-07-16: RELIANCE 96.1 / CGCL 25.0).
-    Neutral 50 only when no honest number exists (backtest, no coverage,
-    Yahoo-blocked box) — the fetcher logs the reason once."""
+    """Analyst consensus (TESTED 2026-07-16: RELIANCE 96.1 / CGCL 25.0).
+
+    OWNER CARD 2026-10-22 (D2): the committed ratings file first — its
+    mean_rating column is the same Yahoo recommendationMean the live call
+    reads, mapped by the same function (signals.analysts.score_from_mean) —
+    then the live Yahoo call, then neutral 50. Neutral only when no honest
+    number exists (backtest, no coverage, Yahoo-blocked box)."""
+    try:
+        from .signals.analysts import score_from_mean
+        from .stored_feeds import analyst_reading
+        st = analyst_reading(ticker)
+        if st is not None:
+            return _Sourced(score_from_mean(st["mean"]), st["source"])
+    except Exception:                                       # noqa: BLE001
+        pass
     try:
         from .signals.analysts import fetch_analyst_score
         a = fetch_analyst_score(ticker)
-        return a.score if a is not None else 50.0
+        if a is None:
+            return 50.0
+        return _Sourced(a.score, f"Yahoo, {a.analysts} analysts")
     except Exception:
         return 50.0
+
+
+class ScoreComponents(dict):
+    """The per-component scores (a plain dict to every reader) plus
+    `.sources`: where the earnings-growth and analyst legs got their number,
+    so the reasoning text can name it (owner card 2026-10-22: "earnings growth
+    72 (fundamentals store FY26 vs FY25)")."""
+    sources: Dict[str, str]
+
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        self.sources = {}
 
 
 # OWNER ORDER 2026-10-04 ("use each category's weights"). modes.WEIGHTS has
@@ -204,10 +262,12 @@ def compute_score(
     except Exception:
         catalyst_score = 50.0
 
-    components: Dict[str, float] = {
+    earnings = score_earnings_growth(ticker)
+    analyst = _analyst_revision_score(ticker)
+    components = ScoreComponents({
         "momentum_1m":       score_momentum_1m(close, cfg),
         "volume_expansion":  score_volume_expansion(volume, cfg, close),
-        "earnings_growth":   score_earnings_growth(ticker),
+        "earnings_growth":   float(earnings),
         "catalyst":          catalyst_score,
         "relative_strength": score_relative_strength(close, bench_close, cfg),
         "vol_adj_upside":    score_vol_adj_upside(close, cfg),
@@ -217,10 +277,15 @@ def compute_score(
         # stale panel return the old neutral 50, so the failure mode of this
         # fix is exactly the world before it.
         "short_interest":    _short_interest_score(ticker, close),
-        "analyst_revision":  _analyst_revision_score(ticker),
+        "analyst_revision":  float(analyst),
         "breakout_quality":  score_breakout_quality(close, cfg),
         "sector_alignment":  score_sector_alignment(ticker, universe_history, cfg),
-    }
+    })
+    for key, leg in (("earnings_growth", earnings),
+                     ("analyst_revision", analyst)):
+        src = getattr(leg, "source", None)
+        if src:
+            components.sources[key] = src
 
     # v4: apply policy sector boost (PIB tracker) — capped at +30 per sector.
     # Sector_alignment gets the bump so the existing 10% weight carries it.
@@ -320,8 +385,20 @@ def reasoning_text(components: Dict[str, float], total: float,
     )[:3]
     drivers = ", ".join(f"{k}={components[k]:.0f}" for k, _ in top)
     if not drivers:
-        return f"Score {total:.1f}/100. All factors at/near neutral."
-    return f"Score {total:.1f}/100. Top drivers: {drivers}."
+        text = f"Score {total:.1f}/100. All factors at/near neutral."
+    else:
+        text = f"Score {total:.1f}/100. Top drivers: {drivers}."
+    # Owner card 2026-10-22 (D2): name where the two fundamental legs got
+    # their number — only for legs this category actually weighs.
+    sources = getattr(components, "sources", None) or {}
+    notes = []
+    for key, label in (("earnings_growth", "earnings growth"),
+                       ("analyst_revision", "analyst rating")):
+        if sources.get(key) and w.get(key, 0.0) > 0 and key in components:
+            notes.append(f"{label} {components[key]:.0f} ({sources[key]})")
+    if notes:
+        text += " Data: " + "; ".join(notes) + "."
+    return text
 
 
 # The trade category a position was BOUGHT under decides which ruler judges it

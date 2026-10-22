@@ -55,15 +55,19 @@ def _frame(n: int = 320) -> pd.DataFrame:
 
 
 def test_blind_reading_matches_what_the_layer_really_counts(monkeypatch):
-    # one tripwire answering a NumPy True, one answering Python True
+    # REPOINTED 2026-10-22 (owner card D8, XR-060 "Ship it"). This pin used
+    # to assert the BUG: a NumPy True was not counted, so evaluate_stock
+    # returned only the Python-True tripwire. The layer now counts both, and
+    # the LIVE tripwires answer Python booleans (danger._python_bool), so the
+    # Den's type check reads none of them blind and its red warning goes.
     fake = {"T_NUMPY": lambda x: np.True_, "T_PYTHON": lambda x: True}
     monkeypatch.setattr(danger, "_FNS", fake)
     monkeypatch.setattr(danger, "_EXT_FNS", {})
+    assert danger.evaluate_stock(_frame()) == ["T_NUMPY", "T_PYTHON"]
+    monkeypatch.undo()
     monkeypatch.setattr(D, "_BLIND", None)
     blind = D._danger_blind()
-    assert blind["blind"] == ["T_NUMPY"] and blind["countable"] == ["T_PYTHON"]
-    # ... and that is exactly what the money path counts
-    assert danger.evaluate_stock(_frame()) == ["T_PYTHON"]
+    assert blind["blind"] == []
 
 
 def test_blind_warning_disappears_once_every_tripwire_returns_a_python_bool(monkeypatch):

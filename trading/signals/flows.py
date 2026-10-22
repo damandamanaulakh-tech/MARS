@@ -260,17 +260,60 @@ def get_flows(max_age_days: int = MAX_FLOW_AGE_DAYS) -> Optional[list[FlowReadin
     return flows
 
 
-def fii_net_last_n_days(flows: Optional[list[FlowReading]], n: int = 5) -> Optional[float]:
-    """Sum of FII net activity over the last n trading days."""
+def _last_n_trading_days(newest: date, n: int, published=()) -> set:
+    """The n NSE trading days ending on `newest`. A date that HAS a flow row
+    counts as a trading day whatever the holiday list says — a row the
+    exchange published is a trading day by definition (the list could be
+    wrong; the data cannot have traded on a closed day)."""
+    try:
+        from ..calendars import is_trading_day
+    except Exception:                                        # noqa: BLE001
+        def is_trading_day(d):                               # weekdays only
+            return d.weekday() < 5
+    published = set(published)
+    days = {newest}
+    d = newest
+    guard = 0
+    while len(days) < max(1, n) and guard < 60:
+        d = d - timedelta(days=1)
+        guard += 1
+        if d in published or is_trading_day(d):
+            days.add(d)
+    return days
+
+
+def fii_net_window(flows: Optional[list[FlowReading]], n: int = 5
+                   ) -> tuple[Optional[float], int]:
+    """(sum of FII net over the last n TRADING DAYS by date, how many of
+    those days actually have a row).
+
+    XR-055 (2026-10-22 entry-path batch): the sum used to take the first n
+    ROWS of the newest-first series. With gaps in the merged CSV / NSDL
+    store / live feed, five rows can span weeks — a "5-day" sum built from
+    days outside the window. Only rows dated inside the n trading days that
+    end on the newest row count now; the day count tells the caller how many
+    days the sum really covers (fii_flow_score(days=) scales by it)."""
     if not flows:
-        return None
-    return float(sum(f.fii_net for f in flows[:n]))
+        return None, 0
+    newest = max(f.trade_date for f in flows)
+    window = _last_n_trading_days(newest, n, {f.trade_date for f in flows})
+    rows = [f for f in flows if f.trade_date in window]
+    return float(sum(f.fii_net for f in rows)), len(rows)
+
+
+def fii_net_last_n_days(flows: Optional[list[FlowReading]], n: int = 5) -> Optional[float]:
+    """Sum of FII net activity over the last n trading days (by date —
+    see fii_net_window)."""
+    total, _ = fii_net_window(flows, n)
+    return total
 
 
 def dii_net_last_n_days(flows: Optional[list[FlowReading]], n: int = 5) -> Optional[float]:
     if not flows:
         return None
-    return float(sum(f.dii_net for f in flows[:n]))
+    newest = max(f.trade_date for f in flows)
+    window = _last_n_trading_days(newest, n, {f.trade_date for f in flows})
+    return float(sum(f.dii_net for f in flows if f.trade_date in window))
 
 
 def fii_flow_score(fii_5d_net: Optional[float], days: int = 5) -> float:

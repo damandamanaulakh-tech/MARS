@@ -236,8 +236,10 @@ def run_backtest(
         # PIT-gated run simultaneously claimed it was and wasn't
         # survivorship-biased. Appended later only when PIT did NOT run.
         "LIVE-GATE GAP: this replay does not model the breadth gate, the "
-        "VIX-crush re-entry, the spread gate or the IFR throttle — it tests "
-        "the core recipe, not the full live rulebook. Its targets are the "
+        "VIX-crush re-entry, the IFR throttle or the measured-Kelly cap — "
+        "it tests the core recipe, not the full live rulebook. Each entry "
+        "IS sized like live (the slab ladder off the stock's own prices, "
+        "since 2026-10-22). Its targets are the "
         "flat category percentage (live: k x ATR per stock since 2026-09-10) "
         "and exits are judged once a day on the close (live: every 30 min). "
         "The valuation exit target is not modelled (live since 2026-10-21: "
@@ -249,8 +251,10 @@ def run_backtest(
            "capital, owner order 2026-10-04)."
            if _category_share(cfg) is not None else ""),
         "Fundamental components (earnings_growth, catalyst, analyst_revision) "
-        "forced to neutral 50 in backtest — yfinance has no historical "
-        "fundamentals snapshot.",
+        "forced to neutral 50 in backtest. Live reads earnings growth and the "
+        "analyst rating from the app's stored files since 2026-10-22, but "
+        "those files are today's snapshot — reading them in a replay of an "
+        "earlier year would leak the future.",
         "News sentiment skipped in backtest — yfinance news lacks "
         "timestamps so historical replay would leak future data.",
         "Sample size: small samples produce unreliable Sharpe / max DD. "
@@ -550,6 +554,7 @@ def _try_open_positions(
         ok, reason, qty = can_open(
             risk, portfolio.cash, current_eq,
             portfolio.positions, ticker, fill, cfg,
+            notional_override=_entry_notional(cfg, current_eq, pick),
         )
         if not ok or qty <= 0:
             continue
@@ -572,6 +577,77 @@ def _try_open_positions(
             stop_price=_stop_price_for(cfg, fill, pick["hist"]),
             target_price=round(fill * (1 + cfg.take_profit_pct), 2),
         )
+
+
+def _entry_notional(cfg, equity: float, pick: dict):
+    """The rupee size the LIVE engine would give this pick.
+
+    XR-078 (2026-10-22 entry-path batch, owner: "fix all 14"): the replay
+    called can_open with no size, so every trade opened at the old fixed
+    Rs 1,25,000 (cfg.position_notional) while the live engine sizes each
+    pick through sizing.position_notional_for with that stock's own close
+    series — the slab ladder (Rs 1.5 lakh floor, score-driven above it,
+    capped at 5% of equity; a score at the floor gets nothing). Measured
+    2026-09-12: the replay's return ratio equalled its deployment ratio, so
+    the flat size made every /backtest number understate the strategy.
+    Mirrors engine.scan: a non-"fixed" sizing answer is passed as the
+    override; "fixed" keeps can_open's own fixed size. The measured-Kelly
+    cap and the category cash shares stay unmodelled (disclosed)."""
+    try:
+        from .sizing import position_notional_for
+        close = pick["hist"]["Close"].dropna()
+        notional, diag = position_notional_for(
+            cfg, equity, score=pick.get("score"), close=close)
+    except Exception:                                       # noqa: BLE001
+        return None
+    return notional if diag.get("mode") != "fixed" else None
+
+
+#: Every number the 2026-10-22 replay fixes choose, with where it comes from.
+ASSUMED = {
+    # ROOT-ROUTE-01: a stored price frame "covers" the replay window when its
+    # first bar is no later than the window's first day plus this many
+    # calendar days. Source: the NSE calendar — a long weekend plus a holiday
+    # is at most 4-5 closed days in a row and NSE never closes 7 days
+    # running, so a frame that starts later than this is genuinely short.
+    "store_cover_slack_days": 7,
+}
+STORE_COVER_SLACK_DAYS = ASSUMED["store_cover_slack_days"]
+
+
+def store_covers(df, window_start, slack_days: int = STORE_COVER_SLACK_DAYS) -> bool:
+    """Does a stored frame reach back to the start of the replay window?"""
+    try:
+        if df is None or df.empty:
+            return False
+        return (pd.Timestamp(df.index.min())
+                <= pd.Timestamp(window_start) + pd.Timedelta(days=slack_days))
+    except Exception:                                       # noqa: BLE001
+        return False
+
+
+def merge_store_and_zip(store_df, zip_df):
+    """One frame from the two no-network sources (ROOT-ROUTE-01, 2026-10-22).
+
+    The web backtest used to take ANY non-empty stored frame as the whole
+    story and skip the repo zip for that name — after the 09-29 store wipe
+    the store holds 1-2 years per name, so a multi-year replay silently lost
+    most of its history (a frame sliced to the window could even come back
+    EMPTY). Now the zip supplies the bars dated BEFORE the store's first bar;
+    from that bar on, the store is the whole story (it is the fresher fetch
+    of the same Upstox candles and runs to today, the zip ends 2026-07-17)."""
+    have_store = store_df is not None and not store_df.empty
+    have_zip = zip_df is not None and not zip_df.empty
+    if not have_store:
+        return zip_df.sort_index() if have_zip else store_df
+    if not have_zip:
+        return store_df.sort_index()
+    store_df = store_df.sort_index()
+    older = zip_df.sort_index()
+    older = older[older.index < store_df.index.min()]
+    if older.empty:
+        return store_df
+    return pd.concat([older, store_df])
 
 
 def _stop_price_for(cfg, fill: float, hist) -> float:

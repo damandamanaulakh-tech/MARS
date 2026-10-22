@@ -92,12 +92,50 @@ class NewsSentiment:
     reasoning: str
 
 
+# 2026-10-22 entry-path review (owner: "fix all"): the headline fetch was the
+# one Yahoo call in the composite with NO time limit and NO breaker — the
+# earnings and analyst lookups already had both (AUDIT S-15). Every
+# intraday / short / swing / positional score calls it, so a blocked or hung
+# Yahoo cost one full request per name per pass while the rotation held the
+# mode lock. Same pattern as data.fetch_earnings_growth now: each call bounded
+# by data.run_with_timeout (8 s), and three failures in a row stop the fetch
+# for 30 minutes. A blocked fetch still reads "no headlines" = neutral 50.
+#: Every number the headline breaker chooses, with where it comes from.
+ASSUMED = {
+    # Both copy the earnings-growth breaker in data.py (AUDIT S-15,
+    # 2026-10-02: _EG_BREAKER_AFTER 3 / _EG_BREAKER_SECS 1800) so the three
+    # Yahoo lookups in the composite give up the same way.
+    "breaker_after_fails": 3,
+    "breaker_secs": 1800.0,
+}
+_NEWS_FAILS = 0
+_NEWS_BREAKER_UNTIL = 0.0
+_NEWS_BREAKER_AFTER = ASSUMED["breaker_after_fails"]
+_NEWS_BREAKER_SECS = ASSUMED["breaker_secs"]
+#: None = data.YAHOO_INFO_TIMEOUT_S (8 s), read at call time.
+NEWS_TIMEOUT_S = None
+
+
 def _get_headlines_yfinance(ticker: str, lookback_days: int = 7) -> list[str]:
     """Pull recent headlines for the ticker. Returns list of titles only."""
+    global _NEWS_FAILS, _NEWS_BREAKER_UNTIL
+    import time as _time
+    now = _time.time()
+    if now < _NEWS_BREAKER_UNTIL:
+        return []
     try:
         import yfinance as yf
-        items = yf.Ticker(ticker).news or []
+        from .. import data as _data
+        timeout = (NEWS_TIMEOUT_S if NEWS_TIMEOUT_S is not None
+                   else _data.YAHOO_INFO_TIMEOUT_S)
+        items = _data.run_with_timeout(lambda: yf.Ticker(ticker).news,
+                                       timeout=timeout) or []
+        _NEWS_FAILS = 0
     except Exception as e:
+        _NEWS_FAILS += 1
+        if _NEWS_FAILS >= _NEWS_BREAKER_AFTER:
+            _NEWS_BREAKER_UNTIL = now + _NEWS_BREAKER_SECS
+            _NEWS_FAILS = 0
         log.debug("yfinance news failed for %s: %s", ticker, e)
         return []
     titles: list[str] = []
