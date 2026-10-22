@@ -75,6 +75,9 @@ SECTOR_INDEX_FOR: Dict[str, str] = {
     "Utilities": "Energy",
     "Media": "Media",
     "Construction": "Infra",
+    # VALFIX batch 3 (owner 2026-10-21, "Chemicals → Nifty Chemicals"): the
+    # app's own Chemicals label now has its NSE index (key verified that day)
+    "Chemicals": "Chemicals",
 }
 # Realty names sit under the app's "Construction" label with cement and
 # L&T; NSE lists them in Nifty Realty, which is the honest index for them.
@@ -84,6 +87,82 @@ TICKER_INDEX_OVERRIDE: Dict[str, str] = {
     "PRESTIGE.NS": "Realty", "PHOENIXLTD.NS": "Realty",
 }
 MARKET_INDEX_LABEL = "Nifty 50"
+
+# VALFIX batch 3 (owner answers 2026-10-21, strict rule A): a name with NO
+# app label takes the index NSE builds from its Nifty-500 industry (the
+# record: data/industry_to_index.csv — 9 industries map, 11 map NONE), plus
+# the six indices the owner added the same day: Healthcare, Chemicals,
+# Consumer Durables, Construction Materials → Cement, and Oil & Gas → NIFTY
+# OIL AND GAS (where the app label is not Energy; a labelled Energy name
+# keeps Nifty Energy). NOT chosen: hospitals split off the Pharma label (the
+# Pharma label keeps Nifty Pharma), Construction stays on Nifty Infra, and
+# rule B (the industry filling in behind an app label that has no index).
+# Pvt Bank is stored and its P/E printed, but no rule maps a name to it.
+INDUSTRY_INDEX_FOR: Dict[str, str] = {
+    "Financial Services": "Fin Service",
+    "Information Technology": "IT",
+    "Automobile and Auto Components": "Auto",
+    "Fast Moving Consumer Goods": "FMCG",
+    "Metals & Mining": "Metal",
+    "Realty": "Realty",
+    "Media Entertainment & Publication": "Media",
+    "Power": "Energy",
+    "Oil Gas & Consumable Fuels": "Oil & Gas",
+    "Healthcare": "Healthcare",
+    "Chemicals": "Chemicals",
+    "Consumer Durables": "Consumer Durables",
+    "Construction Materials": "Cement",
+}
+
+
+def index_for(ticker: str, sector_map: Optional[dict],
+              industry_lookup: Optional[dict] = None) -> dict:
+    """The NSE sector index one name is valued against.
+
+    {index (SECTOR_INDEX_KEYS name, or None = Nifty 50), label (printed),
+     rule, why}. Order: the ticker override → the app label (cfg.sector_map)
+    → for a name with no app label only, its Nifty-500 industry → Nifty 50.
+    An app label without an index stays on Nifty 50 (rule B not applied)."""
+    from trading.valuation import route as _route      # lazy: route ↔ pipeline
+    t = str(ticker or "")
+    ov = TICKER_INDEX_OVERRIDE.get(t)
+    if ov:
+        return {"index": ov, "label": f"Nifty {ov}", "rule": "ticker override",
+                "why": ""}
+    label, source = _route.label_for(t, sector_map or {}, industry_lookup)
+    if source == "sector_map":
+        idx = SECTOR_INDEX_FOR.get(label)
+        if idx:
+            return {"index": idx, "label": f"Nifty {idx}",
+                    "rule": f"app label '{label}'", "why": ""}
+        return {"index": None, "label": MARKET_INDEX_LABEL, "rule": "fallback",
+                "why": f"no NSE sector index wired for the app label '{label}'"}
+    if source == "nifty500_industry":
+        idx = INDUSTRY_INDEX_FOR.get(label)
+        if idx:
+            return {"index": idx, "label": f"Nifty {idx}",
+                    "rule": f"Nifty-500 industry '{label}' (rule A)", "why": ""}
+        return {"index": None, "label": MARKET_INDEX_LABEL, "rule": "fallback",
+                "why": f"no NSE sector index wired for the Nifty-500 industry '{label}'"}
+    return {"index": None, "label": MARKET_INDEX_LABEL, "rule": "fallback",
+            "why": "no NSE sector index wired — no app label, not in the Nifty-500 "
+                   "industry file"}
+
+
+#: The app labels that had an index BEFORE 2026-10-21 ("Chemicals" joined
+#: that day) — the 'old' side of the remap list.
+_LABELS_BEFORE_2026_10_21 = ("Auto", "Financial", "IT", "Pharma", "FMCG", "Metal",
+                             "Energy", "Utilities", "Media", "Construction")
+
+
+def label_only_index(ticker: str, sector_map: Optional[dict]) -> Optional[str]:
+    """The index the app gave a name BEFORE 2026-10-21 (override, then the
+    app label, else Nifty 50 = None) — the 'old' side of the remap list."""
+    t = str(ticker or "")
+    if t in TICKER_INDEX_OVERRIDE:
+        return TICKER_INDEX_OVERRIDE[t]
+    lab = str((sector_map or {}).get(t) or "").strip()
+    return SECTOR_INDEX_FOR.get(lab) if lab in _LABELS_BEFORE_2026_10_21 else None
 
 # ---------------------------------------------------------------- ASSUMED
 # Every number below is a choice, not a measurement. They are printed on
@@ -100,6 +179,9 @@ ASSUMED: Dict[str, float] = {
     "vix_fear_window": 120,           # Ocean rail R1's definition
     "vix_fear_quantile": 0.90,
     "fii_fear_5d_cr": -5000.0,        # the flows module's own "very bearish"
+    # owner answer 2026-10-21 (Nifty Cement): an index needs this many of its
+    # own sessions before a β is read against it
+    "beta_min_index_sessions": 252,
 }
 
 
@@ -171,16 +253,26 @@ def move_between(s: Optional[pd.Series], start: Any, end: Any = None) -> dict:
 def beta(stock: Optional[pd.Series], bench: Optional[pd.Series],
          window: int = int(ASSUMED["beta_window_days"]),
          min_obs: int = int(ASSUMED["beta_min_obs"]),
-         end: Any = None) -> dict:
+         end: Any = None, min_bench_sessions: Optional[int] = None) -> dict:
     """OLS slope of the stock's daily returns on the benchmark's, over the
     last `window` paired sessions ending at `end` (default: the last date
-    both series share). Fewer than `min_obs` pairs = no β, with the count."""
+    both series share). Fewer than `min_obs` pairs = no β, with the count.
+
+    `min_bench_sessions` (VALFIX batch 3): the BENCHMARK itself must have at
+    least this many sessions up to `end` — an index launched recently (Nifty
+    Cement, from 2026-05-11) reads no β until it does (owner answer
+    2026-10-21: "β DATA_NEEDED until 252 sessions")."""
     a, b = _clean(stock), _clean(bench)
     if a is None or b is None:
         return {"beta": None, "n": 0, "why": "no series"}
     ts = _as_ts(end)
     if ts is not None:
         a, b = a[a.index <= ts], b[b.index <= ts]
+    if min_bench_sessions and len(b) < int(min_bench_sessions):
+        return {"beta": None, "n": 0,
+                "why": (f"the index has {len(b)} sessions (from "
+                        f"{b.index[0].date().isoformat() if len(b) else '—'}) — "
+                        f"β needs {int(min_bench_sessions)}")}
     df = pd.concat([a.rename("s"), b.rename("b")], axis=1, join="inner")
     r = df.pct_change(fill_method=None).dropna()
     r = r[np.isfinite(r["s"]) & np.isfinite(r["b"])]
@@ -333,7 +425,8 @@ def context(ticker: str, target: float, asof: Any,
             sentiment: Optional[dict] = None,
             news_verdict: Optional[str] = None,
             bench_why: str = "",
-            today: Any = None) -> dict:
+            today: Any = None,
+            bench_min_sessions: Optional[int] = None) -> dict:
     """One stock's full context reading. Pure: every input is passed in.
 
     `bench` is the sector index closes (or Nifty 50 for an unmapped name,
@@ -383,7 +476,7 @@ def context(ticker: str, target: float, asof: Any,
 
     # --- sector leg (both columns)
     bm = move_between(bench, ts, end_ts)
-    bt = beta(stock, bench, end=end_ts)
+    bt = beta(stock, bench, end=end_ts, min_bench_sessions=bench_min_sessions)
     sl: dict = {"label": bench_label, "beta": bt.get("beta"), "beta_n": bt.get("n"),
                 "beta_why": bt.get("why"), "beta_window": None}
     if bt.get("beta") is not None:

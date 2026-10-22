@@ -500,21 +500,51 @@ def load_sector_rows(since_iso: str = "") -> list:
 
 def save_macro_rows(rows: list) -> int:
     """Upsert macro readings (VALFIX 2026-10-21: 10-year G-sec yield, RBI
-    repo, RBI USD/INR). Keyed series|date so a re-read overwrites its own
-    day and never duplicates."""
+    repo, RBI USD/INR; batch 3: FRED + NSE allIndices). Keyed series|date so
+    a re-read overwrites its own day and never duplicates.
+
+    Returns the count the store ACKNOWLEDGED (review 2026-10-21): one
+    unordered bulk_write of ReplaceOne(upsert) per 500 rows;
+    upserted + matched per chunk; a BulkWriteError counts what its details
+    say landed; any other failure logs and returns what landed so far — the
+    job journals the rows NOT stored instead of reading them as stored."""
     if not _CONNECTED or _DB is None or not rows:
         return 0
+    from pymongo import ReplaceOne
+    from pymongo.errors import BulkWriteError
+    chunk_rows = 500          # the first FRED run upserts ~7k rows: 15 round trips, not 7k
+
+    def _acked(res) -> int:
+        # upserted + matched (a ReplaceOne on an existing _id is matched);
+        # an unacknowledged write counts 0 — nothing proves it landed
+        if res is None or not getattr(res, "acknowledged", True):
+            return 0
+        try:
+            return int(res.upserted_count or 0) + int(res.matched_count or 0)
+        except Exception:                                # noqa: BLE001
+            return 0
+
+    ops = []
+    for r in rows:
+        s, d = str(r.get("series") or ""), str(r.get("date") or "")
+        if not s or not d:
+            continue
+        ops.append(ReplaceOne({"_id": f"{s}|{d}"}, {**r, "_id": f"{s}|{d}"}, upsert=True))
     n = 0
-    try:
-        for r in rows:
-            s, d = str(r.get("series") or ""), str(r.get("date") or "")
-            if not s or not d:
-                continue
-            _DB.macro_daily.replace_one(
-                {"_id": f"{s}|{d}"}, {**r, "_id": f"{s}|{d}"}, upsert=True)
-            n += 1
-    except Exception as e:
-        log.warning("Mongo save_macro_rows failed: %s", e)
+    for i in range(0, len(ops), chunk_rows):
+        chunk = ops[i:i + chunk_rows]
+        try:
+            n += _acked(_DB.macro_daily.bulk_write(chunk, ordered=False))
+        except BulkWriteError as e:
+            det = e.details or {}
+            got = int(det.get("nUpserted", 0) or 0) + int(det.get("nMatched", 0) or 0)
+            n += got
+            log.warning("Mongo save_macro_rows: %d of %d row(s) in a chunk refused (%s)",
+                        len(chunk) - got, len(chunk),
+                        ((det.get("writeErrors") or [{}])[0] or {}).get("errmsg", ""))
+        except Exception as e:                           # noqa: BLE001
+            log.warning("Mongo save_macro_rows failed after %d row(s): %s", n, e)
+            return n
     return n
 
 

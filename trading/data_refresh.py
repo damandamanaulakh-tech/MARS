@@ -35,7 +35,7 @@ import logging
 import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Iterable, Optional
 from urllib.parse import quote
 
 import httpx
@@ -59,8 +59,12 @@ INDEX_FIELDS = {
 # panel. These are the real NSE sector indices, every key VERIFIED live from
 # the sandbox on 2026-09-09 through the PUBLIC (tokenless) candle endpoint.
 # Keys that Upstox rejects with a 400 are deliberately absent rather than
-# guessed: Consumer Durables, Oil & Gas and Healthcare did not resolve, and
-# a wrong key would store another index's prices under a sector's name.
+# guessed: a wrong key would store another index's prices under a sector's
+# name. (2026-10-21, VALFIX batch 3: the 09-09 "Consumer Durables / Oil & Gas
+# / Healthcare 400'd" was a KEY-NAME problem — the six keys added at the end
+# answer 200 and their 10-19 closes equal NSE's own allIndices `last`;
+# evidence scratchpad mktctx/b3data/extra_index_keys_check.csv. The
+# mixed-case "Nifty Healthcare" still 400s, so the upper-case key is used.)
 SECTOR_INDEX_KEYS: dict[str, str] = {
     "IT": "NSE_INDEX|Nifty IT",
     "Bank": "NSE_INDEX|Nifty Bank",
@@ -78,6 +82,40 @@ SECTOR_INDEX_KEYS: dict[str, str] = {
     "Smallcap 100": "NSE_INDEX|NIFTY SMLCAP 100",
     "Next 50": "NSE_INDEX|Nifty Next 50",
     "Nifty 500": "NSE_INDEX|Nifty 500",
+    # VALFIX batch 3 (owner answer 2026-10-21): six more verified keys.
+    "Healthcare": "NSE_INDEX|NIFTY HEALTHCARE",
+    "Consumer Durables": "NSE_INDEX|NIFTY CONSR DURBL",
+    "Oil & Gas": "NSE_INDEX|NIFTY OIL AND GAS",
+    "Chemicals": "NSE_INDEX|Nifty Chemicals",
+    "Cement": "NSE_INDEX|Nifty Cement",
+    "Pvt Bank": "NSE_INDEX|Nifty Pvt Bank",
+}
+
+#: First daily bar Upstox serves for the indices launched recently
+#: (MEASURED 2026-10-21: the first bar of a 2-year request,
+#: extra_index_keys_check.csv). The history backfill never asks for a window
+#: before these — that would be an empty answer every day, not a gap.
+SECTOR_INDEX_FIRST_BAR: dict[str, str] = {
+    "Chemicals": "2025-11-10",
+    "Cement": "2026-05-11",
+}
+
+#: The same index as NSE's allIndices names it (`index` field, upper case) —
+#: 13 match by name, the rest by these aliases (b3data/sector16_nse_names.csv
+#: + extra_index_keys_check.csv, both read 2026-10-21). The NSE P/E / P/B
+#: snapshot is stored under these names.
+SECTOR_NSE_NAME: dict[str, str] = {
+    "IT": "NIFTY IT", "Bank": "NIFTY BANK", "PSU Bank": "NIFTY PSU BANK",
+    "Fin Service": "NIFTY FINANCIAL SERVICES", "Auto": "NIFTY AUTO",
+    "Pharma": "NIFTY PHARMA", "FMCG": "NIFTY FMCG", "Metal": "NIFTY METAL",
+    "Energy": "NIFTY ENERGY", "Realty": "NIFTY REALTY",
+    "Infra": "NIFTY INFRASTRUCTURE", "Media": "NIFTY MEDIA",
+    "Midcap 100": "NIFTY MIDCAP 100", "Smallcap 100": "NIFTY SMALLCAP 100",
+    "Next 50": "NIFTY NEXT 50", "Nifty 500": "NIFTY 500",
+    "Healthcare": "NIFTY HEALTHCARE INDEX", "Consumer Durables": "NIFTY CONSUMER DURABLES",
+    "Oil & Gas": "NIFTY OIL & GAS", "Chemicals": "NIFTY CHEMICALS",
+    "Cement": "NIFTY CEMENT", "Pvt Bank": "NIFTY PRIVATE BANK",
+    "Nifty 50": "NIFTY 50",
 }
 
 CONSTITUENT_LISTS = ("ind_nifty50list", "ind_nifty200list",
@@ -186,7 +224,8 @@ def fetch_index_tail(broker, last_iso: str) -> list[dict]:
     return [rows[d] for d in sorted(rows)]
 
 
-def fetch_sector_tail(broker, last_iso: str, days_back: int = 30) -> list[dict]:
+def fetch_sector_tail(broker, last_iso: str, days_back: int = 30,
+                      last_by_sector: Optional[dict] = None) -> list[dict]:
     """Daily closes for the real NSE sector indices strictly AFTER last_iso.
 
     Rows are {date, sector, open, high, low, close}. Tokenless (public
@@ -195,18 +234,26 @@ def fetch_sector_tail(broker, last_iso: str, days_back: int = 30) -> list[dict]:
 
     `last_iso` empty = seed `days_back` calendar days so the first run has
     enough history to show a 5-day change instead of a blank card.
+
+    `last_by_sector` (VALFIX batch 3) = each sector's OWN newest stored
+    date: a sector the store has never held (the six indices added
+    2026-10-21) is seeded instead of starting after the other sectors'
+    newest date — that would have left it empty for good.
     """
     if broker is None:
         return []
-    if last_iso:
-        start = (date.fromisoformat(last_iso) + timedelta(days=1)).isoformat()
-    else:
-        start = (date.today() - timedelta(days=days_back)).isoformat()
     today = date.today().isoformat()
-    if start > today:
-        return []
     out: list[dict] = []
     for sector, key in SECTOR_INDEX_KEYS.items():
+        last = last_iso
+        if last_by_sector is not None:
+            last = str(last_by_sector.get(sector) or "")
+        if last:
+            start = (date.fromisoformat(last[:10]) + timedelta(days=1)).isoformat()
+        else:
+            start = (date.today() - timedelta(days=days_back)).isoformat()
+        if start > today:
+            continue
         try:
             df = broker.get_daily_candles(key, start, today)
         except Exception as e:                                 # noqa: BLE001
@@ -216,7 +263,7 @@ def fetch_sector_tail(broker, last_iso: str, days_back: int = 30) -> list[dict]:
             continue
         for ts, r in df.iterrows():
             d = ts.date().isoformat()
-            if last_iso and d <= last_iso:
+            if last and d <= last:
                 continue
             out.append({"date": d, "sector": sector,
                         "open": float(r["Open"]), "high": float(r["High"]),
@@ -224,7 +271,8 @@ def fetch_sector_tail(broker, last_iso: str, days_back: int = 30) -> list[dict]:
     return out
 
 
-def fetch_sector_history(broker, start_iso: str, end_iso: str) -> list[dict]:
+def fetch_sector_history(broker, start_iso: str, end_iso: str,
+                         sectors: Optional[Iterable[str]] = None) -> list[dict]:
     """Daily closes for every NSE sector index between two dates inclusive
     — the one-time BACKFILL behind the valuation context stage (owner order
     2026-10-12 "both, indian sector only, discount rate - go"): a measured
@@ -235,8 +283,11 @@ def fetch_sector_history(broker, start_iso: str, end_iso: str) -> list[dict]:
     move). Tokenless — public candles."""
     if broker is None or not start_iso or not end_iso or start_iso > end_iso:
         return []
+    want = None if sectors is None else set(sectors)
     out: list[dict] = []
     for sector, key in SECTOR_INDEX_KEYS.items():
+        if want is not None and sector not in want:
+            continue
         try:
             df = broker.get_daily_candles(key, start_iso, end_iso)
         except Exception as e:                                 # noqa: BLE001

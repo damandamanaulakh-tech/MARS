@@ -33,7 +33,9 @@ from web.main import app
 
 RECORD_KEYS = {"ticker", "asof", "verdict", "range_status", "base_target", "low",
                "high", "family", "method", "sector_index", "beta", "beta_n",
-               "version", "drafted", "price", "note"}
+               "version", "drafted", "price", "note",
+               # batch-3 review (2026-10-21): the record says which rule valued it
+               "rule", "tested_rule"}
 
 
 def _owner() -> TestClient:

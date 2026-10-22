@@ -300,9 +300,14 @@ def test_two_saves_read_the_sector_store_once_and_a_deeper_date_gets_one_try(mon
     reads: list = []
     deep = (date.today() - timedelta(days=900)).isoformat()
     monkeypatch.setattr(db, "is_connected", lambda: True)
+    # VALFIX batch 3 (2026-10-21): the backfill reads each sector's OWN
+    # oldest row (a sector never stored is filled), so the deep store holds
+    # every sector at the deep date
+    from trading import data_refresh as _dr
     monkeypatch.setattr(db, "load_sector_rows",
                         lambda since_iso="": reads.append(since_iso) or
-                        [{"date": deep, "sector": "IT", "close": 1.0}])
+                        [{"date": deep, "sector": k, "close": 1.0}
+                         for k in _dr.SECTOR_INDEX_KEYS])
     monkeypatch.setattr(db, "save_sector_rows", lambda rows: len(rows))
     br = _Broker()
     monkeypatch.setattr("trading.data.history_broker", lambda: br)
@@ -321,7 +326,10 @@ def test_two_saves_read_the_sector_store_once_and_a_deeper_date_gets_one_try(mon
         assert len(reads) == 2 and br.calls
         want = (date.today() - timedelta(days=vv.sector_days_for("2019-01-15"))).isoformat()
         assert want <= "2019-01-15"
+        # the two recent indices are asked only from their own first bar —
+        # the deep store already reaches it, so nothing is asked for them
         assert {s for _, s, _ in br.calls} == {want}
+        assert not any("Cement" in k or "Chemicals" in k for k, _, _ in br.calls)
         # the same depth again the same day: no read, no fetch
         n = len(br.calls)
         c.post("/den/valuation", data={"ticker": "infy", "target": "1500",

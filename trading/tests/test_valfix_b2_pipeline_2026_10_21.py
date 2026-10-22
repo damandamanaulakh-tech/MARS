@@ -147,7 +147,8 @@ def test_peer_base_carries_sti_minorities_ebit_book_and_version(monkeypatch):
     sm = {"LT.NS": "Construction", "HDFCBANK.NS": "Financial"}
     base = P.peer_base(lambda t: 1000.0, sm, {"HDFCBANK.NS": "HDFC BANK LTD"})
     by = {b["ticker"]: b for b in base}
-    assert P.PEER_BASE_VERSION == 3 and all(b["version"] == 3 for b in base)
+    # batch 3 (2026-10-21) added pat / sector / family / FY history → version 4
+    assert P.PEER_BASE_VERSION == 4 and all(b["version"] == 4 for b in base)
     assert "minority_interest_bs" in P.PEER_BASE_FIELDS
     lt = by["LT.NS"]
     snap = S.snapshot("LT", price=1000.0)

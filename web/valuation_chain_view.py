@@ -103,7 +103,9 @@ PEER_BASE_MAX_AGE_DAYS = 1
 #: routing or the snapshot rebuilds it without a hand bump.
 #: 3 = 2026-10-21: + short-term investments, minorities, EBIT and the lender
 #: book (VAL-12a / VAL-01 / VAL-02). The pipeline's own number wins when higher.
-PEER_BASE_VERSION = 3
+#: 4 = 2026-10-21 (VALFIX batch 3): + PAT, route sector / family and the last
+#: four FYs (the §4 sector totals read them).
+PEER_BASE_VERSION = 4
 
 
 def _peer_base_version() -> int:
@@ -208,6 +210,7 @@ class _Render:
         self.t0 = t0
         self.index: dict = {}               # field → series, read once per render
         self.peer_build_skipped = False
+        self.targets: Optional[dict] = None   # §11 stored targets, read once per render
 
     def budget_spent(self) -> bool:
         import time as _time
@@ -366,6 +369,18 @@ def price_at(closes: Optional[pd.Series], when: Any) -> Optional[float]:
     return float(s.iloc[-1]) if len(s) else None
 
 
+def _index_end(end_date: Optional[str]) -> Optional[str]:
+    """The selection date when it is before the newest stored Nifty close
+    (else None = read to the newest close, as before)."""
+    if not end_date:
+        return None
+    s = _index_series("nifty_close")
+    if s is None or not len(s.dropna()):
+        return None
+    last = s.dropna().index[-1].date().isoformat()
+    return str(end_date)[:10] if str(end_date)[:10] < last else None
+
+
 def index_move(field: str, start: Any, end: Any = None) -> dict:
     """{start, end, start_date, end_date} levels of one index column."""
     s = _index_series(field)
@@ -404,16 +419,36 @@ class ShownNames(list):
         self.cut = list(cut)
 
 
-def _target_names() -> list[str]:
-    """The §11 stored targets' tickers. Read through this render's gate;
-    once it is closed, the in-process copy valuation_view keeps."""
+def _target_entries() -> dict:
+    """The §11 stored targets {ticker: {target, asof, basis, ts}}, read ONCE
+    per render through its gate; once it is closed, the in-process copy
+    valuation_view keeps."""
+    r = _render()
+    if r is not None and r.targets is not None:
+        return r.targets
     g = _gate()
     doc = None
     if not g.down:
         doc = g.call("§11 targets read", vv.load_doc, default=None)
     if doc is None:
         doc = {"targets": dict((getattr(vv, "LAST", {}) or {}).get("targets") or {})}
-    return list((doc.get("targets") or {}).keys())
+    out = {str(k): dict(v) for k, v in (doc.get("targets") or {}).items() if isinstance(v, dict)}
+    if r is not None:
+        r.targets = out
+    return out
+
+
+def _target_names() -> list[str]:
+    """The §11 stored targets' tickers."""
+    return list(_target_entries().keys())
+
+
+def pushed_entry(ticker: str) -> dict:
+    """{date, basis} of this stock's §11 stored target ({} = none) — the
+    "pushed" tier of the selection date (VALFIX batch 3)."""
+    e = _target_entries().get(str(ticker or "")) or {}
+    return {"date": str(e.get("asof") or "")[:10], "basis": str(e.get("basis") or "")} \
+        if e.get("asof") else {}
 
 
 def names_to_show(p, typed: str = "") -> "ShownNames":
@@ -505,7 +540,10 @@ MAX_INPUT_PEERS = 20
 MAX_INPUT_SEGMENTS = 12
 LAST_INPUTS: dict = {}
 INPUT_NUMBER_FIELDS = ("nav_ps", "ev_ps", "vnb_ps")
-INPUT_DATE_FIELDS = ("nav_asof", "ev_asof")
+INPUT_DATE_FIELDS = ("nav_asof", "ev_asof", "selection_date")
+#: VALFIX batch 3 (owner 2026-10-21): the company's revenue share billed in
+#: USD / EUR (tier (a) of the currency leg; negative = an importer).
+INPUT_SHARE_FIELDS = ("usd_share_pct", "eur_share_pct")
 _SEGMENT_RE = re.compile(r"^[A-Za-z0-9&/.,() \-]{1,40}$")
 _ISO_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
@@ -627,6 +665,14 @@ def parse_inputs_form(form) -> tuple[str, dict, list]:
                  lo=0.0, hi=95.0, allow_zero=True)
     if d is not None:
         row["holding_discount_pct"] = d
+    from trading.valuation import currency as CUR
+    lo_s, hi_s = CUR.SHARE_BOUNDS
+    for k in INPUT_SHARE_FIELDS:
+        v = _share_num(form.get(k), k, errors, lo_s, hi_s)
+        if v is not None:
+            row[k] = v
+    if (row.get("usd_share_pct") or 0.0) + (row.get("eur_share_pct") or 0.0) > 100.0:
+        errors.append("USD + EUR share above 100%")
     for k in INPUT_DATE_FIELDS:
         s = str(form.get(k) or "").strip()
         if not s:
@@ -634,10 +680,15 @@ def parse_inputs_form(form) -> tuple[str, dict, list]:
         try:
             if not _ISO_RE.match(s):
                 raise ValueError
-            date.fromisoformat(s)
-            row[k] = s
+            d = date.fromisoformat(s)
         except ValueError:
             errors.append(f"{k}: '{s[:20]}' is not a date (YYYY-MM-DD)")
+            continue
+        if k == "selection_date" and d > date.today():
+            # the time of action cannot be in the future (§11's own rule)
+            errors.append(f"selection date {s} is in the future")
+            continue
+        row[k] = s
     segs: dict = {}
     raw_segs = str(form.get("segment_multiples") or "").strip()
     for part in [x for x in re.split(r"[;\n]+", raw_segs) if x.strip()]:
@@ -673,8 +724,26 @@ def parse_inputs_form(form) -> tuple[str, dict, list]:
         row["note"] = note[:200]
     if not errors and not (set(row) - {"note", "nav_asof", "ev_asof"}):
         errors.append("nothing typed — enter a NAV, embedded value, holding discount, "
-                      "segment multiples or a peer list (remove deletes a row)")
+                      "segment multiples, a peer list, a USD / EUR share or a selection "
+                      "date (remove deletes a row)")
     return sym, row, errors
+
+
+def _share_num(raw: Any, name: str, errors: list, lo: float, hi: float) -> Optional[float]:
+    """A revenue share in % — 0 and negatives (an importer) are legitimate."""
+    import math
+    s = str(raw or "").strip().replace(",", "").rstrip("%")
+    if not s:
+        return None
+    try:
+        v = float(s)
+    except ValueError:
+        errors.append(f"{name}: '{s[:20]}' is not a number")
+        return None
+    if not math.isfinite(v) or v < lo or v > hi:
+        errors.append(f"{name}: {s[:20]} is outside {lo:g}–{hi:g}")
+        return None
+    return v
 
 
 def segments_on_file() -> list:
@@ -1182,23 +1251,30 @@ def _inst_inputs(ticker: str, period_end: Any) -> dict:
 
 
 def _macro_inputs(snap: dict, closes: Optional[pd.Series] = None,
-                  ticker: str = "") -> dict:
+                  ticker: str = "", end_date: Optional[str] = None) -> dict:
     """The owner's P/E-bridge market inputs from STORED state: Sensex /
     Nifty levels at the period end and now, VIX, the 10-year yield (rf,
     the Upstox G-sec feed), the stock's measured β on Nifty 50, the RBI
     repo rate at the period end and now, USD/INR now (RBI feed) and at the
     period end (the committed file), FII + DII holding then and now. CPI /
     GDP / Brent are not fed (owner chose none) — the pipeline counts them 0
-    and lists them DATA_NEEDED. Each fed value carries its date."""
+    and lists them DATA_NEEDED. Each fed value carries its date.
+
+    `end_date` (VALFIX batch 3) = the selection date: the Sensex / Nifty
+    levels are read to it, not to today, so the own target is the valuation
+    as of the time of action and the market since then is counted once —
+    in the market-adjusted leg (owner: "split legs, no double count")."""
     from trading.valuation import snapshot as S
     period_end = snap.get("period_end")
-    nifty = index_move("nifty_close", period_end)
-    sensex = index_move("sensex_close", period_end)
+    end = _index_end(end_date)
+    nifty = index_move("nifty_close", period_end, end)
+    sensex = index_move("sensex_close", period_end, end)
     vix = _index_series("india_vix_close")
     out: dict = {
         "sensex_start": sensex.get("start"), "sensex_end": sensex.get("end"),
         "nifty_start": nifty.get("start"), "nifty_end": nifty.get("end"),
         "index_end_date": nifty.get("end_date"),
+        "index_end_is_selection": end is not None,
         "vix": float(vix.dropna().iloc[-1]) if vix is not None and len(vix.dropna()) else None,
         "beta": None, "usdinr_now": None, "usdinr_base": None,
         "price_now": price_now(closes)[0] if closes is not None else None,
@@ -1296,13 +1372,22 @@ _ALL = _AllNames()
 def row_for(ticker: str, cfg, p, *, show_terms: bool = False,
             overrides: Optional[dict] = None,
             closes: Any = _UNSET, price_source: str = "",
-            owner_inputs: Any = _UNSET) -> dict:
+            owner_inputs: Any = _UNSET, tested_rule: bool = False) -> dict:
     """One chain record. `closes` handed in (a series, or None = the store
     and the repo zip both lack the name) is used as is; not handed in, it
     is read here. `price_source` ("store" / "repo copy") is printed beside
     the price. `owner_inputs` = the Den inputs table {SYMBOL: row}; not
     handed in, it is read here. The own P/E history is the pipeline's own
-    (own_pe_rows, VAL-14a) — this module no longer passes one."""
+    (own_pe_rows, VAL-14a) — this module no longer passes one.
+
+    `tested_rule` (batch-3 review, 2026-10-21) = the item-19 exit RECORD
+    (web/scheduler.run_valuation_precompute): the own target is valued the
+    way the pre-registered study valued it — the P/E bridge reads the
+    Sensex / Nifty to the newest close (never to a selection date, so a
+    date typed in the inputs table or pushed to §11 cannot move it) and the
+    rupee row E101 is live for IT-services routes (pipeline e101_it_rupee).
+    The row carries `tested_rule: True`. False (default) = the §12 display
+    row with every batch-3 definition, unchanged."""
     from trading.valuation import pipeline
     if closes is _UNSET:
         closes = _closes(ticker)
@@ -1310,9 +1395,21 @@ def row_for(ticker: str, cfg, p, *, show_terms: bool = False,
         owner_inputs = load_inputs()
     px, px_date = price_now(closes)
     mac_box: dict = {}
+    from trading.valuation import market_legs as ML
+    owner_row = _owner_row_of(owner_inputs if isinstance(owner_inputs, dict) else {}, ticker)
+    pushed = pushed_entry(ticker)
 
     def _macro(snap):
-        m = _macro_inputs(snap, closes, ticker)
+        # VALFIX batch 3: the selection date (typed → §11 → publication) is
+        # read here, once, and the bridge's market rows end at it
+        sel = ML.selection_date(snap, owner_row.get("selection_date"), pushed=pushed)
+        mac_box["sel"] = sel
+        if tested_rule:
+            # the item-19 exit record: the bridge reads to the newest close,
+            # as the study did — the selection date never reaches it
+            m = _macro_inputs(snap, closes, ticker, end_date=None)
+        else:
+            m = _macro_inputs(snap, closes, ticker, end_date=ML.bridge_end(sel))
         mac_box["m"] = m
         return m
 
@@ -1328,8 +1425,16 @@ def row_for(ticker: str, cfg, p, *, show_terms: bool = False,
     accepted = _evaluate_kwargs()
     extra = {"owner_inputs": owner_inputs or None, "peer_rows": peer_table_rows,
              "price_of": subsidiary_price}
+    if tested_rule:
+        # the item-19 exit record: E101 live for IT-services routes
+        if "e101_it_rupee" not in accepted:
+            raise RuntimeError("pipeline.evaluate does not accept e101_it_rupee — the "
+                               "exit record cannot be valued by the tested rule")
+        extra["e101_it_rupee"] = True
     kwargs.update({k: v for k, v in extra.items() if k in accepted})
     rec = pipeline.evaluate(ticker, **kwargs)
+    if tested_rule:
+        rec["tested_rule"] = True
     r = _render()
     if r is not None and r.peer_build_skipped:
         # computed without the peer table — never shown or kept as an answer
@@ -1343,11 +1448,34 @@ def row_for(ticker: str, cfg, p, *, show_terms: bool = False,
     # row's inputs line print them)
     rec["macro_inputs"] = {k: v for k, v in (mac_box.get("m") or {}).items()
                            if isinstance(v, (int, float, str, bool)) or v is None}
+    # VALFIX batch 3 (owner 2026-10-21): the IT-only rupee row E101 is counted
+    # 0 in the live chain — the currency leg runs through EPS for every
+    # sector inside the market block below (fx_block stays for the sheet's
+    # own reading)
+    rec["fx"] = {"applies": False, "e101_replaced": True}
+    if tested_rule:
+        # the exit record keeps E101 live for IT-services routes — it was
+        # not replaced in this row (never shown on §12; said for honesty)
+        rec["fx"] = {"applies": False, "e101_replaced": False, "e101_live_it_routes": True}
+    from . import valuation_market_view as mv
     try:
-        rec["fx"] = fx_block(rec, mac_box.get("m") or {})
+        rec["market"] = mv.market_block(ticker, rec, closes, cfg, p, mac_box.get("m") or {},
+                                        overrides, owner_row, mv.sector_fx_for_render(),
+                                        selection=mac_box.get("sel"), pushed=pushed)
     except Exception:                                   # noqa: BLE001
-        log.warning("valuation chain: rupee row block failed for %s", ticker)
-        rec["fx"] = {"applies": False}
+        log.exception("valuation chain: market legs failed for %s", ticker)
+        rec["market"] = {"status": "DATA_NEEDED",
+                         "why": "the market legs could not be read — see the log",
+                         "selection": {}}
+    try:
+        idx = (rec.get("market") or {}).get("index") or vc.index_for(
+            ticker, dict(getattr(cfg, "sector_map", {}) or {}))
+        rec["sector_total"] = mv.sector_block(rec, idx)
+    except Exception:                                   # noqa: BLE001
+        log.exception("valuation chain: sector totals failed for %s", ticker)
+        rec["sector_total"] = {"status": "DATA_NEEDED",
+                               "why": "the sector totals could not be read — see the log",
+                               "nse": {}}
     return rec
 
 
@@ -1661,6 +1789,17 @@ def _owner_row_of(table: Optional[dict], ticker: str) -> dict:
     return dict(t.get(_bare_symbol(ticker)) or {})
 
 
+def _key_row(table: Optional[dict], ticker: str) -> dict:
+    """The kept-row key's input part: the stock's inputs-table row plus its
+    §11 date (VALFIX batch 3 — a push or a typed §11 date moves the
+    selection date, so it must recompute the row)."""
+    row = _owner_row_of(table, ticker)
+    pe = pushed_entry(ticker)
+    if pe:
+        row["__s11"] = pe.get("date")
+    return row
+
+
 def _ttl_of(entry: tuple) -> float:
     return entry[2] if len(entry) > 2 and entry[2] else ROW_TTL_S
 
@@ -1734,7 +1873,8 @@ def empty_section(error: str = "", typed: str = "") -> dict:
             "skipped_busy": 0, "busy": "", "busy_kind": "", "failed": 0,
             "n_cut": 0, "cut_names": [], "store_down": "", "store_wait_s": 0.0,
             "degraded_ttl_min": int(DEGRADED_ROW_TTL_S // 60),
-            "row_ttl_min": int(ROW_TTL_S // 60)}
+            "row_ttl_min": int(ROW_TTL_S // 60),
+            "remapped": {"n": 0, "rows": []}}
 
 
 def section(cfg, p, typed: str = "", show_terms: bool = False) -> dict:
@@ -1763,6 +1903,13 @@ def _section(cfg, p, typed: str, show_terms: bool, ctx: "_Render") -> dict:
             out["error"] = f"'{typed}' is not a symbol"
     out["typed_full"] = typed_full
     out["show_terms"] = bool(show_terms and typed_full)
+    # VALFIX batch 3: every name the 2026-10-21 index mapping moved (listed,
+    # collapsible, on §12)
+    try:
+        from . import valuation_market_view as mv
+        out["remapped"] = mv.remapped_names(dict(getattr(cfg, "sector_map", {}) or {}))
+    except Exception:                                   # noqa: BLE001
+        log.warning("valuation chain: remap list failed")
     overrides = load_assumptions()
     inputs = load_inputs()
     names = names_to_show(p, typed_full)
@@ -1770,7 +1917,7 @@ def _section(cfg, p, typed: str, show_terms: bool, ctx: "_Render") -> dict:
     out.update({"n_cut": len(cut), "cut_names": cut})
     todo = [t for t in names
             if _row_cache_get(_row_key(t, overrides, out["show_terms"] and t == typed_full,
-                                       _owner_row_of(inputs, t))) is None]
+                                       _key_row(inputs, t))) is None]
     owns = _SECTION_LOCK.acquire(blocking=False) if todo else False
     if owns:
         busy_kind, busy = busy_status()
@@ -1841,7 +1988,7 @@ def walk_record(cfg, p, typed: str) -> dict:
     try:
         overrides = load_assumptions()
         inputs = load_inputs()
-        key = _row_key(full, overrides, False, _owner_row_of(inputs, full))
+        key = _row_key(full, overrides, False, _key_row(inputs, full))
         hit = _row_cache_get(key)
         if hit is not None:
             out.update(rec=_marked(hit), status="cached")
@@ -1909,7 +2056,7 @@ def _section_rows(cfg, p, names, typed_full, show_terms, overrides, ctx,
     inputs = inputs or {}
     for t in names:
         terms = show_terms and t == typed_full
-        key = _row_key(t, overrides, terms, _owner_row_of(inputs, t))
+        key = _row_key(t, overrides, terms, _key_row(inputs, t))
         hit = _row_cache_get(key)
         if hit is not None:
             rows.append(_marked(hit))

@@ -64,10 +64,14 @@ ASSUMED: Dict[str, dict] = {
                  "forward net cash = base-year net cash",
         "source": "ASSUMED here 2026-10-14 — the owner's sheet types these per company"},
     "currency_effect_routes": {
-        "value": ["earnings"],
-        "source": "ASSUMED here: the sheet's +0.25pp margin per 1% rupee fall is an "
-                  "IT-exporter rule of thumb; applied only when the route's sector "
-                  "is IT services / ER&D, else the rupee leg is 0"},
+        "value": [],
+        "source": "owner choice 2026-10-21 (VALFIX batch 3): the IT-only rupee row E101 is "
+                  "counted 0 in the live chain — the currency leg runs through EPS for "
+                  "EVERY sector (trading/valuation/currency.py, shares by tier, USD + EUR); "
+                  "the owner's Tata sheet keeps its own E101 rows cell for cell; the item-19 "
+                  "exit record is built with e101_it_rupee=True — the rule the "
+                  "pre-registered study measured (2026-10-21: E101 live for IT-services "
+                  "routes, the batch-2 branch)"},
     "macro_counted_zero": {
         "value": ["repo", "cpi", "gdp", "brent", "institutional change", "delivery"],
         "source": "the sheet's what-if rows the app does not store — counted 0 and "
@@ -127,7 +131,7 @@ ASSUMED: Dict[str, dict] = {
 
 #: Peer base layout version (VAL-12a / VAL-02 / VAL-01 added fields). The
 #: Den's stored peer base is rebuilt when this or the code hash moves.
-PEER_BASE_VERSION = 3
+PEER_BASE_VERSION = 4          # 4 = + pat, sector, family, FY history (batch 3)
 
 KEY_TERM_KIND: Dict[str, str] = {
     # how the Den prints each term's value: pct / x / inr / num
@@ -240,7 +244,7 @@ def failed_record(ticker: str, why: str) -> dict:
         "terms_rows": [], "data_needed": [why],
         "assumptions": {"drafted": [], "drafted_effective": [], "drafted_no_effect": [],
                         "drafted_values": {}, "live_inputs": {}, "no_effect_keys": []},
-        "owner_inputs": None,
+        "owner_inputs": None, "currency_base": None,
         "error": why, "range_flags": _range_flags("", {}, {}, {}, {}),
         "detail": {"error": d},
     }
@@ -722,14 +726,21 @@ def _drivers(base: dict, snap: dict, route_family: str) -> tuple[dict, List[str]
 
 
 def _market(macro: dict, snap: dict, route: dict, peer_pe: Optional[float],
-            base: dict, sheet: Optional[dict] = None) -> tuple[dict, List[str]]:
+            base: dict, sheet: Optional[dict] = None,
+            e101_it_rupee: bool = False) -> tuple[dict, List[str]]:
     """The sheet's market inputs: stored levels where the app has them,
     neutral values (= zero effect) where it does not, each listed.
 
     `sheet` = the Den draft of the sheet's sensitivities. A missing CPI,
     GDP or delivery figure is filled with the SAME comfort / trend /
     benchmark its bridge row compares it with (draft or default), so the
-    row really counts 0 under any draft (VAL-10, owner order 2026-10-21)."""
+    row really counts 0 under any draft (VAL-10, owner order 2026-10-21).
+
+    `e101_it_rupee` (batch-3 review, 2026-10-21): True = the rupee row
+    E101 reads USD/INR now vs the base year-end for IT-services routes —
+    the batch-2 rule the item-19 pre-registered study measured, used for
+    the exit RECORD only. False (default) = batch 3: E101 counted 0, the
+    currency leg runs through EPS after the chain."""
     missing: List[str] = []
     av = SC._assumption_values(sheet or None)
     m: Dict[str, Any] = {}
@@ -767,15 +778,23 @@ def _market(macro: dict, snap: dict, route: dict, peer_pe: Optional[float],
         b0 = b1 = 100.0
         missing.append("Brent — no feed wired; counted 0")
     m["brent_start"], m["brent_end"] = b0, b1
-    # rupee leg: IT exporters only (ASSUMED)
+    # rupee row E101: counted 0 in the live chain (owner choice 2026-10-21,
+    # VALFIX batch 3) — the currency leg now runs through EPS for every
+    # sector, after the chain (currency.py); the sheet keeps its own E101
     u_now, u_base = num(macro.get("usdinr_now")), num(macro.get("usdinr_base"))
-    is_it = (route.get("sector") or "").startswith("IT services")
-    if is_it and u_now and u_base:
-        m["usdinr"], m["usdinr_base"] = u_now, u_base
+    if e101_it_rupee:
+        # the item-19 exit record (batch-3 review, 2026-10-21): the batch-2
+        # branch VERBATIM — the rule the pre-registered study measured.
+        # rupee leg: IT exporters only (ASSUMED)
+        is_it = (route.get("sector") or "").startswith("IT services")
+        if is_it and u_now and u_base:
+            m["usdinr"], m["usdinr_base"] = u_now, u_base
+        else:
+            m["usdinr"] = m["usdinr_base"] = u_base or u_now or 1.0
+            if is_it:
+                missing.append("USDINR now/base — rupee leg counted 0")
     else:
         m["usdinr"] = m["usdinr_base"] = u_base or u_now or 1.0
-        if is_it:
-            missing.append("USDINR now/base — rupee leg counted 0")
     m["vix"] = num(macro.get("vix")) if num(macro.get("vix")) is not None else 0.0
     m["sentiment"] = 0.0
     i0, i1 = num(macro.get("inst_holding_start")), num(macro.get("inst_holding_end"))
@@ -1260,9 +1279,43 @@ def peer_base(price_of: Callable[[str], Optional[float]], sector_map: dict,
                 book, basis = _lender_book(sym, snap, snap.get("period_end"))
                 row["book"] = book * CR if book is not None else None
                 row["book_basis"] = basis
+            # VALFIX batch 3 (§4 sector totals): latest PAT, the route group
+            # and the last FY_HISTORY_YEARS FYs, read in this same pass
+            row["pat"] = _f(snap, "net_income_common")
+            row["sector"] = rt.get("sector") or ""
+            row["family"] = rt.get("sector_family") or rt.get("family") or ""
+            row["fy"] = _fy_history(sym, snap, method)
             out.append(row)
         except Exception as e:                            # noqa: BLE001
             log.warning("valuation chain: peer row failed for %s: %s", sym, e)
+    return out
+
+
+#: FYs of history a peer-base row keeps for the §4 sector totals (batch 3).
+FY_HISTORY_YEARS = 4
+
+
+def _fy_history(sym: str, snap: dict, method: Optional[str]) -> Dict[str, dict]:
+    """{period_end: {shares, pat, ebitda, debt, cash, sti, mi, equity, book}}
+    for the last FY_HISTORY_YEARS annual periods (rupees; a lender's book is
+    its VAL-02 book for that year)."""
+    hist = {k: _hist(snap, k) for k in ("shares_outstanding", "net_income_common", "ebitda",
+                                         "total_debt", "cash", "short_term_investments",
+                                         "minority_interest_bs", "equity")}
+    periods = sorted(hist["shares_outstanding"])[-FY_HISTORY_YEARS:]
+    out: Dict[str, dict] = {}
+    for p in periods:
+        row = {"shares": hist["shares_outstanding"].get(p), "pat": hist["net_income_common"].get(p),
+               "ebitda": hist["ebitda"].get(p), "debt": hist["total_debt"].get(p),
+               "cash": hist["cash"].get(p), "sti": hist["short_term_investments"].get(p),
+               "mi": hist["minority_interest_bs"].get(p), "equity": hist["equity"].get(p)}
+        if method in LENDER_METHODS:
+            try:
+                bk, _basis = _lender_book(sym, snap, p)
+                row["book"] = bk * CR if bk is not None else None
+            except Exception:                             # noqa: BLE001
+                row["book"] = None
+        out[p] = row
     return out
 
 
@@ -1342,18 +1395,26 @@ _COST_DRIVERS = ("sector_move_pct", "wfh_shift_pp", "other_capex", "electricity_
                  "bid_discount_pct", "tax_rate_change_pp", "one_off_costs")
 
 
-def live_inputs(macro: dict, route: dict, drivers: dict, chain_ran: bool) -> Dict[str, bool]:
+def live_inputs(macro: dict, route: dict, drivers: dict, chain_ran: bool,
+                e101_it_rupee: bool = False) -> Dict[str, bool]:
     """Which bridge / cost inputs THIS record really fed (item 9, owner
-    2026-10-21) — assumptions.no_effect_keys(live=…) reads it."""
+    2026-10-21) — assumptions.no_effect_keys(live=…) reads it.
+    `e101_it_rupee` = the item-19 exit record's rule (see _market)."""
     macro = macro or {}
 
     def has(*ks: str) -> bool:
         return all(num(macro.get(k)) is not None for k in ks)
 
-    is_it = str((route or {}).get("sector") or "").startswith("IT services")
+    if e101_it_rupee:
+        # the batch-2 reading (the item-19 exit record, batch-3 review)
+        is_it = str((route or {}).get("sector") or "").startswith("IT services")
+        usdinr_fed = bool(is_it and has("usdinr_now", "usdinr_base"))
+    else:
+        # E101 is counted 0 in the live chain since 2026-10-21 (batch 3)
+        usdinr_fed = False
     return {
         "market": has("nifty_start", "nifty_end") or has("sensex_start", "sensex_end"),
-        "usdinr": bool(is_it and has("usdinr_now", "usdinr_base")),
+        "usdinr": usdinr_fed,
         "repo": has("repo_start_pct") and (has("repo_end_pct") or has("repo_pct")),
         "cpi": has("cpi_pct"), "gdp": has("gdp_pct"),
         "brent": has("brent_start", "brent_end"),
@@ -1381,7 +1442,8 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
              overrides: Optional[dict] = None,
              owner_inputs: Optional[dict] = None,
              peer_rows: Any = None,
-             price_of: Optional[Callable[[str], Optional[float]]] = None) -> dict:
+             price_of: Optional[Callable[[str], Optional[float]]] = None,
+             e101_it_rupee: bool = False) -> dict:
     """Stages 07-18 for one name. Every outside input is injected.
 
     `overrides` = the Den's assumption draft ({key: value} over
@@ -1406,7 +1468,12 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
           peer_rows_from_base, or a callable returning it): a typed
           peer_list and the conglomerate segment multiples read it;
       price_of — today's price of any ticker (holding-company subsidiaries);
-          the peer table's price is the fallback."""
+          the peer table's price is the fallback.
+
+    `e101_it_rupee` (batch-3 review, 2026-10-21): True = the rupee row E101
+    is live for IT-services routes (the batch-2 branch) — what the item-19
+    exit record is built with, because the pre-registered study measured
+    that rule. False (default) = batch 3: E101 counted 0."""
     sm = sector_map or {}
     price_at = price_at or (lambda when: None)
     peers = peers or (lambda method, exclude: {})
@@ -1482,7 +1549,7 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
     drivers, d_notes = _drivers(base, snap, chain_family)
     notes.extend(d_notes)
     market, macro_missing = _market(mac, snap, rt, pr.get("pe_median"), base,
-                                    sheet=ov["sheet"])
+                                    sheet=ov["sheet"], e101_it_rupee=bool(e101_it_rupee))
     cases: dict = {}
     if rec["snapshot"]["status"] == "OK" and chain_family in ("earnings", "ev_ebitda", "ev_sales"):
         cases = SC.three_cases(base, drivers, market,
@@ -1553,7 +1620,7 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
         data_needed.append(f"bridge: {m}")
     rec["data_needed"] = data_needed
     rec["notes"] = notes
-    live = live_inputs(mac, rt, drivers, bool(cases))
+    live = live_inputs(mac, rt, drivers, bool(cases), e101_it_rupee=bool(e101_it_rupee))
     rec["assumptions"] = {"pipeline": {k: v_["value"] for k, v_ in ASSUMED.items()},
                           "snapshot": dict(S.ASSUMED), "case_deltas": ov["case_deltas"],
                           "verdict": {k: v_["value"] for k, v_ in A.ASSUMED.items()},
@@ -1568,6 +1635,18 @@ def evaluate(ticker: str, *, price: Optional[float], price_date: str = "",
     rec["assumptions"]["drafted_no_effect"] = [k for k in ov["edited"] if k not in eff]
     rec["drafted"] = bool(eff)
     rec["owner_inputs"] = owner or None
+    # VALFIX batch 3: what the currency leg (through EPS) and the market legs
+    # read — the base-year EPS and EBITDA margin, and the route group
+    margin = None
+    if num(base.get("revenue")) and num(base.get("ebitda")) is not None and base["revenue"] > 0:
+        margin = base["ebitda"] / base["revenue"] * 100.0
+    eps0 = (base["pat"] / base["shares"]) if (num(base.get("pat")) is not None
+                                              and num(base.get("shares"))) else None
+    rec["currency_base"] = {"eps": eps0, "ebitda_margin_pct": margin,
+                            "margin_why": "" if margin is not None else
+                            "no EBITDA or revenue line for the base year",
+                            "sector": rt.get("sector") or "", "method": peer_method or "",
+                            "family": chain_family}
     rec["detail"] = {"snapshot_fields": snap.get("fields"), "cases": cases,
                      "normalised": ne, "quality": q, "bridge": bridge}
     return rec

@@ -267,7 +267,9 @@ def _macro_nodes(rec, ids, stock) -> list:
     m = (rec or {}).get("macro_inputs") or {}
     out = []
     mk = _node(ids("s13.market"), "Market: Nifty 50 / Sensex",
-               "level at the base period end vs the latest stored close (index store)")
+               "level at the base period end vs the close on the selection date (the time "
+               "of action; since 2026-10-21 the move after it is §12's market-adjusted leg, "
+               "counted once) — the latest stored close when the selection date is today")
     if _num(m.get("nifty_start")) and _num(m.get("nifty_end")):
         txt = (f"Nifty {_f2(m.get('nifty_start'))} → {_f2(m.get('nifty_end'))}"
                + (f" (to {m.get('index_end_date')})" if m.get("index_end_date") else "")
@@ -313,7 +315,9 @@ def _macro_nodes(rec, ids, stock) -> list:
     out.append(repo)
     fx = _node(ids("s13.usdinr"), "USD/INR now vs base",
                "now = the latest RBI reference rate stored, else the committed file; base = the "
-               "committed file at the base period end (IT exporters' rupee row only)")
+               "committed file at the base period end. Shown for reference: since 2026-10-21 "
+               "the rupee row E101 counts 0 in this chain — the currency leg runs through EPS "
+               "for every sector on FRED's USD/INR and EUR/INR (§12 row)")
     if _num(m.get("usdinr_now")) is not None:
         txt = (f"{_f2(m.get('usdinr_now'))} on {m.get('usdinr_now_date') or '—'} "
                f"({m.get('usdinr_now_source') or '—'}) vs {_f2(m.get('usdinr_base'))} on "

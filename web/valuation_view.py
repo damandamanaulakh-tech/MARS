@@ -332,16 +332,49 @@ def _sector_series(name: str) -> Optional[pd.Series]:
 
 
 def bench_for(ticker: str, cfg) -> tuple[Optional[str], str]:
-    """(NSE sector index name or None, label printed on the page)."""
-    override = vc.TICKER_INDEX_OVERRIDE.get(ticker)
-    if override:
-        return override, f"Nifty {override}"
-    sector = (getattr(cfg, "sector_map", {}) or {}).get(ticker, "")
-    idx = vc.SECTOR_INDEX_FOR.get(sector)
+    """(NSE sector index name or None, label printed on the page).
+
+    VALFIX batch 3 (owner answers 2026-10-21): one mapping for §11 and §12 —
+    valuation_context.index_for (override → app label → for a name with no
+    app label, its Nifty-500 industry under strict rule A plus the six
+    indices added that day → Nifty 50)."""
+    got = vc.index_for(ticker, getattr(cfg, "sector_map", {}) or {})
+    if got.get("index"):
+        return got["index"], got["label"]
+    return None, f"{vc.MARKET_INDEX_LABEL} — {got.get('why') or 'no NSE sector index'}"
+
+
+def bench_for_tested(ticker: str, cfg) -> tuple[Optional[str], str]:
+    """(NSE sector index name or None, label) — the map the item-19 study
+    measured (2026-10-21); the §11/§12 display uses bench_for (the batch-3
+    remap).
+
+    The pre-batch-3 rule: the ticker override → the app label, for the ten
+    labels that had an index before 2026-10-21 → Nifty 50 (None). Built on
+    valuation_context.label_only_index, which is that rule; checked equal
+    to the old bench_for body (read against the old label map) for all
+    2,680 names on 2026-10-21. A name the batch-3 remap moved (no app
+    label, a Nifty-500 industry) and an app label that got its index that
+    day (Chemicals) stay on Nifty 50 here. The item-19 exit record's sector
+    leg reads this; moving it onto the remap needs the pre-registered test
+    re-run and the owner's word."""
+    sm = getattr(cfg, "sector_map", {}) or {}
+    idx = vc.label_only_index(ticker, sm)
     if idx:
         return idx, f"Nifty {idx}"
+    sector = sm.get(ticker, "")
     return None, (f"{vc.MARKET_INDEX_LABEL} — no NSE sector index wired for "
                   f"'{sector or 'unmapped'}'")
+
+
+def bench_min_sessions(idx: Optional[str]) -> Optional[int]:
+    """An index launched recently (Nifty Cement 2026-05-11, Nifty Chemicals
+    2025-11-10) reads no β until it has 252 sessions of its own (owner
+    answer 2026-10-21); the long-standing indices keep the 120-pair rule."""
+    from trading import data_refresh as dr
+    if idx and idx in dr.SECTOR_INDEX_FIRST_BAR:
+        return int(vc.ASSUMED["beta_min_index_sessions"])
+    return None
 
 
 def _fii_5d() -> Optional[float]:
@@ -643,7 +676,8 @@ def row_for(ticker: str, entry: dict, cfg, p, *, a: dict, bond, nifty, sent: dic
                    rate_now_pct=a.get("rate_now"), erp_pct=a["erp"],
                    growth_pct=a["growth"], inflation_shift_pp=a["infl_shift"],
                    sentiment=sent, news_verdict=_news_verdict(p, ticker),
-                   bench_why=bench_why, today=date.today())
+                   bench_why=bench_why, today=date.today(),
+                   bench_min_sessions=bench_min_sessions(idx))
     if (window_note and r.get("status") != "OK"
             and str(r.get("why") or "").startswith("stock closes: series starts")):
         r["why"] = f"stock closes: {window_note}"

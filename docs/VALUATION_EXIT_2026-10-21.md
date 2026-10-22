@@ -64,7 +64,7 @@ runs the valuation pipeline), wired in `trading/engine.py`.
 | T_m = T_entry × (1 + β × Sensex move) × (1 + (sector move − Sensex move)) | `remarked_target`, same formula |
 | moves from the anchor day's close (fill day / re-target day) to the month-end close | same: the re-mark reads the anchor day's stored close (falls back to the reading taken at the buy if that day is missing) |
 | β = OLS on the Sensex over 252 sessions; < 120 pairs → 1, labelled | β from the record (same OLS, 252 sessions, as of the record's closes); none → 1, journaled `beta_source: fallback_1` |
-| sector index per SECTOR_INDEX_FOR / TICKER_INDEX_OVERRIDE; unmapped → Nifty 50 | same map (`valuation_view.bench_for`); an index with no stored close for those days → Nifty 50, labelled in the re-mark |
+| sector index per SECTOR_INDEX_FOR / TICKER_INDEX_OVERRIDE; unmapped → Nifty 50 | same map — the one the study read (`valuation_view.bench_for_tested`: your realty overrides → the ten app labels that had an index before 2026-10-21 → Nifty 50). NOT the batch-3 remap the Den §11/§12 screens use (`bench_for`), see §11 below; an index with no stored close for those days → Nifty 50, labelled in the re-mark |
 | re-marked target ≤ that month-end close → exit, VAL_TARGET_DOWN | `exit_due` set by the re-mark; the exit fires at the next in-session pass |
 | A3: first month-end ≥ entry with a judged record and base_m > ENTRY × 1.05 → re-target once, legs from that day | first **in-session** pass a qualifying record exists; base > **entry** × 1.05; once (`retargeted`); legs from that day — and only while that pass's price is inside the envelope a same-day judged verdict implies: **at most base × 1.10 and at most the range high** (`RETARGET_PRICE_CEILING`, `retarget_price_ok`). The study's record was valued at the very close it re-targeted on, so a judged verdict meant exactly that; a live record is from an earlier close, so the price is checked. No live quote = no re-target that pass |
 | stop / trail / max-hold / decay unchanged | unchanged — the valuation target IS `pos.target_price`, so TAKE_PROFIT fires through `exits.check_exit` as before; the stop keeps its priority over VAL_TARGET_DOWN; buy-and-hold (`disable_exits`) holds a VAL_TARGET_DOWN like every other target exit |
@@ -149,11 +149,12 @@ off, use the switch — never revert the code: a position saved with
 * scope = held names, then the momentum shortlist at or above its floor by
   score, then the last scan picks, then your Den §11 targets — unique,
   capped at 120, held first;
-* each name = the Den §12 chain row (`valuation_chain_view.row_for`, the
-  stored peer base, closes in one query per 25 names, default assumptions)
+* each name = the Den §12 chain row built the tested way
+  (`valuation_chain_view.row_for(..., tested_rule=True)`, the stored peer
+  base, closes in one query per 25 names, default assumptions — §11 below)
   reduced to the record `{ticker, asof, verdict, range_status, base_target,
   low, high, family, method, sector_index, beta, beta_n, version, drafted,
-  price, note}`;
+  price, rule, tested_rule, note}`;
 * time budget `SB_VALUATION_PRECOMPUTE_BUDGET_S` (default 120 s) — names past
   it keep their previous record (or none), counted;
 * never while a scan rotation holds the lock, never above the Den's memory
@@ -235,3 +236,42 @@ change to a money gate — not made without your order.
 * names without full statements (~1,000 of the scan list) read
   "insufficient" and keep k × ATR until the statements batch fetch you have
   not yet approved runs.
+
+## 11. 2026-10-21 (batch 3 review) — the record keeps the tested definitions
+
+The same evening, the valuation screens changed three definitions (batch 3:
+the market split into its own legs, the currency through EPS, a wider
+sector-index map). A review found that the exit record was built from the
+same Den row, so the exit target would have moved off the rule the test
+measured without anyone deciding it. Fixed: **the record is valued exactly
+the way the pre-registered study valued it**; the Den screens keep the new
+definitions.
+
+| | The exit record (money path) | The Den §11 / §12 screens (display) |
+|---|---|---|
+| Market rows of the P/E bridge | read to the valuation day — the newest stored close, as the study did | read to the selection date (the time of action); the market since then is its own leg |
+| Rupee row E101 | live for IT-services routes (USD/INR now vs the base year end) | counted 0; the currency leg runs through EPS for every sector |
+| Sector index | your realty overrides → the ten app labels that had an index before 2026-10-21 → Nifty 50 | the batch-3 map: also a name's Nifty-500 industry when it has no app label, and the Chemicals label — 191 names in the universe read a different index |
+| A date you type in the inputs table, or a §11 push | does not reach it | sets the selection date |
+
+How: `row_for(tested_rule=True)` (the nightly precompute always asks for
+it) → `pipeline.evaluate(e101_it_rupee=True)`, the batch-2 branch word for
+word; the record's sector index comes from `valuation_view.bench_for_tested`.
+Every record now carries `rule: "tested-2026-10-21"` and `tested_rule`
+(True from the precompute), and its note says "valued as the pre-registered
+study valued it". Checked: with the flag the pipeline gives the same range,
+cases and verdict as the batch-2 code on 28 test cases; the tested sector
+map equals the old one for all 2,680 names in the universe file.
+
+What it means for your money: nothing changes from what was tested and
+wired on 2026-10-21 — the exit target is the one the study measured. Without
+this fix, 25 of the names that can carry a judged record today (they have
+full statements — e.g. SRF, PIIND, UPL, LTM, HINDPETRO, HINDZINC) would
+have changed their sector leg from Nifty 50 to an industry index, IT-services
+names would have lost the rupee row from their base, and a date typed on the
+Den would have moved a live exit target.
+
+Moving the record onto the Den's batch-3 definitions is a new rule: it
+needs the pre-registered test re-run on them (the study record
+STUDY_item19_valuation_exits.md, the same harness `bt_item19.py`) and your
+word. Not done.

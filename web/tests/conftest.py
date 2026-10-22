@@ -8,6 +8,9 @@ import pytest
 # The startup catchup-scan (scheduler.py) must never fire inside a test
 # run — it would launch a real multi-mode network scan mid-suite.
 os.environ.setdefault("SB_DISABLE_CATCHUP", "1")
+# 2026-10-22: the app scheduler is BUILT but never STARTED under tests — a
+# CI run crossing 09:20 IST had the real rotation cron fire mid-suite.
+os.environ.setdefault("SB_SCHEDULER_NO_START", "1")
 
 # The login brute-force throttle (1s per attempt) would add minutes to the
 # suite — hundreds of tests log in. Off under tests, on in production.
@@ -43,6 +46,10 @@ def _fresh_den_chain_rows():
         from web import valuation_chain_view as cv, valuation_view as vv
         cv.clear_row_cache()
         vv.clear_series_cache()
+        # VALFIX batch 3: the day's sector totals and the remap list are kept
+        # per process too — one test's copy must not hide the next one's reads
+        from web import valuation_market_view as mv
+        mv.clear_caches()
     except Exception:                                   # noqa: BLE001
         pass
     yield
@@ -96,3 +103,33 @@ def _no_nse_or_candle_network(monkeypatch):
         monkeypatch.setattr(ta, "_get_json", lambda url: None)
     except Exception:                                   # noqa: BLE001
         pass
+
+
+#: Every network fetcher in trading.macro_feeds that raises when blocked.
+MACRO_FEED_FETCHERS = ("fetch_fred", "fetch_nse_all_indices", "fetch_rbi_home")
+
+
+def _macro_feed_blocked(*a, **k):
+    raise ConnectionError("network blocked in tests (macro feeds)")
+
+
+@pytest.fixture(autouse=True)
+def _no_macro_feed_network(monkeypatch):
+    """VALFIX batch 3 (2026-10-21): the 09:20 and 15:35 jobs now also pull
+    FRED and NSE allIndices, and a job test that sets db.is_connected True
+    (test_morning_topup …) would reach them — and batch 2's RBI pages —
+    over the real network. Every network fetcher in trading.macro_feeds is
+    blocked for every web test; a test that needs one stubs it itself
+    (monkeypatching over this, as the macro-feed job tests do)."""
+    import trading.macro_feeds as mf
+    # a renamed or removed fetcher must FAIL here, never go unguarded
+    # (review 2026-10-21: `hasattr` used to skip a missing name silently)
+    missing = [n for n in MACRO_FEED_FETCHERS + ("fetch_gsec_list",) if not hasattr(mf, n)]
+    if missing:
+        pytest.fail(f"trading.macro_feeds lost {', '.join(missing)} — guard its renamed "
+                    "network fetcher(s) in web/tests/conftest.py")
+    for name in MACRO_FEED_FETCHERS:
+        monkeypatch.setattr(mf, name, _macro_feed_blocked)
+    # this one never raises: an unreachable RBI page = the committed table
+    monkeypatch.setattr(mf, "fetch_gsec_list", lambda timeout=30.0: (
+        mf.reference_securities(), "committed table (network blocked in tests)"))

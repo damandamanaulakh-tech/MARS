@@ -1,0 +1,140 @@
+symbol,ticker,company,in_statements_zip,in_scan_universe_file,app_sector_label,label_source_route,nifty500_industry,old_index,old_source,new_index,change_rule,nse_sector_index_membership
+ARE&M,ARE&M.NS,Amara Raja Energy & Mobility Ltd.,N,Y,(none),nifty500_industry,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'none'),Auto,A_industry_label,
+ASAHIINDIA,ASAHIINDIA.NS,Asahi India Glass Ltd.,N,Y,(none),nifty500_industry,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'none'),Auto,A_industry_label,
+ATHERENERG,ATHERENERG.NS,Ather Energy Ltd.,N,Y,(none),nifty500_industry,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'none'),Auto,A_industry_label,
+BELRISE,BELRISE.NS,Belrise Industries Ltd.,N,Y,(none),nifty500_industry,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'none'),Auto,A_industry_label,
+CEATLTD,CEATLTD.NS,Ceat Ltd.,N,Y,(none),nifty500_industry,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'none'),Auto,A_industry_label,
+CRAFTSMAN,CRAFTSMAN.NS,Craftsman Automation Ltd.,N,Y,(none),nifty500_industry,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'none'),Auto,A_industry_label,
+ENDURANCE,ENDURANCE.NS,Endurance Technologies Ltd.,N,Y,(none),nifty500_industry,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'none'),Auto,A_industry_label,
+FORCEMOT,FORCEMOT.NS,Force Motors Ltd.,N,Y,(none),nifty500_industry,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'none'),Auto,A_industry_label,
+GABRIEL,GABRIEL.NS,Gabriel India Ltd.,N,Y,(none),nifty500_industry,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'none'),Auto,A_industry_label,
+HYUNDAI,HYUNDAI.NS,Hyundai Motor India Ltd.,Y,Y,(none),nifty500_industry,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'none'),Auto,A_industry_label,Auto
+JBMA,JBMA.NS,JBM Auto Ltd.,N,Y,(none),nifty500_industry,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'none'),Auto,A_industry_label,
+JKTYRE,JKTYRE.NS,JK Tyre & Industries Ltd.,N,Y,(none),nifty500_industry,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'none'),Auto,A_industry_label,
+MINDACORP,MINDACORP.NS,Minda Corporation Ltd.,N,Y,(none),nifty500_industry,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'none'),Auto,A_industry_label,
+MSUMI,MSUMI.NS,Motherson Sumi Wiring India Ltd.,N,Y,(none),nifty500_industry,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'none'),Auto,A_industry_label,
+OLAELEC,OLAELEC.NS,Ola Electric Mobility Ltd.,N,Y,(none),nifty500_industry,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'none'),Auto,A_industry_label,
+OLECTRA,OLECTRA.NS,Olectra Greentech Ltd.,N,Y,(none),nifty500_industry,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'none'),Auto,A_industry_label,
+RKFORGE,RKFORGE.NS,Ramkrishna Forgings Ltd.,N,Y,(none),nifty500_industry,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'none'),Auto,A_industry_label,
+TENNIND,TENNIND.NS,Tenneco Clean Air India Ltd.,N,Y,(none),nifty500_industry,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'none'),Auto,A_industry_label,
+ZFCVINDIA,ZFCVINDIA.NS,ZF Commercial Vehicle Control Systems India Ltd.,N,Y,(none),nifty500_industry,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'none'),Auto,A_industry_label,
+ACMESOLAR,ACMESOLAR.NS,ACME Solar Holdings Ltd.,N,Y,(none),nifty500_industry,Power,Nifty 50,fallback (sector_map label 'none'),Energy,A_industry_label,
+AEGISLOG,AEGISLOG.NS,Aegis Logistics Ltd.,N,Y,(none),nifty500_industry,Oil Gas & Consumable Fuels,Nifty 50,fallback (sector_map label 'none'),Energy,A_industry_label,Energy
+AEGISVOPAK,AEGISVOPAK.NS,Aegis Vopak Terminals Ltd.,N,Y,(none),nifty500_industry,Oil Gas & Consumable Fuels,Nifty 50,fallback (sector_map label 'none'),Energy,A_industry_label,
+ATGL,ATGL.NS,Adani Total Gas Ltd.,Y,Y,(none),nifty500_industry,Oil Gas & Consumable Fuels,Nifty 50,fallback (sector_map label 'none'),Energy,A_industry_label,Energy
+CASTROLIND,CASTROLIND.NS,Castrol India Ltd.,N,Y,(none),nifty500_industry,Oil Gas & Consumable Fuels,Nifty 50,fallback (sector_map label 'none'),Energy,A_industry_label,Energy
+CESC,CESC.NS,CESC Ltd.,N,Y,(none),nifty500_industry,Power,Nifty 50,fallback (sector_map label 'none'),Energy,A_industry_label,Energy
+CHENNPETRO,CHENNPETRO.NS,Chennai Petroleum Corporation Ltd.,N,Y,(none),nifty500_industry,Oil Gas & Consumable Fuels,Nifty 50,fallback (sector_map label 'none'),Energy,A_industry_label,
+HINDPETRO,HINDPETRO.NS,Hindustan Petroleum Corporation Ltd.,Y,Y,(none),nifty500_industry,Oil Gas & Consumable Fuels,Nifty 50,fallback (sector_map label 'none'),Energy,A_industry_label,"Energy,Infra"
+JPPOWER,JPPOWER.NS,Jaiprakash Power Ventures Ltd.,N,Y,(none),nifty500_industry,Power,Nifty 50,fallback (sector_map label 'none'),Energy,A_industry_label,Energy
+NAVA,NAVA.NS,Nava Ltd.,N,Y,(none),nifty500_industry,Power,Nifty 50,fallback (sector_map label 'none'),Energy,A_industry_label,Energy
+NTPCGREEN,NTPCGREEN.NS,NTPC Green Energy Ltd.,N,Y,(none),nifty500_industry,Power,Nifty 50,fallback (sector_map label 'none'),Energy,A_industry_label,Energy
+RPOWER,RPOWER.NS,Reliance Power Ltd.,N,Y,(none),nifty500_industry,Power,Nifty 50,fallback (sector_map label 'none'),Energy,A_industry_label,Energy
+SJVN,SJVN.NS,SJVN Ltd.,N,Y,(none),nifty500_industry,Power,Nifty 50,fallback (sector_map label 'none'),Energy,A_industry_label,
+ABDL,ABDL.NS,Allied Blenders and Distillers Ltd.,N,Y,(none),nifty500_industry,Fast Moving Consumer Goods,Nifty 50,fallback (sector_map label 'none'),FMCG,A_industry_label,
+AWL,AWL.NS,AWL Agri Business Ltd.,N,Y,(none),nifty500_industry,Fast Moving Consumer Goods,Nifty 50,fallback (sector_map label 'none'),FMCG,A_industry_label,
+BALRAMCHIN,BALRAMCHIN.NS,Balrampur Chini Mills Ltd.,N,Y,(none),nifty500_industry,Fast Moving Consumer Goods,Nifty 50,fallback (sector_map label 'none'),FMCG,A_industry_label,
+BBTC,BBTC.NS,Bombay Burmah Trading Corporation Ltd.,N,Y,(none),nifty500_industry,Fast Moving Consumer Goods,Nifty 50,fallback (sector_map label 'none'),FMCG,A_industry_label,
+BIKAJI,BIKAJI.NS,Bikaji Foods International Ltd.,N,Y,(none),nifty500_industry,Fast Moving Consumer Goods,Nifty 50,fallback (sector_map label 'none'),FMCG,A_industry_label,
+CCL,CCL.NS,CCL Products (I) Ltd.,N,Y,(none),nifty500_industry,Fast Moving Consumer Goods,Nifty 50,fallback (sector_map label 'none'),FMCG,A_industry_label,
+DOMS,DOMS.NS,DOMS Industries Ltd.,N,Y,(none),nifty500_industry,Fast Moving Consumer Goods,Nifty 50,fallback (sector_map label 'none'),FMCG,A_industry_label,
+EIDPARRY,EIDPARRY.NS,E.I.D. Parry (India) Ltd.,N,Y,(none),nifty500_industry,Fast Moving Consumer Goods,Nifty 50,fallback (sector_map label 'none'),FMCG,A_industry_label,
+EMAMILTD,EMAMILTD.NS,Emami Ltd.,N,Y,(none),nifty500_industry,Fast Moving Consumer Goods,Nifty 50,fallback (sector_map label 'none'),FMCG,A_industry_label,
+GILLETTE,GILLETTE.NS,Gillette India Ltd.,N,Y,(none),nifty500_industry,Fast Moving Consumer Goods,Nifty 50,fallback (sector_map label 'none'),FMCG,A_industry_label,
+GODFRYPHLP,GODFRYPHLP.NS,Godfrey Phillips India Ltd.,Y,Y,(none),nifty500_industry,Fast Moving Consumer Goods,Nifty 50,fallback (sector_map label 'none'),FMCG,A_industry_label,FMCG
+HONASA,HONASA.NS,Honasa Consumer Ltd.,N,Y,(none),nifty500_industry,Fast Moving Consumer Goods,Nifty 50,fallback (sector_map label 'none'),FMCG,A_industry_label,
+LTFOODS,LTFOODS.NS,LT Foods Ltd.,N,Y,(none),nifty500_industry,Fast Moving Consumer Goods,Nifty 50,fallback (sector_map label 'none'),FMCG,A_industry_label,
+PATANJALI,PATANJALI.NS,Patanjali Foods Ltd.,Y,Y,(none),nifty500_industry,Fast Moving Consumer Goods,Nifty 50,fallback (sector_map label 'none'),FMCG,A_industry_label,FMCG
+RADICO,RADICO.NS,Radico Khaitan Ltd,Y,Y,(none),nifty500_industry,Fast Moving Consumer Goods,Nifty 50,fallback (sector_map label 'none'),FMCG,A_industry_label,FMCG
+ZYDUSWELL,ZYDUSWELL.NS,Zydus Wellness Ltd.,N,Y,(none),nifty500_industry,Fast Moving Consumer Goods,Nifty 50,fallback (sector_map label 'none'),FMCG,A_industry_label,
+360ONE,360ONE.NS,360 ONE WAM Ltd.,Y,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+AADHARHFC,AADHARHFC.NS,Aadhar Housing Finance Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+AAVAS,AAVAS.NS,Aavas Financiers Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+ABSLAMC,ABSLAMC.NS,Aditya Birla Sun Life AMC Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+AIIL,AIIL.NS,Authum Investment & Infrastructure Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+ANANDRATHI,ANANDRATHI.NS,Anand Rathi Wealth Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+APTUS,APTUS.NS,Aptus Value Housing Finance India Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+BAJAJHFL,BAJAJHFL.NS,Bajaj Housing Finance Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+BSE,BSE.NS,BSE Ltd.,Y,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,Fin Service
+CAMS,CAMS.NS,Computer Age Management Services Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+CANFINHOME,CANFINHOME.NS,Can Fin Homes Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+CANHLIFE,CANHLIFE.NS,Canara HSBC Life Insurance Company Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+CDSL,CDSL.NS,Central Depository Services (India) Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+CENTRALBK,CENTRALBK.NS,Central Bank of India,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,PSU Bank
+CHOICEIN,CHOICEIN.NS,Choice International Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+CHOLAHLDNG,CHOLAHLDNG.NS,Cholamandalam Financial Holdings Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+CREDITACC,CREDITACC.NS,CreditAccess Grameen Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+CRISIL,CRISIL.NS,CRISIL Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+CUB,CUB.NS,City Union Bank Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+FIVESTAR,FIVESTAR.NS,Five-Star Business Finance Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+GICRE,GICRE.NS,General Insurance Corporation of India,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+GODIGIT,GODIGIT.NS,Go Digit General Insurance Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+GROWW,GROWW.NS,Billionbrains Garage Ventures Ltd.,Y,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+HDBFS,HDBFS.NS,HDB Financial Services Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+HOMEFIRST,HOMEFIRST.NS,Home First Finance Company India Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+HUDCO,HUDCO.NS,Housing & Urban Development Corporation Ltd.,Y,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+ICICIAMC,ICICIAMC.NS,ICICI Prudential Asset Management Company Ltd.,Y,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+IDBI,IDBI.NS,IDBI Bank Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+IEX,IEX.NS,Indian Energy Exchange Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+IFCI,IFCI.NS,IFCI Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+IIFL,IIFL.NS,IIFL Finance Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+IOB,IOB.NS,Indian Overseas Bank,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,PSU Bank
+IREDA,IREDA.NS,Indian Renewable Energy Development Agency Ltd.,Y,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+IRFC,IRFC.NS,Indian Railway Finance Corporation Ltd.,Y,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+J&KBANK,J&KBANK.NS,Jammu & Kashmir Bank Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+JMFINANCIL,JMFINANCIL.NS,JM Financial Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+KARURVYSYA,KARURVYSYA.NS,Karur Vysya Bank Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+KFINTECH,KFINTECH.NS,Kfin Technologies Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+MAHABANK,MAHABANK.NS,Bank of Maharashtra,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,PSU Bank
+MCX,MCX.NS,Multi Commodity Exchange of India Ltd.,Y,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+NIACL,NIACL.NS,The New India Assurance Company Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+NIVABUPA,NIVABUPA.NS,Niva Bupa Health Insurance Company Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+NUVAMA,NUVAMA.NS,Nuvama Wealth Management Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+PINELABS,PINELABS.NS,Pine Labs Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+PIRAMALFIN,PIRAMALFIN.NS,Piramal Finance Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+PNBHOUSING,PNBHOUSING.NS,PNB Housing Finance Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+POONAWALLA,POONAWALLA.NS,Poonawalla Fincorp Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+SAMMAANCAP,SAMMAANCAP.NS,Sammaan Capital Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+SBFC,SBFC.NS,SBFC Finance Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+STARHEALTH,STARHEALTH.NS,Star Health and Allied Insurance Company Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+SUNDARMFIN,SUNDARMFIN.NS,Sundaram Finance Ltd.,N,Y,Unknown,nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'Unknown'),Fin Service,A_industry_label,
+TATACAP,TATACAP.NS,Tata Capital Ltd.,Y,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+TATAINVEST,TATAINVEST.NS,Tata Investment Corporation Ltd.,Y,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+UTIAMC,UTIAMC.NS,UTI Asset Management Company Ltd.,N,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,
+YESBANK,YESBANK.NS,Yes Bank Ltd.,Y,Y,(none),nifty500_industry,Financial Services,Nifty 50,fallback (sector_map label 'none'),Fin Service,A_industry_label,Bank
+AFFLE,AFFLE.NS,Affle 3i Ltd.,N,Y,(none),nifty500_industry,Information Technology,Nifty 50,fallback (sector_map label 'none'),IT,A_industry_label,
+CYIENT,CYIENT.NS,Cyient Ltd.,N,Y,(none),nifty500_industry,Information Technology,Nifty 50,fallback (sector_map label 'none'),IT,A_industry_label,
+HEXT,HEXT.NS,Hexaware Technologies Ltd.,N,Y,(none),nifty500_industry,Information Technology,Nifty 50,fallback (sector_map label 'none'),IT,A_industry_label,
+IKS,IKS.NS,Inventurus Knowledge Solutions Ltd.,N,Y,(none),nifty500_industry,Information Technology,Nifty 50,fallback (sector_map label 'none'),IT,A_industry_label,
+INTELLECT,INTELLECT.NS,Intellect Design Arena Ltd.,N,Y,(none),nifty500_industry,Information Technology,Nifty 50,fallback (sector_map label 'none'),IT,A_industry_label,
+LATENTVIEW,LATENTVIEW.NS,Latent View Analytics Ltd.,N,Y,(none),nifty500_industry,Information Technology,Nifty 50,fallback (sector_map label 'none'),IT,A_industry_label,
+LTM,LTM.NS,LTM Ltd.,Y,Y,(none),nifty500_industry,Information Technology,Nifty 50,fallback (sector_map label 'none'),IT,A_industry_label,IT
+MAPMYINDIA,MAPMYINDIA.NS,C.E. Info Systems Ltd.,N,Y,(none),nifty500_industry,Information Technology,Nifty 50,fallback (sector_map label 'none'),IT,A_industry_label,
+NETWEB,NETWEB.NS,Netweb Technologies India Ltd.,N,Y,(none),nifty500_industry,Information Technology,Nifty 50,fallback (sector_map label 'none'),IT,A_industry_label,
+NEWGEN,NEWGEN.NS,Newgen Software Technologies Ltd.,N,Y,(none),nifty500_industry,Information Technology,Nifty 50,fallback (sector_map label 'none'),IT,A_industry_label,
+SAGILITY,SAGILITY.NS,Sagility Ltd.,N,Y,(none),nifty500_industry,Information Technology,Nifty 50,fallback (sector_map label 'none'),IT,A_industry_label,
+SONATSOFTW,SONATSOFTW.NS,Sonata Software Ltd.,N,Y,(none),nifty500_industry,Information Technology,Nifty 50,fallback (sector_map label 'none'),IT,A_industry_label,
+TATATECH,TATATECH.NS,Tata Technologies Ltd.,N,Y,(none),nifty500_industry,Information Technology,Nifty 50,fallback (sector_map label 'none'),IT,A_industry_label,
+ZENSARTECH,ZENSARTECH.NS,Zensar Technolgies Ltd.,N,Y,(none),nifty500_industry,Information Technology,Nifty 50,fallback (sector_map label 'none'),IT,A_industry_label,
+PFOCUS,PFOCUS.NS,Prime Focus Ltd.,N,Y,(none),nifty500_industry,Media Entertainment & Publication,Nifty 50,fallback (sector_map label 'none'),Media,A_industry_label,Media
+PVRINOX,PVRINOX.NS,PVR INOX Ltd.,N,Y,(none),nifty500_industry,Media Entertainment & Publication,Nifty 50,fallback (sector_map label 'none'),Media,A_industry_label,Media
+SAREGAMA,SAREGAMA.NS,Saregama India Ltd,N,Y,(none),nifty500_industry,Media Entertainment & Publication,Nifty 50,fallback (sector_map label 'none'),Media,A_industry_label,Media
+GMDCLTD,GMDCLTD.NS,Gujarat Mineral Development Corporation Ltd.,N,Y,(none),nifty500_industry,Metals & Mining,Nifty 50,fallback (sector_map label 'none'),Metal,A_industry_label,
+GRAVITA,GRAVITA.NS,Gravita India Ltd.,N,Y,(none),nifty500_industry,Metals & Mining,Nifty 50,fallback (sector_map label 'none'),Metal,A_industry_label,
+HINDCOPPER,HINDCOPPER.NS,Hindustan Copper Ltd.,N,Y,(none),nifty500_industry,Metals & Mining,Nifty 50,fallback (sector_map label 'none'),Metal,A_industry_label,Metal
+HINDZINC,HINDZINC.NS,Hindustan Zinc Ltd.,Y,Y,(none),nifty500_industry,Metals & Mining,Nifty 50,fallback (sector_map label 'none'),Metal,A_industry_label,Metal
+JAINREC,JAINREC.NS,Jain Resource Recycling Ltd.,N,Y,(none),nifty500_industry,Metals & Mining,Nifty 50,fallback (sector_map label 'none'),Metal,A_industry_label,
+LLOYDSME,LLOYDSME.NS,Lloyds Metals And Energy Ltd.,N,Y,(none),nifty500_industry,Metals & Mining,Nifty 50,fallback (sector_map label 'none'),Metal,A_industry_label,Metal
+NSLNISP,NSLNISP.NS,NMDC Steel Ltd.,N,Y,(none),nifty500_industry,Metals & Mining,Nifty 50,fallback (sector_map label 'none'),Metal,A_industry_label,
+SARDAEN,SARDAEN.NS,Sarda Energy and Minerals Ltd.,N,Y,(none),nifty500_industry,Metals & Mining,Nifty 50,fallback (sector_map label 'none'),Metal,A_industry_label,
+ABREL,ABREL.NS,Aditya Birla Real Estate Ltd.,N,Y,(none),nifty500_industry,Realty,Nifty 50,fallback (sector_map label 'none'),Realty,A_industry_label,Realty
+ANANTRAJ,ANANTRAJ.NS,Anant Raj Ltd.,N,Y,(none),nifty500_industry,Realty,Nifty 50,fallback (sector_map label 'none'),Realty,A_industry_label,Realty
+SIGNATURE,SIGNATURE.NS,Signatureglobal (India) Ltd.,N,Y,(none),nifty500_industry,Realty,Nifty 50,fallback (sector_map label 'none'),Realty,A_industry_label,
+SOBHA,SOBHA.NS,Sobha Ltd.,N,Y,(none),nifty500_industry,Realty,Nifty 50,fallback (sector_map label 'none'),Realty,A_industry_label,Realty
+BOSCHLTD,BOSCHLTD.NS,Bosch Ltd.,Y,Y,Capital Goods,sector_map,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'Capital Goods'),Auto,B_app_label_has_no_index,Auto
+EXIDEIND,EXIDEIND.NS,Exide Industries Ltd.,Y,Y,Consumer,sector_map,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'Consumer'),Auto,B_app_label_has_no_index,
+SCHAEFFLER,SCHAEFFLER.NS,Schaeffler India Ltd.,N,Y,Capital Goods,sector_map,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'Capital Goods'),Auto,B_app_label_has_no_index,
+TIINDIA,TIINDIA.NS,Tube Investments of India Ltd.,Y,Y,Capital Goods,sector_map,Automobile and Auto Components,Nifty 50,fallback (sector_map label 'Capital Goods'),Auto,B_app_label_has_no_index,Auto
+BAJAJHLDNG,BAJAJHLDNG.NS,Bajaj Holdings & Investment Ltd.,Y,Y,Diversified,sector_map,Financial Services,Nifty 50,fallback (sector_map label 'Diversified'),Fin Service,B_app_label_has_no_index,
+CGCL,CGCL.NS,Capri Global Capital Ltd.,N,Y,Diversified,sector_map,Financial Services,Nifty 50,fallback (sector_map label 'Diversified'),Fin Service,B_app_label_has_no_index,
+ADANIENT,ADANIENT.NS,Adani Enterprises Ltd.,Y,Y,Diversified,sector_map,Metals & Mining,Nifty 50,fallback (sector_map label 'Diversified'),Metal,B_app_label_has_no_index,Metal
