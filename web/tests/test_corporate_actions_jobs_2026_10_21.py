@@ -187,7 +187,10 @@ def _code(path: Path) -> str:
 def test_the_adjuster_runs_before_every_exit_pass():
     src = _code(ROOT / "web" / "scheduler.py")
     # 09:20 job: before the top-up and the rotation
-    m = re.search(r"def _daily_multi_mode_scan\(\).*?def _daily_universe_topup", src, re.S)
+    # REPOINTED 2026-10-22 (entry-fix B-2): the job gained a `resume=`
+    # parameter (a cut-short rotation's missing categories), so the
+    # signature is matched up to its open bracket only.
+    m = re.search(r"def _daily_multi_mode_scan\(.*?def _daily_universe_topup", src, re.S)
     body = m.group(0)
     assert body.index('apply_corporate_actions_job("09:20")') < body.index('_topup_once_today("09:20")')
     assert body.index('apply_corporate_actions_job("09:20")') < body.index("_run_category_rotation(")

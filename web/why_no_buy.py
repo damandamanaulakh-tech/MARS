@@ -6,6 +6,11 @@ one entry per category pass in `portfolio.rotation_report` and journals ONE
 ROTATION_SUMMARY line (pushed to the phone); the dashboard card reads the
 record back. Nothing here buys, sells or gates — it only says what the
 engine did and what stopped it, in the engine's own words.
+
+Since 2026-10-22 (owner card D5) the record is saved after EVERY pass with
+`finished` empty until the end, so a rotation the app died in is visible:
+the card labels it "cut short after <category>" (the one impure read:
+whether THIS process is the one still running it, `_running_rid`).
 """
 from __future__ import annotations
 
@@ -28,13 +33,18 @@ REASON_WORDS = {
     "candle_wait_no_pattern": "waiting for a candle pattern",
     "candle_wait_insufficient_bars": "too few bars for the candle check",
     "already_held": "already held",
-    "category_budget_full": "share full",
+    # B-6 (2026-10-22, owner card D4): a category's share is now counted on
+    # what is left after the owner's own buys and Ocean (category_budget).
+    "category_budget_full": "share full (of what is left after your own buys and Ocean)",
     "liquidity_rupee_vol": "turnover under the ₹5 Cr bar",
     "liquidity_spread": "spread too wide",
     "measured_kelly_no_edge": "Kelly check: no edge in the record",
     "consecutive_loss_halt": "daily loss halt",
     "qty_zero": "size came out zero",
-    "reserve_breached": "regime cash reserve",
+    # B-6 (2026-10-22): the old words blamed the regime reserve alone, but
+    # the deploy cap counts the owner's own buys and Ocean holdings too.
+    "reserve_breached": ("deploy cap reached (regime reserve, your own buys "
+                         "and Ocean holdings included)"),
     "portfolio_heat_cap": "portfolio heat cap",
     "sector_cap": "sector cap",
     "sector_capital_cap": "sector capital cap",
@@ -47,7 +57,7 @@ REASON_WORDS = {
 
 BLOCK_WORDS = {
     "BREADTH_BLOCKED": "breadth band",
-    "CATEGORY_BUDGET_FULL": "share full",
+    "CATEGORY_BUDGET_FULL": "share full (of what is left after your own buys and Ocean)",
     "MEASURED_KELLY_BLOCKED": "Kelly check: no edge",
     "CONSECUTIVE_LOSS_HALT": "daily loss halt",
     "KILL_SWITCH_SCAN": "kill switch",
@@ -121,6 +131,17 @@ def failed_record(mode: str, err: str, now: Optional[datetime] = None) -> dict:
             "error": str(err)[:160]}
 
 
+def bare_record(mode: str, opened: int = 0, now: Optional[datetime] = None) -> dict:
+    """A pass that RAN but whose full record could not be built (2026-10-22).
+    It still marks the category as done, so a catch-up never re-runs it."""
+    now = now or datetime.utcnow()
+    return {"mode": mode, "label": cb.LABELS.get(mode, mode), "ts": now.isoformat(),
+            "scanned": 0, "floor": 0.0, "above_floor": 0, "picks": 0,
+            "opened": int(opened or 0), "opened_names": [], "skipped": [],
+            "blocks": [], "breadth": {}, "error": None,
+            "note": "pass ran; its detail record could not be built"}
+
+
 def stopped_by(rec: dict) -> str:
     """One plain sentence per category: what it did, or what stopped it."""
     if rec.get("error"):
@@ -150,6 +171,10 @@ def summary_text(rot: dict) -> str:
     """The phone line: one sentence per category."""
     total = int(rot.get("opened_total") or 0)
     head = f"{rot.get('where', '?')} rotation: {'NO BUYS' if total == 0 else f'{total} buys'}."
+    if rot.get("resumed"):
+        names = [cb.LABELS.get(m, m) for r in rot["resumed"] for m in (r.get("modes") or [])]
+        head += (" Resumed after a restart" + (f" ({', '.join(names)})" if names else "")
+                 + ".")
     parts = []
     for m in rot.get("order") or list(cb.SHARE_FIELDS):
         rec = (rot.get("passes") or {}).get(m)
@@ -166,19 +191,88 @@ def add_rotation(report: Optional[dict], rot: dict) -> dict:
     return {"rotations": ([rot] + old)[:KEEP_ROTATIONS]}
 
 
-def card(portfolio, cfg, today_iso: str) -> dict:
-    """What the dashboard shows. Reads the stored record only."""
+def _same_rotation(a: dict, b: dict) -> bool:
+    if a.get("rid") and b.get("rid"):
+        return a["rid"] == b["rid"]
+    return bool(a.get("started")) and a.get("started") == b.get("started") \
+        and a.get("where") == b.get("where")
+
+
+def upsert_rotation(report: Optional[dict], rot: dict) -> dict:
+    """Store `rot` in place of the stored entry for the SAME rotation (its
+    `rid`, else `started` + `where`), or newest-first when new; bounded.
+    Entry-fix 2026-10-22: the rotation saves itself after every pass, so one
+    rotation must stay ONE entry however many times it is saved. A copy is
+    stored — later passes must not reach the record until they are saved."""
+    snap = {**rot, "passes": dict(rot.get("passes") or {})}
+    old = [r for r in ((report or {}).get("rotations") or []) if isinstance(r, dict)]
+    for i, r in enumerate(old):
+        if _same_rotation(r, snap):
+            out = list(old)
+            out[i] = snap
+            return {"rotations": out[:KEEP_ROTATIONS]}
+    return {"rotations": ([snap] + old)[:KEEP_ROTATIONS]}
+
+
+def _running_rid() -> Optional[str]:
+    """The rotation this process is running right now, if any."""
+    try:
+        from .scheduler import rotation_in_progress
+        return rotation_in_progress()
+    except Exception:                                   # noqa: BLE001
+        return None
+
+
+#: The two halt lines the scheduler writes when it refuses to start a scan.
+HALT_ACTIONS = ("MONGO_OFFLINE_HALT", "MONGO_WRITE_REFUSED_HALT")
+
+
+_UNSET = object()
+
+
+def rotation_status(rot: dict, running_rid: Optional[str]) -> tuple[str, str, str]:
+    """(status, label, text for a category that has not run) of one stored
+    rotation. Entry-fix 2026-10-22 (owner card D5): a record with no
+    `finished` stamp is EITHER the rotation this process is running right now
+    ("running") OR one a process died in the middle of ("cut_short")."""
+    order = rot.get("order") or list(cb.SHARE_FIELDS)
+    passes = rot.get("passes") or {}
+    ran = [m for m in order if m in passes]
+    if not rot.get("finished"):
+        if rot.get("rid") and rot.get("rid") == running_rid:
+            return ("running", f"in progress — {len(ran)} of {len(order)} categories done",
+                    "not run yet (rotation in progress)")
+        last = cb.LABELS.get(ran[-1], ran[-1]) if ran else ""
+        where = f"cut short after {last}" if last else "cut short before the first category"
+        return ("cut_short",
+                where + " — the app stopped mid-rotation (restart or memory kill)",
+                "not run (process restarted)")
+    if rot.get("resumed"):
+        names = [cb.LABELS.get(m, m) for r in rot["resumed"] for m in (r.get("modes") or [])]
+        return ("finished", "resumed after a restart" + (f": {', '.join(names)}" if names else ""),
+                "not run (rotation cut short)")
+    return ("finished", "", "not run (rotation cut short)")
+
+
+def card(portfolio, cfg, today_iso: str, running=_UNSET) -> dict:
+    """What the dashboard shows. Reads the stored record only (plus, for an
+    unfinished record, whether THIS process is the one running it)."""
     report = getattr(portfolio, "rotation_report", None) or {}
     rots = [r for r in (report.get("rotations") or []) if r.get("date") == today_iso]
     latest = rots[0] if rots else None
+    running_rid = _running_rid() if running is _UNSET else running
     rows = []
+    status, status_label, opened_total = "", "", None
     if latest:
+        status, status_label, not_run = rotation_status(latest, running_rid)
+        opened_total = sum(int((r or {}).get("opened") or 0)
+                           for r in (latest.get("passes") or {}).values())
         for m in latest.get("order") or list(cb.SHARE_FIELDS):
             rec = (latest.get("passes") or {}).get(m)
             if not rec:
                 rows.append({"mode": m, "label": cb.LABELS.get(m, m), "scanned": 0,
                              "floor": 0, "above_floor": 0, "picks": 0, "opened": 0,
-                             "opened_names": [], "stopped_by": "not run (rotation cut short)",
+                             "opened_names": [], "stopped_by": not_run,
                              "blocks": []})
                 continue
             rows.append({**rec, "stopped_by": stopped_by(rec)})
@@ -203,11 +297,20 @@ def card(portfolio, cfg, today_iso: str) -> dict:
         if e.get("action") == "MEASURED_KELLY_BLOCKED" and str(e.get("ts", ""))[:10] == today_iso:
             book.append(f"Kelly check blocked momentum: {str(e.get('why', ''))[:160]}")
             break
+    # 2026-10-22: a halted scan never starts a rotation, so without this line
+    # the card would only say "no rotation recorded" and blame sleep.
+    for e in reversed(list(getattr(portfolio, "decision_journal", None) or [])[-400:]):
+        if e.get("action") in HALT_ACTIONS and str(e.get("ts", ""))[:10] == today_iso:
+            book.append("Entries halted today — " + str(e.get("why", ""))[:200])
+            break
     note = ""
     if not latest:
         note = ("No rotation recorded today — the 09:20 / 14:30 chain has not run on this "
                 "process (asleep, killed, or before the slot). The journal (Reports CSV) is "
                 "the record.")
     return {"rotation": latest, "rows": rows, "book": book, "note": note,
-            "earlier": [{"where": r.get("where"), "opened_total": r.get("opened_total")}
+            "status": status, "status_label": status_label,
+            "opened_total": opened_total,
+            "earlier": [{"where": r.get("where"), "opened_total": r.get("opened_total"),
+                         "cut_short": rotation_status(r, running_rid)[0] == "cut_short"}
                         for r in rots[1:]]}

@@ -123,6 +123,7 @@ def status() -> dict:
         # the book is not being saved (2026-09-24, Atlas over quota)
         "write_error": LAST_WRITE_ERROR,
         "write_error_at": LAST_WRITE_ERROR_AT,
+        "writes_landing": writes_landing(),
     }
 
 
@@ -238,6 +239,26 @@ def save_portfolio(doc: dict, doc_id: str = "default") -> None:
         LAST_WRITE_ERROR = f"{type(e).__name__}: {str(e)[:200]}"
         LAST_WRITE_ERROR_AT = _dt.utcnow().isoformat()
         log.warning("Mongo save_portfolio failed: %s", e)
+
+
+def writes_landing() -> bool:
+    """False while Mongo is configured and REFUSED the last book save
+    (LAST_WRITE_ERROR set) — the book is not being saved.
+
+    XR-071 (entry-fix batch 2026-10-22): `_CONNECTED` is set only at connect
+    time and a refused write never clears it, so `is_connected()` stayed
+    True through the whole September quota episode and the scans kept buying
+    into a book that vanished at the next restart. The scheduler's entry
+    halt (`web/scheduler._degraded_halt`) reads THIS as well. The next save
+    that lands clears LAST_WRITE_ERROR, so the halt lifts by itself.
+
+    Deliberately NOT folded into is_connected(): every writer gates on that,
+    and a False there would stop the very save that proves writes are back.
+    Mongo not configured (JSON dev run) = True: nothing is expected to land.
+    """
+    if not mongo_expected():
+        return True
+    return LAST_WRITE_ERROR is None
 
 
 def load_portfolio(doc_id: str = "default") -> Optional[dict]:

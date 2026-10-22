@@ -159,8 +159,14 @@ def test_0920_releases_before_and_after_the_trigger_layer(monkeypatch):
                         lambda where="manual": order.append("trigger") or {})
     monkeypatch.setattr(memory_relief, "release",
                         lambda label="": order.append("release") or {})
+    # REPOINTED 2026-10-22 (owner card D7): the 09:20 job hands memory back
+    # and ARMS the cool-down job instead of loading the trigger layer on top
+    # of the rotation; the cool-down job releases before and after the layer
+    # (test_entryfix_scheduler_2026_10_22).
+    monkeypatch.setattr(scheduler, "_schedule_trigger_cooldown",
+                        lambda where, *a, **k: order.append("cooldown"))
     scheduler._daily_multi_mode_scan()
-    assert order == ["rotation", "release", "trigger", "release"]
+    assert order == ["rotation", "release", "cooldown"]
 
 
 def test_every_scheduler_job_end_releases_memory(monkeypatch):

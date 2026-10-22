@@ -50,7 +50,10 @@ def test_pass_record_counts_the_engines_own_result():
     assert [b["action"] for b in rec["blocks"]] == ["CORRECTION_BRAKE_OFF", "CATEGORY_BUDGET_FULL"]
     assert rec["breadth"]["pct"] == 0.48 and rec["label"] == "Momentum"
     # the block names the stop; the brake-off info line never does
-    assert wnb.stopped_by(rec).startswith("share full — Momentum has spent")
+    # REPOINTED 2026-10-22 (B-6, owner card D4): the share is counted on what
+    # is left after the owner's own buys and Ocean, and the words say so.
+    assert wnb.stopped_by(rec).startswith(
+        "share full (of what is left after your own buys and Ocean) — Momentum has spent")
 
 
 def test_stopped_by_says_floor_picks_or_bought_in_plain_words():
@@ -169,7 +172,11 @@ def test_dashboard_shows_the_card_with_the_engines_words(tmp_path):
     assert "share full" in body and "263 pick(s) waited" in body
     assert "no name cleared the floor 72 (1205 scanned)" in body
     assert "scan failed: RuntimeError: boom" in body
-    assert "not run (rotation cut short)" in body            # swing / positional never ran
+    # REPOINTED 2026-10-22 (B-2): this seed carries no `finished` stamp and
+    # no running rotation, i.e. a process died after Short — the card now says
+    # so instead of the generic line.
+    assert "not run (process restarted)" in body             # swing / positional never ran
+    assert "cut short after Short" in body
     assert "INSIDE the 40-65% band" in body
 
 

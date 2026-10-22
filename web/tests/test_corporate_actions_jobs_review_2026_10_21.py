@@ -175,7 +175,9 @@ def test_the_engine_queues_what_it_adjusted_for_the_refetch(held):
 def test_the_1430_rotation_runs_the_adjuster_first():
     src = "\n".join(ln for ln in (ROOT / "web" / "scheduler.py").read_text().splitlines()
                     if not ln.strip().startswith("#"))
-    body = re.search(r"def _deployment_topup_scan\(\).*?_check_pending_orders\(\"top-up\"\)",
+    # REPOINTED 2026-10-22 (entry-fix B-1/B-2): the job gained a `resume=`
+    # parameter, so the signature is matched up to its open bracket only.
+    body = re.search(r"def _deployment_topup_scan\(.*?_check_pending_orders\(\"top-up\"\)",
                      src, re.S).group(0)
     assert body.index('apply_corporate_actions_job("14:30")') < body.index("_run_category_rotation(")
 
