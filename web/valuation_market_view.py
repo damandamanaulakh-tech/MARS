@@ -26,6 +26,7 @@ Display only — no gate, stop or size reads any of it.
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import logging
 import threading
@@ -46,7 +47,9 @@ log = logging.getLogger(__name__)
 SECTOR_FX_DOC_ID = "valuation_sector_fx"
 LAST_SECTOR_FX: dict = {}
 TOTALS_DOC_ID = "valuation_sector_totals"
-TOTALS_VERSION = 1
+#: 2 (review 2026-10-21): sector_total.fy_history's 4-year window changed —
+#: a same-day doc built with the old window is rebuilt, not reused.
+TOTALS_VERSION = 2
 _TOTALS: dict = {}
 _TOTALS_LOCK = threading.Lock()
 #: Days of stored closes the 52-week high reads (252 sessions + margin).
@@ -54,11 +57,54 @@ HIGH_ROWS = 262
 #: Names per zip read while collecting FY-end closes (memory cap; measured
 #: 2026-10-21: the whole build 1.3 s, no rise in peak memory).
 ZIP_CHUNK = 25
-#: ASSUMED: an NSE P/E reading older than this many days prints STALE — the
-#: same 10 days batch 2's feeds use (macro_feeds.STALE_DAYS).
-NSE_STALE_DAYS = 10
+#: Every number this module chooses, each with its source (printed or named
+#: on the row it shapes).
+ASSUMED: dict = {
+    "nse_stale_days": {
+        "value": 10,
+        "source": "an NSE P/E reading older than this prints STALE — the same 10 days "
+                  "batch 2's feeds use (macro_feeds.STALE_DAYS)"},
+    "rate_then_max_gap_days": {
+        "value": 30,
+        "source": "review 2026-10-21: the committed 10-year file ends 2026-06-08 and the "
+                  "stored Upstox G-sec tail starts 30 days before the feed's first run "
+                  "(macro_feeds.CANDLE_LOOKBACK_DAYS) — a selection date in that gap would "
+                  "read the June yield as 'the yield at selection'; a then-reading more "
+                  "than this many days before the selection date is DATA_NEEDED"},
+    "rate_then_stale_days": {
+        "value": 5,
+        "source": "review 2026-10-21: longer than a weekend plus a market holiday — a "
+                  "then-reading more than this many days before the selection date "
+                  "prints STALE (still applied)"},
+    "rate_now_stale_days": {
+        "value": 5,
+        "source": "review 2026-10-21: the same rule for the now-reading, counted back from "
+                  "the row's own price date"},
+}
+NSE_STALE_DAYS = int(ASSUMED["nse_stale_days"]["value"])
+#: The families whose own target already reads TODAY's 10-year yield (the
+#: book route's COE = rf + β×ERP; pipeline.py `kw["rf_pct"]`) — the rates
+#: leg is counted 0 for them, never applied a second time (review
+#: 2026-10-21). "nav" too: its own target is the owner's typed NAV, not a
+#: P/E, so the P/E rates leg does not apply to it (each family's sentence
+#: below is printed on the row).
+RATES_COUNTED_0_FAMILIES = ("book", "nav")
+RATES_COUNTED_0_WHY = {
+    "book": ("the book-route target already reads today's 10-year yield (COE = rf + "
+             "β×ERP), so the rates leg is counted 0 — counting it again would move the "
+             "target twice"),
+    "nav": ("the NAV target is the value per share you typed, not a P/E — the P/E rates "
+            "leg (P/E ∝ 1/(r − g)) does not apply to it, so the rates leg is counted 0"),
+}
 READ_FAILED = ("the stored sector currency table could not be read (database) — nothing "
                "changed; reload the Den and save again when the store answers")
+NOT_STORED_NO_DB = ("no database connected — the table is kept in memory for this process "
+                    "only and is lost at the next restart")
+NOT_STORED_REFUSED = ("the database refused the write — the table is kept in memory for this "
+                      "process only and is lost at the next restart")
+#: Set while the owner's newest sector table lives only in this process (its
+#: save did not read back from the store); load_sector_fx then serves it.
+_SFX_UNSAVED: dict = {"why": ""}
 
 
 # ------------------------------------------------------- render-scoped cache
@@ -101,15 +147,18 @@ def _sector_series(index_name: str, since: str) -> Optional[pd.Series]:
     return None if s is None else s.copy()
 
 
-def _bond_series() -> tuple[Optional[pd.Series], str]:
+def _bond_series() -> tuple[Optional[pd.Series], str, Optional[str]]:
     """The committed 10-year file (ends 2026-06) joined to the stored Upstox
-    G-sec yields after its last date. (series, source text)."""
+    G-sec yields after its last date. (series, source text, the committed
+    file's last date — a reading after it is the Upstox feed's)."""
     base = vv._bond_series()
     feed = _points_series("gsec10y_yield")
     parts = []
+    base_end = None
     if base is not None and len(base.dropna()):
         base = base.dropna()
-        parts.append(f"committed 10-year file to {base.index[-1].date().isoformat()}")
+        base_end = base.index[-1].date().isoformat()
+        parts.append(f"committed 10-year file to {base_end}")
     else:
         base = None
     if feed is not None:
@@ -120,9 +169,9 @@ def _bond_series() -> tuple[Optional[pd.Series], str]:
                          f"{feed.index[-1].date().isoformat()}")
     pieces = [x for x in (base, feed) if x is not None and len(x)]
     if not pieces:
-        return None, ""
+        return None, "", base_end
     s = pd.concat(pieces).sort_index()
-    return s[~s.index.duplicated(keep="last")], " + ".join(parts)
+    return s[~s.index.duplicated(keep="last")], " + ".join(parts), base_end
 
 
 def _sentiment(cfg, p) -> dict:
@@ -164,6 +213,11 @@ def _read_sector_fx() -> tuple[dict, bool]:
 
 
 def load_sector_fx() -> dict:
+    """The table §12 reads: the owner's newest table — the in-process copy
+    while its save did not reach the store (else the store's older copy
+    would silently win), the stored doc otherwise."""
+    if _SFX_UNSAVED.get("why"):
+        return {k: dict(v) for k, v in LAST_SECTOR_FX.items()}
     table, ok = _read_sector_fx()
     if not ok and LAST_SECTOR_FX:
         return {k: dict(v) for k, v in LAST_SECTOR_FX.items()}
@@ -171,6 +225,13 @@ def load_sector_fx() -> dict:
 
 
 def save_sector_fx(table: dict) -> tuple[bool, str]:
+    """(stored, why). Stored = the doc reads back with the stamp just
+    written — db.save_settings returns silently when no database is
+    connected and swallows a refused write, so "no exception" proves
+    nothing (the valuation_exit_feed.store pattern, review 2026-10-21). Not
+    stored: the table still applies in this process (load_sector_fx serves
+    it) and `why` says it is lost at the next restart. READ_FAILED = the
+    stored table could not be read first — nothing changed at all."""
     from datetime import datetime
     from . import db
     _old, ok = _read_sector_fx()
@@ -178,14 +239,25 @@ def save_sector_fx(table: dict) -> tuple[bool, str]:
         return False, READ_FAILED
     LAST_SECTOR_FX.clear()
     LAST_SECTOR_FX.update(table)
+    ts = datetime.utcnow().isoformat()
     try:
-        db.save_settings({"sectors": dict(table), "ts": datetime.utcnow().isoformat()},
-                         doc_id=SECTOR_FX_DOC_ID)
+        db.save_settings({"sectors": dict(table), "ts": ts}, doc_id=SECTOR_FX_DOC_ID)
+        back = db.load_settings(doc_id=SECTOR_FX_DOC_ID) or {}
     except Exception:                                       # noqa: BLE001
         log.exception("valuation: sector currency table save failed (in-memory copy kept)")
-        return False, "the database refused the write — the table is kept in memory only"
+        back = {}
     cv.clear_row_cache()
-    return True, ""
+    if isinstance(back, dict) and back.get("ts") == ts:
+        _SFX_UNSAVED["why"] = ""
+        return True, ""
+    try:
+        connected = bool(db.is_connected())
+    except Exception:                                       # noqa: BLE001
+        connected = False
+    why = NOT_STORED_REFUSED if connected else NOT_STORED_NO_DB
+    _SFX_UNSAVED["why"] = why
+    log.warning("valuation: sector currency table NOT stored — %s", why)
+    return False, why
 
 
 def parse_sector_fx_form(form) -> tuple[dict, list]:
@@ -209,6 +281,11 @@ def sector_fx_section(flag: str = "", error: str = "") -> dict:
     table, ok = _read_sector_fx()
     if not ok and LAST_SECTOR_FX:
         table, ok = {k: dict(v) for k, v in LAST_SECTOR_FX.items()}, False
+    unsaved = _SFX_UNSAVED.get("why") or ""
+    if unsaved:
+        # the owner's newest table lives only in this process — show it (a
+        # re-save posts it whole), never the store's older copy
+        table = {k: dict(v) for k, v in LAST_SECTOR_FX.items()}
     rows = []
     for i, sec in enumerate(sector_names()):
         r = table.get(sec) or {}
@@ -216,6 +293,7 @@ def sector_fx_section(flag: str = "", error: str = "") -> dict:
                      "eur_share_pct": r.get("eur_share_pct"),
                      "pass_through_pp": r.get("pass_through_pp")})
     return {"flag": flag or "", "error": error, "rows": rows, "loaded": bool(ok),
+            "unsaved": unsaved,
             "doc_id": SECTOR_FX_DOC_ID, "n_set": sum(1 for r in rows if any(
                 r[k] is not None for k in ("usd_share_pct", "eur_share_pct", "pass_through_pp"))),
             "pp_default": CUR.ASSUMED["pass_through_pp"]["value"],
@@ -223,7 +301,7 @@ def sector_fx_section(flag: str = "", error: str = "") -> dict:
 
 
 def empty_sector_fx_section(flag: str = "", error: str = "") -> dict:
-    return {"flag": flag, "error": error, "rows": [], "loaded": False,
+    return {"flag": flag, "error": error, "rows": [], "loaded": False, "unsaved": "",
             "doc_id": SECTOR_FX_DOC_ID, "n_set": 0, "pp_default": 0.25,
             "share_bounds": (-100.0, 100.0), "pp_bounds": (0.0, 5.0)}
 
@@ -310,6 +388,92 @@ def _fred_stale(move: dict, series: str, asof: Optional[str] = None) -> dict:
     return {**move, "age_days": age, "stale": bool(age is None or age > lim), "stale_days": lim}
 
 
+def _yield_source(d: Optional[str], base_end: Optional[str]) -> str:
+    """'Upstox G-sec <date>' for a reading after the committed file's end,
+    else '10-year file <date>' (the committed June file)."""
+    if not d:
+        return ""
+    return f"{'Upstox G-sec' if base_end and d > base_end else '10-year file'} {d}"
+
+
+def rates_block(own: Optional[float], sd: str, now_d: Optional[str], mac: Optional[dict],
+                overrides: Optional[dict], family: str = "") -> dict:
+    """§12's rates leg: the 10-year yield at the selection date → at the
+    row's own price date (review 2026-10-21):
+
+      * a book / NAV family counts it 0 (RATES_COUNTED_0_WHY) — the book
+        target already reads today's yield; the readings print beside;
+      * the then-reading more than ASSUMED rate_then_max_gap_days before the
+        selection date = DATA_NEEDED (the June file read as "the yield at
+        selection" across the gap before the stored Upstox tail); more than
+        rate_then_stale_days = STALE, still applied;
+      * the now-reading is the yield ON the row's price date (the Sensex,
+        sector and currency legs end there too), STALE past
+        rate_now_stale_days before it; no price date = the feed's latest
+        reading, its own stale flag."""
+    mac = mac or {}
+    bond, bond_src, base_end = _bond_series()
+    gap_max = int(ASSUMED["rate_then_max_gap_days"]["value"])
+    then_stale = int(ASSUMED["rate_then_stale_days"]["value"])
+    now_stale = int(ASSUMED["rate_now_stale_days"]["value"])
+    r_then = vc.close_at(bond, sd)
+    then_gap = (date.fromisoformat(sd) - r_then[0]).days if r_then else None
+    now_iso = str(now_d)[:10] if now_d else None
+    now_why = ""
+    if now_iso:
+        got = vc.close_at(bond, now_iso)
+        if got is not None:
+            r_now, now_date = got[1], got[0].isoformat()
+            now_age = (date.fromisoformat(now_iso) - got[0]).days
+            now_src = _yield_source(now_date, base_end)
+            now_is_stale = now_age > now_stale
+        else:
+            r_now, now_date, now_age, now_src, now_is_stale = None, None, None, "", False
+            now_why = (f"no 10-year yield on file at the row's price date ({now_iso})"
+                       if bond is not None else "no 10-year yield series")
+    else:
+        r_now = num(mac.get("rf_pct"))
+        now_date = str(mac.get("rf_date") or "")[:10] or None
+        now_src = (f"{'Upstox G-sec' if mac.get('rf_feed') else 'June file'} "
+                   f"{mac.get('rf_date') or ''}").strip()
+        now_age, now_is_stale = mac.get("rf_age_days"), bool(mac.get("rf_stale"))
+        if r_now is None and bond is not None and len(bond):
+            r_now = float(bond.iloc[-1])
+            now_date = bond.index[-1].date().isoformat()
+            now_src = _yield_source(now_date, base_end)
+    rd = _range_draft(overrides)
+    erp = float(rd.get("equity_risk_premium_pct", vc.ASSUMED["equity_risk_premium_pct"]))
+    growth = float(rd.get("long_run_growth_pct", vc.ASSUMED["long_run_growth_pct"]))
+    shown = {"rate_then_pct": r_then[1] if r_then else None,
+             "rate_then_date": r_then[0].isoformat() if r_then else None,
+             "rate_then_gap_days": then_gap,
+             "rate_then_stale": bool(then_gap is not None and then_gap > then_stale),
+             "rate_now_pct": r_now, "rate_now_date": now_date,
+             "rate_now_source": now_src if r_now is not None else "",
+             "rate_now_age_days": now_age, "rate_now_stale": bool(now_is_stale),
+             "rate_now_age_text": ("" if now_age is None else
+                                   f"{now_age} days before the row's price date" if now_iso
+                                   else f"{now_age} days old"),
+             "series_source": bond_src, "family": family}
+    fam = str(family or "")
+    if fam in RATES_COUNTED_0_FAMILIES:
+        return {**shown, "status": "COUNTED_0", "multiplier": None, "adjusted": None,
+                "why": RATES_COUNTED_0_WHY[fam]}
+    if r_then is None:
+        return {**shown, "status": "DATA_NEEDED", "multiplier": None, "adjusted": None,
+                "why": (f"no 10-year yield on file at {sd}" if bond is not None
+                        else "no 10-year yield series")}
+    if then_gap is not None and then_gap > gap_max:
+        return {**shown, "status": "DATA_NEEDED", "multiplier": None, "adjusted": None,
+                "why": (f"10-year yield at the selection date unknown — nearest stored "
+                        f"reading {shown['rate_then_date']}, {then_gap} days earlier")}
+    if r_now is None:
+        return {**shown, "status": "DATA_NEEDED", "multiplier": None, "adjusted": None,
+                "why": now_why or "no 10-year yield now"}
+    rl = vc.rates_leg(own, r_then[1], r_now, erp, growth)
+    return {**shown, **rl}
+
+
 def market_block(ticker: str, rec: dict, closes: Optional[pd.Series], cfg, p,
                  mac: dict, overrides: Optional[dict], owner_row: Optional[dict],
                  sector_fx: Optional[dict], selection: Optional[dict] = None,
@@ -357,27 +521,11 @@ def market_block(ticker: str, rec: dict, closes: Optional[pd.Series], cfg, p,
     reg = ML.regress(closes, sensex, sector if idx.get("index") else None, end=now_d)
     out["reg"] = reg
 
-    # --- rates leg (the selection date's 10-year yield → now)
+    # --- rates leg (the selection date's 10-year yield → the row's own now)
     own = num((rec.get("range") or {}).get("base"))
-    bond, bond_src = _bond_series()
-    r_then = vc.close_at(bond, sd)
-    r_now = num(mac.get("rf_pct"))
-    now_src = (f"{'Upstox G-sec' if mac.get('rf_feed') else 'June file'} "
-               f"{mac.get('rf_date') or ''}").strip()
-    if r_now is None and bond is not None and len(bond):
-        r_now, now_src = float(bond.iloc[-1]), f"{bond.index[-1].date().isoformat()}"
-    rd = _range_draft(overrides)
-    erp = float(rd.get("equity_risk_premium_pct", vc.ASSUMED["equity_risk_premium_pct"]))
-    growth = float(rd.get("long_run_growth_pct", vc.ASSUMED["long_run_growth_pct"]))
-    rl = vc.rates_leg(own, r_then[1] if r_then else None, r_now, erp, growth)
-    rl["rate_then_date"] = r_then[0].isoformat() if r_then else None
-    rl["rate_now_source"] = now_src if r_now is not None else ""
-    rl["rate_now_stale"] = bool(mac.get("rf_stale"))
-    rl["series_source"] = bond_src
-    if r_then is None:
-        rl["why"] = (f"no 10-year yield on file at {sd}" if bond is not None
-                     else "no 10-year yield series")
-    out["rates"] = rl
+    family = str((rec.get("range") or {}).get("family")
+                 or (rec.get("route") or {}).get("family") or "")
+    out["rates"] = rates_block(own, sd, now_d, mac, overrides, family)
 
     # --- currency through EPS (every sector)
     cb = rec.get("currency_base") or {}
@@ -411,10 +559,15 @@ def market_block(ticker: str, rec: dict, closes: Optional[pd.Series], cfg, p,
                                          f"the selection date ({sd}) — nothing to adjust yet")
     # a factor of exactly 0 is a real (if extreme) answer — never read as "missing"
     fxf = num(fx.get("factor"))
+    # the index's own name in "sector leg not applied — … window" (the kwarg
+    # arrives with the formula fixes; passed only where it exists)
+    named = ({"sector_name": idx.get("label")}
+             if "sector_name" in inspect.signature(ML.market_adjust).parameters else {})
     legs = ML.market_adjust(own, sensex_move=s_move, sector_move=sec_move,
-                            sector_is_market=not idx.get("index"), reg=reg, rates=rl,
+                            sector_is_market=not idx.get("index"), reg=reg, rates=out["rates"],
                             fx_factor=fxf if fxf is not None else 1.0,
-                            dated_today=bool(sel.get("dated_today")) or price_before_sel)
+                            dated_today=bool(sel.get("dated_today")) or price_before_sel,
+                            **named)
     out["legs"] = legs
     rng = dict(rec.get("range") or {})
     rng["family"] = rng.get("family") or (rec.get("route") or {}).get("family")
@@ -564,12 +717,32 @@ def totals_built(base: list) -> tuple[dict, str]:
         groups, complete = _build_totals(base)
         _TOTALS.update(day=today, groups=groups, source="built" if complete else "built_degraded")
         if complete:
+            # stored = the doc reads back with this build's stamp (save_settings
+            # is silent when no database is connected or a write is refused)
+            ts = datetime.utcnow().isoformat()
+            back: dict = {}
             try:
                 g.call("sector totals save", db.save_settings,
                        {"day": today, "version": TOTALS_VERSION, "groups": groups,
-                        "ts": datetime.utcnow().isoformat()}, doc_id=TOTALS_DOC_ID)
+                        "ts": ts}, doc_id=TOTALS_DOC_ID)
+                back = g.call("sector totals read-back", db.load_settings,
+                              doc_id=TOTALS_DOC_ID, default={}) or {}
             except Exception:                               # noqa: BLE001
                 log.exception("valuation: sector totals save failed (in-process copy kept)")
+            if not (isinstance(back, dict) and back.get("ts") == ts):
+                try:
+                    connected = bool(db.is_connected())
+                except Exception:                           # noqa: BLE001
+                    connected = False
+                if g.down:
+                    why = f"the database stopped answering on this open ({g.why})"
+                elif connected:
+                    why = "the database refused the write"
+                else:
+                    why = "no database connected"
+                _TOTALS["source"] = (f"process — NOT stored: {why}; kept in this process for "
+                                     "today, rebuilt by the next one")
+                log.warning("valuation: sector totals NOT stored — %s", why)
         else:
             # rebuilt by a later open whose database answers
             _TOTALS["day"] = None
@@ -607,16 +780,26 @@ def _nse_reading(index_label: Optional[str]) -> dict:
     return out
 
 
+#: Sessions in a 52-week window (the sector total's 52-week high reads the
+#: same 252, sector_total.high_52w).
+YEAR_SESSIONS = 252
+
+
 def _index_below_high(series: Optional[pd.Series]) -> Optional[dict]:
+    """The index's distance below its high over the last 52 weeks — or, for
+    an index with fewer stored sessions (Nifty Cement from 2026-05-11, a
+    30-day seeded index), over the sessions it has: `full_year` False and
+    `n` say so, never "52-week" over 115 sessions."""
     if series is None or not len(series):
         return None
-    s = series.dropna().tail(252)
+    s = series.dropna().tail(YEAR_SESSIONS)
     if not len(s):
         return None
     hi_d = s.idxmax()
     return {"below_pct": (float(s.iloc[-1]) / float(s.max()) - 1.0) * 100.0,
             "high": float(s.max()), "high_date": hi_d.date().isoformat(),
-            "last_date": s.index[-1].date().isoformat(), "n": int(len(s))}
+            "last_date": s.index[-1].date().isoformat(), "n": int(len(s)),
+            "full_year": int(len(s)) >= YEAR_SESSIONS}
 
 
 def sector_block(rec: dict, idx: Optional[dict] = None) -> dict:
@@ -640,6 +823,9 @@ def sector_block(rec: dict, idx: Optional[dict] = None) -> dict:
                        cb.get("sector") or "")
         blk["built_source"] = src
         out.update(blk)
+        if out.get("status") != "OK" and not out.get("why"):
+            # the block puts its reason in fy_why — never "DATA_NEEDED — " with nothing after
+            out["why"] = out.get("fy_why") or out.get("high_why") or "the group's total is not built"
         if not groups and "budget" in src:
             out["fy_why"] = out["high_why"] = src
     idx = idx or {}
@@ -654,6 +840,8 @@ def sector_block(rec: dict, idx: Optional[dict] = None) -> dict:
 
 
 def clear_caches() -> None:
-    """Tests: forget the day's sector totals and the remap list."""
+    """Tests: forget the day's sector totals, the remap list and the
+    unsaved-sector-table state."""
     _TOTALS.clear()
     _REMAP_CACHE.clear()
+    _SFX_UNSAVED["why"] = ""

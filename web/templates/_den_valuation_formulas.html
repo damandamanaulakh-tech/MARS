@@ -73,6 +73,7 @@
       {% if sx.flag == 'saved' %}<div class="mb-2 text-emerald-800 font-semibold">Sector table stored — §12 above recomputed.</div>
       {% elif sx.flag == 'denied' %}<div class="mb-2 text-amber-800 font-semibold">Owner role required to change the sector table.</div>
       {% elif sx.flag == 'invalid' %}<div class="mb-2 text-red-700 font-semibold">Not stored — {{ sx.error or 'the form could not be read' }}. Nothing changed.</div>{% endif %}
+      {% if sx.flag == 'unsaved' or sx.unsaved %}<div class="mb-2 text-amber-800 font-semibold" data-den-sector-fx-unsaved><!-- den_sector_fx_unsaved_marker -->NOT stored in the database — {{ (sx.error if sx.flag == 'unsaved' else '') or sx.unsaved or 'the write did not read back' }}. §12 above reads this table for now; store it again once the database answers.</div>{% endif %}
       {% if not sx.loaded %}<div class="mb-2 text-amber-800" data-den-sector-fx-unread>The stored table could not be read on this open — the form is shown empty and saving is refused until it can be read (so blanks never overwrite your numbers).</div>{% endif %}
       <form method="post" action="/den/valuation/sector-fx"><!-- den_sector_fx_form_marker -->
         <input type="hidden" name="loaded" value="{{ 1 if sx.loaded else 0 }}">

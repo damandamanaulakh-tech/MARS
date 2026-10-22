@@ -211,12 +211,34 @@ def test_the_0920_job_survives_a_crashing_macro_feed_and_still_rotates(monkeypat
 
 
 # ------------------------------------------------------------ DB + reader
+class _Res:
+    """A pymongo BulkWriteResult's counted fields."""
+
+    def __init__(self, upserted: int, matched: int, acknowledged: bool = True):
+        self.upserted_count, self.matched_count = upserted, matched
+        self.acknowledged = acknowledged
+
+
 class _Coll:
+    """macro_daily: since the 2026-10-21 review save_macro_rows writes ONE
+    unordered bulk_write of ReplaceOne(upsert) per 500 rows (it used to call
+    replace_one per row); every call is recorded."""
+
     def __init__(self):
         self.docs = {}
+        self.bulk_calls: list = []
 
-    def replace_one(self, flt, doc, upsert=False):
-        self.docs[flt["_id"]] = doc
+    def bulk_write(self, ops, ordered=True):
+        self.bulk_calls.append((len(ops), ordered))
+        up = matched = 0
+        for op in ops:
+            flt, doc = op._filter, op._doc
+            if flt["_id"] in self.docs:
+                matched += 1
+            else:
+                up += 1
+            self.docs[flt["_id"]] = doc
+        return _Res(up, matched)
 
     def find(self, q):
         rows = [d for d in self.docs.values()
@@ -247,6 +269,48 @@ def test_db_rows_are_keyed_series_and_date(monkeypatch):
     assert len(db.load_macro_rows()) == 4
     monkeypatch.setattr(db, "_CONNECTED", False)
     assert db.load_macro_rows() == [] and db.save_macro_rows(GSEC) == 0
+
+
+def _rows(n: int, series: str = "fred_sp500") -> list:
+    from datetime import timedelta
+    d0 = date(2021, 1, 1)
+    return [{"series": series, "date": (d0 + timedelta(days=i)).isoformat(), "value": float(i)}
+            for i in range(n)]
+
+
+def test_save_macro_rows_bulk_writes_500_a_time_and_returns_what_was_acknowledged(monkeypatch):
+    fake = _DB()
+    monkeypatch.setattr(db, "_CONNECTED", True)
+    monkeypatch.setattr(db, "_DB", fake)
+    rows = _rows(1201) + [{"series": "", "date": "2026-01-01", "value": 1.0}]   # keyless: skipped
+    assert db.save_macro_rows(rows) == 1201
+    assert fake.macro_daily.bulk_calls == [(500, False), (500, False), (201, False)]
+    assert "fred_sp500|2021-01-01" in fake.macro_daily.docs
+    assert fake.macro_daily.docs["fred_sp500|2021-01-01"]["_id"] == "fred_sp500|2021-01-01"
+    # a re-write of stored days is matched, and matched counts as acknowledged
+    assert db.save_macro_rows(_rows(3)) == 3
+
+
+def test_save_macro_rows_counts_only_what_a_refused_or_broken_write_landed(monkeypatch):
+    from pymongo.errors import BulkWriteError
+    fake = _DB()
+    monkeypatch.setattr(db, "_CONNECTED", True)
+    monkeypatch.setattr(db, "_DB", fake)
+    calls = []
+
+    def quota(ops, ordered=True):
+        calls.append(len(ops))
+        if len(calls) == 1:                      # first chunk: 120 landed, the rest refused
+            raise BulkWriteError({"nUpserted": 100, "nMatched": 20, "writeErrors": [
+                {"index": 120, "code": 8000, "errmsg": "you are over your space quota"}]})
+        raise ConnectionError("store gone")      # second chunk: nothing, stop
+    fake.macro_daily.bulk_write = quota
+    assert db.save_macro_rows(_rows(1100)) == 120
+    assert calls == [500, 500]                    # stopped after the broken chunk
+    unack = _DB()
+    unack.macro_daily.bulk_write = lambda ops, ordered=True: _Res(len(ops), 0, acknowledged=False)
+    monkeypatch.setattr(db, "_DB", unack)
+    assert db.save_macro_rows(_rows(5)) == 0      # nothing proves an unacknowledged write
 
 
 def test_the_boot_injects_the_macro_reader():

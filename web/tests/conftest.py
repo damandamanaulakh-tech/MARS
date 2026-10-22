@@ -105,6 +105,10 @@ def _no_nse_or_candle_network(monkeypatch):
         pass
 
 
+#: Every network fetcher in trading.macro_feeds that raises when blocked.
+MACRO_FEED_FETCHERS = ("fetch_fred", "fetch_nse_all_indices", "fetch_rbi_home")
+
+
 def _macro_feed_blocked(*a, **k):
     raise ConnectionError("network blocked in tests (macro feeds)")
 
@@ -118,10 +122,14 @@ def _no_macro_feed_network(monkeypatch):
     blocked for every web test; a test that needs one stubs it itself
     (monkeypatching over this, as the macro-feed job tests do)."""
     import trading.macro_feeds as mf
-    for name in ("fetch_fred", "fetch_nse_all_indices", "fetch_rbi_home"):
-        if hasattr(mf, name):
-            monkeypatch.setattr(mf, name, _macro_feed_blocked)
-    if hasattr(mf, "fetch_gsec_list"):
-        # this one never raises: an unreachable RBI page = the committed table
-        monkeypatch.setattr(mf, "fetch_gsec_list", lambda timeout=30.0: (
-            mf.reference_securities(), "committed table (network blocked in tests)"))
+    # a renamed or removed fetcher must FAIL here, never go unguarded
+    # (review 2026-10-21: `hasattr` used to skip a missing name silently)
+    missing = [n for n in MACRO_FEED_FETCHERS + ("fetch_gsec_list",) if not hasattr(mf, n)]
+    if missing:
+        pytest.fail(f"trading.macro_feeds lost {', '.join(missing)} — guard its renamed "
+                    "network fetcher(s) in web/tests/conftest.py")
+    for name in MACRO_FEED_FETCHERS:
+        monkeypatch.setattr(mf, name, _macro_feed_blocked)
+    # this one never raises: an unreachable RBI page = the committed table
+    monkeypatch.setattr(mf, "fetch_gsec_list", lambda timeout=30.0: (
+        mf.reference_securities(), "committed table (network blocked in tests)"))

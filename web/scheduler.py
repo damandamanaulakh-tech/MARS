@@ -1894,7 +1894,30 @@ def _nse_new_rows(rows: list, stored: list) -> list:
     return out
 
 
-def _market_feeds_refresh() -> None:
+#: The market-feeds job's ASSUMED numbers, each with its source (VALFIX
+#: batch 3 review, 2026-10-21). budget_s = the seconds one run may spend
+#: before it stops starting new series (env SB_MARKET_FEEDS_BUDGET_S).
+MARKET_FEEDS_ASSUMED = {
+    "budget_s": {"value": 90.0,
+                 "source": "five FRED series x a 30 s timeout = 150 s with FRED dead; the "
+                           "job sits between the 09:20 rotation and the trigger layer / "
+                           "phone push (review 2026-10-21)"},
+}
+MARKET_FEEDS_BUDGET_S_DEFAULT = float(MARKET_FEEDS_ASSUMED["budget_s"]["value"])
+
+
+def market_feeds_budget_s() -> "float | None":
+    """Seconds one market-feeds run may spend (SB_MARKET_FEEDS_BUDGET_S,
+    default 90). None = unbounded, chosen only by setting it <= 0."""
+    raw = os.environ.get("SB_MARKET_FEEDS_BUDGET_S", "")
+    try:
+        v = float(raw) if raw.strip() else MARKET_FEEDS_BUDGET_S_DEFAULT
+    except ValueError:
+        v = MARKET_FEEDS_BUDGET_S_DEFAULT
+    return v if v > 0 else None
+
+
+def _market_feeds_refresh(time_budget_s: "float | None" = None) -> None:
     """Global indices, the rupee and NSE's sector P/E (owner order
     2026-10-21, VALFIX batch 3): FRED S&P 500 / Nasdaq / Dow / USD-INR /
     USD-per-EUR (keyless fredgraph.csv) and NSE's allIndices P/E / P/B for
@@ -1909,26 +1932,57 @@ def _market_feeds_refresh() -> None:
     reach to FRED and nseindia is unproven: a failure is journaled and the
     chain prints DATA_NEEDED / STALE with the stored date — never an old
     value as fresh.
+
+    Review fixes (2026-10-21): only the rows the store ACKNOWLEDGED count as
+    landed (db.save_macro_rows returns that count; a short count journals
+    MARKET_FEEDS_FAILED naming the rows NOT stored), and a time budget
+    (`time_budget_s`; None = market_feeds_budget_s(), env
+    SB_MARKET_FEEDS_BUDGET_S, default 90 s; <= 0 = unbounded): a series not
+    yet started once it is spent is skipped and named on the MARKET_FEEDS
+    line ("STOPPED on the 90 s budget: … skipped — next slot"); the NSE step
+    runs last inside the same budget.
     """
     from . import db
     if not db.is_connected():
         log.warning("market feeds skipped: Mongo offline (nowhere to store)")
         return
     from trading import macro_feeds as mf
+    budget = market_feeds_budget_s() if time_budget_s is None else (
+        float(time_budget_s) if float(time_budget_s) > 0 else None)
+    t0 = time.monotonic()
+
+    def _spent() -> bool:
+        return budget is not None and time.monotonic() - t0 >= budget
+
     landed: list = []
     failed: list = []
+    skipped: list = []
     today = mf._today_ist()
+
+    def _store(new: list, label: str) -> None:
+        # count what the store acknowledged, never what was handed to it
+        try:
+            n = int(db.save_macro_rows(new) or 0)
+        except (TypeError, ValueError):
+            n = 0
+        n = max(0, min(n, len(new)))
+        landed.extend(new[:n])
+        if n < len(new):
+            failed.append(f"{label}: {len(new) - n} of {len(new)} row(s) NOT stored "
+                          "(write refused?)")
 
     # FRED, one series at a time
     for series, fid in mf.FRED_SERIES.items():
+        if _spent():
+            skipped.append(f"FRED {fid}")
+            continue
         try:
             old = db.load_macro_rows(series) or []
             last = max((str(r.get("date") or "") for r in old), default="")
             rows = mf.fetch_fred(series, last)
             new = _macro_new_rows(rows, old)
             if new:
-                db.save_macro_rows(new)
-                landed += new
+                _store(new, f"FRED {fid}")
             else:
                 kind = mf.fred_kind(series)
                 if not last or mf.is_stale(last, today, mf.FRED_STALE_DAYS[kind]):
@@ -1940,29 +1994,34 @@ def _market_feeds_refresh() -> None:
 
     # NSE allIndices — skipped once today's CLOSING reading is held. The
     # 09:20 pass runs during the session, so it stores an intraday reading
-    # (labelled); the 15:35 pass replaces it with the close.
-    try:
-        names = mf.nse_index_names()
-        held = db.load_macro_rows(f"nse_pe:{names[0]}") if names else []
-        if not _nse_close_held(held, today.isoformat()):
-            payload = mf.fetch_nse_all_indices()
-            fetched = datetime.now(mf.IST).isoformat(timespec="seconds")
-            rows = mf.parse_nse_all_indices(payload, names, fetched_iso=fetched)
-            if not rows:
-                failed.append("NSE allIndices answered with no P/E for the app's indices")
-            stored = []
-            for sname in sorted({r["series"] for r in rows}):
-                stored += db.load_macro_rows(sname) or []
-            new = _nse_new_rows(rows, stored)
-            if new:
-                db.save_macro_rows(new)
-                landed += new
-    except Exception as e:                                     # noqa: BLE001
-        log.exception("market feed (NSE allIndices) failed")
-        failed.append(f"NSE allIndices fetch failed: {e}")
+    # (labelled); the 15:35 pass replaces it with the close. Attempted last,
+    # inside the same budget.
+    if _spent():
+        skipped.append("NSE allIndices")
+    else:
+        try:
+            names = mf.nse_index_names()
+            held = db.load_macro_rows(f"nse_pe:{names[0]}") if names else []
+            if not _nse_close_held(held, today.isoformat()):
+                payload = mf.fetch_nse_all_indices()
+                fetched = datetime.now(mf.IST).isoformat(timespec="seconds")
+                rows = mf.parse_nse_all_indices(payload, names, fetched_iso=fetched)
+                if not rows:
+                    failed.append("NSE allIndices answered with no P/E for the app's indices")
+                stored = []
+                for sname in sorted({r["series"] for r in rows}):
+                    stored += db.load_macro_rows(sname) or []
+                new = _nse_new_rows(rows, stored)
+                if new:
+                    _store(new, "NSE allIndices")
+        except Exception as e:                                 # noqa: BLE001
+            log.exception("market feed (NSE allIndices) failed")
+            failed.append(f"NSE allIndices fetch failed: {e}")
 
+    stop_txt = (f"STOPPED on the {budget:g} s budget: {', '.join(skipped)} skipped — next slot"
+                if skipped and budget is not None else "")
+    parts = []
     if landed:
-        parts = []
         for series, fid in mf.FRED_SERIES.items():
             x = [r for r in landed if r["series"] == series]
             if x:
@@ -1973,10 +2032,15 @@ def _market_feeds_refresh() -> None:
             sess = max(r["date"] for r in pe)
             parts.append(f"NSE P/E + P/B for {len({r['index'] for r in pe})} index(es), "
                          f"session {sess}")
-        if parts:
-            _refresh_journal("MARKET_FEEDS",
-                             "Market feeds stored: " + "; ".join(parts)
-                             + ". Display only (valuation chain).")
+    if parts:
+        _refresh_journal("MARKET_FEEDS",
+                         "Market feeds stored: " + "; ".join(parts)
+                         + (f"; {stop_txt}" if stop_txt else "")
+                         + ". Display only (valuation chain).")
+    elif stop_txt:
+        _refresh_journal("MARKET_FEEDS",
+                         f"Market feeds: {stop_txt} (nothing new stored before it). "
+                         "Display only (valuation chain).")
     if failed:
         _refresh_journal("MARKET_FEEDS_FAILED",
                          "Market feeds: " + "; ".join(failed)

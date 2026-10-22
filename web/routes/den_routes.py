@@ -1406,7 +1406,11 @@ async def den_sector_fx_save(request: Request):
                                 f"#sector-fx", status_code=303)
     ok, err = await run_in_threadpool(mv.save_sector_fx, table)
     if not ok:
-        return RedirectResponse(f"/den?sfx=invalid&sfx_err={quote(err[:400])}#sector-fx",
+        # READ_FAILED changed nothing; any other refusal = the table applies in
+        # this process but did not reach the store (review 2026-10-21) — said
+        # in amber, never "stored"
+        flag = "invalid" if err == mv.READ_FAILED else "unsaved"
+        return RedirectResponse(f"/den?sfx={flag}&sfx_err={quote(err[:400])}#sector-fx",
                                 status_code=303)
     return RedirectResponse("/den?sfx=saved#sector-fx", status_code=303)
 
