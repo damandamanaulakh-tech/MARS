@@ -37,10 +37,22 @@ def catchup(monkeypatch):
         def start(self):
             self._t()
     monkeypatch.setattr("threading.Thread", _Inline)
+    # REPOINTED 2026-10-22 (entry-fix B-1/B-2): once an in-hours scan ran
+    # today the catch-up now also reads the clock (14:30-15:10 runs a missed
+    # afternoon rotation) and the stored rotation record (a cut-short one
+    # resumes). These pins are about the MORNING rule, so the clock is frozen
+    # at 10:00 IST and the book carries no rotation record — on the real
+    # clock a CI run crossing 14:30 would have started the afternoon pass.
+    import datetime as _d
+    from web.clock import IST, ist_now
+    monkeypatch.setattr(scheduler, "_ist_now", lambda: _d.datetime.combine(
+        ist_now().date(), _d.time(10, 0), tzinfo=IST))
+    monkeypatch.setattr(scheduler, "_CURRENT_ROTATION", {})
     p = state.portfolio()
-    saved = (p.last_scan, p.last_scan_live)
+    saved = (p.last_scan, p.last_scan_live, getattr(p, "rotation_report", None))
+    p.rotation_report = {}
     yield p, monkeypatch
-    p.last_scan, p.last_scan_live = saved
+    p.last_scan, p.last_scan_live, p.rotation_report = saved
 
 
 def _market(monkeypatch, open_: bool):

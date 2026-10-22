@@ -179,7 +179,13 @@ class LiquidityRules:
     # ordered it fixed ("fix both faults"); liquidity is measured in rupees
     # here, exactly as it is there. A guard test keeps the old field out.
     min_rupee_volume_5d_cr: float = 5.0              # min ₹5 Cr daily rupee turnover (avg over 5d)
-    max_spread_pct: float = 0.001                    # 0.1% bid-ask (Upstox-derived; soft when no live quote)
+    # RECORD ONLY — owner 2026-10-22: switched off ("Switch the spread check
+    # off"). The 0.1% bid-ask ceiling was backed by no measurement and ran
+    # only on logged-in days (one top-of-book read just after the open), so
+    # the same pick passed without a login and was refused with one.
+    # passes_liquidity no longer reads it; the field stays so the record of
+    # the old rule (and the Den's engine card) still resolves.
+    max_spread_pct: float = 0.001
     min_market_cap_cr: float = 5_000.0               # min ₹5,000 Cr free-float mcap
     require_no_circuit: bool = True                  # skip if at upper/lower circuit today
 
@@ -197,9 +203,12 @@ def passes_liquidity(
 ) -> tuple[bool, str]:
     """Returns (passes, reason). reason is empty on pass.
 
-    market_cap_cr and spread_pct are checked when provided (caller pulls them
-    from Upstox quote / yfinance fast_info). When None, the corresponding
-    check is skipped — keeps the gate from blocking on missing reference data.
+    market_cap_cr is checked when provided. When None, the check is skipped —
+    keeps the gate from blocking on missing reference data.
+
+    spread_pct is ACCEPTED AND IGNORED (owner 2026-10-22, "Switch the spread
+    check off"): only the Rs 5 Cr 5-day rupee turnover rule gates liquidity.
+    The parameter stays so an older caller does not break.
     """
     rules = rules or LiquidityRules()
 
@@ -210,6 +219,12 @@ def passes_liquidity(
     # measure (see LiquidityRules for why the share count was removed)
     rupee_vol = (close.iloc[-5:] * volume.iloc[-5:]).dropna().mean()
     rupee_vol_cr = float(rupee_vol) / 1e7
+    # XR-027 (entry-path batch 2026-10-22): an all-missing volume tail used
+    # to PASS — `nan < 5` is False, so a name with no volume in its last
+    # five bars walked through the one liquidity gate. Unknown is refused
+    # and says so; it is never a silent pass.
+    if not math.isfinite(rupee_vol_cr):
+        return False, "rupee_vol unknown (no volume in the last 5 bars)"
     if rupee_vol_cr < rules.min_rupee_volume_5d_cr:
         return False, f"rupee_vol {rupee_vol_cr:.2f}Cr < {rules.min_rupee_volume_5d_cr}Cr"
 
@@ -217,9 +232,8 @@ def passes_liquidity(
     if market_cap_cr is not None and market_cap_cr < rules.min_market_cap_cr:
         return False, f"mcap {market_cap_cr:.0f}Cr < {rules.min_market_cap_cr:.0f}Cr"
 
-    # Spread hard ceiling (only when provided — live quote required)
-    if spread_pct is not None and spread_pct > rules.max_spread_pct:
-        return False, f"spread {spread_pct*100:.3f}% > {rules.max_spread_pct*100:.2f}%"
+    # Spread ceiling REMOVED (owner 2026-10-22: "Switch the spread check
+    # off"). `spread_pct` is ignored; see LiquidityRules.max_spread_pct.
 
     # Circuit-filter check: open == high == low == close means stuck at circuit
     if rules.require_no_circuit and None not in (last_open, last_high, last_low, last_close):

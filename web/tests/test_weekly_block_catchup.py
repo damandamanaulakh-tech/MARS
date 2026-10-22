@@ -121,8 +121,12 @@ def test_completion_is_stamped_only_after_the_block_ran(monkeypatch):
     # that stops early must keep the block due tomorrow, not in seven days),
     # so pin the CALL rather than a literal empty-argument form.
     assert body.count("_mark_weekly_block_done(") == 1
-    # it must come after the post-topup recomputes, i.e. last in the function
-    assert body.rstrip().endswith("_mark_weekly_block_done(_topup_remaining)")
+    # it must come after the post-topup recomputes, i.e. last in the function.
+    # REPOINTED 2026-10-22 (owner card D6): the call also carries `pull_cut`
+    # — a pull abandoned at its time cap keeps the block due tomorrow
+    # without writing a made-up remainder.
+    assert body.rstrip().endswith(
+        "_mark_weekly_block_done(_topup_remaining, pull_cut=_pull_cut)")
 
 
 def test_cron_is_registered_mon_fri_not_fri_only():

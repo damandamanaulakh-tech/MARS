@@ -32,6 +32,7 @@ avoid lookahead bias.
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 from typing import Optional
 
@@ -138,22 +139,44 @@ def survival_check(ticker: str) -> tuple[bool, list[str]]:
     if is_backtest_mode():
         return False, ["backtest-mode: fundamentals skipped (no snapshot)"]
     f = _fundamentals(ticker.replace(".NS", ""))
-    debt = f.get("annualTotalDebt", {})
-    eq = f.get("annualStockholdersEquity", {})
-    fcf = f.get("annualFreeCashFlow", {})
+    # XR-056 (2026-10-22 entry-path batch): a missing value (NaN / inf)
+    # used to PASS — every comparison with NaN is False, so "equity <= 0",
+    # "D/E >= 0.5" and "FCF <= 0" all read "fine". Unfinite values are
+    # dropped before anything is judged, so they can only make the check
+    # FAIL ("missing"), never pass it. And debt and equity are now read on
+    # the SAME balance-sheet date (the latest one that has both), not each
+    # on its own latest date.
+    def _clean(series: dict) -> dict:
+        out = {}
+        for d, v in (series or {}).items():
+            try:
+                fv = float(v)
+            except (TypeError, ValueError):
+                continue
+            if math.isfinite(fv):
+                out[d] = fv
+        return out
+
+    debt = _clean(f.get("annualTotalDebt", {}))
+    eq = _clean(f.get("annualStockholdersEquity", {}))
+    fcf = _clean(f.get("annualFreeCashFlow", {}))
     if not debt or not eq or not fcf:
         return False, ["fundamentals missing from store"]
-    d_latest = debt[max(debt)]
-    e_latest = eq[max(eq)]
+    common = sorted(set(debt) & set(eq))
+    if not common:
+        return False, ["debt and equity not reported for the same year"]
+    bs_date = common[-1]
+    d_latest = debt[bs_date]
+    e_latest = eq[bs_date]
     if e_latest <= 0:
         return False, ["negative/zero equity"]
     de = d_latest / e_latest
-    if de >= 0.5:
+    if not math.isfinite(de) or de >= 0.5:
         return False, [f"D/E {de:.2f} >= 0.5"]
     fcf_latest = fcf[max(fcf)]
     if fcf_latest <= 0:
         return False, [f"latest FCF {fcf_latest:.0f} not positive"]
-    return True, [f"D/E {de:.2f} ok", f"FCF positive ({max(fcf)})"]
+    return True, [f"D/E {de:.2f} ok ({bs_date})", f"FCF positive ({max(fcf)})"]
 
 
 # ---------------- Crash guard (owner-approved 2026-08-26) ---------------------

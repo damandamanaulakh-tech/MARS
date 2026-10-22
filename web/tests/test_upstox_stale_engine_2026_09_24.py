@@ -115,8 +115,12 @@ def engine_with_dead_token():
 
 
 def _connect(c: TestClient):
-    c.get("/upstox/login", follow_redirects=False)
-    return c.get("/upstox/callback?code=abc", follow_redirects=False)
+    # Repointed 2026-10-22 (ROOT-ROUTE-08): the callback refuses a reply with
+    # no state now, so echo back the state /upstox/login sent, as Upstox does.
+    from urllib.parse import parse_qs, urlparse
+    r = c.get("/upstox/login", follow_redirects=False)
+    st = parse_qs(urlparse(r.headers["location"]).query)["state"][0]
+    return c.get(f"/upstox/callback?code=abc&state={st}", follow_redirects=False)
 
 
 def _journal_actions(n: int = 6) -> list:

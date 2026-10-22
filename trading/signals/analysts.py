@@ -41,6 +41,14 @@ class AnalystScore:
     mean: float       # raw recommendationMean (1..5)
 
 
+def score_from_mean(mean: float) -> float:
+    """THE mapping from Yahoo's recommendationMean (1 strong buy .. 5 strong
+    sell) to the 0-100 leg. One function for both sources (owner card
+    2026-10-22, D2): the stored ratings file and the live Yahoo call must put
+    the same consensus on the same score."""
+    return round(max(0.0, min(100.0, (5.0 - float(mean)) / 4.0 * 100.0)), 1)
+
+
 def fetch_analyst_score(ticker: str) -> Optional[AnalystScore]:
     """Consensus score for one ticker, or None when no honest number exists."""
     global _FAIL_STREAK, _BREAKER_UNTIL, _WARNED
@@ -69,8 +77,7 @@ def fetch_analyst_score(ticker: str) -> Optional[AnalystScore]:
         n = int(info.get("numberOfAnalystOpinions") or 0)
         if mean is not None and n > 0:
             mean = float(mean)
-            score = max(0.0, min(100.0, (5.0 - mean) / 4.0 * 100.0))
-            result = AnalystScore(round(score, 1), n, mean)
+            result = AnalystScore(score_from_mean(mean), n, mean)
         _FAIL_STREAK = 0
         _CACHE[ticker] = (now, result)
     except Exception as e:

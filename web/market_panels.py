@@ -654,8 +654,10 @@ def fund_summary(p, cfg, prices: dict, live_count: int) -> dict:
 
     Definitions, each the engine's own:
       capital    = cfg.starting_capital (total); a segment's SHARE of the
-                   deployable capital (category_budget.limit — the number
-                   risk.can_open refuses on) or Ocean's ticket × slots.
+                   share base = deployable capital minus the owner bucket
+                   and Ocean at entry cost (category_budget.limit with the
+                   held book — the number risk.can_open refuses on) or
+                   Ocean's ticket × slots.
       allocated  = entry cost of the open positions (qty × entry price) —
                    the deploy-cap convention, so it agrees with the gate.
       now        = the same positions at the marks this page holds.
@@ -699,7 +701,11 @@ def fund_summary(p, cfg, prices: dict, live_count: int) -> dict:
 
     rows = []
     for cat in cb.SHARE_FIELDS:
-        rows.append(_row(cat, cb.LABELS[cat], cb.limit(cfg, cat, equity),
+        # Owner card 2026-10-22 ("shares from what is left after owner +
+        # Ocean"): pass the held book so the card prints the SAME limit
+        # risk.can_open refuses on, not the share of the whole deployable.
+        rows.append(_row(cat, cb.LABELS[cat],
+                         cb.limit(cfg, cat, equity, positions=positions),
                          cb.share(cfg, cat)))
     ocean_limit = (float(getattr(cfg, "ocean_position_value", 0.0) or 0.0)
                    * int(getattr(cfg, "ocean_max_positions", 0) or 0))

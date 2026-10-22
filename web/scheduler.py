@@ -60,6 +60,87 @@ def daily_enabled() -> bool:
     return os.environ.get("DAILY_SCHEDULER", "1") != "0"
 
 
+# ---------------------------------------------------------------------------
+# ENTRY-FIX BATCH 2026-10-22 (owner cards D5 / D6 / D7). Every number below
+# is ASSUMED — chosen, not measured to an edge — and names where it came from.
+# ---------------------------------------------------------------------------
+ASSUMED = {
+    "afternoon_catchup_end_ist": {
+        "value": (15, 10),
+        "source": ("owner card D5 2026-10-22 (contract B-1): a 14:30 rotation "
+                   "started after 15:10 leaves under ~20 minutes before the "
+                   "15:25 square-off and the 15:30 close; a category pass "
+                   "takes 6-12 min on a fresh process (review 2026-10-22)")},
+    "rotation_pass_minutes": {
+        "value": 12,
+        "source": ("the slow end of the 6-12 min a category pass took on a "
+                   "fresh process (review 2026-10-22, killed-rotation "
+                   "finding); a MORNING resume starts only if its missing "
+                   "passes fit before the 14:30 rotation needs the lock")},
+    "trigger_cooldown_min": {
+        "value": 25,
+        "source": ("owner card D7 2026-10-22: the morning kill came ~20 min "
+                   "after the rotation, at 512 MiB, so the trigger layer "
+                   "waits 25 min after the 09:20 rotation ends")},
+    "trigger_retry_min": {
+        "value": 15, "source": "owner card D7 2026-10-22 (retry +15 min)"},
+    "trigger_max_retries": {
+        "value": 2, "source": "owner card D7 2026-10-22 (retry at most twice)"},
+    "trigger_rss_ceiling_mb": {
+        "value": 380.0,
+        "source": ("owner card D7 2026-10-22 = the Den's measured ceiling "
+                   "(valuation_chain_view.DEFAULT_RSS_CEILING_MB: idle after a "
+                   "scan 330-370 MiB, a rotation 400-495, the 09:20 trigger "
+                   "layer 500-525 = the kills); read through "
+                   "valuation_chain_view.rss_ceiling_mb() so one env var "
+                   "(SB_DEN_CHAIN_RSS_CEILING_MB) moves both")},
+    "trigger_cooldown_misfire_s": {
+        "value": 1800,
+        "source": ("APScheduler silently drops a date job that fires more "
+                   "than its grace late (the job default is 300 s); 30 min "
+                   "keeps a busy box from losing the cool-down run")},
+    "weekly_step_budget_s": {
+        "value": 600.0,
+        "source": ("owner card D6 2026-10-22 ('10 min cap per step'); env "
+                   "SB_WEEKLY_STEP_BUDGET_S, <= 0 = no cap")},
+    "weekly_step_grace_s": {
+        "value": 300.0,
+        "source": ("steps with their own budget (fundamentals 600 s, the OHLCV "
+                   "pull SB_TOPUP_BUDGET_S 2400 s) overshoot it by at most one "
+                   "request (fundamentals' 20 s timeout, the pull's ~1.8 s a "
+                   "name) plus the closing Mongo save; 5 min covers that")},
+}
+AFTERNOON_SLOT_IST = (14, 30)          # the 14:30 cron slot itself
+AFTERNOON_CATCHUP_END_IST = ASSUMED["afternoon_catchup_end_ist"]["value"]
+ROTATION_PASS_MINUTES = int(ASSUMED["rotation_pass_minutes"]["value"])
+TRIGGER_COOLDOWN_MIN = float(ASSUMED["trigger_cooldown_min"]["value"])
+TRIGGER_RETRY_MIN = float(ASSUMED["trigger_retry_min"]["value"])
+TRIGGER_MAX_RETRIES = int(ASSUMED["trigger_max_retries"]["value"])
+TRIGGER_COOLDOWN_JOB_ID = "trigger_layer_cooldown"
+WEEKLY_STEP_BUDGET_S_DEFAULT = float(ASSUMED["weekly_step_budget_s"]["value"])
+WEEKLY_STEP_GRACE_S = float(ASSUMED["weekly_step_grace_s"]["value"])
+
+
+def _ist_now():
+    """The scheduler's IST wall clock (aware). One function so the slot
+    decisions below are testable with a frozen clock — the catch-up must
+    never be judged on the container's UTC clock (the 2026-09-16 class)."""
+    from .clock import ist_now
+    return ist_now()
+
+
+#: The rotation THIS process is running right now ({"rid", "started",
+#: "where"}), else empty. A stored rotation with no `finished` stamp is
+#: "in progress" only when it is this one; any other unfinished record was
+#: cut short by a process that died (the card and the catch-up both read it).
+_CURRENT_ROTATION: dict = {}
+
+
+def rotation_in_progress() -> Optional[str]:
+    """The `rid` of the rotation this process is running, or None."""
+    return _CURRENT_ROTATION.get("rid") or None
+
+
 def start_if_enabled() -> None:
     """Called from FastAPI startup. Idempotent.
 
@@ -247,21 +328,116 @@ def startup_catchup_run_date(tz, delay):
     return _dt.now(tz) + delay
 
 
+def _missing_categories(entry: dict) -> list:
+    """The categories a stored rotation never reached, in rotation order."""
+    passes = (entry or {}).get("passes") or {}
+    return [m for m in ((entry or {}).get("order") or list(_DAILY_MODE_ORDER))
+            if m not in passes]
+
+
+def rotation_catchup_plan(report, now_ist) -> dict:
+    """What a boot / login catch-up may still run TODAY, read from the stored
+    per-category record (`portfolio.rotation_report`). Pure.
+
+    Returns {"action": "none" | "afternoon" | "resume", "slot", "entry",
+    "missing", "why"}. Entry-fix batch 2026-10-22, owner card D5:
+      * 14:30-15:10 IST: no 14:30 rotation today -> run it ("afternoon");
+        a 14:30 rotation stored WITHOUT a finished stamp (the process died
+        mid-rotation) -> run ONLY the categories it never reached
+        ("resume"); a finished one -> nothing.
+      * before 14:30: an unfinished 09:20 rotation -> resume its missing
+        categories, but only if they fit before the 14:30 rotation needs the
+        lock (ROTATION_PASS_MINUTES each, ASSUMED).
+      * after 15:10: nothing starts (ASSUMED cut-off, see ASSUMED).
+    A category that already ran — bought, refused or crashed — is never
+    re-run. The caller has already checked that an in-hours scan ran today
+    and that no rotation is running in this process.
+    """
+    from datetime import timedelta as _td
+    today = now_ist.date().isoformat()
+    rots = [r for r in ((report or {}).get("rotations") or [])
+            if isinstance(r, dict) and r.get("date") == today]
+    hhmm = (now_ist.hour, now_ist.minute)
+
+    def _newest(slot):                         # stored newest first
+        return next((r for r in rots if r.get("where") == slot), None)
+
+    def _none(why):
+        return {"action": "none", "slot": None, "entry": None,
+                "missing": [], "why": why}
+
+    if AFTERNOON_SLOT_IST <= hhmm < AFTERNOON_CATCHUP_END_IST:
+        aft = _newest("14:30")
+        if aft is None:
+            return {"action": "afternoon", "slot": "14:30", "entry": None,
+                    "missing": list(_DAILY_MODE_ORDER),
+                    "why": ("the 14:30 rotation has not run today (the app "
+                            "was asleep or restarting at 14:30)")}
+        if aft.get("finished"):
+            return _none("the 14:30 rotation already finished today")
+        missing = _missing_categories(aft)
+        if not missing:
+            return _none("the 14:30 rotation reached every category")
+        return {"action": "resume", "slot": "14:30", "entry": aft,
+                "missing": missing,
+                "why": ("the 14:30 rotation was cut short (the app stopped "
+                        "mid-rotation)")}
+    if hhmm < AFTERNOON_SLOT_IST:
+        mor = _newest("09:20")
+        if mor is None or mor.get("finished"):
+            return _none("no unfinished morning rotation")
+        missing = _missing_categories(mor)
+        if not missing:
+            return _none("the morning rotation reached every category")
+        ends = now_ist + _td(minutes=ROTATION_PASS_MINUTES * len(missing))
+        slot = now_ist.replace(hour=AFTERNOON_SLOT_IST[0],
+                               minute=AFTERNOON_SLOT_IST[1], second=0,
+                               microsecond=0)
+        if ends > slot:
+            return _none(f"{len(missing)} missing pass(es) would run into the "
+                         f"14:30 rotation, which runs every category anyway")
+        return {"action": "resume", "slot": "09:20", "entry": mor,
+                "missing": missing,
+                "why": ("the morning rotation was cut short (the app stopped "
+                        "mid-rotation)")}
+    return _none("after 15:10 IST no rotation starts (too little of the "
+                 "session left)")
+
+
 def catchup_scan_if_missed(reason: str = "catchup") -> bool:
     """If today's multi-mode scan never completed (dead Upstox token at
     09:20, deploy restart mid-run, crash), run it now in a background
     thread. Fired at startup and on every Upstox connect. Trading days
-    only; no-op when today's scan already ran."""
+    only; no-op when today's scan already ran.
+
+    ENTRY-FIX 2026-10-22 (owner card D5, "Ship both"): once an in-hours scan
+    has run today the catch-up used to stop there, so (1) a box asleep at
+    14:30 lost the whole afternoon rotation, and (2) a rotation killed
+    part-way never ran the categories it had not reached. Now, read from
+    the per-category record (`rotation_catchup_plan`): 14:30-15:10 IST runs
+    the missing afternoon rotation or only its missing categories; before
+    14:30 an unfinished morning rotation resumes its missing categories;
+    after 15:10 nothing. Never while this process is running a rotation."""
     import os
     import threading
     from datetime import datetime as _dt
 
     from trading.calendars import is_market_open, is_trading_day
 
+    now_ist = _ist_now()
     if (not daily_enabled()
             or os.environ.get("SB_DISABLE_CATCHUP") == "1"
-            or not is_trading_day()):
+            or not is_trading_day(now_ist.date())):
         return False
+    # A rotation running in THIS process (its marker), or a 09:20 / 14:30
+    # job holding the rotation lock before its marker is set (the
+    # corporate-action step runs first): nothing to catch up — a second
+    # thread would only skip on the lock after journaling a false catch-up.
+    if rotation_in_progress() or _ROTATION_LOCK.locked():
+        log.info("[catchup:%s] a rotation is running in this process — "
+                 "nothing to catch up", reason)
+        return False
+    market_open = is_market_open(now_ist)
     # OWNER ORDER 2026-09-10: "trade are prohibited from now after market
     # hours". THIS was the hole. The guard above reads the DAY and never the
     # CLOCK, and this job fires ~2 minutes after EVERY boot — so a Render
@@ -271,7 +447,7 @@ def catchup_scan_if_missed(reason: str = "catchup") -> bool:
     # reviewing buy/watch/block lists); engine.scan simply opens nothing and
     # journals MARKET_CLOSED_NO_ENTRY. This line makes the intent explicit
     # and keeps the log honest about which it was.
-    if not is_market_open():
+    if not market_open:
         log.info("[catchup:%s] market closed — scan will score and show, "
                  "but open nothing (owner order 2026-09-10)", reason)
     from . import state
@@ -285,10 +461,10 @@ def catchup_scan_if_missed(reason: str = "catchup") -> bool:
     # day. Done = a scan ran inside market hours today. Outside hours, any
     # scan today is enough (it only scores and shows; re-running it on every
     # boot would cost memory for nothing).
-    if last_live >= today:
-        return False
-    if not is_market_open() and last >= today:
-        return False
+    if last_live >= today or (not market_open and last >= today):
+        if not market_open:
+            return False
+        return _catchup_rotation_slot(p, now_ist, reason)
     log.info("[catchup:%s] last_scan=%s < today — running missed multi-mode scan",
              reason, last or "never")
     p.decision_journal.append({
@@ -309,6 +485,55 @@ def catchup_scan_if_missed(reason: str = "catchup") -> bool:
         _daily_multi_mode_scan()
 
     threading.Thread(target=_catchup_run, daemon=True).start()
+    return True
+
+
+def _catchup_rotation_slot(p, now_ist, reason: str) -> bool:
+    """The second half of the catch-up (entry-fix 2026-10-22, owner card
+    D5): today's in-hours scan already ran, so start only what the stored
+    rotation record says is missing — the afternoon rotation (box asleep at
+    14:30) or the categories a killed rotation never reached."""
+    import threading
+    from datetime import datetime as _dt
+
+    from trading import category_budget as cb
+    plan = rotation_catchup_plan(getattr(p, "rotation_report", None), now_ist)
+    if plan["action"] == "none":
+        return False
+    names = ", ".join(cb.LABELS.get(m, m) for m in plan["missing"])
+    if plan["action"] == "afternoon":
+        why = (f"{plan['why']}; triggered by {reason} at "
+               f"{now_ist:%H:%M} IST. Running the 14:30 rotation now "
+               f"({names}).")
+    else:
+        why = (f"{plan['why']}; triggered by {reason} at {now_ist:%H:%M} IST. "
+               f"Running ONLY the categories it never reached: {names}. "
+               f"Categories that already ran are not run again.")
+    log.info("[catchup:%s] %s", reason, why)
+    p.decision_journal.append({
+        "ts": _dt.utcnow().isoformat(), "action": "SCAN_CATCHUP",
+        "slot": plan["slot"], "plan": plan["action"],
+        "missing": list(plan["missing"]), "why": why,
+    })
+    try:
+        p.save()
+    except Exception:                                   # noqa: BLE001
+        pass
+    entry = plan["entry"]
+
+    def _run():
+        from trading.universe_refresh import refreshed_today
+        if not refreshed_today():
+            _universe_refresh_job()
+        if plan["slot"] == "14:30":
+            if entry is None:
+                _deployment_topup_scan()
+            else:
+                _deployment_topup_scan(resume=entry)
+        else:
+            _daily_multi_mode_scan(resume=entry)
+
+    threading.Thread(target=_run, daemon=True).start()
     return True
 
 
@@ -831,7 +1056,7 @@ def _square_off_pass() -> None:
 _DAILY_MODE_ORDER = ["nifty200_momentum", "intraday", "short", "swing",
                      "positional"]
 
-def _deployment_topup_scan() -> None:
+def _deployment_topup_scan(resume: Optional[dict] = None) -> None:
     """14:30 IST: a second pass of ALL FIVE categories (owner order
     2026-10-04, "14:30 scan as well").
 
@@ -843,7 +1068,11 @@ def _deployment_topup_scan() -> None:
     gone: since the same day's order each category spends only its own cash
     share (trading/category_budget.py), so `risk.can_open` already stops a
     category that has spent its share, and a book-wide 60% line would only
-    stop the categories that still have room."""
+    stop the categories that still have room.
+
+    `resume` (entry-fix 2026-10-22, owner card D5): a stored 14:30 rotation
+    record that was cut short — only the categories it never reached run,
+    and they finish THAT record. Passed only by the boot / login catch-up."""
     from trading.calendars import is_trading_day
     if not is_trading_day():
         return
@@ -859,7 +1088,11 @@ def _deployment_topup_scan() -> None:
         # (free plan) meets the ex-date here first — absorb the split and
         # replace the history before the rotation's exit pass reads either.
         apply_corporate_actions_job("14:30")
-        summary = _run_category_rotation(state.engine(), state.cfg(), "14:30")
+        if resume:
+            summary = _run_category_rotation(state.engine(), state.cfg(),
+                                             "14:30", resume=resume)
+        else:
+            summary = _run_category_rotation(state.engine(), state.cfg(), "14:30")
         log.info("[14:30] Top-up rotation complete: %s", " · ".join(summary))
     finally:
         _ROTATION_LOCK.release()
@@ -2436,6 +2669,11 @@ WEEKLY_BLOCK_KEY = "weekly_block_date"
 # "done" and leave the store short for a week, which is the shape of
 # the bug this whole round is fixing.
 WEEKLY_BLOCK_LEFT_KEY = "weekly_block_remaining"
+# 2026-10-22 (owner card D6): the pull hit its total time cap and was left
+# running in the background, so what it still owes is UNKNOWN. True keeps
+# the block due the next trading day (like a remainder) without writing a
+# made-up count into WEEKLY_BLOCK_LEFT_KEY.
+WEEKLY_BLOCK_PULL_CUT_KEY = "weekly_block_pull_cut"
 
 
 def weekly_block_due(today=None) -> tuple[bool, str]:
@@ -2472,6 +2710,10 @@ def weekly_block_due(today=None) -> tuple[bool, str]:
     if left > 0:
         return True, (f"the OHLCV pull still owes {left} name(s) — it stopped "
                       f"on its time budget, so it resumes today")
+    if ledger.get(WEEKLY_BLOCK_PULL_CUT_KEY):
+        return True, ("the OHLCV pull hit its total time cap last run (how "
+                      "many names it still owes is unknown), so it resumes "
+                      "today")
     # Owner order 2026-10-12: the fundamentals step is time-budgeted and
     # resumable the same way — an unfinished month brings the block back
     # tomorrow (the other feeds are cheap and idempotent; the pull skips
@@ -2500,18 +2742,20 @@ def weekly_block_due(today=None) -> tuple[bool, str]:
             f"({last}) — Friday's run did not complete")
 
 
-def _mark_weekly_block_done(remaining: int = 0) -> None:
+def _mark_weekly_block_done(remaining: int = 0, pull_cut: bool = False) -> None:
     """Record completion, and what the bounded pull still owes.
 
     `remaining > 0` keeps the block due tomorrow instead of in seven days —
     the pull is incremental, so an unfinished store is a reason to run again,
-    not a failure to report.
+    not a failure to report. `pull_cut` (2026-10-22) does the same when the
+    pull was abandoned at its time cap and its remainder is unknown.
     """
     from datetime import date as _date
     try:
         from . import db
         db.save_settings({WEEKLY_BLOCK_KEY: _date.today().isoformat(),
-                          WEEKLY_BLOCK_LEFT_KEY: int(remaining or 0)},
+                          WEEKLY_BLOCK_LEFT_KEY: int(remaining or 0),
+                          WEEKLY_BLOCK_PULL_CUT_KEY: bool(pull_cut)},
                          doc_id="data_refresh")
     except Exception:
         log.exception("could not record the weekly block completion")
@@ -2753,7 +2997,55 @@ def refresh_liquid_universe(where: str = "weekly") -> dict:
         return {}
 
 
-def _run_weekly_step(label: str, fn, journal) -> bool:
+def weekly_step_budget_s() -> Optional[float]:
+    """The total time one weekly step may take (owner card D6 2026-10-22,
+    "10 min cap per step"): env SB_WEEKLY_STEP_BUDGET_S, default 600 s;
+    <= 0 = no cap (the pre-2026-10-22 behaviour)."""
+    try:
+        v = float(os.environ.get("SB_WEEKLY_STEP_BUDGET_S",
+                                 WEEKLY_STEP_BUDGET_S_DEFAULT))
+    except ValueError:
+        v = WEEKLY_STEP_BUDGET_S_DEFAULT
+    return v if v > 0 else None
+
+
+def _plus_grace(inner: Optional[float]) -> Optional[float]:
+    return None if inner is None else float(inner) + WEEKLY_STEP_GRACE_S
+
+
+def _weekly_step_budget_for(label: str) -> Optional[float]:
+    """Per-step overrides of the 10-minute cap — a step that already bounds
+    itself keeps its own budget (+ WEEKLY_STEP_GRACE_S) instead of being cut
+    at 600 s mid-save. None = no cap."""
+    if weekly_step_budget_s() is None:
+        return None                            # the owner switched the cap off
+    if label == "fundamentals refresh":
+        return _plus_grace(fundamentals_time_budget_s())
+    if label == WEEKLY_PULL_LABEL:
+        try:
+            pull = float(os.environ.get("SB_TOPUP_BUDGET_S", "2400"))
+        except ValueError:
+            pull = 2400.0
+        return _plus_grace(pull)
+    if label == "register precompute":
+        # waits up to REGISTER_WAIT_S for the 16:45 run's lock, then computes
+        return REGISTER_WAIT_S + weekly_step_budget_s()
+    if label == "valuation precompute":
+        # waits for the register run + a Den open, then spends its own budget
+        return _plus_grace(VALUATION_WAIT_FOR_REGISTER_S + VALUATION_WAIT_FOR_DEN_S
+                           + max(0.0, valuation_precompute_budget_s()))
+    return weekly_step_budget_s()
+
+
+#: The OHLCV pull's step label (its cap = SB_TOPUP_BUDGET_S + grace).
+WEEKLY_PULL_LABEL = "OHLCV pull"
+#: Steps abandoned at their cap whose thread may still be running
+#: ({label: (thread, abandoned_at_utc_iso)}). A step still running from an
+#: earlier block is not started a second time on top of it.
+_ABANDONED_STEPS: dict = {}
+
+
+def _run_weekly_step(label: str, fn, journal, budget_s: object = "default") -> bool:
     """Run ONE Friday sub-job so its failure cannot take out the others.
 
     FIX 2026-08-29 (owner order "fix it"): every weekly sub-job used to sit
@@ -2762,21 +3054,83 @@ def _run_weekly_step(label: str, fn, journal) -> bool:
     OHLCV pull. Most sub-jobs already catch their own exceptions; this is
     the outer guarantee that an import error or an unexpected escape in one
     feed cannot cost the owner the other seven.
+
+    TOTAL CAP 2026-10-22 (owner card D6, "10 min cap per step"): the step
+    runs in its own daemon thread and the block waits at most `budget_s`
+    (default `_weekly_step_budget_for(label)`: 600 s, longer for the steps
+    that bound themselves). A step still running then is ABANDONED — Python
+    cannot stop a thread, so it finishes (or hangs) on its own, its late
+    writes are real data — and the next step starts: journal
+    DATA_REFRESH_STEP_TIMEOUT {step, elapsed_s}. Every evening block watched
+    from 10-09 to 10-19 stalled with no universe rebuild: a feed's
+    per-request timeouts are not a total deadline. Returns True only when
+    the step finished without raising inside its cap.
     """
-    try:
-        fn()
-        return True
-    except Exception as e:                      # noqa: BLE001 - isolation
-        log.exception("weekly sub-job %s failed: %s", label, e)
-        journal("DATA_REFRESH_STEP_FAILED",
-                f"Friday data block: {label} crashed ({e}) — the other "
-                f"weekly feeds still ran.")
+    import threading as _th
+
+    budget = _weekly_step_budget_for(label) if budget_s == "default" else budget_s
+    prev = _ABANDONED_STEPS.get(label)
+    if prev is not None and prev[0].is_alive():
+        _journal_step(journal, "DATA_REFRESH_STEP_TIMEOUT",
+                      f"Weekly data block: {label} is STILL running from the "
+                      f"block of {prev[1][:16]} UTC (abandoned at its time cap) "
+                      f"— not started a second time; the next step runs.",
+                      step=label, elapsed_s=None, still_running=True)
         return False
+    box: dict = {}
+
+    def _target():
+        try:
+            fn()
+            box["ok"] = True
+        except BaseException as e:              # noqa: BLE001 - isolation
+            box["err"] = e
+
+    t0 = time.monotonic()
+    worker = _th.Thread(target=_target, daemon=True, name=f"weekly-{label}")
+    try:
+        worker.start()
+        worker.join(timeout=budget)
+        elapsed = round(time.monotonic() - t0, 1)
+        if worker.is_alive():
+            from datetime import datetime as _dt
+            _ABANDONED_STEPS[label] = (worker, _dt.utcnow().isoformat())
+            log.error("weekly sub-job %s still running after %.1f s — "
+                      "abandoned, the next step starts", label, elapsed)
+            _journal_step(journal, "DATA_REFRESH_STEP_TIMEOUT",
+                          f"Weekly data block: {label} hit its {budget:.0f} s "
+                          f"time cap ({elapsed:.0f} s) and was left running in "
+                          f"the background — the next weekly step started.",
+                          step=label, elapsed_s=elapsed)
+            return False
+        _ABANDONED_STEPS.pop(label, None)
+        if "err" in box:
+            e = box["err"]
+            log.error("weekly sub-job %s failed: %s", label, e, exc_info=e)
+            _journal_step(journal, "DATA_REFRESH_STEP_FAILED",
+                          f"Friday data block: {label} crashed ({e}) — the "
+                          f"other weekly feeds still ran.")
+            return False
+        return True
     finally:
         # 2026-10-05: each Friday feed hands its memory back before the next
         # one loads (the block's peak was 326 MiB on 09-30).
         from .memory_relief import release as release_memory
         release_memory(f"weekly {label}")
+
+
+def _journal_step(journal, action: str, why: str, **extra) -> None:
+    """Journal through the block's own writer; extra fields when it takes
+    them. Never raises."""
+    try:
+        journal(action, why, **extra)
+    except TypeError:
+        try:
+            journal(action, why)
+        except Exception:                               # noqa: BLE001
+            pass
+    except Exception:                                   # noqa: BLE001
+        pass
 
 
 def _weekly_history_topup() -> None:
@@ -2787,11 +3141,14 @@ def _weekly_history_topup() -> None:
     Mongo offline skips, and both journal DATA_REFRESH_SKIPPED instead of
     silently doing nothing.
 
-    ORDER (2026-08-29): journal DATA_REFRESH_WEEKLY_START, then the six
-    short store-independent feeds each isolated, THEN the OHLCV pull
-    (journals DATA_REFRESH_WEEKLY with the counts), then the two
-    store-derived recomputes. A crashed or interrupted pull can no longer
-    cost the week's FII/constituents/fundamentals/SEBI data.
+    ORDER (2026-08-29, rebuild moved first 2026-10-22): journal
+    DATA_REFRESH_WEEKLY_START, then the liquidity-universe rebuild, then the
+    six short store-independent feeds, THEN the OHLCV pull (journals
+    DATA_REFRESH_WEEKLY with the counts), then the store-derived recomputes.
+    Each is isolated AND capped in time (`_run_weekly_step`, owner card D6:
+    10 min a step; the fundamentals step and the pull keep their own longer
+    budgets). A crashed, hung or interrupted step can no longer cost the
+    steps behind it.
 
     Scope of the pull = tickers already in the store, plus anything held,
     plus the full universe file (~2,400 names since PR #68 — the store
@@ -2805,10 +3162,11 @@ def _weekly_history_topup() -> None:
     from . import db, state
     eng = state.engine()
 
-    def _journal(action, why):
+    def _journal(action, why, **extra):
         try:
             eng.portfolio.decision_journal.append(
-                {"ts": _dt.utcnow().isoformat(), "action": action, "why": why})
+                {"ts": _dt.utcnow().isoformat(), "action": action, "why": why,
+                 **extra})
             eng.portfolio.save()
         except Exception:
             pass
@@ -2853,13 +3211,26 @@ def _weekly_history_topup() -> None:
     # SEBI). Measured on the live box 2026-08-28: the store held
     # 573 of 2,428 names after two full-scope Fridays — the pull was not
     # finishing, so those five were the ones paying for it.
-    _topup_remaining = 0
     _journal("DATA_REFRESH_WEEKLY_START",
-             f"Weekly data block started ({why}): short feeds first, then "
-             f"the full-universe OHLCV top-up.")
+             f"Weekly data block started ({why}): universe rebuild first, then "
+             f"the short feeds, then the full-universe OHLCV top-up — each step "
+             f"capped (owner card D6, 2026-10-22).")
 
-    # Independent of the store's freshness — cheap, so they go first and
-    # are done long before anything can interrupt the pull.
+    # OWNER CARD D6 2026-10-22: the universe rebuild runs FIRST — before the
+    # six feeds, not after them. It ranks whatever the store ALREADY holds
+    # and needs none of them; behind them it waited on every feed, and every
+    # evening block watched from 10-09 to 10-19 stalled before the rebuild
+    # stamped, leaving the scan list on the 09-30 ranking. Every step now
+    # also has a total time cap (`_run_weekly_step`).
+    #
+    # (Moved IN FRONT OF THE PULL 2026-09-11, owner: "why system still
+    # stucking at 49" — it sat after the ~hour-long pull, and a pull cut
+    # short by a restart meant the universe was never rebuilt at all.)
+    _run_weekly_step("liquidity universe",
+                     lambda: refresh_liquid_universe("weekly"), _journal)
+
+    # Independent of the store's freshness — cheap, so they go before the
+    # pull and are done long before anything can interrupt it.
     for _label, _fn in (
         ("FII tide (NSDL)", _weekly_fii_refresh),
         ("index tail", _weekly_index_refresh),
@@ -2867,68 +3238,70 @@ def _weekly_history_topup() -> None:
         ("constituents snapshot", _monthly_constituents_snapshot),
         ("fundamentals refresh", _monthly_fundamentals_refresh),
         ("SEBI orders", _weekly_sebi_refresh),
-        # MOVED IN FRONT OF THE PULL 2026-09-11 (owner: "why system still
-        # stucking at 49"). It used to sit AFTER the ~hour-long OHLCV pull,
-        # the exact position that cost five other feeds a week each and that
-        # I moved THEM out of on 2026-08-29 — and unlike its two remaining
-        # post-pull neighbours it has NO daily counterpart, so a pull cut
-        # short by a container restart meant the universe was never rebuilt
-        # at all. Measured evidence it never ran: the live store sat at 573
-        # names for twelve days while custom_universe stayed the hand-typed
-        # 49. It ranks whatever the store ALREADY holds and never needed the
-        # pull to have just finished, so nothing is lost by running first —
-        # the list is simply one pull behind, which beats never.
-        ("liquidity universe", lambda: refresh_liquid_universe("weekly")),
     ):
         _run_weekly_step(_label, _fn, _journal)
 
-    try:
-        from trading.brokers.upstox_instruments import to_instrument_keys
-        from trading.history_store import top_up_history
-        tickers = {m["ticker"] for m in db.list_history_meta() if m.get("ticker")}
-        tickers |= set(eng.portfolio.positions.keys())
-        # REVIEW FIX (PR #68): the scope used to be "already stored +
-        # held", so the store could never GROW — it sat at the original 191
-        # names, which also starved the F3 breadth reading of the wide
-        # sample it claims. The full universe file (~2,400 tradeable names)
-        # is now included: tokenless since F1, one bounded request per
-        # stale name, off-hours on Friday, merged one doc at a time so the
-        # 512 MB box never holds more than one name's frame.
+    _pull_box: dict = {}
+
+    def _pull():
         try:
-            from trading.universes import load_full_universe
-            tickers |= set(load_full_universe())
-        except Exception:
-            log.exception("weekly top-up: universe file unreadable — "
-                          "refreshing stored+held only")
-        keys = to_instrument_keys(sorted(tickers))
-        # BOUNDED (2026-09-11): 40 minutes, then stop and finish the block.
-        # The store lacked 2,075 of the universe's names and the pull needs
-        # ~1.8s each — over an hour in one go, on a box that restarts on
-        # every deploy, so it never completed and everything sequenced after
-        # it never ran. Each run now saves what it fetched and the next run
-        # resumes; the ledger below records a real completion either way.
-        summ = top_up_history(
-            broker, keys,
-            load_doc=db.load_history_doc,
-            save_doc=db.save_history_doc,
-            today=date.today(),
-            time_budget_s=float(os.environ.get("SB_TOPUP_BUDGET_S", "2400")),
-        )
-        _left = summ.get("remaining", 0)
-        _topup_remaining = _left
-        _journal("DATA_REFRESH_WEEKLY",
-                 f"Weekly OHLCV top-up: {summ['ok']} refreshed, "
-                 f"{summ['skipped_fresh']} already fresh, "
-                 f"{summ['failed']} failed of {summ['total']} "
-                 f"in {summ.get('elapsed_s', 0)}s."
-                 + (f" STOPPED on the {summ.get('stopped')} with {_left} "
-                    f"name(s) left — the next run resumes from there, and "
-                    f"the names already saved stay saved."
-                    if _left else " Complete."))
-        log.info("[fri 16:30] weekly history top-up: %s", summ)
-    except Exception as e:
-        log.exception("weekly history top-up failed: %s", e)
-        _journal("DATA_REFRESH_FAILED", f"Weekly OHLCV top-up crashed: {e}")
+            from trading.brokers.upstox_instruments import to_instrument_keys
+            from trading.history_store import top_up_history
+            tickers = {m["ticker"] for m in db.list_history_meta() if m.get("ticker")}
+            tickers |= set(eng.portfolio.positions.keys())
+            # REVIEW FIX (PR #68): the scope used to be "already stored +
+            # held", so the store could never GROW — it sat at the original
+            # 191 names, which also starved the F3 breadth reading of the
+            # wide sample it claims. The full universe file (~2,400
+            # tradeable names) is now included: tokenless since F1, one
+            # bounded request per stale name, off-hours on Friday, merged one
+            # doc at a time so the 512 MB box never holds more than one
+            # name's frame.
+            try:
+                from trading.universes import load_full_universe
+                tickers |= set(load_full_universe())
+            except Exception:
+                log.exception("weekly top-up: universe file unreadable — "
+                              "refreshing stored+held only")
+            keys = to_instrument_keys(sorted(tickers))
+            # BOUNDED (2026-09-11): 40 minutes, then stop and finish the
+            # block. The store lacked 2,075 of the universe's names and the
+            # pull needs ~1.8s each — over an hour in one go, on a box that
+            # restarts on every deploy, so it never completed and everything
+            # sequenced after it never ran. Each run now saves what it
+            # fetched and the next run resumes; the ledger below records a
+            # real completion either way.
+            summ = top_up_history(
+                broker, keys,
+                load_doc=db.load_history_doc,
+                save_doc=db.save_history_doc,
+                today=date.today(),
+                time_budget_s=float(os.environ.get("SB_TOPUP_BUDGET_S", "2400")),
+            )
+            _left = summ.get("remaining", 0)
+            _pull_box["remaining"] = _left
+            _journal("DATA_REFRESH_WEEKLY",
+                     f"Weekly OHLCV top-up: {summ['ok']} refreshed, "
+                     f"{summ['skipped_fresh']} already fresh, "
+                     f"{summ['failed']} failed of {summ['total']} "
+                     f"in {summ.get('elapsed_s', 0)}s."
+                     + (f" STOPPED on the {summ.get('stopped')} with {_left} "
+                        f"name(s) left — the next run resumes from there, and "
+                        f"the names already saved stay saved."
+                        if _left else " Complete."))
+            log.info("[fri 16:30] weekly history top-up: %s", summ)
+        except Exception as e:
+            log.exception("weekly history top-up failed: %s", e)
+            _journal("DATA_REFRESH_FAILED", f"Weekly OHLCV top-up crashed: {e}")
+
+    # The pull keeps its own SB_TOPUP_BUDGET_S budget; the step cap is that
+    # plus WEEKLY_STEP_GRACE_S (`_weekly_step_budget_for`). A pull still
+    # running at the cap is left in the background and the block finishes;
+    # the ledger then keeps the block due tomorrow (pull_cut), because how
+    # many names it still owes is unknown — never a guessed count.
+    _pull_done = _run_weekly_step(WEEKLY_PULL_LABEL, _pull, _journal)
+    _topup_remaining = int(_pull_box.get("remaining", 0) or 0)
+    _pull_cut = (not _pull_done) and "remaining" not in _pull_box
 
     # These two READ the store, so they can only follow the top-up. They are
     # isolated from it and from each other: a failed or partial pull still
@@ -2965,7 +3338,7 @@ def _weekly_history_topup() -> None:
     # "the store is full" are different facts. A remainder keeps the block
     # due tomorrow rather than in seven days, so the store fills over
     # consecutive evenings instead of needing one uninterrupted hour.
-    _mark_weekly_block_done(_topup_remaining)
+    _mark_weekly_block_done(_topup_remaining, pull_cut=_pull_cut)
 
 
 def _session_refresh() -> None:
@@ -3038,7 +3411,8 @@ def _exit_pass_due(cfg) -> bool:
     return (time.monotonic() - last) >= mins * 60
 
 
-def _run_category_rotation(eng, cfg, where: str) -> list:
+def _run_category_rotation(eng, cfg, where: str,
+                           resume: Optional[dict] = None) -> list:
     """Scan every category in `_DAILY_MODE_ORDER` under ONE held mode lock,
     restoring the owner's mode at the end. Shared by 09:20 and 14:30.
 
@@ -3047,7 +3421,17 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
     is a refresh interval old, `engine.refresh()` runs here. It reads each
     position's OWN category rules (`engine._exit_cfg`), never the shared
     cfg.mode the rotation is flipping, so running it mid-rotation is safe.
-    Caller holds `_ROTATION_LOCK`."""
+    Caller holds `_ROTATION_LOCK`.
+
+    ENTRY-FIX 2026-10-22 (owner card D5): the record is stored on
+    `portfolio.rotation_report` (and the book saved) when the rotation
+    starts and after EVERY category pass, with `finished` empty until the
+    end — a process killed mid-rotation used to leave no record at all, so
+    the WHY NO BUY card showed the earlier rotation and the catch-up could
+    not tell which categories never ran. `resume` = such a cut-short record:
+    only its missing categories run, and they finish THAT record."""
+    import uuid
+
     from trading.calendars import is_market_open
     from trading.modes import MODE_LOCK
     from .memory_relief import release as release_memory
@@ -3058,9 +3442,25 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
     from datetime import datetime as _dt
     from .clock import ist_today_iso
     from . import why_no_buy as wnb
-    rot: dict = {"date": ist_today_iso(), "where": where,
-                 "started": _dt.utcnow().isoformat(), "order": list(_DAILY_MODE_ORDER),
-                 "passes": {}, "opened_total": 0, "finished": None}
+    if resume:
+        rot = dict(resume)
+        rot["passes"] = dict(resume.get("passes") or {})
+        rot["order"] = list(resume.get("order") or _DAILY_MODE_ORDER)
+        rot["rid"] = resume.get("rid") or uuid.uuid4().hex[:12]
+        rot["finished"] = None
+        to_run = _missing_categories(rot)
+        rot["resumed"] = list(resume.get("resumed") or []) + [
+            {"at": _dt.utcnow().isoformat(), "modes": list(to_run)}]
+    else:
+        rot = {"rid": uuid.uuid4().hex[:12], "date": ist_today_iso(),
+               "where": where, "started": _dt.utcnow().isoformat(),
+               "order": list(_DAILY_MODE_ORDER), "passes": {},
+               "opened_total": 0, "finished": None}
+        to_run = list(_DAILY_MODE_ORDER)
+    _CURRENT_ROTATION.clear()
+    _CURRENT_ROTATION.update({"rid": rot["rid"], "started": rot.get("started"),
+                              "where": rot.get("where", where)})
+    _save_rotation_progress(eng, rot)
     # AUDIT S-6 (2026-10-02): the lock is held for the WHOLE rotation,
     # restore included. Releasing it between passes left cfg.mode on the
     # previous pass's category, so an owner buy that slipped in between read
@@ -3068,8 +3468,11 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
     # then say a scan is running.
     MODE_LOCK.acquire()
     original_mode = getattr(cfg, "mode", "swing")
+    completed = False
     try:
         for m in _DAILY_MODE_ORDER:
+            if m not in to_run:
+                continue                  # a resume: this category already ran today
             if is_market_open() and _exit_pass_due(cfg):
                 try:
                     eng.refresh()
@@ -3089,6 +3492,9 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
                         getattr(eng.portfolio, "breadth_today", None))
                 except Exception:
                     log.exception("[%s] why-no-buy record for %s failed", where, m)
+                    # the pass RAN — a catch-up must never re-run it
+                    rot["passes"][m] = wnb.bare_record(
+                        m, len(getattr(res, "opened", None) or []))
                 # OWNER 2026-10-11 item 28: the watchlist capture is taken
                 # RIGHT AFTER the momentum pass, while scan_matrix /
                 # last_scan_skipped / last_scan_opened still hold THAT pass —
@@ -3104,7 +3510,6 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
                 # Silent dead mornings are forbidden: the failure goes into the
                 # journal so the dashboard trigger card SHOWS it the same day.
                 try:
-                    from datetime import datetime as _dt
                     eng.portfolio.decision_journal.append({
                         "ts": _dt.utcnow().isoformat(), "action": "SCAN_FAILED",
                         "mode": m,
@@ -3115,11 +3520,15 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
                 except Exception:
                     pass
             finally:
+                # 2026-10-22: the pass is on the stored record BEFORE the next
+                # one starts — that is where a kill lands.
+                _save_rotation_progress(eng, rot)
                 # 512 MB guard: drop each mode's OHLCV panels before the next
                 # mode downloads its own — and hand the freed pages back to
                 # the OS (2026-10-05: gc alone left the process holding
                 # 353-494 MiB after a rotation; see web/memory_relief.py).
                 release_memory(f"{where} {m}")
+        completed = True
     finally:
         # AUDIT FIX C3: the restore is in a finally — an escape mid-loop
         # used to leave cfg.mode stuck on whatever mode the loop died in.
@@ -3128,12 +3537,28 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
             cfg.apply_mode_preset()
         finally:
             MODE_LOCK.release()
+            if not completed:
+                _CURRENT_ROTATION.clear()     # an escape: no rotation runs here now
     _record_rotation(eng, rot)
+    _CURRENT_ROTATION.clear()
     return summary
 
 
+def _save_rotation_progress(eng, rot: dict) -> None:
+    """Store the rotation record as it stands (finished still empty) and
+    save the book, so a process killed before the next pass leaves an
+    honest record. Never raises — a failure here must not cost the scan."""
+    from . import why_no_buy as wnb
+    try:
+        eng.portfolio.rotation_report = wnb.upsert_rotation(
+            getattr(eng.portfolio, "rotation_report", None), rot)
+        eng.portfolio.save()
+    except Exception:
+        log.exception("[%s] rotation progress record failed", rot.get("where"))
+
+
 def _record_rotation(eng, rot: dict) -> None:
-    """Store the rotation record and journal the ROTATION_SUMMARY line.
+    """Finish the rotation record and journal the ROTATION_SUMMARY line.
     Never raises — a failure here must not cost the scan."""
     from datetime import datetime as _dt
     from . import why_no_buy as wnb
@@ -3141,7 +3566,7 @@ def _record_rotation(eng, rot: dict) -> None:
         rot["finished"] = _dt.utcnow().isoformat()
         rot["opened_total"] = sum(int(r.get("opened") or 0) for r in rot["passes"].values())
         text = wnb.summary_text(rot)
-        eng.portfolio.rotation_report = wnb.add_rotation(
+        eng.portfolio.rotation_report = wnb.upsert_rotation(
             getattr(eng.portfolio, "rotation_report", None), rot)
         eng.portfolio.decision_journal.append({
             "ts": rot["finished"], "action": "ROTATION_SUMMARY",
@@ -3246,13 +3671,23 @@ def _degraded_halt(where: str) -> bool:
     """AUDIT FIX C1: a boot during a Mongo outage used to trade a phantom
     fresh book all day, and those trades vanished at the next restart. While
     Mongo is expected-but-down, scans do NOT open positions; the halt is
-    journaled once per day and pushed to the phone."""
+    journaled once per day and pushed to the phone.
+
+    XR-071 (entry-fix 2026-10-22): the same halt now also covers Mongo that
+    ANSWERS but REFUSES the book save (the September quota episode) — the
+    connection flag never dropped, so the scans kept buying into a book that
+    was not being saved. One probe save first: if it lands, writes are back
+    and nothing halts. Exits are never touched (they run in engine.refresh).
+    This ADDS a halt: while the database refuses writes, nothing is bought.
+    """
     from datetime import datetime as _dt
 
-    from . import state
+    from . import db, state
     state.heal_after_reconnect()
     if not state.mongo_degraded():
-        return False
+        if db.writes_landing():
+            return False
+        return _write_refused_halt(where)
     p = state.portfolio()
     today = _dt.utcnow().date().isoformat()
     if not any(e.get("action") == "MONGO_OFFLINE_HALT"
@@ -3269,13 +3704,59 @@ def _degraded_halt(where: str) -> bool:
     return True
 
 
-def _daily_multi_mode_scan() -> None:
+def _write_refused_halt(where: str) -> bool:
+    """Mongo answers but refused the last book save (db.writes_landing()
+    False). Probe once with a real save — the database may have room again
+    (the owner freed space) — and halt only if it is still refused. Journaled
+    once a day as MONGO_WRITE_REFUSED_HALT with the database's own words."""
+    from datetime import datetime as _dt
+
+    from . import db, state
+    p = state.portfolio()
+    try:
+        p.save()                       # the probe: a landed save clears the flag
+    except Exception:                                   # noqa: BLE001
+        log.exception("[%s] probe save before the write-refused check failed", where)
+    if db.writes_landing():
+        log.info("[%s] Mongo writes landing again — no halt", where)
+        return False
+    err = getattr(db, "LAST_WRITE_ERROR", None) or "unknown"
+    today = _dt.utcnow().date().isoformat()
+    if not any(e.get("action") == "MONGO_WRITE_REFUSED_HALT"
+               and str(e.get("ts", "")).startswith(today)
+               for e in p.decision_journal[-100:]):
+        p.decision_journal.append({
+            "ts": _dt.utcnow().isoformat(), "action": "MONGO_WRITE_REFUSED_HALT",
+            "error": str(err)[:200],
+            "why": (f"[{where}] the database is refusing to save the book "
+                    f"({str(err)[:160]}) — new entries halted, because a buy "
+                    "now would vanish at the next restart. Exits still run. "
+                    "The halt lifts by itself at the first save that lands."),
+        })
+        try:
+            p.save()                   # lands on disk (JSON) even while Mongo refuses
+        except Exception:                               # noqa: BLE001
+            pass
+    log.error("[%s] Mongo refusing writes (%s) — scan entries halted", where, err)
+    return True
+
+
+def _daily_multi_mode_scan(resume: Optional[dict] = None) -> None:
     """Once a day at 09:20 IST: scan in each mode and open whatever passes.
 
     Target: 60-70% capital deployed across the week. Each scan is fully
     gated by the engine's risk controls, so this only opens picks that
     pass score + timing + correlation + drawdown + liquidity + earnings
     blackouts. Aborted modes (e.g. blacklisted regime) are skipped silently.
+
+    `resume` (entry-fix 2026-10-22, owner card D5): a stored 09:20 rotation
+    record that was cut short — only its missing categories run (the day's
+    breadth / index / sector readings were already taken this morning).
+
+    The trigger layer no longer runs here (owner card D7, 2026-10-22): it
+    loaded on top of the rotation's ~490 MiB and Render killed the box
+    eight mornings out of eight. It runs as `trigger_layer_cooldown`
+    TRIGGER_COOLDOWN_MIN after the rotation, only below the memory ceiling.
     """
     from . import state
     eng = state.engine()
@@ -3304,30 +3785,36 @@ def _daily_multi_mode_scan() -> None:
         _topup_once_today("09:20")
     except Exception:
         log.exception("daily top-up failed before the scan")
-    # F3: refresh the full-store breadth reading BEFORE the scans, so the A3
-    # gate judges today's entries on ~2,700 names instead of the day's
-    # ~50-name bucket. Isolated — a failure leaves the previous reading and
-    # the gate's bucket fallback intact, and can never stop the scan.
+    # A resume (2026-10-22) skips the three readings below: the process that
+    # was cut short already took them this morning, and they are stored.
+    if resume is None:
+        # F3: refresh the full-store breadth reading BEFORE the scans, so the
+        # A3 gate judges today's entries on ~2,700 names instead of the day's
+        # ~50-name bucket. Isolated — a failure leaves the previous reading
+        # and the gate's bucket fallback intact, and can never stop the scan.
+        try:
+            refresh_breadth_store("09:20")
+        except Exception:
+            log.exception("breadth refresh failed before daily scan")
+        # OWNER FAULT REPORT 2026-08-26 ("still on sensex and all, it show
+        # 7 august"): the index tail was wired WEEKLY (Friday 16:30) on a
+        # Sunday — so no run had ever happened and every page read the CSV
+        # frozen at its commit date. The refresh is idempotent and cheap
+        # (4 public candle calls, only dates past the newest held row), so it
+        # now runs DAILY here and at boot catch-up; Friday keeps its slot.
+        try:
+            _weekly_index_refresh()
+        except Exception:
+            log.exception("index refresh failed before daily scan")
+        try:
+            _sector_index_refresh()
+        except Exception:
+            log.exception("sector refresh failed before daily scan")
     try:
-        refresh_breadth_store("09:20")
-    except Exception:
-        log.exception("breadth refresh failed before daily scan")
-    # OWNER FAULT REPORT 2026-08-26 ("still on sensex and all, it show
-    # 7 august"): the index tail was wired WEEKLY (Friday 16:30) on a
-    # Sunday — so no run had ever happened and every page read the CSV
-    # frozen at its commit date. The refresh is idempotent and cheap
-    # (4 public candle calls, only dates past the newest held row), so it
-    # now runs DAILY here and at boot catch-up; Friday keeps its slot.
-    try:
-        _weekly_index_refresh()
-    except Exception:
-        log.exception("index refresh failed before daily scan")
-    try:
-        _sector_index_refresh()
-    except Exception:
-        log.exception("sector refresh failed before daily scan")
-    try:
-        summary = _run_category_rotation(eng, cfg, "09:20")
+        if resume:
+            summary = _run_category_rotation(eng, cfg, "09:20", resume=resume)
+        else:
+            summary = _run_category_rotation(eng, cfg, "09:20")
     finally:
         _ROTATION_LOCK.release()
     _check_pending_orders("post-scan")
@@ -3348,11 +3835,13 @@ def _daily_multi_mode_scan() -> None:
     # BEFORE the scans above (audit item 8, 2026-10-02).
     # 2026-10-05: the trigger layer loads its panels on top of whatever the
     # rotation left resident — that is what tipped the box over 512 MiB at
-    # 10:09 IST. Give the memory back first, and again after.
+    # 10:09 IST, and on every observed morning since (eight kills, peak 538).
+    # OWNER CARD D7 2026-10-22 ("Trigger layer after a cool-down"): it no
+    # longer runs here. Memory is handed back, and a one-shot job runs the
+    # layer TRIGGER_COOLDOWN_MIN later, only below the memory ceiling.
     from .memory_relief import release as release_memory
-    release_memory("09:20 before trigger layer")
-    run_trigger_layer("09:20")
-    release_memory("09:20 after trigger layer")
+    release_memory("09:20 after rotation, before the trigger layer cool-down")
+    _schedule_trigger_cooldown("09:20")
     _push_phone_alerts("09:20")
     log.info("[09:20] Daily multi-mode scan complete: %s", " · ".join(summary))
 
@@ -3461,6 +3950,117 @@ def _morning_topup_job() -> None:
     if not is_trading_day():
         return
     _topup_once_today("08:30")
+
+
+def _trigger_rss_ceiling_mb() -> float:
+    """The resident-memory line the trigger layer runs below (owner card D7
+    2026-10-22: 380 MiB, ASSUMED — see ASSUMED["trigger_rss_ceiling_mb"]).
+    Read through the Den's own reader so one env var moves both; <= 0 means
+    no ceiling."""
+    try:
+        from . import valuation_chain_view as cv
+        return float(cv.rss_ceiling_mb())
+    except Exception:                                   # noqa: BLE001
+        return float(ASSUMED["trigger_rss_ceiling_mb"]["value"])
+
+
+#: The in-process fallback timer when no APScheduler exists (never in tests).
+_COOLDOWN_TIMER: dict = {"t": None}
+
+
+def _schedule_trigger_cooldown(where: str, attempt: int = 0,
+                               delay_min: Optional[float] = None) -> Optional[str]:
+    """Arm the one-shot `trigger_layer_cooldown` job `delay_min` minutes from
+    now (default TRIGGER_COOLDOWN_MIN). One pending run at a time: a second
+    arming replaces the first. Returns "scheduler", "timer" or None."""
+    from datetime import timedelta as _td
+    delay = TRIGGER_COOLDOWN_MIN if delay_min is None else float(delay_min)
+    if _SCHED is not None:
+        try:
+            from pytz import timezone
+            _SCHED.add_job(
+                _trigger_layer_cooldown, "date",
+                run_date=startup_catchup_run_date(timezone("Asia/Kolkata"),
+                                                  _td(minutes=delay)),
+                args=[where, int(attempt)], id=TRIGGER_COOLDOWN_JOB_ID,
+                replace_existing=True,
+                misfire_grace_time=int(ASSUMED["trigger_cooldown_misfire_s"]["value"]))
+            log.info("[%s] trigger layer armed for +%.0f min (check %d of %d)",
+                     where, delay, attempt + 1, TRIGGER_MAX_RETRIES + 1)
+            return "scheduler"
+        except Exception:                               # noqa: BLE001
+            log.exception("[%s] could not arm the trigger cool-down job", where)
+    if os.environ.get("SB_SCHEDULER_NO_START") == "1":
+        log.info("[%s] trigger cool-down not armed (tests: no scheduler)", where)
+        return None
+    t = threading.Timer(delay * 60.0, _trigger_layer_cooldown,
+                        args=(where, int(attempt)))
+    t.daemon = True
+    old = _COOLDOWN_TIMER.get("t")
+    if old is not None:
+        try:
+            old.cancel()
+        except Exception:                               # noqa: BLE001
+            pass
+    _COOLDOWN_TIMER["t"] = t
+    t.start()
+    return "timer"
+
+
+def _trigger_layer_cooldown(where: str = "09:20", attempt: int = 0) -> str:
+    """The trigger layer, AFTER a cool-down (owner card D7, 2026-10-22).
+
+    Hands memory back, then runs `run_trigger_layer` only when no rotation
+    is running and the process sits below the ceiling. Otherwise it re-arms
+    TRIGGER_RETRY_MIN later, at most TRIGGER_MAX_RETRIES times, then gives
+    up for the day and journals TRIGGER_LAYER_DEFERRED with the reading.
+    Display and watchlist only — no buy, exit or stop reads the layer, so a
+    deferred day costs the watchlist / news / option-chain / FII snapshot,
+    never a trade. Returns "ran" | "retry" | "deferred"."""
+    from datetime import datetime as _dt
+
+    from . import memory_relief
+    from .memory_relief import release as release_memory
+    release_memory(f"{where} trigger cool-down check {attempt + 1}")
+    rss = memory_relief.rss_mb()
+    ceiling = _trigger_rss_ceiling_mb()
+    busy = _ROTATION_LOCK.locked()
+    high = ceiling > 0 and rss is not None and rss >= ceiling
+    if not busy and not high:
+        log.info("[%s] trigger layer after the cool-down (rss %s MiB)", where,
+                 "?" if rss is None else f"{rss:.0f}")
+        run_trigger_layer(f"{where} cool-down")
+        release_memory(f"{where} after trigger layer")
+        _push_phone_alerts(f"{where} triggers")
+        return "ran"
+    why = ("a category rotation is running" if busy else
+           f"the app is using {rss:.0f} MiB (the trigger layer runs below "
+           f"{ceiling:.0f} MiB)")
+    if attempt < TRIGGER_MAX_RETRIES:
+        log.warning("[%s] trigger layer waits: %s — next check in %.0f min",
+                    where, why, TRIGGER_RETRY_MIN)
+        _schedule_trigger_cooldown(where, attempt + 1, TRIGGER_RETRY_MIN)
+        return "retry"
+    try:
+        from . import state
+        p = state.portfolio()
+        p.decision_journal.append({
+            "ts": _dt.utcnow().isoformat(), "action": "TRIGGER_LAYER_DEFERRED",
+            "where": where, "attempts": attempt + 1,
+            "rss_mb": None if rss is None else round(float(rss), 1),
+            "ceiling_mb": ceiling,
+            "why": (f"Trigger layer NOT run today: {why} at each of "
+                    f"{attempt + 1} checks ({TRIGGER_COOLDOWN_MIN:.0f} min after "
+                    f"the rotation, then every {TRIGGER_RETRY_MIN:.0f} min). "
+                    "Display only: the trigger watchlist, news verdicts, "
+                    "option chain and FII snapshot keep yesterday's reading; "
+                    "no buy, exit or stop reads them."),
+        })
+        p.save()
+    except Exception:                                   # noqa: BLE001
+        log.exception("[%s] TRIGGER_LAYER_DEFERRED journal failed", where)
+    log.warning("[%s] trigger layer deferred for the day: %s", where, why)
+    return "deferred"
 
 
 TRIGGER_LAYER_MAX_TICKERS = 80    # bounded work on the 512 MB box

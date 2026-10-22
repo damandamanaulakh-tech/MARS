@@ -24,6 +24,7 @@ still useful.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional
@@ -91,14 +92,33 @@ def _fetch_pib_feed() -> list[dict]:
     return entries
 
 
+# XR-042 (2026-10-22 entry-path batch, owner: "fix all 14"): this was a raw
+# substring test — "EV" matched dEVelopment / EVery / lEVel, "API" matched
+# cAPItal, "road" bROADcast, "wind" WINDow, "chip" CHAMPIONSHIP, "DLI"
+# deaDLIne — and any match added +10/+20 to a sector's alignment score. The
+# same fault C5 fixed for "PLI" (2026-08-09). Now a keyword must start at a
+# word boundary and end at one (a plain plural s/es allowed: "chips",
+# "roads"). Keywords that are deliberate STEMS keep an open end.
+_KEYWORD_STEMS = {"indigen"}          # indigenous / indigenisation / indigenization
+
+
+def _kw_pattern(kw: str) -> str:
+    k = re.escape(kw.lower())
+    if kw.lower() in _KEYWORD_STEMS:
+        return rf"\b{k}"
+    return rf"\b{k}(?:s|es)?\b"
+
+
+_SECTOR_RE = {sector: re.compile("|".join(_kw_pattern(k) for k in kws),
+                                 re.IGNORECASE)
+              for sector, kws in SECTOR_KEYWORDS.items()}
+
+
 def _keyword_match_sectors(text: str) -> list[str]:
-    """Return list of sector names whose keywords match this text."""
-    text_l = text.lower()
-    matches: list[str] = []
-    for sector, kws in SECTOR_KEYWORDS.items():
-        if any(kw.lower() in text_l for kw in kws):
-            matches.append(sector)
-    return matches
+    """Return list of sector names whose keywords match this text (whole
+    words only — see XR-042 above)."""
+    text_l = (text or "").lower()
+    return [sector for sector, rx in _SECTOR_RE.items() if rx.search(text_l)]
 
 
 def scan_recent_policy_events(lookback_hours: int = 48) -> list[PolicyEvent]:

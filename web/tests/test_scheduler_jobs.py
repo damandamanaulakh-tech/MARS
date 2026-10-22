@@ -76,14 +76,26 @@ def test_rotation_lock_refuses_a_second_concurrent_run(monkeypatch):
 
 
 def test_catchup_skips_when_todays_scan_already_ran(monkeypatch):
+    # REPOINTED 2026-10-22 (entry-fix B-1/B-2): the catch-up now also reads
+    # the clock and the stored rotation record once today's scan ran — a
+    # morning clock and an empty record keep this pin about the morning rule
+    # (on the real clock a run crossing 14:30 would start the afternoon pass).
+    import datetime as _d
+    from web.clock import IST, ist_now
+    monkeypatch.setattr(scheduler, "_ist_now", lambda: _d.datetime.combine(
+        ist_now().date(), _d.time(10, 0), tzinfo=IST))
+    monkeypatch.setattr(scheduler, "_CURRENT_ROTATION", {})
     p = state.portfolio()
     old, old_live = p.last_scan, p.last_scan_live
+    old_rot = getattr(p, "rotation_report", None)
     p.last_scan = p.last_scan_live = datetime.utcnow().isoformat()
+    p.rotation_report = {}
     try:
         monkeypatch.setenv("SB_DISABLE_CATCHUP", "0")
         assert scheduler.catchup_scan_if_missed("test") is False
     finally:
         p.last_scan, p.last_scan_live = old, old_live
+        p.rotation_report = old_rot
 
 
 def test_catchup_respects_the_disable_env(monkeypatch):

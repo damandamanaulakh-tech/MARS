@@ -68,6 +68,33 @@ PRIOR_WIN_RATE = 0.5
 CLIP_PCT = 12.0
 # Full confidence at 300 closed trades — the ramp below it is linear.
 FULL_CONFIDENCE = 300
+# OWNER CARD 2026-10-22 ("Block only on 30+ usable trades"). Below this many
+# usable exits a NEGATIVE reading may only CAP a scan buy at the slab — it
+# can never block. Why: the prior smooths the win rate `p` toward 50%, but
+# the payoff ratio `b` is raw, so two trades (one +3%, one -10%) read as a
+# confident "no edge" and the old rule shut the momentum pass on them, and a
+# shut pass makes no new evidence that could ever clear it.
+MIN_BLOCK_TRADES = 30
+
+# Every number in this module that is a choice rather than a measurement,
+# with where it came from (the repo rule: an ASSUMED number names its source).
+ASSUMED = {
+    "PRIOR_TRADES": {"value": PRIOR_TRADES,
+                     "source": "AshStocks priorEquivalentTrades 50 (owner "
+                               "order 2026-09-10, adopted as designed)"},
+    "PRIOR_WIN_RATE": {"value": PRIOR_WIN_RATE,
+                       "source": "AshStocks priorWinRate 0.5 (same order)"},
+    "CLIP_PCT": {"value": CLIP_PCT,
+                 "source": "AshStocks return clip +/-12%; the live check uses "
+                           "max(12, momentum target) — audit F-9 2026-10-02"},
+    "FULL_CONFIDENCE": {"value": FULL_CONFIDENCE,
+                        "source": "AshStocks min(1, n/300) ramp (2026-09-10)"},
+    "MIN_BLOCK_TRADES": {"value": MIN_BLOCK_TRADES,
+                         "source": "owner card 2026-10-22 'Block only on 30+ "
+                                   "usable trades' — a thin record reads 'no "
+                                   "edge' because b is raw while p is "
+                                   "smoothed"},
+}
 
 # Exit reasons that are a VERDICT ON THE TRADE. These feed the estimator.
 STRATEGY_REASONS = frozenset({
@@ -185,6 +212,12 @@ class KellyReading:
     note: str = ""
     category: Optional[str] = None            # None = all categories pooled
     other_category: int = 0                   # trades left out for category
+    # Owner card 2026-10-22: True ONLY for a negative reading measured on
+    # fewer than `min_block_trades` usable exits — it then CAPS each momentum
+    # scan buy at the slab instead of blocking. False for every other reading
+    # (ACTIVE, NO_SAMPLE, or a negative reading on a full record = a block).
+    thin_record: bool = False
+    min_block_trades: int = MIN_BLOCK_TRADES
 
     def to_dict(self) -> dict:
         d = self.__dict__.copy()
@@ -196,7 +229,8 @@ def measure(trades: Iterable[Any], fraction: float = 0.29,
             min_trades: int = 0,
             full_confidence: int = FULL_CONFIDENCE,
             clip_pct: Optional[float] = None,
-            category: Optional[str] = None) -> KellyReading:
+            category: Optional[str] = None,
+            min_block_trades: int = MIN_BLOCK_TRADES) -> KellyReading:
     """Measure Kelly from closed trades. Pure.
 
     `fraction` is the owner's m. `min_trades` 0 honours their "no cap on
@@ -208,6 +242,10 @@ def measure(trades: Iterable[Any], fraction: float = 0.29,
     check toward a wrongful "no edge" block.
     `category` (owner order 2026-10-05, "make it momentum only"): count only
     trades of that category (see trade_category); None pools all.
+    `min_block_trades` (owner card 2026-10-22, "Block only on 30+ usable
+    trades"): a negative reading on fewer usable exits than this is a THIN
+    record — `block_new_entries` False, `thin_record` True, and the engine
+    caps each scan buy at the slab instead of refusing it.
     """
     clip = float(CLIP_PCT if clip_pct is None else clip_pct) / 100.0
     by_reason: dict = {}
@@ -236,9 +274,11 @@ def measure(trades: Iterable[Any], fraction: float = 0.29,
     n = len(usable)
     wins = [r for r in usable if r > 0]
     losses = [r for r in usable if r < 0]
+    need = max(1, int(min_block_trades))
     base = dict(usable=n, excluded=excluded, unknown=unknown,
                 by_reason=by_reason, wins=len(wins), losses=len(losses),
-                category=category, other_category=other_cat)
+                category=category, other_category=other_cat,
+                min_block_trades=need)
 
     if n < max(1, int(min_trades)) or not wins or not losses:
         return KellyReading(
@@ -261,13 +301,22 @@ def measure(trades: Iterable[Any], fraction: float = 0.29,
     applied = max(0.0, f) * float(fraction) * conf
 
     if f <= 0 or applied <= 0:
+        thin = n < need
+        if thin:
+            note = (f"Measured on {n} real exits: win rate {raw_wr*100:.0f}%, "
+                    f"payoff {b:.2f}, Kelly {f:+.3f}. Thin record ({n} of "
+                    f"{need}): capped at the slab, not blocked — each new "
+                    f"scan buy opens at the slab until {need} usable exits "
+                    f"can judge the edge (owner card 2026-10-22).")
+        else:
+            note = (f"Measured on {n} real exits: win rate {raw_wr*100:.0f}%, "
+                    f"payoff {b:.2f}. Kelly is {f:+.3f} — the book has NO "
+                    f"measured edge after costs, so new entries are blocked.")
         return KellyReading(
             status="NO_POSITIVE_EDGE", win_rate=p, raw_win_rate=raw_wr,
             payoff_ratio=b, raw_kelly=f, confidence=conf, fraction=0.0,
-            max_position_pct=0.0, block_new_entries=True, **base,
-            note=(f"Measured on {n} real exits: win rate {raw_wr*100:.0f}%, "
-                  f"payoff {b:.2f}. Kelly is {f:+.3f} — the book has NO "
-                  f"measured edge after costs, so new entries are blocked."),
+            max_position_pct=0.0, block_new_entries=not thin,
+            thin_record=thin, **base, note=note,
         )
 
     return KellyReading(

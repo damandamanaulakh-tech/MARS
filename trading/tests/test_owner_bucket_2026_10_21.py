@@ -102,13 +102,18 @@ def test_scan_positions_and_ocean_are_untouched():
 
 def test_buy_desk_fills_no_longer_fill_momentums_share():
     """Rs 5 Cr book, Rs 2.5 Cr of Buy Desk positions, no scan momentum
-    position: momentum used = 0 and its room is the FULL Rs 2 Cr share.
+    position: momentum used = 0 and its room is its WHOLE share — since
+    2026-10-22 that is 40% of the Rs 2.5 Cr the owner bucket leaves, Rs 1 Cr.
     On the old convention those fills counted as momentum (Rs 2.5 Cr > the
     Rs 2 Cr share) and room read 0."""
     cfg = _cfg()
     book = _desk_book()
     assert cb.used(book.values(), MOM) == 0.0
-    assert cb.room(cfg, book, MOM, BOOK) == pytest.approx(0.40 * BOOK)
+    # REPOINTED 2026-10-22 (owner card "Shares from what is left after
+    # owner + Ocean"): the share is cut from what the Rs 2.5 Cr owner
+    # bucket leaves — 40% of Rs 2.5 Cr = Rs 1 Cr (was 40% of Rs 5 Cr).
+    # Momentum still holds nothing and still has the whole of its share.
+    assert cb.room(cfg, book, MOM, BOOK) == pytest.approx(0.40 * (BOOK - 2_50_00_000.0))
     assert cb.used(book.values(), cb.OWNER) == pytest.approx(2_50_00_000.0)
     # the Risk-page rows agree: momentum empty, owner row carries the cost
     rows = {r["category"]: r for r in cb.usage(cfg, book, BOOK)}
@@ -156,12 +161,18 @@ def test_an_owner_buy_is_never_share_capped():
 def test_owner_positions_still_count_in_the_cap_a_scan_entry_meets():
     """Outside the shares is not outside the book: what the owner bucket
     holds still counts in the deploy cap and the heat every SCAN entry is
-    judged against — momentum's share has full room here, yet the pick is
-    refused on the book-wide limits."""
+    judged against — the pick is refused on the book-wide limits (and since
+    2026-10-22 the owner bucket also comes off the base momentum's share is
+    cut from, so here its room is 0 too)."""
     cfg = _cfg()
     cfg.cash_reserve_pct = 0.20                      # correction reserve
     book = _desk_book(rupees=4_00_00_000.0)          # 80% of 5 Cr deployed
-    assert cb.room(cfg, book, MOM, BOOK) == pytest.approx(0.40 * 0.80 * BOOK)
+    # REPOINTED 2026-10-22 (owner card "Shares from what is left after
+    # owner + Ocean"): the Rs 4 Cr owner bucket uses the whole Rs 4 Cr
+    # deployable, so the share base — and momentum's room — is 0 (was 40% of
+    # the Rs 4 Cr deployable). The gate's first word is still the deploy cap.
+    assert cb.share_base(cfg, book, BOOK) == pytest.approx(0.0)
+    assert cb.room(cfg, book, MOM, BOOK) == pytest.approx(0.0)
     ok, why, _ = _gate(cfg, book, MOM, cash=BOOK - 4_00_00_000.0)
     assert not ok and why == "reserve_breached"
     cfg = _cfg()

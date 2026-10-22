@@ -202,12 +202,17 @@ def test_the_0920_job_survives_a_crashing_macro_feed_and_still_rotates(monkeypat
                         lambda eng, cfg, where: (order.append("rotation"), [])[1])
     monkeypatch.setattr(scheduler, "_check_pending_orders", lambda where: None)
     monkeypatch.setattr(scheduler, "run_trigger_layer", lambda where: order.append("triggers"))
+    # REPOINTED 2026-10-22 (owner card D7): the trigger layer left the 09:20
+    # job — a one-shot cool-down job runs it 25 min later (test_entryfix_
+    # scheduler_2026_10_22). The job now ARMS it where it used to run it.
+    monkeypatch.setattr(scheduler, "_schedule_trigger_cooldown",
+                        lambda where, *a, **k: order.append("cooldown"))
     monkeypatch.setattr(scheduler, "_push_phone_alerts", lambda where: order.append("push"))
     monkeypatch.setattr("web.memory_relief.release", lambda label: None)
     scheduler._daily_multi_mode_scan()
     # reviewer defect 6 (2026-10-21): the feeds run AFTER the rotation — three
     # serial legs with 30 s timeouts each could otherwise hold the scan 4-5 min
-    assert order == ["index", "sector", "rotation", "macro", "triggers", "push"]
+    assert order == ["index", "sector", "rotation", "macro", "cooldown", "push"]
 
 
 # ------------------------------------------------------------ DB + reader

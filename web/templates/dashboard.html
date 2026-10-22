@@ -284,10 +284,13 @@
   <div class="px-4 lg:px-6 py-3 border-b border-line flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
     <div class="text-[10px] tracking-widest text-ink-faint uppercase">Why no buy today</div>
     {% if wnb.rotation %}
-      {% set tot = wnb.rotation.opened_total or 0 %}
+      {#- 2026-10-22: an unfinished record counts its passes so far (opened_total
+          is only stamped when a rotation finishes). -#}
+      {% set tot = ((wnb.opened_total if wnb.opened_total is defined and wnb.opened_total is not none else wnb.rotation.opened_total) or 0) %}
       <div class="font-black text-lg tabular-nums {% if tot == 0 %}text-red-700{% else %}text-emerald-700{% endif %}" data-why-no-buy-head="1">
         {{ wnb.rotation.where }} rotation · {% if tot == 0 %}NO BUYS{% else %}{{ tot }} buys{% endif %}
-        {% if wnb.earlier %}<span class="text-[10px] font-normal text-ink-faint">· earlier today: {% for e in wnb.earlier %}{{ e.where }} = {{ e.opened_total }}{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}
+        {% if wnb.status_label %}<span class="text-xs font-semibold {% if wnb.status == 'cut_short' %}text-red-700{% else %}text-ink-faint{% endif %}" data-why-no-buy-status="{{ wnb.status }}">· {{ wnb.status_label }}</span>{% endif %}
+        {% if wnb.earlier %}<span class="text-[10px] font-normal text-ink-faint">· earlier today: {% for e in wnb.earlier %}{{ e.where }} = {{ e.opened_total if e.opened_total is not none else '—' }}{% if e.cut_short %} (cut short){% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}
       </div>
     {% else %}
       <div class="text-sm text-ink-faint" data-why-no-buy-none="1">{{ wnb.note }}</div>

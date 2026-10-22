@@ -52,6 +52,7 @@ class RegimeReading:
     sizing_multiplier_everest: float       # 0.0..1.0
     sizing_multiplier_ocean: float
     reasoning: str
+    status: str = "OK"                     # a dead feed never builds a reading
 
     def to_dict(self) -> dict:
         d = self.__dict__.copy()
@@ -69,11 +70,35 @@ def _safe_last(s: Optional[pd.Series]) -> Optional[float]:
         return None
 
 
+class RegimeFeedDead(RuntimeError):
+    """The Nifty feed gave nothing the regime can be judged on.
+
+    XR-050 (2026-10-22 entry-path batch, owner: "fix all 14"). fetch_regime
+    used to swallow its own failure and answer NEUTRAL — Everest on, cash
+    reserve 0 — so on a dead-feed day in a correction the engine dropped the
+    20% correction reserve, journaled (and pushed to the phone) a regime
+    change to neutral that never happened, and its own sticky dead-feed
+    brake (AUDIT FIX C7, which lives in the engine's `except` around
+    fetch_regime) could never run. The common failure did not even raise:
+    fetch_daily returns no rows, and the classifier fell through to
+    "NEUTRAL (insufficient data)". Now both cases RAISE this, so the engine
+    keeps its last known regime and reserve and takes the C7 path exactly
+    as it does for any other regime failure."""
+    status = "FEED_DEAD"
+
+    def __init__(self, reason: str):
+        super().__init__(f"FEED_DEAD: {reason}")
+        self.reason = reason
+
+
 def fetch_regime(fii_5d_net_override: Optional[float] = None) -> RegimeReading:
-    """Pulls last 8 months of Nifty + VIX, classifies regime.
+    """Pulls last 14 months of Nifty + VIX, classifies regime.
 
     `fii_5d_net_override` lets the caller plug in fresh FII data from
     trading.flows. If None, we proceed without it (less precise classification).
+
+    Raises RegimeFeedDead when the fetch fails or returns no Nifty close /
+    no 200-DMA — never a made-up NEUTRAL (XR-050, see the class).
     """
     try:
         from . import data as _data
@@ -84,7 +109,9 @@ def fetch_regime(fii_5d_net_override: Optional[float] = None) -> RegimeReading:
         hist = _data.fetch_daily([NIFTY_50, INDIA_VIX], period="14mo")
     except Exception as e:
         log.warning("Regime fetch failed: %s", e)
-        return _neutral_fallback(f"fetch_failed: {e}")
+        raise RegimeFeedDead(f"fetch_failed: {e}") from e
+    if not isinstance(hist, dict):
+        raise RegimeFeedDead("fetch returned no price table")
 
     def col(tic: str) -> Optional[pd.Series]:
         df = hist.get(tic)
@@ -108,6 +135,13 @@ def fetch_regime(fii_5d_net_override: Optional[float] = None) -> RegimeReading:
             high_52w = float(last_252.max())
             if high_52w > 0 and nifty_close is not None:
                 pct_below_52w_high = (nifty_close - high_52w) / high_52w * 100
+
+    if nifty_close is None or nifty_200dma is None:
+        n_bars = 0 if nifty_s is None else int(nifty_s.dropna().shape[0])
+        raise RegimeFeedDead(
+            f"Nifty close {'missing' if nifty_close is None else 'ok'}, "
+            f"200-DMA {'missing' if nifty_200dma is None else 'ok'} "
+            f"({n_bars} Nifty bars; 200 needed)")
 
     # F3: global lead-lag / risk-off cascade. A US/SGX overnight crash shows up
     # domestically as a sharp 1-day Nifty drop + a VIX spike (the "COVID
@@ -266,18 +300,6 @@ def classify(
 
     # Insufficient data — neutral fallback
     return ("neutral", True, False, 1.0, 0.0, "NEUTRAL (insufficient data)")
-
-
-def _neutral_fallback(reason: str) -> RegimeReading:
-    return RegimeReading(
-        timestamp=datetime.utcnow(),
-        nifty_close=None, nifty_200dma=None,
-        pct_below_52w_high=None, vix=None, fii_5d_net=None,
-        regime="neutral",
-        everest_active=True, ocean_active=False,
-        sizing_multiplier_everest=1.0, sizing_multiplier_ocean=0.0,
-        reasoning=f"NEUTRAL (fallback): {reason}",
-    )
 
 
 def correction_episode_start(nifty_close, dma: int = 200):

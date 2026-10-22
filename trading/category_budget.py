@@ -10,9 +10,16 @@ the cash before they were scanned. A share per category is the only way the
 later passes ever see money on a day momentum finds plenty to buy.
 
 THE RULES, each stated to the owner before it was built:
-  * A share is a fraction of the DEPLOYABLE capital — equity times
-    (1 - regime reserve), the same cap `risk.can_open` already enforces. In a
-    correction the 20% reserve shrinks all five shares alike; none starves.
+  * A share is a fraction of what is LEFT AFTER YOUR OWN BUYS AND OCEAN —
+    owner card 2026-10-22 ("Shares from what is left after owner + Ocean"):
+    share_base = deployable capital (equity times (1 - regime reserve), the
+    cap `risk.can_open` enforces) minus what the owner bucket and Ocean hold
+    at entry cost. Before this card the shares were of the whole deployable
+    capital while the deploy cap and cash counted the owner bucket and Ocean
+    too, so with money in those buckets the five shares could never all be
+    filled and the categories scanned last (swing, positional) were refused
+    while their own share still showed room. In a correction the 20% reserve
+    shrinks all five shares alike; none starves.
   * Positions count at ENTRY cost (qty x entry price), the convention the
     deploy cap uses, so the two limits can never disagree about what is spent.
   * A share a category does not use stays as cash. It is never lent to
@@ -30,7 +37,8 @@ THE RULES, each stated to the owner before it was built:
     are never refused by a share. They never call risk.can_open at all —
     cash is their only check, as before this order — but what they hold
     still counts in the deploy cap, heat and sector capital every SCAN
-    entry is judged against.
+    entry is judged against, and (owner card 2026-10-22) it comes off the
+    base the five shares are cut from (`share_base`).
 
 Pure arithmetic, no I/O. `risk.can_open` is the one place a budget refuses a
 trade; the scan page, the rotation and the Risk page read the same numbers.
@@ -88,8 +96,9 @@ def is_owner(pos) -> bool:
 
 
 def share(cfg, category: Optional[str]) -> Optional[float]:
-    """This category's fraction of deployable capital, or None when no
-    budget applies (switched off, Ocean, an unknown category)."""
+    """This category's fraction of what is left after your own buys and
+    Ocean (`share_base`), or None when no budget applies (switched off,
+    Ocean, an unknown category)."""
     if not enabled(cfg) or category is None:
         return None
     field = SHARE_FIELDS.get(category)
@@ -113,21 +122,61 @@ def deployable(cfg, base_capital: float) -> float:
     return max(0.0, float(base_capital)) * (1.0 - reserve)
 
 
-def limit(cfg, category: str, base_capital: float) -> Optional[float]:
+def _values(positions) -> list:
+    if positions is None:
+        return []
+    if isinstance(positions, dict):
+        return list(positions.values())
+    return list(positions)
+
+
+def share_base(cfg, positions, base_capital: float) -> float:
+    """What the five shares are cut from (owner card 2026-10-22, "Shares
+    from what is left after owner + Ocean"): the deployable capital minus
+    what the owner bucket and Ocean hold at ENTRY cost. Never negative.
+    `positions` is the held dict (or an iterable of positions)."""
+    vals = _values(positions)
+    return max(0.0, deployable(cfg, base_capital)
+               - used(vals, OWNER) - used(vals, OCEAN))
+
+
+def share_base_parts(cfg, positions, base_capital: float) -> dict:
+    """The share base and its parts, for a screen that has to say "of Rs X
+    left after your own buys Rs Y and Ocean Rs Z"."""
+    vals = _values(positions)
+    return {
+        "deployable": deployable(cfg, base_capital),
+        "owner": used(vals, OWNER),
+        "ocean": used(vals, OCEAN),
+        "base": share_base(cfg, vals, base_capital),
+    }
+
+
+def limit(cfg, category: str, base_capital: float,
+          positions=None) -> Optional[float]:
+    """Rupees this category may hold at entry cost. With `positions` (the
+    gate, the rotation, the Risk page) the share is of `share_base` — what
+    is left after your own buys and Ocean. Without them (an older caller)
+    it falls back to the whole deployable capital, which reads high
+    whenever the owner bucket or Ocean holds money."""
     s = share(cfg, category)
     if s is None:
         return None
-    return s * deployable(cfg, base_capital)
+    if positions is None:
+        return s * deployable(cfg, base_capital)
+    return s * share_base(cfg, positions, base_capital)
 
 
 def room(cfg, positions: dict, category: Optional[str],
          base_capital: float) -> Optional[float]:
-    """Rupees this category may still deploy. None = no budget applies.
-    Never negative: an over-full category reads 0."""
-    lim = limit(cfg, category, base_capital) if category else None
+    """Rupees this category may still deploy, out of its share of what is
+    left after your own buys and Ocean. None = no budget applies. Never
+    negative: an over-full category reads 0."""
+    lim = (limit(cfg, category, base_capital, positions=positions)
+           if category else None)
     if lim is None:
         return None
-    return max(0.0, lim - used(positions.values(), category))
+    return max(0.0, lim - used(_values(positions), category))
 
 
 def min_open(cfg) -> float:
@@ -140,12 +189,15 @@ def min_open(cfg) -> float:
 
 
 def usage(cfg, positions: dict, base_capital: float) -> list[dict]:
-    """One row per category for the Risk page, in rotation order."""
-    vals = list(positions.values())
+    """One row per category for the Risk page, in rotation order. Each
+    limit is the share of what is left after your own buys and Ocean
+    (`share_base`); the row carries that base so a screen can print it."""
+    vals = _values(positions)
+    base = share_base(cfg, vals, base_capital)
     rows = []
     for cat in SHARE_FIELDS:
         s = share(cfg, cat)
-        lim = limit(cfg, cat, base_capital)
+        lim = limit(cfg, cat, base_capital, positions=vals)
         u = used(vals, cat)
         rows.append({
             "category": cat,
@@ -156,6 +208,7 @@ def usage(cfg, positions: dict, base_capital: float) -> list[dict]:
             "left": None if lim is None else max(0.0, lim - u),
             "open": sum(1 for p in vals if category_of(p) == cat),
             "full": (lim is not None and lim - u < max(min_open(cfg), 1.0)),
+            "share_base": base,
         })
     return rows
 

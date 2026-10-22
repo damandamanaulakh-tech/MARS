@@ -91,6 +91,8 @@ def _preloaded_history(universe: list, benchmark: str,
     dl_end = (pd.Timestamp(end_date) + pd.Timedelta(days=5)).date().isoformat()
     out: dict = {}
 
+    from trading.backtest import merge_store_and_zip, store_covers
+
     # 1. Mongo store (freshest)
     if db.is_connected():
         for t in universe:
@@ -101,8 +103,14 @@ def _preloaded_history(universe: list, benchmark: str,
             except Exception:
                 continue
 
-    # 2. Repo zip fills the gaps (always present in the deploy)
-    missing = [t for t in universe if t not in out]
+    # 2. Repo zip fills the gaps (always present in the deploy).
+    # ROOT-ROUTE-01 (2026-10-22): a stored frame that does not reach back to
+    # the window start used to count as "present" and the zip was skipped for
+    # it — after the 09-29 store wipe the store holds 1-2 years per name, so
+    # a multi-year replay lost most of its history. Such a name now gets the
+    # zip's bars for the dates the store lacks (store wins where both exist).
+    missing = [t for t in universe
+               if t not in out or not store_covers(out[t], dl_start)]
     if missing:
         zpath = Path(__file__).resolve().parents[2] / "data" / \
             "history_upstox_export_2026-07-19.zip"
@@ -117,7 +125,9 @@ def _preloaded_history(universe: list, benchmark: str,
                                      parse_dates=["Date"], index_col="Date")
                     for c in df.columns:
                         df[c] = df[c].astype("float32")
-                    out[t] = df.sort_index().loc[dl_start:dl_end]
+                    merged = merge_store_and_zip(out.get(t),
+                                                 df.sort_index())
+                    out[t] = merged.loc[dl_start:dl_end]
         except Exception as e:
             log.warning("backtest zip fallback failed: %s", e)
 

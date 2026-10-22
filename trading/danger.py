@@ -47,9 +47,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 
-from trading.triggers import _Ctx, TRIGGERS
+from trading.triggers import (_Ctx, TRIGGERS, _EXT_MIN_BARS, _MIN_BARS,
+                              _MIN_BARS_DEFAULT)
 
 log = logging.getLogger(__name__)
 
@@ -111,9 +113,28 @@ def _load_verified() -> dict[str, dict]:
 
 
 VERIFIED: dict[str, dict] = _load_verified()
-_FNS = {t.id: t.fn for t in TRIGGERS if t.id in VERIFIED and t.fn is not None}
+
+
+def _python_bool(fn):
+    """The tripwire, answering a Python True/False instead of a NumPy one.
+
+    XR-060 (owner card 2026-10-22, D8): eight of the ten price tripwires
+    return a NumPy boolean. The counter below (_counts) now accepts both
+    kinds; converting here as well keeps every reader of _FNS — the Den's
+    "which tripwires can the layer count" check reads the TYPE a tripwire
+    returns — telling the truth. Truth value and None (abstain) unchanged."""
+    def wrapped(*a, **k):
+        r = fn(*a, **k)
+        return bool(r) if isinstance(r, np.bool_) else r
+    wrapped.__name__ = getattr(fn, "__name__", "tripwire")
+    wrapped.__wrapped__ = fn
+    return wrapped
+
+
+_FNS = {t.id: _python_bool(t.fn) for t in TRIGGERS
+        if t.id in VERIFIED and t.fn is not None}
 #: panel-fed tripwires: id -> ext_fn, evaluated only when panels are supplied
-_EXT_FNS = {t.id: t.ext_fn for t in TRIGGERS
+_EXT_FNS = {t.id: _python_bool(t.ext_fn) for t in TRIGGERS
             if t.id in VERIFIED and t.ext_fn is not None}
 PANEL_FED = tuple(sorted(_EXT_FNS))
 
@@ -126,32 +147,56 @@ class DangerReading:
     action: str                         # ALERT | TIGHTEN | EXIT_HALF | NONE
 
 
+def _counts(r) -> bool:
+    """Does one tripwire's return value count as a FIRE?
+
+    XR-060 (owner card 2026-10-22, D8 "Ship it"): this used to be
+    `fn(x) is True`. Eight of the ten price tripwires (0068, 0072, 0080,
+    0085, 0089, 0091, 0092, 0093) return a NumPy boolean, which is never
+    the Python object `True` — so they were computed and then thrown away,
+    and only 0079 / 0096 (and the panel pair 0094/0095, which wrap in
+    bool()) could ever tighten a stop or exit half. A real boolean of
+    either kind now counts. Anything else — None (the tripwire abstained),
+    a NaN, a number — never counts: a missing input is not a fire."""
+    if isinstance(r, (bool, np.bool_)):
+        return bool(r)
+    return False
+
+
 def evaluate_stock(df: pd.DataFrame, ext=None) -> list[str]:
     """Which VERIFIED danger triggers fire on this stock's daily history.
 
     Insufficient bars for a trigger -> that trigger abstains (None), never a
-    guessed fire. `ext` is an external_panels.StockExternals; without it the
-    panel-fed tripwires simply do not run, so the layer degrades to the 10
-    OHLCV ones rather than inventing a reading.
+    guessed fire — the SAME per-trigger minimum (triggers._MIN_BARS /
+    _EXT_MIN_BARS) the calibration run used, so the money path judges on the lookback the
+    evidence was measured on. `ext` is an external_panels.StockExternals;
+    without it the panel-fed tripwires simply do not run, so the layer
+    degrades to the 10 OHLCV ones rather than inventing a reading.
     """
+    if df is None or len(df) < 25:
+        return []
     try:
         x = _Ctx(df)
     except (KeyError, ValueError):
         return []
     fired = []
     for tid, fn in _FNS.items():
+        if x.n < _MIN_BARS.get(tid, _MIN_BARS_DEFAULT):
+            continue
         try:
-            if fn(x) is True:
+            if _counts(fn(x)):
                 fired.append(tid)
         except Exception:                                   # noqa: BLE001
             continue
     if ext is not None:
         for tid, fn in _EXT_FNS.items():
+            if x.n < _EXT_MIN_BARS:
+                continue
             try:
                 # Neither needs family counts, and neither reads another
                 # trigger's hit — the empty dicts are the honest arguments,
                 # not placeholders standing in for data.
-                if fn(x, ext, {}, {}) is True:
+                if _counts(fn(x, ext, {}, {})):
                     fired.append(tid)
             except Exception:                               # noqa: BLE001
                 continue
