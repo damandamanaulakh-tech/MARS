@@ -149,9 +149,13 @@ def test_fund_arithmetic_is_the_books_own(tmp_path):
     equity = p.equity(prices)
     assert f["equity"] == equity
     assert f["reserved"] == cfg.cash_reserve_pct * equity
-    # every segment share is category_budget.limit — the number can_open uses
+    # every segment share is category_budget.limit — the number can_open
+    # uses. Repointed 2026-10-22 (owner card "shares from what is left after
+    # owner + Ocean"): the gate and the card both pass the held book, so the
+    # share is of the share base, not of the whole deployable amount.
     for cat in cb.SHARE_FIELDS:
-        assert rows[cat]["limit"] == cb.limit(cfg, cat, equity)
+        assert rows[cat]["limit"] == cb.limit(cfg, cat, equity,
+                                              positions=p.positions)
     assert f["marks"] == "live marks" and f["live"] is True
     assert mp.fund_summary(p, cfg, prices, 0)["marks"].startswith("entry marks")
     assert mp.fund_summary(p, cfg, prices, 1)["marks"].startswith("1 of 3 names live")

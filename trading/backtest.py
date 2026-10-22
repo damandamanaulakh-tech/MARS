@@ -247,8 +247,9 @@ def run_backtest(
         "measured in its own pre-registered study)."
         + (" It also runs ONE category with the whole book, while live each "
            "category spends only its own cash share "
-           f"({cfg.mode}: {_category_share(cfg) * 100:.0f}% of deployable "
-           "capital, owner order 2026-10-04)."
+           f"({cfg.mode}: {_category_share(cfg) * 100:.0f}% of what is left "
+           "after your own buys and Ocean, owner orders 2026-10-04 / "
+           "2026-10-22)."
            if _category_share(cfg) is not None else ""),
         "Fundamental components (earnings_growth, catalyst, analyst_revision) "
         "forced to neutral 50 in backtest. Live reads earnings growth and the "

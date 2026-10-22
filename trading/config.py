@@ -153,9 +153,12 @@ class Config:
     # other four were scanned. Each category now has its own share of the
     # DEPLOYABLE capital (equity minus the regime reserve), so a correction's
     # 20% reserve shrinks every share alike instead of starving the last
-    # category in line. A share a category does not use stays as cash; it is
-    # never lent to another. Positions count at entry cost, the same as the
-    # deploy cap. Ocean is exempt (its own 8-slot limit). OWNER ORDER
+    # category in line. Since the owner card of 2026-10-22 the shares are
+    # cut from what is LEFT after the owner bucket and Ocean (both at entry
+    # cost) — category_budget.share_base. A share a category does not use
+    # stays as cash; it is never lent to another. Positions count at entry
+    # cost, the same as the deploy cap. Ocean is exempt (its own 8-slot
+    # limit). OWNER ORDER
     # 2026-10-21: the owner's BUY button, limit fills and the Buy Desk are
     # never refused by a share and what they buy sits in its OWN "owner"
     # bucket outside the five shares (it used to count as momentum and could

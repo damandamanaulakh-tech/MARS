@@ -219,6 +219,12 @@ def passes_liquidity(
     # measure (see LiquidityRules for why the share count was removed)
     rupee_vol = (close.iloc[-5:] * volume.iloc[-5:]).dropna().mean()
     rupee_vol_cr = float(rupee_vol) / 1e7
+    # XR-027 (entry-path batch 2026-10-22): an all-missing volume tail used
+    # to PASS — `nan < 5` is False, so a name with no volume in its last
+    # five bars walked through the one liquidity gate. Unknown is refused
+    # and says so; it is never a silent pass.
+    if not math.isfinite(rupee_vol_cr):
+        return False, "rupee_vol unknown (no volume in the last 5 bars)"
     if rupee_vol_cr < rules.min_rupee_volume_5d_cr:
         return False, f"rupee_vol {rupee_vol_cr:.2f}Cr < {rules.min_rupee_volume_5d_cr}Cr"
 

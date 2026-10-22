@@ -372,14 +372,17 @@ class TradingEngine:
         fii_score = None
         try:
             from .signals.flows import (
-                get_flows, fii_flow_score, fii_net_last_n_days,
+                get_flows, fii_flow_score, fii_net_window,
             )
             flows = get_flows()   # live NSE -> committed CSV, staleness-guarded
-            fii_5d = fii_net_last_n_days(flows, n=5)
-            # pass how many days the sum really covers — the live endpoint
-            # returns ONE day, so an un-normalised 5-day threshold would read a
-            # strong single day as a weak week (fixed 2026-07-31)
-            fii_score = fii_flow_score(fii_5d, days=min(len(flows or []), 5) or 5)
+            # XR-055 (entry-path batch 2026-10-22): the sum covers the last
+            # five TRADING DAYS by date, and `n_days` is how many of them
+            # really carry a row — `min(len(flows), 5)` used to count five
+            # rows that could span weeks as a five-day window. The live
+            # endpoint returns ONE day, so an un-normalised 5-day threshold
+            # would read a strong single day as a weak week (fixed 2026-07-31).
+            fii_5d, n_days = fii_net_window(flows, 5)
+            fii_score = fii_flow_score(fii_5d, days=n_days or 5)
         except Exception as e:
             log.debug("FII scoring context skipped: %s", e)
 
