@@ -1,0 +1,35 @@
+{
+  "negative_volume": [
+    {
+      "archive": "data/full_universe_2392.zip",
+      "member": "full_universe/IDEA.NS.csv",
+      "date": "2024-08-30",
+      "volume": -81259413
+    },
+    {
+      "archive": "data/history_upstox_export_2026-07-19.zip",
+      "member": "IDEA.NS.csv",
+      "date": "2024-08-30",
+      "volume": -81259416.0
+    }
+  ],
+  "nifty200_daily": {
+    "rows": 7284,
+    "unique_dates": 5611,
+    "duplicated_dates": 1669,
+    "duplicate_date_rows": 3342,
+    "extra_duplicate_rows": 1673,
+    "conflicting_ohlc_dates": 822,
+    "conflicting_close_dates": 748,
+    "max_close_difference": 50.05,
+    "max_close_difference_date": "2015-06-29",
+    "duplicate_period": [
+      "2011-10-03",
+      "2018-11-30"
+    ],
+    "loader_window": "2014-01-01..2018-12-31",
+    "loader_rows": 2354,
+    "loader_duplicate_rows": 1121,
+    "reindex_result": "ValueError: cannot reindex on an axis with duplicate labels"
+  }
+}

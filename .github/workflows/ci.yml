@@ -6,6 +6,15 @@ on:
     branches: [main, "claude/**"]
 
 jobs:
+  repair-records:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check backlog retention and evidence links
+        run: python scripts/check_repair_records.py
   test:
     runs-on: ubuntu-latest
     steps:

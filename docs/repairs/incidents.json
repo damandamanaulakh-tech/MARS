@@ -1,0 +1,13 @@
+[
+  {
+    "id": "RUN-20261102-01",
+    "finding": "A same-day single-mode scan suppressed recovery of the incomplete daily category rotation",
+    "workflow": "DEPLOYED_HEALTH_VERIFIED_RUNTIME_COMPLETION_PENDING",
+    "fix_commit": "b44f715ab20129bd2cb0726107f34ef8e0f2bb1e",
+    "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/187",
+    "deployment_revision": "ac6e174fd9cbe1b0c4ab091d95168923e75dd807",
+    "evidence": "docs/repairs/releases/2026-11-02.md#batch-2--daily-category-recovery",
+    "runtime_observation": "Startup catch-up admission journal observed at 2026-11-02T08:16:59 UTC; full category completion and new automatic Momentum entries remain unverified.",
+    "reconciliation": "Additional incident tracked separately; not counted as a 166th original backlog row."
+  }
+]

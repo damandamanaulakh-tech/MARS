@@ -1,0 +1,16 @@
+> Historical audit snapshot, 30 October 2026. Findings and line numbers describe that baseline. See [current repair status](../README.md) for subsequent fixes.
+
+# MARS repository metadata, verified 2026-10-30 IST
+
+Read-only GitHub REST queries succeeded without authentication. The original audit kept raw API responses and a release-asset enumeration as local evidence. Those raw exports are not included in this repository import; this file preserves the audit summary.
+
+- Public repository, default `main`, not archived/disabled, no description and no license reported by GitHub metadata.
+- `main`: `bdc82ec7039ccad151f45674ae253c6db6672751`, last commit 2026-10-22 06:24:18 UTC = 11:54:18 IST. Latest main CI is green: https://github.com/damandamanaulakh-tech/MARS/actions/runs/39733728602 . Job `test`: install and test steps succeeded. This is remote CI evidence, not a fresh local test run or deployment proof.
+- `claude/repo-audit-overview-epyrvc`: `d79f6a2d9c8f9a92f8f5b57a70f36f14b5283262`, 5 commits ahead of main, 0 behind; diff 51 files, +4579/-371. Its open draft PR #186 is NOT merged (`merged: false`, `merged_at: null`, state open, draft true), although the narrative mentions a merge plan. Its CI is green: https://github.com/damandamanaulakh-tech/MARS/actions/runs/39793904851 . PR URL https://github.com/damandamanaulakh-tech/MARS/pull/186 . Title describes entry-path, Kelly, danger, category share, scheduling and data fixes. These fixes must not be represented as part of main.
+- `port/stock-session-round1`: `086d512061e20a194cbdf45cbc8ed5d0c4b6e516`, main is 282 commits ahead, the port branch has no exclusive commits according to compare API. GitHub compare file listing caps at 300, so use local git for complete changed-file coverage.
+- Branch API reports `protected: false` for all 3 branches. No independent branch-rule settings audit performed.
+- Open issue endpoint returns only PR #186; therefore 0 ordinary open issues and 1 open PR in the queried snapshot.
+- One release: https://github.com/damandamanaulakh-tech/MARS/releases/tag/chityy-archive published 2026-07-27. Its title says original 8 zips, but its actual asset inventory is 240 assets, 1,711,553,983 bytes (1.71 GB decimal / 1.59 GiB). Types: 98 zip, 65 csv, 47 xlsx, 14 docx, 8 txt, 5 md, 1 crdownload, 1 pdf, 1 py. Its body additionally contains 30 user-attachment links, potentially overlapping the assets. Largest asset delivery-20260809T141445Z-1-001.zip is 172,111,900 bytes. Assets were inventoried, NOT downloaded, extracted or semantically reviewed. `.crdownload` is an incomplete-download-format filename warranting validation before intake; the contents were not read.
+- Legacy commit status endpoint is `pending` with `total_count: 0`; this does NOT contradict green GitHub Actions checks. The authoritative check-runs endpoint for main returns 2 completed successful `test` checks (main and companion-branch push for same SHA).
+
+URLs queried: `https://api.github.com/repos/damandamanaulakh-tech/MARS` and branches, commits, releases, pulls, issues, actions/runs, check-runs, compare endpoints. No deployment, credential, Mongo or financial account operation was performed. A subsequent read-only public health check is described in MARS_REVIEW.md; it did not reveal a deployment SHA.
