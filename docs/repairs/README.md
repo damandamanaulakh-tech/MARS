@@ -11,7 +11,7 @@ As of the 2 November release verification:
 | Batch | Finding | Recorded result |
 |---|---|---|
 | 1 | ROOT-ROUTE-03, numeric-input subclaim | Merged/deployed in [PR #187](https://github.com/damandamanaulakh-tech/MARS/pull/187); broader mutation concerns remain open |
-| 2 | RUN-20261102-01, daily category recovery | Merged/deployed in PR #187; startup catch-up admission observed; full Momentum completion remains unverified |
+| 2 | RUN-20261102-01, daily category recovery | Merged/deployed in PR #187; Momentum look-only pass completed at 16:18 IST; 185 candidates blocked after close; full rotation remains unverified |
 | 3 | AUD-001, unfinished drawdown liquidation | Merged/deployed in [PR #188](https://github.com/damandamanaulakh-tech/MARS/pull/188); local and CI suites each 2,647 passed, zero skipped; production health verified |
 
 The last verified functional release is `0e5cbc886a178184c415aa10c7c236cbe670600c`,
@@ -30,6 +30,7 @@ falsely trigger a daily loss halt.** This remains open.
   and [CSV](backlog.csv) for every finding, acceptance criterion and status
 - [Additional incidents](incidents.json), tracked separately from the original count
 - [Release evidence for batches 1–3](releases/2026-11-02.md)
+- [2 November buy-gate audit: all 197 Momentum rows](evidence/2026-11-02-buy-gates.md)
 - [Historical audit evidence](evidence/MARS_REVIEW.md), with baseline caveats
 
 The 165 records are not 165 completed fixes. `updated_state` retains the audit's
