@@ -7,7 +7,16 @@
     "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/187",
     "deployment_revision": "ac6e174fd9cbe1b0c4ab091d95168923e75dd807",
     "evidence": "docs/repairs/releases/2026-11-02.md#batch-2--daily-category-recovery",
-    "runtime_observation": "Startup catch-up admission journal observed at 2026-11-02T08:16:59 UTC; full category completion and new automatic Momentum entries remain unverified.",
+    "runtime_observation": "Queried at 2026-11-02T11:42 UTC: Momentum look-only pass completed at 10:48:08 UTC, 1029 scanned, 197 above floor, 185 market_after_close, 12 abs_mom=false, zero opened. Saved rotation remains running with four other category results absent. Market-hours recovery remains unverified. See docs/repairs/evidence/2026-11-02-buy-gates.md.",
     "reconciliation": "Additional incident tracked separately; not counted as a 166th original backlog row."
+  },
+  {
+    "id": "RUN-20261102-02",
+    "finding": "Saved buy-list diagnostics omit explicit selection failures and retain only a partial daily refused-name journal",
+    "workflow": "REPRODUCED_DOCUMENTED_NOT_FIXED",
+    "evidence": "docs/repairs/evidence/2026-11-02-buy-gates.md",
+    "runtime_observation": "Twelve Momentum rows have abs_mom=false and blank outcome; Intraday loss-halt event reports 27 refusals but saves only 20 names; shared last_scan fields are overwritten by subsequent modes.",
+    "acceptance": "Persist a complete per-run, per-category gate ledger; distinguish first rejection, additional computed checks and not-evaluated gates; give explicit absolute-momentum and timing failure reasons and snapshot age; preserve risk thresholds and owner-order semantics.",
+    "reconciliation": "Additional incident; original 165 audit findings retained. No implementation or runtime repair claimed."
   }
 ]
