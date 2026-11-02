@@ -95,7 +95,11 @@
 </div>
 {% elif error == 'bad_price' %}
 <div class="bg-red-50 border border-red-300 text-red-900 p-3 mb-4 text-sm">
-  That price could not be read as a number — nothing was sold.
+  Enter a finite numeric price — nothing was sold.
+</div>
+{% elif error == 'bad_manual_values' %}
+<div class="bg-red-50 border border-red-300 text-red-900 p-3 mb-4 text-sm">
+  Enter a quantity and price greater than zero, with a finite total value. No holding was added.
 </div>
 {% elif error == 'use_sell' %}
 <div class="bg-amber-50 border border-amber-300 text-amber-900 p-3 mb-4 text-sm">

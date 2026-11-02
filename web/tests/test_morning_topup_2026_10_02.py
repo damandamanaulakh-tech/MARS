@@ -41,6 +41,9 @@ def _wire(monkeypatch, order, topup_ok=True):
     monkeypatch.setattr(db, "is_connected", lambda: True)
     monkeypatch.setattr(db, "load_settings", st.load)
     monkeypatch.setattr(db, "save_settings", st.save)
+    # A connected fake store must acknowledge the new rotation checkpoints.
+    monkeypatch.setattr(db, "save_portfolio", lambda doc: True)
+    monkeypatch.setattr(state.portfolio(), "rotation_report", {})
     monkeypatch.setattr(scheduler, "_daily_universe_topup",
                         lambda: order.append("topup") or topup_ok)
 

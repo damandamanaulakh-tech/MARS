@@ -2,8 +2,9 @@
 
 A look-only scan before 09:15 (a boot or a login) used to stamp the day as
 done, so when the app then slept through 09:20 the catch-up skipped and no
-scan that could BUY ran that day. Done now means a scan ran INSIDE market
-hours today; outside hours any scan today is enough.
+scan that could BUY ran that day. November 2: a single live scan is also
+insufficient; completion requires the daily category rotation. Outside
+hours any scan today is enough to avoid repeated look-only work.
 """
 from __future__ import annotations
 
@@ -38,6 +39,7 @@ def catchup(monkeypatch):
             self._t()
     monkeypatch.setattr("threading.Thread", _Inline)
     p = state.portfolio()
+    monkeypatch.setattr(p, "rotation_report", {})
     saved = (p.last_scan, p.last_scan_live)
     yield p, monkeypatch
     p.last_scan, p.last_scan_live = saved
@@ -57,11 +59,12 @@ def test_a_look_only_scan_today_does_not_cancel_the_catchup(catchup):
     assert ran == ["scan"]
 
 
-def test_an_in_hours_scan_today_does(catchup):
+def test_an_in_hours_single_mode_scan_does_not_cancel_rotation_recovery(catchup):
     p, mp = catchup
     _market(mp, True)
     p.last_scan = p.last_scan_live = datetime.utcnow().isoformat()
-    assert scheduler.catchup_scan_if_missed("test") is False
+    assert scheduler.catchup_scan_if_missed("test") is True
+    assert ran == ["scan"]
 
 
 def test_outside_hours_any_scan_today_is_enough(catchup):

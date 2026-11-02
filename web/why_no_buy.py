@@ -10,6 +10,7 @@ engine did and what stopped it, in the engine's own words.
 from __future__ import annotations
 
 from collections import Counter
+from copy import deepcopy
 from datetime import datetime
 from typing import Any, Optional
 
@@ -163,13 +164,18 @@ def summary_text(rot: dict) -> str:
 def add_rotation(report: Optional[dict], rot: dict) -> dict:
     """Newest first, bounded."""
     old = list((report or {}).get("rotations") or [])
-    return {"rotations": ([rot] + old)[:KEEP_ROTATIONS]}
+    if rot.get("run_id"):
+        old = [r for r in old if r.get("run_id") != rot["run_id"]]
+    return {**(report or {}), "rotations": ([deepcopy(rot)] + old)[:KEEP_ROTATIONS]}
 
 
 def card(portfolio, cfg, today_iso: str) -> dict:
     """What the dashboard shows. Reads the stored record only."""
     report = getattr(portfolio, "rotation_report", None) or {}
     rots = [r for r in (report.get("rotations") or []) if r.get("date") == today_iso]
+    active = report.get("active") or {}
+    if active.get("date") == today_iso:
+        rots = [active] + [r for r in rots if r.get("run_id") != active.get("run_id")]
     latest = rots[0] if rots else None
     rows = []
     if latest:
@@ -204,10 +210,20 @@ def card(portfolio, cfg, today_iso: str) -> dict:
             book.append(f"Kelly check blocked momentum: {str(e.get('why', ''))[:160]}")
             break
     note = ""
+    if latest and latest.get("status") != "complete":
+        status = latest.get("status", "unknown")
+        note = ("Progress save not acknowledged — rotation stopped; retry is required."
+                if status == "save_failed" else
+                f"Rotation {status}: pending or failed categories are not complete; "
+                "a stopped process needs catch-up. No completed Momentum pass means its gate result is unknown.")
+    elif latest and latest.get("phase") == "look_only":
+        note = "Look-only rotation outside market hours; a live rotation is still required."
     if not latest:
         note = ("No rotation recorded today — the 09:20 / 14:30 chain has not run on this "
                 "process (asleep, killed, or before the slot). The journal (Reports CSV) is "
-                "the record.")
+                "the record. A single-mode scan does not prove a completed daily rotation.")
     return {"rotation": latest, "rows": rows, "book": book, "note": note,
+            "last_scan": getattr(portfolio, "last_scan", None),
+            "momentum_completed": report.get("momentum_completed"),
             "earlier": [{"where": r.get("where"), "opened_total": r.get("opened_total")}
                         for r in rots[1:]]}

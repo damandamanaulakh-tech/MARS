@@ -225,19 +225,23 @@ LAST_WRITE_ERROR: Optional[str] = None
 LAST_WRITE_ERROR_AT: Optional[str] = None
 
 
-def save_portfolio(doc: dict, doc_id: str = "default") -> None:
+def save_portfolio(doc: dict, doc_id: str = "default") -> bool:
     global LAST_WRITE_ERROR, LAST_WRITE_ERROR_AT
     if not _CONNECTED or _DB is None:
-        return
+        return False
     try:
-        _DB.portfolio.replace_one({"_id": doc_id}, {**doc, "_id": doc_id}, upsert=True)
+        result = _DB.portfolio.replace_one({"_id": doc_id}, {**doc, "_id": doc_id}, upsert=True)
+        if result.acknowledged is not True:
+            raise RuntimeError("portfolio write not acknowledged")
         LAST_WRITE_ERROR = None
         LAST_WRITE_ERROR_AT = None
+        return True
     except Exception as e:
         from datetime import datetime as _dt
         LAST_WRITE_ERROR = f"{type(e).__name__}: {str(e)[:200]}"
         LAST_WRITE_ERROR_AT = _dt.utcnow().isoformat()
         log.warning("Mongo save_portfolio failed: %s", e)
+        return False
 
 
 def load_portfolio(doc_id: str = "default") -> Optional[dict]:

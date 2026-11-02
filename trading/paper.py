@@ -261,7 +261,7 @@ class Portfolio:
         os.makedirs(self.cfg.state_dir, exist_ok=True)
         return os.path.join(self.cfg.state_dir, "portfolio.json")
 
-    def save(self) -> None:
+    def save(self) -> bool:
         with self._lock:
             # Bound RAM: keep only the recent tail. Overflow is archived to the
             # durable Mongo journal_archive by the web/state save wrapper BEFORE
@@ -317,6 +317,7 @@ class Portfolio:
             with open(self._state_path(), "w") as f:
                 json.dump(data, f, indent=2)
             self.last_save = data["last_save"]
+            return True
 
     @classmethod
     def load_or_fresh(cls, cfg: Config) -> "Portfolio":

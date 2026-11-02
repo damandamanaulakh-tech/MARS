@@ -24,6 +24,10 @@ def _quiet(monkeypatch):
     monkeypatch.setattr(scheduler, "_degraded_halt", lambda where: False)
     monkeypatch.setattr(scheduler, "_push_phone_alerts", lambda *a, **k: None,
                         raising=False)
+    # These tests exercise job scheduling, not remote market-data retrieval.
+    for name in ("_weekly_index_refresh", "_sector_index_refresh",
+                 "_macro_feeds_refresh", "_market_feeds_refresh"):
+        monkeypatch.setattr(scheduler, name, lambda *a, **k: None)
 
 
 def test_daily_rotation_restores_the_owners_mode(monkeypatch):
@@ -75,8 +79,16 @@ def test_rotation_lock_refuses_a_second_concurrent_run(monkeypatch):
         scheduler._ROTATION_LOCK.release()
 
 
-def test_catchup_skips_when_todays_scan_already_ran(monkeypatch):
+def test_catchup_skips_when_todays_rotation_already_ran(monkeypatch):
+    from web.clock import ist_today_iso
+    from web.rotation_progress import begin
     p = state.portfolio()
+    rot = begin(p, "09:20", ist_today_iso(), scheduler._DAILY_MODE_ORDER, True)
+    rot["status"] = "complete"
+    rot["passes"] = {m: {"completed": True, "live": True}
+                     for m in scheduler._DAILY_MODE_ORDER}
+    monkeypatch.setattr(p, "rotation_report", {"daily": rot})
+    monkeypatch.setattr("trading.calendars.is_market_open", lambda: True)
     old, old_live = p.last_scan, p.last_scan_live
     p.last_scan = p.last_scan_live = datetime.utcnow().isoformat()
     try:

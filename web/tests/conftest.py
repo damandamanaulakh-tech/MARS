@@ -39,6 +39,17 @@ os.environ.setdefault("SB_DEN_CHAIN_BUDGET_S", "0")
 
 
 @pytest.fixture(autouse=True)
+def _fresh_rotation_progress(monkeypatch):
+    """Each test has its own daily job state, even with the shared app book.
+
+    A completed rotation from another test must not suppress this test's
+    scheduler work. Recovery tests seed their own partial/completed state.
+    """
+    from web import state
+    monkeypatch.setattr(state.portfolio(), "rotation_report", {})
+
+
+@pytest.fixture(autouse=True)
 def _fresh_den_chain_rows():
     """§12 keeps computed rows for 30 min per process — one test's row must
     never be served to the next (fixtures differ, the ticker may not)."""

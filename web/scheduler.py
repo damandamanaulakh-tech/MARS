@@ -277,38 +277,55 @@ def catchup_scan_if_missed(reason: str = "catchup") -> bool:
     from . import state
     p = state.portfolio()
     last = (p.last_scan or "")[:10]
-    last_live = (getattr(p, "last_scan_live", None) or "")[:10]
-    today = _dt.utcnow().date().isoformat()
-    # AUDIT S-5 (2026-10-02): a look-only scan before 09:15 (a boot or a
-    # login) used to stamp the day as done, so when the app then slept
-    # through 09:20 the catch-up skipped and no scan that could BUY ran that
-    # day. Done = a scan ran inside market hours today. Outside hours, any
-    # scan today is enough (it only scores and shows; re-running it on every
-    # boot would cost memory for nothing).
-    if last_live >= today:
+    from .clock import ist_today_iso, to_ist
+    from .rotation_progress import complete
+    today = ist_today_iso()
+    daily = (getattr(p, "rotation_report", None) or {}).get("daily")
+    if complete(daily, _DAILY_MODE_ORDER, today):
         return False
-    if not is_market_open() and last >= today:
+    # Outside hours keep the existing score-once behavior, using IST dates.
+    if not is_market_open() and to_ist(p.last_scan, "%Y-%m-%d") == today:
         return False
-    log.info("[catchup:%s] last_scan=%s < today — running missed multi-mode scan",
-             reason, last or "never")
+    if not _CATCHUP_LOCK.acquire(blocking=False):
+        return False
+    log.info("[catchup:%s] today's daily rotation is incomplete", reason)
     p.decision_journal.append({
         "ts": _dt.utcnow().isoformat(), "action": "SCAN_CATCHUP",
-        "why": (f"Today's 09:20 scan missing (last scan: {last or 'never'}); "
+        "why": (f"Today's 09:20 rotation incomplete (last single-mode scan: {last or 'never'}); "
                 f"triggered by {reason}. Running it now."),
     })
 
     def _catchup_run():
-        # A boot after 08:50 also missed the universe refresh — do it first
-        # so the catch-up scan sees today's market, not a stale list.
-        from trading.universe_refresh import refreshed_today
-        if not refreshed_today():
-            _universe_refresh_job()
-        # Owner order 2026-10-21: held names absorb today's split/bonus
-        # BEFORE the scan's exit pass can read a halved quote (BLSE).
-        apply_corporate_actions_job("catchup")
-        _daily_multi_mode_scan()
+        try:
+            # A boot after 08:50 also missed the universe refresh — do it first
+            # so the catch-up scan sees today's market, not a stale list.
+            from trading.universe_refresh import refreshed_today
+            if not refreshed_today():
+                _universe_refresh_job()
+            # Owner order 2026-10-21: held names absorb today's split/bonus
+            # BEFORE the scan's exit pass can read a halved quote (BLSE).
+            apply_corporate_actions_job("catchup")
+            _daily_multi_mode_scan()
+        except Exception as e:
+            log.exception("[catchup:%s] preparation or rotation failed", reason)
+            p.decision_journal.append({
+                "ts": _dt.utcnow().isoformat(), "action": "SCAN_FAILED",
+                "why": "Catch-up failed; daily category completion is still required.",
+                "err": f"{type(e).__name__}: {str(e)[:120]}",
+            })
+            try:
+                p.save()
+            except Exception:
+                log.exception("[catchup:%s] could not save failure", reason)
+            raise
+        finally:
+            _CATCHUP_LOCK.release()
 
-    threading.Thread(target=_catchup_run, daemon=True).start()
+    try:
+        threading.Thread(target=_catchup_run, daemon=True).start()
+    except Exception:
+        _CATCHUP_LOCK.release()
+        raise
     return True
 
 
@@ -860,6 +877,8 @@ def _deployment_topup_scan() -> None:
         # replace the history before the rotation's exit pass reads either.
         apply_corporate_actions_job("14:30")
         summary = _run_category_rotation(state.engine(), state.cfg(), "14:30")
+        if (state.portfolio().rotation_report.get("active") or {}).get("status") == "save_failed":
+            return
         log.info("[14:30] Top-up rotation complete: %s", " · ".join(summary))
     finally:
         _ROTATION_LOCK.release()
@@ -3055,12 +3074,15 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
     # Owner 2026-10-21 ("how do i know its blocked"): every pass is recorded
     # on portfolio.rotation_report and ONE ROTATION_SUMMARY line is journaled
     # (pushed to the phone) when the loop ends — web/why_no_buy.py.
-    from datetime import datetime as _dt
     from .clock import ist_today_iso
     from . import why_no_buy as wnb
-    rot: dict = {"date": ist_today_iso(), "where": where,
-                 "started": _dt.utcnow().isoformat(), "order": list(_DAILY_MODE_ORDER),
-                 "passes": {}, "opened_total": 0, "finished": None}
+    from . import rotation_progress as progress
+    live = is_market_open()
+    previous = (getattr(eng.portfolio, "rotation_report", None) or {}).get("daily")
+    if where == "09:20" and progress.complete(
+            previous, _DAILY_MODE_ORDER, ist_today_iso(), live=live):
+        return ["daily rotation already complete"]
+    rot = progress.begin(eng.portfolio, where, ist_today_iso(), _DAILY_MODE_ORDER, live)
     # AUDIT S-6 (2026-10-02): the lock is held for the WHOLE rotation,
     # restore included. Releasing it between passes left cfg.mode on the
     # previous pass's category, so an owner buy that slipped in between read
@@ -3069,7 +3091,12 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
     MODE_LOCK.acquire()
     original_mode = getattr(cfg, "mode", "swing")
     try:
+        if not progress.checkpoint(eng.portfolio, rot):
+            return ["rotation stopped: progress save not acknowledged"]
         for m in _DAILY_MODE_ORDER:
+            if progress.done(rot, m, live=live):
+                summary.append(f"{m}=already completed")
+                continue
             if is_market_open() and _exit_pass_due(cfg):
                 try:
                     eng.refresh()
@@ -3080,6 +3107,7 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
             try:
                 cfg.mode = m
                 cfg.apply_mode_preset()
+                pass_live = is_market_open()
                 res = eng.scan()
                 summary.append(f"{m}={len(res.opened)} opened/{len(res.skipped)} skipped")
                 try:
@@ -3087,8 +3115,11 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
                         m, res, eng.portfolio.decision_journal[j0:],
                         float(getattr(cfg, "min_score_to_enter", 0) or 0),
                         getattr(eng.portfolio, "breadth_today", None))
+                    rot["passes"][m].update(completed=True,
+                                            live=pass_live and is_market_open())
                 except Exception:
                     log.exception("[%s] why-no-buy record for %s failed", where, m)
+                    rot["passes"][m] = wnb.failed_record(m, "category result could not be recorded")
                 # OWNER 2026-10-11 item 28: the watchlist capture is taken
                 # RIGHT AFTER the momentum pass, while scan_matrix /
                 # last_scan_skipped / last_scan_opened still hold THAT pass —
@@ -3120,6 +3151,9 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
                 # the OS (2026-10-05: gc alone left the process holding
                 # 353-494 MiB after a rotation; see web/memory_relief.py).
                 release_memory(f"{where} {m}")
+            if not progress.checkpoint(eng.portfolio, rot):
+                return summary + ["rotation stopped: progress save not acknowledged"]
+        _record_rotation(eng, rot)
     finally:
         # AUDIT FIX C3: the restore is in a finally — an escape mid-loop
         # used to leave cfg.mode stuck on whatever mode the loop died in.
@@ -3128,7 +3162,6 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
             cfg.apply_mode_preset()
         finally:
             MODE_LOCK.release()
-    _record_rotation(eng, rot)
     return summary
 
 
@@ -3138,6 +3171,10 @@ def _record_rotation(eng, rot: dict) -> None:
     from datetime import datetime as _dt
     from . import why_no_buy as wnb
     try:
+        from . import rotation_progress as progress
+        rot["status"] = "complete" if all(
+            progress.done(rot, m, live=rot.get("phase") == "live")
+            for m in rot["order"]) else "partial"
         rot["finished"] = _dt.utcnow().isoformat()
         rot["opened_total"] = sum(int(r.get("opened") or 0) for r in rot["passes"].values())
         text = wnb.summary_text(rot)
@@ -3149,7 +3186,7 @@ def _record_rotation(eng, rot: dict) -> None:
             "categories": {m: wnb.stopped_by(r) for m, r in rot["passes"].items()},
             "why": text,
         })
-        eng.portfolio.save()
+        progress.checkpoint(eng.portfolio, rot)
     except Exception:
         log.exception("[%s] rotation record failed", rot.get("where"))
 
@@ -3240,6 +3277,7 @@ def _eod_refresh() -> None:
 
 
 _ROTATION_LOCK = threading.Lock()
+_CATCHUP_LOCK = threading.Lock()
 
 
 def _degraded_halt(where: str) -> bool:
@@ -3292,44 +3330,64 @@ def _daily_multi_mode_scan() -> None:
     if not _ROTATION_LOCK.acquire(blocking=False):
         log.warning("[09:20] another multi-mode scan is already running — skipped")
         return
-    log.info("[09:20] Daily multi-mode scan starting (target 60-70%% deployed)")
-    # Owner order 2026-10-21 (the BLSE split): the ex-date adjuster runs
-    # FIRST — before the top-up merges adjusted bars and before any exit
-    # pass compares an adjusted quote with an unadjusted entry.
-    apply_corporate_actions_job("09:20")
-    # OWNER ORDER 2026-10-02 (audit item 8): fresh bars FIRST. The top-up
-    # used to run after the passes below, so they scored on bars one trading
-    # day stale. Normally 08:30 already did it and this is one settings read.
     try:
-        _topup_once_today("09:20")
-    except Exception:
-        log.exception("daily top-up failed before the scan")
-    # F3: refresh the full-store breadth reading BEFORE the scans, so the A3
-    # gate judges today's entries on ~2,700 names instead of the day's
-    # ~50-name bucket. Isolated — a failure leaves the previous reading and
-    # the gate's bucket fallback intact, and can never stop the scan.
-    try:
-        refresh_breadth_store("09:20")
-    except Exception:
-        log.exception("breadth refresh failed before daily scan")
-    # OWNER FAULT REPORT 2026-08-26 ("still on sensex and all, it show
-    # 7 august"): the index tail was wired WEEKLY (Friday 16:30) on a
-    # Sunday — so no run had ever happened and every page read the CSV
-    # frozen at its commit date. The refresh is idempotent and cheap
-    # (4 public candle calls, only dates past the newest held row), so it
-    # now runs DAILY here and at boot catch-up; Friday keeps its slot.
-    try:
-        _weekly_index_refresh()
-    except Exception:
-        log.exception("index refresh failed before daily scan")
-    try:
-        _sector_index_refresh()
-    except Exception:
-        log.exception("sector refresh failed before daily scan")
-    try:
+        from .clock import ist_today_iso
+        from .rotation_progress import complete
+        if complete((getattr(eng.portfolio, "rotation_report", None) or {}).get("daily"),
+                    _DAILY_MODE_ORDER, ist_today_iso()):
+            return
+        log.info("[09:20] Daily multi-mode scan starting (target 60-70%% deployed)")
+        # Owner order 2026-10-21 (the BLSE split): the ex-date adjuster runs
+        # FIRST — before the top-up merges adjusted bars and before any exit
+        # pass compares an adjusted quote with an unadjusted entry.
+        apply_corporate_actions_job("09:20")
+        # OWNER ORDER 2026-10-02 (audit item 8): fresh bars FIRST. The top-up
+        # used to run after the passes below, so they scored on bars one trading
+        # day stale. Normally 08:30 already did it and this is one settings read.
+        try:
+            _topup_once_today("09:20")
+        except Exception:
+            log.exception("daily top-up failed before the scan")
+        # F3: refresh the full-store breadth reading BEFORE the scans, so the A3
+        # gate judges today's entries on ~2,700 names instead of the day's
+        # ~50-name bucket. Isolated — a failure leaves the previous reading and
+        # the gate's bucket fallback intact, and can never stop the scan.
+        try:
+            refresh_breadth_store("09:20")
+        except Exception:
+            log.exception("breadth refresh failed before daily scan")
+        # OWNER FAULT REPORT 2026-08-26 ("still on sensex and all, it show
+        # 7 august"): the index tail was wired WEEKLY (Friday 16:30) on a
+        # Sunday — so no run had ever happened and every page read the CSV
+        # frozen at its commit date. The refresh is idempotent and cheap
+        # (4 public candle calls, only dates past the newest held row), so it
+        # now runs DAILY here and at boot catch-up; Friday keeps its slot.
+        try:
+            _weekly_index_refresh()
+        except Exception:
+            log.exception("index refresh failed before daily scan")
+        try:
+            _sector_index_refresh()
+        except Exception:
+            log.exception("sector refresh failed before daily scan")
         summary = _run_category_rotation(eng, cfg, "09:20")
+    except Exception as e:
+        log.exception("[09:20] daily rotation failed")
+        from datetime import datetime as _dt
+        eng.portfolio.decision_journal.append({
+            "ts": _dt.utcnow().isoformat(), "action": "SCAN_FAILED",
+            "why": "Daily rotation preparation or execution failed; catch-up remains required.",
+            "err": f"{type(e).__name__}: {str(e)[:120]}",
+        })
+        try:
+            eng.portfolio.save()
+        except Exception:
+            log.exception("[09:20] could not save scan failure")
+        return
     finally:
         _ROTATION_LOCK.release()
+    if ((getattr(eng.portfolio, "rotation_report", None) or {}).get("active") or {}).get("status") == "save_failed":
+        return
     _check_pending_orders("post-scan")
     # Valuation macro feeds (display only) AFTER the rotation — reviewer
     # defect 6 (2026-10-21): their legs run in series with 30 s timeouts

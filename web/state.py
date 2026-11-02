@@ -113,7 +113,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
         if db.archive_trades([t.to_dict() for t in overflow]):
             self.trades = self.trades[-TRADES_DOC_CAP:]
 
-    def _save_with_mirror(self: Portfolio) -> None:
+    def _save_with_mirror(self: Portfolio) -> bool:
         # Durable-archive the journal overflow BEFORE original_save trims RAM,
         # so the full append-only trail survives in Mongo (journal_archive)
         # while RAM stays bounded on the always-on process.
@@ -129,7 +129,9 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
         _archive_trade_overflow(self)
         original_save(self)
         if not db.is_connected():
-            return
+            # Local-only operation is valid; a configured but unavailable
+            # Mongo store is not a durable checkpoint on an ephemeral host.
+            return not db.mongo_expected()
         doc = {
             "cash": self.cash,
             "positions": {k: v.to_dict() for k, v in self.positions.items()},
@@ -176,7 +178,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "danger_alerts_start": self.danger_alerts_start,
             "last_save": self.last_save,
         }
-        db.save_portfolio(doc)
+        return db.save_portfolio(doc) is True
 
     Portfolio.save = _save_with_mirror  # type: ignore[assignment]
     _PORTFOLIO_SAVE_PATCHED = True

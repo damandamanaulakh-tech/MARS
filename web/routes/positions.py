@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from datetime import datetime
 
 from fastapi import APIRouter, Form, Request
@@ -614,6 +615,9 @@ async def sell_position(request: Request, ticker: str):
         px = prices.get(ticker)
         if px and px > 0 and live:
             price, source = float(px), "live_quote"
+    if price is not None and not math.isfinite(price):
+        return RedirectResponse(f"/positions?error=bad_price&t={ticker}",
+                                status_code=303)
     if not price or price <= 0:
         # Not a refusal — the owner just has to name the fill, because no live
         # quote exists and this app does not invent one.
@@ -891,13 +895,22 @@ def add_manual_position(
         ticker = f"{ticker}.NS"
     if ticker in p.positions:
         return RedirectResponse("/positions?error=already_held", status_code=303)
+    # Validate before touching the book: negative quantities create cash,
+    # and NaN/infinity poison every later equity and risk calculation.
+    if qty <= 0 or not math.isfinite(entry_price) or entry_price <= 0:
+        return RedirectResponse("/positions?error=bad_manual_values", status_code=303)
+    try:
+        notional = qty * entry_price
+    except OverflowError:
+        return RedirectResponse("/positions?error=bad_manual_values", status_code=303)
+    if not math.isfinite(notional):
+        return RedirectResponse("/positions?error=bad_manual_values", status_code=303)
     try:
         entry_dt = datetime.fromisoformat(entry_date)
     except ValueError:
         entry_dt = datetime.utcnow()
     sec = (sector.strip() or cfg.sector_map.get(ticker)
            or _SECTOR_HINTS.get(ticker) or "Unknown")
-    notional = qty * entry_price
     p.cash -= notional
     p.positions[ticker] = PaperPosition(
         ticker=ticker, qty=qty, entry_price=float(entry_price),
