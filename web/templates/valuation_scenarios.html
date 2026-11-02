@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Valuation scenarios · MARS{% endblock %}
+{% block content %}
+<a href="/den#chain" class="text-sm underline">← Back to valuation</a>
+<h1 class="text-3xl font-black mt-4">Valuation scenarios</h1>
+<p class="mt-2 max-w-4xl text-ink-soft">Explore how market and sector movements change a saved valuation, then see how assumed foreign and domestic flows change the entry discount. All moves and flows below are hypothetical. These results do not change automated targets or trades.</p>
+<p class="text-sm mt-2">Saved valuations built: <strong>{{ scenario.built or 'not available' }}</strong>{% if scenario.built %} UTC{% endif %}. Each row shows its own baseline date. These are model estimates, not current quotes.</p>
+<nav aria-label="Scenario presets" class="flex flex-wrap gap-3 my-5">
+  {% for key, label in [('falling','Falling market'),('unchanged','Unchanged market'),('rising','Rising market')] %}
+  <a href="/den/valuation/scenarios?preset={{ key }}&amp;tickers={{ scenario.tickers | urlencode }}" class="px-3 py-2 border border-line {% if scenario.preset == key %}bg-slate-100{% endif %}">{{ label }} preset</a>
+  {% endfor %}
+</nav>
+<p class="text-xs text-ink-faint mb-4">A preset resets the assumptions for the selected stocks. All percentage moves cover the same hypothetical period from each saved baseline; flows cover five sessions within that scenario.</p>
+{% if scenario.errors %}
+<div role="alert" class="border border-red-400 text-red-800 p-4 mb-4">
+  <strong>Correct these inputs to calculate:</strong>
+  <ul class="list-disc ml-5">{% for error in scenario.errors %}<li>{{ error }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+<form method="get" action="/den/valuation/scenarios" class="border border-line p-4">
+  <input type="hidden" name="preset" value="{{ scenario.preset }}">
+  <label for="scenario-tickers" class="block font-semibold">Stocks — up to {{ scenario.max_stocks }} NSE symbols, separated by commas</label>
+  <input id="scenario-tickers" name="tickers" value="{{ scenario.tickers }}" maxlength="800" class="border border-line w-full p-2 mt-2 mb-4" required>
+  <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  {% for field in scenario.fields %}
+    <div>
+      <label for="scenario-{{ field.key }}" class="block text-sm">{{ field.label }}</label>
+      <input id="scenario-{{ field.key }}" type="number" step="any" min="{{ field.min }}" max="{{ field.max }}" name="{{ field.key }}" value="{{ field.value }}" required class="border border-line p-2 w-full mt-1">
+    </div>
+  {% endfor %}
+  </div>
+  <fieldset class="mt-5"><legend class="font-semibold">Sector movements (%)</legend>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+    {% for row in scenario.rows %}
+      <div>
+        <label for="{{ row.sector_key }}" class="block text-sm">{{ row.ticker }} · {{ row.sector }}</label>
+        {% if row.fallback %}<p class="text-sm text-amber-800">Market fallback: no separate sector adjustment.</p>
+        {% else %}<input id="{{ row.sector_key }}" type="number" step="any" min="-90" max="200" name="{{ row.sector_key }}" value="{{ row.sector_input }}" required class="border border-line p-2 w-full mt-1">{% endif %}
+      </div>
+    {% endfor %}
+    </div>
+  </fieldset>
+  <button type="submit" class="mt-5 bg-ink text-white px-5 py-2 font-semibold">Calculate scenario</button>
+  <p class="text-xs text-ink-faint mt-2">Assumptions are kept in this page URL. No trading setting is saved.</p>
+</form>
+<div class="mt-5 p-4 bg-amber-50 border border-amber-200 text-sm">
+  <strong>Uncalibrated model.</strong> The sector coefficient and flow discount are assumptions. Saved beta measures historical market sensitivity; combining it with an assumed sector coefficient can produce a result opposite to both moves. Such rows are flagged below. Net FPI + DII flow is a simple scenario input, not proof that domestic buying offsets foreign selling's price impact. Earnings, rates, FX and peer-multiple changes are not separately added here.
+</div>
+<h2 class="font-bold text-xl mt-6 mb-3">Results and rupee attribution</h2>
+<div class="overflow-x-auto border border-line" tabindex="0" aria-label="Scenario results; scroll horizontally for all columns">
+<table class="w-full text-sm" data-valuation-scenario-results="1">
+  <thead class="bg-slate-50"><tr>
+    <th class="p-3 text-left">Stock · baseline date</th><th class="p-3">Saved base</th><th class="p-3">Beta</th>
+    <th class="p-3">Market impact</th><th class="p-3">Sector impact</th><th class="p-3">Adjusted target</th>
+    <th class="p-3">Change</th><th class="p-3">Entry discount</th><th class="p-3">Illustrative entry ceiling</th>
+  </tr></thead>
+  <tbody>{% for row in scenario.rows %}
+    <tr class="border-t border-line" data-scenario-stock="{{ row.ticker }}">
+      <th class="p-3 text-left">{{ row.ticker }}<div class="font-normal text-xs">{{ row.asof or 'Date unavailable' }}</div></th>
+      {% if row.result %}{% set r = row.result %}
+      <td class="p-3 text-right whitespace-nowrap">₹{{ r.base | inr(2) }}</td>
+      <td class="p-3 text-right">{{ '%.3f' | format(r.beta) }}<div class="text-xs">{{ row.beta_n }} observations</div></td>
+      <td class="p-3 text-right whitespace-nowrap">₹{{ r.market_impact_rs | inr(2) }}</td>
+      <td class="p-3 text-right whitespace-nowrap">₹{{ r.sector_impact_rs | inr(2) }}</td>
+      <td class="p-3 text-right font-bold whitespace-nowrap">₹{{ r.adjusted_target | inr(2) }}</td>
+      <td class="p-3 text-right">{{ '%.2f' | format(r.target_change_pct) }}%</td>
+      <td class="p-3 text-right">{{ '%.2f' | format(r.total_margin_pct) }}%<div class="text-xs whitespace-nowrap">₹{{ r.entry_margin_rs | inr(2) }}</div></td>
+      <td class="p-3 text-right font-bold whitespace-nowrap">₹{{ r.illustrative_entry_ceiling | inr(2) }}</td>
+      {% else %}<td colspan="8" class="p-3 text-amber-800">{{ row.error or 'Correct the shared inputs above to calculate.' }}</td>{% endif %}
+    </tr>
+    {% if row.notes or (row.result and row.result.warnings) %}<tr><td colspan="9" class="px-3 pb-3 text-amber-800 text-sm">
+      {% for note in row.notes %}<p>{{ note }}</p>{% endfor %}
+      {% if row.result %}{% for warning in row.result.warnings %}<p>{{ warning }}</p>{% endfor %}{% endif %}
+    </td></tr>{% endif %}
+  {% endfor %}</tbody>
+</table>
+</div>
+<details class="mt-5 border border-line p-4"><summary class="cursor-pointer font-semibold">Calculation and interpretation</summary>
+  <div class="mt-3 space-y-2 text-sm">
+    <p>Adjusted target = saved base × (1 + beta × market move / 100) × (1 + sector coefficient × (sector move − market move) / 100).</p>
+    <p>Extra discount (percentage points) = min(maximum extra discount, max(0, −(FPI + DII) / flow scale × maximum extra discount)). Positive net buying does not reduce the base discount.</p>
+    <p>Entry ceiling = adjusted target × (1 − (base discount + extra discount) / 100).</p>
+    <p>The entry ceiling is a scenario calculation, not a buy instruction. Review baseline financial statements and model assumptions before treating a difference from market price as an opportunity. Changing the sector coefficient changes relative performance exposure; it does not revalue the company's business independently.</p>
+  </div>
+</details>
+{% endblock %}

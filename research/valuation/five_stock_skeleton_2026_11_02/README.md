@@ -3,6 +3,12 @@
 Status: RESEARCH PROTOTYPE RUN; not calibrated, not a production valuation upgrade.
 User request: make a skeleton with rough figures, run on five stocks, share results.
 
+Subsequent user approval: "ok, get it wire". PR #191 wires this arithmetic to
+the owner-only `/den/valuation/scenarios` screen, linked from Den section 12.
+The dated fixtures below remain the reproduction baseline; the screen reads
+the latest available saved valuation records. Scenario values remain exploratory
+and do not replace automated valuation targets or exit rules.
+
 ## Evidence and scope
 
 Saved MARS valuation records were read from settings.valuation_records. Build:

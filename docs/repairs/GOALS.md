@@ -17,7 +17,7 @@ Each batch must identify its source findings, demonstrate the failure, make a bo
 
 ## Longer-term design direction
 
-Valuation research update, 2 November: [five-stock sensitivity skeleton](../../research/valuation/five_stock_skeleton_2026_11_02/README.md) executed 15 hypothetical scenarios from dated saved MARS values. Arithmetic checks passed; sector coefficient calibration, company-fundamental validation and unseen-period evaluation remain open. This is a reviewable prototype, not a completed repair or a live valuation/exit policy change.
+Valuation update, 2 November: user approved wiring the [five-stock sensitivity skeleton](../../research/valuation/five_stock_skeleton_2026_11_02/README.md) into the valuation screen. [PR #191](https://github.com/damandamanaulakh-tech/MARS/pull/191) adds the owner-only `/den/valuation/scenarios` page, linked from section 12, with editable market, sector and FPI/DII assumptions against dated saved records. [Wiring and validation record](releases/2026-11-02-valuation-scenarios.md). Calibration, company-fundamental validation and unseen-period evaluation remain open; automated valuation targets and exit rules do not read these exploratory results.
 
 Build incrementally toward a common portfolio command boundary, durable unfinished-work records, quotes with source/time/validity, one proposed trade evaluated against projected exposure, resumable jobs, and versioned formula/research evidence. An AI explanation can propose a change; tests and the application's controls must verify it. This is a design direction, not a claim that those broader controls are implemented.
 
