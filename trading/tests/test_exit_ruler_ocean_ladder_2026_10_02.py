@@ -310,3 +310,29 @@ def test_hydrate_reads_the_cut_level(tmp_path):
     p = Portfolio.fresh(cfg)
     _hydrate_portfolio_from_mongo(p, {"cash": p.cash, "dd_cut_level": "cut_half"})
     assert p.dd_cut_level == "cut_half"
+
+
+def test_refresh_retries_partial_drawdown_after_quotes_return(eng, monkeypatch):
+    p = _book_in_drawdown(eng, -0.12)
+    prices = {t: float(eng._frames[t]["Close"].iloc[-1]) for t in p.positions}
+    monkeypatch.setattr("trading.engine.routed_fetch_quotes", lambda *a, **k: {"AA.NS": prices["AA.NS"]})
+    assert eng.refresh()["exits_this_refresh"] == ["AA.NS"]
+    assert p.dd_cut_pending["remaining_count"] == 1
+    restored = Portfolio.load_or_fresh(eng.cfg)
+    assert restored.dd_cut_pending == p.dd_cut_pending
+    monkeypatch.setattr("trading.engine.routed_fetch_quotes", lambda *a, **k: {"BB.NS": prices["BB.NS"]})
+    fresh = TradingEngine(eng.cfg, restored)
+    assert fresh.refresh()["exits_this_refresh"] == ["BB.NS"]
+    assert len(restored.positions) == 2
+    assert not restored.dd_cut_pending
+
+
+def test_refresh_outside_market_hours_preserves_pending_cut(eng, monkeypatch):
+    p = _book_in_drawdown(eng, -0.12)
+    prices = {t: float(eng._frames[t]["Close"].iloc[-1]) for t in p.positions}
+    eng._update_drawdown({"AA.NS": prices["AA.NS"]}, datetime.utcnow(),
+                         cut_allowed=True, marks=prices)
+    monkeypatch.setattr(eng, "_trading_allowed", lambda now: False)
+    assert eng.refresh()["exits_this_refresh"] == []
+    assert len(p.positions) == 3
+    assert p.dd_cut_pending["remaining_count"] == 1

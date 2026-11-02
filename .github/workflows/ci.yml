@@ -15,6 +15,8 @@ jobs:
           python-version: "3.11"
           cache: pip
       - name: Install dependencies
-        run: pip install -r requirements.txt pytest
+        run: pip install -r requirements.txt pytest openpyxl
       - name: Run tests
-        run: python -m pytest trading/tests/ web/tests/ -q
+        run: python -m pytest trading/tests/ web/tests/ -q -ra --junitxml=pytest-results.xml
+      - name: Require every collected test to run
+        run: python -c "import xml.etree.ElementTree as ET; skipped = ET.parse('pytest-results.xml').findall('.//testcase/skipped'); assert not skipped, f'{len(skipped)} tests skipped; see pytest summary for missing prerequisites'"

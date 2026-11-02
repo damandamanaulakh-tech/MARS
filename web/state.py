@@ -74,6 +74,7 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.capital_base = float(doc.get("capital_base") or _live_base)
     p.dd_peak_equity = float(doc.get("dd_peak_equity", 0.0) or 0.0)
     p.dd_cut_level = str(doc.get("dd_cut_level") or "normal")
+    p.dd_cut_pending = dict(doc.get("dd_cut_pending") or {})
     p.loss_day = doc.get("loss_day")
     p.loss_count = int(doc.get("loss_count", 0) or 0)
     # owner order 2026-10-21: per-category losers ride the mirror BOTH ways
@@ -163,6 +164,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "capital_base": self.capital_base,
             "dd_peak_equity": self.dd_peak_equity,
             "dd_cut_level": getattr(self, "dd_cut_level", "normal"),
+            "dd_cut_pending": getattr(self, "dd_cut_pending", {}) or {},
             "loss_day": self.loss_day,
             "loss_count": self.loss_count,
             "loss_by_category": getattr(self, "loss_by_category", {}) or {},

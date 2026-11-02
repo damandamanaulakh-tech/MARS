@@ -196,6 +196,10 @@ class Portfolio:
     # each level cuts ONCE. Persisted, or a restart would cut the same level
     # again on its first pass.
     dd_cut_level: str = "normal"
+    # AUD-001: original cut quota and eligible position identities while
+    # quotes are incomplete. Saved with the book, never recomputed smaller
+    # from its remainder on the next refresh.
+    dd_cut_pending: dict = field(default_factory=dict)
     last_save: Optional[str] = None
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
@@ -309,6 +313,7 @@ class Portfolio:
                 "capital_base": self.capital_base,   # capital the cash is synced to
                 "dd_peak_equity": self.dd_peak_equity,  # drawdown-governor peak
                 "dd_cut_level": self.dd_cut_level,      # ladder level already cut
+                "dd_cut_pending": self.dd_cut_pending,
                 "loss_day": self.loss_day,               # 2-loss halt state
                 "loss_count": self.loss_count,
                 "loss_by_category": self.loss_by_category,  # per-category losers today
@@ -374,6 +379,7 @@ class Portfolio:
                                    or cfg.starting_capital)
             p.dd_peak_equity = float(data.get("dd_peak_equity", 0.0) or 0.0)
             p.dd_cut_level = str(data.get("dd_cut_level") or "normal")
+            p.dd_cut_pending = dict(data.get("dd_cut_pending") or {})
             p.loss_day = data.get("loss_day")
             p.loss_count = int(data.get("loss_count", 0) or 0)
             p.loss_by_category = {str(k): int(v) for k, v in
