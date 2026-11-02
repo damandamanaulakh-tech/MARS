@@ -3195,33 +3195,76 @@ class TradingEngine:
             self.portfolio.dd_cut_level = level
 
         closed: List[str] = []
+        p = self.portfolio
+        pending = p.dd_cut_pending
+        prior_pending = copy.deepcopy(pending)
+        # A stop/owner exit can satisfy the reduction between refreshes.
+        # Entry identity prevents a later holding of the same ticker from
+        # inheriting the old obligation. No synthetic fill is recorded.
+        if pending:
+            for ticker, entry in list(pending["eligible"].items()):
+                pos = p.positions.get(ticker)
+                if pos is None or pos.entry_date.isoformat() != entry:
+                    pending["eligible"].pop(ticker)
+                    pending["remaining_count"] = max(0, pending["remaining_count"] - 1)
+
         cut = gov.forced_cut
-        if (cut_allowed and cut > 0 and self.portfolio.positions
-                and order.index(level) > order.index(done)):
-            # AUDIT FIX A2: rank and cut only names with a real quote — an
-            # unpriced position can neither be ranked honestly nor filled.
-            priced = [t for t in self.portfolio.positions
-                      if prices.get(t) and prices[t] > 0]
+        pending_level = pending["level"] if pending else done
+        if (cut_allowed and cut > 0 and p.positions
+                and order.index(level) > order.index(pending_level)):
+            # Freeze the quota before any sale. A deeper level replaces the
+            # older plan using today's remaining book, without weakening an
+            # unfinished reduction. The original worst-priced-first rule
+            # still applies only to names with usable live quotes.
+            pending = {
+                "level": level, "cut_fraction": cut,
+                "started_at": now.isoformat(),
+                "remaining_count": max(1, int(len(p.positions) * cut),
+                                       pending.get("remaining_count", 0)),
+                "eligible": {t: pos.entry_date.isoformat()
+                             for t, pos in p.positions.items()},
+            }
+            p.dd_cut_pending = pending
+
+        if pending and cut_allowed and pending["remaining_count"] > 0:
+            priced = [t for t in pending["eligible"]
+                      if prices.get(t) is not None
+                      and math.isfinite(prices[t]) and prices[t] > 0]
             by_pnl = sorted(
                 priced,
-                key=lambda t: prices[t] / self.portfolio.positions[t].entry_price,
+                key=lambda t: prices[t] / p.positions[t].entry_price,
             )
-            n_close = max(1, int(len(self.portfolio.positions) * cut))
-            for ticker in by_pnl[:n_close]:
+            for ticker in by_pnl[:pending["remaining_count"]]:
                 self._close(ticker, prices[ticker], "DRAWDOWN_LADDER", now)
                 closed.append(ticker)
-            if closed:
-                # Only a cut that actually sold marks the level done; with no
-                # quotes at all it is retried on the next pass.
-                self.portfolio.dd_cut_level = level
-                self.portfolio.decision_journal.append({
-                    "ts": now.isoformat(), "action": "DRAWDOWN_LADDER_CUT",
-                    "level": level, "cut_fraction": cut,
-                    "closed": closed,
+                pending["eligible"].pop(ticker)
+                pending["remaining_count"] -= 1
+
+        if pending:
+            complete = pending["remaining_count"] == 0
+            if closed or pending != prior_pending or complete:
+                p.decision_journal.append({
+                    "ts": now.isoformat(),
+                    "action": "DRAWDOWN_LADDER_CUT" if closed else "DRAWDOWN_LADDER_PENDING",
+                    "level": pending["level"], "cut_fraction": pending["cut_fraction"],
+                    "closed": closed, "remaining_count": pending["remaining_count"],
+                    "eligible": sorted(pending["eligible"]) if not complete else [],
+                    "complete": complete,
                     "drawdown_pct": round(gov.snapshot()["drawdown_pct"], 2),
-                    "why": (f"Drawdown reached '{level}'. This level cuts "
-                            f"once; the next cut needs a deeper level."),
+                    "why": ("The original cut is complete; this level will not cut again."
+                            if complete else
+                            "The original cut is unfinished; new entries remain halted "
+                            "and eligible holdings are retried on later quote passes."),
                 })
+            if complete:
+                p.dd_cut_level = pending["level"]
+                p.dd_cut_pending = {}
+            else:
+                # A mark recovery must not allow new buys to replace an
+                # unfinished protective reduction (scan calls this too).
+                gov.halt_new_entries = True
+                gov.sizing_multiplier = 0.0
+                gov.reason += f"; drawdown cut pending: {pending['remaining_count']} exit(s)"
 
         if not self.portfolio.positions and gov.halt_new_entries:
             old_peak = gov.peak_equity

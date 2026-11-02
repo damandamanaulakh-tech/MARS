@@ -38,17 +38,23 @@ def test_degraded_status_is_reported(monkeypatch):
     assert st["degraded"] is True
 
 
-def test_scans_halt_while_mongo_is_expected_but_down(monkeypatch):
+def test_scans_halt_while_mongo_is_expected_but_down(monkeypatch, tmp_path):
     """The phantom-book scenario: boot during an Atlas blip must not TRADE."""
     from web import db, scheduler, state
+    # This is a once-per-day event: a shared app book may already contain
+    # today's line outside the last five entries. Own the starting state.
+    p = Portfolio.fresh(Config(state_dir=str(tmp_path)))
+    monkeypatch.setattr(state, "portfolio", lambda: p)
     monkeypatch.setenv("MONGO_URL", "mongodb://nowhere.invalid:27017")
     monkeypatch.setattr(db, "_CONNECTED", False)
     monkeypatch.setattr(db, "_LAST_ATTEMPT", 9e18)
     assert state.mongo_degraded() is True
     assert scheduler._degraded_halt("test") is True
-    p = state.portfolio()
     assert any(e.get("action") == "MONGO_OFFLINE_HALT"
                for e in p.decision_journal[-5:])
+    assert scheduler._degraded_halt("test again") is True
+    assert sum(e.get("action") == "MONGO_OFFLINE_HALT"
+               for e in p.decision_journal) == 1
 
 
 # ------------------------------------------- C2: journal overflow never lost

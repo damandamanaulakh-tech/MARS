@@ -24,6 +24,7 @@ import re
 from pathlib import Path
 
 import pytest
+import openpyxl
 
 from trading import valuation_context as vc
 from trading.valuation import is_dn
@@ -35,7 +36,6 @@ MODULE = ROOT / "trading" / "valuation" / "scenarios.py"
 
 
 def _sheet():
-    openpyxl = pytest.importorskip("openpyxl")
     assert XLSX.exists(), "the owner's sheet must be committed as the fixture"
     return openpyxl.load_workbook(XLSX, data_only=True).active
 
