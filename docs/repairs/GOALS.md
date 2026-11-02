@@ -1,0 +1,29 @@
+# MARS goals — one reviewed batch at a time
+
+Each batch must identify its source findings, demonstrate the failure, make a bounded repair, test valid and failure paths, and record local / merged / deployed / runtime-verified status separately. Strategy decisions retain their own review. Work below is ordered by the current incident and portfolio impact.
+
+| Goal | Work and source records | Evidence required | Current state |
+|---|---|---|---|
+| G1 | Explain today's missing automatic Momentum entries; scheduler/OPS findings plus RUN-20261102-01 | Deployed SHA, timestamps, mode, job progress, category result or explicit unknown | Recovery defect reproduced; startup catch-up admission observed; completed Momentum pass and exact stock gates remain unverified |
+| G2 | Reject corrupt manual quantities/prices; ROOT-ROUTE-03 | Invalid values change no cash/holding/journal; valid add and SELL still work | Batch 1 shipped and health verified; 22 focused tests pass; broader row partially open |
+| G3 | Recover unfinished multi-category scans; scheduler/OPS rows | Intraday cannot mark Momentum complete; durable per-category progress survives interruption; no duplicate opens | Batch 2 shipped and health verified; 2,627 local tests pass; automatic completion evidence pending |
+| G4 | Complete protective liquidation and preserve equity under incomplete marks; AUD-001/002 | Missing-quote holding remains pending and closes when quote returns; missing mark does not invent drawdown | AUD-001 shipped in batch 3; AUD-002 remains next |
+| G5 | Acknowledge persistence and preserve conflicting recovery books; XR-071/070/069, ROOT-ROUTE-10, NEW-14 | Refused writes are visible and gate entries; snapshots retained; successful recovery proves durability | Planned; build write contract before recovery changes |
+| G6 | Make owner mutations atomic and preserve system tags; AUD-003, ROOT-ROUTE-04/06 and remaining route-03 concerns | Concurrent duplicate buy/close/edit cannot double-debit or lose holdings; permission and tracking semantics explicit | Planned; separate from numeric-validation batch |
+| G7 | Correct risk computations and protective-state handling; XR-026/027/041/047/050/051/052/056/057/060/061/083 | Exact stop and costs in sizing; same-pass exposure accounted; rejected replacement does not first sell a holding; feed loss cannot erase protection | Small independent batches; no silent threshold changes |
+| G8 | Bound jobs and repair feed/storage contracts; NEW-01/02/03/04/06, OPS rows, AUD-004, ROOT-ROUTE-08 | Deadlines, resumable acknowledgements, independent FII/DII storage; valid OAuth state required | Runtime evidence now available; each code contract reviewed separately |
+| G9 | Validate data and make studies reproducible; AUD-005/006/007, XR-078/088/089/091/092/093/094/096/098/099/103, ROOT-ROUTE-01/02, DOC-AM07-11 | Preserve sources; quarantine conflicts; reject invalid volumes; executable study with data/code/config identity and honest holdout history | Planned; source-dependent gaps remain explicit |
+| G10 | Reconcile valuation, screen and remaining backlog rows; VAL-*, TT01/02/03, NEW-07, remaining 165 records | Reproduce on current code; close obsolete claims; expose formula/source dates; agree model assumptions before altering trading rules | Planned; policy decisions reviewed individually |
+
+## Longer-term design direction
+
+Build incrementally toward a common portfolio command boundary, durable unfinished-work records, quotes with source/time/validity, one proposed trade evaluated against projected exposure, resumable jobs, and versioned formula/research evidence. An AI explanation can propose a change; tests and the application's controls must verify it. This is a design direction, not a claim that those broader controls are implemented.
+
+## Batch review record
+
+1. Batch 1: numeric validation reviewed, merged and deployed; broader record remains partial.
+2. Batch 2: daily rotation completion and interruption recovery reviewed, merged and deployed; automatic runtime completion pending. See [release evidence](releases/2026-11-02.md).
+3. Batch 3: AUD-001 repaired, 2,647 local and CI tests passed with zero skips, merged and deployed; production health verified.
+4. Subsequent batches: AUD-002 next, then G5–G10; keep the full tracker and record duplicates/superseded findings rather than deleting them.
+
+Completion means acceptance evidence, not the number of edited files. A local passing test does not establish live operational resolution.
