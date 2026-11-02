@@ -11,6 +11,7 @@ with its logical size; a later successful save clears the error.
 from __future__ import annotations
 
 from unittest.mock import MagicMock
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -25,7 +26,7 @@ class _Refuse:
 
 class _Accept:
     def replace_one(self, *a, **k):
-        return None
+        return SimpleNamespace(acknowledged=True)
 
 
 @pytest.fixture

@@ -103,6 +103,7 @@ def test_save_portfolio_noop_when_disconnected():
 
 def test_save_and_load_portfolio_with_mocked_mongo():
     fake_collection = MagicMock()
+    fake_collection.replace_one.return_value.acknowledged = True
     fake_collection.find_one.return_value = {
         "_id": "default",
         "cash": 2_400_000.0,
@@ -116,7 +117,7 @@ def test_save_and_load_portfolio_with_mocked_mongo():
     fake_db = MagicMock()
     fake_db.portfolio = fake_collection
     with patch.object(db, "_DB", fake_db), patch.object(db, "_CONNECTED", True):
-        db.save_portfolio({"cash": 2_400_000.0})
+        assert db.save_portfolio({"cash": 2_400_000.0}) is True
         fake_collection.replace_one.assert_called_once()
         loaded = db.load_portfolio()
     assert loaded["cash"] == 2_400_000.0

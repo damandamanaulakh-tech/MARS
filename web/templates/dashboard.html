@@ -286,12 +286,19 @@
     {% if wnb.rotation %}
       {% set tot = wnb.rotation.opened_total or 0 %}
       <div class="font-black text-lg tabular-nums {% if tot == 0 %}text-red-700{% else %}text-emerald-700{% endif %}" data-why-no-buy-head="1">
-        {{ wnb.rotation.where }} rotation · {% if tot == 0 %}NO BUYS{% else %}{{ tot }} buys{% endif %}
+        {{ wnb.rotation.where }} rotation · {% if wnb.rotation.status is defined and wnb.rotation.status != 'complete' %}{{ tot }} recorded buys{% elif tot == 0 %}NO BUYS{% else %}{{ tot }} buys{% endif %}
+        {% if wnb.rotation.status is defined %}· {{ wnb.rotation.status|replace('_', ' ') }}{% endif %}
         {% if wnb.earlier %}<span class="text-[10px] font-normal text-ink-faint">· earlier today: {% for e in wnb.earlier %}{{ e.where }} = {{ e.opened_total }}{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}
       </div>
+      {% if wnb.note %}<div class="text-sm text-amber-800" data-rotation-progress="1">{{ wnb.note }}</div>{% endif %}
     {% else %}
       <div class="text-sm text-ink-faint" data-why-no-buy-none="1">{{ wnb.note }}</div>
     {% endif %}
+  </div>
+  <div class="px-4 lg:px-6 py-2 text-xs text-ink-faint">
+    Latest scan (any category): {{ wnb.last_scan | ist }}.
+    {% if wnb.momentum_completed %}Last completed live Momentum pass: {{ wnb.momentum_completed.ts | ist }}.
+    {% else %}No completed live Momentum pass recorded.{% endif %}
   </div>
   {% if wnb.rows %}
   <div class="overflow-x-auto">
