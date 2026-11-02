@@ -84,7 +84,7 @@ def main():
     verify(inputs, rows)
     (HERE / "results.json").write_text(json.dumps(rows, indent=2) + "\n")
     with (HERE / "results.csv").open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0]))
+        writer = csv.DictWriter(f, fieldnames=list(rows[0]), lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
     print("PASS: 15 scenarios; unchanged-baseline, attribution, sector-fallback, hand-calculation and DII-offset checks.")
@@ -97,4 +97,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
