@@ -1,0 +1,125 @@
+{
+  "purpose": "Illustrative sensitivity skeleton; no forecast, new fair-value verification, or trade instruction.",
+  "snapshot": {
+    "source": "Read-only MARS MongoDB settings.valuation_records, selected non-account valuation fields only",
+    "built_utc": "2026-11-02T11:45:56.722999",
+    "price_asof": "2026-10-30",
+    "rule": "tested-2026-10-21"
+  },
+  "assumptions": {
+    "horizon": "Hypothetical common 20-session forward window from the saved baseline; not an observed period",
+    "sector_coefficient": 1,
+    "base_margin_pct": 10,
+    "flow_pressure_scale_cr": 10000,
+    "max_extra_flow_margin_pp": 5,
+    "flow_window": "5 sessions within each hypothetical scenario",
+    "flow_rule": "extra margin pp = min(5, max(0, -(FPI + DII) / 10000 * 5)); uncalibrated risk assumption, not estimated price impact",
+    "excluded": "No incremental earnings, FX, interest-rate or multiple adjustments; their overlap with existing baseline has not been reconciled."
+  },
+  "stocks": [
+    {
+      "ticker": "COFORGE.NS",
+      "sector_index": "IT",
+      "baseline_target": 1585,
+      "baseline_low": 1297.9,
+      "baseline_high": 1907.92,
+      "reference_price": 2045,
+      "price_asof": "2026-10-30",
+      "beta": 1.0657198185293026,
+      "beta_n": 252,
+      "family": "earnings",
+      "sector_fallback": false
+    },
+    {
+      "ticker": "ICICIBANK.NS",
+      "sector_index": "Fin Service",
+      "baseline_target": 1143.69,
+      "baseline_low": 871.77,
+      "baseline_high": 1415.62,
+      "reference_price": 1398,
+      "price_asof": "2026-10-30",
+      "beta": 0.925162299878768,
+      "beta_n": 252,
+      "family": "book",
+      "sector_fallback": false
+    },
+    {
+      "ticker": "DRREDDY.NS",
+      "sector_index": "Pharma",
+      "baseline_target": 2105.16,
+      "baseline_low": 1919.04,
+      "baseline_high": 2299.88,
+      "reference_price": 1352,
+      "price_asof": "2026-10-30",
+      "beta": 0.396140654891176,
+      "beta_n": 252,
+      "family": "ev_ebitda",
+      "sector_fallback": false
+    },
+    {
+      "ticker": "TVSMOTOR.NS",
+      "sector_index": "Auto",
+      "baseline_target": 2514.9,
+      "baseline_low": 2220.33,
+      "baseline_high": 2823.41,
+      "reference_price": 4195.2001953125,
+      "price_asof": "2026-10-30",
+      "beta": 1.1048727780590661,
+      "beta_n": 252,
+      "family": "ev_ebitda",
+      "sector_fallback": false
+    },
+    {
+      "ticker": "BHARTIARTL.NS",
+      "sector_index": "Nifty 50",
+      "baseline_target": 866,
+      "baseline_low": 796.95,
+      "baseline_high": 936.82,
+      "reference_price": 1973.699951171875,
+      "price_asof": "2026-10-30",
+      "beta": 0.6568605665944165,
+      "beta_n": 252,
+      "family": "ev_ebitda",
+      "sector_fallback": true
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "falling",
+      "market_pct": -5,
+      "sector_pct": {
+        "IT": -8,
+        "Fin Service": -6,
+        "Pharma": -2,
+        "Auto": -7
+      },
+      "fpi_5d_cr": -12000,
+      "dii_5d_cr": 8000
+    },
+    {
+      "name": "unchanged",
+      "market_pct": 0,
+      "sector_pct": {
+        "IT": 0,
+        "Fin Service": 0,
+        "Pharma": 0,
+        "Auto": 0
+      },
+      "fpi_5d_cr": 0,
+      "dii_5d_cr": 0
+    },
+    {
+      "name": "rising",
+      "market_pct": 5,
+      "sector_pct": {
+        "IT": 8,
+        "Fin Service": 6,
+        "Pharma": 3,
+        "Auto": 7
+      },
+      "fpi_5d_cr": 8000,
+      "dii_5d_cr": 4000
+    }
+  ]
+}
+

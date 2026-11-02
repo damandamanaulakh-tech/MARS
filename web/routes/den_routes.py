@@ -1214,6 +1214,22 @@ def den_page(request: Request, draft: Optional[str] = None,
     return templates.TemplateResponse(request, "den.html", ctx)
 
 
+@router.get("/den/valuation/scenarios", response_class=HTMLResponse)
+def den_valuation_scenarios(request: Request):
+    user = auth.current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    if user.get("role") != "owner":
+        return HTMLResponse("Owner access is required for valuation scenarios.", status_code=403)
+    from .. import valuation_exit_feed, valuation_sensitivity
+    # Reuse dated saved records; opening a scenario never rebuilds or saves them.
+    scenario = valuation_sensitivity.build(request.query_params,
+                                           valuation_exit_feed.current_doc())
+    return templates.TemplateResponse(request, "valuation_scenarios.html", {
+        "user": user, "scenario": scenario,
+    }, status_code=422 if scenario["errors"] else 200)
+
+
 @router.post("/den/sandbox")
 async def den_sandbox_save(request: Request):
     """Owner-only. Stores the DRAFT (Mongo settings doc "formula_drafts" +
