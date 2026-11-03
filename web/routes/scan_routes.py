@@ -102,6 +102,9 @@ def scan_view(request: Request, error: str | None = None):
         last_err = _LAST_SCAN_ERROR
 
     from collections import Counter
+    from trading.category_budget import LABELS, MOMENTUM
+    scan_mode = (p.scan_matrix or {}).get("mode") or MOMENTUM
+    scan_mode = scan_mode if scan_mode in LABELS else MOMENTUM
     picks = p.last_scan_picks or []
     piano = _build_piano(p.scan_matrix or {})
     # The owner's funnel arithmetic (their design 2026-08-13: "in real life
@@ -160,6 +163,8 @@ def scan_view(request: Request, error: str | None = None):
             # while the live target was +12).
             "preset_stop": round(abs(_momentum_preset().stop_loss_pct) * 100, 1),
             "preset_target": round(_momentum_preset().take_profit_pct * 100, 1),
+            "segments": LABELS,
+            "scan_mode": scan_mode,
             "picks": picks,
             "slots": slots,
             "buy_desk": buy_desk,
@@ -761,7 +766,8 @@ def _parse_pos_float(raw: str) -> float | None:
     if not s:
         return None
     v = abs(float(s))
-    if v <= 0:
+    import math
+    if not math.isfinite(v) or v <= 0:
         raise ValueError("must be > 0")
     return v
 
@@ -770,12 +776,12 @@ def _parse_pos_float(raw: str) -> float | None:
 def owner_buy(request: Request, ticker: str = Form(...),
               qty: str = Form(""), order_type: str = Form("market"),
               limit_price: str = Form(""), stop_pct: str = Form(""),
-              target_pct: str = Form("")):
+              target_pct: str = Form(""), mode: str = Form("nifty200_momentum")):
     """Owner-only order ticket. Market: open NOW at the live Upstox price
     through the engine's own entry path. Limit: rest a day-validity order
     filled when the price touches. qty blank = engine auto-size; stop/
-    target blank = mode preset (-12/+30 momentum). The owner's call
-    overrides the regime entry-halt — journaled as exactly that. Paper
+    target blank = the selected segment preset. The owner's call
+    overrides the regime entry-halt but uses that segment's funds. Paper
     book only, as always."""
     user = auth.current_user(request)
     if not user or user.get("role") != "owner":
@@ -797,6 +803,11 @@ def owner_buy(request: Request, ticker: str = Form(...),
     eng = state.engine()
     cfg = state.cfg()
     p = state.portfolio()
+    from trading.owner_allocation import segment, available, refusal
+    try:
+        selected_mode = segment(mode)
+    except ValueError:
+        return RedirectResponse("/scan?error=bad_segment", status_code=303)
     if tkr in (getattr(cfg, "ticker_blocklist", ()) or ()):
         return RedirectResponse("/scan?error=blocklisted", status_code=303)
     if tkr in p.positions:
@@ -809,6 +820,8 @@ def owner_buy(request: Request, ticker: str = Form(...),
         limit = _parse_pos_float(limit_price)
     except ValueError:
         return RedirectResponse("/scan?error=bad_ticket", status_code=303)
+    if want_qty is not None and (not want_qty.is_integer() or (qty or "").strip().startswith("-")):
+        return RedirectResponse("/scan?error=bad_ticket", status_code=303)
     want_qty = int(want_qty) if want_qty else None
 
     if order_type == "limit":
@@ -816,25 +829,25 @@ def owner_buy(request: Request, ticker: str = Form(...),
             return RedirectResponse("/scan?error=bad_ticket", status_code=303)
         from trading.orders import place_limit
         place_limit(p, ticker=tkr, limit_price=limit, qty=want_qty,
-                    stop_pct=stop, target_pct=target)
+                    stop_pct=stop, target_pct=target, mode=selected_mode)
         return RedirectResponse("/scan?error=order_placed", status_code=303)
 
     prices = fetch_quotes([tkr], upstox_client=eng.broker)
     price = prices.get(tkr)
-    if not price or price <= 0:
+    import math
+    if not price or not math.isfinite(float(price)) or float(price) <= 0:
         return RedirectResponse("/scan?error=no_quote", status_code=303)
 
-    # The position must carry MOMENTUM identity (tag, -12/+30 snapshot)
-    # even if the dashboard currently sits in another mode.
+    # Snapshot the chosen segment under the same lock as automatic entries.
     # AUDIT S-6 (2026-10-02): the swap happens under the shared mode lock so a
     # scan pass cannot flip the Config underneath it (or read it mid-swap).
     from trading.modes import MODE_LOCK, MODE_LOCK_WAIT_S
     if not MODE_LOCK.acquire(timeout=MODE_LOCK_WAIT_S):
         return RedirectResponse("/scan?error=scan_busy", status_code=303)
-    orig_mode = getattr(cfg, "mode", "nifty200_momentum")
     try:
-        cfg.mode = "nifty200_momentum"
-        cfg.apply_mode_preset()
+        if tkr in p.positions:
+            return RedirectResponse("/scan?error=already_held", status_code=303)
+        cfg = eng.mode_cfg(selected_mode)
         marks = {pos.ticker: pos.entry_price for pos in p.positions.values()}
         equity = p.equity(marks)
         # AUDIT FIX A11 (2026-08-09): size through the ONE shared entry point
@@ -844,17 +857,22 @@ def owner_buy(request: Request, ticker: str = Form(...),
         # number by design, and now by a single code path.
         from trading.sizing import position_notional_for
         notional, _diag = position_notional_for(cfg, equity)
-        auto_qty = int(notional // float(price))
+        funds, left = available(p, cfg, selected_mode)
+        auto_qty = int(min(notional, funds) // float(price))
         use_qty = want_qty or auto_qty
-        if use_qty < 1 or use_qty * float(price) > p.cash:
-            return RedirectResponse("/scan?error=insufficient_cash", status_code=303)
+        why = refusal(p, cfg, selected_mode, use_qty * float(price))
+        if use_qty < 1:
+            why = "category_budget_full" if left is not None and left < float(price) else "insufficient_cash"
+        if why:
+            return RedirectResponse(f"/scan?error={why}", status_code=303)
         pick = next((dict(pk) for pk in (p.last_scan_picks or [])
                      if pk.get("ticker") == tkr), None) or \
             {"ticker": tkr, "score": 0.0, "components": {}, "timing_pass": True}
         pick["reasoning"] = ("OWNER BUY CALL — user pushed this YES pick into "
                             "the book (regime halt overridden by owner). "
                             + str(pick.get("reasoning", "")))[:220]
-        eng._open(pick, use_qty, float(price), datetime.utcnow())
+        pick["fill_source"] = "live_quote"
+        eng._open(pick, use_qty, float(price), datetime.utcnow(), cfg=cfg)
         # AUDIT FIX A4 (2026-08-09): an owner's deliberate pick is never
         # auto-sold by score decay (check_exit skips SCORE_DECAY for this
         # tag). Stop/target/trail/max-hold still protect it.
@@ -865,8 +883,6 @@ def owner_buy(request: Request, ticker: str = Form(...),
             p.positions[tkr].reasoning += f" Custom levels: {note}."
         p.save()
     finally:
-        cfg.mode = orig_mode
-        cfg.apply_mode_preset()
         MODE_LOCK.release()
     return RedirectResponse("/positions", status_code=303)
 

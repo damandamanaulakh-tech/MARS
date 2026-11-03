@@ -1,7 +1,6 @@
-"""Owner order 2026-10-21: the owner bucket on the screens. /risk shows an
-"owner (outside the shares)" row with entry cost and count; the Buy Desk
-card and the BUY ticket say what they open counts under owner, outside the
-five shares; the dashboard fund table carries the Owner segment."""
+"""The 2026-11-03 policy replaces the separate owner allocation display.
+Owner source markers remain; strategy allocation and P&L are combined.
+"""
 from __future__ import annotations
 
 from datetime import datetime
@@ -44,41 +43,46 @@ class _Book:
         self.p.positions = self.saved
 
 
-def test_the_risk_page_shows_the_owner_row_outside_the_shares():
+def test_the_risk_page_counts_owner_entries_under_their_segments():
     book = {"BD1.NS": _pos("BD1.NS", 10_00_000.0, tags=["owner_pick", "buy_desk"]),
-            "BD2.NS": _pos("BD2.NS", 5_00_000.0, tags=["owner_pick"]),
+            "BD2.NS": _pos("BD2.NS", 5_00_000.0, mode="swing", tags=["owner_pick"]),
             "MOM.NS": _pos("MOM.NS", 3_00_000.0)}
     with _Book(book):
         html = _client().get("/risk").text
-    assert "category_owner_marker" in html
+    assert "category_owner_marker" not in html
     card = html.split("category_budget_marker")[1].split("IFR OVERLAY")[0]
-    row = card.split("category_owner_marker")[1].split("</tr>")[0]
-    assert "Owner" in row and "outside the shares" in row
-    assert "₹15,00,000" in row and ">2<" in row            # cost + count
-    # the owner fills no longer sit in momentum's row
-    mom = card.split("Momentum")[1].split("</tr>")[0]
-    assert "₹3,00,000" in mom and ">1<" in mom
-    assert "counts under <strong>owner</strong>" in card
-    assert "counts as momentum" not in card
+    mom = card.split('data-category-budget-row="nifty200_momentum"')[1].split("</tr>")[0]
+    swing = card.split('data-category-budget-row="swing"')[1].split("</tr>")[0]
+    assert "₹13,00,000" in mom and ">2<" in mom
+    assert "₹5,00,000" in swing and ">1<" in swing
+    assert "stored strategy segment" in card
 
 
-def test_the_buy_desk_card_and_the_ticket_say_owner():
-    c = _client()
-    html = c.get("/scan").text
-    assert html.count("counts under owner, outside the five shares") >= 2
-    ticket = html.split("Place paper order")[1].split("</form>")[0]
-    assert "counts under owner" in ticket
+def test_the_buy_desk_card_and_the_ticket_describe_strategy_allocation():
+    html = _client().get("/scan").text
+    assert "counts under owner, outside the five shares" not in html
+    assert 'name="mode"' in html
+    assert "Momentum" in html
 
 
-def test_the_dashboard_fund_table_carries_the_owner_segment():
+def test_the_dashboard_fund_table_combines_owner_and_auto_in_strategy():
     book = {"BD1.NS": _pos("BD1.NS", 10_00_000.0, tags=["owner_pick", "buy_desk"])}
     with _Book(book):
         html = _client().get("/").text
-    assert 'data-fund-segment="owner"' in html
-    seg = html.split('data-fund-segment="owner"')[1].split("</tr>")[0]
-    assert "outside the five shares" in seg and "₹10,00,000" in seg
+    assert 'data-fund-segment="owner"' not in html
     mom = html.split('data-fund-segment="nifty200_momentum"')[1].split("</tr>")[0]
-    assert "₹10,00,000" not in mom
+    assert "₹10,00,000" in mom
+
+
+def test_open_position_segment_and_owner_source_are_distinct():
+    book = {"BD1.NS": _pos("BD1.NS", 10_00_000.0, mode="short", tags=["owner_pick"]),
+            "LEGACY.NS": _pos("LEGACY.NS", 1_00_000.0, mode="", tags=["owner_pick"])}
+    with _Book(book):
+        html = _client().get("/positions").text
+    assert "Short" in html and "Momentum" in html
+    assert "OWNER PICK" in html
+    assert "do not create separate fund allocations" in html
+    assert 'name="mode"' in html and 'value="positional"' in html
 
 
 def test_a_viewer_still_sees_no_risk_page(monkeypatch):
@@ -90,20 +94,20 @@ def test_a_viewer_still_sees_no_risk_page(monkeypatch):
     assert c.get("/risk").status_code == 403
 
 
-def test_no_screen_claims_owner_buys_obey_the_deploy_cap():
-    """Review fix 2026-10-21: the owner's BUY button, limit fills and the Buy
-    Desk call no risk.can_open (before or after this order) — only cash is
-    checked. The first build printed "Owner buys still obey the deploy cap
-    and the heat cap" on /risk and "the deploy cap and heat still apply" on
-    the Buy Desk; both were false. What IS true is printed instead: their
-    positions count in the cap every scan entry is judged against."""
-    book = {"BD1.NS": _pos("BD1.NS", 10_00_000.0, tags=["owner_pick", "buy_desk"])}
-    c = _client()
-    with _Book(book):
-        risk = c.get("/risk").text
-    card = risk.split("category_budget_marker")[1].split("IFR OVERLAY")[0]
-    assert "still obey the deploy cap" not in card
-    assert "cash only" in card
-    assert "counts in the deploy cap and the heat every scan entry" in card
-    scan = c.get("/scan").text
-    assert "the deploy cap and heat still apply" not in scan
+def test_allocation_help_distinguishes_share_checks_from_other_scan_gates():
+    html = _client().get("/risk").text
+    card = html.split("category_budget_marker")[1].split("IFR OVERLAY")[0]
+    assert "cash only" not in card
+    assert "selected segment’s cash share" in card
+    assert "deploy cap and heat used for automatic entries" in card
+
+
+def test_legacy_overfull_owner_allocation_is_visible_without_a_sale():
+    book = {"BIG.NS": _pos("BIG.NS", 4_00_00_000.0, tags=["owner_pick"])}
+    with _Book(book) as p:
+        before_cash = p.cash
+        html = _client().get("/risk").text
+        dashboard = _client().get("/").text
+        assert p.positions == book and p.cash == before_cash
+    assert "over limit; existing holdings retained" in html
+    assert "over limit · holdings retained" in dashboard

@@ -165,6 +165,58 @@
   </div>
 </div>
 
+<section class="bg-white border border-line p-4 lg:p-6 mb-6 lg:mb-8" id="segment-performance" data-segment-performance>
+  <div class="flex flex-wrap items-end justify-between gap-4 mb-4">
+    <div>
+      <h2 class="font-bold text-lg">Win / loss by segment</h2>
+      <p class="text-xs text-ink-soft mt-1">{{ performance.period_label }}{% if performance.window_start %} · {{ performance.window_start }} to {{ performance.window_end }} (IST, inclusive){% endif %} · {{ performance.total }} closed trades</p>
+      <p class="text-xs text-ink-faint mt-1">{% if performance.first_exit %}Observed exits: {{ performance.first_exit }} to {{ performance.last_exit }} IST.{% else %}No recorded exits in this period.{% endif %} Updated {{ performance.asof }}.</p>
+    </div>
+    <form method="get" action="/trades#segment-performance" class="flex items-end gap-2">
+      {% if show_archive %}<input type="hidden" name="archive" value="1">{% endif %}
+      <label class="text-xs text-ink-soft">Performance period
+        <select name="performance_period" class="block border border-line px-2 py-2 mt-1 bg-white">
+          {% for value, label in performance.period_options.items() %}<option value="{{ value }}"{% if performance.period == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+      <button type="submit" class="border border-ink px-3 py-2 text-xs font-semibold hover:bg-ink hover:text-white">Apply</button>
+    </form>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+        <tr>
+          <th class="text-left px-2 py-2">Segment</th>
+          <th class="text-right px-2 py-2 whitespace-nowrap">Closed trades</th>
+          <th class="text-right px-2 py-2">Wins</th>
+          <th class="text-right px-2 py-2">Losses</th>
+          <th class="text-right px-2 py-2">Breakeven</th>
+          <th class="text-right px-2 py-2 whitespace-nowrap">Net P&amp;L</th>
+          <th class="text-left px-2 py-2 whitespace-nowrap">Exit dates (IST)</th>
+          <th class="text-right px-2 py-2 whitespace-nowrap">Average hold</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in performance.rows %}
+        <tr class="border-b border-line last:border-0" data-performance-segment="{{ s.category }}">
+          <td class="px-2 py-3 font-semibold whitespace-nowrap">{{ s.label }}</td>
+          <td class="px-2 py-3 text-right tabular-nums" data-performance-count>{{ s.total }}</td>
+          <td class="px-2 py-3 text-right tabular-nums whitespace-nowrap">{{ s.wins }} <span class="text-ink-soft">({% if s.win_pct is not none %}{{ '%.1f' % s.win_pct }}%{% else %}—{% endif %})</span></td>
+          <td class="px-2 py-3 text-right tabular-nums whitespace-nowrap">{{ s.losses }} <span class="text-ink-soft">({% if s.loss_pct is not none %}{{ '%.1f' % s.loss_pct }}%{% else %}—{% endif %})</span></td>
+          <td class="px-2 py-3 text-right tabular-nums whitespace-nowrap">{{ s.breakevens }} <span class="text-ink-soft">({% if s.breakeven_pct is not none %}{{ '%.1f' % s.breakeven_pct }}%{% else %}—{% endif %})</span></td>
+          <td class="px-2 py-3 text-right tabular-nums whitespace-nowrap {% if s.net_pnl > 0 %}text-emerald-700{% elif s.net_pnl < 0 %}text-red-700{% endif %}">{% if s.total %}₹{{ s.net_pnl | inr }}{% else %}—{% endif %}</td>
+          <td class="px-2 py-3 text-xs whitespace-nowrap">{% if s.first_exit %}{{ s.first_exit }}<br>to {{ s.last_exit }}{% else %}No closed trades{% endif %}</td>
+          <td class="px-2 py-3 text-right tabular-nums whitespace-nowrap">{% if s.average_hold_days is not none %}{% if s.average_hold_days < 1 %}{{ '%.1f' % (s.average_hold_days * 24) }} hours{% else %}{{ '%.1f' % s.average_hold_days }} days{% endif %}{% if s.hold_sample != s.total %}<br><span class="text-[10px] text-ink-faint">{{ s.hold_sample }} dated records</span>{% endif %}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="text-xs text-ink-faint mt-3">Rates use net P&amp;L after recorded costs: wins &gt; 0, losses &lt; 0, breakeven = 0; each percentage divides by all closed trades in that segment and period. Owner-added trades and manual exits count under their recorded segment. Older records use proven entry evidence; unplaced records remain Unknown / legacy. Each partial exit is a separate closed-trade record. Open positions are excluded.</p>
+  <p class="text-xs text-ink-faint mt-2">The period selector filters this table only. It uses retained closed-trade history; archived trades are excluded even when shown below. Average hold is the recorded elapsed time, not a forecast or a required holding period.{% if archived_trades %} {{ archived_trades }} older records are in the archive; this is not a complete lifetime result.{% endif %}</p>
+  {% if performance.invalid_records or performance.future_exits %}<p class="text-xs text-amber-800 mt-2">Excluded from this table: {{ performance.invalid_records }} record(s) with an unreadable exit date or net P&amp;L; {{ performance.future_exits }} with an exit timestamp later than this report.</p>{% endif %}
+</section>
+
 {% if rows %}
 <div class="bg-white border border-line">
   <div class="overflow-x-auto">
@@ -172,6 +224,7 @@
     <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
       <tr>
         <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Ticker</th>
+        <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Segment</th>
         <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Qty</th>
         <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Entry</th>
         <th class="text-left px-3 lg:px-6 py-3 whitespace-nowrap">Exit</th>
@@ -189,6 +242,7 @@
       {% for r in rows %}
       <tr class="border-b border-line last:border-0 {% if r.pre_mars %}bg-slate-50 text-ink-faint{% endif %}">
         <td class="px-3 lg:px-6 py-3 font-semibold whitespace-nowrap">{{ r.ticker }}{% if r.pre_mars %} <span class="text-[9px] uppercase tracking-widest border border-line px-1 ml-1" title="Closed before 15 Sep 2026 — archived, not in the live figures">archived</span>{% endif %}</td>
+        <td class="px-3 lg:px-6 py-3 text-ink-soft whitespace-nowrap">{{ r.segment }}</td>
         <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap">{{ r.qty }}</td>
         <td class="px-3 lg:px-6 py-3 text-ink-soft whitespace-nowrap">{{ r.entry_date }}</td>
         <td class="px-3 lg:px-6 py-3 text-ink-soft whitespace-nowrap">{{ r.exit_date }}</td>

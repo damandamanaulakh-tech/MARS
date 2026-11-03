@@ -694,6 +694,7 @@ def fund_summary(p, cfg, prices: dict, live_count: int) -> dict:
             "pnl_vs_cost": ((pnl / allocated * 100) if allocated else None),
             "pnl_vs_share": ((pnl / limit * 100) if limit else None),
             "open": len(mine),
+            "over_limit": (max(0.0, allocated - limit) if limit is not None else None),
             "full": (limit is not None and (limit - allocated) < min_open),
         }
 
@@ -705,11 +706,8 @@ def fund_summary(p, cfg, prices: dict, live_count: int) -> dict:
                    * int(getattr(cfg, "ocean_max_positions", 0) or 0))
     rows.append(_row(cb.OCEAN, "Ocean", ocean_limit or None, None,
                      note="ticket × slots, outside the five shares"))
-    # Owner order 2026-10-21: owner BUY / limit fills / Buy Desk positions
-    # are their own bucket outside the five shares (like Ocean).
-    rows.append(_row(cb.OWNER, "Owner", None, None,
-                     note="your BUY button / Buy Desk, outside the five shares"))
-    known = set(cb.SHARE_FIELDS) | {cb.OCEAN, cb.OWNER}
+    # Entry provenance does not create a separate allocation bucket.
+    known = set(cb.SHARE_FIELDS) | {cb.OCEAN}
     for cat in sorted({cb.category_of(x) for x in positions} - known):
         rows.append(_row(cat, cat.replace("_", " ").title(), None, None,
                          note="no budget applies to this category"))

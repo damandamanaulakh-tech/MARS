@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from .. import auth, market_gate, state
 from ..templating import templates
 from trading.paper import PaperPosition
+from trading import category_budget as category_budgets
 
 
 log = logging.getLogger(__name__)
@@ -23,7 +24,8 @@ _MODE_LABEL = {
     "intraday":          "Intraday",
     "short":             "Short",
     "swing":             "Swing",
-    "positional":        "Long",
+    "positional":        "Positional",
+    "ocean":             "Ocean",
     "nifty200_momentum": "Momentum",
 }
 
@@ -60,6 +62,13 @@ MARKERS = (
                  "retag leaves them alone")},
 )
 _MARKER_BY_KEY = {m["key"]: m for m in MARKERS}
+
+# These tags are written by entry/import paths and carry engine policy or
+# provenance. Notes may edit descriptive tags, never fabricate/remove these.
+_SYSTEM_POSITION_TAGS = frozenset({
+    "ocean", "owner_pick", "buy_desk", "manual_import",
+    "seed_june_2026", "real_holding",
+})
 
 
 def _entry_day(entry_date):
@@ -215,8 +224,8 @@ def positions_view(
     rows = []
     tot_invested = tot_value = 0.0
     for pos in p.positions.values():
-        mode = getattr(pos, "mode", "") or ""
-        category = _MODE_LABEL.get(mode, mode.title() if mode else "Manual")
+        mode = category_budgets.category_of(pos)
+        category = _MODE_LABEL.get(mode, mode.replace("_", " ").title())
         # Use the stop/target snapshotted at entry; fall back to the live cfg
         # percentages for manual/legacy positions that never stored them.
         stop_price = getattr(pos, "stop_price", 0.0) or 0.0
@@ -275,6 +284,10 @@ def positions_view(
             "reasoning": pos.reasoning,
             "entry_notes": getattr(pos, "entry_notes", "") or "",
             "tags": getattr(pos, "tags", []) or [],
+            "editable_tags": [t for t in (getattr(pos, "tags", []) or [])
+                              if t not in _SYSTEM_POSITION_TAGS],
+            "system_tags": [t for t in (getattr(pos, "tags", []) or [])
+                            if t in _SYSTEM_POSITION_TAGS],
         })
     rows.sort(key=lambda r: -r["value"])
     held_days = [r["days_held"] for r in rows if r["days_held"] is not None]
@@ -315,6 +328,7 @@ def positions_view(
             "no_price": no_price,
             "quotes_age": state.marks_age(tickers),
             "seed_count": len(_SEED_JUNE_2026),
+            "segments": category_budgets.LABELS,
             **_sector_event_context(p, cfg),
         },
     )
@@ -343,6 +357,10 @@ def trades_view(request: Request):
         return RedirectResponse("/login", status_code=303)
     p = state.portfolio()
     cfg = state.cfg()
+    from ..trade_performance import segment_label, segment_performance
+    retained_trades = list(p.trades)
+    performance = segment_performance(
+        retained_trades, request.query_params.get("performance_period", "all"))
 
     starting_capital = cfg.starting_capital or 1.0
     # OWNER 2026-10-11 item 5: closed trades before 2026-09-15 IST live in
@@ -365,7 +383,7 @@ def trades_view(request: Request):
             except Exception:                       # a malformed doc stays out
                 continue
     rows = []
-    for t in archived_rows + list(p.trades):
+    for t in archived_rows + retained_trades:
         net_pct = (t.exit_price / t.entry_price - 1) * 100 if t.entry_price else 0
         hold = (t.exit_date.date() - t.entry_date.date()).days
         capital_used = t.qty * t.entry_price            # F9: rupees deployed
@@ -385,16 +403,17 @@ def trades_view(request: Request):
             "reason": t.reason,
             "sector": t.sector,
             "pre_mars": t in archived_rows,
+            "segment": segment_label(t),
         })
 
-    wins = sum(1 for t in p.trades if t.net_pnl > 0)
-    losses = sum(1 for t in p.trades if t.net_pnl < 0)
-    total = len(p.trades)
+    wins = sum(1 for t in retained_trades if t.net_pnl > 0)
+    losses = sum(1 for t in retained_trades if t.net_pnl < 0)
+    total = len(retained_trades)
     win_rate = (wins / total * 100) if total else 0.0
-    net_total = sum(t.net_pnl for t in p.trades)
+    net_total = sum(t.net_pnl for t in retained_trades)
     # F9 + F19: gross profit vs gross loss so P&L reads next to win-rate
-    gross_profit = sum(t.net_pnl for t in p.trades if t.net_pnl > 0)
-    gross_loss = sum(t.net_pnl for t in p.trades if t.net_pnl < 0)
+    gross_profit = sum(t.net_pnl for t in retained_trades if t.net_pnl > 0)
+    gross_loss = sum(t.net_pnl for t in retained_trades if t.net_pnl < 0)
     total_capital_used = sum(r["capital_used"] for r in rows)
     net_pct_of_capital = net_total / starting_capital * 100
     # Audit M-10: once the book reaches the cap, older trades live in the
@@ -435,6 +454,7 @@ def trades_view(request: Request):
             "win_rate": win_rate,
             "net_total": net_total,
             "archived_trades": archived,
+            "performance": performance,
         },
     )
 
@@ -567,13 +587,24 @@ def update_notes(
 ):
     if not auth.current_user(request):
         return RedirectResponse("/login", status_code=303)
-    p = state.portfolio()
-    pos = p.positions.get(ticker)
-    if pos is None:
-        return RedirectResponse("/positions?error=not_found", status_code=303)
-    pos.entry_notes = entry_notes.strip()
-    pos.tags = [t.strip() for t in tags.split(",") if t.strip()]
-    p.save()
+    from trading.modes import MODE_LOCK_WAIT_S, ModeBusy, holding_mode_lock
+    try:
+        # Read the current source tags after entry/exit work has finished;
+        # a stale form never overwrites flags added while it was open.
+        with holding_mode_lock(timeout=MODE_LOCK_WAIT_S):
+            p = state.portfolio()
+            pos = p.positions.get(ticker)
+            if pos is None:
+                return RedirectResponse("/positions?error=not_found", status_code=303)
+            system_tags = [t for t in (getattr(pos, "tags", None) or [])
+                           if t in _SYSTEM_POSITION_TAGS]
+            user_tags = [t.strip() for t in tags.split(",") if t.strip()
+                         and t.strip().casefold() not in _SYSTEM_POSITION_TAGS]
+            pos.entry_notes = entry_notes.strip()
+            pos.tags = system_tags + user_tags
+            p.save()
+    except ModeBusy:
+        return RedirectResponse("/positions?error=scan_busy", status_code=303)
     return RedirectResponse("/positions", status_code=303)
 
 
@@ -883,6 +914,7 @@ def add_manual_position(
     sector: str = Form(""),
     entry_notes: str = Form(""),
     tags: str = Form(""),
+    mode: str = Form(category_budgets.MOMENTUM),
 ):
     """Manual position open — for real-world holdings you want to track here."""
     if not auth.current_user(request):
@@ -909,6 +941,19 @@ def add_manual_position(
         entry_dt = datetime.fromisoformat(entry_date)
     except ValueError:
         entry_dt = datetime.utcnow()
+    # This records a holding already owned, so it is accounted even when
+    # the chosen share is full. It does not simulate a new BUY or change the
+    # holding's exit exemptions. Legacy callers default to Momentum.
+    if not isinstance(mode, str):
+        mode = category_budgets.MOMENTUM  # direct calls omitting FastAPI Form
+    mode = mode.strip()
+    if mode not in category_budgets.SHARE_FIELDS:
+        return RedirectResponse("/positions?error=bad_segment", status_code=303)
+    entry_tags = [t.strip() for t in tags.split(",") if t.strip()]
+    if category_budgets.OCEAN in entry_tags:
+        return RedirectResponse("/positions?error=bad_segment_tags", status_code=303)
+    if "manual_import" not in entry_tags:
+        entry_tags.append("manual_import")
     sec = (sector.strip() or cfg.sector_map.get(ticker)
            or _SECTOR_HINTS.get(ticker) or "Unknown")
     p.cash -= notional
@@ -917,7 +962,7 @@ def add_manual_position(
         entry_date=entry_dt, sector=sec, peak_price=float(entry_price),
         entry_score=70.0, reasoning="Manual entry — real holding tracked here.",
         entry_notes=entry_notes.strip(),
-        tags=[t.strip() for t in tags.split(",") if t.strip()],
+        tags=entry_tags, mode=mode,
     )
     p.save()
     return RedirectResponse("/positions", status_code=303)

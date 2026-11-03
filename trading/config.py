@@ -155,11 +155,9 @@ class Config:
     # 20% reserve shrinks every share alike instead of starving the last
     # category in line. A share a category does not use stays as cash; it is
     # never lent to another. Positions count at entry cost, the same as the
-    # deploy cap. Ocean is exempt (its own 8-slot limit). OWNER ORDER
-    # 2026-10-21: the owner's BUY button, limit fills and the Buy Desk are
-    # never refused by a share and what they buy sits in its OWN "owner"
-    # bucket outside the five shares (it used to count as momentum and could
-    # fill momentum's share). See trading/category_budget.py.
+    # deploy cap. Ocean is exempt (its own 8-slot limit). Owner decision
+    # 2026-11-03: manual BUY / limit / Buy Desk positions use their strategy
+    # share too; owner provenance is a separate label, never a cash bucket.
     category_budgets_enabled: bool = True
     budget_share_momentum: float = 0.40
     budget_share_intraday: float = 0.15

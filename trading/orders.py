@@ -28,13 +28,16 @@ def _journal(p, entry: dict) -> None:
 
 def place_limit(p, *, ticker: str, limit_price: float, qty: int = None,
                 stop_pct: float = None, target_pct: float = None,
-                now: datetime = None) -> dict:
+                now: datetime = None, mode: str = "nifty200_momentum") -> dict:
     """Rest a day-validity limit BUY. qty None = engine auto-size at fill.
     stop_pct/target_pct are positive percents (8 -> stop 8% below fill)."""
+    from .owner_allocation import segment
+    mode = segment(mode)
     now = now or datetime.utcnow()
     order = {
         "id": f"ORD-{now.strftime('%Y%m%d%H%M%S')}-{len(p.pending_orders) + 1}",
         "ticker": ticker,
+        "mode": mode,
         "qty": int(qty) if qty else None,
         "limit_price": round(float(limit_price), 2),
         "stop_pct": float(stop_pct) if stop_pct else None,
@@ -46,7 +49,7 @@ def place_limit(p, *, ticker: str, limit_price: float, qty: int = None,
     p.pending_orders.append(order)
     _journal(p, {
         "ts": now.isoformat(), "action": "OWNER_ORDER_PLACED",
-        "ticker": ticker, "order_id": order["id"],
+        "ticker": ticker, "order_id": order["id"], "mode": mode,
         "limit_price": order["limit_price"], "qty": order["qty"] or "auto",
         "why": (f"Owner limit order: BUY {order['qty'] or 'auto-size'} "
                 f"@ ₹{order['limit_price']} or better, valid for the day."),
@@ -95,7 +98,7 @@ def apply_custom_levels(pos, stop_pct: float = None,
 
 def _fill(engine, o: dict, price: float, now: datetime) -> None:
     """Open the position for a touched limit order via the engine's own
-    entry path — momentum identity, like the owner BUY button."""
+    entry path — the segment saved on the owner ticket."""
     p = engine.portfolio
     cfg = engine.cfg
     tkr = o["ticker"]
@@ -118,7 +121,7 @@ def _fill_locked(engine, o: dict, price: float, now: datetime) -> None:
     """AUDIT F-17 (owner: "go for next", 2026-10-02), two changes:
 
     1. NO MODE FLIP. The fill used to set the SHARED cfg.mode to momentum and
-       put it back afterwards; it now works on a momentum COPY
+       put it back afterwards; it now works on a segment COPY
        (`engine.mode_cfg`) and hands that copy to `engine._open`, so the
        live config is never touched.
     2. SAME SLIPPAGE AS EVERY ENGINE FILL, never above the limit. Engine and
@@ -129,8 +132,21 @@ def _fill_locked(engine, o: dict, price: float, now: datetime) -> None:
     """
     from .costs import slippage_price
     p = engine.portfolio
-    cfg = engine.mode_cfg("nifty200_momentum")
+    from .owner_allocation import segment, available, refusal
     tkr = o["ticker"]
+    try:
+        mode = segment(o.get("mode"))
+    except ValueError:
+        o["status"], o["note"] = "cancelled", "bad_segment"
+        _journal(p, {"ts": now.isoformat(), "action": "OWNER_ORDER_CANCELLED",
+                     "ticker": tkr, "order_id": o["id"], "why": o["note"]})
+        return
+    if tkr in p.positions:
+        o["status"], o["note"] = "cancelled", "already held when limit touched"
+        _journal(p, {"ts": now.isoformat(), "action": "OWNER_ORDER_CANCELLED",
+                     "ticker": tkr, "order_id": o["id"], "why": o["note"]})
+        return
+    cfg = engine.mode_cfg(mode)
     quote = float(price)
     fill = min(slippage_price(quote, "BUY", cfg), float(o["limit_price"]))
     qty = o["qty"]
@@ -142,10 +158,12 @@ def _fill_locked(engine, o: dict, price: float, now: datetime) -> None:
         # own number), and manual fills can never drift from engine sizing.
         from .sizing import position_notional_for
         notional, _diag = position_notional_for(cfg, p.equity(marks))
-        qty = int(notional // fill)
-    if qty < 1 or qty * fill > p.cash:
+        funds, _ = available(p, cfg, mode)
+        qty = int(min(notional, funds) // fill)
+    why = refusal(p, cfg, mode, qty * fill)
+    if qty < 1 or why:
         o["status"] = "cancelled"
-        o["note"] = "insufficient cash when limit touched"
+        o["note"] = f"{why or 'insufficient_cash'} when limit touched ({mode})"
         _journal(p, {"ts": now.isoformat(), "action": "OWNER_ORDER_CANCELLED",
                      "ticker": tkr, "order_id": o["id"], "why": o["note"]})
         return

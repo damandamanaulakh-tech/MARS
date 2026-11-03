@@ -14,6 +14,7 @@ Each batch must identify its source findings, demonstrate the failure, make a bo
 | G8 | Bound jobs and repair feed/storage contracts; NEW-01/02/03/04/06, OPS rows, AUD-004, ROOT-ROUTE-08 | Deadlines, resumable acknowledgements, independent FII/DII storage; valid OAuth state required | Runtime evidence now available; each code contract reviewed separately |
 | G9 | Validate data and make studies reproducible; AUD-005/006/007, XR-078/088/089/091/092/093/094/096/098/099/103, ROOT-ROUTE-01/02, DOC-AM07-11 | Preserve sources; quarantine conflicts; reject invalid volumes; executable study with data/code/config identity and honest holdout history | Planned; source-dependent gaps remain explicit |
 | G10 | Reconcile valuation, screen and remaining backlog rows; VAL-*, TT01/02/03, NEW-07, remaining 165 records | Reproduce on current code; close obsolete claims; expose formula/source dates; agree model assumptions before altering trading rules | Planned; policy decisions reviewed individually |
+| G11 | Owner positions, funds and realized performance by strategy; OPS-07, XR-083, bounded ROOT-ROUTE-03/04 | Five valid segments across manual entries; owner source retained separately; actual fill budgets; segment counts and win/loss rates with dated coverage | 2784 local tests passed, zero skipped; PR192 CI/deploy pending. [Batch record](releases/2026-11-03-segment-allocation-performance.md) |
 
 ## Longer-term design direction
 

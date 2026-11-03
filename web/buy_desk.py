@@ -137,11 +137,19 @@ def plan(portfolio, cfg, rows: list, budget_rs: float, prices: dict,
     honestly falls to the slab (sizing.py's own rule).
     """
     from trading.sizing import position_notional_for
+    from trading.costs import slippage_price
+    from trading.owner_allocation import available
 
     marks = {pos.ticker: pos.entry_price for pos in portfolio.positions.values()}
     equity = float(portfolio.equity(marks))
     slab = float(getattr(cfg, "position_slab_value", 0.0) or 0.0)
-    remaining = float(budget_rs)
+    funds, segment_left = available(portfolio, cfg, DESK_MODE)
+    remaining = min(float(budget_rs), funds)
+    effective_budget = remaining
+    funding_reason = ("category_budget_full" if segment_left is not None
+                      and segment_left <= min(float(budget_rs), portfolio.cash)
+                      else "cash_short" if portfolio.cash < float(budget_rs)
+                      else "budget_exhausted")
     planned = []
     for r in rows:
         t = r["ticker"]
@@ -155,6 +163,7 @@ def plan(portfolio, cfg, rows: list, budget_rs: float, prices: dict,
             continue
         price = float(price)
         row["price"] = price
+        row["fill_price"] = slippage_price(price, "BUY", cfg)
         try:
             close = close_of(t)
         except Exception:                                     # noqa: BLE001
@@ -168,7 +177,7 @@ def plan(portfolio, cfg, rows: list, budget_rs: float, prices: dict,
             continue
         row["notional"] = float(notional)
         if remaining <= 0:
-            row["reason"] = "budget_exhausted"
+            row["reason"] = funding_reason
             planned.append(row)
             continue
         take = min(float(notional), remaining)
@@ -176,18 +185,21 @@ def plan(portfolio, cfg, rows: list, budget_rs: float, prices: dict,
             row["reason"] = "budget_remainder_below_slab"
             planned.append(row)
             continue
-        qty = int(take // price)
+        fill = slippage_price(price, "BUY", cfg)
+        qty = int(take // fill)
         if qty < 1:
             row["reason"] = "price_above_size"
             planned.append(row)
             continue
-        cost = qty * price
+        cost = qty * fill
         remaining -= cost
         row.update({"qty": qty, "cost": cost, "recommended": True})
         planned.append(row)
     rec = [r for r in planned if r["recommended"]]
     return {
         "budget": float(budget_rs),
+        "effective_budget": effective_budget,
+        "segment_left": segment_left,
         "planned_total": round(sum(r["cost"] for r in rec), 2),
         "remaining": round(remaining, 2),
         "recommended_count": len(rec),
@@ -203,7 +215,9 @@ def execute(eng, portfolio, cfg, planned_rows: list, now: datetime, *,
     cfg into DESK_MODE and holds the owner's authority. Returns the summary
     that is also journaled as OWNER_BATCH_BUY."""
     from trading.costs import slippage_price
+    from trading.owner_allocation import refusal
 
+    spent_actual = 0.0
     opened, skipped = [], []
     for r in planned_rows:
         t = r["ticker"]
@@ -219,6 +233,13 @@ def execute(eng, portfolio, cfg, planned_rows: list, now: datetime, *,
         if qty < 1 or cost > portfolio.cash:
             skipped.append({"ticker": t, "reason": "cash_short"})
             continue
+        if cost > float(budget_rs) - spent_actual + 1e-8:
+            skipped.append({"ticker": t, "reason": "budget_exhausted"})
+            continue
+        why = refusal(portfolio, cfg, DESK_MODE, cost)
+        if why:
+            skipped.append({"ticker": t, "reason": why})
+            continue
         src = (price_sources or {}).get(t) or "live_quote"
         pick = {
             "ticker": t, "score": float(r["score"]),
@@ -231,13 +252,14 @@ def execute(eng, portfolio, cfg, planned_rows: list, now: datetime, *,
                           f"(score {r['score']:.1f} >= floor; abs-momentum and "
                           f"liquidity cleared). Budget-filled in score order."),
         }
-        eng._open(pick, qty, fill, now)
+        eng._open(pick, qty, fill, now, cfg=cfg)
+        spent_actual += cost
         pos = portfolio.positions[t]
         pos.tags.append("owner_pick")
         pos.tags.append("buy_desk")
         opened.append({"ticker": t, "qty": qty, "price": round(fill, 2),
                        "notional": round(cost, 2), "score": float(r["score"])})
-    spent = round(sum(o["notional"] for o in opened), 2)
+    spent = round(spent_actual, 2)
     summary = {
         "ts": now.isoformat(), "action": "OWNER_BATCH_BUY",
         "budget": float(budget_rs), "spent": spent,
