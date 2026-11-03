@@ -21,19 +21,14 @@ THE RULES, each stated to the owner before it was built:
   * A position's category is the trade category it was opened under
     (`PaperPosition.mode`). A blank mode is momentum, the same reading the
     boot retag uses; an unknown mode belongs to no budget.
-  * OWNER ORDER 2026-10-21: the owner's own BUY button, a limit-order fill
-    and the Buy Desk open positions tagged owner_pick / buy_desk. Those sit
-    in their OWN "owner" bucket OUTSIDE the five shares, exactly like Ocean
-    — they never fill momentum's share (before this order they counted as
-    momentum, so a Rs 2.5 Cr Buy Desk fill held momentum's 40% share
-    over-full and every scan pick read category_budget_full). Owner buys
-    are never refused by a share. They never call risk.can_open at all —
-    cash is their only check, as before this order — but what they hold
-    still counts in the deploy cap, heat and sector capital every SCAN
-    entry is judged against.
+  * OWNER ORDER 2026-11-03 supersedes the separate owner bucket: positions
+    opened by the owner spend the share of their stored strategy mode, just
+    like automatic entries. Owner tags identify the entry source only.
+    Existing positions are counted without moving cash or forcing a sale;
+    an overfull segment has no room for further entries until room returns.
 
-Pure arithmetic, no I/O. `risk.can_open` is the one place a budget refuses a
-trade; the scan page, the rotation and the Risk page read the same numbers.
+Pure arithmetic, no I/O. Risk, entry validation and every allocation page
+read the same segment totals. Ocean remains outside the five shares.
 """
 from __future__ import annotations
 
@@ -41,7 +36,7 @@ from typing import Iterable, Optional
 
 MOMENTUM = "nifty200_momentum"
 OCEAN = "ocean"
-# Owner order 2026-10-21: owner BUY / limit fill / Buy Desk positions.
+# Historical token only; new positions are never classified into this bucket.
 OWNER = "owner"
 OWNER_TAGS = ("owner_pick", "buy_desk")
 
@@ -68,23 +63,22 @@ def enabled(cfg) -> bool:
 
 
 def category_of(pos) -> str:
-    """The budget a held position counts against. Tag-based for the two
-    buckets outside the shares: an "ocean" tag = Ocean, an owner_pick /
-    buy_desk tag = the owner bucket (owner order 2026-10-21); otherwise the
-    mode it was opened under, blank = momentum."""
+    """Strategy allocation, independent of who opened the position.
+
+    Ocean retains its separate engine budget. Legacy blank modes retain the
+    existing Momentum fallback; unknown modes remain visible as unclassified
+    budget rows rather than silently claiming another strategy's money.
+    """
     tags = getattr(pos, "tags", None) or []
     if OCEAN in tags:
         return OCEAN
-    if any(t in tags for t in OWNER_TAGS):
-        return OWNER
     mode = (getattr(pos, "mode", "") or "").strip()
     return mode or MOMENTUM
 
 
 def is_owner(pos) -> bool:
-    """True for a position the owner opened themselves (BUY button, limit
-    order, Buy Desk) — the "owner" bucket, outside the five shares."""
-    return category_of(pos) == OWNER
+    """Entry provenance only: an owner BUY, limit fill or Buy Desk entry."""
+    return any(t in (getattr(pos, "tags", None) or []) for t in OWNER_TAGS)
 
 
 def share(cfg, category: Optional[str]) -> Optional[float]:
@@ -155,24 +149,10 @@ def usage(cfg, positions: dict, base_capital: float) -> list[dict]:
             "used": u,
             "left": None if lim is None else max(0.0, lim - u),
             "open": sum(1 for p in vals if category_of(p) == cat),
+            "over_limit": None if lim is None else max(0.0, u - lim),
             "full": (lim is not None and lim - u < max(min_open(cfg), 1.0)),
         })
     return rows
-
-
-def owner_usage(positions: dict) -> dict:
-    """The owner bucket for the Risk page: what the owner's own buys hold at
-    entry cost and how many. No share, no limit — outside the five shares
-    (owner order 2026-10-21), so it can never read "full"."""
-    vals = list(positions.values())
-    return {
-        "category": OWNER,
-        "label": "Owner",
-        "share": None, "limit": None, "left": None, "full": False,
-        "used": used(vals, OWNER),
-        "open": sum(1 for p in vals if category_of(p) == OWNER),
-        "note": "your BUY button, limit fills and the Buy Desk — outside the five shares, like Ocean",
-    }
 
 
 def share_total(cfg) -> float:

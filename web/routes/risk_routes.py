@@ -47,8 +47,9 @@ def risk_view(request: Request):
         try:
             from trading import category_budget as _cb
             for row in cl.get("categories") or []:
-                row["label"] = _cb.LABELS.get(
-                    row["category"], row["category"].replace("_", " ").title())
+                row["label"] = ("Legacy owner" if row["category"] == _cb.OWNER
+                                else _cb.LABELS.get(row["category"],
+                                     row["category"].replace("_", " ").title()))
         except Exception:
             pass
     except AttributeError:
@@ -118,15 +119,11 @@ def risk_view(request: Request):
     # cost, and what is left — the numbers risk.can_open refuses on.
     budgets = None
     budget_total = None
-    owner_row = None
     try:
         from trading import category_budget as cb
         if cb.enabled(cfg):
             budgets = cb.usage(cfg, eng.portfolio.positions, equity)
             budget_total = cb.share_total(cfg)
-            # Owner order 2026-10-21: owner BUY / Buy Desk positions sit in
-            # their own bucket outside the five shares (like Ocean).
-            owner_row = cb.owner_usage(eng.portfolio.positions)
     except Exception:
         budgets = None
 
@@ -146,6 +143,5 @@ def risk_view(request: Request):
             "mk_modes": mk_modes,
             "budgets": budgets,
             "budget_total": budget_total,
-            "owner_row": owner_row,
         },
     )

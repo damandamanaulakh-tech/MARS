@@ -27,7 +27,7 @@
        @click.self="adding = false">
     <div class="bg-white border border-line p-4 lg:p-6 w-full max-w-[480px] max-h-[90vh] overflow-y-auto">
       <div class="font-bold text-lg mb-1">Add manual position</div>
-      <div class="text-xs text-ink-faint mb-4">Use this for real holdings you want to track alongside paper trades.</div>
+      <div class="text-xs text-ink-faint mb-4">Import a real holding you already own. Its entry cost counts under the selected segment, even if that segment is over its limit; this does not place a new order.</div>
       <form action="/positions/new" method="post" class="space-y-3 text-sm">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label class="block">
@@ -54,6 +54,12 @@
             <span class="text-[10px] tracking-widest text-ink-faint uppercase">Sector</span>
             <input name="sector" placeholder="auto-detected"
                    class="w-full border border-line p-2 mt-1">
+          </label>
+          <label class="block">
+            <span class="text-[10px] tracking-widest text-ink-faint uppercase">Segment</span>
+            <select name="mode" required class="w-full border border-line p-2 mt-1">
+              {% for key, label in segments.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+            </select>
           </label>
           <label class="block">
             <span class="text-[10px] tracking-widest text-ink-faint uppercase">Tags</span>
@@ -100,6 +106,18 @@
 {% elif error == 'bad_manual_values' %}
 <div class="bg-red-50 border border-red-300 text-red-900 p-3 mb-4 text-sm">
   Enter a quantity and price greater than zero, with a finite total value. No holding was added.
+</div>
+{% elif error == 'scan_busy' %}
+<div class="bg-amber-50 border border-amber-300 text-amber-900 p-3 mb-4 text-sm">
+  A scan or exit pass is updating the book. Your notes were not changed; try again shortly.
+</div>
+{% elif error == 'bad_segment' %}
+<div class="bg-red-50 border border-red-300 text-red-900 p-3 mb-4 text-sm">
+  Choose Momentum, Intraday, Short, Swing or Positional. No holding was added.
+</div>
+{% elif error == 'bad_segment_tags' %}
+<div class="bg-red-50 border border-red-300 text-red-900 p-3 mb-4 text-sm">
+  The Ocean tag belongs to the Ocean engine; it cannot override an imported holding’s selected segment. No holding was added.
 </div>
 {% elif error == 'use_sell' %}
 <div class="bg-amber-50 border border-amber-300 text-amber-900 p-3 mb-4 text-sm">
@@ -222,7 +240,7 @@
     {% endfor %}
   </div>
   <div class="mt-2 text-ink-soft" data-target-source-legend="1"><span class="font-bold text-indigo-800">VAL base ₹x · asof d · verdict</span> under a target = the position's target is its VALUATION base (item 19, your order 2026-10-21): set at the buy, or re-targeted once from k×ATR when its record turned attractive/watch, and re-marked each closed month with the Sensex and its sector index; <span class="text-red-700 font-semibold">VAL_TARGET_DOWN</span> = the re-marked target fell to or below the month-end close, so it sells at the next in-session pass. <span class="font-bold">k×ATR</span> = no judged valuation applied (hover for why) — the k × ATR target as before.</div>
-  <div class="mt-2 text-ink-faint">Every marker is read from the position's own stored fields (tags, hand-set levels, the danger journal) — nothing here is a guess.</div>
+  <div class="mt-2 text-ink-faint">Segment determines where the position and its funds are counted. OWNER PICK and BUY DESK describe the entry source; they do not create separate fund allocations. Every marker is read from stored position fields.</div>
 </div>
 <div class="bg-white border border-line overflow-x-auto">
   <table class="w-full text-sm">
@@ -322,7 +340,8 @@
               <label class="text-[10px] tracking-widest text-ink-faint uppercase block mb-1">Tags (comma-separated)</label>
               <input name="tags" type="text" class="w-full border border-line p-2 text-sm"
                      placeholder="e.g. earnings_play, momentum"
-                     value="{{ r.tags | join(', ') }}">
+                     value="{{ r.editable_tags | join(', ') }}">
+              <div class="mt-1 text-xs text-ink-faint">System tags are preserved automatically{% if r.system_tags %}: {{ r.system_tags | join(', ') }}{% endif %}.</div>
             </div>
             <button class="px-4 py-2 bg-ink text-white text-xs font-semibold tracking-widest uppercase whitespace-nowrap">Save</button>
           </form>

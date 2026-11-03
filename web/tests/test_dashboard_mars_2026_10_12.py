@@ -52,8 +52,8 @@ def _mixed_book() -> dict:
     return {
         # scan-opened, its own category
         "SWNGX.NS": _pos("SWNGX.NS", 100, 1000.0, mode="swing", score=64.5),
-        # a hand-tapped BUY: entry_score 0 is a REAL zero; its own "owner"
-        # bucket outside the five shares (owner order 2026-10-21)
+        # a hand-tapped BUY: entry_score 0 is a real zero; blank legacy
+        # mode still allocates to Momentum (owner order 2026-11-03)
         "OWNPK.NS": _pos("OWNPK.NS", 50, 2000.0, mode="", tags=["owner_pick"],
                          score=0.0),
         # Ocean: outside the five shares, ticket x slots
@@ -129,12 +129,12 @@ def test_fund_arithmetic_is_the_books_own(tmp_path):
     prices = {"SWNGX.NS": 1100.0, "OWNPK.NS": 1800.0, "OCNX.NS": 450.0}
     f = mp.fund_summary(p, cfg, prices, live_count=3)
     rows = {r["category"]: r for r in f["rows"]}
-    # owner pick: its own bucket outside the five shares (owner order
-    # 2026-10-21; it counted as momentum before)
-    assert rows[cb.OWNER]["allocated"] == 100_000.0
-    assert rows[cb.OWNER]["pnl"] == -10_000.0           # red on the page
-    assert rows[cb.OWNER]["limit"] is None               # no share applies
-    assert rows[cb.MOMENTUM]["allocated"] == 0.0 and rows[cb.MOMENTUM]["open"] == 0
+    # The source label does not split allocation: the blank legacy owner
+    # entry remains Momentum, with its actual entry cost and marked P&L.
+    assert cb.OWNER not in rows
+    assert rows[cb.MOMENTUM]["allocated"] == 100_000.0
+    assert rows[cb.MOMENTUM]["pnl"] == -10_000.0
+    assert rows[cb.MOMENTUM]["open"] == 1
     assert rows["swing"]["allocated"] == 100_000.0
     assert rows["swing"]["pnl"] == 10_000.0             # green on the page
     assert rows[cb.OCEAN]["allocated"] == 5_000.0
@@ -165,10 +165,9 @@ def test_a_loss_renders_red_and_a_gain_green():
         m = re.search(rf'<tr[^>]*data-fund-segment="{seg}".*?</tr>', page, re.S)
         assert m, seg
         return m.group(0)
-    # the losing owner pick sits in the Owner segment (owner order
-    # 2026-10-21); momentum holds nothing in this book, so it prints a dash
-    assert "text-red-700" in _row(cb.OWNER)
-    assert "text-red-700" not in _row(cb.MOMENTUM)
+    # Owner-added Momentum P&L is shown in Momentum, never double-counted.
+    assert 'data-fund-segment="owner"' not in page
+    assert "text-red-700" in _row(cb.MOMENTUM)
     assert "text-emerald-700" in _row("swing")
     assert "live marks" in page
 

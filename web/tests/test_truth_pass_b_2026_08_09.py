@@ -128,12 +128,17 @@ def test_settings_mode_picker_has_no_cagr_claim():
     assert "29.7" not in src
 
 
-def test_order_ticket_placeholders_derive_from_the_preset():
+def test_order_ticket_presets_follow_selected_segment_without_fixed_numbers():
     src = Path("web/templates/scan.html").read_text()
     assert 'placeholder="5 (preset)"' not in src
-    assert "{{ preset_target }}" in src and "{{ preset_stop }}" in src
+    # November 3: the ticket now chooses any of five segments. A fixed
+    # Momentum number is misleading after choosing Swing or Intraday.
     html = _client().get("/scan").text
-    assert "20" in html                # live momentum target +20 (Node 12)
+    ticket = html.split('action="/scan/buy"', 1)[1].split('</form>', 1)[0]
+    assert ticket.count('placeholder="segment preset"') == 2
+    assert 'name="mode"' in ticket
+    for mode in ("nifty200_momentum", "intraday", "short", "swing", "positional"):
+        assert f'value="{mode}"' in ticket
 
 
 def test_dashboard_dropped_the_dead_yfinance_promise():

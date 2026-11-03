@@ -185,8 +185,8 @@ def test_the_engine_counts_open_positions_per_category(tmp_path):
                    "D.NS": _pos("D.NS", MOM, tags=["owner_pick"]),
                    "E.NS": _pos("E.NS", MOM, tags=["ocean"])}
     e = TradingEngine(cfg, p)
-    assert e._open_in_category(MOM) == 2
-    assert e._open_by_category() == {MOM: 2, "swing": 1, "owner": 1, "ocean": 1}
+    assert e._open_in_category(MOM) == 3
+    assert e._open_by_category() == {MOM: 3, "swing": 1, "ocean": 1}
 
 
 # ------------------------------------------------------------ persistence

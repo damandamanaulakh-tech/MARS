@@ -271,7 +271,7 @@ def dynamic_cash_reserve_pct(regime_name: Optional[str], floor: float = 0.20) ->
 #
 # OWNER ORDER 2026-10-21 ("Halt only the category that lost"): each losing
 # close is recorded with its category (momentum / intraday / short / swing /
-# positional / owner / ocean, category_budget.category_of at close) and the
+# positional / ocean, category_budget.category_of at close) and the
 # halt is judged PER CATEGORY — losing exits today in that category >=
 # max(2, ceil(10% x (open positions in that category + its losing exits
 # today))). Two losing momentum exits halt momentum for the day; the other
@@ -291,9 +291,9 @@ def counts_toward_loss_halt(reason: Optional[str]) -> bool:
 
 
 LOSS_HALT_SCOPES = ("category", "book")
-# Categories whose new entries this halt never stops: the owner's own buys
-# (BUY button, limit fills, Buy Desk) are not gated. Their losers are still
-# counted and shown — never printed as a halt.
+# Historical 2026-10-21 owner counters remain ungated until normal rollover.
+# Since 2026-11-03 new owner-added positions close under their stored strategy.
+# Manual entry paths still do not invoke this automatic-scan halt.
 LOSS_HALT_UNGATED = ("owner",)
 
 

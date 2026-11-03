@@ -69,3 +69,45 @@ def test_nonfinite_sell_never_reaches_engine(book, monkeypatch, typed, quote):
     assert book.cash == 1000.0
     assert book.decision_journal == []
     book.save.assert_not_called()
+
+
+@pytest.mark.parametrize("mode", ["nifty200_momentum", "intraday", "short", "swing", "positional"])
+def test_import_persists_selected_segment_and_source_without_changing_exit_exemptions(book, mode):
+    response = routes.add_manual_position(
+        object(), ticker="TEST", qty=2, entry_price=100.0,
+        entry_date="2026-11-03", sector="IT", entry_notes="", tags="real_holding", mode=mode)
+    assert response.headers["location"] == "/positions"
+    pos = book.positions["TEST.NS"]
+    assert pos.mode == mode
+    assert pos.tags == ["real_holding", "manual_import"]
+    assert not routes._decay_exempt(pos)
+    from trading import category_budget as cb
+    assert cb.used(book.positions.values(), mode) == 200
+
+
+@pytest.mark.parametrize("mode,tags,error", [
+    ("owner", "", "bad_segment"), ("ocean", "", "bad_segment"),
+    ("", "", "bad_segment"), ("unknown", "", "bad_segment"),
+    ("swing", "ocean", "bad_segment_tags"),
+])
+def test_invalid_import_segment_does_not_mutate_the_book(book, mode, tags, error):
+    response = routes.add_manual_position(
+        object(), ticker="TEST", qty=2, entry_price=100.0,
+        entry_date="2026-11-03", sector="IT", entry_notes="", tags=tags, mode=mode)
+    assert response.headers["location"] == f"/positions?error={error}"
+    assert book.positions == {} and book.cash == 1000
+    book.save.assert_not_called()
+
+
+def test_import_reconciles_existing_holding_even_if_segment_is_full(book, monkeypatch):
+    from trading.config import Config
+    cfg = Config()
+    cfg.budget_share_swing = 0.0
+    monkeypatch.setattr(routes.state, "cfg", lambda: cfg)
+    response = routes.add_manual_position(
+        object(), ticker="TEST", qty=2, entry_price=100.0,
+        entry_date="2026-11-03", sector="IT", entry_notes="", tags="", mode="swing")
+    assert response.headers["location"] == "/positions"
+    assert book.positions["TEST.NS"].mode == "swing" and book.cash == 800
+    from trading import category_budget as cb
+    assert cb.room(cfg, book.positions, "swing", 1000) == 0

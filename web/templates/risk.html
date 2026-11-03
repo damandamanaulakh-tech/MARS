@@ -74,7 +74,7 @@
         <td class="text-right pr-3 tabular-nums">{{ r.losses }}</td>
         <td class="text-right pr-3 tabular-nums">{{ r.open }}</td>
         <td class="text-right pr-3 tabular-nums">{{ r.max_allowed }}</td>
-        <td class="text-right font-bold {% if r.halted and cl.scope == 'category' %}text-red-700{% elif not r.gated %}text-ink-faint{% else %}text-emerald-700{% endif %}">{% if not r.gated %}not gated (your own buys){% elif r.halted and cl.scope == 'category' %}HALTED{% elif r.halted %}past its own limit (scope: book){% else %}buying{% endif %}</td>
+        <td class="text-right font-bold {% if r.halted and cl.scope == 'category' %}text-red-700{% elif not r.gated %}text-ink-faint{% else %}text-emerald-700{% endif %}">{% if not r.gated %}not gated (legacy record){% elif r.halted and cl.scope == 'category' %}HALTED{% elif r.halted %}past its own limit (scope: book){% else %}buying{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -85,7 +85,7 @@
   {% endif %}
   <div class="mt-1 text-xs text-ink-faint">
     Counts losing strategy exits only (stop, decay, trail, max-hold, danger) — never your own sells, the kill switch or the drawdown ladder.
-    {% if cl.scope == 'category' %}Owner order 2026-10-21 ("Halt only the category that lost"): each category's limit = the larger of 2 or 10% of (its open positions + its losers today); a halted category sits out the rest of the day while the others keep buying. Owner buys are not gated by it. Loss halt scope = book (Den §9) restores the whole-book rule.{% else %}Limit = the larger of 2 or 10% of the day's book (the 10% is an assumed number, not measured). Loss halt scope = category (Den §9) halts only the category that lost — the owner's 2026-10-21 order.{% endif %}
+    {% if cl.scope == 'category' %}Owner order 2026-10-21 ("Halt only the category that lost"): each category's limit = the larger of 2 or 10% of (its open positions + its losers today); a halted category sits out the rest of the day while the others keep buying. New strategy exits from owner-added positions count under their stored segment; owner BUY tickets remain exempt from this halt. Legacy owner counts remain historical until the daily reset. Loss halt scope = book (Den §9) restores the whole-book rule.{% else %}Limit = the larger of 2 or 10% of the day's book (the 10% is an assumed number, not measured). Loss halt scope = category (Den §9) halts only the category that lost — the owner's 2026-10-21 order.{% endif %}
   </div>
 </div>
 {% endif %}
@@ -131,8 +131,8 @@
     </thead>
     <tbody>
       {% for b in budgets %}
-      <tr class="border-b border-line last:border-0">
-        <td class="py-1 pr-3 font-bold">{{ b.label }}{% if b.full %} <span class="text-amber-700 font-normal text-xs">· full — new {{ b.label|lower }} buys wait</span>{% endif %}</td>
+      <tr class="border-b border-line last:border-0" data-category-budget-row="{{ b.category }}">
+        <td class="py-1 pr-3 font-bold">{{ b.label }}{% if b.full %} <span class="text-amber-700 font-normal text-xs">· scan share full</span>{% endif %}{% if b.over_limit %}<div class="text-amber-800 text-xs font-normal">₹{{ b.over_limit|inr }} over limit; existing holdings retained</div>{% endif %}</td>
         <td class="text-right pr-3 tabular-nums">{{ "%.0f%%"|format((b.share or 0) * 100) }}</td>
         <td class="text-right pr-3 tabular-nums">₹{{ (b.limit or 0)|inr }}</td>
         <td class="text-right pr-3 tabular-nums">₹{{ b.used|inr }}</td>
@@ -140,16 +140,6 @@
         <td class="text-right tabular-nums">{{ b.open }}</td>
       </tr>
       {% endfor %}
-      {% if owner_row %}
-      <tr class="border-t-2 border-line" data-category-owner="category_owner_marker">
-        <td class="py-1 pr-3 font-bold">{{ owner_row.label }} <span class="text-ink-faint font-normal text-xs">· outside the shares — {{ owner_row.note }}</span></td>
-        <td class="text-right pr-3 tabular-nums text-ink-faint">—</td>
-        <td class="text-right pr-3 tabular-nums text-ink-faint">—</td>
-        <td class="text-right pr-3 tabular-nums">₹{{ owner_row.used|inr }}</td>
-        <td class="text-right pr-3 tabular-nums text-ink-faint">—</td>
-        <td class="text-right tabular-nums">{{ owner_row.open }}</td>
-      </tr>
-      {% endif %}
     </tbody>
   </table>
   </div>
@@ -159,8 +149,8 @@
   <div class="mt-2 text-xs text-ink-faint">
     Shares are of the deployable capital: equity (at entry prices on this page) minus the regime reserve{% if cfg.cash_reserve_pct > 0 %} — {{ "%.0f%%"|format(cfg.cash_reserve_pct * 100) }} right now{% endif %}.
     Spent counts each position at its entry cost. A share a category does not use stays as cash; it is never lent to another category.
-    Ocean is outside these shares (its own {{ cfg.ocean_max_positions }}-slot limit). Your BUY button, limit fills and the Buy Desk are never refused here; what they buy counts under <strong>owner</strong>, outside the five shares (owner order 2026-10-21 — before it, those buys counted as momentum and could fill its share). Your own buys are checked against cash only, as before — no share, deploy cap or heat limit refuses your tap — but what they hold still counts in the deploy cap and the heat every scan entry is judged against.
-    A remainder smaller than the ₹{{ cfg.position_slab_value|inr }} slab counts as full.
+    Owner-added positions and automatic positions count under their stored strategy segment. New owner BUY orders and limit fills use the selected segment’s cash share; the Buy Desk uses Momentum. Existing holdings stay open if their segment is over limit. Imports of existing real holdings are accounted under the chosen segment. Ocean remains outside these shares (its own {{ cfg.ocean_max_positions }}-slot limit). Every holding still counts in the book-wide deploy cap and heat used for automatic entries.
+    For automatic scan sizing, a remainder smaller than the ₹{{ cfg.position_slab_value|inr }} slab counts as full. A typed owner quantity is checked against the actual remaining share.
   </div>
 </div>
 {% endif %}

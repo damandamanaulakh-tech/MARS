@@ -199,13 +199,19 @@
 <div class="bg-white border border-line mb-6" x-data="{ otype: 'market' }">
   <div class="px-4 lg:px-6 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
     <span class="text-xs tracking-widest text-ink-faint uppercase">🟢 Place paper order — blank fields = app decides</span>
-    <span class="text-[10px] text-ink-faint">Limit orders: day validity, checked at every engine price pass, expire 15:25 · <span title="Owner order 2026-10-21: positions you open yourself sit in their own bucket, like Ocean, and never fill momentum's 40% share.">counts under owner, outside the five shares</span></span>
+    <span class="text-[10px] text-ink-faint">Limit orders: day validity, checked at every engine price pass, expire 15:25 · <span>uses the selected segment’s funds</span></span>
   </div>
   <form method="post" action="/scan/buy" class="px-4 lg:px-6 py-4 flex flex-wrap items-end gap-3 lg:gap-4"
         onsubmit="return confirm('Place ' + this.order_type.value.toUpperCase() + ' BUY for ' + this.ticker.value.toUpperCase() + (this.qty.value ? ' × ' + this.qty.value : ' (auto qty)') + '?');">
     <label class="block">
       <span class="text-[10px] tracking-widest text-ink-faint uppercase block mb-1">Ticker</span>
       <input name="ticker" required placeholder="TCS" class="w-32 border-b border-line focus:border-ink outline-none py-1.5 text-sm uppercase">
+    </label>
+    <label class="block">
+      <span class="text-[10px] tracking-widest text-ink-faint uppercase block mb-1">Segment</span>
+      <select name="mode" required class="border-b border-line py-1.5 text-sm bg-transparent" data-order-segment>
+        {% for key, label in segments.items() %}<option value="{{ key }}"{% if key == scan_mode %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
     </label>
     <label class="block">
       <span class="text-[10px] tracking-widest text-ink-faint uppercase block mb-1">Qty</span>
@@ -224,11 +230,11 @@
     </label>
     <label class="block">
       <span class="text-[10px] tracking-widest text-ink-faint uppercase block mb-1">Stop % below</span>
-      <input name="stop_pct" placeholder="{{ preset_stop }}+ (engine: 2×ATR, floor {{ preset_stop }})" inputmode="decimal" class="w-24 border-b border-line focus:border-ink outline-none py-1.5 text-sm">
+      <input name="stop_pct" placeholder="segment preset" inputmode="decimal" class="w-24 border-b border-line focus:border-ink outline-none py-1.5 text-sm">
     </label>
     <label class="block">
       <span class="text-[10px] tracking-widest text-ink-faint uppercase block mb-1">Target % above</span>
-      <input name="target_pct" placeholder="{{ preset_target }} (preset)" inputmode="decimal" class="w-24 border-b border-line focus:border-ink outline-none py-1.5 text-sm">
+      <input name="target_pct" placeholder="segment preset" inputmode="decimal" class="w-24 border-b border-line focus:border-ink outline-none py-1.5 text-sm">
     </label>
     <button class="px-5 py-2 bg-emerald-700 text-white text-sm font-semibold tracking-wide whitespace-nowrap hover:bg-emerald-800">🟢 BUY</button>
   </form>
@@ -247,7 +253,7 @@
     <tbody>
       {% for o in pending_orders %}
       <tr class="border-b border-line last:border-0">
-        <td class="px-4 lg:px-6 py-2 font-semibold whitespace-nowrap">{{ o.ticker }}</td>
+        <td class="px-4 lg:px-6 py-2 font-semibold whitespace-nowrap">{{ o.ticker }}<div class="text-xs font-normal text-ink-faint">{{ segments.get(o.mode or 'nifty200_momentum', o.mode) }}</div></td>
         <td class="px-4 py-2 tabular-nums text-right whitespace-nowrap">{{ o.qty or 'auto' }}</td>
         <td class="px-4 py-2 tabular-nums text-right whitespace-nowrap">₹{{ o.limit_price | inr(2) }}</td>
         <td class="px-4 py-2 tabular-nums text-right text-xs whitespace-nowrap">
@@ -404,17 +410,19 @@
 </div>
 {% elif error == 'buy_desk_nothing' %}
 <div class="bg-amber-50 border border-amber-300 text-amber-900 p-3 mb-4 text-sm"><!-- buy_desk_msg_marker -->
-  🛒 Buy Desk: <strong>nothing opened</strong> — every shortlisted name was skipped (no live quote, no estimated edge, or cash short). The reasons are in the card below.
+  🛒 Buy Desk: <strong>nothing opened</strong> — every shortlisted name was skipped (no live quote, no estimated edge, cash short or segment funds exhausted). The reasons are in the card below.
 </div>
-{% elif error in ('owner_only','blocklisted','already_held','no_quote','insufficient_cash','bad_ticket') %}
+{% elif error in ('owner_only','blocklisted','already_held','no_quote','insufficient_cash','bad_ticket','bad_segment','category_budget_full') %}
 <div class="bg-amber-50 border border-amber-300 text-amber-900 p-3 mb-4 text-sm">
   🟢 BUY not placed:
   <strong>
     {% if error == 'already_held' %}that stock is already in the book
     {% elif error == 'no_quote' %}no live price — connect Upstox first (Settings → Connect Upstox)
     {% elif error == 'insufficient_cash' %}not enough free cash for that size
+    {% elif error == 'category_budget_full' %}the selected segment has insufficient funds for this size — see its allocation on the Risk page
+    {% elif error == 'bad_segment' %}choose Momentum, Intraday, Short, Swing or Positional
     {% elif error == 'blocklisted' %}that ticker is on your blocklist
-    {% elif error == 'bad_ticket' %}check the numbers — qty, limit, stop and target must be plain positive numbers
+    {% elif error == 'bad_ticket' %}check the numbers — qty must be a positive whole number; limit, stop and target must be finite positive numbers
     {% else %}owner login required{% endif %}</strong>.
 </div>
 {% elif error and error not in ('started','already_running') %}
@@ -498,7 +506,8 @@
     Sizes are the live slab ladder (score-driven, same arithmetic as the engine), filled in score order until the budget is spent.
     Preview qty uses each name's last scan close; the buy uses the live quote at tap time, slippage applied like an engine fill.
     A name with no live quote is skipped and reported, never filled at a made-up price. Nothing here buys by itself.
-    What it buys <span title="Owner order 2026-10-21: Buy Desk positions sit in the owner bucket, like Ocean, so they never fill momentum's 40% share. The desk checks cash and its budget only, as before; what it holds still counts in the deploy cap and heat the engine's own scan buys are judged against.">counts under owner, outside the five shares</span>.
+    Buy Desk entries count under <strong>Momentum</strong>, including their funds and performance. The entered budget is capped by cash and Momentum’s remaining allocation; limits are checked again at each fill.
+    {% if buy_desk.plan.segment_left is not none %}<span data-desk-segment-room>Momentum funds available: <strong>₹{{ buy_desk.plan.segment_left | inr }}</strong>.</span>{% endif %}
   </div>
   {% if bd.plan.rows %}
   <div class="overflow-x-auto">
@@ -509,7 +518,7 @@
         <th class="text-left px-3 lg:px-6 py-2">Ticker</th>
         <th class="text-left px-3 lg:px-6 py-2">Score</th>
         <th class="text-left px-3 lg:px-6 py-2">Ladder size</th>
-        <th class="text-left px-3 lg:px-6 py-2">Qty @ last close</th>
+        <th class="text-left px-3 lg:px-6 py-2">Qty @ fill incl. slippage</th>
         <th class="text-left px-3 lg:px-6 py-2">Engine said</th>
         <th class="text-left px-3 lg:px-6 py-2">Desk</th>
       </tr>
@@ -529,7 +538,7 @@
         <td class="px-3 lg:px-6 py-2 font-semibold whitespace-nowrap">{{ r.ticker }} <a href="/chart/{{ r.ticker }}" class="ml-1 no-underline">📈</a></td>
         <td class="px-3 lg:px-6 py-2 tabular-nums">{{ r.score | round(1) }}</td>
         <td class="px-3 lg:px-6 py-2 tabular-nums">{% if r.notional %}₹{{ r.notional | inr(0) }}{% else %}—{% endif %}</td>
-        <td class="px-3 lg:px-6 py-2 tabular-nums">{% if r.qty %}{{ r.qty }} × ₹{{ r.price | inr(2) }} = ₹{{ r.cost | inr(0) }}{% elif r.price %}—{% else %}<span class="text-ink-faint" title="Not in the top-50 picks list, so no scan close here; the buy prices it live.">no scan close</span>{% endif %}</td>
+        <td class="px-3 lg:px-6 py-2 tabular-nums">{% if r.qty %}{{ r.qty }} × ₹{{ r.fill_price | inr(2) }} = ₹{{ r.cost | inr(0) }}{% elif r.price %}—{% else %}<span class="text-ink-faint" title="Not in the top-50 picks list, so no scan close here; the buy prices it live.">no scan close</span>{% endif %}</td>
         <td class="px-3 lg:px-6 py-2 font-mono text-xs text-ink-soft">{{ r.outcome or 'passed all gates' }}</td>
         <td class="px-3 lg:px-6 py-2 text-xs whitespace-nowrap">{% if r.recommended %}<span class="text-emerald-700 font-bold">RECOMMENDED</span>{% else %}<span class="text-ink-faint">{{ r.reason }}</span>{% endif %}</td>
       </tr>
@@ -648,8 +657,9 @@
         {% if user and user.role == 'owner' %}
         <td class="px-3 lg:px-6 py-3 text-right">
           <form method="post" action="/scan/buy"
-                onsubmit="return confirm('Open {{ p.ticker }} as a MOMENTUM paper position at the live price?');">
+                onsubmit="return confirm('Open {{ p.ticker }} as a {{ segments[scan_mode] }} paper position at the live price?');">
             <input type="hidden" name="ticker" value="{{ p.ticker }}">
+            <input type="hidden" name="mode" value="{{ scan_mode }}">
             <button class="px-3 py-2 bg-emerald-700 text-white text-xs font-semibold tracking-wide whitespace-nowrap hover:bg-emerald-800">🟢 BUY</button>
           </form>
         </td>

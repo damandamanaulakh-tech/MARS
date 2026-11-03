@@ -157,7 +157,7 @@
       <tr class="border-b border-line/60 last:border-0" data-fund-segment="{{ r.category }}">
         <td class="px-4 lg:px-6 py-2 font-semibold whitespace-nowrap">{{ r.label }}
           {% if r.note %}<span class="text-[10px] font-normal text-ink-faint">· {{ r.note }}</span>{% endif %}
-          {% if r.full %}<span class="text-[10px] font-normal text-amber-700">· share full</span>{% endif %}</td>
+          {% if r.full %}<span class="text-[10px] font-normal text-amber-700">· share full</span>{% endif %}{% if r.over_limit %}<div class="text-[10px] font-normal text-amber-800">₹{{ r.over_limit|inr }} over limit · holdings retained</div>{% endif %}</td>
         <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">{% if r.limit is not none %}₹{{ r.limit | inr }}{% if r.share is not none %} <span class="text-[10px] text-ink-faint">({{ (r.share * 100) | round(0) | int }}%)</span>{% endif %}{% else %}<span class="text-ink-faint" title="no budget applies">—</span>{% endif %}</td>
         <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">₹{{ r.allocated | inr }}</td>
         <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">₹{{ r.now | inr }}</td>

@@ -1,0 +1,719 @@
+{
+  "review_date": "2026-11-03",
+  "source_revision": "ddaca63cf393b7454a0f32d46e136a5d79cdcb38",
+  "scope": "Focused gate/control source review; no production policy changes",
+  "rows": [
+    {
+      "id": "GATE-01",
+      "priority": "P1",
+      "type": "Policy mismatch",
+      "title": "Candle absence vetoes a buy",
+      "reason": "Intraday, Short, Swing and Positional call candle_confirmation and continue on failure; the owner clarified candles should assist selection.",
+      "impact": "A qualified candidate stops before sizing. Five such refusals were recorded in the earlier 3 November scan; one was later owner-bought.",
+      "fix": "Separate pattern detection from enforcement. Use advisory candles across the five streams, preserving evidence and ordinary risk checks.",
+      "acceptance": "No-pattern candidate reaches later checks in both engine and backtest; existing risk failures still reject.",
+      "sources": [
+        "trading/engine.py:881",
+        "trading/config.py:392",
+        "trading/candles.py:522"
+      ],
+      "related": "Owner clarification 2026-11-03",
+      "proof": "Source plus earlier dated production scan",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-02",
+      "priority": "P1",
+      "type": "Explanation defect",
+      "title": "Timing failure loses its detailed reason",
+      "reason": "Timing computes price-distance and volume-ratio diagnostics but persists only a boolean; initial rejection can retain a blank outcome.",
+      "impact": "High-score shares appear selected without a clear reason why they were excluded; 31 earlier scan rows had timing=false.",
+      "fix": "Persist each input, threshold, failed subcondition, bar time and explicit pass/fail/not_evaluated/data_missing state.",
+      "acceptance": "Save/reload distinguishes price failure, volume failure and insufficient history.",
+      "sources": [
+        "trading/timing.py:39",
+        "trading/engine.py:409",
+        "trading/engine.py:519",
+        "trading/engine.py:1053"
+      ],
+      "related": "RUN-20261102-02",
+      "proof": "Source plus earlier dated production scan",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-03",
+      "priority": "P1",
+      "type": "Capability limitation",
+      "title": "Intraday selection still consumes daily bars",
+      "reason": "Intraday preset metadata says 5m/5d, but the scan uses fetch_daily. Settings does now disclose daily bars.",
+      "impact": "A pattern or timing verdict is daily context, not fresh five-minute confirmation.",
+      "fix": "Make timeframe an explicit enforced contract. Either retain labelled daily-context Intraday or add completed 5m/15m execution data under an approved policy.",
+      "acceptance": "Selected timeframe reaches provider, indicator and saved evidence; incomplete bars excluded.",
+      "sources": [
+        "trading/modes.py:165",
+        "trading/engine.py:186",
+        "web/routes/settings_routes.py:30"
+      ],
+      "related": "",
+      "proof": "Source review; no claim all screens mislabel this",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-04",
+      "priority": "P2",
+      "type": "Policy review",
+      "title": "Price and volume evidence can be imposed repeatedly",
+      "reason": "Breakout/volume affect score, the timing condition and some candle patterns.",
+      "impact": "A strong score may face repeated correlated requirements; extra patterns alone do not resolve that design.",
+      "fix": "Map each feature to eligibility, timing or advisory evidence. Compare policies on identical candidates before changing timing thresholds.",
+      "acceptance": "Replay identifies each rule's incremental refusals and outcomes without using future bars.",
+      "sources": [
+        "trading/scoring.py:207",
+        "trading/timing.py:39",
+        "trading/candles.py:34"
+      ],
+      "related": "",
+      "proof": "Design analysis; profitability not established",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-05",
+      "priority": "P1",
+      "type": "Reproduced defect",
+      "title": "Incomplete OHLC can produce a confirmed candle",
+      "reason": "The breakout check validates column presence/Close count but not all latest OHLC values; NaN comparisons can pass and volume dropna can substitute an older bar.",
+      "impact": "Bad data can appear as bullish evidence and currently pass the entry veto.",
+      "fix": "Validate finite, coherent OHLCV over the exact pattern window; return data_missing instead of a pattern verdict.",
+      "acceptance": "Missing latest high/low/volume never confirms breakout; valid pattern still does.",
+      "sources": [
+        "trading/candles.py:26",
+        "trading/candles.py:34"
+      ],
+      "related": "XR-081",
+      "proof": "Synthetic latest High/Low NaN breakout returned True",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-06",
+      "priority": "P1",
+      "type": "Reproduced defect",
+      "title": "Missing volume passes liquidity",
+      "reason": "Five-day rupee-turnover mean can be NaN; NaN < threshold is false.",
+      "impact": "The turnover protection can report pass when there was no valid recent volume.",
+      "fix": "Require finite aligned closes/volumes and explicit recent coverage; distinguish missing data from low liquidity.",
+      "acceptance": "All-missing, partial, zero and negative volume fixtures cannot produce false clearance.",
+      "sources": [
+        "trading/risk_v2.py:206"
+      ],
+      "related": "XR-027",
+      "proof": "Synthetic last-five-volume NaN fixture returned (True, '')",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-07",
+      "priority": "P1",
+      "type": "Code-confirmed defect",
+      "title": "Correlation ignores new names in the same batch",
+      "reason": "open_returns is built from pre-scan holdings; all candidates are checked before opens and newly accepted names are not added.",
+      "impact": "Several highly correlated candidates may enter together despite the configured rule.",
+      "fix": "Evaluate against the projected accepted book in order, and recheck after rotation or concurrent portfolio changes.",
+      "acceptance": "Two candidates above correlation limit in an initially empty book cannot both bypass the rule.",
+      "sources": [
+        "trading/engine.py:690",
+        "trading/engine.py:863",
+        "trading/engine.py:1016"
+      ],
+      "related": "XR-051",
+      "proof": "Source review",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-08",
+      "priority": "P2",
+      "type": "Policy/visibility gap",
+      "title": "Unmeasured correlation looks like clearance",
+      "reason": "Insufficient history or overlap returns None, the same result as no blocker.",
+      "impact": "The owner cannot distinguish measured diversification from absent evidence.",
+      "fix": "Return sample/coverage status and expose unknown separately; make missing-data handling an explicit policy.",
+      "acceptance": "No-data result displays not evaluated; measured-low correlation displays pass.",
+      "sources": [
+        "trading/risk_v2.py:110"
+      ],
+      "related": "",
+      "proof": "Source review; current permissive fallback is not automatically a policy bug",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-09",
+      "priority": "P1",
+      "type": "Reproduced arithmetic mismatch",
+      "title": "New-entry heat uses a different stop from the actual trade",
+      "reason": "can_open uses category stop percentage; the later Momentum stop can widen under ATR.",
+      "impact": "Actual post-open risk-at-stop can exceed the heat limit even after the gate passed.",
+      "fix": "Compute the proposed stop before sizing, and use that same stop for risk and the opened position.",
+      "acceptance": "With 5% category/15% actual stop, size or reject using 15%; post-open heat stays within cap.",
+      "sources": [
+        "trading/risk.py:154",
+        "trading/targets.py:190",
+        "trading/engine.py:1475"
+      ],
+      "related": "XR-026",
+      "proof": "Isolated INR100,000 book accepted 1,000 shares at100: counted risk5,000 versus15,000 at stop85; no trade placed",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-10",
+      "priority": "P1",
+      "type": "Code-confirmed defect",
+      "title": "Market-data failure can become a neutral regime",
+      "reason": "fetch_regime returns a neutral, Everest-active fallback on errors/insufficient data; engine exception protection does not catch a successful fallback return.",
+      "impact": "Unknown market conditions can relax protection and reserve calculations.",
+      "fix": "Represent unknown/degraded separately; preserve last valid regime with its time and an explicit data-loss policy.",
+      "acceptance": "Provider failure after panic/correction cannot silently create a fresh neutral observation.",
+      "sources": [
+        "trading/regime.py:78",
+        "trading/regime.py:267",
+        "trading/engine.py:233"
+      ],
+      "related": "XR-050",
+      "proof": "Source review",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-11",
+      "priority": "P1",
+      "type": "Data coverage defect",
+      "title": "Earnings calendar is out of date",
+      "reason": "Ticker earnings data is a static July-August 2026 list; absence of later events produces no blackout.",
+      "impact": "No-event can be mistaken for a verified check of upcoming results.",
+      "fix": "Load announced dates with source/as-of/coverage; distinguish no known event from stale calendar. Preserve the current window until approved otherwise.",
+      "acceptance": "Future announced event exercises the window; expired calendar reports unknown.",
+      "sources": [
+        "trading/calendars.py:240",
+        "trading/calendars.py:362",
+        "trading/engine.py:773"
+      ],
+      "related": "XR-086 earnings subclaim",
+      "proof": "Source review",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-12",
+      "priority": "P1",
+      "type": "Reproduced defect",
+      "title": "Delayed quote loses its age",
+      "reason": "The fallback receives price plus timestamp but retains only price/source; a positive old value can be used.",
+      "impact": "Entry/exit simulation can use a stale value while the decision is dated now.",
+      "fix": "Carry price, observed_at, received_at, source and per-purpose usability; separate display marks from executable quote policy.",
+      "acceptance": "An old one-minute timestamp stays old and is rejected/deferred under the approved freshness rule.",
+      "sources": [
+        "trading/quote_router.py:98",
+        "trading/quote_router.py:123",
+        "trading/engine.py:904"
+      ],
+      "related": "ROOT-AM07-04",
+      "proof": "Injected old timestamp accepted by current fallback; not proof stale production fills occurred",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-13",
+      "priority": "P1",
+      "type": "Reproduced defect",
+      "title": "Quote validation accepts positive infinity",
+      "reason": "Router's positive-number comparison does not require finiteness.",
+      "impact": "Non-finite prices can contaminate sizing, marks or exits.",
+      "fix": "Require finite positive prices at provider and command boundaries; preserve source error evidence.",
+      "acceptance": "NaN, +inf, -inf and invalid types never become usable quotes.",
+      "sources": [
+        "trading/quote_router.py:72",
+        "trading/quote_router.py:126"
+      ],
+      "related": "ROOT-AM07-05",
+      "proof": "Injected +inf accepted by current quote route",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-14",
+      "priority": "P2",
+      "type": "Semantic gap",
+      "title": "Saved liquidity is only a partial liquidity check",
+      "reason": "Momentum shortlist recomputes historical liquidity without the live bid/ask inputs used by the entry path.",
+      "impact": "A row labelled liquid can still be blocked by spread, appearing contradictory.",
+      "fix": "Show turnover, circuit and spread separately, with source/time and not-evaluated states.",
+      "acceptance": "High turnover plus wide spread shows pass for turnover and fail/unknown for spread, not blanket clearance.",
+      "sources": [
+        "trading/engine.py:839",
+        "trading/engine.py:1557",
+        "trading/risk_v2.py:200"
+      ],
+      "related": "",
+      "proof": "Source review",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-15",
+      "priority": "P2",
+      "type": "Transparency proposal",
+      "title": "Scores conceal missing-input coverage",
+      "reason": "Some scoring components use a neutral value of50 when data is missing.",
+      "impact": "Two equal scores can have very different evidence quality.",
+      "fix": "Display observed/imputed component counts and provenance without silently changing numeric scoring.",
+      "acceptance": "Equal-score fixtures with different coverage have visibly different evidence summaries.",
+      "sources": [
+        "trading/scoring.py:29",
+        "trading/scoring.py:71",
+        "trading/scoring.py:199"
+      ],
+      "related": "XR-009",
+      "proof": "Source review",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-16",
+      "priority": "P1",
+      "type": "Operational risk",
+      "title": "Database operations have no explicit total deadline in code",
+      "reason": "Mongo client sets connect/server-selection timeouts only. Exit work holds mode lock while saving; rotation takes the same lock.",
+      "impact": "A slow responding database could delay later scans and exit checks. A live stall is not proved; URI-level timeout settings were not inspected.",
+      "fix": "Bound read/write operations and lock waits; checkpoint progress and surface timeout/deferred work. Do not merely abandon a mutating worker thread.",
+      "acceptance": "Injected stalled read/write terminates within deadline; protection checks are retried and failed saves are visible.",
+      "sources": [
+        "web/db.py:42",
+        "web/scheduler.py:3026",
+        "web/scheduler.py:3091"
+      ],
+      "related": "NEW-03",
+      "proof": "Source-confirmed missing explicit operation/socket deadline; runtime configuration unknown",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-17",
+      "priority": "P1",
+      "type": "Code-confirmed ordering defect",
+      "title": "Rotation can sell before replacement approval",
+      "reason": "_rotation_exits runs after preliminary checks but before final can_open sizing/risk checks.",
+      "impact": "A holding can be sold to fund a replacement later rejected by heat, sector, kill switch or size; advisory candles would expose more candidates to this path.",
+      "fix": "Evaluate the projected post-rotation portfolio with the same final risk/sizing rules before any sale; version and revalidate the funding plan.",
+      "acceptance": "Preliminary pass plus final rejection causes no sale; a valid funded replacement executes coherently.",
+      "sources": [
+        "trading/engine.py:892",
+        "trading/engine.py:959",
+        "trading/engine.py:2065",
+        "trading/risk.py:70"
+      ],
+      "related": "XR-052",
+      "proof": "Source review",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-18",
+      "priority": "P1",
+      "type": "Reproduced defect",
+      "title": "Danger rules discard NumPy true values",
+      "reason": "Evaluator uses identity comparison is True; numpy.bool_(True) is not the Python True singleton.",
+      "impact": "Warnings and protective actions can be omitted despite a rule firing.",
+      "fix": "Normalize valid scalar boolean outputs while preserving unknown and evaluation errors; assess changed action frequency before rollout.",
+      "acceptance": "Python and NumPy true agree, false remains false, None abstains and exceptions remain visible.",
+      "sources": [
+        "trading/danger.py:129",
+        "trading/triggers.py:466"
+      ],
+      "related": "XR-060",
+      "proof": "Injected Python True counted; equivalent NumPy True ignored",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-19",
+      "priority": "P1",
+      "type": "Reproduced stale-input defect",
+      "title": "Danger sector/index context reads July data",
+      "reason": "externals_for reads committed external panels with their default final date, not a current aligned evaluation date.",
+      "impact": "Current holdings can receive protection decisions using old sector/index context.",
+      "fix": "Use stored current external bars aligned to the holding's evaluation bar; explicitly abstain on stale inputs; preserve historical as-of semantics.",
+      "acceptance": "Current holding plus old panel shows stale-input abstention; historical replay never reads future data.",
+      "sources": [
+        "trading/danger.py:161",
+        "trading/external_panels.py:57",
+        "trading/external_panels.py:651"
+      ],
+      "related": "XR-061",
+      "proof": "Local TCS external context returned asof/index_asof 2026-07-17",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-20",
+      "priority": "P1",
+      "type": "Reproduced mixed-policy state",
+      "title": "Overnight Intraday conversion leaves inconsistent exit identity",
+      "reason": "Startup retagging applies Momentum stop/target to stale Intraday holdings without changing position.mode; later exit config still reads Intraday.",
+      "impact": "A position can have Momentum levels, Intraday trailing/holding rules and contradictory journal identity.",
+      "fix": "Decide failed-square-off policy explicitly: retain Intraday plus pending exit, or fully convert strategy and policy snapshots together. Preserve original stream and custom-level history.",
+      "acceptance": "Repeated restart retains one coherent approved policy and an auditable conversion; no incidental stop widening.",
+      "sources": [
+        "web/state.py:560",
+        "web/state.py:581",
+        "trading/exits.py:28",
+        "trading/engine.py:3119"
+      ],
+      "related": "Additional review finding",
+      "proof": "Fake100-entry position changed stops/targets98.5/102.5 to95/120; mode remained Intraday, journal said Momentum",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-21",
+      "priority": "P1",
+      "type": "Reliability proposal",
+      "title": "Square-off has no durable retry obligation",
+      "reason": "Missing quote at mandatory square-off is journaled and holding stays open, without a dedicated pending obligation like the repaired drawdown path.",
+      "impact": "A missed same-day exit can become overnight exposure without clear retry ownership.",
+      "fix": "Persist identity-bound square-off obligations, attempts, next retry and escalation; execute only with usable quotes in allowed hours.",
+      "acceptance": "Missing quote survives restart as pending; returned quote closes once; replacement holding of same ticker is not accidentally closed.",
+      "sources": [
+        "trading/engine.py:1162",
+        "trading/engine.py:1180",
+        "trading/engine.py:3200"
+      ],
+      "related": "",
+      "proof": "Existing refusal to invent a fill is correct and must remain",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-22",
+      "priority": "P2",
+      "type": "Explanation mismatch",
+      "title": "Deferred-exit message promises more than execution guarantees",
+      "reason": "Outside-hours journal says exit will fire next pass, but ordinary conditions are re-evaluated later rather than all being latched.",
+      "impact": "A price reversal may cancel the later condition despite an earlier apparent promise.",
+      "fix": "State re-evaluation honestly, or adopt a separately approved persistent-intent policy per exit type; do not automatically latch all targets/stops.",
+      "acceptance": "Outside-hours signal followed by rebound produces behaviour and wording consistent with chosen policy.",
+      "sources": [
+        "trading/engine.py:1358",
+        "trading/engine.py:1372"
+      ],
+      "related": "",
+      "proof": "Source review",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-23",
+      "priority": "P1",
+      "type": "Observability proposal",
+      "title": "Exit pass timestamp does not prove every holding was checked",
+      "reason": "Session refresh can return after no quotes; successful evaluations and attempted passes are not separately tracked per holding.",
+      "impact": "A recently run job can mask overdue protection for some or all positions; long scans can delay checks.",
+      "fix": "Track per-position last successful exit evaluation, quote age, skipped reason and obligation; alert on overdue coverage and bound long scan stages.",
+      "acceptance": "All quotes missing updates attempts but not successful coverage; one missing name alone becomes overdue.",
+      "sources": [
+        "trading/engine.py:1214",
+        "trading/engine.py:1320",
+        "web/scheduler.py:3030",
+        "web/scheduler.py:3100"
+      ],
+      "related": "",
+      "proof": "Source review",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-24",
+      "priority": "P1",
+      "type": "Confirmed misleading display",
+      "title": "Blank outcome becomes 'passed all gates'",
+      "reason": "Buy Desk template substitutes passed all gates for missing execution outcome.",
+      "impact": "An advisory candidate can appear execution-approved even when later gates were never evaluated.",
+      "fix": "Use No execution verdict recorded; show separate completed/failed/not-evaluated states.",
+      "acceptance": "Blank outcome and timing=false never render a full-gates pass.",
+      "sources": [
+        "web/templates/scan.html:533",
+        "trading/engine.py:1583"
+      ],
+      "related": "RUN-20261102-02",
+      "proof": "Source review",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-25",
+      "priority": "P2",
+      "type": "Confirmed preview mismatch",
+      "title": "Buy Desk preview uses another stream's top50 prices",
+      "reason": "Momentum candidates are priced from shared last_scan_picks, while submission fetches quotes for the full desk set.",
+      "impact": "Eligible candidates can appear no_quote/not recommended in preview but execute through a different pricing set.",
+      "fix": "Use a common dated quote snapshot and candidate universe for preview; recalculate and expose changes at submission.",
+      "acceptance": "A Momentum candidate missing from Intraday top50 still has an honest consistent preview.",
+      "sources": [
+        "web/routes/scan_routes.py:886",
+        "web/routes/scan_routes.py:933",
+        "trading/engine.py:1053"
+      ],
+      "related": "Additional review finding",
+      "proof": "Source review",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-26",
+      "priority": "P1",
+      "type": "Freshness-policy gap",
+      "title": "Fresh quotes can mask an old shortlist",
+      "reason": "shortlist checks presence of rows/time, not age; execution reuses old eligibility while repricing.",
+      "impact": "Yesterday's score/momentum/liquidity can appear current.",
+      "fix": "Show independent scan, evidence and price ages; define per-stream expiry and refresh/review rules without deleting historical rows.",
+      "acceptance": "Repricing cannot reset old eligibility age; expired evidence remains clearly labelled.",
+      "sources": [
+        "web/buy_desk.py:71",
+        "web/routes/scan_routes.py:933"
+      ],
+      "related": "Related ROOT-ROUTE-05; broader age policy",
+      "proof": "Source review",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-27",
+      "priority": "P1",
+      "type": "Existing policy plus interface proposal",
+      "title": "Owner BUY is broader than candle approval",
+      "reason": "Owner BUY changes mode to Momentum and calls _open via owner sizing/cash policy; ordinary scan gates are bypassed by existing owner design.",
+      "impact": "An Intraday review action can become an owner/Momentum trade with different exit and budget identity.",
+      "fix": "Add a separate enter-through-this-stream action that preserves identity and reruns ordinary checks; clearly name any retained broad owner override.",
+      "acceptance": "Intraday review preserves Intraday exits and normal risk limits; deliberate owner override remains distinct.",
+      "sources": [
+        "web/routes/scan_routes.py:827",
+        "web/buy_desk.py:199",
+        "trading/orders.py:132"
+      ],
+      "related": "",
+      "proof": "Intentional existing policy, not an unauthorized-bypass claim",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-28",
+      "priority": "P1",
+      "type": "Reproduced defect",
+      "title": "Slippage can exceed the entered Buy Desk budget",
+      "reason": "Plan caps quote-price cost; execution adds slippage and checks cash without enforcing remaining batch budget.",
+      "impact": "The stated maximum batch spend can be exceeded.",
+      "fix": "Size and enforce against estimated fill cost and remaining approved budget; record quote/fill/cost separately.",
+      "acceptance": "Total spend stays within budget at configured slippage; residual budget refusal is explicit.",
+      "sources": [
+        "web/buy_desk.py:179",
+        "web/buy_desk.py:213",
+        "web/buy_desk.py:240"
+      ],
+      "related": "XR-083",
+      "proof": "Fake1000-budget plan spent1000.50 at5bp slippage",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-29",
+      "priority": "P1",
+      "type": "Reproduced input defect",
+      "title": "Owner BUY parser accepts NaN and infinity",
+      "reason": "abs(float(raw)) with only <=0 checks allows nonfinite values; conversion and custom-level inputs have inconsistent checks.",
+      "impact": "Malformed inputs can cause errors or nonsensical orders/levels; negative values also silently change sign.",
+      "fix": "Validate finite bounded numbers and integer quantities before mutation; field-specific errors and explicit negative-input policy.",
+      "acceptance": "NaN/infinity/extreme/fractional invalid inputs change no portfolio/order state.",
+      "sources": [
+        "web/routes/scan_routes.py:757",
+        "web/routes/scan_routes.py:805",
+        "trading/orders.py:35"
+      ],
+      "related": "Additional BUY-ticket path; related ROOT-ROUTE-03/06",
+      "proof": "Isolated _parse_pos_float accepted NaN and infinity; earlier SELL/manual-add fix is not being reflagged",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-30",
+      "priority": "P1",
+      "type": "Confirmed policy-integrity defect",
+      "title": "Editing notes can erase system trading identity",
+      "reason": "Notes form overwrites tags, while owner_pick/buy_desk/ocean control budgets and exit treatment.",
+      "impact": "Cosmetic edits can alter risk category or re-enable exit behaviour.",
+      "fix": "Separate system provenance/policy from user labels; deliberate reclassification gets its own audited operation.",
+      "acceptance": "Clearing user tags cannot remove owner/Ocean identity or alter exit policy.",
+      "sources": [
+        "web/routes/positions.py:561",
+        "trading/category_budget.py:70",
+        "trading/exits.py:90"
+      ],
+      "related": "ROOT-ROUTE-04 notes/tag subclaim",
+      "proof": "Source review",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-31",
+      "priority": "P1",
+      "type": "Reproduced expiry defect",
+      "title": "Old day-valid limit order can fill next session",
+      "reason": "Processing checks market hours and price but relies on a separate callback to expire day orders.",
+      "impact": "Downtime or missed expiry can leave yesterday's instruction executable today.",
+      "fix": "Store explicit session expiry and enforce it on every processing attempt and startup; define after-hours/weekend validity.",
+      "acceptance": "Miss expiry callback, restart next session and touch limit: old order expires rather than fills.",
+      "sources": [
+        "trading/orders.py:29",
+        "trading/orders.py:189",
+        "trading/orders.py:222",
+        "web/scheduler.py:826"
+      ],
+      "related": "Additional review finding",
+      "proof": "Injected Nov2 order was passed to fill when processing Nov3",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-32",
+      "priority": "P2",
+      "type": "Confirmed explanation gap",
+      "title": "Partial success hides refusals in scan headline",
+      "reason": "stopped_by returns bought N if any opened; zero-pick wording can infer timing/liquidity when a global gate emptied candidates.",
+      "impact": "The headline cannot explain what stopped the remainder or may name the wrong rule family.",
+      "fix": "Always render the full funnel and both bought/refused counts from stored first-stop codes.",
+      "acceptance": "10 opens plus11 refusals shows both; closed-market block is identified directly.",
+      "sources": [
+        "web/why_no_buy.py:125",
+        "web/why_no_buy.py:150"
+      ],
+      "related": "RUN-20261102-02",
+      "proof": "Source review",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-33",
+      "priority": "P1",
+      "type": "Confirmed evidence-retention gap",
+      "title": "Cross-stream gate history is overwritten or truncated",
+      "reason": "Shared matrix/latest fields overwrite each other; summaries cap names/reason types and some journal lists at20.",
+      "impact": "Counts may be correct while a complete share-by-share explanation is unrecoverable.",
+      "fix": "Persist immutable per-run/per-stream decisions separately from portfolio; summaries link to full records with source/policy versions.",
+      "acceptance": "Sequential streams and large refusal batches retain complete downloadable rows and explicit not-evaluated gates.",
+      "sources": [
+        "trading/engine.py:1067",
+        "trading/engine.py:2723",
+        "web/why_no_buy.py:99"
+      ],
+      "related": "RUN-20261102-02",
+      "proof": "Source review",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-34",
+      "priority": "P1",
+      "type": "Code-confirmed validation ordering defect",
+      "title": "Rejected settings can partly change live configuration",
+      "reason": "Mode mutates before universe validation; scalar fields mutate as parsed and finite/range validation is incomplete.",
+      "impact": "A refused or invalid form can leave runtime behaviour different from what was saved or shown.",
+      "fix": "Parse and validate a full proposed configuration, then apply atomically under lock; reject invalid/unverifiable fields before mutation.",
+      "acceptance": "Invalid universe or nonfinite field leaves mode, settings and runtime state unchanged.",
+      "sources": [
+        "web/routes/settings_routes.py:375",
+        "web/routes/settings_routes.py:423",
+        "web/routes/settings_routes.py:443"
+      ],
+      "related": "ROOT-ROUTE-06",
+      "proof": "Source review",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-35",
+      "priority": "P1",
+      "type": "Confirmed acknowledgement gap",
+      "title": "Settings success is not tied to durable save",
+      "reason": "save_settings returns no acknowledgement and catches write errors; callers proceed with success redirects/reload.",
+      "impact": "Owner can believe a policy is saved when it may disappear after restart.",
+      "fix": "Return an explicit acknowledged result; distinguish active-in-memory, durable and failed states; do not show saved on failure.",
+      "acceptance": "Injected database refusal displays failure and preserves/rolls back state according to declared atomic contract.",
+      "sources": [
+        "web/db.py:937",
+        "web/routes/settings_routes.py:357"
+      ],
+      "related": "ROOT-ROUTE-10 settings subclaim",
+      "proof": "Source review",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-36",
+      "priority": "P2",
+      "type": "Coverage/visibility proposal",
+      "title": "Buy Desk first60 limit affects execution as well as display",
+      "reason": "shortlist truncates to MAX_NAMES and both preview/submission use that set.",
+      "impact": "Owner may interpret a page limit as having no effect on the batch candidate universe.",
+      "fix": "Keep bounded processing but disclose total eligible, considered set and ranking cutoff; add pagination/export and explicit batch selection.",
+      "acceptance": "More than60 candidates shows exactly which are included in the proposed batch and why others are outside it.",
+      "sources": [
+        "web/buy_desk.py:46",
+        "web/buy_desk.py:122",
+        "web/routes/scan_routes.py:933"
+      ],
+      "related": "",
+      "proof": "Source review",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-37",
+      "priority": "P2",
+      "type": "Owner-interface proposal",
+      "title": "No editable per-stream advisory policy map",
+      "reason": "Den displays candle policies, but ordinary editable settings omit those controls; support signals and blockers are scattered.",
+      "impact": "The owner cannot easily see or govern which optional signals actually stop trades.",
+      "fix": "Show each rule as advisory/required/not-applicable, its scope, current value, approver and effective version; apply changes with impact preview.",
+      "acceptance": "Policy shown in UI matches engine/backtest configuration after save/reload; missing candle never becomes hidden score veto.",
+      "sources": [
+        "web/templates/_den_timing.html:11",
+        "web/routes/settings_routes.py:79",
+        "trading/candles.py:522"
+      ],
+      "related": "",
+      "proof": "Source review",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-38",
+      "priority": "P2",
+      "type": "Evaluation proposal",
+      "title": "Policy changes need a saved-candidate comparison",
+      "reason": "Removing one early gate does not show whether later checks, budget or changing quotes would permit a buy.",
+      "impact": "Counting all former candle refusals as extra buys overstates benefit and hides extra exposure.",
+      "fix": "Run current versus advisory policy on identical dated candidates and isolated books; report later blockers, costs, drawdown and outcome distributions on later unseen periods.",
+      "acceptance": "Comparison records data/code/config identity, avoids future data and never places production orders.",
+      "sources": [
+        "trading/backtest.py:512",
+        "trading/engine.py:881"
+      ],
+      "related": "",
+      "proof": "Proposal; no profitability claim",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-39",
+      "priority": "P2",
+      "type": "Evidence-design proposal",
+      "title": "Pattern count is not independent confidence",
+      "reason": "34 patterns include overlapping bullish/bearish/neutral shapes; no evidence supports simply adding arbitrary points for every match.",
+      "impact": "More names can create apparent certainty or a new indirect selection veto.",
+      "fix": "Group related evidence, show supportive/conflicting/neutral/unavailable with timeframe and completed-bar time; calibrate any ranking effect separately.",
+      "acceptance": "Several correlated patterns do not masquerade as independent votes; absent pattern does not penalize base eligibility.",
+      "sources": [
+        "trading/candles.py:434",
+        "trading/candles.py:478",
+        "trading/config.py:396"
+      ],
+      "related": "",
+      "proof": "Source review",
+      "status": "REVIEWED_NOT_FIXED"
+    },
+    {
+      "id": "GATE-40",
+      "priority": "P2",
+      "type": "Data-contract proposal",
+      "title": "Freshness is not tied to the expected completed trading session",
+      "reason": "Store acceptance uses an end-date calendar cutoff and reconstructed frames, not an explicit per-purpose completed-session contract.",
+      "impact": "A generic age threshold can hide missed trading bars or future/partial-bar problems; no occurrence is claimed here.",
+      "fix": "Validate actual last bar, expected completed session, timezone, future dates and market calendar; display distinct age for signals, marks and execution.",
+      "acceptance": "Weekend/holiday, missing-session, future-date and unfinished-bar fixtures yield explicit availability states.",
+      "sources": [
+        "trading/data.py:120",
+        "trading/data.py:130",
+        "trading/engine.py:186"
+      ],
+      "related": "",
+      "proof": "Design hardening proposal based on current cutoff mechanism",
+      "status": "REVIEWED_NOT_FIXED"
+    }
+  ]
+}

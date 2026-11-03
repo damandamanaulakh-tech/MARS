@@ -152,6 +152,7 @@ def test_owner_losers_never_print_a_halt():
     assert "HALT ACTIVE" not in card and "OK — no category is halted." in card
     row = card.split('data-loss-halt-row="owner"')[1].split("</tr>")[0]
     assert ">2<" in row and "not gated" in row and "HALTED" not in row
+    assert "Legacy owner" in row and "legacy record" in row
 
 
 def test_yesterdays_halt_is_not_printed_as_active_today():

@@ -1,13 +1,6 @@
-"""Owner order 2026-10-21 (choice card): owner BUY / Buy Desk positions count
-under their OWN "owner" bucket, outside the five category shares — like
-Ocean. Before this, trading/category_budget.category_of put owner_pick /
-buy_desk positions under momentum, so the 09-24 Buy Desk fills (up to
-Rs 2.5 Cr) held momentum's 40% share over-full and every momentum scan pick
-read category_budget_full.
-
-NOT changed, pinned below: measured_kelly.trade_category still places owner
-trades in the MOMENTUM record (FINAL SET V1.3) — the Kelly sample is
-unchanged by this order.
+"""Owner order 2026-11-03 supersedes the 2026-10-21 separate owner bucket.
+Owner entries spend their stored strategy share. Provenance, Ocean, reserve,
+heat and owner exit/rotation protections remain explicit.
 """
 from __future__ import annotations
 
@@ -56,23 +49,19 @@ def _gate(cfg, positions, category, cash, want=1_50_000.0, price=100.0):
 
 # ------------------------------------------------------------ the bucket
 
-def test_owner_tagged_positions_sit_in_the_owner_bucket():
-    assert cb.category_of(_pos("A", 1e5, tags=["owner_pick"])) == cb.OWNER
-    assert cb.category_of(_pos("A", 1e5, tags=["owner_pick", "buy_desk"])) == cb.OWNER
-    assert cb.category_of(_pos("A", 1e5, tags=["buy_desk"])) == cb.OWNER
-    # the rule is tag-based: the mode the ticket wrote does not matter
-    assert cb.category_of(_pos("A", 1e5, mode="", tags=["owner_pick"])) == cb.OWNER
-    assert cb.category_of(_pos("A", 1e5, mode="swing", tags=["owner_pick"])) == cb.OWNER
-    assert cb.is_owner(_pos("A", 1e5, tags=["owner_pick"]))
-    # and the owner bucket has no share, like Ocean
-    cfg = _cfg()
-    assert cb.share(cfg, cb.OWNER) is None
-    assert cb.room(cfg, _desk_book(), cb.OWNER, BOOK) is None
+@pytest.mark.parametrize("mode", list(cb.SHARE_FIELDS))
+@pytest.mark.parametrize("tags", [["owner_pick"], ["owner_pick", "buy_desk"], ["buy_desk"]])
+def test_owner_tagged_positions_count_in_their_strategy(mode, tags):
+    pos = _pos("A", 1e5, mode=mode, tags=tags)
+    assert cb.category_of(pos) == mode
+    assert cb.is_owner(pos)
+    assert cb.used([pos], mode) == 1e5
+    assert cb.used([pos], cb.OWNER) == 0
+    assert cb.category_of(_pos("A", 1e5, mode="", tags=tags)) == MOM
 
 
 def test_every_owner_entry_path_writes_the_tag():
-    """The rule is tag-based, so every owner entry path must tag what it
-    opens: the BUY button, the limit-order fill and the Buy Desk."""
+    """Provenance remains tagged on every owner entry path: the BUY button, the limit-order fill and the Buy Desk."""
     import inspect
 
     from trading import orders
@@ -98,36 +87,32 @@ def test_scan_positions_and_ocean_are_untouched():
     assert cb.usage(cfg, book, BOOK)[0]["used"] == 0.0
 
 
-# ---------------------------------------------------- momentum's share frees
+# ---------------------------------------------------- shared strategy budget
 
-def test_buy_desk_fills_no_longer_fill_momentums_share():
-    """Rs 5 Cr book, Rs 2.5 Cr of Buy Desk positions, no scan momentum
-    position: momentum used = 0 and its room is the FULL Rs 2 Cr share.
-    On the old convention those fills counted as momentum (Rs 2.5 Cr > the
-    Rs 2 Cr share) and room read 0."""
+def test_buy_desk_fills_use_momentums_share_without_forced_sale():
     cfg = _cfg()
     book = _desk_book()
-    assert cb.used(book.values(), MOM) == 0.0
-    assert cb.room(cfg, book, MOM, BOOK) == pytest.approx(0.40 * BOOK)
-    assert cb.used(book.values(), cb.OWNER) == pytest.approx(2_50_00_000.0)
-    # the Risk-page rows agree: momentum empty, owner row carries the cost
+    before = dict(book)
+    assert cb.used(book.values(), MOM) == pytest.approx(2_50_00_000.0)
+    assert cb.room(cfg, book, MOM, BOOK) == 0
+    assert cb.used(book.values(), cb.OWNER) == 0
     rows = {r["category"]: r for r in cb.usage(cfg, book, BOOK)}
-    assert rows[MOM]["used"] == 0.0 and rows[MOM]["open"] == 0
-    assert not rows[MOM]["full"]
-    own = cb.owner_usage(book)
-    assert own["used"] == pytest.approx(2_50_00_000.0) and own["open"] == 5
-    assert own["limit"] is None and own["full"] is False
+    assert rows[MOM]["used"] == pytest.approx(2_50_00_000.0)
+    assert rows[MOM]["open"] == 5 and rows[MOM]["full"]
+    assert rows[MOM]["over_limit"] == pytest.approx(50_00_000.0)
+    assert book == before
 
 
-def test_a_momentum_scan_entry_opens_beside_the_buy_desk_fills():
-    """can_open(category=momentum) opens a Rs 1.5L trade. Before the order
-    the same book was refused category_budget_full — proven by the twin
-    below, which strips the owner tags (what the old code saw)."""
+def test_a_momentum_scan_entry_waits_when_owner_entries_used_its_share():
     cfg = _cfg()
     book = _desk_book()
     ok, why, qty = _gate(cfg, book, MOM, cash=BOOK - 2_50_00_000.0)
-    assert ok, why
-    assert qty * 100.0 == pytest.approx(1_50_000.0)
+    assert not ok and why == "category_budget_full" and qty == 0
+    # Other strategies retain their own shares; attribution transfers no cash.
+    for mode in ("intraday", "short", "swing", "positional"):
+        ok, why, qty = _gate(cfg, book, mode, cash=BOOK - 2_50_00_000.0)
+        assert ok, (mode, why)
+        assert qty * 100 == pytest.approx(1_50_000.0)
 
 
 def test_the_same_fills_counted_as_momentum_were_refused():
@@ -140,71 +125,61 @@ def test_the_same_fills_counted_as_momentum_were_refused():
     assert not ok and why == "category_budget_full"
 
 
-# ------------------------------------------------- owner buys: no share cap
+# ------------------------------------------------- combined allocation
 
-def test_an_owner_buy_is_never_share_capped():
-    """Rs 2.5 Cr already in the owner bucket: an owner entry (category=None,
-    the gate owner buys would pass) still opens — no share applies."""
+def test_owner_and_automatic_holdings_consume_one_combined_segment_share():
     cfg = _cfg()
-    book = _desk_book()
-    ok, why, qty = _gate(cfg, book, None, cash=BOOK - 2_50_00_000.0,
-                         want=25_00_000.0)
-    assert ok, why
-    assert qty * 100.0 == pytest.approx(25_00_000.0)
+    book = _desk_book(rupees=1_00_00_000.0)
+    book["AUTO.NS"] = _pos("AUTO.NS", 99_00_000.0)
+    assert cb.room(cfg, book, MOM, BOOK) == pytest.approx(1_00_000.0)
+    ok, why, qty = _gate(cfg, book, MOM, cash=BOOK - 1_99_00_000.0)
+    assert not ok and why == "category_budget_full" and qty == 0
 
 
 def test_owner_positions_still_count_in_the_cap_a_scan_entry_meets():
-    """Outside the shares is not outside the book: what the owner bucket
-    holds still counts in the deploy cap and the heat every SCAN entry is
-    judged against — momentum's share has full room here, yet the pick is
-    refused on the book-wide limits."""
+    """Owner holdings also count in the unchanged global reserve and heat."""
     cfg = _cfg()
     cfg.cash_reserve_pct = 0.20                      # correction reserve
     book = _desk_book(rupees=4_00_00_000.0)          # 80% of 5 Cr deployed
-    assert cb.room(cfg, book, MOM, BOOK) == pytest.approx(0.40 * 0.80 * BOOK)
+    assert cb.room(cfg, book, MOM, BOOK) == 0
     ok, why, _ = _gate(cfg, book, MOM, cash=BOOK - 4_00_00_000.0)
     assert not ok and why == "reserve_breached"
     cfg = _cfg()
     cfg.max_portfolio_heat_pct = 0.001
-    ok, why, _ = _gate(cfg, _desk_book(), MOM, cash=BOOK - 2_50_00_000.0)
+    ok, why, _ = _gate(cfg, _desk_book(), "swing", cash=BOOK - 2_50_00_000.0)
     assert not ok and why == "portfolio_heat_cap"
 
 
-def test_an_owner_limit_fill_is_checked_against_cash_only(tmp_path):
-    """What the screens now say, pinned on behaviour: the owner's own entry
-    paths never call risk.can_open (as before this order) — a limit fill
-    opens past the deploy cap when cash covers it, and lands in the owner
-    bucket."""
+def test_an_owner_limit_fill_cannot_overfill_its_segment(tmp_path):
     from trading import orders
     from trading.engine import TradingEngine
     from trading.paper import Portfolio
     cfg = _cfg(tmp_path)
-    cfg.cash_reserve_pct = 0.20
     p = Portfolio.fresh(cfg)
-    p.positions = _desk_book(rupees=4_00_00_000.0)
-    p.cash = BOOK - 4_00_00_000.0
-    risk = RiskState(cfg=cfg, starting_capital=BOOK)
-    assert can_open(risk, p.cash, BOOK, p.positions, "LIM.NS", 100.0, cfg,
-                    notional_override=1_50_000.0)[1] == "reserve_breached"
+    p.positions = _desk_book(rupees=2_50_00_000.0)
+    p.cash = BOOK - 2_50_00_000.0
+    before_cash = p.cash
     eng = TradingEngine(cfg, p)
     o = orders.place_limit(p, ticker="LIM.NS", limit_price=100.0, qty=1500)
     orders._fill(eng, o, 99.5, datetime.utcnow())
-    assert "LIM.NS" in p.positions
-    assert cb.category_of(p.positions["LIM.NS"]) == cb.OWNER
+    assert "LIM.NS" not in p.positions
+    assert p.cash == before_cash
+    assert o["status"] == "cancelled"
+    assert "category_budget" in o["note"]
 
 
 # ------------------------------------------------------------- unchanged
 
 def test_rotation_still_never_sells_an_owner_position():
     """owner_pick positions stay exempt from rotation (the decay-exit rule)
-    — and being in their own bucket they are never 'same category'."""
+    — even though their costs now share the strategy allocation."""
     import inspect
 
     from trading.engine import TradingEngine
     code = "\n".join(l for l in inspect.getsource(TradingEngine._rotation_exits)
                      .splitlines() if not l.strip().startswith("#"))
     assert '"owner_pick" not in (getattr(p, "tags", None) or [])' in code
-    assert cb.category_of(_pos("A", 1e5, tags=["owner_pick"])) != MOM
+    assert cb.category_of(_pos("A", 1e5, tags=["owner_pick"])) == MOM
 
 
 def test_the_measured_kelly_sample_is_unchanged():
@@ -231,4 +206,21 @@ def test_the_measured_kelly_sample_is_unchanged():
         sector="IT", entry_score=0.0, reasoning="OWNER BUY DESK — fixture",
         tags=["owner_pick", "buy_desk"], mode=MOM)
     assert MK.trade_category(ct) == MOM
-    assert cb.category_of(ct) == cb.OWNER        # the cash bucket moved only
+    assert cb.category_of(ct) == MOM           # budget and strategy now agree
+
+
+@pytest.mark.parametrize("mode", list(cb.SHARE_FIELDS))
+def test_owner_stop_loss_counts_under_the_actual_strategy(tmp_path, mode):
+    from trading.engine import TradingEngine
+    from trading.paper import Portfolio
+    cfg = _cfg(tmp_path)
+    p = Portfolio.fresh(cfg)
+    p.positions["OWNER.NS"] = _pos("OWNER.NS", 1e5, mode=mode, tags=["owner_pick"])
+    eng = TradingEngine(cfg, p)
+    now = datetime(2026, 11, 3, 6, 0)
+    eng._close("OWNER.NS", 90.0, "STOP_LOSS", now)
+    assert eng.loss_tracker.by_category == {mode: 1}
+    assert p.loss_by_category == {mode: 1}
+    assert p.trades[-1].mode == mode
+    assert p.trades[-1].tags == ["owner_pick"]
+    assert p.trades[-1].reason == "STOP_LOSS"
