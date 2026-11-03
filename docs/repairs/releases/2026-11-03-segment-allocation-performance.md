@@ -60,8 +60,8 @@ The earlier gate review remains pinned to that source and is historical evidence
 - Full local suite: **2,784 passed, zero failures/errors/skips**, Python 3.12,
   217.90 seconds. Repair-record validator passes with all 165 original IDs and
   two separate incidents preserved; `git diff --check` clean.
-- Independent review found no new blocking errors. CI / merge / deployment
-  evidence will be appended after completion.
+- Independent review found no new blocking errors. Final CI, merge and
+  deployment evidence is recorded below.
 
 ## Backlog scope and remaining work
 
@@ -76,6 +76,25 @@ remain pending until ordinary authorized use occurs.
 
 ## Release state
 
-Implementation and full local suite complete. [PR #192](https://github.com/damandamanaulakh-tech/MARS/pull/192)
-contains the retained audit and this implementation. CI, exact merge SHA and
-matching Render deployment are pending; this entry does not claim deployment.
+- [PR #192](https://github.com/damandamanaulakh-tech/MARS/pull/192) merged on
+  3 November 2026 at 10:24:24 UTC (15:54:24 IST).
+- Reviewed/tested head: `f6c1bff48fb286441fb860267c31a27894dbeb3a`.
+- Merge/deployed revision: `0ce4fdd7e5398a981e580d6eaa8ed27e24560492`.
+- Tree shared by tested head and merge: `514cd4b25ffc21fc37059b91a286ea9e8880a552`.
+  All 37 changed files were verified byte-for-byte against the local tested tree.
+- [CI run 41617965910](https://github.com/damandamanaulakh-tech/MARS/actions/runs/41617965910):
+  **2,784 passed**, Python 3.11, 341.26 seconds. Test job, repair-records job and
+  explicit zero-skipped-tests guard all succeeded.
+- Render service `srv-d8cspdnavr4c738lbrd0`, confirmed Research Engine workspace:
+  deploy `dep-dbkrcmss728c73919k0g` automatically deployed the matching merge.
+  Status **live**, finished 10:26:12 UTC / **15:56:12 IST**, 3 November 2026.
+- Post-deploy GET `/healthz` succeeded at approximately 10:27 UTC: `ok=true`,
+  database connected, `degraded=false`, `boot_degraded=false`, no write error,
+  production readiness true with no problems.
+- A read-only saved closed-trade snapshot reconciled under the new performance
+  helper, with unknown legacy attribution retained rather than guessed.
+
+State: **DEPLOYED_HEALTH_VERIFIED** for the release. Entry/fill behavior has
+isolated regression proof; ordinary production execution remains unobserved.
+No scan/order was induced to manufacture a runtime-completion claim. This
+follow-up record changes documentation only and skips a redundant Render deploy.
