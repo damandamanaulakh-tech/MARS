@@ -848,7 +848,11 @@ def _wire_news_item(out: dict[str, Reading], symbol: str) -> None:
         nw = (state.portfolio().news_watch or {})
     except Exception:                                        # pragma: no cover
         return
-    row = (nw.get("rows") or {}).get(symbol)
+    rows = nw.get("rows") or {}
+    ticker = str(symbol or "").strip().upper()
+    row = rows.get(ticker)
+    if row is None and not ticker.endswith((".NS", ".BO")):
+        row = rows.get(ticker + ".NS")
     if not row:
         return
     if row.get("verdict") == "UNKNOWN":
@@ -1041,12 +1045,6 @@ def _wire_intake_items(out: dict[str, Reading], symbol: str, value) -> None:
     # request path) and never invented: no stored reading = DATA_NEEDED.
     _wire_news_item(out, symbol)
 
-    # Node 8 (2026-08-23): the daily option-chain snapshot upgrades W-022 to
-    # a TRUE chain PCR and gives W-007 its per-stock IV leg — but only on
-    # days the owner's login produced a fresh snapshot; otherwise the
-    # committed-panel proxy (W-022) / index VRP (W-007) stand as before.
-    _wire_chain_items(out, symbol)
-
     # W-022 put/call ratio — OI basis, not volume (said so in the note).
     pcr = XP.pcr_oi(symbol)
     if pcr is not None:
@@ -1055,6 +1053,10 @@ def _wire_intake_items(out: dict[str, Reading], symbol: str, value) -> None:
             f"PCR on {pcr['basis']}, as of {pcr['asof']}" +
             (f"; {pcr['pctile_1y']}th pctile of its own history"
              if pcr.get("pctile_1y") is not None else ""))
+
+    # Apply the dated fresh chain LAST: a committed proxy must never replace
+    # an observed live PCR. With no fresh chain the existing proxy survives.
+    _wire_chain_items(out, symbol)
 
 
 _STOCK_DATA_NEEDED = {

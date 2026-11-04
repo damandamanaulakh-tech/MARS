@@ -813,11 +813,12 @@ def test_the_feeds_job_stops_on_its_time_budget_and_names_what_it_skipped(monkey
     n0 = len(state.portfolio().decision_journal)
     scheduler._market_feeds_refresh(time_budget_s=0.01)
     first, *rest = list(mf.FRED_SERIES.items())
-    assert calls == [first[0]] and nse_calls == []
+    assert calls == [first[0]] and nse_calls == [1]
     ok = [x["why"] for x in _journal_since(n0) if x["action"] == "MARKET_FEEDS"]
-    skipped = ", ".join([f"FRED {fid}" for _s, fid in rest] + ["NSE allIndices"])
+    skipped = ", ".join([f"FRED {fid}" for _s, fid in rest])
     assert len(ok) == 1 and f"STOPPED on the 0.01 s budget: {skipped} skipped — next slot" in ok[0]
     assert f"FRED {first[1]}; " in ok[0]                       # the one that ran landed
+    assert "NSE P/E + P/B" in ok[0]  # domestic data survives slow foreign sources
 
 
 def test_the_feeds_budget_reads_its_env_and_defaults_to_90_seconds(monkeypatch):
@@ -831,7 +832,7 @@ def test_the_feeds_budget_reads_its_env_and_defaults_to_90_seconds(monkeypatch):
     scheduler._market_feeds_refresh()
     assert len(calls) == 1
     assert scheduler.MARKET_FEEDS_ASSUMED["budget_s"]["value"] == 90.0
-    assert "30 s timeout" in scheduler.MARKET_FEEDS_ASSUMED["budget_s"]["source"]
+    assert "8 s per HTTP request" in scheduler.MARKET_FEEDS_ASSUMED["budget_s"]["source"]
     monkeypatch.delenv("SB_MARKET_FEEDS_BUDGET_S", raising=False)
     assert scheduler.market_feeds_budget_s() == 90.0
     monkeypatch.setenv("SB_MARKET_FEEDS_BUDGET_S", "45")

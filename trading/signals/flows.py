@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Optional
@@ -50,9 +51,9 @@ class FlowReading:
     fii_buy: float
     fii_sell: float
     fii_net: float
-    dii_buy: float
-    dii_sell: float
-    dii_net: float
+    dii_buy: Optional[float]
+    dii_sell: Optional[float]
+    dii_net: Optional[float]
 
     def to_dict(self) -> dict:
         d = self.__dict__.copy()
@@ -218,9 +219,19 @@ def fetch_flows_from_store() -> Optional[list[FlowReading]]:
             continue
         if buy == 0.0 and sell == 0.0 and net == 0.0:
             continue                       # a hole is not a flat market
+        # Read the independently stored DII leg. Absence is unknown,
+        # while an observed zero is a genuine net-zero day. Keep the FII
+        # eligibility above unchanged: DII-only rows must not invent FII.
+        def dii_value(field):
+            try:
+                value = float(r[field])
+            except (KeyError, TypeError, ValueError):
+                return None
+            return value if math.isfinite(value) else None
         out.append(FlowReading(trade_date=d, fii_buy=buy, fii_sell=sell,
-                               fii_net=net, dii_buy=0.0, dii_sell=0.0,
-                               dii_net=0.0))
+                               fii_net=net, dii_buy=dii_value("dii_buy"),
+                               dii_sell=dii_value("dii_sell"),
+                               dii_net=dii_value("dii_net")))
     out.sort(key=lambda r: r.trade_date, reverse=True)
     return out or None
 
@@ -268,9 +279,13 @@ def fii_net_last_n_days(flows: Optional[list[FlowReading]], n: int = 5) -> Optio
 
 
 def dii_net_last_n_days(flows: Optional[list[FlowReading]], n: int = 5) -> Optional[float]:
+    """DII sum for the selected rows, unavailable if any DII leg is unknown."""
     if not flows:
         return None
-    return float(sum(f.dii_net for f in flows[:n]))
+    values = [f.dii_net for f in flows[:n]]
+    if any(v is None or not math.isfinite(v) for v in values):
+        return None
+    return float(sum(values))
 
 
 def fii_flow_score(fii_5d_net: Optional[float], days: int = 5) -> float:

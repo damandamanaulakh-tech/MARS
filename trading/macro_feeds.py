@@ -32,6 +32,7 @@ import calendar
 import csv
 import html as _html
 import logging
+import math
 import re
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -125,7 +126,7 @@ def _num(x) -> Optional[float]:
         v = float(x)
     except (TypeError, ValueError):
         return None
-    return v if v == v else None
+    return v if math.isfinite(v) else None
 
 
 def _reading(row: dict) -> tuple:
@@ -657,6 +658,7 @@ FRED_LABEL: dict = {
     "fred_usdinr": "USD/INR (INR per USD)", "fred_usdeur": "USD per EUR",
 }
 FRED_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={id}&cosd={cosd}"
+FRED_SERIES_URL = "https://fred.stlouisfed.org/series/{id}"
 #: ASSUMED: the first pull asks from here — the statements start in 2021
 #: (fundamentals FY21+), so no selection date can usefully be older; a
 #: deeper seed only multiplies the first run's database writes (~250 rows a
@@ -713,7 +715,7 @@ def parse_fred_csv(text: str, series: str, url: str = "",
     return out
 
 
-def fetch_fred(series: str, last_iso: str = "", timeout: float = 30.0) -> list[dict]:
+def fetch_fred(series: str, last_iso: str = "", timeout: float = 8.0) -> list[dict]:
     """Rows strictly AFTER `last_iso` for one FRED series (keyless, HTTP/1.1).
     Raises on a network failure so the caller journals it."""
     import httpx
@@ -726,6 +728,12 @@ def fetch_fred(series: str, last_iso: str = "", timeout: float = 30.0) -> list[d
                   headers={"User-Agent": "Mozilla/5.0"})
     r.raise_for_status()
     fetched = datetime.now(IST).isoformat(timespec="seconds")
+    # A 200 HTML/error page is a failed feed, not an already-current series.
+    # A valid CSV may have no observations (holiday / no new release).
+    header = next((line.strip() for line in r.text.splitlines() if line.strip()), "")
+    columns = [v.strip().strip('"') for v in header.split(",")]
+    if len(columns) < 2 or columns[0] not in ("observation_date", "DATE") or columns[1] != fid:
+        raise ValueError(f"FRED {fid} response has no matching observation CSV header")
     rows = parse_fred_csv(r.text, series, url=url, fetched_iso=fetched)
     return [x for x in rows if not last_iso or x["date"] > str(last_iso)[:10]]
 
@@ -823,7 +831,7 @@ def parse_nse_all_indices(payload: dict, wanted: Optional[Iterable[str]] = None,
     return out
 
 
-def fetch_nse_all_indices(timeout: float = 30.0) -> dict:
+def fetch_nse_all_indices(timeout: float = 8.0) -> dict:
     """The raw allIndices payload. One GET with a browser User-Agent; a
     refusal gets ONE retry after a GET of the NSE home page (cookie
     priming, kept as the fallback). Raises when both fail."""

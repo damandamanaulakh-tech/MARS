@@ -135,6 +135,18 @@ def start_if_enabled() -> None:
             day_of_week="mon-fri", hour=9, minute=5,
             id="filings_refresh",
         )
+        # Public notices have their own job and never hold the portfolio
+        # lock or invoke a scan. A slow news host cannot delay trade exits.
+        _SCHED.add_job(
+            _online_resources_refresh, "cron", hour="9,12,16", minute=10,
+            id="online_resources", max_instances=1, replace_existing=True,
+        )
+        from datetime import timedelta as _resource_td
+        _SCHED.add_job(
+            _online_resources_refresh, "date",
+            run_date=startup_catchup_run_date(ist, _resource_td(seconds=60)),
+            id="online_resources_startup", max_instances=1,
+        )
         # Daily morning scan across all modes (one pass each).
         _SCHED.add_job(
             _daily_multi_mode_scan, "cron",
@@ -327,6 +339,15 @@ def catchup_scan_if_missed(reason: str = "catchup") -> bool:
         _CATCHUP_LOCK.release()
         raise
     return True
+
+
+def _online_resources_refresh() -> None:
+    from .resource_feed import refresh_resources
+    try:
+        result = refresh_resources()
+        log.info("Public online resources: %s", result)
+    except Exception:
+        log.exception("Public online resources refresh failed")
 
 
 def _universe_refresh_job() -> None:
@@ -1524,15 +1545,15 @@ def run_market_fii_snapshot(where: str = "manual") -> bool:
     they can't prove, and a shape miss journals instead of guessing.
     """
     import os
-    from datetime import date as _date
-
     from . import db, state
     try:
         if not db.is_connected():
             return False                 # nowhere to store; weekly jobs journal Mongo-down
-        today = _date.today().isoformat()
+        today = _ist_today_iso()
         guard = db.load_settings(doc_id="data_refresh")
-        if guard.get("market_fii_day") == today:
+        fii_done = guard.get("market_fii_stored_day") == today
+        dii_done = guard.get("market_dii_stored_day") == today
+        if fii_done and dii_done:
             return True
         eng = state.engine()
         broker = getattr(eng, "broker", None)
@@ -1554,21 +1575,35 @@ def run_market_fii_snapshot(where: str = "manual") -> bool:
                     "FII-04/05 read the committed panel today.")
             return False
         from trading import data_refresh as dr
-        fii_raw = broker.get_market_fii(list(dr.FII_DATA_TYPES))
-        dii_raw = broker.get_market_dii()
+        fii_raw = broker.get_market_fii(list(dr.FII_DATA_TYPES)) if not fii_done else None
+        dii_raw = broker.get_market_dii() if not dii_done else None
         if fii_raw is None and dii_raw is None:
             _refresh_journal("MARKET_FII_FAILED",
                              "Upstox FII/DII snapshot: both endpoints "
                              "returned nothing — consumers keep the "
                              "committed panels.")
             return False
-        db.save_market_info_raw("fii", today, fii_raw)
-        db.save_market_info_raw("dii", today, dii_raw)
+        if fii_raw is not None:
+            db.save_market_info_raw("fii", today, fii_raw)
+        if dii_raw is not None:
+            db.save_market_info_raw("dii", today, dii_raw)
         pwoi_rows = dr.map_market_fii(fii_raw) if fii_raw else []
         dii_rows = dr.map_market_dii(dii_raw) if dii_raw else []
         n_p = db.save_pwoi_rows(pwoi_rows)
         n_d = db.update_dii_rows(dii_rows)
-        db.save_settings({"market_fii_day": today}, doc_id="data_refresh")
+        # Mapping and persistence are separate from receiving a payload.
+        # Retrying one failed leg must not suppress or repeat the other.
+        marks = {}
+        if pwoi_rows and n_p == len(pwoi_rows):
+            fii_done = True
+            marks["market_fii_stored_day"] = today
+        if dii_rows and n_d == len(dii_rows):
+            dii_done = True
+            marks["market_dii_stored_day"] = today
+        if fii_done and dii_done:
+            marks["market_fii_day"] = today
+        if marks:
+            db.save_settings(marks, doc_id="data_refresh")
         parts = []
         if n_p:
             parts.append(f"{n_p} FII derivative day-row(s) -> FII-04/05")
@@ -1584,7 +1619,9 @@ def run_market_fii_snapshot(where: str = "manual") -> bool:
         _refresh_journal("MARKET_FII_SNAPSHOT",
                          "Upstox market FII/DII: " + "; ".join(parts) + ".")
         log.info("[market-fii:%s] pwoi=%d dii=%d", where, n_p, n_d)
-        return True
+        if not (fii_done and dii_done):
+            _refresh_journal("MARKET_FII_FAILED", "FII/DII mapping or storage incomplete; unfinished legs will retry at the next trigger pass.")
+        return fii_done and dii_done
     except Exception as e:
         log.exception("market FII/DII snapshot failed: %s", e)
         try:
@@ -1918,9 +1955,9 @@ def _nse_new_rows(rows: list, stored: list) -> list:
 #: before it stops starting new series (env SB_MARKET_FEEDS_BUDGET_S).
 MARKET_FEEDS_ASSUMED = {
     "budget_s": {"value": 90.0,
-                 "source": "five FRED series x a 30 s timeout = 150 s with FRED dead; the "
-                           "job sits between the 09:20 rotation and the trigger layer / "
-                           "phone push (review 2026-10-21)"},
+                 "source": "90 s start budget retained; 8 s per HTTP request, domestic NSE first, "
+                           "then five FRED series so foreign timeouts cannot starve NSE "
+                           "(online resource repair 2026-11-04)"},
 }
 MARKET_FEEDS_BUDGET_S_DEFAULT = float(MARKET_FEEDS_ASSUMED["budget_s"]["value"])
 
@@ -1959,9 +1996,10 @@ def _market_feeds_refresh(time_budget_s: "float | None" = None) -> None:
     SB_MARKET_FEEDS_BUDGET_S, default 90 s; <= 0 = unbounded): a series not
     yet started once it is spent is skipped and named on the MARKET_FEEDS
     line ("STOPPED on the 90 s budget: … skipped — next slot"); the NSE step
-    runs last inside the same budget.
+    runs first so a foreign host outage cannot starve it.
     """
     from . import db
+    from .resource_feed import record_attempt
     if not db.is_connected():
         log.warning("market feeds skipped: Mongo offline (nowhere to store)")
         return
@@ -1978,7 +2016,7 @@ def _market_feeds_refresh(time_budget_s: "float | None" = None) -> None:
     skipped: list = []
     today = mf._today_ist()
 
-    def _store(new: list, label: str) -> None:
+    def _store(new: list, label: str) -> bool:
         # count what the store acknowledged, never what was handed to it
         try:
             n = int(db.save_macro_rows(new) or 0)
@@ -1989,34 +2027,15 @@ def _market_feeds_refresh(time_budget_s: "float | None" = None) -> None:
         if n < len(new):
             failed.append(f"{label}: {len(new) - n} of {len(new)} row(s) NOT stored "
                           "(write refused?)")
-
-    # FRED, one series at a time
-    for series, fid in mf.FRED_SERIES.items():
-        if _spent():
-            skipped.append(f"FRED {fid}")
-            continue
-        try:
-            old = db.load_macro_rows(series) or []
-            last = max((str(r.get("date") or "") for r in old), default="")
-            rows = mf.fetch_fred(series, last)
-            new = _macro_new_rows(rows, old)
-            if new:
-                _store(new, f"FRED {fid}")
-            else:
-                kind = mf.fred_kind(series)
-                if not last or mf.is_stale(last, today, mf.FRED_STALE_DAYS[kind]):
-                    failed.append(f"FRED {fid}: nothing new"
-                                  + (f" since {last}" if last else " and nothing stored"))
-        except Exception as e:                                 # noqa: BLE001
-            log.exception("market feed (FRED %s) failed", fid)
-            failed.append(f"FRED {fid} fetch failed: {e}")
+        return n == len(new)
 
     # NSE allIndices — skipped once today's CLOSING reading is held. The
     # 09:20 pass runs during the session, so it stores an intraday reading
-    # (labelled); the 15:35 pass replaces it with the close. Attempted last,
-    # inside the same budget.
+    # (labelled); the 15:35 pass replaces it with the close. Attempted first
+    # so a slow global host cannot starve the domestic valuation feed.
     if _spent():
         skipped.append("NSE allIndices")
+        record_attempt("nse_valuation", "DEFERRED", "Refresh budget exhausted.")
     else:
         try:
             names = mf.nse_index_names()
@@ -2031,11 +2050,42 @@ def _market_feeds_refresh(time_budget_s: "float | None" = None) -> None:
                 for sname in sorted({r["series"] for r in rows}):
                     stored += db.load_macro_rows(sname) or []
                 new = _nse_new_rows(rows, stored)
-                if new:
-                    _store(new, "NSE allIndices")
+                stored_ok = _store(new, "NSE allIndices") if new else True
+                record_attempt("nse_valuation", "OK" if rows and stored_ok else "FAILED",
+                               "" if rows and stored_ok else "NSE returned no usable valuation rows or storage was incomplete.")
         except Exception as e:                                 # noqa: BLE001
             log.exception("market feed (NSE allIndices) failed")
             failed.append(f"NSE allIndices fetch failed: {e}")
+            record_attempt("nse_valuation", "FAILED", f"NSE request failed ({type(e).__name__}).")
+
+    # Global series follow the independent domestic attempt.
+    # FRED, one series at a time
+    for series, fid in mf.FRED_SERIES.items():
+        if _spent():
+            skipped.append(f"FRED {fid}")
+            record_attempt(series, "DEFERRED", "Refresh budget exhausted.")
+            continue
+        try:
+            old = db.load_macro_rows(series) or []
+            last = max((str(r.get("date") or "") for r in old), default="")
+            rows = mf.fetch_fred(series, last)
+            new = _macro_new_rows(rows, old)
+            if new:
+                stored_ok = _store(new, f"FRED {fid}")
+                record_attempt(series, "OK" if stored_ok else "FAILED",
+                               "" if stored_ok else "Some fetched observations were not stored.")
+            else:
+                kind = mf.fred_kind(series)
+                if not last or mf.is_stale(last, today, mf.FRED_STALE_DAYS[kind]):
+                    failed.append(f"FRED {fid}: nothing new"
+                                  + (f" since {last}" if last else " and nothing stored"))
+                    record_attempt(series, "FAILED", "No fresh observation returned.")
+                else:
+                    record_attempt(series, "OK")
+        except Exception as e:                                 # noqa: BLE001
+            log.exception("market feed (FRED %s) failed", fid)
+            failed.append(f"FRED {fid} fetch failed: {e}")
+            record_attempt(series, "FAILED", f"FRED request failed ({type(e).__name__}).")
 
     stop_txt = (f"STOPPED on the {budget:g} s budget: {', '.join(skipped)} skipped — next slot"
                 if skipped and budget is not None else "")

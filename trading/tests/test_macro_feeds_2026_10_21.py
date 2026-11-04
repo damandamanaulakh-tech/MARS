@@ -310,3 +310,24 @@ def test_bajaj_holdings_stakes_are_read_by_name_from_the_filings():
     val = (st["BAJAJ-AUTO"]["shares_held"] * 10287 + st["BAJAJFINSV"]["shares_held"] * 1700) / 1e7
     assert val == pytest.approx(202811, abs=1)
     assert SG.holdco_stakes("TATAINVEST") == []            # left for the owner
+
+def test_fred_success_html_is_a_failed_fetch_and_valid_empty_csv_is_not(monkeypatch):
+    from types import SimpleNamespace
+    response = SimpleNamespace(text="<html>service temporarily unavailable</html>",
+                               raise_for_status=lambda: None)
+    calls = []
+    def get(url, **kwargs):
+        calls.append(kwargs)
+        return response
+    monkeypatch.setattr("httpx.get", get)
+    with pytest.raises(ValueError, match="matching observation CSV header"):
+        mf.fetch_fred("fred_sp500")
+    assert calls[0]["timeout"] == 8
+    response.text = "observation_date,SP500\n2026-11-03,.\n"
+    assert mf.fetch_fred("fred_sp500") == []
+
+
+def test_nonfinite_csv_values_are_never_stored():
+    text = "observation_date,SP500\n2026-11-02,inf\n2026-11-03,5000\n"
+    rows = mf.parse_fred_csv(text, "fred_sp500")
+    assert [(r["date"], r["value"]) for r in rows] == [("2026-11-03", 5000)]

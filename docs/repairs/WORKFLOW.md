@@ -69,3 +69,20 @@ complete to move to the next batch. Keep production credentials out of tests.
 
 This document records the workflow; it does not grant new permissions beyond
 the user's instructions for the current task.
+
+## Online source batches
+
+- Trace provider → fetch/parse → acknowledged storage → actual page or formula.
+  A source link or an existing adapter alone is not a completed connection.
+- Record publisher URL, observation/publication date, attempt time and scope.
+  Keep unavailable, empty, partial, stale, login-required and insufficient-history
+  outcomes distinct. Never substitute zero or a successful verdict for missing data.
+- Use bounded requests and retained good observations. An unreadable prior cache
+  must not be replaced with an empty snapshot. Completion markers require mapped
+  data and acknowledged writes; independently failing sources retry independently.
+- Test parsers, source/consumer wiring, data retention, invalid inputs and failed
+  writes offline. Observe normal deployed ingestion separately: development-host
+  access does not prove Render access, and health alone does not prove a feed landed.
+- Keep source-derived news/context separate from changes to trading thresholds or
+  valuation assumptions. Filing-specific financial facts require their own period,
+  issuer, units and document evidence; general headlines cannot stand in for them.

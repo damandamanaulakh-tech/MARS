@@ -424,16 +424,41 @@ def save_fii_rows(rows: list) -> int:
     n = 0
     try:
         for d, buy, sell, net in rows:
-            _DB.fii_daily.replace_one(
+            # FII and DII arrive independently. Replacing this document
+            # erased an acknowledged DII observation on every NSDL refresh.
+            _DB.fii_daily.update_one(
                 {"_id": str(d)},
-                {"_id": str(d), "date": str(d), "fii_buy": float(buy),
-                 "fii_sell": float(sell), "fii_net": float(net),
-                 "source": "nsdl_settlement"},
+                {"$set": {"date": str(d), "fii_buy": float(buy),
+                          "fii_sell": float(sell), "fii_net": float(net),
+                          "source": "nsdl_settlement"}},
                 upsert=True)
             n += 1
     except Exception as e:
         log.warning("Mongo save_fii_rows failed: %s", e)
     return n
+
+
+def latest_cash_flow_resources() -> dict:
+    """Latest FII and DII observations independently, with their own dates.
+
+    Two projected single-document reads, never a full-history page load.
+    A failed leg stays unavailable while the other may still be displayed.
+    This is display-only; FII scoring keeps its existing history path.
+    """
+    out = {"fii": {}, "dii": {}}
+    if not _CONNECTED or _DB is None:
+        return out
+    for kind, source_field in (("fii", "source"), ("dii", "dii_source")):
+        try:
+            fields = {"_id": 0, "date": 1, source_field: 1,
+                      f"{kind}_buy": 1, f"{kind}_sell": 1, f"{kind}_net": 1}
+            row = _DB.fii_daily.find_one(
+                {"date": {"$exists": True}, f"{kind}_net": {"$type": "number"}},
+                fields, sort=[("date", -1)])
+            out[kind] = dict(row or {})
+        except Exception:
+            log.warning("Latest %s cash-flow observation unavailable", kind.upper())
+    return out
 
 
 def load_fii_rows(since_iso: str = "") -> list:
@@ -552,6 +577,57 @@ def save_macro_rows(rows: list) -> int:
     return n
 
 
+def save_resource_feed(key: str, snapshot: dict) -> bool:
+    """Acknowledge one bounded public-feed snapshot; never touch the book."""
+    if not _CONNECTED or _DB is None:
+        return False
+    try:
+        result = _DB.resource_feeds.replace_one(
+            {"_id": key}, {**snapshot, "_id": key}, upsert=True)
+        return bool(result.acknowledged)
+    except Exception:
+        log.warning("Public resource snapshot was not stored: %s", key)
+        return False
+
+
+LAST_RESOURCE_READ_ERROR = ""
+LAST_MACRO_RESOURCE_READ_ERROR = ""
+
+
+def load_resource_feeds() -> dict:
+    """Small source catalog only, with at most 40 notices per source."""
+    global LAST_RESOURCE_READ_ERROR
+    LAST_RESOURCE_READ_ERROR = ""
+    if not _CONNECTED or _DB is None:
+        LAST_RESOURCE_READ_ERROR = "Resource store is unavailable."
+        return {}
+    try:
+        return {r["_id"]: r for r in _DB.resource_feeds.find({}).limit(40)}
+    except Exception:
+        LAST_RESOURCE_READ_ERROR = "Resource status could not be read from storage."
+        log.warning("Public resource snapshots unavailable")
+        return {}
+
+
+def latest_macro_resources() -> list:
+    """Latest observation per series, without loading years of history."""
+    global LAST_MACRO_RESOURCE_READ_ERROR
+    LAST_MACRO_RESOURCE_READ_ERROR = ""
+    if not _CONNECTED or _DB is None:
+        LAST_MACRO_RESOURCE_READ_ERROR = "Macro store is unavailable."
+        return []
+    try:
+        return [r["row"] for r in _DB.macro_daily.aggregate([
+            {"$sort": {"date": -1}},
+            {"$group": {"_id": "$series", "row": {"$first": "$$ROOT"}}},
+            {"$limit": 100},
+        ], maxTimeMS=3000)]
+    except Exception:
+        LAST_MACRO_RESOURCE_READ_ERROR = "Macro observations could not be read from storage."
+        log.warning("Latest macro resource observations unavailable")
+        return []
+
+
 def load_macro_rows(series: str = None) -> list:
     """Stored macro readings, ascending by date (one series or all). []
     when Mongo is down — the valuation view then says the feed was never
@@ -664,9 +740,10 @@ def save_pwoi_rows(rows: list) -> int:
             d, ct = str(r.get("date") or ""), str(r.get("client_type") or "")
             if not d or not ct:
                 continue
-            _DB.pwoi_daily.replace_one(
+            result = _DB.pwoi_daily.replace_one(
                 {"_id": f"{d}|{ct}"}, {**r, "_id": f"{d}|{ct}"}, upsert=True)
-            n += 1
+            if result.acknowledged:
+                n += 1
     except Exception as e:
         log.warning("Mongo save_pwoi_rows failed: %s", e)
     return n
@@ -695,14 +772,15 @@ def update_dii_rows(rows: list) -> int:
             d = str(r.get("date") or "")
             if not d:
                 continue
-            _DB.fii_daily.update_one(
+            result = _DB.fii_daily.update_one(
                 {"_id": d},
                 {"$set": {"date": d, "dii_buy": float(r["dii_buy"]),
                           "dii_sell": float(r["dii_sell"]),
                           "dii_net": float(r["dii_net"]),
                           "dii_source": "upstox_market_dii"}},
                 upsert=True)
-            n += 1
+            if result.acknowledged:
+                n += 1
     except Exception as e:
         log.warning("Mongo update_dii_rows failed: %s", e)
     return n

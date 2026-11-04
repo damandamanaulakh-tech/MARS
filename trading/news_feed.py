@@ -41,6 +41,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
+from .online_resources import safe_url
+
 log = logging.getLogger(__name__)
 
 _DATA = Path(__file__).resolve().parents[1] / "data"
@@ -153,6 +155,7 @@ class Headline:
     tags: tuple[str, ...] = ()
     side: str = ""                      # RISK / OPP / "" when only sentiment
     sentiment: int = 0                  # -1 / 0 / +1, lexicon
+    url: str = ""                      # source article, never an invented link
 
 
 @dataclass
@@ -179,7 +182,7 @@ class NewsReading:
             "headlines": [
                 {"title": h.title, "published": h.published,
                  "source": h.source, "tags": list(h.tags), "side": h.side,
-                 "sentiment": h.sentiment}
+                 "sentiment": h.sentiment, "url": safe_url(h.url)}
                 for h in self.headlines],
         }
 
@@ -354,6 +357,7 @@ def _parse_rss(xml: str) -> list[Headline]:
         t = re.search(r"<title>(.*?)</title>", item, re.S)
         d = re.search(r"<pubDate>(.*?)</pubDate>", item, re.S)
         s = re.search(r"<source[^>]*>(.*?)</source>", item, re.S)
+        link = re.search(r"<link>(.*?)</link>", item, re.S)
         if not t:
             continue
         title = html.unescape(re.sub(r"<[^>]+>", "", t.group(1))).strip()
@@ -366,6 +370,7 @@ def _parse_rss(xml: str) -> list[Headline]:
             published=(d.group(1).strip()[:25] if d else ""),
             source=(html.unescape(re.sub(r"<[^>]+>", "", s.group(1))).strip()
                     if s else ""),
+            url=safe_url(re.sub(r"^<!\[CDATA\[|\]\]>$", "", link.group(1).strip()) if link else ""),
         ))
     return out
 
