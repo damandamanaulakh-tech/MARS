@@ -37,12 +37,53 @@ def safe_panel(fn, *args):
         return None
 
 
-# Owner order 2026-10-12 (item 43): international indices on the index strip.
-# NO feed is reachable from the box — Yahoo is blocked on Render and stooq
-# returned nothing from the sandbox on 2026-10-12 — so the strip carries this
-# chip and never a number. Replace it with a real card only when a feed has
-# actually answered from the live box.
-INTERNATIONAL_NOTE = "International: DATA_NEEDED — no reachable free feed yet"
+def global_market_panel(rows: Optional[list] = None, today: Optional[date] = None) -> list[dict]:
+    """Stored official FRED observations, with observation and fetch dates.
+
+    Page views do not fetch the internet. The scheduled market feeder owns
+    fetching and storage. Missing observations stay missing; a daily close
+    or weekly-published FX observation is never called a live tick.
+    """
+    from trading import macro_feeds as mf
+    if rows is None:
+        from . import db
+        rows = db.latest_macro_resources()
+    today = today or mf._today_ist()
+    latest = {}
+    for row in rows or []:
+        series = row.get("series")
+        if series not in mf.FRED_SERIES:
+            continue
+        try:
+            observed = date.fromisoformat(str(row.get("date") or ""))
+        except ValueError:
+            continue
+        value = mf._num(row.get("value"))
+        # These index and exchange-rate series cannot be zero/negative.
+        # A future observation is not evidence of today's market either.
+        if value is None or value <= 0 or observed > today:
+            continue
+        if series not in latest or observed > latest[series][0]:
+            latest[series] = (observed, value, row)
+    cards = []
+    for series, fid in mf.FRED_SERIES.items():
+        hit = latest.get(series)
+        observed, value, row = hit if hit else (None, None, {})
+        kind = mf.fred_kind(series)
+        stale = bool(observed and (today - observed).days > mf.FRED_STALE_DAYS[kind])
+        cards.append({
+            "series": series, "label": mf.FRED_LABEL[series], "value": value,
+            "as_of": observed.isoformat() if observed else "",
+            "fetched": str(row.get("fetched") or ""),
+            "status": "DATA_NEEDED" if not hit else "STALE" if stale else "STORED",
+            "url": mf.FRED_SERIES_URL.format(id=fid),
+            "source": "FRED " + fid,
+            "frequency": "Daily observation · weekly release" if kind == "weekly" else "Daily close",
+            "note": (mf.FRED_LAG_NOTE["weekly"] if kind == "weekly"
+                     else "Latest stored US market close; not a live quote."),
+        })
+    return cards
+
 
 _DATA = Path(__file__).resolve().parents[1] / "data"
 _DOCS = Path(__file__).resolve().parents[1] / "docs"

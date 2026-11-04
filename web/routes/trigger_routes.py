@@ -156,6 +156,12 @@ def trigger_detail(request: Request, ticker: str):
         # None on any failure → those triggers read DATA_NEEDED, as before.
         news_detail = ((state.portfolio().news_watch or {}).get("rows")
                        or {}).get(ticker)
+        if news_detail:
+            # Validate stored/legacy URLs at display time too, not just at fetch.
+            from trading.online_resources import safe_url
+            news_detail = {**news_detail, "headlines": [
+                {**h, "url": safe_url(h.get("url", ""))}
+                for h in (news_detail.get("headlines") or []) if isinstance(h, dict)]}
         ext = None
         try:
             from trading import external_panels

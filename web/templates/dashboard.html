@@ -46,6 +46,7 @@
   <div>
     <h1 class="font-black text-3xl lg:text-5xl tracking-tight">Dashboard</h1>
     <p class="text-ink-soft mt-2 text-sm" data-ist-date="1">{{ today }}</p>
+    {% if user and user.role == 'owner' %}<p class="text-xs text-ink-faint mt-2"><a href="/resources" class="underline" data-resources-link>News, official notices and data-source status →</a></p>{% endif %}
   </div>
   <div class="flex flex-wrap gap-2 lg:gap-3">
     <!-- Owner 2026-10-12 (screenshot markup): the open-positions TABLE left the
@@ -221,11 +222,29 @@
   {% endfor %}
 </div>
 {% endif %}
-<!-- Owner item 43: international indices. No feed is reachable from the box
-     (Yahoo blocked on Render, stooq empty from the sandbox) — a chip, never a number. -->
-<div class="mb-6 flex flex-wrap items-center gap-2 text-[11px]" data-international="international_chip_marker">
-  <span class="border border-amber-400 bg-amber-50/40 text-amber-800 px-2.5 py-1 tracking-wide">🌐 {{ international_note }}</span>
-</div>
+<!-- Stored global observations; the market feed refreshes them independently. -->
+<section class="mb-6" data-international="international_chip_marker">
+  <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] mb-2">
+    <span class="tracking-widest uppercase text-ink-faint">Global markets · dated observations</span>
+    {% if user and user.role == 'owner' %}<a href="/resources" class="underline text-ink-soft">Source status and refresh attempts</a>{% endif %}
+  </div>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+    {% for ix in global_markets or [] %}
+    <div class="border border-line bg-white p-3" data-global-series="{{ ix.series }}">
+      <a href="{{ ix.url }}" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold underline">{{ ix.label }}</a>
+      <div class="text-xl font-black tabular-nums mt-1">{% if ix.value is not none %}{{ '%.2f'|format(ix.value) }}{% else %}—{% endif %}</div>
+      <div class="text-[10px] mt-1 {% if ix.status != 'STORED' %}text-amber-800{% else %}text-ink-soft{% endif %}">
+        {% if ix.value is not none %}{{ ix.frequency }} · as of {{ ix.as_of }}{% if ix.status == 'STALE' %} · STALE{% endif %}
+        {% else %}DATA_NEEDED · no valid observation stored{% endif %}
+      </div>
+      <div class="text-[10px] text-ink-faint mt-1" title="{{ ix.note }}">{{ ix.source }}{% if ix.fetched %} · fetched {{ ix.fetched }}{% endif %}</div>
+    </div>
+    {% else %}
+    <div class="text-xs text-amber-800">Global observations unavailable; see source status for the latest checks.</div>
+    {% endfor %}
+  </div>
+  <p class="text-[10px] text-ink-faint mt-2">Daily index closes and dated FX observations, not live quotes. FX observations are published in the Fed’s weekly H.10 release. Missing data is never substituted with a guessed value.</p>
+</section>
 
 <!-- Quick mode switcher -->
 <form method="post" action="/settings/mode" class="mb-8 flex flex-wrap gap-2">

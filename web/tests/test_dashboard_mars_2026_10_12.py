@@ -193,7 +193,9 @@ def test_index_strip_sits_below_the_fund_block_with_the_international_chip():
     assert "NIFTY 50" in page
     assert page.index("fund_summary_marker") < page.index("NIFTY 50")
     assert "international_chip_marker" in page
-    assert "International: DATA_NEEDED — no reachable free feed yet" in page
+    assert "Global markets · dated observations" in page
+    assert 'data-global-series="fred_sp500"' in page
+    assert "no reachable free feed yet" not in page
 
 
 # --------------------------------------------- item 30c/30e: lists and book

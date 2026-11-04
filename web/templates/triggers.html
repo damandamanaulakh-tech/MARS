@@ -61,7 +61,7 @@
   <div class="text-sm py-1 border-b border-line last:border-0">
     {% if h.side == 'RISK' %}<span class="text-rose-700 font-bold text-[10px] mr-1">RISK</span>
     {% elif h.side == 'OPP' %}<span class="text-emerald-700 font-bold text-[10px] mr-1">OPP</span>{% endif %}
-    {{ h.title }}
+    {% if h.url %}<a href="{{ h.url }}" target="_blank" rel="noopener noreferrer" class="underline">{{ h.title }}</a>{% else %}{{ h.title }}{% endif %}
     <span class="text-ink-faint text-xs">· {{ h.source }} {{ h.published[:16] }}</span>
     {% if h.tags %}<span class="text-ink-faint text-[10px]">[{{ h.tags|join(', ') }}]</span>{% endif %}
   </div>

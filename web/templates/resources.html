@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}News & Data Sources — Sourceborn MARS{% endblock %}
+{% block content %}
+{% macro status_badge(value) -%}
+{% set status = value | default('UNKNOWN', true) | upper %}
+<span class="inline-block px-2 py-1 text-[10px] font-bold tracking-wide whitespace-nowrap {% if status in ('OK', 'READY', 'FRESH', 'LIVE', 'CONNECTED', 'STORED') %}bg-emerald-50 text-emerald-800{% elif status in ('ERROR', 'FAILED', 'FETCH_FAILED', 'NOT_STORED') %}bg-red-50 text-red-800{% elif status in ('STALE', 'PARTIAL', 'DATA_NEEDED', 'AUTH_REQUIRED', 'LOGIN_REQUIRED', 'LOGIN_NEEDED', 'BLOCKED', 'DEFERRED') %}bg-amber-50 text-amber-800{% else %}bg-slate-100 text-ink-soft{% endif %}">{{ status | replace('_', ' ') }}</span>
+{%- endmacro %}
+<div class="text-xs tracking-widest text-ink-faint uppercase mb-3">RESEARCH / SOURCES</div>
+<div class="mb-6">
+  <h1 class="font-black text-3xl lg:text-5xl tracking-tight">News &amp; Data Sources</h1>
+  <p class="text-sm text-ink-soft mt-3 max-w-4xl">Official notices, market feeds and the inputs behind stock research. Check the date of the data, the last successful refresh, and what is needed when a source is unavailable.</p>
+  <p class="text-xs text-ink-faint mt-2" data-resources-updated>{% if updated_at %}Report updated {{ updated_at }}.{% else %}No refresh report has been saved yet.{% endif %} This page shows saved readings; opening it does not refresh external feeds.</p>
+</div>
+
+{% if warnings %}
+<div class="border border-amber-300 bg-amber-50 text-amber-900 p-4 mb-6" role="status" data-resources-warnings>
+  <ul class="list-disc pl-4 text-sm space-y-1">{% for warning in warnings %}<li>{{ warning }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<section id="source-status" class="mb-8 scroll-mt-20" data-source-status>
+  <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+    <h2 class="font-bold text-xl">Source status</h2>
+    <a href="#coverage-gaps" class="text-xs underline text-ink-soft">What does DATA_NEEDED mean?</a>
+  </div>
+  <div class="bg-white border border-line overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+        <tr><th class="text-left px-4 py-3">Source / coverage</th><th class="text-left px-4 py-3">Status</th><th class="text-left px-4 py-3 whitespace-nowrap">Data as of</th><th class="text-left px-4 py-3">Refresh record</th><th class="text-left px-4 py-3">Reason / next step</th></tr>
+      </thead>
+      <tbody>
+        {% for source in sources %}
+        <tr class="border-b border-line last:border-0 align-top" data-resource-source="{{ source.key }}">
+          <td class="px-4 py-4 min-w-[11rem]">
+            {% if source.url %}<a href="{{ source.url }}" target="_blank" rel="noopener noreferrer" class="font-semibold underline underline-offset-2">{{ source.name }}</a>{% else %}<span class="font-semibold">{{ source.name }}</span>{% endif %}
+            {% if source.kind %}<div class="text-xs text-ink-faint mt-1">{{ source.kind }}</div>{% endif %}
+          </td>
+          <td class="px-4 py-4">{{ status_badge(source.status) }}</td>
+          <td class="px-4 py-4 text-xs tabular-nums min-w-[8rem]">{{ source.as_of or 'Not available' }}</td>
+          <td class="px-4 py-4 text-xs min-w-[12rem]">
+            <div><span class="text-ink-faint">Last attempt</span><br>{{ source.last_attempt or 'Not recorded' }}</div>
+            <div class="mt-2"><span class="text-ink-faint">Last success</span><br>{{ source.last_success or 'Not recorded' }}</div>
+          </td>
+          <td class="px-4 py-4 text-xs min-w-[16rem] max-w-xl break-words">
+            {% if source.reason %}<p>{{ source.reason }}</p>{% endif %}
+            {% if source.error %}<p class="mt-1 text-red-800" data-resource-error>{{ source.error }}</p>{% endif %}
+            {% if source.remedy %}<p class="mt-2 text-ink-soft"><strong>Next step:</strong> {{ source.remedy }}</p>{% endif %}
+            {% if not source.reason and not source.error and not source.remedy %}<span class="text-ink-faint">No additional detail recorded.</span>{% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="px-4 py-6 text-ink-soft">No source-status records are available yet. The next scheduled resource refresh will populate this view.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="text-xs text-ink-faint mt-2">“Data as of” is the source's observation or publication date. A recent fetch does not make an older observation current. A failed refresh can leave the previous reading visible with its original date.</p>
+</section>
+
+<section id="official-notices" class="mb-8 scroll-mt-20" data-official-notices>
+  <h2 class="font-bold text-xl mb-2">Recent official notices</h2>
+  <p class="text-xs text-ink-faint mb-4">Saved items from the connected sources. Open the publisher's notice for its full context. These notices inform research and do not themselves authorize a buy or exit.</p>
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-3">
+    {% for notice in notices %}
+    <article class="border border-line bg-white p-4" data-resource-notice>
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">{{ notice.source }}{% if notice.ticker %} · {{ notice.ticker }}{% endif %}</div>
+      <h3 class="text-sm font-semibold leading-relaxed">{% if notice.url %}<a href="{{ notice.url }}" target="_blank" rel="noopener noreferrer" class="underline underline-offset-2 hover:text-ink-soft">{{ notice.title }}</a>{% else %}{{ notice.title }}{% endif %}</h3>
+      <p class="text-xs text-ink-faint mt-2">Published {{ notice.published_at or 'date not supplied' }}</p>
+      {% if notice.feed_status %}<div class="text-xs text-ink-faint mt-2" data-notice-feed-status>Feed status: {{ status_badge(notice.feed_status) }}</div>{% endif %}
+    </article>
+    {% else %}
+    <div class="border border-line bg-white p-5 text-sm text-ink-soft xl:col-span-2">No official notices have been saved for this view. Check each source's status above; an empty list is not proof that no announcement was made.</div>
+    {% endfor %}
+  </div>
+</section>
+
+<section id="coverage-gaps" class="border border-line bg-slate-50 p-4 lg:p-6 scroll-mt-20" data-resource-coverage>
+  <h2 class="font-bold text-xl mb-3">Why an input can still say DATA_NEEDED</h2>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 text-sm">
+    <div><h3 class="font-semibold">Connection or refresh needed</h3><p class="text-ink-soft text-xs mt-1">A feed may be blocked, delayed or waiting for its next refresh. Broker quotes and option chains can require a current Upstox login. Non-F&amp;O stocks do not have an exchange option chain.</p></div>
+    <div><h3 class="font-semibold">Company filing detail needed</h3><p class="text-ink-soft text-xs mt-1">A headline or notice link does not supply a verified financial line item. R&amp;D, ESOP dilution, geographic revenue and one-off earnings adjustments need the relevant filing, period, units and attribution.</p></div>
+    <div><h3 class="font-semibold">More historical observations needed</h3><p class="text-ink-soft text-xs mt-1">Indicators require their full price or quarterly history. New listings, missing sessions and newly connected feeds need enough valid observations before those calculations can run.</p></div>
+    <div><h3 class="font-semibold">Calculation or research still pending</h3><p class="text-ink-soft text-xs mt-1">NOT COMPUTED can mean a scan is running or a calculation budget was reached. Some register items need a defined series, licensed data or a validated model. Connecting a general news feed does not resolve those requirements.</p></div>
+  </div>
+  <div class="flex flex-wrap gap-4 text-xs mt-5"><a href="/register" class="underline">Selection Register →</a><a href="/den#chain" class="underline">Valuation inputs →</a><a href="/triggers" class="underline">Trigger coverage →</a></div>
+</section>
+{% endblock %}

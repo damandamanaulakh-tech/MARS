@@ -287,7 +287,8 @@ def test_a_name_with_no_statements_prints_one_line_not_insufficient(monkeypatch,
     row_txt = _flat(_row_html(_render(out), "ZZNOSUCH"))
     assert row_txt.count("NO STATEMENTS") == 1
     assert "outside the 200 names with statements" in row_txt
-    assert "needs the batch fetch (your approval pending)" in row_txt
+    assert "needs the full-statement batch fetch and validation" in row_txt
+    assert "approval pending" not in row_txt
     assert "INSUFFICIENT" not in row_txt and "DATA_NEEDED" not in row_txt
 
 
