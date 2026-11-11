@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from datetime import datetime
 from typing import Optional
 
 from trading.config import Config
@@ -581,7 +582,8 @@ def _bootstrap() -> None:
         _PORTFOLIO.save()
 
     # Policy C migration: re-snapshot every open position's stop/target from
-    # its own mode's table (stale intraday / blank tags -> momentum preset).
+    # its own mode's table (unknown / blank tags -> momentum preset).
+    # Overdue intraday positions keep their original protection.
     # Journaled per position; idempotent, so later boots are no-ops.
     try:
         from trading.exits import retag_positions_per_mode
@@ -589,6 +591,12 @@ def _bootstrap() -> None:
             _PORTFOLIO.save()
     except Exception:
         log.exception("Policy C retag failed — positions keep old stops")
+
+    # SEQ-02: enroll legacy holdings before scheduling recovery. No quote or
+    # trade occurs during hydration; each deadline is derived from its entry.
+    from trading.intraday_recovery import ensure_book
+    if ensure_book(_PORTFOLIO, datetime.utcnow()):
+        _PORTFOLIO.save()
 
     _ENGINE = TradingEngine(_CFG, _PORTFOLIO)
 

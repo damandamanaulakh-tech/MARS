@@ -421,6 +421,7 @@
     {% elif error == 'insufficient_cash' %}not enough free cash for that size
     {% elif error == 'category_budget_full' %}the selected segment has insufficient funds for this size — see its allocation on the Risk page
     {% elif error == 'bad_segment' %}choose Momentum, Intraday, Short, Swing or Positional
+    {% elif error == 'intraday_entry_deadline' %}intraday entry time has ended for today (15:25 IST); existing intraday positions are due for closing
     {% elif error == 'blocklisted' %}that ticker is on your blocklist
     {% elif error == 'bad_ticket' %}check the numbers — qty must be a positive whole number; limit, stop and target must be finite positive numbers
     {% else %}owner login required{% endif %}</strong>.

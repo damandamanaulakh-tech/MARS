@@ -271,7 +271,12 @@
           {% elif r.category == 'Swing' %}bg-sky-100 text-sky-800
           {% elif r.category == 'Short' %}bg-rose-100 text-rose-800
           {% elif r.category == 'Long' %}bg-emerald-100 text-emerald-800
-          {% else %}bg-slate-100 text-ink-soft{% endif %}">{{ r.category }}</span></td>
+          {% else %}bg-slate-100 text-ink-soft{% endif %}">{{ r.category }}</span>
+          {% if r.intraday_close %}<div class="mt-1 text-xs {% if r.intraday_close.overdue %}text-red-700 font-semibold{% else %}text-ink-soft{% endif %}" data-intraday-close="{{ r.intraday_close.status }}">
+            {{ r.intraday_close.label }}
+            <div class="font-normal">{{ r.intraday_close.deadline }}</div>
+            {% if r.intraday_close.overdue %}<div class="font-normal">Attempts: {{ r.intraday_close.attempts }} · {{ r.intraday_close.status | replace('_', ' ') }}. Requires an in-session quote; original protection retained.</div>{% endif %}
+          </div>{% endif %}</td>
         <td class="px-3 lg:px-4 py-4 tabular-nums text-right whitespace-nowrap" data-days-held="{{ r.days_held if r.days_held is not none else '' }}">
           {% if r.days_held is not none %}{{ r.days_held }}d{% else %}—{% endif %}<div class="text-xs text-ink-faint font-normal">{{ r.entry_date }}</div>
         </td>
