@@ -8,21 +8,29 @@ separate incidents. [Goals](GOALS.md), [full backlog](BACKLOG.md),
 
 ## Current batch
 
-**SEQ-02 — INTRA-002: intraday closing and recovery is locally tested.**
-The owner started this batch on 11 November. The baseline is
-`031f79130495b5245e3e09b2c3ca9753b3040ed8`. Nineteen initial regression cases
-failed before repair; 42 new recovery tests and 104 focused checks pass. The final full suite passed
-2,934 tests with zero failures/errors/skips. CI and release checks are pending. [Batch evidence](releases/2026-11-11-intraday-recovery.md).
+**SEQ-02 is shipped and health verified; SEQ-03 is the next queued batch.**
+[PR #199](https://github.com/damandamanaulakh-tech/MARS/pull/199) merged as
+`a9919f6446690a62b76914fb9178009aaacf55e4`. The matching Render revision went
+live 11 November at 22:03:44 IST; health/readiness and database connectivity
+were verified at 22:05 IST. Local and PR CI suites each passed 2,934 tests with
+zero skips. [Batch evidence](releases/2026-11-11-intraday-recovery.md).
 
-SEQ-01 remains shipped and health verified, with its normal production
-quote-gap observation pending. SEQ-03 through SEQ-11 remain queued.
+The normal recovery-job/deadline observation remains pending: the book still
+had zero intraday holdings, and the filtered logs did not return a job-specific
+execution record. Application startup completion was observed separately.
+SEQ-01 retains its pending quote-gap observation.
+
+**Next: SEQ-03 — gate decisions and quote provenance.** Implementation has not
+started. Preserve values, thresholds, passed/failed/skipped/unavailable states,
+quote source/time, and actual entry/exit evidence. SEQ-03 through SEQ-11 stay
+queued; neither shipped step closes those broader findings by implication.
 
 ## Sequence and acceptance
 
 | Step | Goal / finding IDs | Work | Required completion evidence | Status |
 |---|---|---|---|---|
 | SEQ-01 | G4; AUD-002 | Preserve last observed holding values through quote gaps and restarts; show source/time and unknown values | Unchanged INR 52 lakh stays 52 lakh under a partial response; real loss still halts; no retained mark fills an exit; JSON/Mongo round trip and split handling pass | SHIPPED; health verified; normal quote-gap observation pending |
-| SEQ-02 | G13; INTRA-002; related OPS-04 | Durable intraday square-off deadline, retry and consistent segment/stop treatment | Missed job, restart, missing quote and late scan fixtures; original protection preserved; ordinary deadline outcome observed when available | LOCAL_TESTED |
+| SEQ-02 | G13; INTRA-002; related OPS-04 | Durable intraday square-off deadline, retry and consistent segment/stop treatment | Missed job, restart, missing quote and late scan fixtures; original protection preserved; ordinary deadline outcome observed when available | SHIPPED; health verified; normal recovery observation pending |
 | SEQ-03 | G13/G9; INTRA-004, ROOT-AM07-04, ROOT-ROUTE-09 | Immutable entry/exit gate results and quote provenance | Values, thresholds, pass/fail/skip/unavailable, provider/receipt time, bar interval, stop amendments and exit trigger attached to each new trade | QUEUED |
 | SEQ-04 | G13; INTRA-001 | Connect completed intraday bars to the actual intraday data path | Correct interval, session alignment, no future/unclosed bars, explicit missing-data handling and recorded comparison with the daily baseline | QUEUED |
 | SEQ-05 | G13; XR-059 | Product-appropriate intraday cost model and separate historical comparison | Dated broker/exchange schedule and account-plan assumptions; buy/sell/partial-exit cases; original ledger preserved | QUEUED |
