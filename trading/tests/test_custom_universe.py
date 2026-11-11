@@ -174,10 +174,24 @@ def test_blocklist_still_strips_from_the_custom_list(tmp_path):
     assert universe == ["TCS.NS"]
 
 
-def test_empty_custom_list_restores_the_rotating_bucket(tmp_path):
+def test_empty_custom_list_restores_the_rotating_bucket(tmp_path, monkeypatch):
+    from datetime import datetime
+    from types import SimpleNamespace
+    from trading import engine, universes
+
     eng = _engine(tmp_path, custom=())
+    # The real exchange master contains fund units which are filtered after
+    # rotation; its wall-clock slice can legitimately contain fewer than 40
+    # stocks (37 on 2026-11-11). Pin a stock-only source and clock so this
+    # test checks restoring rotation, not today's changing master contents.
+    source = [f"ROTATE{i:03d}.NS" for i in range(100)]
+    monkeypatch.setattr(universes, "load_full_universe", lambda: source)
+    stamp = datetime(2026, 11, 11)
+    monkeypatch.setattr(engine, "datetime", SimpleNamespace(utcnow=lambda: stamp))
     universe, _ = eng.scan_universe()
     assert len(universe) >= 40               # a rotation slice, not the 50
+    assert universe == source[stamp.date().toordinal() % 2::2]
+    assert len(universe) == 50
     assert universe != list(U50)
 
 

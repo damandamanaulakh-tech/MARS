@@ -69,6 +69,19 @@ def _child(node, names):
 def _published(raw: str) -> str:
     if not raw:
         return ""
+    # Observed publisher formats: NSE supplies a local clock without an
+    # offset; SEBI supplies a calendar date plus offset but no clock. Keep
+    # that precision instead of manufacturing UTC or a midnight timestamp.
+    for pattern, fmt, date_only in (
+        (r"\d{1,2}-[A-Za-z]{3}-\d{4} \d{2}:\d{2}:\d{2}", "%d-%b-%Y %H:%M:%S", False),
+        (r"\d{1,2} [A-Za-z]{3}, \d{4} [+-]\d{4}", "%d %b, %Y %z", True),
+    ):
+        if re.fullmatch(pattern, raw):
+            try:
+                stamp = datetime.strptime(raw, fmt)
+                return stamp.date().isoformat() if date_only else stamp.isoformat()
+            except ValueError:
+                return ""
     try:
         stamp = parsedate_to_datetime(raw)
     except (TypeError, ValueError, OverflowError):
@@ -78,6 +91,25 @@ def _published(raw: str) -> str:
             return ""
     # A date or clock without an offset is kept as supplied, not labelled UTC.
     return stamp.astimezone(timezone.utc).isoformat() if stamp.tzinfo else stamp.isoformat()
+
+
+def _document_url(raw: str, base: str) -> str:
+    """Repair only an exact repeated origin observed in SEBI's feed links."""
+    url = safe_url(raw, base)
+    if not url:
+        return ""
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.path.startswith(("/https://", "/http://")):
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+        repeated = origin + "/" + origin + "/"
+        if not url.startswith(repeated):
+            return ""  # an embedded different origin has no proven repair
+        inner = url[len(origin) + 1:]
+        # More than one duplication is not the publisher pattern verified.
+        if urllib.parse.urlsplit(inner).path.startswith(("/https://", "/http://")):
+            return ""
+        return safe_url(inner)
+    return url
 
 
 def parse_feed(content: bytes | str, spec: dict) -> dict:
@@ -96,33 +128,60 @@ def parse_feed(content: bytes | str, spec: dict) -> dict:
     if root.tag.rsplit("}", 1)[-1].lower() in ("rss", "rdf") and _child(root, {"channel"}) is None:
         return {"status": "FAILED", "items": [], "error": "RSS source is missing its channel."}
     nodes = [n for n in root.iter() if n.tag.rsplit("}", 1)[-1] in ("item", "entry")]
-    items, seen, rejected = [], set(), 0
+    items, seen = [], set()
+    omitted = {"missing_document": 0, "unsafe_link": 0, "missing_title": 0}
     for node in nodes:
         title = _text(_child(node, {"title"}))[:500]
         link = _child(node, {"link"})
-        url = safe_url((link.get("href") or _text(link)) if link is not None else "", spec["url"])
-        if not title or not url:
-            rejected += 1
+        raw_url = (link.get("href") or _text(link)).strip() if link is not None else ""
+        if not title:
+            omitted["missing_title"] += 1
             continue
+        if not raw_url:
+            omitted["missing_document"] += 1
+            continue
+        url = _document_url(raw_url, spec["url"])
+        if not url:
+            omitted["unsafe_link"] += 1
+            continue
+        source_title, subject, purpose = title, "", ""
+        if spec.get("key") in ("nse_announcements", "nse_actions"):
+            description = _text(_child(node, {"description"}))
+            field = "PURPOSE" if spec["key"] == "nse_actions" else "SUBJECT"
+            match = re.search(r"(?:^|\|)\s*" + field + r"\s*:\s*([^|]+)", description, re.IGNORECASE)
+            if match:
+                detail = match.group(1).strip()[:300]
+                if field == "PURPOSE":
+                    purpose = detail
+                else:
+                    subject = detail
+                title = f"{title} — {detail}"[:500]
         identity = (title, url)
         if identity in seen:
             continue
         seen.add(identity)
-        published = _published(_text(_child(node, {"pubDate", "published", "updated", "date"})))
+        published_raw = _text(_child(node, {"pubDate", "published", "updated", "date"}))[:200]
+        published = _published(published_raw)
         items.append({"title": title, "url": url, "published_at": published,
+                      "published_raw": published_raw, "source_title": source_title,
+                      "subject": subject, "purpose": purpose,
                       "source": spec["name"], "source_url": spec["url"]})
     items.sort(key=lambda item: item["published_at"], reverse=True)
     truncated = max(0, len(items) - MAX_ITEMS)
     items = items[:MAX_ITEMS]
-    status = "PARTIAL" if rejected or truncated else "OK" if items else "EMPTY"
+    status = "PARTIAL" if any(omitted.values()) or truncated else "OK" if items else "EMPTY"
     if nodes and not items:
         status = "FAILED"
     errors = []
-    if rejected:
-        errors.append(f"{rejected} invalid or unsafe item(s) omitted.")
+    if omitted["missing_document"]:
+        errors.append(f"{omitted['missing_document']} item(s) without a document link omitted.")
+    if omitted["unsafe_link"]:
+        errors.append(f"{omitted['unsafe_link']} invalid or unsafe document link(s) omitted.")
+    if omitted["missing_title"]:
+        errors.append(f"{omitted['missing_title']} item(s) without a title omitted.")
     if truncated:
         errors.append(f"Latest feed limited to {MAX_ITEMS} items; not a complete archive.")
-    return {"status": status, "items": items, "error": " ".join(errors),
+    return {"status": status, "items": items, "error": " ".join(errors), "omitted": omitted,
             "as_of": max((r["published_at"] for r in items), default="")}
 
 

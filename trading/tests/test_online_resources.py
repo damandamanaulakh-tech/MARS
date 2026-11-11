@@ -98,3 +98,79 @@ def test_news_article_url_survives_parse_and_storage():
 def test_old_headlines_without_urls_still_work():
     head = news_feed._parse_rss(rss("<item><title>TCS wins new contract</title></item>"))[0]
     assert head.url == "" and news_feed.judge("TCS.NS", [head], "date").verdict == "TRIGGER"
+
+
+def test_observed_nse_local_clock_and_subject_keep_source_precision():
+    spec = next(s for s in resources.FEEDS if s["key"] == "nse_announcements")
+    body = rss('<item><title>Example Industries Limited</title>'
+               '<link>https://nsearchives.nseindia.com/corporate/example.pdf</link>'
+               '<description><![CDATA[Company: Example Industries Limited |SUBJECT: Board Meeting Intimation |Broadcast Date: 04-Nov-2026]]></description>'
+               '<pubDate>04-Nov-2026 11:27:09</pubDate></item>')
+    result = resources.parse_feed(body, spec)
+    row = result["items"][0]
+    assert row["published_at"] == "2026-11-04T11:27:09"
+    assert row["published_raw"] == "04-Nov-2026 11:27:09"
+    assert row["source_title"] == "Example Industries Limited"
+    assert row["subject"] == "Board Meeting Intimation"
+    assert row["title"] == "Example Industries Limited — Board Meeting Intimation"
+    assert result["as_of"] == "2026-11-04T11:27:09"
+
+
+def test_observed_sebi_date_only_and_exact_duplicated_origin():
+    document = "https://www.sebi.gov.in/sebi_data/attachdocs/nov-2026/example.pdf"
+    result = resources.parse_feed(rss(item(url="https://www.sebi.gov.in/" + document,
+                                           published="03 Nov, 2026 +0530")), SPEC)
+    row = result["items"][0]
+    assert row["published_at"] == "2026-11-03"
+    assert row["published_raw"] == "03 Nov, 2026 +0530"
+    assert row["url"] == document
+    assert result["as_of"] == "2026-11-03"
+
+
+def test_missing_document_links_are_counted_separately_from_unsafe_links():
+    result = resources.parse_feed(rss(item() + item(title="NAV without a document", url="")
+                                      + item(title="Unsafe document", url="javascript:alert(1)")), SPEC)
+    assert result["status"] == "PARTIAL" and len(result["items"]) == 1
+    assert result["omitted"]["missing_document"] == 1
+    assert result["omitted"]["unsafe_link"] == 1
+    assert "1 item(s) without a document link omitted" in result["error"]
+    assert "1 invalid or unsafe document link(s) omitted" in result["error"]
+
+
+@pytest.mark.parametrize("url", [
+    "https://www.sebi.gov.in/https://other.example/document.pdf",
+    "https://www.sebi.gov.in/http://www.sebi.gov.in/document.pdf",
+    "https://www.sebi.gov.in/https://www.sebi.gov.in:444/document.pdf",
+])
+def test_malformed_embedded_different_origin_is_unavailable(url):
+    result = resources.parse_feed(rss(item(url=url)), SPEC)
+    assert result["status"] == "FAILED" and not result["items"]
+    assert result["omitted"]["unsafe_link"] == 1
+
+
+def test_invalid_source_dates_stay_unknown_without_invented_timestamp():
+    result = resources.parse_feed(rss(item(published="31 Nov, 2026 +0530")), SPEC)
+    assert result["items"][0]["published_at"] == ""
+    assert result["items"][0]["published_raw"] == "31 Nov, 2026 +0530"
+
+
+def test_nse_display_title_is_bounded_and_does_not_consume_other_fields():
+    spec = next(s for s in resources.FEEDS if s["key"] == "nse_announcements")
+    body = rss('<item><title>' + "A" * 490 + '</title><link>https://www.nseindia.com/doc.pdf</link>'
+               '<description>|SUBJECT: ' + "B" * 700 + '|CATEGORY: Announcement</description></item>')
+    row = resources.parse_feed(body, spec)["items"][0]
+    assert len(row["title"]) <= 500 and len(row["subject"]) <= 300
+    assert "CATEGORY" not in row["subject"]
+
+
+def test_observed_nse_actions_purpose_remains_source_text():
+    spec = next(s for s in resources.FEEDS if s["key"] == "nse_actions")
+    body = rss('<item><title>Example Industries Limited - Ex-Date:04-Nov-2026</title>'
+               '<link>https://www.nseindia.com/document.pdf</link>'
+               '<description>SERIES:EQ |PURPOSE:INTERIM DIVIDEND - RS10.25 PER SHARE |FACE VALUE:10</description>'
+               '<pubDate>04-Nov-2026 10:11:28</pubDate></item>')
+    row = resources.parse_feed(body, spec)["items"][0]
+    assert row["published_at"] == "2026-11-04T10:11:28"
+    assert row["purpose"] == "INTERIM DIVIDEND - RS10.25 PER SHARE"
+    assert row["title"].endswith(" — INTERIM DIVIDEND - RS10.25 PER SHARE")
+    assert "FACE VALUE" not in row["title"]
