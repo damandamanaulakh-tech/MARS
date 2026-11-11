@@ -872,7 +872,11 @@ def owner_buy(request: Request, ticker: str = Form(...),
                             "the book (regime halt overridden by owner). "
                             + str(pick.get("reasoning", "")))[:220]
         pick["fill_source"] = "live_quote"
-        eng._open(pick, use_qty, float(price), datetime.utcnow(), cfg=cfg)
+        from trading.intraday_recovery import entry_allowed
+        fill_now = datetime.utcnow()
+        if not entry_allowed(selected_mode, fill_now):
+            return RedirectResponse("/scan?error=intraday_entry_deadline", status_code=303)
+        eng._open(pick, use_qty, float(price), fill_now, cfg=cfg)
         # AUDIT FIX A4 (2026-08-09): an owner's deliberate pick is never
         # auto-sold by score decay (check_exit skips SCORE_DECAY for this
         # tag). Stop/target/trail/max-hold still protect it.

@@ -11,10 +11,10 @@ def retag_positions_per_mode(portfolio, now: datetime | None = None) -> int:
     """Policy C (user-approved 2026-07-16): exits ON with per-mode stops.
 
     Re-snapshot every open position's stop/target from ITS OWN mode's preset
-    (intraday ±2.5/1.5 … momentum +30/−12). Blank/manual tags and STALE
-    intraday tags (older than same-day — intraday cannot exist overnight,
-    the 15:25 square-off enforces that) get the momentum preset, the app's
-    primary strategy. Every change is journaled; reruns are no-ops.
+    (intraday ±2.5/1.5 … momentum +30/−12). Blank/unknown tags get the
+    momentum preset. An overdue intraday holding keeps its own protection:
+    its saved square-off deadline remains unfinished work after a restart.
+    Every change is journaled; reruns are no-ops.
     Returns how many positions were retagged."""
     from .modes import PRESETS
     now = now or datetime.utcnow()
@@ -26,9 +26,7 @@ def retag_positions_per_mode(portfolio, now: datetime | None = None) -> int:
         if getattr(pos, "custom_levels", False):
             continue
         tag = (getattr(pos, "mode", "") or "").strip()
-        stale_intraday = (tag == "intraday"
-                          and pos.entry_date.date() < now.date())
-        retagged = not tag or tag not in PRESETS or stale_intraday
+        retagged = not tag or tag not in PRESETS
         if retagged:
             tag = "nifty200_momentum"
         preset = PRESETS[tag]
@@ -40,7 +38,7 @@ def retag_positions_per_mode(portfolio, now: datetime | None = None) -> int:
         # re-snapshot the flat preset stop over it — the exact fault audit
         # item S-2 fixed for the TARGET on 2026-10-02. Same rule now for the
         # stop: a position whose category is still valid keeps the stop it
-        # was opened with; only a blank, unknown or stale-intraday tag, or a
+        # was opened with; only a blank/unknown tag, or a
         # missing stop, gets the preset. A Settings change to a stop applies
         # to NEW trades.
         if retagged or old_stop <= 0:
@@ -52,7 +50,7 @@ def retag_positions_per_mode(portfolio, now: datetime | None = None) -> int:
         # runs on EVERY boot and used to overwrite it with the flat preset
         # percentage — and the app restarts many times a day. A position
         # whose category is still valid keeps the target it was opened with.
-        # Only a blank, unknown or stale-intraday tag (the case this retag
+        # Only a blank or unknown tag (the case this retag
         # exists for) or a missing target gets the preset target.
         # Item 19 (owner order 2026-10-21): a valuation target (set at entry
         # or by the re-target) is kept even on a blank legacy tag — the
@@ -78,7 +76,7 @@ def retag_positions_per_mode(portfolio, now: datetime | None = None) -> int:
             "stop_price": new_stop,
             "target_price": new_target,
             "why": ("Policy C: exits re-enabled; stop/target re-snapshotted "
-                    "from the per-mode table (stale/blank tag -> momentum)."),
+                    "from the per-mode table (unknown/blank tag -> momentum)."),
         })
     return changed
 

@@ -147,6 +147,13 @@ def _fill_locked(engine, o: dict, price: float, now: datetime) -> None:
                      "ticker": tkr, "order_id": o["id"], "why": o["note"]})
         return
     cfg = engine.mode_cfg(mode)
+    from .intraday_recovery import entry_allowed
+    if (not entry_allowed(mode, now)
+            or not entry_allowed(mode, datetime.utcnow())):
+        # A new resting instruction can wait for the next session. Never
+        # turn a late quote into a new same-day intraday holding.
+        o["note"] = "intraday_entry_deadline: waiting for the next session"
+        return
     quote = float(price)
     fill = min(slippage_price(quote, "BUY", cfg), float(o["limit_price"]))
     qty = o["qty"]
@@ -216,9 +223,10 @@ def process_open_orders(engine, now: datetime = None) -> list:
     # outside market hours — that is the point of resting — but it may not
     # execute against a price the market is not making. The 15:25 expiry pass
     # still runs; an unfilled day order still dies on time.
+    supplied_now = now
+    now = now or datetime.utcnow()
     if not engine._trading_allowed(now):
         return []
-    now = now or datetime.utcnow()
     from .quote_router import fetch_quotes
     tickers = sorted({o["ticker"] for o in open_orders})
     try:
@@ -228,10 +236,14 @@ def process_open_orders(engine, now: datetime = None) -> list:
         return []
     actions = []
     for o in open_orders:
+        fill_now = supplied_now or datetime.utcnow()
+        if not engine._trading_allowed(fill_now):
+            break
         q = prices.get(o["ticker"])
         if q and q > 0 and q <= o["limit_price"]:
-            _fill(engine, o, float(q), now)
-            actions.append(o["id"])
+            _fill(engine, o, float(q), fill_now)
+            if o["status"] != "open":
+                actions.append(o["id"])
     if actions:
         p.save()
     return actions

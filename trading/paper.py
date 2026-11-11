@@ -65,6 +65,8 @@ class PaperPosition:
     # AUD-002: price evidence belongs to this holding and survives restarts.
     # Receipt time is not a provider timestamp; these are valuation marks only.
     last_mark: dict = field(default_factory=dict)
+    # SEQ-02: unfinished square-off work belongs to this holding, not a job.
+    intraday_close: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -88,6 +90,8 @@ class PaperPosition:
         d["val_target"] = dict(d.get("val_target") or {})
         d["last_mark"] = (dict(d["last_mark"])
                           if isinstance(d.get("last_mark"), dict) else {})
+        d["intraday_close"] = (dict(d["intraday_close"])
+                               if isinstance(d.get("intraday_close"), dict) else {})
         # A field a NEWER build wrote (ca_applied, val_target, the next one) must
         # not stop an older build from loading the book after a rollback: keys
         # this version does not know are dropped, never fatal (2026-10-21).
@@ -121,6 +125,7 @@ class ClosedTrade:
     # position at close or set by an owner-tapped restatement, so the price
     # audit never reads a restated trade as a wrongly-adjusted fill.
     ca_applied: List[str] = field(default_factory=list)
+    intraday_close: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -136,6 +141,8 @@ class ClosedTrade:
         d.setdefault("entry_notes", "")
         d.setdefault("tags", [])
         d["ca_applied"] = list(d.get("ca_applied") or [])
+        d["intraday_close"] = (dict(d["intraday_close"])
+                               if isinstance(d.get("intraday_close"), dict) else {})
         return cls(**{k: v for k, v in d.items() if k in cls.__dataclass_fields__})
 
 

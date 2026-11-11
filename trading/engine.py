@@ -36,6 +36,7 @@ from .quote_router import fetch_quotes as routed_fetch_quotes
 from .exits import check_exit
 from .paper import ClosedTrade, PaperPosition, Portfolio
 from . import portfolio_marks as pm
+from . import intraday_recovery as ir
 from .calendars import is_market_open, market_state
 from .candles import candle_confirmation
 from .risk import RiskState, can_open
@@ -185,6 +186,7 @@ class TradingEngine:
         return universe, history_period
 
     def scan(self, history_period: str = "6mo") -> ScanResult:
+        self.square_off_intraday()  # overdue exits precede slow history/scoring
         cfg = self.cfg
         universe, history_period = self.scan_universe(history_period)
         history = fetch_daily(universe, period=history_period)
@@ -769,6 +771,9 @@ class TradingEngine:
         mk = self._measured_kelly(now) if picks else None
         cleared: list = []
         for pick in picks:
+            if not ir.entry_allowed(cfg.mode, datetime.utcnow()):
+                skipped.append({"ticker": pick["ticker"], "reason": "intraday_entry_deadline"})
+                continue
             if not marks_ready:
                 skipped.append({"ticker": pick["ticker"],
                                 "reason": "portfolio_marks_incomplete"})
@@ -909,6 +914,10 @@ class TradingEngine:
         # OWNER ORDER 2026-09-04: rotation executes. Runs BEFORE the opening
         # pass so the cash it frees is there when can_open counts it, and
         # AFTER the gates (S-4) so it only ever funds a pick that will buy.
+        if not ir.entry_allowed(cfg.mode, datetime.utcnow()):
+            skipped.extend({"ticker": pk["ticker"], "reason": "intraday_entry_deadline"}
+                           for pk in cleared)
+            cleared = []
         try:
             rotated_out = self._rotation_exits(
                 cleared, now, entries_blocked=entries_blocked, history=history)
@@ -919,6 +928,9 @@ class TradingEngine:
             cleared = [pk for pk in cleared if pk["ticker"] not in rotated_out]
 
         for pick in cleared:
+            if not ir.entry_allowed(cfg.mode, datetime.utcnow()):
+                skipped.append({"ticker": pick["ticker"], "reason": "intraday_entry_deadline"})
+                continue
             live_px = live_fill_px.get(pick["ticker"])
             if live_px and live_px > 0:
                 # 2026-08-26: the router can now serve a ~1-minute-delayed
@@ -1030,7 +1042,11 @@ class TradingEngine:
             if not ok:
                 skipped.append({"ticker": pick["ticker"], "reason": reason})
                 continue
-            self._open(pick, qty, fill, now)
+            entry_now = datetime.utcnow()
+            if not ir.entry_allowed(cfg.mode, entry_now):
+                skipped.append({"ticker": pick["ticker"], "reason": "intraday_entry_deadline"})
+                continue
+            self._open(pick, qty, fill, entry_now)
             opened.append(pick["ticker"])
 
         self._journal_budget_full(skipped, now)
@@ -1171,49 +1187,97 @@ class TradingEngine:
             "skipped_count": len(skipped),
             "top_score": float(ranked[0]["score"]) if ranked else 0.0,
         })
-        self._record_equity(marks, now)
+        self.square_off_intraday()  # a long scan may have crossed 15:25
+        self._record_equity(marks, datetime.utcnow())
         self.portfolio.save()
 
         return ScanResult(ts=now, ranked=ranked, picks=picks, opened=opened, skipped=skipped)
 
     def square_off_intraday(self, prices: dict | None = None) -> list[str]:
-        """15:25 IST: force-close every position tagged mode='intraday'.
+        """Retry due intraday deadlines, only on valid in-session quotes.
 
-        Keyed off the POSITION's mode, not cfg.mode — the 09:20 rotation
-        opens intraday picks even when the app's active mode is momentum.
-        Runs regardless of disable_exits: intraday must never sleep overnight.
+        The position carries the deadline through restarts. This method is
+        also used by scans/refreshes, so a missed cron job is not final.
+        The shared lock serializes retries with the category rotation.
         """
-        targets = [t for t, p in self.portfolio.positions.items()
-                   if (getattr(p, "mode", "") or "") == "intraday"]
-        if not targets:
-            return []
-        if prices is None:
-            prices = routed_fetch_quotes(targets, upstox_client=self.broker)
+        from .modes import holding_mode_lock
+        with holding_mode_lock(timeout=0):
+            return self._recover_intraday_locked(prices)
+
+    def _recover_intraday_locked(self, prices=None):
+        p = self.portfolio
         now = datetime.utcnow()
-        closed: list[str] = []
-        for t in targets:
-            px = prices.get(t)
-            if not px or px <= 0:
-                # AUDIT FIX A2: never square off at a fabricated entry-price
-                # fill. The position stays open and visible; policy-C retags
-                # a stale intraday tag to momentum at the next boot, so it
-                # cannot silently live on under intraday rules.
-                self.portfolio.decision_journal.append({
-                    "ts": now.isoformat(), "action": "SQUARE_OFF_HELD_NO_QUOTE",
-                    "ticker": t,
-                    "why": ("15:25 square-off: no live quote — not closed at a "
-                            "made-up price. Sell manually with your own fill "
-                            "price, or it retags to momentum rules tomorrow."),
-                })
+        changed = ir.ensure_book(p, now)
+        targets = {t: pos for t, pos in p.positions.items() if ir.is_due(pos, now)}
+        if not targets:
+            if changed:
+                p.save()
+            return []
+        if not self._trading_allowed(now) or not ir.in_session(now):
+            for pos in targets.values():
+                pos.intraday_close["status"] = "waiting_market"
+            p.save()
+            return []
+
+        self._absorb_corporate_actions("intraday_close")
+        for pos in targets.values():
+            record = pos.intraday_close
+            record.update(status="pending", last_attempt=ir.utc(now).isoformat(),
+                          attempts=int(record.get("attempts", 0) or 0) + 1,
+                          last_error=None)
+        # Save unfinished work BEFORE the potentially failing quote request.
+        p.save()
+        quote_error = None
+        if prices is None:
+            try:
+                prices = routed_fetch_quotes(list(targets), upstox_client=self.broker)
+            except Exception as exc:
+                prices, quote_error = {}, type(exc).__name__
+                log.warning("Intraday deadline quote lookup failed: %s", quote_error)
+        closed = []
+        for ticker, pos in targets.items():
+            if p.positions.get(ticker) is not pos:
                 continue
-            self._close(t, float(px), "SQUARE_OFF", now)
-            closed.append(t)
-        if closed or targets:
-            self.portfolio.save()
+            now = datetime.utcnow()  # a slow quote lookup can cross the close
+            record = pos.intraday_close
+            if not self._trading_allowed(now) or not ir.in_session(now):
+                record["status"] = "waiting_market"
+                continue
+            price = pm.positive_price((prices or {}).get(ticker))
+            if price is None:
+                record.update(status="waiting_quote", last_error=quote_error)
+                self._journal_intraday_pending(pos, now)
+                continue
+            try:
+                self._close(ticker, price, "SQUARE_OFF", now)
+                closed.append(ticker)
+                p.save()  # checkpoint each completed holding independently
+            except Exception as exc:
+                if p.positions.get(ticker) is pos:
+                    record.update(status="retry_pending", last_error=type(exc).__name__)
+                log.exception("Intraday close failed for %s; recovery remains pending", ticker)
+        p.save()
         return closed
+
+    def _journal_intraday_pending(self, pos, now):
+        record = pos.intraday_close
+        # One visible journal row per holding/deadline/day; attempts live in
+        # the persisted record, so minute retries do not flood the journal.
+        key = now.date().isoformat()
+        if record.get("noted_day") == key:
+            return
+        record["noted_day"] = key
+        self.portfolio.decision_journal.append({
+            "ts": now.isoformat(), "action": "SQUARE_OFF_HELD_NO_QUOTE",
+            "ticker": pos.ticker, "deadline": record["deadline"],
+            "why": ("Intraday closing deadline is due but no valid quote is available. "
+                    "Original segment, stop and target remain; retry at the next "
+                    "in-session recovery pass. No estimated fill is used."),
+        })
 
     def refresh(self) -> dict:
         """Pull latest prices, mark portfolio, fire exits."""
+        deadline_exits = self.square_off_intraday()
         cfg = self.cfg
         if not self.portfolio.positions:
             # Empty book still rolls the risk day — otherwise a kill-switch
@@ -1221,7 +1285,9 @@ class TradingEngine:
             # switch here forever (recheck fix, 2026-07-27).
             prices = {}
             self._roll_risk_day(self.portfolio.equity(prices), datetime.utcnow())
-            return self._summary_dict(prices)
+            summary = self._summary_dict(prices)
+            summary["exits_this_refresh"] = deadline_exits
+            return summary
 
         # Owner order 2026-10-21 (BLSE): absorb today's split/bonus on held
         # names BEFORE any quote is compared with an entry — whichever path
@@ -1250,7 +1316,9 @@ class TradingEngine:
                 })
             self.portfolio.save()
             log.warning("refresh: no live quotes — exits held (stale-data guard)")
-            return self._summary_dict(marks)
+            summary = self._summary_dict(marks)
+            summary["exits_this_refresh"] = deadline_exits
+            return summary
 
         now = datetime.utcnow()
         # 2y, not 1y: the momentum ruler needs 252 bars and one calendar
@@ -1259,6 +1327,10 @@ class TradingEngine:
         # 2026-10-02, exits judged on the entry ruler).
         history = fetch_daily(tickers, period="2y")
         bench = fetch_daily([cfg.benchmark], period="6mo").get(cfg.benchmark)
+        # Recover deadlines crossed during history retrieval with a new quote
+        # lookup; never turn an old pre-fetch clock into an after-hours fill.
+        deadline_exits.extend(self.square_off_intraday())
+        now = datetime.utcnow()
 
         # OWNER ORDER 2026-09-10: no trades outside 09:15-15:30 IST, and the
         # 30-minute in-session pass now carries stops AND targets (owner: "A -
@@ -1334,10 +1406,12 @@ class TradingEngine:
             self._journal_once_a_day("VALUATION_PASS_FAILED", now, {
                 "why": "valuation re-target / re-mark raised; targets untouched this pass"})
 
-        exits: list[str] = []
+        exits: list[str] = list(deadline_exits)
         no_quote_held: list[str] = []
         for ticker in list(self.portfolio.positions.keys()):
-            pos = self.portfolio.positions[ticker]
+            pos = self.portfolio.positions.get(ticker)
+            if pos is None:
+                continue  # an earlier deadline recovery may close several names
             price = prices.get(ticker)
             if not price or price <= 0:
                 # AUDIT FIX A2 (2026-08-09): the stale-data guard above only
@@ -1377,6 +1451,12 @@ class TradingEngine:
                 # position keeps its entry score rather than reading 0.
                 if rescored is not None:
                     current_score = rescored
+            if ir.is_due(pos, datetime.utcnow()):
+                # Rescoring can cross 15:25 or the market close. Re-enter
+                # deadline recovery with a new quote/time check, never execute
+                # this earlier quote using the pre-scoring clock.
+                exits.extend(self.square_off_intraday())
+                continue
             xcfg = self._exit_cfg(pos, cfg)
             should_exit, reason = check_exit(
                 pos, price, current_score, xcfg, now)
@@ -1402,7 +1482,7 @@ class TradingEngine:
                             f"It will fire on the next in-session pass."),
                 })
             elif should_exit:
-                self._close(ticker, price, reason, now)
+                self._close(ticker, price, reason, datetime.utcnow())
                 exits.append(ticker)
             elif ticker not in held_today:
                 # WHY-RETAINED journal entry — why we kept it today
@@ -1430,6 +1510,8 @@ class TradingEngine:
                     ),
                 })
 
+        now = datetime.utcnow()
+        marking_only = not self._trading_allowed(now)
         # F15: pyramid — add tranches to winners (opt-in, cfg.pyramid_enabled).
         # A pyramid add is a BUY; the market-hours rule covers it.
         if getattr(cfg, "pyramid_enabled", False) and not marking_only:
@@ -1437,6 +1519,8 @@ class TradingEngine:
                 from .pyramid import pyramid_plan, apply_pyramid
                 for ticker in list(self.portfolio.positions.keys()):
                     pos = self.portfolio.positions[ticker]
+                    if ir.is_due(pos, datetime.utcnow()):
+                        continue  # pending square-off cannot grow its position
                     ltp = prices.get(ticker, pos.entry_price)
                     plan = pyramid_plan(pos, ltp, self.portfolio.cash, cfg)
                     if plan is None:
@@ -1463,6 +1547,8 @@ class TradingEngine:
         if (self.risk.kill_switch and not getattr(cfg, "disable_exits", False)
                 and not marking_only):
             for ticker in list(self.portfolio.positions.keys()):
+                if ir.is_due(self.portfolio.positions[ticker], now):
+                    continue  # deadline recovery owns the fresh quote/retry
                 price = prices.get(ticker)
                 if not price or price <= 0:
                     continue
@@ -1472,7 +1558,10 @@ class TradingEngine:
         # P1/F3: drawdown-ladder crash brake — sells the worst positions when
         # the book falls -10% / -15% / -20% from its peak. Runs EVEN in hold
         # mode. Rules (owner order 2026-10-02) live in _update_drawdown.
-        exits.extend(self._update_drawdown(prices, now,
+        executable = {t: px for t, px in prices.items()
+                      if t in self.portfolio.positions
+                      and not ir.is_due(self.portfolio.positions[t], now)}
+        exits.extend(self._update_drawdown(executable, now,
                                            cut_allowed=not marking_only,
                                            marks=marks))
 
@@ -1491,6 +1580,9 @@ class TradingEngine:
         (2026-10-02): an owner limit fill passes a momentum COPY here instead
         of flipping the shared cfg.mode for the duration of the fill."""
         cfg = cfg if cfg is not None else self.cfg
+        if (not ir.entry_allowed(cfg.mode, now)
+                or not ir.entry_allowed(cfg.mode, datetime.utcnow())):
+            raise ValueError("intraday_entry_deadline")
         # Audit S-12 (2026-10-02): the target is computed BEFORE the BUY line
         # so the line can carry how it was set (k, ATR, band) — it used to be
         # computed after, and the journal never said.
@@ -1571,6 +1663,7 @@ class TradingEngine:
         )
         pm.remember(self.portfolio.positions[pick["ticker"]], fill_price,
                     "entry_fill", now, asof=now.date().isoformat())
+        ir.ensure(self.portfolio.positions[pick["ticker"]], now)
 
     def _store_momentum_shortlist(self, ranked: list, history: dict,
                                   skip_by_t: dict, now: datetime,
@@ -2114,6 +2207,8 @@ class TradingEngine:
         Returns the tickers rotated out.
         """
         cfg = self.cfg
+        if not ir.entry_allowed(cfg.mode, datetime.utcnow()):
+            return []
         if not bool(getattr(cfg, "rotation_auto_enabled", True)):
             return []
         held = self.portfolio.positions
@@ -2318,6 +2413,8 @@ class TradingEngine:
         freed = 0.0
         freed_share = 0.0
         for s in suggestions:
+            if not ir.entry_allowed(cfg.mode, datetime.utcnow()):
+                break
             cash_ok = freed >= shortfall
             share_ok = (not same_category_only
                         or room_now + freed_share >= budget_need)
@@ -2383,7 +2480,14 @@ class TradingEngine:
         pos.qty -= half
 
     def _close(self, ticker: str, raw_price: float, reason: str, now: datetime) -> None:
+        if (getattr(self.portfolio.positions[ticker], "mode", "") == "intraday"
+                and not ir.in_session(datetime.utcnow())):
+            raise ValueError("intraday_market_closed")
         pos = self.portfolio.positions.pop(ticker)
+        close_evidence = copy.deepcopy(getattr(pos, "intraday_close", {}) or {})
+        if close_evidence:
+            close_evidence.update(status="closed", closed_at=ir.utc(now).isoformat(),
+                                  exit_reason=reason)
         exit_price = slippage_price(raw_price, "SELL", self.cfg)
         gross = (exit_price - pos.entry_price) * pos.qty
         costs = trade_costs(pos.qty, pos.entry_price, exit_price, self.cfg)
@@ -2400,6 +2504,7 @@ class TradingEngine:
             tags=list(getattr(pos, "tags", []) or []),
             mode=getattr(pos, "mode", "") or "",
             ca_applied=list(getattr(pos, "ca_applied", []) or []),
+            intraday_close=close_evidence,
         ))
         # WHY-SOLD journal entry — full exit context, never deleted
         hold_days = (now.date() - pos.entry_date.date()).days
@@ -2414,6 +2519,7 @@ class TradingEngine:
             "net_pct": round((exit_price / pos.entry_price - 1) * 100, 2) if pos.entry_price else 0,
             "hold_days": hold_days,
             "exit_reason": reason,
+            "intraday_close": close_evidence,
             "peak_price": round(pos.peak_price, 2),
             "gave_back_from_peak_pct": round((exit_price / pos.peak_price - 1) * 100, 2) if pos.peak_price else 0,
             "regime": self.portfolio.last_regime,

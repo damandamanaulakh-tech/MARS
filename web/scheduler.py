@@ -109,6 +109,20 @@ def start_if_enabled() -> None:
             day_of_week="mon-fri", hour=15, minute=25,
             id="square_off",
         )
+        # SEQ-02: deadlines live on holdings. The minute job recovers a
+        # missed 15:25 slot and yesterday's overdue work at the next open.
+        # It is independent of the opt-in intraday scanning track.
+        _SCHED.add_job(
+            _intraday_recovery_pass, "cron", day_of_week="mon-fri",
+            hour="9-15", minute="*", id="intraday_close_recovery",
+            max_instances=1, replace_existing=True,
+        )
+        from datetime import timedelta as _close_td
+        _SCHED.add_job(
+            _intraday_recovery_pass, "date", kwargs={"on_startup": True},
+            run_date=startup_catchup_run_date(ist, _close_td(seconds=30)),
+            id="intraday_close_startup", max_instances=1,
+        )
 
     if daily:
         # 08:30 IST: top up the price store BEFORE the 09:20 scan (owner
@@ -821,6 +835,23 @@ def _intraday_tick() -> None:
     _check_pending_orders("intraday-tick")
 
 
+def _intraday_recovery_pass(on_startup: bool = False) -> None:
+    """Short retry; never wait behind a long rotation or fetch full history."""
+    from trading.calendars import is_market_open
+    if not on_startup and not is_market_open():
+        return
+    from trading.modes import ModeBusy
+    from . import state
+    try:
+        closed = state.engine().square_off_intraday()
+        if closed:
+            log.info("Intraday deadline recovery closed %s", ", ".join(closed))
+    except ModeBusy:
+        log.info("Intraday recovery deferred: scan holds lock; saved deadlines remain due")
+    except Exception:
+        log.exception("Intraday recovery failed; saved deadlines remain due")
+
+
 def _square_off_pass() -> None:
     """At 15:25 IST: force-close all INTRADAY-mode positions.
 
@@ -839,7 +870,9 @@ def _square_off_pass() -> None:
             log.info("[15:25] Square-off closed %d intraday positions: %s",
                      len(closed), ", ".join(closed))
         else:
-            log.info("[15:25] Square-off: no intraday positions")
+            pending = sum(getattr(p, "mode", "") == "intraday"
+                          for p in state.portfolio().positions.values())
+            log.info("[15:25] Square-off: %d intraday positions remain pending", pending)
     except Exception as e:
         log.exception("Square-off pass failed: %s", e)
     # Day validity for owner limit orders ends here, like a real broker.
@@ -864,7 +897,7 @@ def _square_off_pass() -> None:
 #
 # Intraday's own preset (±2.5/1.5, 1-day max hold) is unchanged, and the
 # 15:25 square-off job still closes every intraday-tagged position the same
-# day — so putting it back cannot leave an intraday trade running overnight.
+# day. Unquoted or missed deadlines remain pending and retry in-session.
 # Momentum stays FIRST so the primary strategy gets first call on the cash.
 _DAILY_MODE_ORDER = ["nifty200_momentum", "intraday", "short", "swing",
                      "positional"]

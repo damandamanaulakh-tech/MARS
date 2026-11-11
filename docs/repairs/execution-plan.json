@@ -51,15 +51,15 @@
       "depends_on": [
         "SEQ-01"
       ],
-      "status": "QUEUED",
-      "implementation": "NOT_STARTED",
-      "tests": "NOT_RUN",
+      "status": "LOCAL_TESTED",
+      "implementation": "IMPLEMENTED",
+      "tests": "2934_LOCAL_PASSED_ZERO_SKIPS_CI_PENDING",
       "pull_request": null,
       "merge_revision": null,
       "deployment_revision": null,
       "health": "NOT_CHECKED",
       "runtime": "NOT_OBSERVED",
-      "evidence": null
+      "evidence": "docs/repairs/releases/2026-11-11-intraday-recovery.md"
     },
     {
       "id": "SEQ-03",
@@ -260,5 +260,5 @@
       "evidence": null
     }
   ],
-  "active_step_note": "Next selected batch; implementation has not started. SEQ-01 is shipped and health verified; its normal production quote-gap observation remains pending."
+  "active_step_note": "SEQ-02 implementation and full local suite complete; CI, merge, deployment and normal runtime verification remain separate."
 }

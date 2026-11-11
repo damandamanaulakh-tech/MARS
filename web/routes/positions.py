@@ -13,6 +13,7 @@ from .. import auth, market_gate, state
 from ..templating import templates
 from trading.paper import PaperPosition
 from trading import category_budget as category_budgets
+from trading.intraday_recovery import view as intraday_close_view
 
 
 log = logging.getLogger(__name__)
@@ -257,6 +258,7 @@ def positions_view(
         rows.append({
             "ticker": pos.ticker,
             "category": category,
+            "intraday_close": intraday_close_view(pos, datetime.utcnow()),
             "qty": pos.qty,
             "entry_date": pos.entry_date.strftime("%Y-%m-%d"),
             "days_held": days_held,
