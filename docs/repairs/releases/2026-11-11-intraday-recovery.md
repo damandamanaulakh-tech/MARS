@@ -83,5 +83,21 @@ Final local suite: **2,934 passed, zero failures/errors/skips**, Python 3.12,
 checked. All changed Python sources parse, whitespace checks pass and the
 repair validator retains all 170 findings, both incidents and the sequence.
 
-Current state: LOCAL_TESTED. CI, merge, deployment health and normal production
-deadline/retry observation are not yet claimed.
+## Shipped evidence — 11 November 2026
+
+| Stage | Verified evidence |
+|---|---|
+| Reviewed PR | [PR #199](https://github.com/damandamanaulakh-tech/MARS/pull/199), head `49295f300f243c731ed727c1f8d8c5523bd864b8`; all 22 published files byte-match the tested local files |
+| PR CI | [Run 43058041445](https://github.com/damandamanaulakh-tech/MARS/actions/runs/43058041445): **2,934 passed**, zero skipped, 3 warnings, Python 3.11, 354.00 seconds; repair-records and the no-skip guard passed |
+| Merge | `a9919f6446690a62b76914fb9178009aaacf55e4`, 16:31:49 UTC / 22:01:49 IST; merged tree `012024026f9ee7468f72bc0ad0f9605fd392a591` matches the reviewed tree |
+| Deployment | Render `dep-dbq9gu59el5s73e0va70`, automatic deployment of that exact merge; **live** at 16:33:44 UTC / 22:03:44 IST |
+| Health | At 16:35 UTC / 22:05 IST: `/healthz` reports `ok=true`, production `ready=true`, DB connected, degraded/boot-degraded false, no write error. No error-level logs returned for the deployment window through 16:35:25 UTC |
+| Application startup | Render logged application startup complete at 16:33:36 UTC. This is application startup evidence, not proof that the recovery job ran |
+| Recovery-job observation | The filtered log query through 16:35:25 UTC returned no recovery-job execution row. Registration/callback/lock behavior is covered in isolated tests; deployed execution remains unconfirmed |
+| Read-only portfolio | At 16:35 UTC, 49 open holdings, **zero intraday holdings**, 193 closes; last save still 10:06:25 UTC, unchanged from the pre-release baseline |
+| Normal deadline outcome | Pending. There was no intraday holding available to observe recovering. No production trade, scan or outage was induced |
+
+Current state: **DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING**. The engineering
+repair is shipped. Keep normal recovery-job and deadline behavior open until
+observed in ordinary operation. SEQ-03 is next queued and has not begun
+implementation; its quote/gate provenance scope remains separate.

@@ -1,7 +1,7 @@
 {
   "approved_date": "2026-11-11",
   "source": "Owner asked to show sequence, start one by one, and track completion in the repository.",
-  "active_step": "SEQ-02",
+  "active_step": "SEQ-03",
   "steps": [
     {
       "id": "SEQ-01",
@@ -51,15 +51,35 @@
       "depends_on": [
         "SEQ-01"
       ],
-      "status": "LOCAL_TESTED",
+      "status": "DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING",
       "implementation": "IMPLEMENTED",
-      "tests": "2934_LOCAL_PASSED_ZERO_SKIPS_CI_PENDING",
-      "pull_request": null,
-      "merge_revision": null,
-      "deployment_revision": null,
-      "health": "NOT_CHECKED",
-      "runtime": "NOT_OBSERVED",
-      "evidence": "docs/repairs/releases/2026-11-11-intraday-recovery.md"
+      "tests": "2934_LOCAL_AND_PR_CI_PASSED_ZERO_SKIPS",
+      "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/199",
+      "merge_revision": "a9919f6446690a62b76914fb9178009aaacf55e4",
+      "deployment_revision": "a9919f6446690a62b76914fb9178009aaacf55e4",
+      "health": "VERIFIED_2026-11-11T16:35Z",
+      "runtime": "PENDING_NORMAL_RECOVERY_JOB_AND_DEADLINE_OBSERVATION",
+      "evidence": "docs/repairs/releases/2026-11-11-intraday-recovery.md",
+      "ci_run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43058041445",
+      "deployment_id": "dep-dbq9gu59el5s73e0va70",
+      "deployed_at": "2026-11-11T16:33:44.441125Z",
+      "health_evidence": {
+        "ok": true,
+        "ready": true,
+        "db_connected": true,
+        "db_degraded": false,
+        "write_error": null
+      },
+      "runtime_observation": {
+        "at": "2026-11-11T16:35Z",
+        "open_positions": 49,
+        "intraday_positions": 0,
+        "closed_trades": 193,
+        "last_save": "2026-11-11T10:06:25.991854",
+        "application_startup_complete": "2026-11-11T16:33:36.454006271Z",
+        "recovery_job_log_observed": false,
+        "production_scan_induced": false
+      }
     },
     {
       "id": "SEQ-03",
@@ -260,5 +280,5 @@
       "evidence": null
     }
   ],
-  "active_step_note": "SEQ-02 implementation and full local suite complete; CI, merge, deployment and normal runtime verification remain separate."
+  "active_step_note": "SEQ-02 is shipped and health verified; normal recovery-job/deadline observation is pending. SEQ-03 is selected next, with implementation not started. SEQ-01 retains its own pending quote-gap observation."
 }
