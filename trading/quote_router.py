@@ -19,6 +19,8 @@ from typing import Dict, Optional
 from .brokers.upstox import UpstoxClient
 from .brokers.upstox_instruments import to_instrument_keys
 from .data import fetch_quotes as fetch_quotes_yf
+from . import quote_evidence as qe
+from .portfolio_marks import positive_price
 
 
 log = logging.getLogger(__name__)
@@ -36,7 +38,7 @@ def fetch_quotes(
 ) -> Dict[str, float]:
     """Returns {ticker: last_price} using Upstox if available, else yfinance."""
     if not tickers:
-        return {}
+        return qe.QuoteBatch()
 
     if upstox_client is None or not upstox_client.is_connected():
         # OWNER COMPLAINT 2026-08-26 ("you r like far away"): before this,
@@ -49,16 +51,17 @@ def fetch_quotes(
         still = [t for t in tickers if t not in out]
         if still:
             yf = fetch_quotes_yf(still)
-            out.update(yf)
+            qe.merge(out, yf)
             for t in yf:
                 LAST_SOURCES[t] = "yf_close"
-        return out
+                out.evidence.setdefault(t, qe.make(yf[t], "yf_close", interval="1d"))
+        return _complete_evidence(out, tickers)
 
     # BATCHED (2026-07-31): one HTTP call per 250 instruments instead of one
     # per stock. A 43-name book previously fired 43 sequential requests, slow
     # enough to time out and look like "no live prices".
     keymap = to_instrument_keys(tickers)
-    out: Dict[str, float] = {}
+    out = qe.QuoteBatch()
     missing: list[str] = [t for t in tickers if t not in keymap]
 
     keys = [keymap[t] for t in tickers if t in keymap]
@@ -74,8 +77,10 @@ def fetch_quotes(
         if not ikey:
             continue
         px = prices_by_key.get(ikey)
-        if px and px > 0:
+        if positive_price(px) is not None:
             out[ticker] = float(px)
+            ev = (getattr(prices_by_key, "evidence", {}) or {}).get(ikey)
+            out.evidence[ticker] = ev or qe.make(float(px), "upstox")
             LAST_SOURCES[ticker] = "upstox"
         else:
             missing.append(ticker)
@@ -84,15 +89,24 @@ def fetch_quotes(
     # 1-minute candle first (≈15-60s delayed, labelled), yfinance last.
     if missing:
         delayed = _intraday_fallback(missing, client=upstox_client)
-        out.update(delayed)
+        qe.merge(out, delayed)
         still = [t for t in missing if t not in delayed]
         if still:
             yf_fallback = fetch_quotes_yf(still)
-            out.update(yf_fallback)
+            qe.merge(out, yf_fallback)
             for t in yf_fallback:
                 LAST_SOURCES[t] = "yf_close"     # daily close, NOT a live tick
+                out.evidence.setdefault(t, qe.make(yf_fallback[t], "yf_close", interval="1d"))
 
-    return out
+    return _complete_evidence(out, tickers)
+
+
+def _complete_evidence(batch, tickers):
+    for ticker in tickers:
+        if ticker not in batch:
+            batch.evidence[ticker] = qe.make(None, "unavailable", status="unavailable", reason="No provider returned a usable price")
+            LAST_SOURCES.pop(ticker, None)
+    return batch
 
 
 def _intraday_fallback(tickers: list[str],
@@ -103,7 +117,7 @@ def _intraday_fallback(tickers: list[str],
     when no connected client is passed, the tokenless history client
     (attached at boot since 2026-08-20) carries the calls. Bounded to
     `cap` names — one HTTP call per instrument."""
-    out: Dict[str, float] = {}
+    out = qe.QuoteBatch()
     if not tickers:
         return out
     if client is None:
@@ -123,8 +137,11 @@ def _intraday_fallback(tickers: list[str],
             r = client.get_intraday_last(ikey)
         except Exception:                                     # noqa: BLE001
             r = None
-        if r and r[0] > 0:
+        if r and positive_price(r[0]) is not None:
             out[t] = float(r[0])
+            out.evidence[t] = qe.make(float(r[0]), "upstox_1min_delayed",
+                                      provider_at=r[1] if len(r) > 1 else None, interval="1m",
+                                      timestamp_kind="bar_start")
             LAST_SOURCES[t] = "upstox_1min_delayed"
     return out
 

@@ -50,6 +50,7 @@ from typing import Optional
 import pandas as pd
 
 from trading.triggers import _Ctx, TRIGGERS
+from trading import decision_evidence as de
 
 log = logging.getLogger(__name__)
 
@@ -134,27 +135,36 @@ def evaluate_stock(df: pd.DataFrame, ext=None) -> list[str]:
     panel-fed tripwires simply do not run, so the layer degrades to the 10
     OHLCV ones rather than inventing a reading.
     """
+    def observed(tid, result, reason=""):
+        de.record("danger:" + tid, result, True,
+                  state="passed" if result is True else "failed" if result is False else "unavailable",
+                  role="exit_trigger", reason=reason or (VERIFIED.get(tid) or {}).get("name", tid))
     try:
         x = _Ctx(df)
     except (KeyError, ValueError):
+        for tid in VERIFIED:
+            observed(tid, None, "Unusable daily history")
         return []
     fired = []
     for tid, fn in _FNS.items():
         try:
-            if fn(x) is True:
+            result = fn(x)
+            observed(tid, result)
+            if result is True:
                 fired.append(tid)
         except Exception:                                   # noqa: BLE001
+            observed(tid, None, "Trigger evaluation raised")
+    for tid, fn in _EXT_FNS.items():
+        if ext is None:
+            observed(tid, None, "External panel unavailable")
             continue
-    if ext is not None:
-        for tid, fn in _EXT_FNS.items():
-            try:
-                # Neither needs family counts, and neither reads another
-                # trigger's hit — the empty dicts are the honest arguments,
-                # not placeholders standing in for data.
-                if fn(x, ext, {}, {}) is True:
-                    fired.append(tid)
-            except Exception:                               # noqa: BLE001
-                continue
+        try:
+            result = fn(x, ext, {}, {})
+            observed(tid, result)
+            if result is True:
+                fired.append(tid)
+        except Exception:                                   # noqa: BLE001
+            observed(tid, None, "External trigger evaluation raised")
     return fired
 
 

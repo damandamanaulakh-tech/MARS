@@ -136,6 +136,7 @@ def test_plan_stops_when_the_remainder_is_below_the_slab(book, desk_cfg):
 
 
 def test_execute_opens_through_the_engine_and_journals(book, desk_cfg):
+    from trading.quote_evidence import QuoteBatch, make
     eng = state.engine()
     sl = buy_desk.shortlist(book, state.cfg())
     pl = buy_desk.plan(book, desk_cfg, sl["rows"], 3_00_000.0,
@@ -143,7 +144,7 @@ def test_execute_opens_through_the_engine_and_journals(book, desk_cfg):
     cash_before = book.cash
     summary = buy_desk.execute(eng, book, desk_cfg, pl["rows"], datetime(2026, 9, 24, 14, 0),
                                budget_rs=3_00_000.0, market_hours_bypassed=True,
-                               price_sources={"TOP.NS": "upstox"})
+                               quotes=QuoteBatch({"TOP.NS": 100., "WAIT.NS": 200.}, evidence={"TOP.NS": make(100., "upstox"), "WAIT.NS": make(200., "upstox")}))
     assert [o["ticker"] for o in summary["opened"]] == ["TOP.NS"]
     pos = book.positions["TOP.NS"]
     assert "owner_pick" in pos.tags and "buy_desk" in pos.tags

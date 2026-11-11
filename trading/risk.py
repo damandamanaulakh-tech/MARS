@@ -6,6 +6,7 @@ import math
 from dataclasses import dataclass
 
 from .config import Config
+from . import decision_evidence as de
 
 
 @dataclass
@@ -67,9 +68,11 @@ def can_open(
     2026-10-04, "fix it so all 5 categories get cash"): its share of the
     deployable capital is one more ceiling on the headroom. None (the
     default, and Ocean) = no category budget, the pre-2026-10-04 gate."""
+    de.record("kill_switch", risk.kill_switch, False, passed=not risk.kill_switch)
     if risk.kill_switch:
         return False, "kill_switch_active", 0
 
+    de.record("slots", len(open_positions), cfg.max_positions, passed=len(open_positions) < cfg.max_positions)
     if len(open_positions) >= cfg.max_positions:
         return False, "max_positions_reached", 0
 
@@ -82,11 +85,17 @@ def can_open(
         else cfg.starting_capital
     deployed = sum(p.qty * p.entry_price for p in open_positions.values())
     deploy_cap = base_capital * (1 - cfg.cash_reserve_pct)
+    de.record("reserve", deployed, deploy_cap, passed=deployed < deploy_cap,
+              reason=f"Current equity base {base_capital}; reserve fraction {cfg.cash_reserve_pct}")
     if deployed >= deploy_cap:
         return False, "reserve_breached", 0
 
     # Per-trade size: caller-computed (½-Kelly) if supplied, else the owner's
     # fixed Rs value, else the pct fallback.
+    de.record("estimated_edge", notional_override, 0,
+              state="skipped" if notional_override is None else None,
+              passed=notional_override is not None and notional_override > 0,
+              reason="Fixed size" if notional_override is None else "Caller sizing notional")
     if notional_override is not None:
         if notional_override <= 0:
             return False, "no_estimated_edge", 0
@@ -103,16 +112,22 @@ def can_open(
     if category is not None:
         from . import category_budget as cb
         left = cb.room(cfg, open_positions, category, base_capital)
+        de.record("category_budget", left, max(cb.min_open(cfg), fill_price),
+                  state="skipped" if left is None else None,
+                  passed=left is not None and left >= max(cb.min_open(cfg), fill_price),
+                  reason=f"Category {category}; disabled or exempt when no share")
         if left is not None:
             if left < max(cb.min_open(cfg), fill_price):
                 return False, "category_budget_full", 0
             headroom = min(headroom, left)
             hard_room = min(hard_room, left)
+    de.record("cash", {"cash": cash, "headroom": headroom, "hard_room": hard_room}, 0, passed=headroom > 0)
     if headroom <= 0:
         return False, "no_headroom", 0
     min_val = min_trade_value(cfg, per_stock_cap)
 
     qty = int(headroom // fill_price)
+    de.record("quantity", qty, 1, passed=qty >= 1)
     if qty <= 0:
         return False, "qty_zero", 0
 
@@ -129,8 +144,12 @@ def can_open(
             1 for p in open_positions.values()
             if cfg.sector_map.get(p.ticker, "Unknown") == target_sector
         )
+        de.record("sector_count", same_sector, cfg.max_sector_positions, passed=same_sector < cfg.max_sector_positions, reason=target_sector)
         if same_sector >= cfg.max_sector_positions:
             return False, "sector_cap_reached", 0
+
+    else:
+        de.record("sector_count", state="unavailable", reason="Sector identity unknown; existing policy exempts unmapped names")
 
     # P2: sector CAPITAL cap — a count cap alone lets 12 x 2.5% = 30% pile
     # into one sector. Shrink qty to fit the sector budget; reject if none.
@@ -143,10 +162,14 @@ def can_open(
         )
         # AUDIT FIX A9: sector budget follows equity too (same rationale).
         budget = base_capital * sector_cap_frac - sector_notional
+        de.record("sector_cap", budget, fill_price, passed=budget >= fill_price, reason=f"Sector cap fraction {sector_cap_frac}; existing notional {sector_notional}")
         if budget < fill_price:
             return False, "sector_exposure_cap", 0
         qty = min(qty, int(budget // fill_price))
         hard_room = min(hard_room, budget)
+
+    else:
+        de.record("sector_cap", state="unavailable" if target_sector == "Unknown" else "skipped", reason="Unknown sector or disabled capital cap")
 
     # v7: PORTFOLIO_HEAT gate (absorbed from G07 research framework).
     # Total open risk-at-stop = sum((entry - stop_price) * qty). Block the new
@@ -172,16 +195,23 @@ def can_open(
         # The NEW entry's own stop is set after this gate (engine._stop_for),
         # so its heat is counted at the category percentage here.
         new_heat = qty * fill_price * stop_frac
+        de.record("portfolio_heat", {"existing": existing_heat, "proposed": new_heat, "equity": current_equity}, heat_cap_pct, passed=True, reason="Size may be reduced to fit the existing heat policy")
         if (existing_heat + new_heat) / current_equity > heat_cap_pct:
             # Try to shrink qty to fit remaining heat budget before rejecting.
             remaining = heat_cap_pct * current_equity - existing_heat
             if remaining <= 0:
+                de.record("portfolio_heat", remaining, 0, passed=False, reason="No remaining risk-at-stop budget")
                 return False, "portfolio_heat_cap", 0
             qty = int(remaining / (fill_price * stop_frac))
             if qty <= 0:
+                de.record("portfolio_heat", qty, 1, passed=False, reason="Heat budget cannot fund a whole share")
                 return False, "portfolio_heat_cap", 0
             if stop_frac > 0:
                 hard_room = min(hard_room, remaining / stop_frac)
+            de.record("portfolio_heat", {"existing": existing_heat, "accepted_qty": qty, "accepted_heat": qty * fill_price * stop_frac}, heat_cap_pct * current_equity, passed=True, reason="Quantity reduced to risk budget")
+
+    else:
+        de.record("portfolio_heat", state="skipped", reason="Heat cap disabled or equity unavailable")
 
     # OWNER ORDER 2026-10-04: nothing below the minimum opens. A trade that
     # whole-share rounding or a trim left just short (93 x Rs 1,600 =
@@ -192,5 +222,7 @@ def can_open(
         if need * fill_price <= hard_room + 1e-6:
             qty = need
         else:
+            de.record("minimum_value", qty * fill_price, min_val, passed=False, reason="Whole-share rounding cannot fit hard room")
             return False, f"below_min_value_{int(min_val)}", 0
+    de.record("minimum_value", qty * fill_price, min_val, passed=True)
     return True, "ok", qty

@@ -969,8 +969,8 @@ def archive_journal(entries: list) -> bool:
     if not _CONNECTED or _DB is None:
         return False
     try:
-        _DB.journal_archive.insert_many([dict(e) for e in entries], ordered=False)
-        return True
+        result = _DB.journal_archive.insert_many([dict(e) for e in entries], ordered=False)
+        return bool(result.acknowledged)
     except Exception as e:
         log.warning("Mongo archive_journal failed: %s", e)
         return False
@@ -1198,3 +1198,80 @@ def load_watchlist_snapshot(ts_key: str) -> Optional[dict]:
     except Exception as e:
         log.warning("Mongo load_watchlist_snapshot failed: %s", e)
     return None
+
+
+# SEQ-03: append-only decision evidence, separate from the numerical ledger.
+def archive_trade_evidence(evidence: dict) -> bool:
+    if not _CONNECTED or _DB is None:
+        return False
+    key = (evidence.get("exit") or {}).get("id")
+    if not key:
+        return False
+    try:
+        result = _DB.trade_evidence.update_one({"_id": key},
+            {"$setOnInsert": dict(evidence)}, upsert=True)
+        return bool(result.acknowledged)
+    except Exception as exc:
+        log.warning("Trade evidence archive failed: %s", type(exc).__name__)
+        return False
+
+
+def read_trade_evidence(trade_id: str) -> list:
+    if not _CONNECTED or _DB is None:
+        return []
+    try:
+        return list(_DB.trade_evidence.find({"trade_id": trade_id}, {"_id": 0}).limit(100))
+    except Exception as exc:
+        log.warning("Trade evidence read failed: %s", type(exc).__name__)
+        return []
+
+
+def read_decision(decision_id: str) -> dict | None:
+    if not _CONNECTED or _DB is None:
+        return None
+    try:
+        row = _DB.journal_archive.find_one({"decision_id": decision_id}, {"_id": 0}, sort=[("ts", -1)])
+        return row.get("evidence") if row else None
+    except Exception as exc:
+        log.warning("Decision evidence read failed: %s", type(exc).__name__)
+        return None
+
+
+def read_trade_amendments(trade_id: str) -> list:
+    if not _CONNECTED or _DB is None:
+        return []
+    try:
+        rows = _DB.journal_archive.find({"trade_id": trade_id, "action": "TRADE_AMENDMENT"}, {"_id": 0}).sort("ts", -1).limit(200)
+        return [r["evidence"] for r in rows if r.get("evidence")]
+    except Exception as exc:
+        log.warning("Trade amendment read failed: %s", type(exc).__name__)
+        return []
+
+
+
+def read_archived_trade_evidence(trade_id: str) -> list:
+    if not _CONNECTED or _DB is None:
+        return []
+    try:
+        rows = _DB.trades.find({"trade_evidence.trade_id": trade_id}, {"trade_evidence": 1, "_id": 0}).limit(100)
+        return [r["trade_evidence"] for r in rows if r.get("trade_evidence")]
+    except Exception as exc:
+        log.warning("Archived trade evidence read failed: %s", type(exc).__name__)
+        return []
+
+
+def search_decision_archive(ticker: str = "", mode: str = "", limit: int = 500) -> list:
+    """Filter in storage so unrelated recent symbols cannot hide a requested one."""
+    if not _CONNECTED or _DB is None:
+        return []
+    import re
+    query = {"evidence.gates": {"$exists": True}, **_not_pre_mars(False)}
+    if ticker:
+        query["evidence.ticker"] = {"$regex": re.escape(ticker), "$options": "i"}
+    if mode:
+        query["evidence.mode"] = mode
+    try:
+        return list(_DB.journal_archive.find(query, {"_id": 0}).sort("ts", -1).limit(min(max(limit, 1), 500)))
+    except Exception as exc:
+        log.warning("Decision archive search failed: %s", type(exc).__name__)
+        return []

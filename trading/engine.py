@@ -37,6 +37,8 @@ from .exits import check_exit
 from .paper import ClosedTrade, PaperPosition, Portfolio
 from . import portfolio_marks as pm
 from . import intraday_recovery as ir
+from . import decision_evidence as de
+from . import quote_evidence as qe
 from .calendars import is_market_open, market_state
 from .candles import candle_confirmation
 from .risk import RiskState, can_open
@@ -199,6 +201,13 @@ class TradingEngine:
         from .data import LAST_FETCH_STATS as _fs
         cover = dict(_fs)
         bench = fetch_daily([cfg.benchmark], period=history_period).get(cfg.benchmark)
+        decisions = {t: de.new(t, cfg.mode, "scan", datetime.utcnow(), history.get(t))
+                     for t in universe}
+        for t, d in decisions.items():
+            de.put(d, "history", len(history[t]) if t in history else None, "usable daily history",
+                   state="passed" if t in history and not history[t].empty else "unavailable",
+                   reason="Actual scan path uses daily bars")
+            d["benchmark"] = {"ticker": cfg.benchmark, **de.bar_context(bench)}
         if cover.get("asked") and cover.get("covered", 0) < cover["asked"]:
             self._journal_once_a_day("SCAN_COVERAGE_SHORT", datetime.utcnow(), {
                 "asked": cover["asked"], "covered": cover["covered"],
@@ -397,11 +406,13 @@ class TradingEngine:
 
         ranked: List[dict] = []
         for t in universe:
-            if t not in history:
+            if t not in history or history[t].empty:
                 continue
             if n200_scorer is not None:
                 ms = n200_scorer(history[t]["Close"])
                 if ms is None:
+                    de.put(decisions[t], "score", threshold=cfg.min_score_to_enter,
+                           state="unavailable", reason="Insufficient momentum history")
                     continue
                 # C1: blend a value/quality tilt (low-vol + liquidity) into the
                 # momentum rank so the book isn't 100% high-beta leaders.
@@ -418,7 +429,13 @@ class TradingEngine:
                                                   cfg, mode=cfg.mode)
                 from .scoring import weights_for as _wf
                 reasoning = reasoning_text(components, score, _wf(cfg.mode))
-            timing_pass, timing_diag = timing_ok(history[t], cfg)
+            de.put(decisions[t], "score", score, cfg.min_score_to_enter,
+                   passed=score >= cfg.min_score_to_enter)
+            decisions[t]["components"] = de.clean(components)
+            from .scoring import weights_for as evidence_weights
+            decisions[t]["weights"] = de.clean({"momentum": 1-b, "quality": b} if n200_scorer is not None else evidence_weights(cfg.mode))
+            with de.capture(decisions[t]):
+                timing_pass, timing_diag = timing_ok(history[t], cfg)
             # OWNER ORDER 2026-09-11 ("go with these formula" / "ash08 68"):
             # every scanned name carries the ASH08 and AshStocks verdicts
             # beside our own. Computed HERE, where the history is already in
@@ -433,6 +450,7 @@ class TradingEngine:
                 multi = None
             ranked.append({
                 "ticker": t,
+                "decision": decisions[t],
                 "score": score,
                 "components": components,
                 "timing_pass": timing_pass,
@@ -519,19 +537,40 @@ class TradingEngine:
         # negative in both halves, so the evidence sets the default and the
         # owner sets the switch. Fails open on unjudgeable names.
         def _multi_blocks(r: dict) -> Optional[str]:
-            if not getattr(cfg, "multi_formula_gate", False):
+            enabled = getattr(cfg, "multi_formula_gate", False)
+            if not enabled:
+                de.put(r["decision"], "multi_formula", state="skipped", reason="Owner switch off")
                 return None
             from .multi_formula import gate_blocks
-            return gate_blocks(r.get("multi"))
+            blocked = gate_blocks(r.get("multi"))
+            de.put(r["decision"], "multi_formula", r.get("multi"), "configured three-formula rules",
+                   state="unavailable" if r.get("multi") is None else None,
+                   passed=not blocked, reason=blocked or "Unknown inputs retain existing fail-open policy")
+            return blocked
 
         # Collected here, reported below: `skipped` and `now` are not bound
         # until the entry section further down this method.
         multi_blocked: List[dict] = []
+        for d in decisions.values():
+            de.put(d, "regime", {"reading": regime.regime if regime else None,
+                "last_known": self.portfolio.last_regime, "vix_reentry": vix_reentry,
+                "brake_off": brake_off, "feed_down_brake": regime_feed_down_brake},
+                "Everest active or approved override",
+                state="unavailable" if regime is None else None,
+                passed=everest_ok or vix_reentry or brake_off,
+                reason="Existing last-known regime policy" if regime is None else "")
         if everest_ok or vix_reentry or brake_off:
             everest_picks = []
             for r in ranked:
-                if not (r["score"] >= cfg.min_score_to_enter
-                        and r["timing_pass"] and _abs_mom_ok(r["ticker"])):
+                if not (r["score"] >= cfg.min_score_to_enter and r["timing_pass"]):
+                    continue
+                abs_ok = _abs_mom_ok(r["ticker"])
+                close = history[r["ticker"]]["Close"].dropna()
+                abs_value = float(close.iloc[-1] / close.iloc[-127] - 1) if len(close) > 127 else None
+                de.put(r["decision"], "absolute_momentum", abs_value, 0,
+                       state="skipped" if cfg.mode != MOMENTUM_MODE else "unavailable" if abs_value is None else None,
+                       passed=abs_ok, reason="126-session own return; positive required only in Momentum")
+                if not abs_ok:
                     continue
                 blocked = _multi_blocks(r)
                 if blocked:
@@ -558,6 +597,9 @@ class TradingEngine:
         # PARALLEL with Everest in every regime. Its four crash-guard rails
         # replace the momentum gates for dip entries; see _ocean_picks().
         ocean_picks = self._ocean_picks(regime, history, universe, now)
+        for pick in ocean_picks:
+            d = pick.setdefault("decision", de.new(pick["ticker"], cfg.mode, "ocean", now, history.get(pick["ticker"])))
+            decisions[pick["ticker"] + ":ocean"] = d
 
         picks = everest_picks
 
@@ -569,8 +611,19 @@ class TradingEngine:
         # gating it here would mean Ocean could never buy at all; its own
         # four rails are its gate. Exits are never touched.
         entries_blocked = False
-        if picks and self._breadth_gate_blocks(history, now, n_picks=len(picks),
-                                               bypass=vix_reentry):
+        breadth_trace = de.new("market", cfg.mode, "context", now)
+        breadth_blocked = False
+        if picks:
+            with de.capture(breadth_trace):
+                breadth_blocked = self._breadth_gate_blocks(history, now, n_picks=len(picks), bypass=vix_reentry)
+            for pick in picks:
+                gate = breadth_trace["gates"].get("breadth")
+                if gate:
+                    pick["decision"]["gates"]["breadth"] = copy.deepcopy(gate)
+                else:
+                    de.put(pick["decision"], "breadth", breadth_blocked, False,
+                           state="unavailable", reason="Gate returned without input diagnostics")
+        if picks and breadth_blocked:
             picks = []
             entries_blocked = True
         elif not picks:
@@ -584,23 +637,30 @@ class TradingEngine:
 
         # v4: HALT NEW ENTRIES around known binary events (elections, RBI, Budget).
         binary_event = None
+        binary_event_available = True
         try:
             from .calendars import is_system_event_within
             binary_event = is_system_event_within(days=3)
         except Exception:
-            pass
+            binary_event_available = False
 
         # v4: Sector blacklist — drop picks in sectors that bled us historically.
         blacklist = set(getattr(cfg, "blacklisted_sectors", []) or [])
-        if blacklist:
-            picks = [
-                p for p in picks
-                if cfg.sector_map.get(p["ticker"], "Unknown") not in blacklist
-            ]
+        kept = []
+        for pk in picks:
+            pk.setdefault("decision", de.new(pk["ticker"], cfg.mode, "ocean" if pk.get("ocean") else "scan", now, history.get(pk["ticker"])))
+            sec = cfg.sector_map.get(pk["ticker"], "Unknown")
+            de.put(pk["decision"], "sector_blacklist", sec, sorted(blacklist),
+                   state="skipped" if not blacklist else "unavailable" if sec == "Unknown" else None,
+                   passed=sec not in blacklist, reason="Unmapped identity remains unknown")
+            if sec not in blacklist:
+                kept.append(pk)
+        picks = kept
 
         # v4: Nifty trend gate — only enter if Nifty itself is trending (ADX > N).
         # Skips entries during chop where momentum strategies bleed.
         nifty_chop = False
+        nifty_adx = None
         try:
             from .signals.technicals import adx as _adx
             if bench is not None and len(bench) > 30 and cfg.nifty_min_adx > 0:
@@ -726,9 +786,12 @@ class TradingEngine:
             try:
                 live_fill_px = routed_fetch_quotes(
                     [pk["ticker"] for pk in picks], upstox_client=self.broker,
-                ) or {}
+                )
+                if live_fill_px is None:
+                    live_fill_px = qe.QuoteBatch()
             except Exception as e:
-                log.warning("live fill quotes unavailable — prior close: %s", e)
+                live_fill_px = qe.QuoteBatch()
+                log.warning("fill quotes unavailable: %s", e)
 
         # OWNER ORDER 2026-09-10: "trade are prohibited from now after market
         # hours ... yes all block, but i can run the advisery to review buy,
@@ -752,8 +815,8 @@ class TradingEngine:
                         f"09:15-15:30 IST on a trading day."),
             })
             for pk in picks:
-                skipped.append({"ticker": pk["ticker"],
-                                "reason": f"market_{state}"})
+                de.put(pk["decision"], "market_session", state, "open", passed=False)
+                skipped.append({"ticker": pk["ticker"], "reason": f"market_{state}"})
             picks = []
 
         # AUDIT S-4 (owner: "go for next", 2026-10-02): the entry gates run in
@@ -771,146 +834,190 @@ class TradingEngine:
         mk = self._measured_kelly(now) if picks else None
         cleared: list = []
         for pick in picks:
-            if not ir.entry_allowed(cfg.mode, datetime.utcnow()):
-                skipped.append({"ticker": pick["ticker"], "reason": "intraday_entry_deadline"})
-                continue
-            if not marks_ready:
-                skipped.append({"ticker": pick["ticker"],
-                                "reason": "portfolio_marks_incomplete"})
-                continue
-            # 2026-10-05 ("make it momentum only"): the reading is this
-            # category's own record, so an Ocean pick (its own category, its
-            # own exits) is not judged by it.
-            if (mk is not None and mk.block_new_entries
-                    and not pick.get("ocean")):
-                skipped.append({"ticker": pick["ticker"],
-                                "reason": "measured_kelly_no_edge"})
-                continue
-            if binary_event is not None:
-                skipped.append({
-                    "ticker": pick["ticker"],
-                    "reason": f"halt_pre_{binary_event.event_type}_{binary_event.event_date}",
-                })
-                continue
-            # v5: ticker-specific event blackout (earnings)
-            if is_ticker_event_within is not None:
-                tic_event = is_ticker_event_within(pick["ticker"], days=3)
-                if tic_event is not None:
+            with de.capture(pick["decision"]):
+                d = pick["decision"]
+                de.put(d, "market_session", self._market_state(now), "open", passed=True)
+                entry_clock = datetime.utcnow()
+                de.put(d, "intraday_deadline", de.stamp(entry_clock), "15:25 IST", passed=ir.entry_allowed(cfg.mode, entry_clock),
+                       state="skipped" if cfg.mode != "intraday" else None)
+                if not ir.entry_allowed(cfg.mode, entry_clock):
+                    skipped.append({"ticker": pick["ticker"], "reason": "intraday_entry_deadline"})
+                    continue
+                de.put(d, "portfolio_marks", {k: v for k, v in self.portfolio.mark_snapshot.items() if k != "positions"}, "complete observed valuation", passed=marks_ready)
+                if not marks_ready:
+                    skipped.append({"ticker": pick["ticker"],
+                                    "reason": "portfolio_marks_incomplete"})
+                    continue
+                # 2026-10-05 ("make it momentum only"): the reading is this
+                # category's own record, so an Ocean pick (its own category, its
+                # own exits) is not judged by it.
+                de.put(d, "measured_kelly", de.clean(vars(mk)) if mk is not None else None, "positive measured edge when sufficient sample",
+                       state="skipped" if pick.get("ocean") else "unavailable" if mk is None else None,
+                       passed=not (mk is not None and mk.block_new_entries), reason="Ocean exempt" if pick.get("ocean") else "")
+                if (mk is not None and mk.block_new_entries
+                        and not pick.get("ocean")):
+                    skipped.append({"ticker": pick["ticker"],
+                                    "reason": "measured_kelly_no_edge"})
+                    continue
+                de.put(d, "system_event", {"event_type": binary_event.event_type, "event_date": str(binary_event.event_date)} if binary_event else None,
+                       {"lookahead_days": 3}, passed=binary_event is None,
+                       state=None if binary_event_available else "unavailable", reason="Known calendar only; no matching event" if binary_event is None else "Upcoming binary event")
+                if binary_event is not None:
                     skipped.append({
                         "ticker": pick["ticker"],
-                        "reason": f"blackout_{tic_event.event_type}_{tic_event.event_date}",
+                        "reason": f"halt_pre_{binary_event.event_type}_{binary_event.event_date}",
                     })
                     continue
-            if nifty_chop:
-                skipped.append({
-                    "ticker": pick["ticker"],
-                    "reason": "nifty_chop_low_adx",
-                })
-                continue
-            # v5: graduated drawdown halt
-            if self.drawdown_gov.halt_new_entries:
-                skipped.append({
-                    "ticker": pick["ticker"],
-                    "reason": f"drawdown_{self.drawdown_gov.active_level}",
-                })
-                continue
-            # v5: consecutive-loss halt. OWNER ORDER 2026-10-21 ("Halt only
-            # the category that lost"): judged for THIS pick's category —
-            # ocean for an Ocean pick, else the pass's mode — against that
-            # category's own losers and open count. cfg.loss_halt_scope
-            # "book" = the old book-wide rule.
-            halt_cat = self._loss_halt_category(pick, cfg)
-            if self.loss_tracker.halted(
-                    today=now.date(),
-                    open_positions=len(self.portfolio.positions),
-                    category=halt_cat,
-                    open_in_category=self._open_in_category(halt_cat),
-                    scope=self._loss_halt_scope(cfg)):
-                skipped.append({
-                    "ticker": pick["ticker"],
-                    "reason": "consecutive_loss_halt",
-                    "category": halt_cat,
-                })
-                continue
-            if pick["ticker"] in self.portfolio.positions:
-                skipped.append({"ticker": pick["ticker"], "reason": "already_held"})
-                continue
-            # v5: liquidity hard floor
-            tic_hist = history.get(pick["ticker"])
-            if tic_hist is not None:
-                # P2: never buy on stale candles (dead feed / unnoticed holiday).
-                try:
-                    stale = (now.date() - tic_hist.index[-1].date()).days
-                except Exception:
-                    stale = 0
-                if stale > getattr(cfg, "max_stale_days", 7):
-                    skipped.append({
-                        "ticker": pick["ticker"],
-                        "reason": f"stale_data_{stale}d",
-                    })
-                    continue
-                last_open = float(tic_hist["Open"].iloc[-1]) if "Open" in tic_hist else None
-                last_high = float(tic_hist["High"].iloc[-1]) if "High" in tic_hist else None
-                last_low = float(tic_hist["Low"].iloc[-1]) if "Low" in tic_hist else None
-                last_close = float(tic_hist["Close"].iloc[-1])
-                # v5: skip live mcap fetch — yfinance .info is slow + often
-                # fails from cloud IPs. The rupee-turnover floor already
-                # block illiquid names; live mcap was a redundant second gate.
-                mcap_cr = None
-                spread_pct = None
-                if self.broker is not None:
-                    try:
-                        bid, ask = self.broker.bid_ask(pick["ticker"])
-                        if bid and ask and bid > 0:
-                            spread_pct = (ask - bid) / ((ask + bid) / 2)
-                    except Exception:
-                        pass
-                ok_liq, reason_liq = passes_liquidity(
-                    tic_hist["Close"], tic_hist["Volume"],
-                    last_high=last_high, last_low=last_low,
-                    last_open=last_open, last_close=last_close,
-                    market_cap_cr=mcap_cr, spread_pct=spread_pct,
-                )
-                if not ok_liq:
-                    skipped.append({
-                        "ticker": pick["ticker"],
-                        "reason": f"liquidity_{reason_liq}",
-                    })
-                    continue
-                # v5: correlation gate — was 0.70, tightened to 0.85 because
-                # N200 stocks routinely correlate 0.55-0.75 with each other
-                # (banks + financials cluster) and the strict 0.70 was blocking
-                # every diversification candidate. 0.85 still catches the
-                # genuinely-same-bet pairs.
-                cand_ret = daily_returns(tic_hist["Close"])
-                blocker = correlation_gate_blocks(
-                    cand_ret, open_returns, threshold=0.85,
-                )
-                if blocker is not None:
-                    skipped.append({
-                        "ticker": pick["ticker"],
-                        "reason": f"correlated_{blocker[0]}_{blocker[1]:.2f}",
-                    })
-                    continue
-                # Batch C: candle BUY-CONFIRMATION — execute only when the
-                # latest candle confirms the signal; otherwise wait (skip is
-                # journaled and surfaces on the watchlist / triggers card).
-                # Ocean picks are exempt: their reclaim rail (close above the
-                # prior day's high, no fresh 20d low) IS the confirmation —
-                # a capitulation-reversal bar rarely forms a textbook
-                # bullish structure, and double-gating would starve the
-                # engine the owner just approved.
-                from .candles import candle_gate_applies
-                if not pick.get("ocean") and candle_gate_applies(cfg):
-                    ok_candle, candle_why = candle_confirmation(tic_hist, cfg)
-                    if not ok_candle:
+                # v5: ticker-specific event blackout (earnings)
+                if is_ticker_event_within is not None:
+                    tic_event = is_ticker_event_within(pick["ticker"], days=3)
+                    de.put(d, "ticker_event", {"event_type": tic_event.event_type, "event_date": str(tic_event.event_date)} if tic_event else None,
+                           {"lookahead_days": 3}, passed=tic_event is None, reason="Known calendar only")
+                    if tic_event is not None:
                         skipped.append({
                             "ticker": pick["ticker"],
-                            "reason": f"candle_wait_{candle_why}",
+                            "reason": f"blackout_{tic_event.event_type}_{tic_event.event_date}",
                         })
                         continue
-            cleared.append(pick)
-
+                if is_ticker_event_within is None:
+                    de.put(d, "ticker_event", state="unavailable", reason="Calendar reader unavailable")
+                de.put(d, "benchmark_trend", nifty_adx, cfg.nifty_min_adx, passed=not nifty_chop,
+                       state="skipped" if cfg.nifty_min_adx <= 0 else "unavailable" if nifty_adx is None else None,
+                       reason="Benchmark ADX; existing policy allows absent input")
+                if nifty_chop:
+                    skipped.append({
+                        "ticker": pick["ticker"],
+                        "reason": "nifty_chop_low_adx",
+                    })
+                    continue
+                # v5: graduated drawdown halt
+                de.put(d, "drawdown_halt", self.drawdown_gov.snapshot(), "halt_new_entries=False", passed=not self.drawdown_gov.halt_new_entries)
+                if self.drawdown_gov.halt_new_entries:
+                    skipped.append({
+                        "ticker": pick["ticker"],
+                        "reason": f"drawdown_{self.drawdown_gov.active_level}",
+                    })
+                    continue
+                # v5: consecutive-loss halt. OWNER ORDER 2026-10-21 ("Halt only
+                # the category that lost"): judged for THIS pick's category —
+                # ocean for an Ocean pick, else the pass's mode — against that
+                # category's own losers and open count. cfg.loss_halt_scope
+                # "book" = the old book-wide rule.
+                halt_cat = self._loss_halt_category(pick, cfg)
+                halted = self.loss_tracker.halted(
+                        today=now.date(),
+                        open_positions=len(self.portfolio.positions),
+                        category=halt_cat,
+                        open_in_category=self._open_in_category(halt_cat),
+                        scope=self._loss_halt_scope(cfg))
+                de.put(d, "loss_halt", {"category": halt_cat, "losses": self.loss_tracker.by_category.get(halt_cat, 0),
+                    "book_losses": self.loss_tracker.losses_today, "count_day": str(self.loss_tracker.today), "evaluated_day": str(now.date()), "counts_current": self.loss_tracker.today == now.date(), "open_in_category": self._open_in_category(halt_cat)},
+                    {"scope": self._loss_halt_scope(cfg), "category_limit": self.loss_tracker.limit(self._open_in_category(halt_cat) + self.loss_tracker.losses_in(halt_cat)), "book_limit": self.loss_tracker.limit()}, passed=not halted)
+                if halted:
+                    skipped.append({
+                        "ticker": pick["ticker"],
+                        "reason": "consecutive_loss_halt",
+                        "category": halt_cat,
+                    })
+                    continue
+                de.put(d, "already_held", pick["ticker"] in self.portfolio.positions, False, passed=pick["ticker"] not in self.portfolio.positions)
+                if pick["ticker"] in self.portfolio.positions:
+                    skipped.append({"ticker": pick["ticker"], "reason": "already_held"})
+                    continue
+                # v5: liquidity hard floor
+                tic_hist = history.get(pick["ticker"])
+                if tic_hist is not None:
+                    # P2: never buy on stale candles (dead feed / unnoticed holiday).
+                    age_known = True
+                    try:
+                        stale = (now.date() - tic_hist.index[-1].date()).days
+                    except Exception:
+                        stale = 0
+                        age_known = False
+                    de.put(d, "data_age", stale if age_known else None, getattr(cfg, "max_stale_days", 7), passed=stale <= getattr(cfg, "max_stale_days", 7),
+                           state=None if age_known else "unavailable", reason="Calendar days since last daily bar; unknown index retains existing fail-open policy")
+                    if stale > getattr(cfg, "max_stale_days", 7):
+                        skipped.append({
+                            "ticker": pick["ticker"],
+                            "reason": f"stale_data_{stale}d",
+                        })
+                        continue
+                    last_open = float(tic_hist["Open"].iloc[-1]) if "Open" in tic_hist else None
+                    last_high = float(tic_hist["High"].iloc[-1]) if "High" in tic_hist else None
+                    last_low = float(tic_hist["Low"].iloc[-1]) if "Low" in tic_hist else None
+                    last_close = float(tic_hist["Close"].iloc[-1])
+                    # v5: skip live mcap fetch — yfinance .info is slow + often
+                    # fails from cloud IPs. The rupee-turnover floor already
+                    # block illiquid names; live mcap was a redundant second gate.
+                    mcap_cr = None
+                    spread_pct = None
+                    if self.broker is not None:
+                        try:
+                            bid, ask = self.broker.bid_ask(pick["ticker"])
+                            if bid and ask and bid > 0:
+                                spread_pct = (ask - bid) / ((ask + bid) / 2)
+                        except Exception:
+                            pass
+                    ok_liq, reason_liq = passes_liquidity(
+                        tic_hist["Close"], tic_hist["Volume"],
+                        last_high=last_high, last_low=last_low,
+                        last_open=last_open, last_close=last_close,
+                        market_cap_cr=mcap_cr, spread_pct=spread_pct,
+                    )
+                    if not ok_liq:
+                        skipped.append({
+                            "ticker": pick["ticker"],
+                            "reason": f"liquidity_{reason_liq}",
+                        })
+                        continue
+                    # v5: correlation gate — was 0.70, tightened to 0.85 because
+                    # N200 stocks routinely correlate 0.55-0.75 with each other
+                    # (banks + financials cluster) and the strict 0.70 was blocking
+                    # every diversification candidate. 0.85 still catches the
+                    # genuinely-same-bet pairs.
+                    cand_ret = daily_returns(tic_hist["Close"])
+                    blocker = correlation_gate_blocks(
+                        cand_ret, open_returns, threshold=0.85,
+                    )
+                    if blocker is not None:
+                        skipped.append({
+                            "ticker": pick["ticker"],
+                            "reason": f"correlated_{blocker[0]}_{blocker[1]:.2f}",
+                        })
+                        continue
+                    # Batch C: candle BUY-CONFIRMATION — execute only when the
+                    # latest candle confirms the signal; otherwise wait (skip is
+                    # journaled and surfaces on the watchlist / triggers card).
+                    # Ocean picks are exempt: their reclaim rail (close above the
+                    # prior day's high, no fresh 20d low) IS the confirmation —
+                    # a capitulation-reversal bar rarely forms a textbook
+                    # bullish structure, and double-gating would starve the
+                    # engine the owner just approved.
+                    from .candles import candle_gate_applies
+                    if not pick.get("ocean") and candle_gate_applies(cfg):
+                        ok_candle, candle_why = candle_confirmation(tic_hist, cfg)
+                        de.put(d, "candle", candle_why, {"lookback": cfg.candle_breakout_lookback, "volume_mult": cfg.candle_volume_mult}, passed=ok_candle,
+                               reason="Current candle gate; advisory-policy change is SEQ-07")
+                        if not ok_candle:
+                            skipped.append({
+                                "ticker": pick["ticker"],
+                                "reason": f"candle_wait_{candle_why}",
+                            })
+                            continue
+                    else:
+                        de.put(d, "candle", state="skipped", reason="Ocean exemption or candle switch disabled")
+                else:
+                    de.put(d, "liquidity_history", state="unavailable", reason="History missing on entry path")
+                quote_ev = qe.observation(live_fill_px, pick["ticker"], datetime.utcnow())
+                pick["quote_evidence"] = quote_ev
+                d["quote"] = copy.deepcopy(quote_ev)
+                quote_ok = qe.executable(live_fill_px, pick["ticker"], datetime.utcnow())
+                de.put(d, "quote", quote_ev, "Positive routed LTP or intraday close; daily/retained marks excluded",
+                       state="unavailable" if quote_ev.get("source") in ("unknown", "unavailable") else None, passed=quote_ok)
+                if isinstance(live_fill_px, qe.QuoteBatch) and not quote_ok:
+                    skipped.append({"ticker": pick["ticker"], "reason": "quote_unavailable_or_non_executable"})
+                    continue
+                cleared.append(pick)
         # OWNER ORDER 2026-09-04: rotation executes. Runs BEFORE the opening
         # pass so the cash it frees is there when can_open counts it, and
         # AFTER the gates (S-4) so it only ever funds a pick that will buy.
@@ -928,127 +1035,147 @@ class TradingEngine:
             cleared = [pk for pk in cleared if pk["ticker"] not in rotated_out]
 
         for pick in cleared:
-            if not ir.entry_allowed(cfg.mode, datetime.utcnow()):
-                skipped.append({"ticker": pick["ticker"], "reason": "intraday_entry_deadline"})
-                continue
-            live_px = live_fill_px.get(pick["ticker"])
-            if live_px and live_px > 0:
-                # 2026-08-26: the router can now serve a ~1-minute-delayed
-                # public candle when no login token exists — label it as
-                # such, never as a live tick (the 2026-07-31 lesson).
-                from . import quote_router as _qr
-                src = _qr.LAST_SOURCES.get(pick["ticker"], "live_quote")
-                raw_fill = float(live_px)
-                pick["fill_source"] = ("live_quote" if src == "upstox"
-                                       else src)
-            else:
-                raw_fill, pick["fill_source"] = pick["last_close"], "prev_close"
-            fill = slippage_price(raw_fill, "BUY", cfg)
-            current_eq = self.portfolio.equity(marks)
-            # Owner order 2026-07-30: size by ½-Kelly off this stock's own
-            # estimated edge and volatility instead of a flat rupee amount.
-            # Falls back to the fixed size when history is missing, and every
-            # risk gate inside can_open still applies to the result.
-            from .sizing import position_notional_for
-            cand_close = history.get(pick["ticker"], {}).get("Close") \
-                if isinstance(history.get(pick["ticker"]), dict) else None
-            if cand_close is None:
-                try:
-                    cand_close = history[pick["ticker"]]["Close"].dropna()
-                except Exception:
-                    cand_close = None
-            kelly_notional_rs, size_diag = position_notional_for(
-                cfg, current_eq, score=pick.get("score"), close=cand_close)
-            if pick.get("ocean"):
-                # Owner-approved 2026-08-26: Ocean entries are HALF size
-                # (Rs 1,68,750, owner order 2026-08-30) — the rails are the
-                # edge claim, the size is
-                # the humility. Every can_open gate still applies.
-                ocean_rs = float(getattr(cfg, "ocean_position_value",
-                                         168_750.0) or 168_750.0)
-                size_diag = {"mode": "ocean_fixed", "notional": ocean_rs}
-                notional_arg = ocean_rs
-            else:
-                notional_arg = (kelly_notional_rs
-                                if size_diag.get("mode") != "fixed" else None)
-                cap_rs = self._measured_kelly_cap(mk, cfg, current_eq)
-                if cap_rs is not None:
-                    want = (notional_arg if notional_arg is not None
-                            else float(cfg.position_notional()))
-                    size_diag = dict(size_diag)
-                    size_diag["measured_kelly"] = {
-                        "status": mk.status, "usable": mk.usable,
-                        "fraction": mk.fraction, "cap": round(cap_rs, 0),
-                        "wanted": round(float(want), 0),
-                        "capped": bool(want > cap_rs)}
-                    if want > cap_rs:
-                        notional_arg = cap_rs
-            # OWNER ORDER 2026-10-04: each category spends only its own share
-            # (momentum 40%, the other four 15% each). Ocean is exempt.
-            ok, reason, qty = can_open(
-                self.risk, self.portfolio.cash, current_eq,
-                self.portfolio.positions, pick["ticker"], fill, cfg,
-                notional_override=notional_arg,
-                category=(None if pick.get("ocean")
-                          else (getattr(cfg, "mode", "") or MOMENTUM_MODE)),
-            )
-            pick["size_diag"] = size_diag
-            # v7: size throttle = MIN of (strength, IFR) instead of product.
-            # Previously we multiplied them, which compounded to 0.25-0.35x
-            # and zeroed qty on expensive stocks. The throttles are designed
-            # as alternative defensive measures, not stacking damages — take
-            # whichever is more restrictive at any one time.
-            if ok:
-                s = pick.get("score", 0)
-                # Under Kelly the score ALREADY sets the size (mu is derived
-                # from it), so applying the strength ladder too would count the
-                # score twice and shrink good picks for no reason. The IFR
-                # throttle stays either way — it is a damage-cluster defence,
-                # not a score judgement.
-                # AUDIT FIX A1 (2026-08-09): the strength ladder
-                # (0.5/0.7/1.0x by score) is GONE. Under Kelly it double-
-                # counted the score; under fixed it silently cut the owner's
-                # written Rs 1.25L to Rs 87.5k for every 62-74.9 pick — the
-                # size is the owner's number, not a suggestion. The IFR
-                # throttle stays: it is a damage-cluster defence, not a
-                # score judgement.
-                ifr_mult = ifr_snapshot.sizing_multiplier if ifr_snapshot else 1.0
-                # AUDIT E (2026-08-09): the drawdown governor's documented
-                # "watchful → size 75%" tier was set in update() and consumed
-                # by NOTHING — the risk page described a control that never
-                # ran. It throttles for real now (most restrictive wins).
-                dd_mult = float(getattr(self.drawdown_gov,
-                                        "sizing_multiplier", 1.0) or 1.0)
-                throttle = min(ifr_mult, dd_mult)
-                qty = self._throttled_qty(
-                    qty, throttle, fill,
-                    float(getattr(cfg, "position_slab_value", 0) or 0))
-                from .risk import min_trade_value
-                min_val = min_trade_value(
-                    cfg, notional_arg if notional_arg is not None
-                    else float(cfg.position_notional()))
-                if qty > 0 and min_val > 0 and qty * fill < min_val:
-                    skipped.append({
-                        "ticker": pick["ticker"],
-                        "reason": f"below_min_value_{int(min_val)}",
-                    })
+            with de.capture(pick["decision"]):
+                if not ir.entry_allowed(cfg.mode, datetime.utcnow()):
+                    skipped.append({"ticker": pick["ticker"], "reason": "intraday_entry_deadline"})
                     continue
-                if qty <= 0:
-                    skipped.append({
-                        "ticker": pick["ticker"],
-                        "reason": f"throttle_zero_qty (ifr={ifr_mult})",
-                    })
+                live_px = live_fill_px.get(pick["ticker"])
+                quote_ev = qe.observation(live_fill_px, pick["ticker"], datetime.utcnow())
+                pick["quote_evidence"] = quote_ev
+                executable = qe.executable(live_fill_px, pick["ticker"], datetime.utcnow())
+                de.put(pick["decision"], "quote", quote_ev,
+                       "Positive routed LTP or intraday close; age recorded without a new cutoff",
+                       passed=executable, state="unavailable" if quote_ev.get("source") in ("unknown", "unavailable") else None,
+                       reason="Price source/time retained; unknown injected adapters remain explicit")
+                if isinstance(live_fill_px, qe.QuoteBatch) and not executable:
+                    skipped.append({"ticker": pick["ticker"], "reason": "quote_unavailable_or_non_executable"})
                     continue
-            if not ok:
-                skipped.append({"ticker": pick["ticker"], "reason": reason})
-                continue
-            entry_now = datetime.utcnow()
-            if not ir.entry_allowed(cfg.mode, entry_now):
-                skipped.append({"ticker": pick["ticker"], "reason": "intraday_entry_deadline"})
-                continue
-            self._open(pick, qty, fill, entry_now)
-            opened.append(pick["ticker"])
-
+                if live_px and live_px > 0:
+                    # 2026-08-26: the router can now serve a ~1-minute-delayed
+                    # public candle when no login token exists — label it as
+                    # such, never as a live tick (the 2026-07-31 lesson).
+                    src = quote_ev.get("source", "unknown")
+                    raw_fill = float(live_px)
+                    pick["fill_source"] = ("live_quote" if src == "upstox"
+                                           else src)
+                else:
+                    raw_fill, pick["fill_source"] = pick["last_close"], "prev_close"
+                    pick["quote_evidence"] = qe.make(raw_fill, "prev_close", now, interval="1d",
+                        provider_date=pick["decision"]["bar"].get("last_bar"), reason="Legacy injected adapter fallback")
+                fill = slippage_price(raw_fill, "BUY", cfg)
+                current_eq = self.portfolio.equity(marks)
+                # Owner order 2026-07-30: size by ½-Kelly off this stock's own
+                # estimated edge and volatility instead of a flat rupee amount.
+                # Falls back to the fixed size when history is missing, and every
+                # risk gate inside can_open still applies to the result.
+                from .sizing import position_notional_for
+                cand_close = history.get(pick["ticker"], {}).get("Close") \
+                    if isinstance(history.get(pick["ticker"]), dict) else None
+                if cand_close is None:
+                    try:
+                        cand_close = history[pick["ticker"]]["Close"].dropna()
+                    except Exception:
+                        cand_close = None
+                kelly_notional_rs, size_diag = position_notional_for(
+                    cfg, current_eq, score=pick.get("score"), close=cand_close)
+                if pick.get("ocean"):
+                    # Owner-approved 2026-08-26: Ocean entries are HALF size
+                    # (Rs 1,68,750, owner order 2026-08-30) — the rails are the
+                    # edge claim, the size is
+                    # the humility. Every can_open gate still applies.
+                    ocean_rs = float(getattr(cfg, "ocean_position_value",
+                                             168_750.0) or 168_750.0)
+                    size_diag = {"mode": "ocean_fixed", "notional": ocean_rs}
+                    notional_arg = ocean_rs
+                else:
+                    notional_arg = (kelly_notional_rs
+                                    if size_diag.get("mode") != "fixed" else None)
+                    cap_rs = self._measured_kelly_cap(mk, cfg, current_eq)
+                    if cap_rs is not None:
+                        want = (notional_arg if notional_arg is not None
+                                else float(cfg.position_notional()))
+                        size_diag = dict(size_diag)
+                        size_diag["measured_kelly"] = {
+                            "status": mk.status, "usable": mk.usable,
+                            "fraction": mk.fraction, "cap": round(cap_rs, 0),
+                            "wanted": round(float(want), 0),
+                            "capped": bool(want > cap_rs)}
+                        if want > cap_rs:
+                            notional_arg = cap_rs
+                # OWNER ORDER 2026-10-04: each category spends only its own share
+                # (momentum 40%, the other four 15% each). Ocean is exempt.
+                ok, reason, qty = can_open(
+                    self.risk, self.portfolio.cash, current_eq,
+                    self.portfolio.positions, pick["ticker"], fill, cfg,
+                    notional_override=notional_arg,
+                    category=(None if pick.get("ocean")
+                              else (getattr(cfg, "mode", "") or MOMENTUM_MODE)),
+                )
+                pick["size_diag"] = size_diag
+                # v7: size throttle = MIN of (strength, IFR) instead of product.
+                # Previously we multiplied them, which compounded to 0.25-0.35x
+                # and zeroed qty on expensive stocks. The throttles are designed
+                # as alternative defensive measures, not stacking damages — take
+                # whichever is more restrictive at any one time.
+                if ok:
+                    s = pick.get("score", 0)
+                    # Under Kelly the score ALREADY sets the size (mu is derived
+                    # from it), so applying the strength ladder too would count the
+                    # score twice and shrink good picks for no reason. The IFR
+                    # throttle stays either way — it is a damage-cluster defence,
+                    # not a score judgement.
+                    # AUDIT FIX A1 (2026-08-09): the strength ladder
+                    # (0.5/0.7/1.0x by score) is GONE. Under Kelly it double-
+                    # counted the score; under fixed it silently cut the owner's
+                    # written Rs 1.25L to Rs 87.5k for every 62-74.9 pick — the
+                    # size is the owner's number, not a suggestion. The IFR
+                    # throttle stays: it is a damage-cluster defence, not a
+                    # score judgement.
+                    ifr_mult = ifr_snapshot.sizing_multiplier if ifr_snapshot else 1.0
+                    # AUDIT E (2026-08-09): the drawdown governor's documented
+                    # "watchful → size 75%" tier was set in update() and consumed
+                    # by NOTHING — the risk page described a control that never
+                    # ran. It throttles for real now (most restrictive wins).
+                    dd_mult = float(getattr(self.drawdown_gov,
+                                            "sizing_multiplier", 1.0) or 1.0)
+                    throttle = min(ifr_mult, dd_mult)
+                    pick["ifr_applied_multiplier"] = ifr_mult
+                    pick["decision"]["overlays"] = {"ifr": de.clean(vars(ifr_snapshot)) if ifr_snapshot is not None else {"status": "unavailable", "applied_default": 1.0},
+                                                       "drawdown": de.clean(self.drawdown_gov.snapshot())}
+                    de.record("size_throttle", {"ifr_multiplier": ifr_mult, "drawdown_multiplier": dd_mult, "before_qty": qty},
+                              {"rule": "minimum", "multiplier": throttle}, passed=throttle > 0, role="sizing")
+                    qty = self._throttled_qty(
+                        qty, throttle, fill,
+                        float(getattr(cfg, "position_slab_value", 0) or 0))
+                    from .risk import min_trade_value
+                    min_val = min_trade_value(
+                        cfg, notional_arg if notional_arg is not None
+                        else float(cfg.position_notional()))
+                    de.record("quantity_after_throttle", qty, 1, passed=qty >= 1, role="sizing")
+                    de.record("minimum_value_after_throttle", qty * fill, min_val, passed=qty * fill >= min_val, role="sizing")
+                    if qty > 0 and min_val > 0 and qty * fill < min_val:
+                        skipped.append({
+                            "ticker": pick["ticker"],
+                            "reason": f"below_min_value_{int(min_val)}",
+                        })
+                        continue
+                    if qty <= 0:
+                        skipped.append({
+                            "ticker": pick["ticker"],
+                            "reason": f"throttle_zero_qty (ifr={ifr_mult})",
+                        })
+                        continue
+                if not ok:
+                    skipped.append({"ticker": pick["ticker"], "reason": reason})
+                    continue
+                entry_now = datetime.utcnow()
+                de.record("entry_deadline_final", de.stamp(entry_now), "15:25 IST", passed=ir.entry_allowed(cfg.mode, entry_now),
+                          state="skipped" if cfg.mode != "intraday" else None)
+                if not ir.entry_allowed(cfg.mode, entry_now):
+                    skipped.append({"ticker": pick["ticker"], "reason": "intraday_entry_deadline"})
+                    continue
+                self._open(pick, qty, fill, entry_now)
+                opened.append(pick["ticker"])
         self._journal_budget_full(skipped, now)
         self._journal_loss_halt(skipped, now)
 
@@ -1086,6 +1213,7 @@ class TradingEngine:
         self.portfolio.last_scan_picks = [
             {
                 "ticker": r["ticker"], "score": r["score"],
+                "decision_id": (self.portfolio.positions[r["ticker"]].trade_evidence.get("entry", {}).get("id") if r["ticker"] in opened else r["decision"]["id"]),
                 "reasoning": r["reasoning"], "last_close": r["last_close"],
                 "timing_pass": r["timing_pass"],
                 "components": r.get("components") or {},
@@ -1100,6 +1228,18 @@ class TradingEngine:
         self.portfolio.last_scan_skipped = list(skipped)
         self.portfolio.last_scan_opened = list(opened)
 
+        # Retain every actual selection path, including absent/unscored names.
+        skip_reasons = {r["ticker"]: r["reason"] for r in skipped}
+        for d in decisions.values():
+            ticker = d["ticker"]
+            failures = [k for k, v in d["gates"].items() if v["state"] == "failed"]
+            unavailable = [k for k, v in d["gates"].items() if v["state"] == "unavailable"]
+            reason = skip_reasons.get(ticker) or (failures[0] if failures else unavailable[0] if unavailable else "not selected")
+            bought_here = ticker in opened and (self.portfolio.positions[ticker].trade_evidence.get("entry") or {}).get("id") == d["id"]
+            outcome = "bought" if bought_here else "blocked" if ticker in skip_reasons or failures else "unavailable" if unavailable else "not_selected"
+            observed = self.portfolio.positions[ticker].trade_evidence["entry"] if bought_here else d
+            de.journal_decision(self.portfolio, observed, outcome, "Entry executed" if bought_here else reason)
+
         # 🎹 Parameter Piano — the FULL scan hit-map, every ticker × every real
         # computed check (factor scores, timing, absolute momentum, candle,
         # gate outcome). Rendered as the grid on /scan. Overwritten per scan,
@@ -1113,6 +1253,7 @@ class TradingEngine:
             "universe_size": len(universe),
             "rows": {
                 r["ticker"]: {
+                    "decision_id": (self.portfolio.positions[r["ticker"]].trade_evidence.get("entry", {}).get("id") if r["ticker"] in opened else r["decision"]["id"]),
                     "c": {k: round(float(v), 1)
                           for k, v in (r.get("components") or {}).items()},
                     "score": round(float(r["score"]), 1),
@@ -1244,12 +1385,17 @@ class TradingEngine:
                 record["status"] = "waiting_market"
                 continue
             price = pm.positive_price((prices or {}).get(ticker))
-            if price is None:
-                record.update(status="waiting_quote", last_error=quote_error)
+            decision = de.exit_decision(pos, prices, now)
+            de.put(decision, "square_off", de.stamp(now), record.get("deadline"), passed=True, role="exit_trigger")
+            record["last_quote"] = qe.observation(prices, ticker, now)
+            if price is None or not qe.executable(prices, ticker, now):
+                record.update(status="waiting_quote", last_error=quote_error or ("quote_non_executable_or_unavailable" if price is not None else None))
                 self._journal_intraday_pending(pos, now)
+                de.journal_exit(p, decision, "held", "square_off_waiting_quote")
                 continue
             try:
-                self._close(ticker, price, "SQUARE_OFF", now)
+                with de.capture(decision):
+                    self._close(ticker, price, "SQUARE_OFF", now)
                 closed.append(ticker)
                 p.save()  # checkpoint each completed holding independently
             except Exception as exc:
@@ -1295,9 +1441,7 @@ class TradingEngine:
         self._absorb_corporate_actions("refresh")
         tickers = list(self.portfolio.positions.keys())
         prices = routed_fetch_quotes(tickers, upstox_client=self.broker)
-        prices = {t: px for t, value in (prices or {}).items()
-                  if t in self.portfolio.positions
-                  and (px := pm.positive_price(value)) is not None}
+        prices = qe.select(prices, lambda t, value: t in self.portfolio.positions and pm.positive_price(value) is not None)
         if not prices:
             # FIX (2026-07-12): stale-data guard. No live quotes = we must NOT
             # fire exits on entry-price marks (a missed Upstox login would
@@ -1307,6 +1451,9 @@ class TradingEngine:
                 e.get("action") == "DATA_STALE" and str(e.get("ts", "")).startswith(today_iso)
                 for e in self.portfolio.decision_journal[-50:]
             )
+            for pos in self.portfolio.positions.values():
+                de.journal_exit(self.portfolio, de.exit_decision(pos, prices, datetime.utcnow(),
+                    session=self._trading_allowed(datetime.utcnow())), "held", "quote_unavailable")
             marks = self._freshest_marks({}, {})
             if not already:
                 self.portfolio.decision_journal.append({
@@ -1358,7 +1505,7 @@ class TradingEngine:
         # only; runs before the exit loop so a tightened stop is live today.
         try:
             if not marking_only:
-                self._danger_pass(prices, history, now)
+                self._danger_pass(qe.select(prices, lambda t, px: qe.executable(prices, t, datetime.utcnow())), history, now)
         except Exception:
             log.exception("danger layer pass failed")
             self.portfolio.decision_journal.append({
@@ -1421,6 +1568,7 @@ class TradingEngine:
                 # closed at entry, erasing the recorded gain. No quote = no
                 # exit decision for that name, journaled once per day.
                 no_quote_held.append(ticker)
+                de.journal_exit(self.portfolio, de.exit_decision(pos, prices, now, session=not marking_only), "held", "quote_unavailable")
                 today_key = now.date().isoformat()
                 seen = any(e.get("action") == "EXIT_HELD_NO_QUOTE"
                            and e.get("ticker") == ticker
@@ -1442,6 +1590,7 @@ class TradingEngine:
             # AM07 composite here, while it was bought on the momentum +
             # quality blend — a different number, sold on a different floor.
             current_score = pos.entry_score
+            score_available = False
             if ticker in history:
                 rescored, _ = score_for_mode(
                     getattr(pos, "mode", "") or MOMENTUM_MODE,
@@ -1451,6 +1600,7 @@ class TradingEngine:
                 # position keeps its entry score rather than reading 0.
                 if rescored is not None:
                     current_score = rescored
+                    score_available = True
             if ir.is_due(pos, datetime.utcnow()):
                 # Rescoring can cross 15:25 or the market close. Re-enter
                 # deadline recovery with a new quote/time check, never execute
@@ -1458,8 +1608,16 @@ class TradingEngine:
                 exits.extend(self.square_off_intraday())
                 continue
             xcfg = self._exit_cfg(pos, cfg)
-            should_exit, reason = check_exit(
-                pos, price, current_score, xcfg, now)
+            decision = de.exit_decision(pos, prices, datetime.utcnow(), session=not marking_only)
+            decision["score_available"] = score_available
+            decision["bar"] = de.bar_context(history.get(ticker))
+            decision["benchmark"] = {"ticker": cfg.benchmark, **de.bar_context(bench)}
+            with de.capture(decision):
+                should_exit, reason = check_exit(pos, price, current_score, xcfg, now)
+            de.put(decision, "valuation_target", (getattr(pos, "val_target", None) or {}).get("exit_due"),
+                   {"enabled": bool(getattr(cfg, "valuation_exit_enabled", True)), "target": pos.target_price},
+                   state="skipped" if reason == "STOP_LOSS" or xcfg.disable_exits or not getattr(cfg, "valuation_exit_enabled", True) or not getattr(pos, "val_target", None) else None,
+                   passed=bool((getattr(pos, "val_target", None) or {}).get("exit_due")), role="exit_trigger")
             # ITEM 19: a month-end re-mark put the valuation target at or
             # below that month-end's close — exit at this pass's price. The
             # stop keeps its priority, as in the tested check_exit order. It
@@ -1481,8 +1639,9 @@ class TradingEngine:
                             f"the market is {self._market_state(now).replace('_', ' ')}. "
                             f"It will fire on the next in-session pass."),
                 })
-            elif should_exit:
-                self._close(ticker, price, reason, datetime.utcnow())
+            elif should_exit and qe.executable(prices, ticker, datetime.utcnow()):
+                with de.capture(decision):
+                    self._close(ticker, price, reason, datetime.utcnow())
                 exits.append(ticker)
             elif ticker not in held_today:
                 # WHY-RETAINED journal entry — why we kept it today
@@ -1500,7 +1659,7 @@ class TradingEngine:
                     # check above really used) — it printed the live mode's,
                     # so a positional holding read "max 200d" under momentum.
                     "why": (
-                        f"No exit rule hit: ret {upct:+.1f}% inside "
+                        f"{reason + chr(32) + 'pending valid quote;' if should_exit else 'No exit rule hit;'} ret {upct:+.1f}% with "
                         f"stop({_level(pos.stop_price, xcfg.stop_loss_pct)})"
                         f"/target({_level(pos.target_price, xcfg.take_profit_pct)}), "
                         f"score {current_score:.0f} "
@@ -1509,6 +1668,10 @@ class TradingEngine:
                         f"{xcfg.max_hold_days}d ({getattr(pos, 'mode', '') or MOMENTUM_MODE})"
                     ),
                 })
+
+            if ticker in self.portfolio.positions:
+                de.journal_exit(self.portfolio, decision, "held",
+                    "quote_unavailable_or_non_executable" if not qe.executable(prices, ticker, datetime.utcnow()) else reason or "No exit trigger")
 
         now = datetime.utcnow()
         marking_only = not self._trading_allowed(now)
@@ -1521,7 +1684,9 @@ class TradingEngine:
                     pos = self.portfolio.positions[ticker]
                     if ir.is_due(pos, datetime.utcnow()):
                         continue  # pending square-off cannot grow its position
-                    ltp = prices.get(ticker, pos.entry_price)
+                    if not qe.executable(prices, ticker, now):
+                        continue
+                    ltp = prices[ticker]
                     plan = pyramid_plan(pos, ltp, self.portfolio.cash, cfg)
                     if plan is None:
                         continue
@@ -1529,7 +1694,9 @@ class TradingEngine:
                     fill = slippage_price(ltp, "BUY", cfg)
                     self.portfolio.cash -= add_qty * fill
                     prev_adds = pos.pyramid_adds
+                    before = de.protection(pos)
                     apply_pyramid(pos, add_qty, fill)
+                    de.amendment(pos, before, "PYRAMID_ADD", now, portfolio=self.portfolio, details={"qty": add_qty, "fill": fill})
                     self.portfolio.decision_journal.append({
                         "ts": now.isoformat(), "action": "PYRAMID_ADD",
                         "ticker": ticker, "add_qty": add_qty,
@@ -1552,15 +1719,22 @@ class TradingEngine:
                 price = prices.get(ticker)
                 if not price or price <= 0:
                     continue
-                self._close(ticker, price, "KILL_SWITCH", now)
+                if not qe.executable(prices, ticker, datetime.utcnow()):
+                    continue
+                decision = de.exit_decision(self.portfolio.positions[ticker], prices, now)
+                de.put(decision, "kill_switch", {"daily_pnl_pct": self.risk.daily_pnl_pct(current_eq),
+                       "latched": self.risk.kill_switch, "baseline": self.risk.day_start_equity},
+                       cfg.daily_loss_halt_pct, passed=True, role="exit_trigger")
+                with de.capture(decision):
+                    self._close(ticker, price, "KILL_SWITCH", now)
                 exits.append(ticker)
 
         # P1/F3: drawdown-ladder crash brake — sells the worst positions when
         # the book falls -10% / -15% / -20% from its peak. Runs EVEN in hold
         # mode. Rules (owner order 2026-10-02) live in _update_drawdown.
-        executable = {t: px for t, px in prices.items()
-                      if t in self.portfolio.positions
-                      and not ir.is_due(self.portfolio.positions[t], now)}
+        executable = qe.select(prices, lambda t, px: t in self.portfolio.positions
+                      and not ir.is_due(self.portfolio.positions[t], now)
+                      and qe.executable(prices, t, datetime.utcnow()))
         exits.extend(self._update_drawdown(executable, now,
                                            cut_allowed=not marking_only,
                                            marks=marks))
@@ -1593,11 +1767,27 @@ class TradingEngine:
         # so the BUY line carries how it was set.
         stop_price = self._stop_for(pick, fill_price, cfg=cfg)
         notional = qty * fill_price
+        decision = copy.deepcopy(pick.get("decision") or de.new(pick["ticker"], cfg.mode, pick.get("entry_path", "direct"), now, pick.get("history")))
+        de.put(decision, "entry_deadline_final", ir.utc(now).isoformat(), "Before intraday square-off deadline", passed=True,
+               state="skipped" if cfg.mode != "intraday" else None, reason="Final engine guard; other segments exempt")
+        decision["quote"] = copy.deepcopy(pick.get("quote_evidence") or qe.observation({}, pick["ticker"], now))
+        decision["fill"] = {"price": fill_price, "qty": qty, "notional": notional,
+            "stop": stop_price, "target": target_price, "slippage_bps": cfg.slippage_bps,
+            "target_method": de.clean(pick.get("target_diag") or {}), "stop_method": de.clean(pick.get("stop_diag") or {})}
+        decision["sizing"] = de.clean(pick.get("size_diag") or {})
+        decision["ifr_multiplier"] = pick.get("ifr_applied_multiplier")
+        decision["ifr_last_fire"] = self.portfolio.last_ifr_fire_date
+        entry_evidence = de.finish(decision, "bought", pick.get("reasoning", ""))
+        trade_evidence = {"schema": 1, "trade_id": decision["id"], "entry": entry_evidence,
+                          "amendments": [], "amendments_omitted": 0}
         self.portfolio.cash -= notional
         # WHY-BOUGHT journal entry — full decision context, never deleted
         self.portfolio.decision_journal.append({
             "ts": now.isoformat(),
             "action": "BUY",
+            "trade_id": trade_evidence["trade_id"],
+            "decision_id": decision["id"],
+            "evidence": copy.deepcopy(entry_evidence),
             "ticker": pick["ticker"],
             "qty": qty,
             "price": round(fill_price, 2),
@@ -1608,7 +1798,8 @@ class TradingEngine:
             "mode": getattr(cfg, "mode", "?"),
             "regime": self.portfolio.last_regime,
             "drawdown_level": getattr(self.drawdown_gov, "active_level", "?"),
-            "ifr_active": self.portfolio.last_ifr_fire_date is not None,
+            "ifr_active": (pick["ifr_applied_multiplier"] < 1 if "ifr_applied_multiplier" in pick else None),
+            "ifr_multiplier": pick.get("ifr_applied_multiplier"),
             "ifr_last_fire": self.portfolio.last_ifr_fire_date,
             "why": pick.get("reasoning", ""),
             "cash_after": round(self.portfolio.cash, 2),
@@ -1648,6 +1839,7 @@ class TradingEngine:
             peak_price=fill_price, entry_score=pick["score"],
             reasoning=pick["reasoning"],
             mode=getattr(cfg, "mode", ""),
+            trade_evidence=copy.deepcopy(trade_evidence),
             stop_price=stop_price,
             # OWNER ORDER 2026-09-10 ("C- k x ATR"): the target is k average
             # days of range away, per horizon, not a flat percentage — a quiet
@@ -1903,8 +2095,10 @@ class TradingEngine:
             "anchor_date": today.isoformat(),
             "last_remark_month": None, "remarks": [], "exit_due": False,
         }
+        before = de.protection(pos)
         pos.target_price = target
         pos.val_target = vt
+        de.amendment(pos, before, "VALUATION_RETARGET", now, portfolio=self.portfolio, details=diag)
         self.portfolio.decision_journal.append({
             "ts": now.isoformat(), "action": "VALUATION_RETARGET",
             "ticker": t, "old_target": round(old, 2), "new_target": target,
@@ -1984,7 +2178,9 @@ class TradingEngine:
         rows = list(vt.get("remarks") or [])
         rows.append(VE.remark_entry(month, me, sm, sc, beta if beta is not None else 1.0,
                                     t_m, close, leg))
+        before = de.protection(pos)
         pos.target_price = round(float(t_m), 2)
+        de.amendment(pos, before, "VALUATION_REMARK", now, portfolio=self.portfolio, details={"month": month})
         vt["remarks"] = rows[-VE.REMARKS_CAP:]
         vt["last_remark_month"] = month
         if down:
@@ -2110,10 +2306,16 @@ class TradingEngine:
             df = history.get(ticker)
             if not price or price <= 0 or df is None or len(df) < 60:
                 continue                # no quote / thin history = no action
-            fired = danger.evaluate_stock(
-                df, ext=(ext_map or {}).get(ticker))
+            danger_decision = de.exit_decision(self.portfolio.positions[ticker], prices, now)
+            danger_decision["bar"] = de.bar_context(df)
+            with de.capture(danger_decision):
+                fired = danger.evaluate_stock(df, ext=(ext_map or {}).get(ticker))
             reading = danger.plan(ticker, fired, auto)
+            de.put(danger_decision, "danger", {"fired": fired, "automatic": auto, "action": reading.action},
+                   {"tighten": "1 trigger", "exit_half": ">=2 triggers", "alert_only_days": danger.ALERT_DAYS},
+                   passed=bool(fired), role="exit_trigger")
             if reading.action == "NONE":
+                de.journal_exit(self.portfolio, danger_decision, "held", "No danger action")
                 continue
             pos = self.portfolio.positions[ticker]
             # OWNER ORDER 2026-09-16: the danger layer may tighten a stop, but
@@ -2166,17 +2368,22 @@ class TradingEngine:
             elif reading.action == "TIGHTEN":
                 new_stop = round(price * (1 - leash), 2)
                 if new_stop > (pos.stop_price or 0):
+                    before = de.protection(pos)
                     pos.stop_price = new_stop
                     pos.custom_levels = True   # survives boot retag
+                    de.amendment(pos, before, "DANGER_TIGHTEN", now, portfolio=self.portfolio, details={"fired": reading.fired, "leash": leash, "decision": de.finish(danger_decision, "stop_amended", "DANGER_TIGHTEN", exit=True)})
                     entry["action"] = "DANGER_TIGHTEN"
                     entry["new_stop"] = new_stop
                 else:
                     entry["action"] = "DANGER_ALERT"
                     entry["why"] += " (existing stop already tighter)"
             elif reading.action == "EXIT_HALF":
-                self._exit_half(ticker, price,
-                                danger.describe(reading, auto, leash_pct=leash),
-                                now)
+                decision = danger_decision
+                de.put(decision, "danger", {"fired": reading.fired, "action": reading.action, "automatic": auto},
+                       {"leash": leash, "exit_half": ">=2 verified triggers with automatic mode active"}, passed=True, role="exit_trigger")
+                with de.capture(decision):
+                    self._exit_half(ticker, price,
+                                    danger.describe(reading, auto, leash_pct=leash), now)
                 entry["action"] = "DANGER_EXIT_HALF"
             self.portfolio.decision_journal.append(entry)
         self.portfolio.save()
@@ -2368,7 +2575,8 @@ class TradingEngine:
                 })
             return []
         try:
-            live = routed_fetch_quotes(candidates, upstox_client=self.broker) or {}
+            live = routed_fetch_quotes(candidates, upstox_client=self.broker)
+            live = qe.select(live, lambda t, px: qe.executable(live, t, datetime.utcnow()))
         except Exception as e:
             log.warning("rotation: live quotes unavailable: %s", e)
             live = {}
@@ -2426,7 +2634,14 @@ class TradingEngine:
                 continue
             value = float(held[t].qty) * px
             freed_share += float(held[t].qty) * float(held[t].entry_price)
-            self._close(t, px, "ROTATION_EXIT", now)
+            if not qe.executable(live, t, datetime.utcnow()):
+                continue
+            decision = de.exit_decision(held[t], live, now)
+            de.put(decision, "rotation", {"progress_pct": s["progress_pct"], "target": s["target"],
+                   "shortfall": shortfall, "fund_ticker": s.get("fund_ticker"), "category_room": room_now},
+                   {"min_progress": min_prog, "cash_trigger": cash_floor}, passed=True, role="exit_trigger")
+            with de.capture(decision):
+                self._close(t, px, "ROTATION_EXIT", now)
             freed += value
             rotated.append(t)
             self.portfolio.decision_journal.append({
@@ -2465,8 +2680,10 @@ class TradingEngine:
         gross = (exit_price - pos.entry_price) * half
         costs = trade_costs(half, pos.entry_price, exit_price, self.cfg)
         self.portfolio.cash += half * exit_price - costs
+        trade_ev = de.exit_snapshot(pos, raw_price, exit_price, half, reason, now, self.cfg)
+        trade_ev["exit"]["accounting"] = {"gross_pnl": gross, "costs": costs, "net_pnl": gross-costs, "method": "existing_trade_costs"}
         self.portfolio.trades.append(ClosedTrade(
-            ticker=ticker, qty=half,
+            ticker=ticker, qty=half, trade_evidence=trade_ev,
             entry_date=pos.entry_date, exit_date=now,
             entry_price=pos.entry_price, exit_price=exit_price,
             gross_pnl=gross, costs=costs, net_pnl=gross - costs,
@@ -2477,6 +2694,9 @@ class TradingEngine:
             mode=getattr(pos, "mode", "") or "",
             ca_applied=list(getattr(pos, "ca_applied", []) or []),
         ))
+        self.portfolio.decision_journal.append({"ts": now.isoformat(), "action": "SELL_PARTIAL",
+            "ticker": ticker, "qty": half, "trade_id": trade_ev["trade_id"], "decision_id": trade_ev["exit"]["id"],
+            "evidence": copy.deepcopy(trade_ev["exit"]), "exit_reason": reason})
         pos.qty -= half
 
     def _close(self, ticker: str, raw_price: float, reason: str, now: datetime) -> None:
@@ -2493,8 +2713,10 @@ class TradingEngine:
         costs = trade_costs(pos.qty, pos.entry_price, exit_price, self.cfg)
         self.portfolio.cash += pos.qty * exit_price - costs
         net_pnl = gross - costs
+        trade_ev = de.exit_snapshot(pos, raw_price, exit_price, pos.qty, reason, now, self.cfg)
+        trade_ev["exit"]["accounting"] = {"gross_pnl": gross, "costs": costs, "net_pnl": net_pnl, "method": "existing_trade_costs"}
         self.portfolio.trades.append(ClosedTrade(
-            ticker=ticker, qty=pos.qty,
+            ticker=ticker, qty=pos.qty, trade_evidence=trade_ev,
             entry_date=pos.entry_date, exit_date=now,
             entry_price=pos.entry_price, exit_price=exit_price,
             gross_pnl=gross, costs=costs, net_pnl=net_pnl,
@@ -2511,6 +2733,9 @@ class TradingEngine:
         self.portfolio.decision_journal.append({
             "ts": now.isoformat(),
             "action": "SELL",
+            "trade_id": trade_ev["trade_id"],
+            "decision_id": trade_ev["exit"]["id"],
+            "evidence": copy.deepcopy(trade_ev["exit"]),
             "ticker": ticker,
             "qty": pos.qty,
             "entry_price": round(pos.entry_price, 2),
@@ -2592,8 +2817,10 @@ class TradingEngine:
         # blocked the v4-tested +24% COVID rebound entirely. Breadth still
         # guards every normal bull/neutral day.
         if bypass:
+            de.record("breadth", state="skipped", reason="Approved VIX-crush bypass")
             return False
         if not getattr(cfg, "breadth_gate_enabled", False):
+            de.record("breadth", state="skipped", reason="Owner switch off")
             return False
         try:
             # F3 FIX (owner order 2026-08-20: "fix F3"): PREFER the stored
@@ -2647,6 +2874,11 @@ class TradingEngine:
                                   f"short for a 200DMA")
             lo = float(getattr(cfg, "breadth_block_low", 0.40))
             hi = float(getattr(cfg, "breadth_block_high", 0.65))
+            known = breadth is not None and sample >= getattr(cfg, "breadth_min_sample", 30)
+            de.record("breadth", {"fraction": breadth, "sample": sample, "source": source},
+                      {"block_from": lo, "block_below": hi, "min_sample": getattr(cfg, "breadth_min_sample", 30)},
+                      state=None if known else "unavailable", passed=not (known and lo <= breadth < hi),
+                      reason="Insufficient input retains existing fail-open policy" if not known else "")
             if (breadth is not None
                     and sample >= getattr(cfg, "breadth_min_sample", 30)
                     and lo <= breadth < hi):
@@ -2663,6 +2895,7 @@ class TradingEngine:
                 })
                 return True
         except Exception as e:
+            de.record("breadth", state="unavailable", reason=f"{type(e).__name__}; existing fail-open policy")
             log.warning("breadth gate failed (fail-open): %s", e)
         return False
 
@@ -2997,6 +3230,8 @@ class TradingEngine:
         cfg = self.cfg
         if not getattr(cfg, "ocean_enabled", False):
             return []
+        catalog = {}
+        accepted = set()
         try:
             from .engines.ocean import (crash_guard_market, crash_guard_stock,
                                         scan as ocean_scan)
@@ -3006,9 +3241,16 @@ class TradingEngine:
                              if "ocean" in (getattr(p, "tags", None) or []))
             free = max_slots - open_ocean
             if free <= 0:
+                for t in universe:
+                    catalog[t] = de.new(t, cfg.mode, "ocean", now, history.get(t))
+                    de.put(catalog[t], "ocean_slots", open_ocean, max_slots, passed=False)
                 return []
             hist_map = {t: history[t] for t in universe if t in history}
-            candidates = ocean_scan(hist_map, cfg)
+            with de.capture({"ocean_catalog": catalog, "at": now}):
+                candidates = ocean_scan(hist_map, cfg)
+            for c in candidates:
+                catalog.setdefault(c.ticker, de.new(c.ticker, cfg.mode, "ocean", now, hist_map.get(c.ticker)))
+                de.put(catalog[c.ticker], "ocean_slots", open_ocean, max_slots, passed=True)
             if not candidates:
                 return []
             # Rails 1+2 — market level, once per scan.
@@ -3019,8 +3261,12 @@ class TradingEngine:
                     vix = vixd["Close"]
             except Exception:
                 pass
-            ok_mkt, why_mkt = crash_guard_market(
-                vix, self.portfolio.damage_store)
+            market_trace = de.new("market", cfg.mode, "ocean", now)
+            with de.capture(market_trace):
+                ok_mkt, why_mkt = crash_guard_market(vix, self.portfolio.damage_store)
+            for c in candidates:
+                catalog[c.ticker]["gates"].update(copy.deepcopy(market_trace["gates"]))
+                de.put(catalog[c.ticker], "ocean_market", why_mkt, "ok", passed=ok_mkt)
             if not ok_mkt:
                 self._ocean_journal_once(
                     now, "OCEAN_BLOCKED",
@@ -3037,11 +3283,15 @@ class TradingEngine:
                     fired = danger.evaluate_stock(df)
                 except Exception:
                     fired = ["danger_unverifiable"]
-                ok_stk, why_stk = crash_guard_stock(df, fired)
+                with de.capture(catalog[c.ticker]):
+                    ok_stk, why_stk = crash_guard_stock(df, fired)
+                de.put(catalog[c.ticker], "ocean_stock", why_stk, "ok", passed=ok_stk)
                 if not ok_stk:
                     blocked.append(f"{c.ticker}:{why_stk}")
                     continue
+                accepted.add(c.ticker)
                 picks.append({
+                    "decision": catalog[c.ticker],
                     "ticker": c.ticker,
                     "score": 100 + c.pct_below_200dma,  # deepest first
                     "components": {},
@@ -3066,6 +3316,13 @@ class TradingEngine:
         except Exception:
             log.exception("ocean picks failed")
             return []   # Ocean is bonus; never block the Everest path
+        finally:
+            for ticker, trace in catalog.items():
+                if ticker not in accepted:
+                    failed = [k for k, g in trace["gates"].items() if g["state"] == "failed"]
+                    missing = [k for k, g in trace["gates"].items() if g["state"] == "unavailable"]
+                    de.journal_decision(self.portfolio, trace, "blocked" if failed else "unavailable" if missing else "not_selected",
+                        failed[0] if failed else missing[0] if missing else "Ocean selection or per-scan work limit")
 
     def apply_corporate_actions(self, today=None, actions_for=None, now=None) -> list:
         """OWNER ORDER 2026-10-21 ("Yes — adjust held positions on the
@@ -3136,7 +3393,9 @@ class TradingEngine:
                                 f"({pos.qty} × {ca['ratio']:g}) — not applied; settle the "
                                 f"holding by hand (cash in lieu).")
                             continue
+                        before = de.protection(pos)
                         body = _ca.apply_to_position(pos, ca)
+                        de.amendment(pos, before, "CORPORATE_ACTION", now, portfolio=self.portfolio, details=body)
                         self.portfolio.cash += float(body["cash_credit"])
                         line = {"ts": now.isoformat(), "action": "CORPORATE_ACTION_APPLIED",
                                 **body,
@@ -3370,7 +3629,13 @@ class TradingEngine:
                 key=lambda t: prices[t] / p.positions[t].entry_price,
             )
             for ticker in by_pnl[:pending["remaining_count"]]:
-                self._close(ticker, prices[ticker], "DRAWDOWN_LADDER", now)
+                if not qe.executable(prices, ticker, datetime.utcnow()):
+                    continue
+                decision = de.exit_decision(p.positions[ticker], prices, now)
+                de.put(decision, "drawdown", {"snapshot": gov.snapshot(), "pending": copy.deepcopy(pending)},
+                       DRAWDOWN_LEVELS, passed=True, role="exit_trigger")
+                with de.capture(decision):
+                    self._close(ticker, prices[ticker], "DRAWDOWN_LADDER", now)
                 closed.append(ticker)
                 pending["eligible"].pop(ticker)
                 pending["remaining_count"] -= 1

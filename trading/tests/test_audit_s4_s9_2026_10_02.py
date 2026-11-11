@@ -23,7 +23,8 @@ from trading.paper import PaperPosition, Portfolio
 def _frame(n=300, start=100.0, drift=0.15, seed=1, end=None):
     rng = np.random.default_rng(seed)
     close = start * np.cumprod(1 + drift / n + rng.normal(0, 0.004, n))
-    idx = pd.bdate_range(end=end or pd.Timestamp.today().normalize(), periods=n)
+    # Synthetic sessions use the same UTC clock as the engine under test.
+    idx = pd.bdate_range(end=end or pd.Timestamp(datetime.utcnow()).normalize(), periods=n)
     return pd.DataFrame({"Open": close, "High": close * 1.01,
                          "Low": close * 0.99, "Close": close,
                          "Volume": rng.integers(5e6, 1e7, n).astype(float)},
@@ -133,7 +134,7 @@ def _held_engine(tmp_path, monkeypatch, *, b_entry=datetime(2026, 8, 1)):
             peak_price=100.0, entry_score=70.0, reasoning="fixture",
             mode="nifty200_momentum", stop_price=50.0, target_price=500.0)
     e = TradingEngine(cfg, p)
-    yday = pd.Timestamp.today().normalize() - pd.offsets.BDay(1)
+    yday = pd.Timestamp(datetime.utcnow()).normalize() - pd.offsets.BDay(1)
     frames = {"AAA.NS": _frame(start=100.0, drift=0.0, seed=1, end=yday),
               "BBB.NS": _frame(start=150.0, drift=0.0, seed=3, end=yday),
               cfg.benchmark: _frame(seed=4)}
@@ -171,7 +172,7 @@ def test_a_close_older_than_the_entry_does_not_replace_the_fill(tmp_path,
     e, _ = _held_engine(tmp_path, monkeypatch, b_entry=datetime.utcnow())
     marks = e._freshest_marks({"AAA.NS": 105.0},
                               {"BBB.NS": _frame(start=150.0, drift=0.0, seed=3,
-                                                end=pd.Timestamp.today().normalize()
+                                                end=pd.Timestamp(datetime.utcnow()).normalize()
                                                 - pd.offsets.BDay(1))},
                               fallback={"BBB.NS": 150.0})
     assert marks == {"AAA.NS": 105.0}

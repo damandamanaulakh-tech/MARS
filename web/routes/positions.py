@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from .. import auth, market_gate, state
 from ..templating import templates
+from trading import decision_evidence as de, quote_evidence as qe
 from trading.paper import PaperPosition
 from trading import category_budget as category_budgets
 from trading.intraday_recovery import view as intraday_close_view
@@ -239,8 +240,10 @@ def positions_view(
         # quote or the entry-price fallback. A page-level "quotes live" flag hid
         # the fact that individual names could be showing their entry price.
         _live_px = prices.get(pos.ticker)
-        ltp_is_live = bool(_live_px and _live_px > 0)
-        ltp = _live_px if ltp_is_live else pos.entry_price
+        available = bool(_live_px and _live_px > 0)
+        quote_ev = qe.observation(prices, pos.ticker)
+        ltp_is_live = qe.executable(prices, pos.ticker, live_only=True)
+        ltp = _live_px if available else pos.entry_price
         invested = pos.qty * pos.entry_price
         value = pos.qty * ltp
         pnl = value - invested
@@ -267,6 +270,9 @@ def positions_view(
             "entry_price": pos.entry_price,
             "ltp": ltp,
             "ltp_live": ltp_is_live,
+            "ltp_available": available,
+            "quote_evidence": quote_ev,
+            "trade_id": (getattr(pos, "trade_evidence", {}) or {}).get("trade_id"),
             "value": value,
             "pnl": pnl,
             "pnl_pct": pnl_pct,
@@ -406,6 +412,7 @@ def trades_view(request: Request):
             "sector": t.sector,
             "pre_mars": t in archived_rows,
             "segment": segment_label(t),
+            "trade_id": (getattr(t, "trade_evidence", {}) or {}).get("trade_id"),
         })
 
     wins = sum(1 for t in retained_trades if t.net_pnl > 0)
@@ -636,18 +643,21 @@ async def sell_position(request: Request, ticker: str):
     form = await request.form()
     typed = (form.get("price") or "").strip()
     price, source = None, ""
+    quote_ev = None
     if typed:
         try:
             price = float(typed)
             source = "owner_typed"
+            quote_ev = qe.make(price, "owner_typed", reason="Owner supplied execution price; no market timestamp")
         except ValueError:
             return RedirectResponse(f"/positions?error=bad_price&t={ticker}",
                                     status_code=303)
     if price is None:
         prices, live = state.marks([ticker])
         px = prices.get(ticker)
-        if px and px > 0 and live:
-            price, source = float(px), "live_quote"
+        if px and px > 0 and live and (not isinstance(prices, qe.QuoteBatch) or qe.executable(prices, ticker, live_only=True)):
+            quote_ev = qe.observation(prices, ticker)
+            price, source = float(px), quote_ev["source"]
     if price is not None and not math.isfinite(price):
         return RedirectResponse(f"/positions?error=bad_price&t={ticker}",
                                 status_code=303)
@@ -665,7 +675,12 @@ async def sell_position(request: Request, ticker: str):
 
     now = datetime.utcnow()
     eng = state.engine()
-    eng._close(ticker, float(price), "OWNER_SELL", now)
+    decision = de.exit_decision(p.positions[ticker], {ticker: price}, now)
+    decision["quote"] = quote_ev
+    de.put(decision, "owner", "SELL", "explicit owner command", passed=True, role="exit_trigger")
+    de.put(decision, "quote", quote_ev, "owner price or real-time routed quote", passed=True)
+    with de.capture(decision):
+        eng._close(ticker, float(price), "OWNER_SELL", now)
     p.decision_journal.append({
         "ts": now.isoformat(),
         "action": "OWNER_SELL",
@@ -673,7 +688,7 @@ async def sell_position(request: Request, ticker: str):
         "price": round(float(price), 2),
         "price_source": source,
         "why": (f"Owner sold {ticker} at ₹{price:,.2f} "
-                f"({'live quote' if source == 'live_quote' else 'price entered by owner'})."
+                f"({source.replace('_', ' ')})."
                 " Booked to Closed Trades with real P&L."),
         "cash_after": round(p.cash, 2),
     })
@@ -726,7 +741,13 @@ def close_all_positions(request: Request):
         if not px or px <= 0:
             no_price.append(t)          # never close at a stale/guessed price
             continue
-        eng._close(t, float(px), "OWNER_CLOSE_ALL", now)
+        if isinstance(prices, qe.QuoteBatch) and not qe.executable(prices, t, live_only=True):
+            no_price.append(t)
+            continue
+        decision = de.exit_decision(p.positions[t], prices, now)
+        de.put(decision, "owner", "OWNER_CLOSE_ALL", "explicit owner command", passed=True, role="exit_trigger")
+        with de.capture(decision):
+            eng._close(t, float(px), "OWNER_CLOSE_ALL", now)
         closed.append(t)
 
     p.decision_journal.append({
@@ -810,7 +831,13 @@ async def sector_exit(request: Request):
         if not px or px <= 0:
             no_price.append(t)
             continue
-        eng._close(t, float(px), "OWNER_SECTOR_EXIT", now)
+        if isinstance(prices, qe.QuoteBatch) and not qe.executable(prices, t, live_only=True):
+            no_price.append(t)
+            continue
+        decision = de.exit_decision(p.positions[t], prices, now)
+        de.put(decision, "owner", "OWNER_SECTOR_EXIT", "explicit owner command", passed=True, role="exit_trigger")
+        with de.capture(decision):
+            eng._close(t, float(px), "OWNER_SECTOR_EXIT", now)
         closed.append(t)
 
     p.decision_journal.append({
@@ -966,6 +993,15 @@ def add_manual_position(
         entry_notes=entry_notes.strip(),
         tags=entry_tags, mode=mode,
     )
+    reported_at = datetime.utcnow()
+    d = de.new(ticker, mode, "owner_import", reported_at)
+    de.put(d, "owner", {"entry_date_reported": entry_dt, "qty": qty}, "Owner reported an existing holding", passed=True, role="authority")
+    de.put(d, "quote", state="unavailable", reason="Historical owner-reported price; no market quote was fetched")
+    d["fill"] = {"price": entry_price, "qty": qty, "notional": notional, "reported_entry_at": entry_dt.isoformat()}
+    d["quote"] = qe.make(entry_price, "owner_reported", reported_at, reason="Owner-entered historical holding, not a contemporaneous quote")
+    entry = de.finish(d, "imported", "Recorded existing holding; automatic selection gates were not run")
+    p.positions[ticker].trade_evidence = {"schema": 1, "trade_id": d["id"], "entry": entry, "amendments": [], "amendments_omitted": 0}
+    de.journal_decision(p, d, "imported", entry["reason"])
     p.save()
     return RedirectResponse("/positions", status_code=303)
 

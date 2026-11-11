@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import threading
 
+from trading import decision_evidence as de, quote_evidence as qe
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
@@ -808,8 +809,16 @@ def owner_buy(request: Request, ticker: str = Form(...),
         selected_mode = segment(mode)
     except ValueError:
         return RedirectResponse("/scan?error=bad_segment", status_code=303)
+    decision = de.new(tkr, selected_mode, "owner_market", datetime.utcnow())
+    de.put(decision, "owner", "BUY", "explicit owner command", passed=True, role="authority")
+    de.put(decision, "market_session", not bool(_blocked), True, passed=not bool(_blocked))
+    def refuse(reason, gate, value=None, threshold=None, unavailable=False):
+        de.put(decision, gate, value, threshold, state="unavailable" if unavailable else "failed", reason=reason)
+        de.journal_decision(p, decision, "blocked", reason)
+        p.save()
+        return RedirectResponse(f"/scan?error={reason}", status_code=303)
     if tkr in (getattr(cfg, "ticker_blocklist", ()) or ()):
-        return RedirectResponse("/scan?error=blocklisted", status_code=303)
+        return refuse("blocklisted", "ticker_blocklist", tkr, list(cfg.ticker_blocklist))
     if tkr in p.positions:
         return RedirectResponse("/scan?error=already_held", status_code=303)
 
@@ -835,8 +844,11 @@ def owner_buy(request: Request, ticker: str = Form(...),
     prices = fetch_quotes([tkr], upstox_client=eng.broker)
     price = prices.get(tkr)
     import math
-    if not price or not math.isfinite(float(price)) or float(price) <= 0:
-        return RedirectResponse("/scan?error=no_quote", status_code=303)
+    decision["quote"] = qe.observation(prices, tkr, datetime.utcnow())
+    de.put(decision, "quote", decision["quote"], "Positive routed quote", passed=qe.executable(prices, tkr),
+           state="unavailable" if decision["quote"]["source"] in ("unknown", "unavailable") else None)
+    if not qe.executable(prices, tkr, datetime.utcnow()):
+        return refuse("no_quote", "quote", decision["quote"], "Positive routed quote", True)
 
     # Snapshot the chosen segment under the same lock as automatic entries.
     # AUDIT S-6 (2026-10-02): the swap happens under the shared mode lock so a
@@ -863,26 +875,39 @@ def owner_buy(request: Request, ticker: str = Form(...),
         why = refusal(p, cfg, selected_mode, use_qty * float(price))
         if use_qty < 1:
             why = "category_budget_full" if left is not None and left < float(price) else "insufficient_cash"
+        de.put(decision, "category_budget", use_qty * float(price), left, state="skipped" if left is None else None, passed=left is None or use_qty * float(price) <= left)
+        de.put(decision, "cash", use_qty * float(price), p.cash, passed=use_qty * float(price) <= p.cash)
         if why:
-            return RedirectResponse(f"/scan?error={why}", status_code=303)
+            return refuse(why, "quantity" if use_qty < 1 else "allocation", use_qty * float(price), {"cash": p.cash, "segment_left": left})
         pick = next((dict(pk) for pk in (p.last_scan_picks or [])
                      if pk.get("ticker") == tkr), None) or \
             {"ticker": tkr, "score": 0.0, "components": {}, "timing_pass": True}
         pick["reasoning"] = ("OWNER BUY CALL — user pushed this YES pick into "
                             "the book (regime halt overridden by owner). "
                             + str(pick.get("reasoning", "")))[:220]
-        pick["fill_source"] = "live_quote"
+        quote_ev = qe.observation(prices, tkr, datetime.utcnow())
+        pick["fill_source"] = quote_ev["source"]
+        pick["quote_evidence"] = quote_ev
+        pick["entry_path"] = "owner_market"
+        decision["selection_reference"] = {"decision_id": pick.get("decision_id"), "scan_at": p.last_scan}
+        de.put(decision, "owner", "BUY", "explicit owner command", passed=True, role="authority")
+        de.put(decision, "category_budget", use_qty * float(price), left, state="skipped" if left is None else None, passed=left is None or use_qty * float(price) <= left)
+        de.put(decision, "cash", use_qty * float(price), p.cash, passed=use_qty * float(price) <= p.cash)
+        de.put(decision, "quote", quote_ev, "current routed price", passed=True,
+               state="unavailable" if quote_ev["source"] in ("unknown", "unavailable") else None)
+        pick["decision"] = decision
         from trading.intraday_recovery import entry_allowed
         fill_now = datetime.utcnow()
+        de.put(decision, "entry_deadline_final", fill_now, "Before 15:25 IST for intraday", passed=entry_allowed(selected_mode, fill_now))
         if not entry_allowed(selected_mode, fill_now):
-            return RedirectResponse("/scan?error=intraday_entry_deadline", status_code=303)
+            return refuse("intraday_entry_deadline", "entry_deadline_final", fill_now, "Before 15:25 IST for intraday")
         eng._open(pick, use_qty, float(price), fill_now, cfg=cfg)
         # AUDIT FIX A4 (2026-08-09): an owner's deliberate pick is never
         # auto-sold by score decay (check_exit skips SCORE_DECAY for this
         # tag). Stop/target/trail/max-hold still protect it.
         p.positions[tkr].tags.append("owner_pick")
         from trading.orders import apply_custom_levels
-        note = apply_custom_levels(p.positions[tkr], stop, target)
+        note = apply_custom_levels(p.positions[tkr], stop, target, portfolio=p, now=fill_now)
         if note:
             p.positions[tkr].reasoning += f" Custom levels: {note}."
         p.save()
@@ -934,7 +959,7 @@ def owner_buy_desk(request: Request, budget: str = Form(""),
         return RedirectResponse("/scan?error=owner_only", status_code=303)
     from datetime import datetime
 
-    from trading.quote_router import LAST_SOURCES, fetch_quotes
+    from trading.quote_router import fetch_quotes
 
     from .. import buy_desk
 
@@ -954,8 +979,8 @@ def owner_buy_desk(request: Request, budget: str = Form(""),
     if not sl["rows"]:
         return RedirectResponse("/scan?error=buy_desk_empty", status_code=303)
     tickers = [r["ticker"] for r in sl["rows"]]
-    prices = fetch_quotes(tickers, upstox_client=eng.broker) or {}
-    sources = {t: LAST_SOURCES.get(t) for t in tickers}
+    prices = fetch_quotes(tickers, upstox_client=eng.broker)
+    sources = {t: qe.observation(prices, t)["source"] for t in tickers}
 
     from trading.modes import MODE_LOCK, MODE_LOCK_WAIT_S
     if not MODE_LOCK.acquire(timeout=MODE_LOCK_WAIT_S):     # audit S-6
@@ -969,7 +994,7 @@ def owner_buy_desk(request: Request, budget: str = Form(""),
         summary = buy_desk.execute(
             eng, p, cfg, pl["rows"], datetime.utcnow(),
             budget_rs=budget_rs, market_hours_bypassed=bool(_blocked and bypass),
-            price_sources=sources)
+            price_sources=sources, quotes=prices)
         p.save()
     finally:
         cfg.mode = orig_mode

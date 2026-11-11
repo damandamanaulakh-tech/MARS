@@ -531,7 +531,8 @@ class UpstoxClient:
         that key is 'SEGMENT:TRADINGSYMBOL' and does not match the input.
         Partial success is honest success: whatever resolved is returned.
         """
-        out: dict[str, float] = {}
+        from .. import quote_evidence as qe
+        out = qe.QuoteBatch()
         keys = [k for k in (instrument_keys or []) if k]
         for i in range(0, len(keys), LTP_BATCH):
             chunk = keys[i:i + LTP_BATCH]
@@ -559,6 +560,9 @@ class UpstoxClient:
                 token = row.get("instrument_token")
                 if token in wanted:
                     out[token] = float(px)
+                    out.evidence[token] = qe.make(float(px), "upstox",
+                        endpoint="/v2/market-quote/ltp",
+                        reason="LTP response has no last-trade timestamp")
                 # AUDIT FIX C10 (2026-08-09): the old "fallback" matched the
                 # response key's trading symbol (NSE_EQ:RELIANCE) against
                 # k.split("|")[-1] — which for NSE_EQ|INE002A01018 is the

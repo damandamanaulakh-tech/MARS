@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
+from trading import decision_evidence as de, quote_evidence as qe
 from typing import Callable, Optional
 
 log = logging.getLogger(__name__)
@@ -112,6 +113,7 @@ def shortlist(portfolio, cfg) -> dict:
             continue
         out.append({
             "ticker": t, "score": score,
+            "decision_id": r.get("decision_id"), "asof": m.get("ts"),
             "timing": bool(r.get("timing")),
             "outcome": outcome,
             "components": dict(r.get("c") or {}),
@@ -210,38 +212,61 @@ def plan(portfolio, cfg, rows: list, budget_rs: float, prices: dict,
 
 def execute(eng, portfolio, cfg, planned_rows: list, now: datetime, *,
             budget_rs: float, market_hours_bypassed: bool,
-            price_sources: Optional[dict] = None) -> dict:
+            price_sources: Optional[dict] = None, quotes=None) -> dict:
     """Open every recommended row through engine._open. Caller has switched
     cfg into DESK_MODE and holds the owner's authority. Returns the summary
     that is also journaled as OWNER_BATCH_BUY."""
     from trading.costs import slippage_price
-    from trading.owner_allocation import refusal
+    from trading.owner_allocation import refusal, available
 
     spent_actual = 0.0
     opened, skipped = [], []
     for r in planned_rows:
         t = r["ticker"]
+        decision = de.new(t, DESK_MODE, "owner_buy_desk", now)
+        decision["selection_reference"] = {"decision_id": r.get("decision_id"), "scan_at": r.get("asof")}
+        decision["plan"] = de.clean(r)
+        de.put(decision, "owner", "BUY_DESK", "explicit owner command", passed=True, role="authority")
+        def reject(reason, name, value=None, threshold=None, unavailable=False):
+            de.put(decision, name, value, threshold, state="unavailable" if unavailable else "failed", reason=reason)
+            de.journal_decision(portfolio, decision, "blocked", reason)
+            skipped.append({"ticker": t, "reason": reason})
         if not r.get("recommended"):
-            skipped.append({"ticker": t, "reason": r.get("reason") or "not_recommended"})
+            reject(r.get("reason") or "not_recommended", "desk_recommendation", r, "Recommended by current owner plan")
             continue
         if t in portfolio.positions:
-            skipped.append({"ticker": t, "reason": "already_held"})
+            reject("already_held", "already_held", True, False)
+            continue
+        if quotes is not None and not qe.executable(quotes, t, datetime.utcnow()):
+            reject("quote_unavailable_or_non_executable", "quote", qe.observation(quotes, t, now), "Positive routed quote", True)
             continue
         fill = slippage_price(float(r["price"]), "BUY", cfg)
         qty = int(r["qty"])
         cost = qty * fill
         if qty < 1 or cost > portfolio.cash:
-            skipped.append({"ticker": t, "reason": "cash_short"})
+            reject("cash_short", "cash", {"qty": qty, "cost": cost}, portfolio.cash)
             continue
         if cost > float(budget_rs) - spent_actual + 1e-8:
-            skipped.append({"ticker": t, "reason": "budget_exhausted"})
+            reject("budget_exhausted", "desk_budget", cost, float(budget_rs)-spent_actual)
             continue
         why = refusal(portfolio, cfg, DESK_MODE, cost)
         if why:
-            skipped.append({"ticker": t, "reason": why})
+            reject(why, "category_budget", cost, available(portfolio, cfg, DESK_MODE)[1])
             continue
-        src = (price_sources or {}).get(t) or "live_quote"
-        pick = {
+        quote_ev = qe.observation(quotes or {t: r["price"]}, t, now)
+        src = quote_ev["source"]
+        decision["selection_reference"] = {"decision_id": r.get("decision_id"), "scan_at": r.get("asof")}
+        de.put(decision, "owner", "BUY_DESK", "explicit owner command", passed=True, role="authority")
+        from trading.owner_allocation import available
+        left = available(portfolio, cfg, DESK_MODE)[1]
+        de.put(decision, "category_budget", cost, left, state="skipped" if left is None else None, passed=left is None or cost <= left)
+        de.put(decision, "quote", quote_ev, "Positive routed quote", state="unavailable" if src == "unknown" else "passed")
+        de.put(decision, "cash", cost, portfolio.cash, passed=True)
+        de.put(decision, "desk_budget", cost, float(budget_rs) - spent_actual, passed=True)
+        de.put(decision, "market_session", market_hours_bypassed, False,
+               state="skipped" if market_hours_bypassed else "passed", reason="Recorded one-order override" if market_hours_bypassed else "Route checked session")
+        pick = {"decision": decision, "quote_evidence": quote_ev,
+            "entry_path": "owner_buy_desk",
             "ticker": t, "score": float(r["score"]),
             "components": dict(r.get("components") or {}),
             "timing_pass": bool(r.get("timing")),

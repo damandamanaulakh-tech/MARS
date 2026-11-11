@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-semibold">Decision explanations</h1>
+<p class="text-sm text-ink-soft mt-2">Saved selection, entry and exit checks. New records show what the app actually evaluated. Older missing records remain unknown.</p>
+<form class="flex gap-3 my-5" method="get">
+  <input name="ticker" value="{{ ticker_filter }}" placeholder="Share name" class="border p-2">
+  <select name="mode" class="border p-2"><option value="">All segments</option>{% for mode in ['intraday','short','swing','positional','nifty200_momentum'] %}<option value="{{ mode }}" {% if mode_filter == mode %}selected{% endif %}>{{ mode | replace('_',' ') }}</option>{% endfor %}</select>
+  <button class="border px-4">Filter</button>
+</form>
+<p class="text-xs text-ink-faint mb-3">Showing up to 200 matching records from the current journal and up to 500 matching archived rows. Times are IST. A skipped check was not evaluated; unavailable means its input or provenance was missing.</p>
+<div class="overflow-x-auto"><table class="w-full text-sm">
+<thead><tr class="border-b"><th class="p-3 text-left">Time</th><th class="p-3 text-left">Share</th><th class="p-3 text-left">Segment / path</th><th class="p-3 text-left">Outcome</th><th class="p-3 text-left">Reason</th></tr></thead>
+<tbody>{% for r in rows %}<tr class="border-b"><td class="p-3 whitespace-nowrap">{{ time_text(r.at) }}</td><td class="p-3"><a class="underline" href="/decisions/{{ r.id }}">{{ r.ticker }}</a></td><td class="p-3">{{ r.mode | replace('_',' ') }} / {{ r.path | replace('_',' ') }}</td><td class="p-3">{{ r.outcome | replace('_',' ') }}</td><td class="p-3">{{ r.reason }}</td></tr>{% else %}<tr><td colspan="5" class="p-5">No recorded decisions in this view yet.</td></tr>{% endfor %}</tbody>
+</table></div>
+{% endblock %}

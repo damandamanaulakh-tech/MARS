@@ -16,10 +16,11 @@ Earlier verified batches (2 November):
 
 Latest verified functional revision: `a9919f6446690a62b76914fb9178009aaacf55e4` ([PR #199](https://github.com/damandamanaulakh-tech/MARS/pull/199)), live 11 November 22:03:44 IST; health/readiness verified 22:05 IST. Local and PR CI suites each passed 2,934 tests with zero skips. The [intraday recovery release ledger](releases/2026-11-11-intraday-recovery.md) records the exact deployment and pending normal recovery observation. The earlier [partial-quote release](releases/2026-11-11-partial-quote-equity.md), [resource ledger](releases/2026-11-04-online-resources.md) and [segment allocation evidence](releases/2026-11-03-segment-allocation-performance.md) retain their separate scope and limitations. These are timestamped observations; documentation-only commits can advance main without changing the application.
 
-**SEQ-02 is shipped and health verified. Next queued: SEQ-03 — gate decisions
-and quote provenance.** Its implementation has not started. The [11-step
-programme](EXECUTION_PLAN.md) retains both shipped repairs and their separate
-pending runtime observations. All remaining steps stay queued.
+**SEQ-02 is shipped and health verified. SEQ-03 is in progress:** decision
+records, owner explanations and archival are implemented; 135 focused and 2994 full local checks
+pass with zero skips; PR CI and release pending. [Current batch](releases/2026-11-11-decision-evidence.md).
+The [11-step programme](EXECUTION_PLAN.md) keeps the earlier runtime checks
+open and Steps 04–11 queued.
 
 The [11 November intraday audit](reviews/2026-11-11-intraday-trade-audit.md) reconciles 74 closes and records four new findings. [Full trade CSV](reviews/2026-11-11-intraday-trades.csv).
 

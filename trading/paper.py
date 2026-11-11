@@ -31,6 +31,40 @@ TRADES_DOC_CAP = 5000
 UNIVERSE_LEDGER_CAP = 1500
 EQUITY_HISTORY_RAM_CAP = 5000  # (ts, equity) points; appended every refresh
 
+# Decision snapshots are larger than legacy journal lines. Bound by bytes as
+# well as rows so Mongo's portfolio document stays comfortably below 16 MB.
+JOURNAL_BYTES_CAP = 2 * 1024 * 1024
+TRADES_BYTES_CAP = 3 * 1024 * 1024
+
+
+def tail_start(rows, count_cap, bytes_cap, encode=lambda row: row):
+    size = 0
+    start = len(rows)
+    for index in range(len(rows)-1, -1, -1):
+        nbytes = len(json.dumps(encode(rows[index]), default=str, ensure_ascii=False).encode("utf-8"))
+        if start < len(rows) and (len(rows)-index > count_cap or size+nbytes > bytes_cap):
+            break
+        size += nbytes
+        start = index
+    return start
+
+
+def spill_journal(portfolio, entries):
+    if not entries:
+        return True
+    try:
+        os.makedirs(portfolio.cfg.state_dir, exist_ok=True)
+        path = os.path.join(portfolio.cfg.state_dir, "journal_overflow.jsonl")
+        with open(path, "a") as f:
+            for row in entries:
+                f.write(json.dumps(row, default=str) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+        return True
+    except OSError:
+        log.exception("Journal archive failed; keep the unarchived evidence in the book")
+        return False
+
 
 @dataclass
 class PaperPosition:
@@ -67,6 +101,7 @@ class PaperPosition:
     last_mark: dict = field(default_factory=dict)
     # SEQ-02: unfinished square-off work belongs to this holding, not a job.
     intraday_close: dict = field(default_factory=dict)
+    trade_evidence: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -90,6 +125,8 @@ class PaperPosition:
         d["val_target"] = dict(d.get("val_target") or {})
         d["last_mark"] = (dict(d["last_mark"])
                           if isinstance(d.get("last_mark"), dict) else {})
+        d["trade_evidence"] = (dict(d["trade_evidence"])
+                               if isinstance(d.get("trade_evidence"), dict) else {})
         d["intraday_close"] = (dict(d["intraday_close"])
                                if isinstance(d.get("intraday_close"), dict) else {})
         # A field a NEWER build wrote (ca_applied, val_target, the next one) must
@@ -126,6 +163,7 @@ class ClosedTrade:
     # audit never reads a restated trade as a wrongly-adjusted fill.
     ca_applied: List[str] = field(default_factory=list)
     intraday_close: dict = field(default_factory=dict)
+    trade_evidence: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -141,6 +179,8 @@ class ClosedTrade:
         d.setdefault("entry_notes", "")
         d.setdefault("tags", [])
         d["ca_applied"] = list(d.get("ca_applied") or [])
+        d["trade_evidence"] = (dict(d["trade_evidence"])
+                               if isinstance(d.get("trade_evidence"), dict) else {})
         d["intraday_close"] = (dict(d["intraday_close"])
                                if isinstance(d.get("intraday_close"), dict) else {})
         return cls(**{k: v for k, v in d.items() if k in cls.__dataclass_fields__})
@@ -280,8 +320,9 @@ class Portfolio:
             # Bound RAM: keep only the recent tail. Overflow is archived to the
             # durable Mongo journal_archive by the web/state save wrapper BEFORE
             # this runs, so nothing is lost — the full trail lives in Mongo.
-            if len(self.decision_journal) > JOURNAL_RAM_CAP:
-                self.decision_journal = self.decision_journal[-JOURNAL_RAM_CAP:]
+            cut = tail_start(self.decision_journal, JOURNAL_RAM_CAP, JOURNAL_BYTES_CAP)
+            if cut and spill_journal(self, self.decision_journal[:cut]):
+                self.decision_journal = self.decision_journal[cut:]
             self.scan_history = self.scan_history[-SCAN_HISTORY_RAM_CAP:]
             self.regime_history = self.regime_history[-REGIME_HISTORY_RAM_CAP:]
             self.equity_history = self.equity_history[-EQUITY_HISTORY_RAM_CAP:]

@@ -94,21 +94,22 @@
       "depends_on": [
         "SEQ-02"
       ],
-      "status": "QUEUED",
-      "implementation": "NOT_STARTED",
-      "tests": "NOT_RUN",
+      "status": "LOCAL_TESTED",
+      "implementation": "IMPLEMENTED",
+      "tests": "2994_LOCAL_PASSED_ZERO_SKIPS_60_NEW_CASES_135_FOCUSED_PASS",
       "pull_request": null,
       "merge_revision": null,
       "deployment_revision": null,
       "health": "NOT_CHECKED",
       "runtime": "NOT_OBSERVED",
-      "evidence": null
+      "evidence": "docs/repairs/releases/2026-11-11-decision-evidence.md"
     },
     {
       "id": "SEQ-04",
       "order": 4,
       "finding_ids": [
-        "INTRA-001"
+        "INTRA-001",
+        "ROOT-AM07-04"
       ],
       "goal": "Connect completed intraday bars",
       "work_type": "engineering_and_replay",
@@ -280,5 +281,5 @@
       "evidence": null
     }
   ],
-  "active_step_note": "SEQ-02 is shipped and health verified; normal recovery-job/deadline observation is pending. SEQ-03 is selected next, with implementation not started. SEQ-01 retains its own pending quote-gap observation."
+  "active_step_note": "SEQ-03 implementation and final 2994-test local suite complete with zero skips; PR CI/release pending. SEQ-01/02 ordinary runtime observations remain open. Candle-age policy remains in SEQ-04."
 }

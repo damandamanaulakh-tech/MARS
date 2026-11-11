@@ -399,7 +399,8 @@ def fetch_quotes(tickers: list[str]) -> Dict[str, float]:
     labels, EXIT_HELD_NO_QUOTE). The yfinance path below stays for local dev;
     from Render it is blocked and returns nothing, which is the truth.
     """
-    out0: Dict[str, float] = {}
+    from . import quote_evidence as qe
+    out0 = qe.QuoteBatch()
     try:
         raw = yf.download(
             tickers, period="2d", interval="1d",
@@ -407,7 +408,7 @@ def fetch_quotes(tickers: list[str]) -> Dict[str, float]:
         )
     except Exception:
         return out0
-    out: Dict[str, float] = dict(out0)
+    out = qe.QuoteBatch(out0)
     for t in tickers:
         try:
             if isinstance(raw.columns, pd.MultiIndex):
@@ -418,6 +419,9 @@ def fetch_quotes(tickers: list[str]) -> Dict[str, float]:
                 close = raw["Close"].dropna()
             if not close.empty:
                 out[t] = float(close.iloc[-1])
+                out.evidence[t] = qe.make(out[t], "yf_close", interval="1d",
+                    provider_date=str(close.index[-1].date()),
+                    reason="Daily session label; last-trade time unavailable")
         except (KeyError, AttributeError):
             continue
     return out
