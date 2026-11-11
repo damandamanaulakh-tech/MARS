@@ -16,8 +16,10 @@ Earlier verified batches (2 November):
 
 Latest verified functional revision: `8c3d9c0ad4175650219874f857a0bf6980eedb2d` (PR #195), live 11 November 20:01 IST with healthy readiness. The [resource release ledger](releases/2026-11-04-online-resources.md) records CI, exact deployment and 125 dated bulletin observations; FRED numerical feeds remain unavailable. [Segment allocation and win-rate evidence](releases/2026-11-03-segment-allocation-performance.md) covers PR #192. These are timestamped observations; later documentation-only commits can advance main without changing the application.
 
-**Next priority: AUD-002 — partial quotes can understate portfolio equity and
-falsely trigger a daily loss halt.** This remains open.
+**Active: SEQ-01 / AUD-002 — partial quotes can understate portfolio equity and
+falsely trigger a daily loss halt.** The owner-approved [11-step execution
+programme](EXECUTION_PLAN.md) records the sequence and each completion test.
+The first repair is under validation; later steps remain queued.
 
 The [11 November intraday audit](reviews/2026-11-11-intraday-trade-audit.md) reconciles 74 closes and records four new findings. [Full trade CSV](reviews/2026-11-11-intraday-trades.csv).
 
@@ -25,6 +27,7 @@ The [11 November intraday audit](reviews/2026-11-11-intraday-trade-audit.md) rec
 
 - [Workflow and completion requirements](WORKFLOW.md)
 - [Prioritized goals](GOALS.md)
+- [Ordered execution programme](EXECUTION_PLAN.md) and [machine-readable progress](execution-plan.json)
 - [All 165 original records](BACKLOG.md), with [complete JSON](backlog.json)
   and [CSV](backlog.csv) for every finding, acceptance criterion and status
 - [Additional incidents](incidents.json), tracked separately from the original count

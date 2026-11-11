@@ -481,6 +481,14 @@ def apply_to_position(pos, ca: dict) -> dict:
         v = float(getattr(pos, fld, 0.0) or 0.0)
         if v > 0:
             setattr(pos, fld, v / ratio)
+    # Keep retained marks on the same per-share basis as quantity/entry.
+    # Preserve the original observation time; a split is not a new quote.
+    from .portfolio_marks import last_mark
+    mark = last_mark(pos)
+    if mark:
+        pos.last_mark = {**mark, "price": float(mark["price"]) / ratio,
+                         "corporate_actions": list(mark.get("corporate_actions") or [])
+                                              + [ca_key(ca)]}
     if getattr(pos, "orig_qty", 0):
         pos.orig_qty = int(math.floor(pos.orig_qty * ratio + 1e-9))
     applied = list(getattr(pos, "ca_applied", None) or [])

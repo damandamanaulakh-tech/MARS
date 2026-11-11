@@ -14,6 +14,7 @@ import pytest
 
 from trading.config import Config
 from trading.paper import PaperPosition, Portfolio
+from trading.portfolio_marks import remember
 from trading.risk import RiskState, can_open
 from trading.tests.test_audit_s4_s9_2026_10_02 import _near_target, _scan_engine
 
@@ -22,12 +23,17 @@ BOOK = 5_00_00_000.0
 
 
 def _pos(ticker, rupees, mode=MOM, tags=None, price=100.0):
-    return PaperPosition(
+    pos = PaperPosition(
         ticker=ticker, qty=int(rupees // price), entry_price=price,
         entry_date=datetime(2026, 9, 1), sector="IT", peak_price=price,
         entry_score=70.0, reasoning="fixture", mode=mode,
         stop_price=price * 0.95, target_price=price * 1.2,
         tags=list(tags or []))
+    # These fixtures isolate allocation, not missing valuation evidence.
+    # Keep the original no-executable-quote behavior for held names while
+    # explicitly supplying the unchanged last observed value they assume.
+    remember(pos, price, "quote_response", datetime(2026, 10, 1, 10))
+    return pos
 
 
 def _cfg(tmp_path=None):
@@ -192,6 +198,7 @@ def test_momentum_cannot_spend_past_its_share_in_one_pass(tmp_path, monkeypatch)
     e.scan()
     from trading import category_budget as cb
     spent = cb.used(e.portfolio.positions.values(), MOM)
+    assert "UPP.NS" in e.portfolio.positions
     assert spent <= 0.40 * BOOK * 1.001
 
 
@@ -209,6 +216,7 @@ def test_rotation_never_sells_another_category_for_a_full_share(tmp_path,
     # "why" line is the one the refused pick writes (CATEGORY_BUDGET_FULL).
     sw = _near_target("SWG.NS")
     sw.mode = "swing"
+    remember(sw, sw.entry_price, "quote_response", datetime(2026, 10, 1, 10))
     e.portfolio.positions["SWG.NS"] = sw
     n0 = len(e.portfolio.decision_journal)
     e.scan()

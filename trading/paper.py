@@ -62,6 +62,9 @@ class PaperPosition:
     # monthly re-marks) or k x ATR (source k_atr, with the reason). {} on
     # positions opened before this field existed.
     val_target: dict = field(default_factory=dict)
+    # AUD-002: price evidence belongs to this holding and survives restarts.
+    # Receipt time is not a provider timestamp; these are valuation marks only.
+    last_mark: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -83,6 +86,8 @@ class PaperPosition:
         d.setdefault("ca_applied", [])
         d["ca_applied"] = list(d.get("ca_applied") or [])
         d["val_target"] = dict(d.get("val_target") or {})
+        d["last_mark"] = (dict(d["last_mark"])
+                          if isinstance(d.get("last_mark"), dict) else {})
         # A field a NEWER build wrote (ca_applied, val_target, the next one) must
         # not stop an older build from loading the book after a rollback: keys
         # this version does not know are dropped, never fatal (2026-10-21).
@@ -200,6 +205,7 @@ class Portfolio:
     # quotes are incomplete. Saved with the book, never recomputed smaller
     # from its remainder on the next refresh.
     dd_cut_pending: dict = field(default_factory=dict)
+    mark_snapshot: dict = field(default_factory=dict)
     last_save: Optional[str] = None
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
@@ -247,15 +253,12 @@ class Portfolio:
         return note
 
     def equity(self, prices: Dict[str, float]) -> float:
-        eq = self.cash
-        for p in self.positions.values():
-            mark = prices.get(p.ticker, p.entry_price)
-            eq += p.qty * mark
-        return eq
+        return self.cash + self.deployed_value(prices)
 
     def deployed_value(self, prices: Dict[str, float]) -> float:
+        from .portfolio_marks import valuation_price
         return sum(
-            p.qty * prices.get(p.ticker, p.entry_price)
+            p.qty * valuation_price(p, prices)
             for p in self.positions.values()
         )
 
@@ -314,6 +317,7 @@ class Portfolio:
                 "dd_peak_equity": self.dd_peak_equity,  # drawdown-governor peak
                 "dd_cut_level": self.dd_cut_level,      # ladder level already cut
                 "dd_cut_pending": self.dd_cut_pending,
+                "mark_snapshot": self.mark_snapshot,
                 "loss_day": self.loss_day,               # 2-loss halt state
                 "loss_count": self.loss_count,
                 "loss_by_category": self.loss_by_category,  # per-category losers today
@@ -380,6 +384,7 @@ class Portfolio:
             p.dd_peak_equity = float(data.get("dd_peak_equity", 0.0) or 0.0)
             p.dd_cut_level = str(data.get("dd_cut_level") or "normal")
             p.dd_cut_pending = dict(data.get("dd_cut_pending") or {})
+            p.mark_snapshot = dict(data.get("mark_snapshot") or {})
             p.loss_day = data.get("loss_day")
             p.loss_count = int(data.get("loss_count", 0) or 0)
             p.loss_by_category = {str(k): int(v) for k, v in
@@ -425,6 +430,7 @@ class Portfolio:
         self.cash = self.cfg.starting_capital
         self.capital_base = self.cfg.starting_capital
         self.positions = {}
+        self.mark_snapshot = {}
         self.trades = []
         self.equity_history = []
         self.last_scan = None

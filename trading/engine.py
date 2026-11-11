@@ -35,6 +35,7 @@ from .data import fetch_daily
 from .quote_router import fetch_quotes as routed_fetch_quotes
 from .exits import check_exit
 from .paper import ClosedTrade, PaperPosition, Portfolio
+from . import portfolio_marks as pm
 from .calendars import is_market_open, market_state
 from .candles import candle_confirmation
 from .risk import RiskState, can_open
@@ -293,15 +294,16 @@ class TradingEngine:
         # window — and (b) a kill-switch liquidation emptied the book, which
         # made refresh() early-return forever, so the tripped switch never
         # re-armed and all automatic buying stayed dead until a restart.
-        self._roll_risk_day(self.portfolio.equity({}), now)
+        # Roll after assembling the held-book marks below, before any new
+        # equity point. Entry-only gaps cannot establish a new loss baseline.
 
         # AUDIT FIX A3 (2026-08-09): the -2% daily halt was EVALUATED only in
         # refresh() (15:35), so the 09:20 scan and the 14:30 top-up happily
         # bought on a day already past the halt — buy-at-2pm, force-sell-at-
         # 3:35 churn on exactly the worst days. Evaluate it here with live
         # marks on the held book; can_open then blocks every new entry with
-        # "kill_switch_active". No live quotes -> can't measure honestly ->
-        # leave it to refresh (never trip a halt on entry-price marks).
+        # "kill_switch_active". Retain earlier observed marks when a quote
+        # is absent; never trip a halt on an entry-only valuation gap.
         # Owner order 2026-10-21 (BLSE): a held name's split must be absorbed
         # before the kill switch below marks the book on live quotes — a
         # halved quote on an unadjusted position reads as a crash.
@@ -314,7 +316,15 @@ class TradingEngine:
                 held_px = routed_fetch_quotes(held_now, upstox_client=self.broker)
             except Exception:
                 held_px = {}
-            if held_px and self.risk.check_kill_switch(self.portfolio.equity(held_px)):
+        held_px = {t: px for t, value in (held_px or {}).items()
+                   if (px := pm.positive_price(value)) is not None}
+        risk_marks = self._freshest_marks(held_px, history)
+        marks_ready = self._risk_marks_ready(risk_marks, now)
+        if (marks_ready or self.portfolio.equity_history
+                or self.portfolio.risk_day == now.date().isoformat()):
+            self._roll_risk_day(self.portfolio.equity(risk_marks), now)
+        if held_now:
+            if marks_ready and self.risk.check_kill_switch(self.portfolio.equity(risk_marks)):
                 if not self.portfolio.risk_day_killed:
                     self.portfolio.decision_journal.append({
                         "ts": now.isoformat(), "action": "KILL_SWITCH_SCAN",
@@ -606,7 +616,10 @@ class TradingEngine:
         # curve) is marked at the freshest price per held name — the live
         # quotes fetched at the top of this scan, else the stored close —
         # not at yesterday's scan close or the entry price.
-        marks = self._freshest_marks(held_px, history, fallback=prices)
+        # held_px was already recorded at receipt above. Reusing the batch
+        # here must not move that observation's clock forward during a scan.
+        marks = self._freshest_marks({}, history, fallback=prices)
+        marks_ready = self._risk_marks_ready(marks, now)
 
         # The owner's three-formula filter, if they have switched it on: say
         # on the page AND in the journal which names it removed, and why. A
@@ -756,6 +769,10 @@ class TradingEngine:
         mk = self._measured_kelly(now) if picks else None
         cleared: list = []
         for pick in picks:
+            if not marks_ready:
+                skipped.append({"ticker": pick["ticker"],
+                                "reason": "portfolio_marks_incomplete"})
+                continue
             # 2026-10-05 ("make it momentum only"): the reading is this
             # category's own record, so an Ocean pick (its own category, its
             # own exits) is not judged by it.
@@ -1212,6 +1229,9 @@ class TradingEngine:
         self._absorb_corporate_actions("refresh")
         tickers = list(self.portfolio.positions.keys())
         prices = routed_fetch_quotes(tickers, upstox_client=self.broker)
+        prices = {t: px for t, value in (prices or {}).items()
+                  if t in self.portfolio.positions
+                  and (px := pm.positive_price(value)) is not None}
         if not prices:
             # FIX (2026-07-12): stale-data guard. No live quotes = we must NOT
             # fire exits on entry-price marks (a missed Upstox login would
@@ -1221,15 +1241,16 @@ class TradingEngine:
                 e.get("action") == "DATA_STALE" and str(e.get("ts", "")).startswith(today_iso)
                 for e in self.portfolio.decision_journal[-50:]
             )
+            marks = self._freshest_marks({}, {})
             if not already:
                 self.portfolio.decision_journal.append({
                     "ts": datetime.utcnow().isoformat(), "action": "DATA_STALE",
                     "why": "No live quotes (Upstox down + Yahoo blocked). Exits "
                            "held to avoid false triggers on stale marks. Reconnect Upstox.",
                 })
-                self.portfolio.save()
+            self.portfolio.save()
             log.warning("refresh: no live quotes — exits held (stale-data guard)")
-            return self._summary_dict({p.ticker: p.entry_price for p in self.portfolio.positions.values()})
+            return self._summary_dict(marks)
 
         now = datetime.utcnow()
         # 2y, not 1y: the momentum ruler needs 252 bars and one calendar
@@ -1283,8 +1304,11 @@ class TradingEngine:
         # and cuts still act only on real quotes (`prices`), never on marks.
         marks = self._freshest_marks(prices, history)
         current_eq = self.portfolio.equity(marks)
-        self._roll_risk_day(current_eq, now)
-        if self.risk.check_kill_switch(current_eq):
+        marks_ready = self._risk_marks_ready(marks, now)
+        if (marks_ready or self.portfolio.equity_history
+                or self.portfolio.risk_day == now.date().isoformat()):
+            self._roll_risk_day(current_eq, now)
+        if marks_ready and self.risk.check_kill_switch(current_eq):
             # Persist the trip so a mid-day restart can't forget the halt.
             self.portfolio.risk_day_killed = True
 
@@ -1545,6 +1569,8 @@ class TradingEngine:
             # Item 19: where the target came from (valuation base or k x ATR)
             val_target=copy.deepcopy(pick.pop("val_target", None) or {}),
         )
+        pm.remember(self.portfolio.positions[pick["ticker"]], fill_price,
+                    "entry_fill", now, asof=now.date().isoformat())
 
     def _store_momentum_shortlist(self, ranked: list, history: dict,
                                   skip_by_t: dict, now: datetime,
@@ -3183,13 +3209,16 @@ class TradingEngine:
             gov.peak_equity = saved
         # S-9: equity on the freshest marks; the cut below still ranks and
         # fills only on real quotes (`prices`).
-        gov.update(self.portfolio.equity(marks if marks is not None else prices))
+        valuation_marks = marks if marks is not None else prices
+        marks_ready = self._risk_marks_ready(valuation_marks, now)
+        if marks_ready:
+            gov.update(self.portfolio.equity(valuation_marks))
 
         level = gov.active_level if gov.active_level in order else "normal"
         done = getattr(self.portfolio, "dd_cut_level", "normal") or "normal"
         if done not in order:
             done = "normal"
-        if order.index(level) < order.index(done):
+        if marks_ready and order.index(level) < order.index(done):
             # Recovered to a milder level: a later re-escalation cuts again.
             done = level
             self.portfolio.dd_cut_level = level
@@ -3210,7 +3239,7 @@ class TradingEngine:
 
         cut = gov.forced_cut
         pending_level = pending["level"] if pending else done
-        if (cut_allowed and cut > 0 and p.positions
+        if (marks_ready and cut_allowed and cut > 0 and p.positions
                 and order.index(level) > order.index(pending_level)):
             # Freeze the quota before any sale. A deeper level replaces the
             # older plan using today's remaining book, without weakening an
@@ -3288,38 +3317,27 @@ class TradingEngine:
                         history: Optional[dict],
                         fallback: Optional[Dict[str, float]] = None
                         ) -> Dict[str, float]:
-        """AUDIT S-9 (2026-10-02): the freshest price per HELD name, for
-        marking the book — live quote, else the latest stored close, else
-        `fallback`, else (Portfolio.equity's own default) the entry price.
+        """AUD-002: persisted observations, with no entry-price regression.
 
-        A stored close dated BEFORE the entry day is older than the fill
-        itself, so the entry price stays the mark for a name bought today.
-        Marks value the book; they never fire an exit or fill a trade."""
-        marks: Dict[str, float] = {}
-        for t, pos in self.portfolio.positions.items():
-            fb = (fallback or {}).get(t)
-            if fb and fb > 0:
-                marks[t] = float(fb)
-            frame = (history or {}).get(t)
-            if frame is None:
-                continue
-            try:
-                c = frame["Close"].dropna()
-                bar_day = c.index[-1].date()
-                close = float(c.iloc[-1])
-            except Exception:
-                continue
-            entry_day = pos.entry_date.date() if hasattr(pos.entry_date, "date") else None
-            if close > 0 and (entry_day is None or bar_day >= entry_day):
-                marks[t] = close
-            elif t in marks and entry_day is not None and bar_day < entry_day:
-                del marks[t]
-        for t, px in (live or {}).items():
-            if t in self.portfolio.positions and px and float(px) > 0:
-                marks[t] = float(px)
-        return marks
+        Quote receipt is labelled explicitly; the router does not yet provide
+        an exchange timestamp. Carried marks never become executable quotes.
+        """
+        return pm.collect(self.portfolio, live, history, fallback, datetime.utcnow())
+
+    def _risk_marks_ready(self, prices: Dict[str, float], now: datetime) -> bool:
+        missing = pm.missing_marks(self.portfolio, prices)
+        if missing:
+            self._journal_once_a_day("PORTFOLIO_MARKS_INCOMPLETE", now, {
+                "tickers": missing,
+                "why": ("No observed price for these holdings. Entry-price estimates "
+                        "do not set a loss halt, drawdown level or equity-history point. "
+                        "New scan entries wait; quoted protective exits still run."),
+            })
+        return not missing
 
     def _record_equity(self, prices: Dict[str, float], now: datetime) -> None:
+        if not self._risk_marks_ready(prices, now):
+            return
         eq = self.portfolio.equity(prices)
         self.portfolio.equity_history.append((now.isoformat(), eq))
         if len(self.portfolio.equity_history) > 50_000:
@@ -3336,4 +3354,7 @@ class TradingEngine:
             "closed_trades": len(self.portfolio.trades),
             "return_pct": (eq / self.cfg.starting_capital - 1) * 100,
             "kill_switch": self.risk.kill_switch,
+            "valuation_complete": not pm.missing_marks(self.portfolio, prices),
+            "valuation_missing": pm.missing_marks(self.portfolio, prices),
+            "mark_snapshot": self.portfolio.mark_snapshot,
         }
