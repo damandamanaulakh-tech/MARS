@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-semibold">Trade and decision explanation</h1>
+<p class="text-sm text-ink-soft mt-2">Values saved when the decision ran. Entry gates pass when entry is allowed. An exit trigger passes when its condition is hit. Skipped and unavailable checks are never counted as passed.</p>
+<div class="flex gap-4 my-4"><a class="underline" href="/decisions">Recent decisions</a>{% if download %}<a class="underline" href="{{ download }}">Download saved evidence</a>{% endif %}</div>
+{% if missing %}<p class="p-4 border border-amber-300 text-amber-800">{{ missing }}</p>{% endif %}
+{% for card in cards %}{% set d = card.data %}
+<section class="my-6 border p-4 rounded">
+  <h2 class="text-lg font-semibold">{{ card.title }} · {{ d.ticker or 'Historical entry' }} · {{ d.mode | default('Unknown') | replace('_',' ') }}</h2>
+  <p class="text-sm mt-1">{{ card.at }} · {{ d.outcome | default(d.status) }}{% if d.trigger %} · {{ d.trigger }}{% endif %}</p>
+  {% if d.reason %}<p class="text-sm text-ink-soft mt-1">{{ d.reason }}</p>{% endif %}
+  {% if d.quote %}<div class="my-3 text-sm"><b>Price source:</b> {{ d.quote.source | replace('_',' ') }} · price {{ d.quote.price if d.quote.price is not none else 'unavailable' }}<br>
+  <b>Provider time:</b> {{ d.quote.provider_at or 'Unavailable — receipt time is not a trade timestamp' }}<br>
+  <b>Received:</b> {{ d.quote.received_at or 'Unavailable' }} · <b>Interval:</b> {{ d.quote.interval or 'Not supplied' }}{% if d.quote.provider_date %} · session {{ d.quote.provider_date }}{% endif %}</div>{% endif %}
+  {% if d.bar %}<p class="text-sm my-2"><b>Decision bars:</b> {{ d.bar.interval }} · last bar {{ d.bar.last_bar or 'unavailable' }} · {{ d.bar.completion or d.bar.status }}</p>{% endif %}
+  {% if d.components %}<p class="text-sm my-2"><b>Score components:</b> {{ text_value(d.components) }}. These contribute to the total score; they are not independent entry gates.</p>{% endif %}
+  {% if d.weights %}<p class="text-sm my-2"><b>Weights used:</b> {{ text_value(d.weights) }}</p>{% endif %}
+  {% if d.benchmark %}<p class="text-sm my-2"><b>Benchmark input:</b> {{ text_value(d.benchmark) }}</p>{% endif %}
+  {% if d.accounting %}<p class="text-sm my-2"><b>Booked profit and costs:</b> {{ text_value(d.accounting) }}</p>{% endif %}
+  {% if d.quote %}<p class="text-sm my-2"><b>Observed age at decision:</b> provider {{ text_value(d.quote.provider_age_seconds) }} seconds; receipt {{ text_value(d.quote.receipt_age_seconds) }} seconds. Age is recorded; this release adds no new candle-age cutoff.</p>{% endif %}
+  {% if d.overlays %}<p class="text-sm my-2"><b>Position sizing context:</b> {{ text_value(d.overlays) }}</p>{% endif %}
+  {% if d.selection_reference %}<p class="text-sm my-2"><b>Selection reference:</b> {{ text_value(d.selection_reference) }}</p>{% endif %}
+  {% if d.fill %}<p class="text-sm my-2"><b>Booked fill:</b> {{ text_value(d.fill) }}</p>{% endif %}
+  {% if card.gates %}<div class="overflow-x-auto"><table class="w-full text-xs">
+    <thead><tr class="border-b"><th class="p-2 text-left">Parameter</th><th class="p-2 text-left">Result</th><th class="p-2 text-left">Value used</th><th class="p-2 text-left">Threshold / rule</th><th class="p-2 text-left">Reason</th></tr></thead>
+    <tbody>{% for g in card.gates %}<tr class="border-b align-top" data-gate-state="{{ g.state }}"><td class="p-2">{{ g.name }}<div class="text-ink-faint">{{ g.role | replace('_',' ') }}</div></td><td class="p-2 font-semibold">{{ g.state }}</td><td class="p-2 max-w-md">{{ g.value_text }}</td><td class="p-2 max-w-md">{{ g.threshold_text }}</td><td class="p-2">{{ g.reason }}</td></tr>{% endfor %}</tbody>
+  </table></div>{% endif %}
+</section>{% endfor %}
+{% if amendments %}<section class="my-6"><h2 class="text-lg font-semibold">Stop, target and holding changes</h2>
+{% for a in amendments %}<div class="border-b py-3 text-sm"><b>{{ a.reason }}</b> · {{ a.at }}<div>Before: {{ text_value(a.before) }}</div><div>After: {{ text_value(a.after) }}</div></div>{% endfor %}</section>{% endif %}
+{% if archive_notice %}<p class="text-xs text-amber-800">{{ archive_notice }}</p>{% endif %}
+{% endblock %}

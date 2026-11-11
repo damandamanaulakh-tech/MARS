@@ -116,14 +116,17 @@ def test_busy_scan_defers_then_retry_closes_once(active_book, monkeypatch):
     assert [t.ticker for t in e.portfolio.trades] == ["DAY.NS"]
 
 
-def test_owner_buy_receives_deadline_reason_without_mutation(active_book, monkeypatch):
+def test_owner_buy_receives_deadline_reason_without_financial_mutation(active_book, monkeypatch):
     e, _ = active_book
     monkeypatch.setattr("web.market_gate.trading_blocked", lambda cfg: None)
     monkeypatch.setattr("trading.quote_router.fetch_quotes", lambda *a, **k: {"LATE.NS": 100.})
     monkeypatch.setattr("trading.intraday_recovery.entry_allowed", lambda mode, now: mode != "intraday")
-    before = (e.portfolio.cash, len(e.portfolio.decision_journal))
+    before = (e.portfolio.cash, deepcopy(e.portfolio.positions), deepcopy(e.portfolio.trades))
     response = _client().post("/scan/buy", data={"ticker": "LATE", "qty": "10", "mode": "intraday"}, follow_redirects=False)
     assert response.status_code == 303
     assert response.headers["location"] == "/scan?error=intraday_entry_deadline"
     assert "LATE.NS" not in e.portfolio.positions
-    assert (e.portfolio.cash, len(e.portfolio.decision_journal)) == before
+    assert (e.portfolio.cash, e.portfolio.positions, e.portfolio.trades) == before
+    trace = e.portfolio.decision_journal[-1]
+    assert trace["action"] == "SCAN_DECISION" and trace["why"] == "intraday_entry_deadline"
+    assert trace["evidence"]["gates"]["entry_deadline_final"]["state"] == "failed"

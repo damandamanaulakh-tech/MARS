@@ -241,7 +241,7 @@
     <tbody>
       {% for r in rows %}
       <tr class="border-b border-line last:border-0 {% if r.pre_mars %}bg-slate-50 text-ink-faint{% endif %}">
-        <td class="px-3 lg:px-6 py-3 font-semibold whitespace-nowrap">{{ r.ticker }}{% if r.pre_mars %} <span class="text-[9px] uppercase tracking-widest border border-line px-1 ml-1" title="Closed before 15 Sep 2026 — archived, not in the live figures">archived</span>{% endif %}</td>
+        <td class="px-3 lg:px-6 py-3 font-semibold whitespace-nowrap">{{ r.ticker }}{% if user.role == 'owner' %}{% if r.trade_id %}<a class="block text-xs font-normal underline" href="/trade-evidence/{{ r.trade_id }}">Trade explanation</a>{% else %}<span class="block text-[10px] font-normal text-ink-faint">Historical gates unavailable</span>{% endif %}{% endif %}{% if r.pre_mars %} <span class="text-[9px] uppercase tracking-widest border border-line px-1 ml-1" title="Closed before 15 Sep 2026 — archived, not in the live figures">archived</span>{% endif %}</td>
         <td class="px-3 lg:px-6 py-3 text-ink-soft whitespace-nowrap">{{ r.segment }}</td>
         <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap">{{ r.qty }}</td>
         <td class="px-3 lg:px-6 py-3 text-ink-soft whitespace-nowrap">{{ r.entry_date }}</td>

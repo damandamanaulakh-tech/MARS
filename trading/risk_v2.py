@@ -21,6 +21,7 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+from . import decision_evidence as de
 
 log = logging.getLogger(__name__)
 
@@ -131,11 +132,19 @@ def correlation_gate_blocks(
     with ANY open position. Returns None if safe to add.
     """
     if candidate_returns is None or candidate_returns.empty:
+        de.record("correlation", threshold=threshold, state="unavailable", reason="Candidate return history unavailable; existing policy allows")
         return None
+    measured = {}
     for ticker, ret in open_position_returns.items():
         c = correlation(candidate_returns, ret)
+        if c is not None and math.isfinite(c):
+            measured[ticker] = c
         if c is not None and c > threshold:
+            de.record("correlation", {"blocker": ticker, "correlation": c, "pairs_checked": len(measured)}, threshold, passed=False)
             return (ticker, c)
+    de.record("correlation", {"max": max(measured.values()) if measured else None, "pairs_checked": len(measured), "held_pairs": len(open_position_returns)}, threshold,
+              state=("skipped" if not open_position_returns else "unavailable" if not measured else None), passed=True,
+              reason="No held comparison" if not open_position_returns else "Only comparable histories checked")
     return None
 
 
@@ -203,6 +212,9 @@ def passes_liquidity(
     """
     rules = rules or LiquidityRules()
 
+    have = close is not None and volume is not None and len(close.dropna()) >= 20
+    de.record("liquidity_history", len(close.dropna()) if close is not None else None, 20,
+              state="passed" if have else "unavailable")
     if close is None or volume is None or len(close.dropna()) < 20:
         return False, "insufficient_history"
 
@@ -210,18 +222,33 @@ def passes_liquidity(
     # measure (see LiquidityRules for why the share count was removed)
     rupee_vol = (close.iloc[-5:] * volume.iloc[-5:]).dropna().mean()
     rupee_vol_cr = float(rupee_vol) / 1e7
+    de.record("turnover", rupee_vol_cr, rules.min_rupee_volume_5d_cr,
+              passed=rupee_vol_cr >= rules.min_rupee_volume_5d_cr,
+              state=None if math.isfinite(rupee_vol_cr) else "unavailable", reason="5-bar average INR crore")
     if rupee_vol_cr < rules.min_rupee_volume_5d_cr:
         return False, f"rupee_vol {rupee_vol_cr:.2f}Cr < {rules.min_rupee_volume_5d_cr}Cr"
 
     # Market cap hard floor (only when provided)
+    de.record("market_cap", market_cap_cr, rules.min_market_cap_cr,
+              state="skipped" if market_cap_cr is None else None,
+              passed=market_cap_cr is not None and market_cap_cr >= rules.min_market_cap_cr,
+              reason="Not requested by current scan" if market_cap_cr is None else "INR crore")
     if market_cap_cr is not None and market_cap_cr < rules.min_market_cap_cr:
         return False, f"mcap {market_cap_cr:.0f}Cr < {rules.min_market_cap_cr:.0f}Cr"
 
     # Spread hard ceiling (only when provided — live quote required)
+    de.record("spread", spread_pct, rules.max_spread_pct,
+              state="unavailable" if spread_pct is None else None,
+              passed=spread_pct is not None and spread_pct <= rules.max_spread_pct,
+              reason="No bid/ask; existing policy allows" if spread_pct is None else "Bid/ask fraction")
     if spread_pct is not None and spread_pct > rules.max_spread_pct:
         return False, f"spread {spread_pct*100:.3f}% > {rules.max_spread_pct*100:.2f}%"
 
     # Circuit-filter check: open == high == low == close means stuck at circuit
+    known = None not in (last_open, last_high, last_low, last_close)
+    de.record("circuit", [last_open, last_high, last_low, last_close], "OHLC must not all equal",
+              state="skipped" if not rules.require_no_circuit else "unavailable" if not known else None,
+              passed=not (last_open == last_high == last_low == last_close))
     if rules.require_no_circuit and None not in (last_open, last_high, last_low, last_close):
         if last_open == last_high == last_low == last_close:
             return False, "stuck_at_circuit"

@@ -39,7 +39,8 @@ def _frame(n=300, start=100.0, drift=0.15, seed=1, vol_scale=5e6):
     rng = np.random.default_rng(seed)
     steps = 1 + drift / n + rng.normal(0, 0.004, n)
     close = start * np.cumprod(steps)
-    idx = pd.bdate_range(end=pd.Timestamp.today().normalize(), periods=n)
+    # Synthetic sessions use the same UTC clock as the engine under test.
+    idx = pd.bdate_range(end=pd.Timestamp(datetime.utcnow()).normalize(), periods=n)
     return pd.DataFrame({
         "Open": close, "High": close * 1.01, "Low": close * 0.99,
         "Close": close,

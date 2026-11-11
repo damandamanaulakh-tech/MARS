@@ -1,6 +1,7 @@
 """Tests for Mongo-backed Upstox token + portfolio persistence (mocked Mongo)."""
 
 from unittest.mock import patch, MagicMock
+from datetime import datetime
 
 from fastapi.testclient import TestClient
 
@@ -33,7 +34,7 @@ def test_save_and_load_upstox_token_with_mocked_mongo():
         "access_token": "TOKEN_FROM_MONGO",
         "user_id": "U99",
         "user_name": "PersistedUser",
-        "connected_at": "2026-05-29T08:30:00",
+        "connected_at": datetime.utcnow().isoformat(),
     }
     fake_db = MagicMock()
     fake_db.upstox_token = fake_collection
@@ -68,7 +69,7 @@ def test_session_falls_back_to_mongo_on_cold_start(monkeypatch):
         "access_token": "PERSISTED_TOK",
         "user_id": "U7",
         "user_name": "Daman",
-        "connected_at": "2026-05-29T08:30:00",
+        "connected_at": datetime.utcnow().isoformat(),
     }
     fake_db = MagicMock()
     fake_db.upstox_token.find_one.return_value = fake_token_doc

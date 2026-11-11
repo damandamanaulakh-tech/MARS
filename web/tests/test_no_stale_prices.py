@@ -17,6 +17,10 @@ from fastapi.testclient import TestClient
 from web import auth as auth_mod, state
 from web.main import app
 from trading.paper import PaperPosition
+from trading.quote_evidence import QuoteBatch, make
+
+def _live(prices):
+    return QuoteBatch(prices, evidence={t: make(px, "upstox") for t, px in prices.items()})
 
 
 def _owner() -> TestClient:
@@ -42,7 +46,7 @@ def test_a_failed_fetch_never_serves_an_old_price_as_live():
 
 def test_a_fresh_price_is_served_and_reused():
     state._MARKS_CACHE["prices"].clear()
-    with patch("trading.quote_router.fetch_quotes", return_value={"TCS.NS": 2362.0}):
+    with patch("trading.quote_router.fetch_quotes", return_value=_live({"TCS.NS": 2362.0})):
         px, live = state.marks(["TCS.NS"])
     assert px == {"TCS.NS": 2362.0} and live is True
     # reused without a refetch while still inside the age window
@@ -64,7 +68,7 @@ def test_each_price_ages_on_its_own_clock():
 def test_marks_age_is_reportable():
     state._MARKS_CACHE["prices"].clear()
     assert state.marks_age(["TCS.NS"]) is None
-    with patch("trading.quote_router.fetch_quotes", return_value={"TCS.NS": 2362.0}):
+    with patch("trading.quote_router.fetch_quotes", return_value=_live({"TCS.NS": 2362.0})):
         state.marks(["TCS.NS"])
     assert 0 <= state.marks_age(["TCS.NS"]) < 5
 
@@ -91,7 +95,7 @@ def test_positions_page_marks_which_prices_are_live():
             sector="IT", peak_price=entry, entry_score=70.0, reasoning="t")
     try:
         with patch("trading.quote_router.fetch_quotes",
-                   return_value={"TCS.NS": 2362.0}):
+                   return_value=_live({"TCS.NS": 2362.0})):
             page = _owner().get("/positions").text
         # the name with no live quote is visibly flagged as an entry price
         assert "entry</span>" in page or "ENTRY" in page.upper()
@@ -120,7 +124,7 @@ def test_close_all_uses_live_prices_and_refuses_stale_ones():
     _two_positions(p)
     try:
         with patch("trading.quote_router.fetch_quotes",
-                   return_value={"TCS.NS": 2362.0}):
+                   return_value=_live({"TCS.NS": 2362.0})):
             r = _owner().post("/positions/close-all", follow_redirects=False)
         assert r.status_code == 303
         assert "closed_all=1" in r.headers["location"]

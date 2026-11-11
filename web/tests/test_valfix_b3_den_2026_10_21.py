@@ -997,6 +997,12 @@ def _nse_line(row: str) -> str:
 
 
 def test_an_old_nse_session_prints_stale_with_its_day_count(stored, monkeypatch):
+    # Keep the fixture's observation day fixed even if a full suite crosses midnight.
+    class ObservationDate(date):
+        @classmethod
+        def today(cls):
+            return TODAY
+    monkeypatch.setattr(cv, "date", ObservationDate)
     n = mv.NSE_STALE_DAYS
     old = (TODAY - timedelta(days=n + 1)).isoformat()
     _nse_feeds(monkeypatch, date=old, session_closed=True)

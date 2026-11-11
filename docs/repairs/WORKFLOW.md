@@ -66,6 +66,9 @@ python -m pytest trading/tests/ web/tests/ -q -ra --junitxml=pytest-results.xml
 The GitHub workflow rejects any skipped test in that report. Do not bypass
 this check, suppress a failure, delete a test, or mark an unresolved record
 complete to move to the next batch. Keep production credentials out of tests.
+Run full suites sequentially when they share the default temporary portfolio
+directory. Preserve failed-run state separately and use a fresh isolated test
+book for release validation; never reuse production state.
 
 This document records the workflow; it does not grant new permissions beyond
 the user's instructions for the current task.
@@ -86,3 +89,21 @@ the user's instructions for the current task.
 - Keep source-derived news/context separate from changes to trading thresholds or
   valuation assumptions. Filing-specific financial facts require their own period,
   issuer, units and document evidence; general headlines cannot stand in for them.
+
+## Decision-evidence batches
+
+- Capture each gate at the branch that evaluates it. Record path, segment,
+  value, threshold, state and reason; a check not reached is skipped and a
+  missing input is unavailable. Do not rerun current settings to explain an
+  old decision. An owner instruction and an automatic selection are different
+  paths, linked by reference when appropriate.
+- Keep provider time, receipt time and bar interval distinct. Preserve the
+  per-price source through caches and concurrent requests. LTP without an
+  exchange timestamp must say that it is unavailable. A source label or age
+  observation alone does not authorize a new trading threshold.
+- Verify entry, amendment and each partial/final exit identity across restarts,
+  storage failures and owner read pages. Archive bulky snapshots separately
+  from financial samples; require acknowledgement before discarding a copy.
+- Keep historical coverage and view limits explicit. After deploy, observe a
+  normal scan and trade lifecycle when available; never induce a production
+  trade solely to turn a pending evidence check into completed status.

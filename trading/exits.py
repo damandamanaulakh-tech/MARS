@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from .config import Config
+from . import decision_evidence as de
 
 
 def retag_positions_per_mode(portfolio, now: datetime | None = None) -> int:
@@ -63,8 +64,10 @@ def retag_positions_per_mode(portfolio, now: datetime | None = None) -> int:
             new_target = round(old_target, 2)
         if abs(new_stop - old_stop) < 0.01 and abs(new_target - old_target) < 0.01:
             continue
+        before = de.protection(pos)
         pos.stop_price = new_stop
         pos.target_price = new_target
+        de.amendment(pos, before, "RETAG_EXITS", now, portfolio=portfolio)
         changed += 1
         portfolio.decision_journal.append({
             "ts": now.isoformat(),
@@ -111,54 +114,70 @@ def check_exit(
     ocean = "ocean" in (getattr(position, "tags", None) or [])
     score_exempt = owner_pick or ocean
 
+    ctx = de.current()
+    if ctx is not None:
+        ctx["exit_rules"] = {"disable_exits": cfg.disable_exits,
+            "score_exempt": score_exempt, "owner_pick": owner_pick, "ocean": ocean,
+            "trailing_stop_pct": cfg.trailing_stop_pct, "score_decay_exit": cfg.score_decay_exit,
+            "max_hold_days": cfg.max_hold_days}
+    score_available = ctx is None or ctx.get("score_available", True)
+    def score_rule():
+        hit = current_score < cfg.score_decay_exit and not score_exempt
+        de.record("score_decay", current_score, cfg.score_decay_exit, passed=hit,
+                  state="skipped" if score_exempt else "unavailable" if not score_available else None,
+                  reason="Owner/Ocean exemption" if score_exempt else "Entry-score fallback; current score unavailable" if not score_available else "Exit when score is below floor",
+                  role="exit_trigger")
+        return hit
     if getattr(cfg, "disable_exits", False):
         position.peak_price = max(position.peak_price, current_price)
-        if current_score < cfg.score_decay_exit and not score_exempt:
+        for rule in ("stop", "target", "trailing", "max_hold"):
+            de.record(rule, state="skipped", reason="Buy-and-hold policy disables this exit", role="exit_trigger")
+        if score_rule():
             return True, "SCORE_DECAY"
         return False, ""
 
     entry = position.entry_price
     peak = max(position.peak_price, current_price)
     position.peak_price = peak
-    ret = (current_price - entry) / entry
-
-    # Prefer the stop/target snapshotted at entry (stays correct even after the
-    # daily scan rotates cfg.mode). Fall back to the live cfg percentages for
-    # positions opened before these were tracked (stored as 0.0).
-    stop_price = getattr(position, "stop_price", 0.0) or 0.0
-    target_price = getattr(position, "target_price", 0.0) or 0.0
-
-    if stop_price > 0:
-        if current_price <= stop_price:
-            return True, "STOP_LOSS"
-    elif ret <= cfg.stop_loss_pct:
+    stop = (getattr(position, "stop_price", 0.0) or 0.0)
+    target = (getattr(position, "target_price", 0.0) or 0.0)
+    ret = (current_price - entry) / entry if entry else 0.0
+    stop_hit = current_price <= stop if stop > 0 else ret <= cfg.stop_loss_pct
+    target_hit = current_price >= target if target > 0 else ret >= cfg.take_profit_pct
+    stop = stop if stop > 0 else entry * (1 + cfg.stop_loss_pct)
+    target = target if target > 0 else entry * (1 + cfg.take_profit_pct)
+    de.record("stop", current_price, stop, passed=stop_hit,
+              reason="Exit at or below stop", role="exit_trigger")
+    if stop_hit:
         return True, "STOP_LOSS"
-
-    if target_price > 0:
-        if current_price >= target_price:
-            return True, "TAKE_PROFIT"
-    elif ret >= cfg.take_profit_pct:
+    de.record("target", current_price, target, passed=target_hit,
+              reason="Exit at or above target", role="exit_trigger")
+    if target_hit:
         return True, "TAKE_PROFIT"
-
-    # Trailing only kicks in once we're in profit. v5: tighten the trailing
-    # stop by 40% when score has decayed below entry_score - 15 (early
-    # weakness signal) — locks in gains before full decay-exit fires.
     if peak > entry:
         trail_ret = (current_price - peak) / peak
         trail_pct = cfg.trailing_stop_pct
-        if not ocean and current_score < (position.entry_score - 15.0):
-            trail_pct = cfg.trailing_stop_pct * 0.6  # e.g. -8% -> -4.8%
+        tightened = not ocean and current_score < (position.entry_score - 15.0)
+        if tightened:
+            trail_pct *= 0.6
+        de.record("trailing", {"return_from_peak": trail_ret, "peak": peak,
+            "score": current_score, "score_at_entry": position.entry_score,
+            "tightened": tightened, "price_level": peak * (1 + trail_pct)},
+            {"fraction": trail_pct, "tighten_score_below": position.entry_score - 15.0},
+            passed=trail_ret <= trail_pct, role="exit_trigger")
         if trail_ret <= trail_pct:
             return True, "TRAILING_STOP"
-
-    if current_score < cfg.score_decay_exit and not score_exempt:
+    else:
+        de.record("trailing", peak, entry, state="skipped", reason="Peak has not exceeded entry", role="exit_trigger")
+    if score_rule():
         return True, "SCORE_DECAY"
-
     if now is not None:
         days_held = (now.date() - position.entry_date.date()).days
+        de.record("max_hold", days_held, cfg.max_hold_days, passed=days_held >= cfg.max_hold_days, role="exit_trigger")
         if days_held >= cfg.max_hold_days:
             return True, "MAX_HOLD"
-
+    else:
+        de.record("max_hold", state="unavailable", reason="No evaluation clock", role="exit_trigger")
     return False, ""
 
 

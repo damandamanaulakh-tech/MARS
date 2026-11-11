@@ -262,7 +262,7 @@
     <tbody x-data="{ open: null }">
       {% for r in rows %}
       <tr class="border-b border-line last:border-0 hover:bg-ink/[0.02] {% if r.decay_watch %}bg-amber-50{% endif %}">
-        <td class="px-3 lg:px-4 py-4 font-semibold whitespace-nowrap">{{ r.ticker }}
+        <td class="px-3 lg:px-4 py-4 font-semibold whitespace-nowrap">{{ r.ticker }}{% if user.role == 'owner' and r.trade_id %}<a class="block text-xs font-normal underline" href="/trade-evidence/{{ r.trade_id }}">Trade explanation</a>{% endif %}
           <a href="/chart/{{ r.ticker }}" title="candle chart with your stop/target lines" class="ml-1 no-underline">📈</a>
           {% for m in r.markers %}{% if m.key == 'decay' %}<span class="ml-1 text-[10px] text-amber-700 font-bold" data-marker="decay" title="Score {{ r.current_score | round(0) }} near its category's decay-exit floor {{ r.decay_floor | round(0) }} — {% if r.decay_exempt %}exempt: an owner pick / Ocean position is never sold on decay (stop, target, trail still apply){% else %}may be sold on decay{% endif %}">⚠ DECAY</span>{% else %}<span class="ml-1 text-[10px] font-bold {% if m.key == 'danger' %}text-rose-700{% else %}text-ink-soft{% endif %}" data-marker="{{ m.key }}" title="{{ m.label }}: {{ m.meaning }}">{{ m.icon }} {{ m.label }}</span>{% endif %}{% endfor %}</td>
         <td class="px-3 lg:px-4 py-4 whitespace-nowrap"><span class="px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase
@@ -283,8 +283,11 @@
         <td class="px-3 lg:px-4 py-4 tabular-nums text-right whitespace-nowrap">{{ r.qty }}</td>
         <td class="px-3 lg:px-4 py-4 tabular-nums text-right whitespace-nowrap">₹{{ r.entry_price | inr(2) }}</td>
         <td class="px-3 lg:px-4 py-4 tabular-nums text-right font-semibold whitespace-nowrap">
-          {% if r.ltp_live %}₹{{ r.ltp | inr(2) }}
-          {% else %}<span class="text-amber-700" title="no live quote for this stock — this is its ENTRY price, not the market">₹{{ r.ltp | inr(2) }} <span class="text-[10px] uppercase tracking-wide">entry</span></span>{% endif %}
+          ₹{{ r.ltp | inr(2) }}
+          <span class="block text-[10px] {{ 'text-emerald-700' if r.ltp_live else 'text-amber-700' }}">
+            {% if r.ltp_live %}Upstox LTP{% elif r.ltp_available %}{{ r.quote_evidence.source | replace('_', ' ') }}{% else %}<span title="No usable quote — this is the ENTRY price, not the market">entry fallback</span>{% endif %}
+          </span>
+          {% if r.ltp_available %}<span class="block text-[10px] text-ink-faint" title="Received {{ r.quote_evidence.received_at }}; provider time {{ r.quote_evidence.provider_at or 'unavailable' }}">{{ r.quote_evidence.interval or 'tick time unavailable' }}</span>{% endif %}
         </td>
         <td class="px-3 lg:px-4 py-4 tabular-nums text-right whitespace-nowrap">₹{{ r.value | inr }}</td>
         <td class="px-3 lg:px-4 py-4 tabular-nums text-right font-semibold whitespace-nowrap {% if r.pnl >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}" data-pnl-pct="{{ '%.2f' % r.pnl_pct }}">

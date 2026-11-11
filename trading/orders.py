@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
+from . import decision_evidence as de
+from . import quote_evidence as qe
 
 log = logging.getLogger(__name__)
 
@@ -75,10 +77,11 @@ def cancel(p, order_id: str, why: str = "owner cancelled",
 
 
 def apply_custom_levels(pos, stop_pct: float = None,
-                        target_pct: float = None) -> str:
+                        target_pct: float = None, *, portfolio=None, now=None) -> str:
     """Overwrite the position's snapshot stop/target with the owner's own
     percents (positive numbers, measured from fill). Returns a note."""
     notes = []
+    before = de.protection(pos)
     if stop_pct:
         pos.stop_price = round(pos.entry_price * (1 - abs(stop_pct) / 100), 2)
         pos.custom_levels = True
@@ -93,6 +96,8 @@ def apply_custom_levels(pos, stop_pct: float = None,
             prev = (getattr(pos, "val_target", None) or {}).get("source")
             pos.val_target = {"source": "owner", "replaced": prev or "",
                               "reason": "hand-typed target on the order ticket"}
+    de.amendment(pos, before, "OWNER_LEVELS", now, portfolio=portfolio,
+                 details={"stop_pct": stop_pct, "target_pct": target_pct})
     return ", ".join(notes)
 
 
@@ -186,7 +191,16 @@ def _fill_locked(engine, o: dict, price: float, now: datetime) -> None:
         components = dict(row.get("c") or {})
     except Exception:
         pass
+    decision = de.new(tkr, mode, "owner_limit", now)
+    decision["selection_reference"] = {"decision_id": (o.get("last_decision") or {}).get("id"), "order_id": o["id"]}
+    de.put(decision, "owner", o["id"], "resting owner instruction", passed=True, role="authority")
+    de.put(decision, "limit_price", quote, o["limit_price"], passed=quote <= o["limit_price"])
+    funds, left = available(p, cfg, mode)
+    de.put(decision, "category_budget", qty * fill, left, state="skipped" if left is None else None, passed=left is None or qty * fill <= left)
+    de.put(decision, "cash", qty * fill, p.cash, passed=qty * fill <= p.cash)
     pick = {"ticker": tkr, "score": score, "components": components,
+            "decision": decision, "entry_path": "owner_limit",
+            "quote_evidence": o.get("last_quote") or qe.observation({tkr: quote}, tkr, now),
             "timing_pass": True,
             "fill_source": "limit_order",
             "reasoning": (f"OWNER LIMIT ORDER {o['id']} filled @ ₹{fill:.2f} "
@@ -194,7 +208,7 @@ def _fill_locked(engine, o: dict, price: float, now: datetime) -> None:
                           "— owner's call, regime halt overridden by owner.")}
     engine._open(pick, qty, fill, now, cfg=cfg)
     p.positions[tkr].tags.append("owner_pick")
-    note = apply_custom_levels(p.positions[tkr], o["stop_pct"], o["target_pct"])
+    note = apply_custom_levels(p.positions[tkr], o["stop_pct"], o["target_pct"], portfolio=p, now=now)
     if note:
         p.positions[tkr].reasoning += f" Custom levels: {note}."
     o["status"] = "filled"
@@ -235,16 +249,32 @@ def process_open_orders(engine, now: datetime = None) -> list:
         log.warning("Pending-order quote fetch failed: %s", e)
         return []
     actions = []
+    observed = False
     for o in open_orders:
         fill_now = supplied_now or datetime.utcnow()
         if not engine._trading_allowed(fill_now):
             break
         q = prices.get(o["ticker"])
-        if q and q > 0 and q <= o["limit_price"]:
+        o["last_quote"] = qe.observation(prices, o["ticker"], fill_now)
+        d = de.new(o["ticker"], o.get("mode") or "nifty200_momentum", "owner_limit", fill_now)
+        d["quote"] = o["last_quote"]
+        de.put(d, "owner", o["id"], "resting owner instruction", passed=True, role="authority")
+        de.put(d, "quote", d["quote"], "Positive routed quote", passed=qe.executable(prices, o["ticker"], fill_now),
+               state="unavailable" if d["quote"]["source"] in ("unknown", "unavailable") else None)
+        touched = bool(q and q > 0 and q <= o["limit_price"])
+        de.put(d, "limit_price", q, {"at_or_below": o["limit_price"]}, passed=touched,
+               state="unavailable" if not q else None)
+        o["last_decision"] = d
+        observed = True
+        de.journal_decision(p, d, "touched" if touched else "waiting", "Limit check; fill and allocation recorded separately")
+        if touched:
+            if not qe.executable(prices, o["ticker"], fill_now):
+                o["note"] = "quote_unavailable_or_non_executable"
+                continue
             _fill(engine, o, float(q), fill_now)
             if o["status"] != "open":
                 actions.append(o["id"])
-    if actions:
+    if actions or observed:
         p.save()
     return actions
 

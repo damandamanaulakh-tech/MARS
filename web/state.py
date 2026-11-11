@@ -109,26 +109,40 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
         `trades` archive, and trim the book ONLY when that write succeeded.
         Mongo down = keep everything in the book; the doc grows a little
         until the next save that can archive. A trade is never lost."""
-        from trading.paper import TRADES_DOC_CAP
-        if len(self.trades) <= TRADES_DOC_CAP or not db.is_connected():
+        from trading.paper import TRADES_DOC_CAP, TRADES_BYTES_CAP
+        import json
+        if not db.is_connected():
             return
-        overflow = self.trades[:-TRADES_DOC_CAP]
-        if db.archive_trades([t.to_dict() for t in overflow]):
-            self.trades = self.trades[-TRADES_DOC_CAP:]
+        if len(self.trades) > TRADES_DOC_CAP:
+            overflow = self.trades[:-TRADES_DOC_CAP]
+            if db.archive_trades([t.to_dict() for t in overflow]):
+                self.trades = self.trades[-TRADES_DOC_CAP:]
+        # Archive bulky evidence separately. Keep the complete numerical trade
+        # ledger in RAM so performance and risk samples do not change.
+        total = sum(len(json.dumps(t.trade_evidence, default=str).encode()) for t in self.trades)
+        for trade in self.trades:
+            ev = trade.trade_evidence
+            if total <= TRADES_BYTES_CAP:
+                break
+            if not ev or ev.get("archived"):
+                continue
+            if db.archive_trade_evidence(ev):
+                small = {"schema": 1, "trade_id": ev["trade_id"], "archived": True,
+                         "entry_id": ev.get("entry", {}).get("id"),
+                         "exit_id": ev.get("exit", {}).get("id")}
+                total -= len(json.dumps(ev, default=str).encode()) - len(json.dumps(small).encode())
+                trade.trade_evidence = small
 
     def _save_with_mirror(self: Portfolio) -> bool:
         # Durable-archive the journal overflow BEFORE original_save trims RAM,
         # so the full append-only trail survives in Mongo (journal_archive)
         # while RAM stays bounded on the always-on process.
-        from trading.paper import JOURNAL_RAM_CAP
-        if len(self.decision_journal) > JOURNAL_RAM_CAP:
-            overflow = self.decision_journal[:-JOURNAL_RAM_CAP]
-            # AUDIT FIX C2 (2026-08-09): if Mongo dies mid-session the archive
-            # used to fail with a log line while original_save trimmed the RAM
-            # copy — append-only journal entries were PERMANENTLY lost. Failed
-            # archives now spill to a local JSONL and replay on reconnect.
-            if not db.archive_journal(overflow):
-                _spill_journal_overflow(self, overflow)
+        from trading.paper import JOURNAL_RAM_CAP, JOURNAL_BYTES_CAP, tail_start
+        cut = tail_start(self.decision_journal, JOURNAL_RAM_CAP, JOURNAL_BYTES_CAP)
+        if cut:
+            overflow = self.decision_journal[:cut]
+            if db.archive_journal(overflow) or _spill_journal_overflow(self, overflow):
+                self.decision_journal = self.decision_journal[cut:]
         _archive_trade_overflow(self)
         original_save(self)
         if not db.is_connected():
@@ -194,18 +208,9 @@ def _overflow_path(p: Portfolio) -> str:
     return os.path.join(p.cfg.state_dir, "journal_overflow.jsonl")
 
 
-def _spill_journal_overflow(p: Portfolio, entries: list) -> None:
-    """Durable-ish local backup for journal entries the Mongo archive missed."""
-    import json as _json
-    try:
-        with open(_overflow_path(p), "a") as f:
-            for e in entries:
-                f.write(_json.dumps(e, default=str) + "\n")
-        log.warning("journal overflow spilled to disk (%d entries) — will "
-                    "replay to Mongo on reconnect", len(entries))
-    except OSError as e:
-        log.error("journal overflow spill FAILED (%d entries at risk): %s",
-                  len(entries), e)
+def _spill_journal_overflow(p: Portfolio, entries: list) -> bool:
+    from trading.paper import spill_journal
+    return spill_journal(p, entries)
 
 
 def mongo_degraded() -> bool:
@@ -672,15 +677,18 @@ def marks(tickers: list[str], max_age: float = MARKS_MAX_AGE_SEC
     screen while the header claimed "Upstox real-time".
 
     Now: every price carries its own fetch time, anything older than
-    `max_age` is DISCARDED rather than served, and `live` is True only for
-    prices actually fresh. Callers fall back to entry marks — clearly
+    `max_age` is DISCARDED rather than served, and `live` is True only when at least one retained price is an
+    Upstox LTP; each price carries its own source separately. Callers fall back to entry marks — clearly
     labelled — instead of trusting a corpse.
     """
     import time
+    from trading import quote_evidence as qe
+    from trading.portfolio_marks import positive_price
     if not tickers:
-        return {}, False
+        return qe.QuoteBatch(), False
     now = time.time()
     cache: dict = _MARKS_CACHE["prices"]
+    evidence = _MARKS_CACHE.setdefault("evidence", {})
 
     # AUDIT E (2026-08-09): all cache reads/writes are under _MARKS_LOCK now —
     # the old lock-free dict was mutated by scheduler threads while a request
@@ -689,6 +697,7 @@ def marks(tickers: list[str], max_age: float = MARKS_MAX_AGE_SEC
     with _MARKS_LOCK:
         for t in [k for k, (_p, ts) in list(cache.items()) if now - ts > max_age]:
             cache.pop(t, None)
+            evidence.pop(t, None)
         need = [t for t in tickers if t not in cache]
 
     if need:
@@ -698,24 +707,28 @@ def marks(tickers: list[str], max_age: float = MARKS_MAX_AGE_SEC
         except Exception:
             got = {}
         with _MARKS_LOCK:
+            received = time.time()
             for t, px in (got or {}).items():
-                if px and px > 0:
-                    cache[t] = (float(px), now)
+                if positive_price(px) is not None:
+                    cache[t] = (float(px), received)
+                    evidence[t] = qe.observation(got, t)
 
     with _MARKS_LOCK:
-        out = {t: cache[t][0] for t in tickers if t in cache}
-    return out, bool(out)
+        out = qe.QuoteBatch({t: cache[t][0] for t in tickers if t in cache},
+                           evidence={t: evidence[t] for t in tickers if t in cache and t in evidence
+                                     and evidence[t].get("price") == cache[t][0]})
+    return out, any(qe.executable(out, t, live_only=True) for t in out)
 
 
 def marks_sources(tickers) -> dict:
     """{ticker: 'upstox'|'yf_close'} for the tickers we have prices for —
     External review on PR#40: an export must know whether a mark was a real
     live tick or a delayed daily close."""
-    try:
-        from trading.quote_router import LAST_SOURCES
-        return {t: LAST_SOURCES.get(t) for t in tickers if t in LAST_SOURCES}
-    except ImportError:
-        return {}
+    with _MARKS_LOCK:
+        ev = _MARKS_CACHE.get("evidence", {})
+        prices = _MARKS_CACHE["prices"]
+        return {t: ev[t].get("source") for t in tickers if t in prices and t in ev
+                and ev[t].get("price") == prices[t][0]}
 
 
 def marks_age(tickers: list[str]) -> float | None:

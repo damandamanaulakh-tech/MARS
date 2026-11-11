@@ -276,6 +276,12 @@ def test_the_fed_rows_move_the_bridge_and_leave_the_missing_list(stored, monkeyp
 
 
 def test_an_old_yield_is_stale_and_no_feed_falls_back_to_the_june_file(stored, monkeypatch):
+    # Keep the fixture's observation day fixed even if a full suite crosses midnight.
+    class ObservationDate(date):
+        @classmethod
+        def today(cls):
+            return TODAY
+    monkeypatch.setattr(cv, "date", ObservationDate)
     monkeypatch.setattr(cv, "_macro_feeds", lambda: _fake_feeds(rf_days=30))
     m = cv._macro_inputs({"period_end": "2026-03-31"}, None, "TCS.NS")
     assert m["rf_stale"] is True and m["rf_age_days"] == 30

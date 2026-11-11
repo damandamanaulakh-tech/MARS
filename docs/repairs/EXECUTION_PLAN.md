@@ -8,7 +8,7 @@ separate incidents. [Goals](GOALS.md), [full backlog](BACKLOG.md),
 
 ## Current batch
 
-**SEQ-02 is shipped and health verified; SEQ-03 is the next queued batch.**
+**SEQ-02 is shipped and health verified; SEQ-03 is in progress.**
 [PR #199](https://github.com/damandamanaulakh-tech/MARS/pull/199) merged as
 `a9919f6446690a62b76914fb9178009aaacf55e4`. The matching Render revision went
 live 11 November at 22:03:44 IST; health/readiness and database connectivity
@@ -20,10 +20,13 @@ had zero intraday holdings, and the filtered logs did not return a job-specific
 execution record. Application startup completion was observed separately.
 SEQ-01 retains its pending quote-gap observation.
 
-**Next: SEQ-03 — gate decisions and quote provenance.** Implementation has not
-started. Preserve values, thresholds, passed/failed/skipped/unavailable states,
-quote source/time, and actual entry/exit evidence. SEQ-03 through SEQ-11 stay
-queued; neither shipped step closes those broader findings by implication.
+**Active: SEQ-03 — gate decisions and quote provenance.** Immutable decision
+records, owner explanation pages and archival are implemented. 60 new cases
+and 135 focused checks pass. The final full local suite passes 2994 tests with
+zero failures/errors/skips; PR CI and release are pending.
+[Current batch](releases/2026-11-11-decision-evidence.md). Provider age is now
+observable; a new age/completed-bar policy remains SEQ-04. Steps 04–11 remain
+queued, and earlier ordinary runtime observations stay open.
 
 ## Sequence and acceptance
 
@@ -31,8 +34,8 @@ queued; neither shipped step closes those broader findings by implication.
 |---|---|---|---|---|
 | SEQ-01 | G4; AUD-002 | Preserve last observed holding values through quote gaps and restarts; show source/time and unknown values | Unchanged INR 52 lakh stays 52 lakh under a partial response; real loss still halts; no retained mark fills an exit; JSON/Mongo round trip and split handling pass | SHIPPED; health verified; normal quote-gap observation pending |
 | SEQ-02 | G13; INTRA-002; related OPS-04 | Durable intraday square-off deadline, retry and consistent segment/stop treatment | Missed job, restart, missing quote and late scan fixtures; original protection preserved; ordinary deadline outcome observed when available | SHIPPED; health verified; normal recovery observation pending |
-| SEQ-03 | G13/G9; INTRA-004, ROOT-AM07-04, ROOT-ROUTE-09 | Immutable entry/exit gate results and quote provenance | Values, thresholds, pass/fail/skip/unavailable, provider/receipt time, bar interval, stop amendments and exit trigger attached to each new trade | QUEUED |
-| SEQ-04 | G13; INTRA-001 | Connect completed intraday bars to the actual intraday data path | Correct interval, session alignment, no future/unclosed bars, explicit missing-data handling and recorded comparison with the daily baseline | QUEUED |
+| SEQ-03 | G13/G9; INTRA-004, ROOT-AM07-04, ROOT-ROUTE-09 | Immutable entry/exit gate results and quote provenance | Values, thresholds, pass/fail/skip/unavailable, provider/receipt time, bar interval, stop amendments and exit trigger attached to each new trade | LOCAL TESTED; 2994 passed, zero skips; PR CI/release pending |
+| SEQ-04 | G13; INTRA-001, ROOT-AM07-04 | Connect completed intraday bars to the actual intraday data path | Correct interval, session alignment, no future/unclosed bars, explicit missing-data handling and recorded comparison with the daily baseline | QUEUED |
 | SEQ-05 | G13; XR-059 | Product-appropriate intraday cost model and separate historical comparison | Dated broker/exchange schedule and account-plan assumptions; buy/sell/partial-exit cases; original ledger preserved | QUEUED |
 | SEQ-06 | G9/G13; INTRA-004, XR-009, XR-061 | Sector identity, input coverage and same-window benchmark/sector context | Unknown never counts as measured strength; timestamped stock/sector/index comparisons; context does not silently become a new gate | QUEUED |
 | SEQ-07 | G13; XR-081; owner candle decision | Candle patterns assist selection, with recorded owner controls | Advisory contribution is explicit; absence alone does not veto an otherwise eligible entry; protective exits remain independent; invalid candles remain unavailable | QUEUED |

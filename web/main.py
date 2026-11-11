@@ -24,7 +24,7 @@ from .routes import (  # noqa: E402
     upstox, backtest_routes, regime_routes,
     strategy_routes, reports_routes, risk_routes, alerts_routes,
     chart_routes, lens_routes, trigger_routes,
-    register_routes, den_routes, resource_routes,
+    register_routes, den_routes, resource_routes, evidence_routes,
 )
 # The Signal page (signal_routes) was removed 2026-10-12 on the owner's order
 # (item 1: "signal file also can be removed, not working and zero utility").
@@ -128,6 +128,7 @@ app.include_router(trigger_routes.router)
 app.include_router(register_routes.router)
 app.include_router(den_routes.router)
 app.include_router(resource_routes.router)
+app.include_router(evidence_routes.router)
 
 
 @app.on_event("startup")

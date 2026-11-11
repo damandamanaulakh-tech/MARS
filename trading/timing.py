@@ -9,6 +9,7 @@ from __future__ import annotations
 import pandas as pd
 
 from .config import Config
+from . import decision_evidence as de
 
 
 def passes_breakout(close: pd.Series, cfg: Config) -> tuple[bool, float]:
@@ -40,6 +41,12 @@ def timing_ok(history: pd.DataFrame, cfg: Config) -> tuple[bool, dict]:
     """Combine the two checks. Returns (pass, diagnostics)."""
     b_ok, b_val = passes_breakout(history["Close"], cfg)
     v_ok, v_val = passes_volume_confirm(history["Volume"], cfg)
+    de.record("breakout", b_val, -cfg.breakout_threshold_pct, passed=b_ok,
+              state="unavailable" if len(history["Close"]) < cfg.breakout_lookback_days + 1 else None,
+              reason=f"Distance from {cfg.breakout_lookback_days}-bar high")
+    de.record("volume", v_val, cfg.volume_confirm_ratio, passed=v_ok,
+              state="unavailable" if len(history["Volume"]) < cfg.volume_long_days or history["Volume"].iloc[-cfg.volume_long_days:].mean() <= 0 else None,
+              reason=f"{cfg.volume_short_days}/{cfg.volume_long_days}-bar mean ratio")
     return b_ok and v_ok, {
         "breakout_ok": b_ok, "pct_from_high": b_val,
         "volume_ok": v_ok, "vol_ratio": v_val,

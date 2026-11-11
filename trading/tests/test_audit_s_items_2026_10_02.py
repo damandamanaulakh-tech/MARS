@@ -12,7 +12,7 @@ S-15  Yahoo `.info` calls in the exit pass had no timeout.
 from __future__ import annotations
 
 import time
-from datetime import date
+from datetime import date, datetime
 
 import numpy as np
 import pandas as pd
@@ -26,7 +26,8 @@ from trading.paper import Portfolio
 def _frame(n=300, start=100.0, drift=-0.40, seed=1):
     rng = np.random.default_rng(seed)
     close = start * np.cumprod(1 + drift / n + rng.normal(0, 0.004, n))
-    idx = pd.bdate_range(end=pd.Timestamp.today().normalize(), periods=n)
+    # Synthetic sessions use the same UTC clock as the engine under test.
+    idx = pd.bdate_range(end=pd.Timestamp(datetime.utcnow()).normalize(), periods=n)
     return pd.DataFrame({"Open": close, "High": close * 1.01,
                          "Low": close * 0.99, "Close": close,
                          "Volume": np.full(n, 5e6)}, index=idx)
@@ -60,7 +61,7 @@ def test_a_no_pick_momentum_scan_still_caches_breadth(eng):
     eng.scan()
     assert not eng.portfolio.last_scan_opened
     cached = eng.portfolio.breadth_today or {}
-    assert cached.get("asof") == date.today().isoformat()
+    assert cached.get("asof") == datetime.utcnow().date().isoformat()
     assert cached.get("sample", 0) >= 3
 
 

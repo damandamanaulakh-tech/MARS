@@ -43,9 +43,16 @@ def _client_from_session(request: Request) -> Optional[UpstoxClient]:
     user_name = request.session.get("upstox_user_name")
     connected_at = request.session.get("upstox_connected_at")
 
-    # Fallback to Mongo if session is empty
-    if not token:
-        persisted = db.load_upstox_token()
+    # Compare issue times: an old browser session must not mask a newer
+    # saved login. Unknown dates cannot displace a dated session token.
+    from trading.quote_evidence import utc
+    persisted = db.load_upstox_token() or {}
+    old_at = utc(connected_at) if connected_at else None
+    new_raw = persisted.get("connected_at")
+    new_at = utc(new_raw) if new_raw else None
+    use_saved = bool(persisted.get("access_token") and
+                     (not token or (new_at is not None and (old_at is None or new_at > old_at))))
+    if use_saved:
         if persisted:
             token = persisted.get("access_token")
             user_id = persisted.get("user_id")
@@ -312,13 +319,16 @@ def status(request: Request):
             "env_ok": env_ok,
         })
 
+    hours = client.hours_until_expiry()
+    connected = bool(client.is_connected() and hours is not None and hours > 0)
     return JSONResponse({
-        "connected": True,
+        "connected": connected,
+        "reason": "token_current" if connected else "token_expired" if hours is not None and hours <= 0 else "expiry_unknown",
         "env_ok": True,
         "user_id": client.user_id,
         "user_name": client.user_name,
         "connected_at": client.connected_at,
-        "hours_until_expiry": client.hours_until_expiry(),
+        "hours_until_expiry": hours,
     })
 
 

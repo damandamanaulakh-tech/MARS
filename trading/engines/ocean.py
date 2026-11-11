@@ -40,6 +40,7 @@ import pandas as pd
 
 from ..config import Config
 from ..data import is_backtest_mode
+from .. import decision_evidence as evidence
 
 log = logging.getLogger(__name__)
 
@@ -136,21 +137,27 @@ def survival_check(ticker: str) -> tuple[bool, list[str]]:
     False — no historical snapshot exists, and pretending otherwise would
     be lookahead."""
     if is_backtest_mode():
+        evidence.record("ocean_fundamentals", state="unavailable", reason="No historical fundamental snapshot in replay")
         return False, ["backtest-mode: fundamentals skipped (no snapshot)"]
     f = _fundamentals(ticker.replace(".NS", ""))
     debt = f.get("annualTotalDebt", {})
     eq = f.get("annualStockholdersEquity", {})
     fcf = f.get("annualFreeCashFlow", {})
+    evidence.record("ocean_fundamentals", {"debt": debt, "equity": eq, "fcf": fcf},
+                    "All three series required", state="passed" if debt and eq and fcf else "unavailable")
     if not debt or not eq or not fcf:
         return False, ["fundamentals missing from store"]
     d_latest = debt[max(debt)]
     e_latest = eq[max(eq)]
+    evidence.record("ocean_equity", e_latest, "> 0", passed=e_latest > 0)
     if e_latest <= 0:
         return False, ["negative/zero equity"]
     de = d_latest / e_latest
+    evidence.record("ocean_debt_equity", de, "< 0.5", passed=de < 0.5)
     if de >= 0.5:
         return False, [f"D/E {de:.2f} >= 0.5"]
     fcf_latest = fcf[max(fcf)]
+    evidence.record("ocean_fcf", fcf_latest, "> 0", passed=fcf_latest > 0)
     if fcf_latest <= 0:
         return False, [f"latest FCF {fcf_latest:.0f} not positive"]
     return True, [f"D/E {de:.2f} ok", f"FCF positive ({max(fcf)})"]
@@ -181,23 +188,32 @@ def crash_guard_market(vix_close: Optional[pd.Series],
     """(ok, reason). Fail-SAFE: anything unknowable blocks — a dip-buyer
     must prove the market is not in free-fall, never assume it."""
     if vix_close is None or len(vix_close.dropna()) < VIX_Q_WINDOW:
+        evidence.record("ocean_vix", threshold={"history": VIX_Q_WINDOW}, state="unavailable", reason="VIX history missing or too short")
         return False, "vix_unknown"
     v = vix_close.dropna()
     q90 = float(v.tail(VIX_Q_WINDOW).quantile(VIX_Q))
     last = float(v.iloc[-1])
     rising = len(v) >= 6 and last > float(v.iloc[-6])
+    evidence.record("ocean_vix", {"last": last, "rising": rising, "sixth_last": float(v.iloc[-6])},
+                    {"q90": q90, "window": VIX_Q_WINDOW}, passed=not (last > q90 and rising))
     if last > q90 and rising:
         # spike still building — unless the crush rule says the fear break
         # already happened (the one measured re-entry, +2.3pp in v4)
         try:
             from trading.regime import vix_crush_ok
-            if not vix_crush_ok(v):
+            crush = vix_crush_ok(v)
+            evidence.record("ocean_vix_crush", crush, True, passed=crush, reason="Override for rising VIX above q90")
+            if not crush:
                 return False, f"vix_knife({last:.1f}>q90 {q90:.1f}, rising)"
         except Exception:
+            evidence.record("ocean_vix_crush", state="unavailable", reason="VIX crush check raised")
             return False, "vix_knife_unverifiable"
     try:
         from trading import internals
-        if not internals.is_fresh(damage_store):
+        fresh = internals.is_fresh(damage_store)
+        evidence.record("ocean_damage", damage_store, {"fresh": True, "q90_cluster": False},
+                        state="unavailable" if not fresh or (damage_store or {}).get("q90_cluster") is None else "failed" if damage_store.get("q90_cluster") else "passed")
+        if not fresh:
             return False, "damage_reading_missing_or_stale"
         q90_cluster = damage_store.get("q90_cluster")
         if q90_cluster is None:
@@ -205,6 +221,7 @@ def crash_guard_market(vix_close: Optional[pd.Series],
         if q90_cluster:
             return False, "damage_cluster_own_q90"
     except Exception:
+        evidence.record("ocean_damage", state="unavailable", reason="Damage check raised")
         return False, "damage_reading_unreadable"
     return True, "ok"
 
@@ -212,19 +229,24 @@ def crash_guard_market(vix_close: Optional[pd.Series],
 def crash_guard_stock(df: pd.DataFrame,
                       danger_fired: list[str]) -> tuple[bool, str]:
     """(ok, reason) for one candidate. R3 reclaim + R4 danger veto."""
+    evidence.record("ocean_danger", danger_fired, [], state="unavailable" if "danger_unverifiable" in danger_fired else "failed" if danger_fired else "passed")
     if danger_fired:
         return False, "danger_" + ",".join(danger_fired)
     try:
         close = df["Close"].dropna()
         low = df["Low"].dropna()
         high = df["High"].dropna()
+        evidence.record("ocean_reclaim_history", len(close), ">= 22", state="passed" if len(close) >= 22 else "unavailable")
         if len(close) < 22:
             return False, "too_short"
+        evidence.record("ocean_fresh_low", float(low.iloc[-1]), {"above_prior_20_low": float(low.iloc[-21:-1].min())}, passed=float(low.iloc[-1]) > float(low.iloc[-21:-1].min()))
         if float(low.iloc[-1]) <= float(low.iloc[-21:-1].min()):
             return False, "fresh_20d_low"
+        evidence.record("ocean_reclaim", float(close.iloc[-1]), {"above_prior_high": float(high.iloc[-2])}, passed=float(close.iloc[-1]) > float(high.iloc[-2]))
         if float(close.iloc[-1]) <= float(high.iloc[-2]):
             return False, "no_reclaim_above_prior_high"
     except (KeyError, ValueError, IndexError):
+        evidence.record("ocean_reclaim", state="unavailable", reason="OHLC unreadable")
         return False, "ohlc_unreadable"
     return True, "ok"
 
@@ -233,6 +255,8 @@ def crash_guard_stock(df: pd.DataFrame,
 
 def evaluate(ticker: str, history: pd.DataFrame, cfg: Config) -> Optional[OceanCandidate]:
     """Returns an OceanCandidate if the stock passes all rules; else None."""
+    evidence.record("history", len(history) if history is not None else None, ">= 200",
+                    state="unavailable" if history is None or len(history) < 200 else "passed")
     if history is None or len(history) < 200:
         return None
     close = history["Close"]
@@ -241,17 +265,21 @@ def evaluate(ticker: str, history: pd.DataFrame, cfg: Config) -> Optional[OceanC
     last_price = float(close.iloc[-1])
     sma200 = _sma(close, 200)
     if sma200 is None or sma200 <= 0:
+        evidence.record("ocean_discount", state="unavailable", reason="No usable 200-day average")
         return None
 
     pct_below_200 = (last_price / sma200 - 1) * 100
+    evidence.record("ocean_discount", {"pct": pct_below_200, "price": last_price, "sma200": sma200}, "pct <= -30", passed=pct_below_200 <= -30)
     if pct_below_200 > -30:
         return None       # not deep enough
 
     wrsi = weekly_rsi(close)
+    evidence.record("ocean_weekly_rsi", wrsi, "< 25", state="unavailable" if wrsi is None else "passed" if wrsi < 25 else "failed")
     if wrsi is None or wrsi >= 25:
         return None
 
     cvr = climax_volume_ratio(volume)
+    evidence.record("ocean_climax", cvr, ">= 3", state="unavailable" if cvr is None else "passed" if cvr >= 3 else "failed")
     if cvr is None or cvr < 3.0:
         return None
 
@@ -279,12 +307,18 @@ def evaluate(ticker: str, history: pd.DataFrame, cfg: Config) -> Optional[OceanC
 def scan(history_map: dict[str, pd.DataFrame], cfg: Config) -> list[OceanCandidate]:
     """Returns Ocean candidates ranked by depth-below-200-DMA (deepest first)."""
     out: list[OceanCandidate] = []
+    context = evidence.current() or {}
+    catalog = context.get("ocean_catalog", {})
     for ticker, hist in history_map.items():
+        trace = evidence.new(ticker, cfg.mode, "ocean", context.get("at"), hist)
+        catalog[ticker] = trace
         try:
-            c = evaluate(ticker, hist, cfg)
+            with evidence.capture(trace):
+                c = evaluate(ticker, hist, cfg)
             if c is not None:
                 out.append(c)
         except Exception as e:
+            evidence.put(trace, "ocean_evaluation", state="unavailable", reason="Evaluation raised: " + type(e).__name__)
             log.warning("Ocean evaluate failed for %s: %s", ticker, e)
             continue
     out.sort(key=lambda c: c.pct_below_200dma)   # deepest first
