@@ -1,7 +1,7 @@
 {
   "approved_date": "2026-11-11",
   "source": "Owner asked to show sequence, start one by one, and track completion in the repository.",
-  "active_step": "SEQ-01",
+  "active_step": "SEQ-02",
   "steps": [
     {
       "id": "SEQ-01",
@@ -12,15 +12,33 @@
       "goal": "Preserve equity under partial quotes",
       "work_type": "engineering",
       "depends_on": [],
-      "status": "LOCAL_TESTED",
+      "status": "DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING",
       "implementation": "IMPLEMENTED",
-      "tests": "2892_LOCAL_PASSED_ZERO_SKIPS_CI_PENDING",
-      "pull_request": null,
-      "merge_revision": null,
-      "deployment_revision": null,
-      "health": "NOT_CHECKED",
-      "runtime": "NOT_OBSERVED",
-      "evidence": "docs/repairs/releases/2026-11-11-partial-quote-equity.md"
+      "tests": "2892_LOCAL_AND_PR_CI_PASSED_ZERO_SKIPS",
+      "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/197",
+      "merge_revision": "499fcd550a881fcfca1a6e33d4db646811f83140",
+      "deployment_revision": "499fcd550a881fcfca1a6e33d4db646811f83140",
+      "health": "VERIFIED_2026-11-11T15:43Z",
+      "runtime": "PENDING_NORMAL_QUOTE_GAP_OBSERVATION",
+      "evidence": "docs/repairs/releases/2026-11-11-partial-quote-equity.md",
+      "ci_run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43049842383",
+      "deployment_id": "dep-dbq8p5t9el5s73dvhbu0",
+      "deployed_at": "2026-11-11T15:42:55.737026Z",
+      "health_evidence": {
+        "ok": true,
+        "ready": true,
+        "db_connected": true,
+        "db_degraded": false,
+        "write_error": null
+      },
+      "runtime_observation": {
+        "at": "2026-11-11T15:43Z",
+        "open_positions": 49,
+        "closed_trades": 193,
+        "positions_with_retained_mark": 0,
+        "last_save": "2026-11-11T10:06:25.991854",
+        "production_scan_induced": false
+      }
     },
     {
       "id": "SEQ-02",
@@ -241,5 +259,6 @@
       "runtime": "NOT_OBSERVED",
       "evidence": null
     }
-  ]
+  ],
+  "active_step_note": "Next selected batch; implementation has not started. SEQ-01 is shipped and health verified; its normal production quote-gap observation remains pending."
 }
