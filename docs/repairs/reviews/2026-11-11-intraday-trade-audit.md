@@ -12,7 +12,7 @@ Baseline and live application at audit: `1a6a96893f34a87887aabd48ad5232d89fed97f
 | Same-day entries/exits | 67 | 19 | 48 | -123,450.93 | 64,443.46 | -187,894.39 |
 | Overnight exceptions | 7 | 3 | 4 | -30,263.78 | 5,716.57 | -35,980.35 |
 
-Win rate is **29.73%** and loss rate **70.27%**, with no breakeven closes. Winning records sum to ₹75,729.77; losing records sum to −₹2,99,604.51. Costs explain ₹70,160.03 of the net result, but the **gross result was already −₹1,53,714.71** after embedded fill slippage. Correcting fees alone cannot make this observed book profitable. Eight trades had a small positive gross P&L but became losses after recorded costs.
+Win rate is **29.73%** and loss rate **70.27%**, with no breakeven closes. Winning records sum to ₹75,729.77; losing records sum to −₹2,99,604.51. Costs explain ₹70,160.03 of the net result, but the **gross result was already −₹1,53,714.71** after embedded fill slippage. Correcting fees alone cannot make this observed book profitable. Eight trades had a small positive gross P&L but became losses after recorded costs. Average winner: ₹3,442.26; average loser: −₹5,761.63; average net per close: −₹3,025.33; profit factor: 0.253. These are descriptive sample statistics, not a future return estimate.
 
 ## Recorded exit mechanisms
 
@@ -188,4 +188,4 @@ All times below are IST. Prices and P&L are ledger fills rounded for display; CS
 - `web/scheduler.py`: 30-minute session refresh, between-category checks and 15:25 square-off; historical missed-slot cause remains unproven.
 - `trading/paper.py`, `web/trade_performance.py`, `web/db.py`: paper ledger schema, per-segment net outcomes, archive semantics.
 
-Checks: all 74 arithmetic identities gross − costs = net passed to sub-paise precision; every trade has exactly one matched BUY and SELL; totals reconcile by date and by exit reason. No external news explanation was substituted for a journaled trigger. No historical fee/P&L record was rewritten.
+Checks: all 74 arithmetic identities gross − costs = net passed to sub-paise precision; every trade has exactly one matched BUY and SELL; totals reconcile by date and by exit reason. No external news explanation was substituted for a journaled trigger. An isolated overnight fixture also reproduced mode=intraday with a widened stop of 95 and target of 120 on a 100 entry; price 97 closed MAX_HOLD instead of the original 98.5 stop. No historical fee/P&L record was rewritten.
