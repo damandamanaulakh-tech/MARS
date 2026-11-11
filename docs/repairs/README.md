@@ -6,7 +6,7 @@ folders. Existing local copies are historical exports and are not maintained.
 
 ## Current recorded status
 
-As of the 2 November release verification:
+Earlier verified batches (2 November):
 
 | Batch | Finding | Recorded result |
 |---|---|---|
@@ -14,13 +14,12 @@ As of the 2 November release verification:
 | 2 | RUN-20261102-01, daily category recovery | Merged/deployed in PR #187; Momentum look-only pass completed at 16:18 IST; 185 candidates blocked after close; full rotation remains unverified |
 | 3 | AUD-001, unfinished drawdown liquidation | Merged/deployed in [PR #188](https://github.com/damandamanaulakh-tech/MARS/pull/188); local and CI suites each 2,647 passed, zero skipped; production health verified |
 
-The last verified functional release is `0e5cbc886a178184c415aa10c7c236cbe670600c`,
-live at 14:16:31 IST on 2 November. This is a timestamped observation, not a
-claim that the remote deployment can never change. Documentation-only commits
-may subsequently advance main without changing that tested application tree.
+Latest verified functional revision at the 11 November resume: `1a6a96893f34a87887aabd48ad5232d89fed97f3` (PR #194). The [resource release ledger](releases/2026-11-04-online-resources.md) records deployment, feed outcomes and the pending date-format follow-up. [Segment allocation and win-rate evidence](releases/2026-11-03-segment-allocation-performance.md) covers PR #192. These are timestamped observations; later documentation-only commits can advance main without changing the application.
 
 **Next priority: AUD-002 — partial quotes can understate portfolio equity and
 falsely trigger a daily loss halt.** This remains open.
+
+The [11 November intraday audit](reviews/2026-11-11-intraday-trade-audit.md) reconciles 74 closes and records four new findings. [Full trade CSV](reviews/2026-11-11-intraday-trades.csv).
 
 ## Where to work
 
