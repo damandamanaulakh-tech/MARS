@@ -14,12 +14,14 @@ Earlier verified batches (2 November):
 | 2 | RUN-20261102-01, daily category recovery | Merged/deployed in PR #187; Momentum look-only pass completed at 16:18 IST; 185 candidates blocked after close; full rotation remains unverified |
 | 3 | AUD-001, unfinished drawdown liquidation | Merged/deployed in [PR #188](https://github.com/damandamanaulakh-tech/MARS/pull/188); local and CI suites each 2,647 passed, zero skipped; production health verified |
 
-Latest verified functional revision: `8c3d9c0ad4175650219874f857a0bf6980eedb2d` (PR #195), live 11 November 20:01 IST with healthy readiness. The [resource release ledger](releases/2026-11-04-online-resources.md) records CI, exact deployment and 125 dated bulletin observations; FRED numerical feeds remain unavailable. [Segment allocation and win-rate evidence](releases/2026-11-03-segment-allocation-performance.md) covers PR #192. These are timestamped observations; later documentation-only commits can advance main without changing the application.
+Latest verified functional revision: `499fcd550a881fcfca1a6e33d4db646811f83140` ([PR #197](https://github.com/damandamanaulakh-tech/MARS/pull/197)), live 11 November 21:12:55 IST; health/readiness verified 21:13 IST. Local and PR CI suites each passed 2,892 tests with zero skips. The [partial-quote release ledger](releases/2026-11-11-partial-quote-equity.md) records the exact deployment and the still-pending normal production quote-gap observation. The earlier [resource release ledger](releases/2026-11-04-online-resources.md) records 125 dated bulletin observations; FRED numerical feeds remain unavailable. [Segment allocation and win-rate evidence](releases/2026-11-03-segment-allocation-performance.md) covers PR #192. These are timestamped observations; later documentation-only commits can advance main without changing the application.
 
-**Active: SEQ-01 / AUD-002 — partial quotes can understate portfolio equity and
-falsely trigger a daily loss halt.** The owner-approved [11-step execution
+**SEQ-01 / AUD-002 is shipped and health verified. Next queued: SEQ-02 /
+INTRA-002 — recover missed intraday square-off deadlines and preserve the
+original protection.** The owner-approved [11-step execution
 programme](EXECUTION_PLAN.md) records the sequence and each completion test.
-The first repair is under validation; later steps remain queued.
+SEQ-02 implementation has not started; SEQ-01's normal production quote-gap
+observation remains pending. The remaining steps stay queued.
 
 The [11 November intraday audit](reviews/2026-11-11-intraday-trade-audit.md) reconciles 74 closes and records four new findings. [Full trade CSV](reviews/2026-11-11-intraday-trades.csv).
 

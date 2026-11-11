@@ -8,16 +8,23 @@ separate incidents. [Goals](GOALS.md), [full backlog](BACKLOG.md),
 
 ## Current batch
 
-**SEQ-01 — AUD-002: prevent missing quotes from fabricating a portfolio loss.**
-Status: LOCAL_TESTED. The full local suite passed 2,892 tests with zero skips.
-CI, publication, deployment and runtime evidence are pending.
+**SEQ-01 is shipped; SEQ-02 is the next queued batch.** PR #197 merged as
+`499fcd550a881fcfca1a6e33d4db646811f83140`; the matching Render revision went
+live on 11 November at 21:12:55 IST. Health/readiness and database connectivity
+were verified at 21:13 IST. Local and PR CI suites each passed 2,892 tests with
+zero skips. Normal production quote-gap recovery remains pending: the read-only
+portfolio check still showed 49 holdings, 193 closes and no retained-mark save.
 [Batch evidence](releases/2026-11-11-partial-quote-equity.md).
+
+**Next: SEQ-02 — INTRA-002, intraday square-off recovery.** Implementation is
+not started. Reproduce missed jobs, restart, absent quotes and late scans, then
+repair the durable deadline/retry and preserve segment/stop consistency.
 
 ## Sequence and acceptance
 
 | Step | Goal / finding IDs | Work | Required completion evidence | Status |
 |---|---|---|---|---|
-| SEQ-01 | G4; AUD-002 | Preserve last observed holding values through quote gaps and restarts; show source/time and unknown values | Unchanged INR 52 lakh stays 52 lakh under a partial response; real loss still halts; no retained mark fills an exit; JSON/Mongo round trip and split handling pass | LOCAL_TESTED |
+| SEQ-01 | G4; AUD-002 | Preserve last observed holding values through quote gaps and restarts; show source/time and unknown values | Unchanged INR 52 lakh stays 52 lakh under a partial response; real loss still halts; no retained mark fills an exit; JSON/Mongo round trip and split handling pass | SHIPPED; health verified; normal quote-gap observation pending |
 | SEQ-02 | G13; INTRA-002; related OPS-04 | Durable intraday square-off deadline, retry and consistent segment/stop treatment | Missed job, restart, missing quote and late scan fixtures; original protection preserved; ordinary deadline outcome observed when available | QUEUED |
 | SEQ-03 | G13/G9; INTRA-004, ROOT-AM07-04, ROOT-ROUTE-09 | Immutable entry/exit gate results and quote provenance | Values, thresholds, pass/fail/skip/unavailable, provider/receipt time, bar interval, stop amendments and exit trigger attached to each new trade | QUEUED |
 | SEQ-04 | G13; INTRA-001 | Connect completed intraday bars to the actual intraday data path | Correct interval, session alignment, no future/unclosed bars, explicit missing-data handling and recorded comparison with the daily baseline | QUEUED |
