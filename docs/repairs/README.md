@@ -14,11 +14,11 @@ Earlier verified batches (2 November):
 | 2 | RUN-20261102-01, daily category recovery | Merged/deployed in PR #187; Momentum look-only pass completed at 16:18 IST; 185 candidates blocked after close; full rotation remains unverified |
 | 3 | AUD-001, unfinished drawdown liquidation | Merged/deployed in [PR #188](https://github.com/damandamanaulakh-tech/MARS/pull/188); local and CI suites each 2,647 passed, zero skipped; production health verified |
 
-Latest verified functional revision: `a9919f6446690a62b76914fb9178009aaacf55e4` ([PR #199](https://github.com/damandamanaulakh-tech/MARS/pull/199)), live 11 November 22:03:44 IST; health/readiness verified 22:05 IST. Local and PR CI suites each passed 2,934 tests with zero skips. The [intraday recovery release ledger](releases/2026-11-11-intraday-recovery.md) records the exact deployment and pending normal recovery observation. The earlier [partial-quote release](releases/2026-11-11-partial-quote-equity.md), [resource ledger](releases/2026-11-04-online-resources.md) and [segment allocation evidence](releases/2026-11-03-segment-allocation-performance.md) retain their separate scope and limitations. These are timestamped observations; documentation-only commits can advance main without changing the application.
+Latest verified functional revision: `5bee374a6c9de71b2bb15203434f90fa0a7eb7c1` ([PR #201](https://github.com/damandamanaulakh-tech/MARS/pull/201)), live 12 November 2026 00:33:29 IST; health/readiness verified 12 November 2026 00:34:03 IST. Local and PR CI suites each passed 2,994 tests with zero skips. The [decision-evidence release ledger](releases/2026-11-11-decision-evidence.md) records the exact deployment and pending normal decision lifecycle observation. The [intraday recovery release](releases/2026-11-11-intraday-recovery.md), [partial-quote release](releases/2026-11-11-partial-quote-equity.md), [resource ledger](releases/2026-11-04-online-resources.md) and [segment allocation evidence](releases/2026-11-03-segment-allocation-performance.md) retain their separate scope and limitations. These are timestamped observations; documentation-only commits can advance main without changing the application.
 
-**SEQ-02 is shipped and health verified. SEQ-03 is in progress:** decision
-records, owner explanations and archival are implemented; 135 focused and 2994 full local checks
-pass with zero skips; PR CI and release pending. [Current batch](releases/2026-11-11-decision-evidence.md).
+**SEQ-03 is shipped and health verified; SEQ-04 is next queued.** Decision
+records, owner explanations and archival passed 2994 local and CI checks with
+zero skips. Normal deployed scan and trade-lifecycle observation remains pending. [Current batch](releases/2026-11-11-decision-evidence.md).
 The [11-step programme](EXECUTION_PLAN.md) keeps the earlier runtime checks
 open and Steps 04–11 queued.
 

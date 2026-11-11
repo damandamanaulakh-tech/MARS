@@ -127,6 +127,38 @@ temporary book and ran sequentially, without concurrent suites or changed assert
 Final local validation on 12 November IST: **2,994 passed, zero failures,
 errors or skips**, Python 3.12, 195.998 seconds. Repair validation retains
 170 backlog records, two separate incidents and all 165 original IDs; diff checks
-pass. PR CI, merge, deployment and runtime observations are pending.
+pass. Publication, CI and deployment evidence follows below.
 No production trade, scan or outage was induced. Normal post-release
 scan/entry/amendment/exit evidence must be observed separately from health.
+
+
+## Publication and deployment — 12 November IST
+
+- Functional PR: [#201](https://github.com/damandamanaulakh-tech/MARS/pull/201); reviewed head
+  `7cfb526d6de11dc931999040b4202b6c99e6df9c`.
+- All 47 published files were byte-compared with the locally tested files.
+  Functional tree: `2925ff6a09ee9baa02d8b3893f6573de31c4afcd`.
+- [PR CI](https://github.com/damandamanaulakh-tech/MARS/actions/runs/43082305814): **2,994 passed**, zero skipped, Python 3.11,
+  336.29 seconds. Test job `130737697120`, no-skip guard and
+  repair-record job all passed. Merge used the verified expected head.
+- Merge/deployment revision: `5bee374a6c9de71b2bb15203434f90fa0a7eb7c1`. Render deployment
+  `dep-dbqbn5rncjis73fa489g` is live, completed `2026-11-11T19:03:29.902915Z`
+  (12 November 2026 00:33:29 IST). No duplicate deployment was triggered.
+- `/healthz` observed `2026-11-11T19:04:03Z` (12 November 2026 00:34:03 IST):
+  ok/ready/database-connected true, database-degraded false, write-error null.
+  Startup completion was observed and the filtered post-start error-log query
+  returned no error rows. Health alone does not verify a trading lifecycle.
+- The Recent Decisions route redirects unauthenticated requests to login;
+  authenticated rendering, exports and archived retrieval were tested with
+  isolated portfolios. No production trade or scan was induced.
+
+Read-only production observation at `2026-11-11T19:04:03Z`: 49
+open positions, 193 closed trades,
+0 open positions with a saved new entry-decision ID and
+0 `SCAN_DECISION` rows. Last saved portfolio:
+`2026-11-11T10:06:25.991854` UTC. Normal scan/entry/amendment/exit evidence remains
+pending. Missing historical entry gates stay unavailable.
+
+Engineering status: **shipped and health verified**. ROOT-AM07-04 remains
+partial until SEQ-04's data/age work; INTRA-004 retains its SEQ-06 market-context
+portion. Broader persistence findings remain open. **Next queued: SEQ-04.**

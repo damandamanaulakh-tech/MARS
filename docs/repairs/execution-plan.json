@@ -1,7 +1,7 @@
 {
   "approved_date": "2026-11-11",
   "source": "Owner asked to show sequence, start one by one, and track completion in the repository.",
-  "active_step": "SEQ-03",
+  "active_step": "SEQ-04",
   "steps": [
     {
       "id": "SEQ-01",
@@ -94,15 +94,34 @@
       "depends_on": [
         "SEQ-02"
       ],
-      "status": "LOCAL_TESTED",
+      "status": "DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING",
       "implementation": "IMPLEMENTED",
-      "tests": "2994_LOCAL_PASSED_ZERO_SKIPS_60_NEW_CASES_135_FOCUSED_PASS",
-      "pull_request": null,
-      "merge_revision": null,
-      "deployment_revision": null,
-      "health": "NOT_CHECKED",
-      "runtime": "NOT_OBSERVED",
-      "evidence": "docs/repairs/releases/2026-11-11-decision-evidence.md"
+      "tests": "2994_LOCAL_AND_PR_CI_PASSED_ZERO_SKIPS",
+      "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/201",
+      "merge_revision": "5bee374a6c9de71b2bb15203434f90fa0a7eb7c1",
+      "deployment_revision": "5bee374a6c9de71b2bb15203434f90fa0a7eb7c1",
+      "health": "VERIFIED_2026-11-11T19:04:03Z",
+      "runtime": "PENDING_NORMAL_SCAN_ENTRY_AMENDMENT_EXIT_OBSERVATION",
+      "evidence": "docs/repairs/releases/2026-11-11-decision-evidence.md",
+      "ci_run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43082305814",
+      "deployment_id": "dep-dbqbn5rncjis73fa489g",
+      "deployed_at": "2026-11-11T19:03:29.902915Z",
+      "health_evidence": {
+        "ok": true,
+        "ready": true,
+        "db_connected": true,
+        "db_degraded": false,
+        "write_error": null
+      },
+      "runtime_observation": {
+        "last_save": "2026-11-11T10:06:25.991854",
+        "open_positions": 49,
+        "closed_trades": 193,
+        "positions_with_entry_evidence": 0,
+        "scan_decisions": 0,
+        "at": "2026-11-11T19:04:03Z",
+        "production_scan_induced": false
+      }
     },
     {
       "id": "SEQ-04",
@@ -281,5 +300,5 @@
       "evidence": null
     }
   ],
-  "active_step_note": "SEQ-03 implementation and final 2994-test local suite complete with zero skips; PR CI/release pending. SEQ-01/02 ordinary runtime observations remain open. Candle-age policy remains in SEQ-04."
+  "active_step_note": "SEQ-03 shipped and health verified; normal decision lifecycle observation remains pending. SEQ-04 is the next queued batch and has not started. SEQ-01/02 ordinary runtime observations also remain open."
 }
