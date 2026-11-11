@@ -14,7 +14,7 @@ Earlier verified batches (2 November):
 | 2 | RUN-20261102-01, daily category recovery | Merged/deployed in PR #187; Momentum look-only pass completed at 16:18 IST; 185 candidates blocked after close; full rotation remains unverified |
 | 3 | AUD-001, unfinished drawdown liquidation | Merged/deployed in [PR #188](https://github.com/damandamanaulakh-tech/MARS/pull/188); local and CI suites each 2,647 passed, zero skipped; production health verified |
 
-Latest verified functional revision at the 11 November resume: `1a6a96893f34a87887aabd48ad5232d89fed97f3` (PR #194). The [resource release ledger](releases/2026-11-04-online-resources.md) records deployment, feed outcomes and the pending date-format follow-up. [Segment allocation and win-rate evidence](releases/2026-11-03-segment-allocation-performance.md) covers PR #192. These are timestamped observations; later documentation-only commits can advance main without changing the application.
+Latest verified functional revision: `8c3d9c0ad4175650219874f857a0bf6980eedb2d` (PR #195), live 11 November 20:01 IST with healthy readiness. The [resource release ledger](releases/2026-11-04-online-resources.md) records CI, exact deployment and 125 dated bulletin observations; FRED numerical feeds remain unavailable. [Segment allocation and win-rate evidence](releases/2026-11-03-segment-allocation-performance.md) covers PR #192. These are timestamped observations; later documentation-only commits can advance main without changing the application.
 
 **Next priority: AUD-002 — partial quotes can understate portfolio equity and
 falsely trigger a daily loss halt.** This remains open.

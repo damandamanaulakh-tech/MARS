@@ -94,19 +94,38 @@ A bounded follow-up adds regression fixtures for these observed formats,
 preserves the raw publication field, normalizes only an exact repeated same
 origin, distinguishes omitted-link reasons and appends NSE's own SUBJECT or
 corporate-action PURPOSE to its title, retaining the source fields separately. Source-clock precision is preserved; date-only releases do
-not acquire an invented timestamp. Its final validation/deployment evidence is
-recorded below when observed. The first ingestion counts above remain historical
+not acquire an invented timestamp. Its final validation/deployment evidence follows below. The first ingestion counts above remain historical
 evidence and do not assert that the missing dates were correct in PR #194.
 
 ## Resume on 11 November 2026
 
 Remote main and the active Render revision still matched `1a6a96893f34a87887aabd48ad5232d89fed97f3`. The local parser follow-up was uncommitted; the interrupted run's temporary results were unavailable, so validation was restarted. Dependencies were restored from existing cached wheels because both ordinary and escalated pip attempts failed DNS resolution; all pinned application versions installed without changing requirements.
 
-The first resumed full suite had **2,860 passes and one failure**: the custom-universe rotation test assumed today's filtered bucket had at least 40 names, but 11 November's bucket had 37 after fund filtering. Its input now uses a fixed stock-only universe and clock, retains the original lower-bound assertion and adds exact 50-name membership verification. No production selection rule changed. The focused repair run passed 56 tests. Final resumed full suite: **2,861 passed, zero failures/errors/skips**, Python 3.12, 219.13 seconds. The XML no-skip guard passed. All 170 backlog records, including all 165 original IDs and two separate incidents, validate; diff whitespace check passes. CI and matching follow-up deployment are pending.
+The first resumed full suite had **2,860 passes and one failure**: the custom-universe rotation test assumed today's filtered bucket had at least 40 names, but 11 November's bucket had 37 after fund filtering. Its input now uses a fixed stock-only universe and clock, retains the original lower-bound assertion and adds exact 50-name membership verification. No production selection rule changed. The focused repair run passed 56 tests. Final resumed full suite: **2,861 passed, zero failures/errors/skips**, Python 3.12, 219.13 seconds. The XML no-skip guard passed. All 170 backlog records, including all 165 original IDs and two separate incidents, validate; diff whitespace check passes. CI and matching follow-up deployment were subsequently verified below.
 
 Fresh deployed evidence: NSE valuation ingestion now records **P/E and P/B for 23 indexes, session 11 November**, proving the domestic-first repair reached storage. All five FRED sources still recorded ReadTimeout on the 11 November close run; numerical global coverage remains unavailable. Four bulletin snapshots again held 125 items, while NSE/SEBI dates remained blank on the old parser, confirming the pending fix is still needed.
 
 The owner's new intraday request produced a separate [74-trade audit](../reviews/2026-11-11-intraday-trade-audit.md) and [full CSV](../reviews/2026-11-11-intraday-trades.csv). Four new findings and the existing fee finding remain open; no risk, candle, fee or exit policy is changed by the bulletin parser release.
+
+## Verified follow-up release — 11 November
+
+- [PR #195](https://github.com/damandamanaulakh-tech/MARS/pull/195) merged at **14:29:39 UTC / 19:59:39 IST**.
+- Tested head: `c591b7c606789d3426ce59a1bf9e9f43616e801c`.
+- Merge/deployed revision: `8c3d9c0ad4175650219874f857a0bf6980eedb2d`.
+- Identical tested and merged tree: `347cbd2e4c763c55dbfe1422103ba1ce4dd58f10`. All 11 published files matched the local bytes after standardizing the new CSV to LF line endings.
+- [CI 43037778921](https://github.com/damandamanaulakh-tech/MARS/actions/runs/43037778921): **2,861 passed**, Python 3.11, 296.09 seconds. Both jobs and the explicit zero-skipped-tests step succeeded. Local final suite: 2,861 passed, zero failures/errors/skips, 219.13 seconds.
+- Render automatic deploy `dep-dbq7nld9el5s73dtk240`: exact merge revision, **live 14:31:31 UTC / 20:01:31 IST**.
+- Post-live health: ok=true, database connected, degraded=false, boot_degraded=false, write_error=null, production=true and ready=true.
+- Ordinary startup ingestion at **14:32:24–31 UTC / 20:02:24–31 IST** stored **125 notices; all 125 have publication dates**. No manual feed job, scan or trade was induced.
+
+| Feed | Stored / dated | Latest supplied publication | Observed limits |
+|---|---|---|---|
+| NSE announcements | 40 / 40 | 2026-11-11 19:56:30, source local clock | PARTIAL: 274 missing-document links, 2 unsafe links and 1 missing title omitted; latest 40 retained. All 40 have source SUBJECT. |
+| NSE corporate actions | 40 / 40 | 2026-11-11 06:11:39, source local clock | PARTIAL: latest 40, not full archive. All 40 have source PURPOSE. |
+| SEBI | 30 / 30 | 2026-11-11, date-only | OK for returned RSS snapshot; not exhaustive company enforcement matching. |
+| Fed monetary releases | 15 / 15 | 2026-10-28 18:00 UTC | OK; publication date remains older than refresh date. |
+
+Original publisher fields are retained: NSE `11-Nov-2026 ...`, SEBI `11 Nov, 2026 +0530`, Fed RFC timestamp. Missing documents are no longer called unsafe. Numerical FRED reachability is still an open provider failure; NSE's 23-index valuation success and the new bulletin success do not erase that limitation. The follow-up evidence commit is documentation-only and uses `[skip render]` to avoid another application deployment.
 
 ## Remaining boundaries
 
