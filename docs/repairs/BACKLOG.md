@@ -163,7 +163,7 @@ All 165 original records are retained. Evidence classification describes the rev
 | XR-099 | P3 | Data feed | The feed-fetch script marks a failed stock or quarter as done, so it is never retried, and its output files carry no fetch date. The full-universe downloader saves a stock when any chunk returned data and treats an existing file as finished. | NOT_STARTED |
 | ROOT-CA-01 | P3 | Valuation | The corporate-action file has unusual rows: bonus debentures, bonus preference shares, capital reductions, InvIT distributions, and subjects that combine several actions. | NOT_STARTED |
 | AUD-001 | P1 | Risk exits | Drawdown liquidation marks complete after closing only quoted holdings. | DEPLOYED_HEALTH_VERIFIED |
-| AUD-002 | P1 | Portfolio marks | Partial quote response can fabricate daily loss. | NOT_STARTED |
+| AUD-002 | P1 | Portfolio marks | Partial quote response can fabricate daily loss. | LOCAL_TESTED |
 | AUD-003 | P1 | Owner orders | Concurrent duplicate manual buys can debit twice and overwrite one position. | NOT_STARTED |
 | AUD-004 | P2 | Institutional data | FII replacement erases existing DII fields. | DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING |
 | AUD-005 | P2 | Research evidence | Valuation-exit study references missing tracked harness and study file. | NOT_STARTED |

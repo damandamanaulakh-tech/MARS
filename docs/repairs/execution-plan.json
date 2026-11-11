@@ -1,0 +1,245 @@
+{
+  "approved_date": "2026-11-11",
+  "source": "Owner asked to show sequence, start one by one, and track completion in the repository.",
+  "active_step": "SEQ-01",
+  "steps": [
+    {
+      "id": "SEQ-01",
+      "order": 1,
+      "finding_ids": [
+        "AUD-002"
+      ],
+      "goal": "Preserve equity under partial quotes",
+      "work_type": "engineering",
+      "depends_on": [],
+      "status": "LOCAL_TESTED",
+      "implementation": "IMPLEMENTED",
+      "tests": "2892_LOCAL_PASSED_ZERO_SKIPS_CI_PENDING",
+      "pull_request": null,
+      "merge_revision": null,
+      "deployment_revision": null,
+      "health": "NOT_CHECKED",
+      "runtime": "NOT_OBSERVED",
+      "evidence": "docs/repairs/releases/2026-11-11-partial-quote-equity.md"
+    },
+    {
+      "id": "SEQ-02",
+      "order": 2,
+      "finding_ids": [
+        "INTRA-002"
+      ],
+      "goal": "Recover intraday deadlines and preserve protection",
+      "work_type": "engineering",
+      "depends_on": [
+        "SEQ-01"
+      ],
+      "status": "QUEUED",
+      "implementation": "NOT_STARTED",
+      "tests": "NOT_RUN",
+      "pull_request": null,
+      "merge_revision": null,
+      "deployment_revision": null,
+      "health": "NOT_CHECKED",
+      "runtime": "NOT_OBSERVED",
+      "evidence": null
+    },
+    {
+      "id": "SEQ-03",
+      "order": 3,
+      "finding_ids": [
+        "INTRA-004",
+        "ROOT-AM07-04",
+        "ROOT-ROUTE-09"
+      ],
+      "goal": "Persist gate decisions and quote provenance",
+      "work_type": "engineering",
+      "depends_on": [
+        "SEQ-02"
+      ],
+      "status": "QUEUED",
+      "implementation": "NOT_STARTED",
+      "tests": "NOT_RUN",
+      "pull_request": null,
+      "merge_revision": null,
+      "deployment_revision": null,
+      "health": "NOT_CHECKED",
+      "runtime": "NOT_OBSERVED",
+      "evidence": null
+    },
+    {
+      "id": "SEQ-04",
+      "order": 4,
+      "finding_ids": [
+        "INTRA-001"
+      ],
+      "goal": "Connect completed intraday bars",
+      "work_type": "engineering_and_replay",
+      "depends_on": [
+        "SEQ-03"
+      ],
+      "status": "QUEUED",
+      "implementation": "NOT_STARTED",
+      "tests": "NOT_RUN",
+      "pull_request": null,
+      "merge_revision": null,
+      "deployment_revision": null,
+      "health": "NOT_CHECKED",
+      "runtime": "NOT_OBSERVED",
+      "evidence": null
+    },
+    {
+      "id": "SEQ-05",
+      "order": 5,
+      "finding_ids": [
+        "XR-059"
+      ],
+      "goal": "Correct product-specific costs",
+      "work_type": "engineering_and_fee_review",
+      "depends_on": [
+        "SEQ-04"
+      ],
+      "status": "QUEUED",
+      "implementation": "NOT_STARTED",
+      "tests": "NOT_RUN",
+      "pull_request": null,
+      "merge_revision": null,
+      "deployment_revision": null,
+      "health": "NOT_CHECKED",
+      "runtime": "NOT_OBSERVED",
+      "evidence": null
+    },
+    {
+      "id": "SEQ-06",
+      "order": 6,
+      "finding_ids": [
+        "INTRA-004",
+        "XR-009",
+        "XR-061"
+      ],
+      "goal": "Add verified sector and same-window market context",
+      "work_type": "data",
+      "depends_on": [
+        "SEQ-05"
+      ],
+      "status": "QUEUED",
+      "implementation": "NOT_STARTED",
+      "tests": "NOT_RUN",
+      "pull_request": null,
+      "merge_revision": null,
+      "deployment_revision": null,
+      "health": "NOT_CHECKED",
+      "runtime": "NOT_OBSERVED",
+      "evidence": null
+    },
+    {
+      "id": "SEQ-07",
+      "order": 7,
+      "finding_ids": [
+        "XR-081"
+      ],
+      "goal": "Make candles advisory with recorded owner controls",
+      "work_type": "approved_behavior",
+      "depends_on": [
+        "SEQ-06"
+      ],
+      "status": "QUEUED",
+      "implementation": "NOT_STARTED",
+      "tests": "NOT_RUN",
+      "pull_request": null,
+      "merge_revision": null,
+      "deployment_revision": null,
+      "health": "NOT_CHECKED",
+      "runtime": "NOT_OBSERVED",
+      "evidence": null
+    },
+    {
+      "id": "SEQ-08",
+      "order": 8,
+      "finding_ids": [
+        "INTRA-003"
+      ],
+      "goal": "Evaluate trailing and target candidates after costs",
+      "work_type": "research",
+      "depends_on": [
+        "SEQ-07"
+      ],
+      "status": "QUEUED",
+      "implementation": "NOT_STARTED",
+      "tests": "NOT_RUN",
+      "pull_request": null,
+      "merge_revision": null,
+      "deployment_revision": null,
+      "health": "NOT_CHECKED",
+      "runtime": "NOT_OBSERVED",
+      "evidence": null
+    },
+    {
+      "id": "SEQ-09",
+      "order": 9,
+      "finding_ids": [
+        "INTRA-003"
+      ],
+      "goal": "Evaluate fresh-setup re-entry rules",
+      "work_type": "research",
+      "depends_on": [
+        "SEQ-08"
+      ],
+      "status": "QUEUED",
+      "implementation": "NOT_STARTED",
+      "tests": "NOT_RUN",
+      "pull_request": null,
+      "merge_revision": null,
+      "deployment_revision": null,
+      "health": "NOT_CHECKED",
+      "runtime": "NOT_OBSERVED",
+      "evidence": null
+    },
+    {
+      "id": "SEQ-10",
+      "order": 10,
+      "finding_ids": [
+        "INTRA-003",
+        "XR-026",
+        "XR-031"
+      ],
+      "goal": "Evaluate intraday sizing and measured-edge controls",
+      "work_type": "research",
+      "depends_on": [
+        "SEQ-09"
+      ],
+      "status": "QUEUED",
+      "implementation": "NOT_STARTED",
+      "tests": "NOT_RUN",
+      "pull_request": null,
+      "merge_revision": null,
+      "deployment_revision": null,
+      "health": "NOT_CHECKED",
+      "runtime": "NOT_OBSERVED",
+      "evidence": null
+    },
+    {
+      "id": "SEQ-11",
+      "order": 11,
+      "finding_ids": [
+        "XR-078",
+        "XR-103",
+        "INTRA-001",
+        "INTRA-003"
+      ],
+      "goal": "Validate on unseen periods and forward paper trades",
+      "work_type": "validation",
+      "depends_on": [
+        "SEQ-10"
+      ],
+      "status": "QUEUED",
+      "implementation": "NOT_STARTED",
+      "tests": "NOT_RUN",
+      "pull_request": null,
+      "merge_revision": null,
+      "deployment_revision": null,
+      "health": "NOT_CHECKED",
+      "runtime": "NOT_OBSERVED",
+      "evidence": null
+    }
+  ]
+}

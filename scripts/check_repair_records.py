@@ -52,6 +52,23 @@ def check(sync=False):
     if len(incident_ids) != len(set(incident_ids)) or set(incident_ids) & set(ids):
         errors.append("incident IDs must be unique and distinct from backlog IDs")
 
+    # The owner-approved sequence is additive to the canonical findings.
+    plan = json.loads((BASE / "execution-plan.json").read_text())
+    steps = plan["steps"]
+    expected_steps = [f"SEQ-{i:02}" for i in range(1, 12)]
+    if [s["id"] for s in steps] != expected_steps:
+        errors.append("execution sequence must retain SEQ-01 through SEQ-11 in order")
+    if plan.get("active_step") not in expected_steps:
+        errors.append("execution plan active step is invalid")
+    for i, step in enumerate(steps, 1):
+        if step.get("order") != i or step.get("depends_on") != ([] if i == 1 else [expected_steps[i-2]]):
+            errors.append(f"{step['id']}: sequence/dependency mismatch")
+        if not step.get("finding_ids") or set(step["finding_ids"]) - set(ids):
+            errors.append(f"{step['id']}: unknown finding reference")
+        evidence = step.get("evidence")
+        if evidence and not (ROOT / evidence).is_file():
+            errors.append(f"{step['id']}: missing batch evidence")
+
     releases = "\n".join(p.read_text() for p in (BASE / "releases").glob("*.md"))
     for r in rows + incidents:
         for key in ("id", "finding", "workflow"):
@@ -87,7 +104,7 @@ def check(sync=False):
     # Current navigation must resolve inside the checkout. Historical source
     # prose is retained as evidence, not treated as current navigation.
     navigation = [ROOT / "README.md", BASE / "README.md", BASE / "GOALS.md",
-                  BASE / "WORKFLOW.md", BASE / "BACKLOG.md"]
+                  BASE / "WORKFLOW.md", BASE / "BACKLOG.md", BASE / "EXECUTION_PLAN.md"]
     navigation.extend((BASE / "releases").glob("*.md"))
     for page in navigation:
         for target in re.findall(r"\]\(([^)]+)\)", page.read_text()):

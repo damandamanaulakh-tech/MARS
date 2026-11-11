@@ -9,6 +9,22 @@
   </div>
 </div>
 
+<div class="bg-white border border-line p-4 lg:p-6 mb-6" data-portfolio-mark-evidence>
+  <div class="font-bold">Portfolio valuation: ₹{{ equity | inr }}</div>
+  <p class="mt-2 text-sm text-ink-soft">Last observed prices are retained when a quote is missing. They are estimates for valuation, never prices used to fill an exit. Receipt time is shown in UTC; provider quote age is not yet verified.</p>
+  {% if mark_missing %}<p class="mt-2 text-sm text-amber-800">Entry-only estimates: {{ mark_missing | join(', ') }}. These gaps cannot create a loss halt. Automatic scan entries wait for observed prices; protective exits with valid quotes continue.</p>{% endif %}
+  {% if mark_rows %}
+  <div class="overflow-x-auto mt-3"><table class="w-full text-sm">
+    <thead><tr><th class="text-left">Stock</th><th class="text-right">Valuation price</th><th class="text-left pl-3">Source</th><th class="text-left pl-3">Source date / receipt time (UTC)</th></tr></thead>
+    <tbody>{% for m in mark_rows %}<tr class="border-t border-line">
+      <td class="py-1">{{ m.ticker }}</td><td class="text-right">₹{{ m.price | inr }}</td>
+      <td class="pl-3">{{ (m.source or 'entry_only') | replace('_', ' ') }}</td>
+      <td class="pl-3">{{ m.asof or 'date unavailable' }} / {{ m.received_at or 'not recorded' }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+</div>
+
 {% if dd %}
 <div class="bg-white border border-line p-4 lg:p-6 mb-6
             {% if dd.level == 'normal' %}border-l-4 border-l-emerald-500
@@ -17,14 +33,14 @@
   <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
     <div>
       <div class="text-xs tracking-widest text-ink-faint uppercase">DRAWDOWN GOVERNOR</div>
-      <div class="font-black text-2xl lg:text-3xl tracking-tight mt-1">{{ dd.level | upper | replace('_', ' ') }}</div>
+      <div class="font-black text-2xl lg:text-3xl tracking-tight mt-1">{% if mark_missing %}VALUATION INCOMPLETE{% else %}{{ dd.level | upper | replace('_', ' ') }}{% endif %}</div>
     </div>
     <div class="text-right">
       <div class="font-black text-2xl lg:text-3xl tabular-nums whitespace-nowrap {% if dd.drawdown_pct < 0 %}text-red-700{% else %}text-emerald-700{% endif %}">
-        {{ "%+.2f%%"|format(dd.drawdown_pct) }}
+        {% if mark_missing %}Awaiting prices{% else %}{{ "%+.2f%%"|format(dd.drawdown_pct) }}{% endif %}
       </div>
       <div class="text-xs text-ink-faint whitespace-nowrap">from peak ₹{{ dd.peak | inr }}</div>
-      <div class="text-[10px] text-amber-700 whitespace-nowrap" title="This page never re-marks the book; the governor is updated by the engine's own scan/refresh passes on live quotes.">as of the engine's last live pass</div>
+      <div class="text-[10px] text-amber-700 whitespace-nowrap" title="This page never re-marks the book. Engine passes may retain earlier observed prices; see valuation evidence above.">as of the engine's last live pass; retained prices may be included</div>
     </div>
   </div>
   <div class="text-sm text-ink-soft">{{ dd.reason }}</div>
@@ -36,7 +52,7 @@
     <div>
       <div class="text-[10px] tracking-widest text-ink-faint uppercase">New entries</div>
       <div class="font-bold {% if dd.halt_new_entries %}text-red-700{% else %}text-emerald-700{% endif %}">
-        {% if dd.halt_new_entries %}HALTED{% else %}ALLOWED{% endif %}
+        {% if mark_missing %}WAITING FOR PRICES{% elif dd.halt_new_entries %}HALTED{% else %}ALLOWED{% endif %}
       </div>
     </div>
     <div>
@@ -147,7 +163,7 @@
   <div class="mt-2 text-sm text-amber-800">The five shares add up to {{ "%.0f%%"|format(budget_total * 100) }}, not 100% — {% if budget_total < 1 %}the rest stays as cash no category can spend{% else %}the deploy cap still stops the book at 100%, so the last category in the 09:20 order can be squeezed{% endif %}.</div>
   {% endif %}
   <div class="mt-2 text-xs text-ink-faint">
-    Shares are of the deployable capital: equity (at entry prices on this page) minus the regime reserve{% if cfg.cash_reserve_pct > 0 %} — {{ "%.0f%%"|format(cfg.cash_reserve_pct * 100) }} right now{% endif %}.
+    Shares are of the deployable capital: equity (using the valuation evidence above) minus the regime reserve{% if cfg.cash_reserve_pct > 0 %} — {{ "%.0f%%"|format(cfg.cash_reserve_pct * 100) }} right now{% endif %}.
     Spent counts each position at its entry cost. A share a category does not use stays as cash; it is never lent to another category.
     Owner-added positions and automatic positions count under their stored strategy segment. New owner BUY orders and limit fills use the selected segment’s cash share; the Buy Desk uses Momentum. Existing holdings stay open if their segment is over limit. Imports of existing real holdings are accounted under the chosen segment. Ocean remains outside these shares (its own {{ cfg.ocean_max_positions }}-slot limit). Every holding still counts in the book-wide deploy cap and heat used for automatic entries.
     For automatic scan sizing, a remainder smaller than the ₹{{ cfg.position_slab_value|inr }} slab counts as full. A typed owner quantity is checked against the actual remaining share.
