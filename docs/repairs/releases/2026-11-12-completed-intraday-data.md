@@ -29,7 +29,7 @@ preserved; their missing original observations are not reconstructed.
 | Daily context stays labelled | Liquidity, daily volatility sizing, correlation, regime/breadth/damage, FII/hot-sector overlays, the optional daily multi-formula check and Ocean's 200DMA/weekly selection keep their original daily inputs. An Ocean pick allocated to intraday also needs valid 5m execution data. No daily median ATR is advertised as a measured intraday median. |
 | Late work | Data is revalidated before rotation eligibility, before opening, and after target computation immediately before booking. Minute quotes are checked again at booking, after rescoring, before danger action and at partial/final exit booking, so expiry cannot manufacture a fill, stop amendment or trailing peak. Owner market/Buy Desk calls report the refusal and resting limits remain open with the reason saved. Scheduled closing retains SEQ-02's independent deadline/retry behavior. |
 | Missing bars and protection | Missing current score is unavailable, not evidence of score decay or a reason to tighten a trail. With a valid quote, hard stop, target, ordinary trailing stop, max hold and deadline recovery remain active. Invalid delayed quotes cannot replace retained valuation marks. |
-| Existing positions at rollout | A pre-merge read found 13 open intraday positions with saved daily-bar entry evidence. Their entry scores cannot establish a relative decline against the corrected 5m score. Score-based trail tightening requires a proved ready 5m entry ruler; unavailable/daily legacy rulers are labelled incomparable. Original entry score, segment, stop and target remain intact. Absolute current-score decay, normal trailing and price/deadline protection retain their rules. |
+| Existing positions at rollout | A pre-merge read found 13 open intraday positions with saved daily-bar entry evidence. Their entry scores cannot establish a relative decline against the corrected 5m score. Score-based trail tightening requires a proved ready 5m entry timeframe; unavailable/daily legacy timeframes are labelled incomparable. Original entry score, segment, stop and target remain intact. Absolute current-score decay, normal trailing and price/deadline protection retain their rules. |
 | Visible and durable coverage | Scan has a saved coverage count plus a row for every requested stock, source, session, last bar end, rejected rows, missing bars and reason. Decision pages show the actual interval/window and quote verdict. JSON and Mongo preserve this observation and the next fetch offset; page reads do not fetch or trade. |
 
 ## Data contract and limits
@@ -74,8 +74,8 @@ rows; the production validator retained 306, rejected one unfinished candle and
 endpoint parsing and validation on observed data, not Render ingestion or
 stock-universe coverage. [Exact probe evidence](../evidence/2026-11-12-intraday-provider-probe.json).
 
-CI_PENDING. Six baseline failures reproduced; **73 new cases** and **154 focused/related checks** pass. Final local full suite: **3,067 passed, zero failures, errors or skips**, Python 3.12, 193.85s. CI totals, exact PR/head, merge, deployment and health observations will be appended once verified. The final review added expiry checks after slow work, at partial/final exit booking and before danger stop changes, plus missing daily-context coverage.
-Published as [PR203](https://github.com/damandamanaulakh-tech/MARS/pull/203). Initial head `70ff6902d5701905bbfef04daade4faf4fb660e5` passed both CI jobs in [run 43162027226](https://github.com/damandamanaulakh-tech/MARS/actions/runs/43162027226), including the no-skip guard. A subsequent bounded compatibility addition prevents daily/unproved legacy entry scores from tightening a five-minute trail; four regression cases cover the migration. Final-head CI, merge and deployment remain pending.
+SHIPPED_AND_HEALTH_VERIFIED. Six baseline failures reproduced; **73 new cases** and **154 focused/related checks** pass. Final local full suite: **3,067 passed, zero failures, errors or skips**, Python 3.12, 193.85s. Final PR CI also passed all 3,067 tests, with both repair-records and no-skip checks successful. The final review added expiry checks after slow work, at partial/final exit booking and before danger stop changes, plus missing daily-context coverage.
+Published as [PR203](https://github.com/damandamanaulakh-tech/MARS/pull/203). Initial head `70ff6902d5701905bbfef04daade4faf4fb660e5` passed both CI jobs in [run 43162027226](https://github.com/damandamanaulakh-tech/MARS/actions/runs/43162027226), including the no-skip guard. A subsequent bounded compatibility addition prevents daily/unproved legacy entry scores from tightening a five-minute trail; four regression cases cover the migration. Final head `5a6ee14c29dca92e6fe25df2ee0fd19aafb495e0` passed [CI run 43164969908](https://github.com/damandamanaulakh-tech/MARS/actions/runs/43164969908) and was merged in PR203.
 
 No test is skipped and the existing CI no-skip guard remains enabled.
 
@@ -85,3 +85,20 @@ outage is induced to obtain them. INTRA-001 retains its research subclaim:
 daily-history backtests cannot establish this corrected intraday path's returns.
 Costs, slippage, intrabar uncertainty, out-of-sample and forward paper validation
 remain in SEQ-05 and SEQ-08–11. This data repair makes no profitability claim.
+
+## Verified shipment
+
+| Item | Verified evidence |
+|---|---|
+| PR and tested head | [PR203](https://github.com/damandamanaulakh-tech/MARS/pull/203); `5a6ee14c29dca92e6fe25df2ee0fd19aafb495e0`; tested tree `f9d5670af317daa0cd9cc2d8a31cc6c16e01db33` |
+| CI | [Run 43164969908](https://github.com/damandamanaulakh-tech/MARS/actions/runs/43164969908); test and repair-records successful; 3,067 passed; no-skip step successful |
+| Functional merge | `51e075457480715b111ea35c780baf477b4a8aa0`; merge tree matches the tested tree |
+| Deployment | `dep-dbqlerjrjlhs7381k16g`; matching revision; terminal `live` at 2026-11-12T06:08:24.249354Z |
+| Health | 2026-11-12T06:09:02Z; HTTP 200; ok/ready true, Mongo connected, not degraded, no write error |
+| Runtime scope | Read-only snapshot at 2026-11-12T06:09:02Z: 61 open positions, 12 intraday and 197 closed trades; last save 06:05:02Z and last scan 05:52:01Z predate the deployment. No saved five-minute coverage observed yet. Natural scan, data-gap and trade-lifecycle observation remains pending. |
+| Preserved boundaries | No production scan, trade or outage induced; verified 2026 regular-session schedule and finite rotating request budget remain explicit; no net-return or full-universe claim |
+
+[Exact deployment, health and bounded runtime observations](../evidence/2026-11-12-intraday-deployment.json).
+This follow-up changes documentation only and uses `[skip render]`; its GitHub CI
+and no-skip checks still run. SEQ-05 is queued next. INTRA-001's performance
+subclaim remains open for cost, out-of-sample and forward-paper validation.

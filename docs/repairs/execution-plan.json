@@ -1,7 +1,7 @@
 {
   "approved_date": "2026-11-11",
   "source": "Owner asked to show sequence, start one by one, and track completion in the repository.",
-  "active_step": "SEQ-04",
+  "active_step": "SEQ-05",
   "steps": [
     {
       "id": "SEQ-01",
@@ -135,16 +135,40 @@
       "depends_on": [
         "SEQ-03"
       ],
-      "status": "CI_PENDING",
+      "status": "DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING",
       "implementation": "IMPLEMENTED",
-      "tests": "3067_LOCAL_PASSED_ZERO_SKIPS",
+      "tests": "3067_LOCAL_AND_PR_CI_PASSED_ZERO_SKIPS",
       "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/203",
-      "merge_revision": null,
-      "deployment_revision": null,
-      "health": "NOT_CHECKED",
+      "merge_revision": "51e075457480715b111ea35c780baf477b4a8aa0",
+      "deployment_revision": "51e075457480715b111ea35c780baf477b4a8aa0",
+      "health": "VERIFIED_2026-11-12T06:09:02Z",
       "runtime": "PENDING_NORMAL_INTRADAY_SCAN_AND_DATA_GAP_OBSERVATION",
       "evidence": "docs/repairs/releases/2026-11-12-completed-intraday-data.md",
-      "research": "INTRA-001 performance subclaim remains in SEQ-08 through SEQ-11; no strategy threshold promotion."
+      "research": "INTRA-001 performance subclaim remains in SEQ-08 through SEQ-11; no strategy threshold promotion.",
+      "ci_run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43164969908",
+      "deployment_id": "dep-dbqlerjrjlhs7381k16g",
+      "deployed_at": "2026-11-12T06:08:24.249354Z",
+      "health_evidence": {
+        "ok": true,
+        "ready": true,
+        "db_connected": true,
+        "db_degraded": false,
+        "write_error": null
+      },
+      "runtime_observation": {
+        "last_scan": "2026-11-12T05:52:01.591229",
+        "last_save": "2026-11-12T06:05:02.936453",
+        "open_positions": 61,
+        "closed_trades": 197,
+        "intraday_positions": 12,
+        "at": "2026-11-12T06:09:02Z",
+        "intraday_data_at": null,
+        "intraday_requested": null,
+        "intraday_ready": null,
+        "production_scan_induced": false,
+        "production_trade_induced": false,
+        "new_5m_scan_observed": false
+      }
     },
     {
       "id": "SEQ-05",
@@ -301,5 +325,5 @@
       "evidence": null
     }
   ],
-  "active_step_note": "SEQ-04 implemented and locally tested; PR203 published, final-head CI and deployment pending. SEQ-01/02/03 ordinary runtime observations remain separate and open. SEQ-05 is queued next; no strategy threshold promotion."
+  "active_step_note": "SEQ-04 shipped and health verified in PR203 with 3067 local/CI tests and zero skips. Its remaining ordinary scan/data-gap observations stay open. SEQ-05 correct trading costs is next queued; it has not started. Earlier runtime and later performance subclaims remain tracked."
 }
