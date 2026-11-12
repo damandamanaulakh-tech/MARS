@@ -114,7 +114,8 @@ def test_legacy_close_does_not_invent_an_entry_decision(engine):
     ('yf_close', False, False), ('prev_close', False, False), ('unknown', False, False)])
 def test_source_classification_does_not_relabel_delayed_or_retained_prices(source, live, allowed):
     from trading import quote_evidence as qe
-    batch = qe.QuoteBatch({'A': 100}, evidence={'A': qe.make(100, source, NOW)})
+    batch = qe.QuoteBatch({'A': 100}, evidence={'A': qe.make(100, source, NOW,
+        '2026-11-11T10:29:00+05:30', '1m')})
     assert qe.executable(batch, 'A', NOW) is allowed
     assert qe.executable(batch, 'A', NOW, live_only=True) is live
 
@@ -126,14 +127,15 @@ def test_invalid_quotes_never_execute(bad):
     assert not qe.executable(batch, 'A', NOW)
 
 
-def test_quote_age_is_observed_without_unapproved_candle_age_policy():
+def test_quote_age_is_observed_and_seq04_rejects_previous_session_candles():
     from trading import quote_evidence as qe
     batch = qe.QuoteBatch({'A': 100}, evidence={'A': qe.make(100, 'upstox_1min_delayed', NOW,
         '2026-11-10T10:29:00+05:30', '1m')})
     observed = qe.observation(batch, 'A', NOW)
     assert observed['provider_age_seconds'] == 86460
     assert observed['receipt_age_seconds'] == 0
-    assert qe.executable(batch, 'A', NOW)  # Step 4 must separately establish candle-age policy.
+    assert not qe.executable(batch, 'A', NOW)
+    assert observed['bar_validity'] == 'non_trading_session'  # Nov 10 holiday
     observed['source'] = 'wrong'
     assert batch.evidence['A']['source'] == 'upstox_1min_delayed'
 

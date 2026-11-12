@@ -140,7 +140,7 @@
           <td class="px-2 py-2 text-xs text-ink-soft min-w-[10rem]">{{ c.scorer }}</td>
           <td class="px-2 py-2 text-right tabular-nums text-red-700">{{ c.stop_pct }}%{% if c.atr_stop %}<div class="text-[10px] text-amber-700">floor of {{ eng.stop.k }}×ATR, cap −{{ eng.stop.cap_pct }}%</div>{% endif %}</td>
           <td class="px-2 py-2 text-right tabular-nums" data-den-target-k="{{ c.key }}">{{ c.target_k }}×</td>
-          <td class="px-2 py-2 text-right tabular-nums text-emerald-700">+{{ c.target_at_median_pct }}%</td>
+          <td class="px-2 py-2 text-right tabular-nums text-emerald-700">{% if c.target_at_median_pct is not none %}+{{ c.target_at_median_pct }}%{% else %}Not measured for 5m bars{% endif %}</td>
           <td class="px-2 py-2 text-right tabular-nums text-xs text-ink-faint whitespace-nowrap">{{ c.band_pct[0] }}–{{ c.band_pct[1] }}%</td>
           <td class="px-2 py-2 text-right tabular-nums">{{ c.trail_pct }}%</td>
           <td class="px-2 py-2 text-right tabular-nums">{{ c.decay }}</td>

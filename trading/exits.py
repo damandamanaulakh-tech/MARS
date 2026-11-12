@@ -121,8 +121,11 @@ def check_exit(
             "trailing_stop_pct": cfg.trailing_stop_pct, "score_decay_exit": cfg.score_decay_exit,
             "max_hold_days": cfg.max_hold_days}
     score_available = ctx is None or ctx.get("score_available", True)
+    entry_score_comparable = ctx is None or ctx.get("entry_score_comparable", True)
+    if ctx is not None:
+        ctx["exit_rules"]["entry_score_comparable"] = entry_score_comparable
     def score_rule():
-        hit = current_score < cfg.score_decay_exit and not score_exempt
+        hit = score_available and current_score < cfg.score_decay_exit and not score_exempt
         de.record("score_decay", current_score, cfg.score_decay_exit, passed=hit,
                   state="skipped" if score_exempt else "unavailable" if not score_available else None,
                   reason="Owner/Ocean exemption" if score_exempt else "Entry-score fallback; current score unavailable" if not score_available else "Exit when score is below floor",
@@ -157,12 +160,13 @@ def check_exit(
     if peak > entry:
         trail_ret = (current_price - peak) / peak
         trail_pct = cfg.trailing_stop_pct
-        tightened = not ocean and current_score < (position.entry_score - 15.0)
+        tightened = score_available and entry_score_comparable and not ocean and current_score < (position.entry_score - 15.0)
         if tightened:
             trail_pct *= 0.6
         de.record("trailing", {"return_from_peak": trail_ret, "peak": peak,
             "score": current_score, "score_at_entry": position.entry_score,
-            "tightened": tightened, "price_level": peak * (1 + trail_pct)},
+            "tightened": tightened, "score_comparison_available": score_available and entry_score_comparable,
+            "price_level": peak * (1 + trail_pct)},
             {"fraction": trail_pct, "tighten_score_below": position.entry_score - 15.0},
             passed=trail_ret <= trail_pct, role="exit_trigger")
         if trail_ret <= trail_pct:

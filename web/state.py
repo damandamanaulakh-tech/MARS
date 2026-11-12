@@ -41,6 +41,7 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.last_scan_live = doc.get("last_scan_live")
     p.last_scan_picks = list(doc.get("last_scan_picks", []))
     p.last_scan_skipped = list(doc.get("last_scan_skipped", []))
+    p.intraday_data_status = dict(doc.get("intraday_data_status", {}) or {})
     p.last_scan_opened = list(doc.get("last_scan_opened", []))
     p.scan_matrix = dict(doc.get("scan_matrix", {}))
     p.momentum_shortlist = dict(doc.get("momentum_shortlist", {}) or {})
@@ -158,6 +159,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "last_scan_live": getattr(self, "last_scan_live", None),
             "last_scan_picks": self.last_scan_picks,
             "last_scan_skipped": self.last_scan_skipped,
+            "intraday_data_status": self.intraday_data_status,
             "last_scan_opened": self.last_scan_opened,
             "last_regime": self.last_regime,
             "last_ifr_fire_date": self.last_ifr_fire_date,

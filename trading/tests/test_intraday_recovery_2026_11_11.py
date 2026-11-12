@@ -233,6 +233,10 @@ def test_scan_crossing_deadline_refuses_intraday_entry_before_rotation(tmp_path,
     monkeypatch.setattr("trading.engine.fetch_daily", slow_history)
     monkeypatch.setattr("trading.engine.timing_ok", lambda *a, **k: (True, {}))
     monkeypatch.setattr("trading.engine.compute_score", lambda *a, **k: (90., {}))
+    from trading.tests.test_completed_intraday_2026_11_12 import bar_frame, supply_intraday
+    from datetime import timezone
+    supply_intraday(monkeypatch, bar_frame((DUE+timedelta(seconds=30)).replace(tzinfo=timezone.utc)))
+    monkeypatch.setattr("trading.engine.isc.compute", lambda *a, **k: (90., {}, {"status":"ready"}))
     import pandas as pd
     monkeypatch.setattr("trading.signals.flows.get_flows", lambda: pd.DataFrame())
     seen = []
@@ -309,8 +313,8 @@ def test_rescoring_crossing_market_close_does_not_execute_an_old_intraday_quote(
     monkeypatch.setattr("trading.engine.routed_fetch_quotes", lambda *a, **k: {"DAY.NS": 97., "HOLD.NS": 100.})
     def delayed(*a, **k):
         clock[0] = datetime(2026, 11, 11, 10, 1)
-        return 80., {}
-    monkeypatch.setattr("trading.engine.score_for_mode", delayed)
+        return 80., {}, {"status":"ready", "interval":"5m"}
+    monkeypatch.setattr("trading.engine.isc.compute", delayed)
     e.refresh()
     assert "DAY.NS" in e.portfolio.positions
     assert not e.portfolio.trades

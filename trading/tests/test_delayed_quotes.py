@@ -75,8 +75,7 @@ def test_no_client_anywhere_still_degrades_to_yf(monkeypatch):
 
 
 def test_intraday_parser_reads_newest_first(monkeypatch):
-    """The live endpoint returns candles newest-first (verified 2026-08-26:
-    candles[0] was the 15:29 bar). The helper must read [0], not [-1]."""
+    """Newest-first candles must select the latest completed valid bar."""
     from trading.brokers.upstox import UpstoxClient
 
     class _Resp:
@@ -85,8 +84,8 @@ def test_intraday_parser_reads_newest_first(monkeypatch):
 
         def json(self):
             return {"data": {"candles": [
-                ["2026-08-26T15:29:00+05:30", 1, 1, 1, 24207.75, 0, 0],
-                ["2026-08-26T09:15:00+05:30", 1, 1, 1, 24100.00, 0, 0],
+                ["2026-08-26T15:29:00+05:30", 24200, 24210, 24199, 24207.75, 0, 0],
+                ["2026-08-26T09:15:00+05:30", 24100, 24101, 24099, 24100.00, 0, 0],
             ]}}
 
     monkeypatch.setattr(
@@ -96,5 +95,6 @@ def test_intraday_parser_reads_newest_first(monkeypatch):
     monkeypatch.setattr(_hx, "get",
                         lambda url, headers=None, timeout=None: _Resp())
     c = UpstoxClient(api_key="k", api_secret="s", redirect_uri="r")
-    px, ts = c.get_intraday_last("NSE_INDEX|Nifty 50")
-    assert px == 24207.75 and ts.startswith("2026-08-26T15:29")
+    from datetime import datetime
+    px, ts = c.get_intraday_last("NSE_INDEX|Nifty 50", now=datetime.fromisoformat('2026-08-26T15:30:00+05:30'))
+    assert px == 24207.75 and ts == "2026-08-26T09:59:00+00:00"

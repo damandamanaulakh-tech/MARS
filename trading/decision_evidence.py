@@ -21,7 +21,7 @@ ENTRY_GATES = (
     "spread", "circuit", "correlation", "candle", "quote", "kill_switch",
     "slots", "reserve", "estimated_edge", "category_budget", "cash",
     "quantity", "sector_count", "sector_cap", "portfolio_heat", "minimum_value",
-    "size_throttle", "entry_deadline_final",
+    "size_throttle", "entry_deadline_final", "intraday_data", "intraday_data_final", "quote_final",
     "ocean_slots", "ocean_discount", "ocean_weekly_rsi", "ocean_climax",
     "ocean_fundamentals", "ocean_equity", "ocean_debt_equity", "ocean_fcf",
     "ocean_vix", "ocean_vix_crush", "ocean_damage", "ocean_danger",
@@ -63,6 +63,10 @@ def clean(value):
 
 
 def bar_context(frame, interval="1d"):
+    attrs = getattr(frame, 'attrs', {}) or {}
+    interval = attrs.get('interval', interval)
+    if attrs.get('intraday_validation'):
+        return clean(attrs['intraday_validation'])
     if frame is None or getattr(frame, "empty", True):
         return {"status": "unavailable", "interval": interval, "last_bar": None}
     return {"status": "observed", "interval": interval,

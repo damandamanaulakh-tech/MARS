@@ -277,7 +277,13 @@ def execute(eng, portfolio, cfg, planned_rows: list, now: datetime, *,
                           f"(score {r['score']:.1f} >= floor; abs-momentum and "
                           f"liquidity cleared). Budget-filled in score order."),
         }
-        eng._open(pick, qty, fill, now, cfg=cfg)
+        try:
+            eng._open(pick, qty, fill, now, cfg=cfg)
+        except ValueError as exc:
+            if not str(exc).startswith("intraday_"):
+                raise
+            reject(str(exc), "entry_data_final", unavailable=True)
+            continue
         spent_actual += cost
         pos = portfolio.positions[t]
         pos.tags.append("owner_pick")

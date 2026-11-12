@@ -73,15 +73,15 @@ def holding_mode_lock(timeout: Optional[float] = None):
 WEIGHTS = {
     "intraday": {
         # Intraday: technical signals dominate, fundamentals irrelevant.
-        "momentum_1m":       0.10,   # 1-day return momentum
-        "volume_expansion":  0.20,   # 5-min volume vs 20-min baseline
+        "momentum_1m":       0.10,   # configured rolling count of completed 5m bars
+        "volume_expansion":  0.20,   # short/long rolling bar-volume averages
         "earnings_growth":   0.00,   # ignored intraday
         "catalyst":          0.10,   # gap-up + news
         "relative_strength": 0.10,   # vs Nifty intraday
         "vol_adj_upside":    0.10,
         "short_interest":    0.00,
         "analyst_revision":  0.00,
-        "breakout_quality":  0.30,   # ORB + VWAP reclaim heavily weighted
+        "breakout_quality":  0.30,   # rolling close-high proximity, not ORB/VWAP
         "sector_alignment":  0.10,
     },
     "short": {
@@ -177,7 +177,8 @@ PRESETS: dict[str, ModePreset] = {
         square_off_time="15:25",
         description=(
             "Tight stops, fast targets, all positions auto-square-off by "
-            "3:25 PM IST. Needs Upstox real-time WebSocket + always-on host."
+            "3:25 PM IST. Signals use completed Upstox five-minute candles; "
+            "missing or stale bars are shown. Requires a running host."
         ),
     ),
     "short": ModePreset(

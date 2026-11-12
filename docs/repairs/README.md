@@ -16,11 +16,12 @@ Earlier verified batches (2 November):
 
 Latest verified functional revision: `5bee374a6c9de71b2bb15203434f90fa0a7eb7c1` ([PR #201](https://github.com/damandamanaulakh-tech/MARS/pull/201)), live 12 November 2026 00:33:29 IST; health/readiness verified 12 November 2026 00:34:03 IST. Local and PR CI suites each passed 2,994 tests with zero skips. The [decision-evidence release ledger](releases/2026-11-11-decision-evidence.md) records the exact deployment and pending normal decision lifecycle observation. The [intraday recovery release](releases/2026-11-11-intraday-recovery.md), [partial-quote release](releases/2026-11-11-partial-quote-equity.md), [resource ledger](releases/2026-11-04-online-resources.md) and [segment allocation evidence](releases/2026-11-03-segment-allocation-performance.md) retain their separate scope and limitations. These are timestamped observations; documentation-only commits can advance main without changing the application.
 
-**SEQ-03 is shipped and health verified; SEQ-04 is next queued.** Decision
-records, owner explanations and archival passed 2994 local and CI checks with
-zero skips. Normal deployed scan and trade-lifecycle observation remains pending. [Current batch](releases/2026-11-11-decision-evidence.md).
-The [11-step programme](EXECUTION_PLAN.md) keeps the earlier runtime checks
-open and Steps 04–11 queued.
+**SEQ-04 is implemented and locally tested; PR203 is published; final-head CI and deployment are pending.**
+Completed five-minute signal bars, session/interval/freshness checks, explicit
+missing-data coverage, and independent protective exits pass 3067 full-suite
+tests with zero skips. [Current batch](releases/2026-11-12-completed-intraday-data.md).
+The [11-step programme](EXECUTION_PLAN.md) retains earlier normal runtime checks
+and Steps 05–11. Daily-history studies do not validate five-minute performance.
 
 The [11 November intraday audit](reviews/2026-11-11-intraday-trade-audit.md) reconciles 74 closes and records four new findings. [Full trade CSV](reviews/2026-11-11-intraday-trades.csv).
 

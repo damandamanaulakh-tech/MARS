@@ -364,8 +364,34 @@ class UpstoxClient:
                         instrument_key, expiry_date, e)
             return None
 
+    def get_intraday_frame(self, instrument_key: str, *, interval_minutes=5,
+                           from_date=None, to_date=None, timeout=8.0):
+        """V3 candles with proved request interval and raw timezone-bearing starts.
+
+        No data returns an empty frame. HTTP/schema failures reach the caller,
+        which records missing/auth/provider outcomes rather than daily fallback.
+        """
+        import pandas as pd
+        if interval_minutes not in (1, 5):
+            raise ValueError('unsupported_intraday_interval')
+        key = quote(instrument_key, safe='')
+        if from_date is None:
+            path = f'intraday/{key}/minutes/{interval_minutes}'
+        else:
+            path = f'{key}/minutes/{interval_minutes}/{to_date}/{from_date}'
+        headers = self._auth_headers() if self.access_token else {'accept': 'application/json'}
+        response = httpx.get('https://api.upstox.com/v3/historical-candle/' + path,
+                             headers=headers, timeout=timeout)
+        response.raise_for_status()
+        rows = (response.json().get('data') or {}).get('candles') or []
+        frame = pd.DataFrame([r[:6] for r in rows],
+            columns=['ts', 'Open', 'High', 'Low', 'Close', 'Volume']).set_index('ts')
+        frame.attrs.update(interval=f'{interval_minutes}m', source='upstox_v3',
+                           timestamp_kind='bar_start')
+        return frame
+
     def get_intraday_last(self, instrument_key: str,
-                          timeout: float = 8.0) -> Optional[tuple]:
+                          timeout: float = 8.0, now=None) -> Optional[tuple]:
         """(last_1min_close, candle_ts_iso) for TODAY — or None.
 
         OWNER COMPLAINT 2026-08-26 ("data is just 15 sec delay and you r
@@ -387,9 +413,15 @@ class UpstoxClient:
             candles = (r.json().get("data") or {}).get("candles") or []
             if not candles:
                 return None
-            ts, _o, _h, _l, close = candles[0][:5]
-            px = float(close)
-            return (px, str(ts)) if px > 0 else None
+            import pandas as pd
+            from ..intraday_bars import validate
+            frame = pd.DataFrame([c[:6] for c in candles],
+                columns=['ts', 'Open', 'High', 'Low', 'Close', 'Volume']).set_index('ts')
+            frame.attrs.update(interval='1m', source='upstox_1min_delayed')
+            completed, diag = validate(frame, now, minutes=1)
+            if diag['status'] != 'ready':
+                return None
+            return float(completed['Close'].iloc[-1]), completed.index[-1].isoformat()
         except Exception as e:                                 # noqa: BLE001
             log.debug("intraday last failed for %s: %s", instrument_key, e)
             return None

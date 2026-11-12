@@ -107,3 +107,28 @@ the user's instructions for the current task.
 - Keep historical coverage and view limits explicit. After deploy, observe a
   normal scan and trade lifecycle when available; never induce a production
   trade solely to turn a pending evidence check into completed status.
+
+## Intraday data batches
+
+- Prove the provider request's interval, timestamp meaning, timezone and regular
+  session calendar. Reject future, unfinished, misaligned and invalid candles
+  before scoring. Require continuous completed bars over each used lookback;
+  missing input remains unavailable, with per-stock reasons and coverage counts.
+- Keep signal bars separate from daily risk/market context. Record rolling-window
+  units and component fallbacks. A daily backtest is not evidence of intraday
+  performance. Changes to strategy thresholds still need their own evidence.
+- Recheck candle/quote validity at use, after slow work and through caches or
+  restarts. Missing score must not manufacture score decay or trail tightening;
+  valid-quote protective exits and pending deadline recovery remain independent.
+- When changing the signal timeframe, compare saved entry scores with current
+  scores only when both have a proved matching interval. Retain the original
+  entry, stop and target; show unavailable legacy comparisons explicitly.
+- Bound provider work and expose capped, unmapped, timed-out and failed names.
+  Persist the next fetch offset so a cap does not permanently starve later names.
+  Page reads show saved observations without running scans or changing holdings.
+- Maintain the verified annual NSE calendar before year-end. The SEQ-04 validator
+  deliberately marks unverified years unavailable; special sessions need an
+  explicit verified schedule. Do not bypass this check with test market overrides.
+- Require failure-path tests, actual scan/refresh wiring, owner-page and JSON/Mongo
+  reload checks, full zero-skip CI, exact deployed revision and health evidence.
+  Natural runtime observations and performance validation remain separate.

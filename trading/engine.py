@@ -39,12 +39,13 @@ from . import portfolio_marks as pm
 from . import intraday_recovery as ir
 from . import decision_evidence as de
 from . import quote_evidence as qe
+from . import intraday_bars as ib, intraday_data as idata, intraday_scoring as isc
 from .calendars import is_market_open, market_state
 from .candles import candle_confirmation
 from .risk import RiskState, can_open
 from .scoring import (
     MOMENTUM_MODE, compute_hot_sectors, compute_score, reasoning_text,
-    score_for_mode, set_scoring_context,
+    score_for_mode, set_scoring_context, weights_for,
 )
 from .timing import timing_ok
 
@@ -201,13 +202,43 @@ class TradingEngine:
         from .data import LAST_FETCH_STATS as _fs
         cover = dict(_fs)
         bench = fetch_daily([cfg.benchmark], period=history_period).get(cfg.benchmark)
-        decisions = {t: de.new(t, cfg.mode, "scan", datetime.utcnow(), history.get(t))
+        # Daily panels retain their daily purpose: liquidity, breadth, regime,
+        # damage and risk sizing. Intraday signals have a separate validated path.
+        signal_history, signal_bench = history, bench
+        intraday_details = {}
+        if cfg.mode == "intraday":
+            from .data import MAX_NETWORK_FALLBACK
+            offset = (self.portfolio.intraday_data_status or {}).get("next_offset", 0)
+            signal_history, intraday_details = idata.fetch(
+                [cfg.benchmark] + list(universe), cfg, self.broker, datetime.utcnow(),
+                offset=offset, priority=[cfg.benchmark])
+            signal_bench = signal_history.get(cfg.benchmark)
+            signal_history = {t: f for t, f in signal_history.items() if t != cfg.benchmark}
+            self.portfolio.intraday_data_status = {
+                "at": intraday_details.get(cfg.benchmark, {}).get("asof", de.stamp()),
+                "interval": "5m", "asked": len(universe),
+                "ready": sum(t in signal_history for t in universe),
+                "next_offset": (offset + max(0, MAX_NETWORK_FALLBACK - 1)) % max(1, len(universe)),
+                "request_cap": MAX_NETWORK_FALLBACK, "deadline_seconds": idata.FETCH_BUDGET_SECONDS,
+                "windows": ib.window_description(cfg),
+                "benchmark": intraday_details.get(cfg.benchmark),
+                "rows": {t: intraday_details[t] for t in universe}}
+        decisions = {t: de.new(t, cfg.mode, "scan", datetime.utcnow(), signal_history.get(t))
                      for t in universe}
         for t, d in decisions.items():
-            de.put(d, "history", len(history[t]) if t in history else None, "usable daily history",
-                   state="passed" if t in history and not history[t].empty else "unavailable",
-                   reason="Actual scan path uses daily bars")
-            d["benchmark"] = {"ticker": cfg.benchmark, **de.bar_context(bench)}
+            h = signal_history.get(t)
+            info = intraday_details.get(t)
+            de.put(d, "history", len(h) if h is not None else None,
+                   "completed current-session 5m bars with full lookback" if info else "usable daily history",
+                   state="passed" if h is not None and not h.empty else "unavailable",
+                   reason=info["reason"] if info else "Actual scan path uses daily bars")
+            d["benchmark"] = {"ticker": cfg.benchmark, **(intraday_details.get(cfg.benchmark) or de.bar_context(signal_bench))}
+            if info:
+                d["bar"] = de.clean(info)
+                d["daily_context"] = de.bar_context(history.get(t))
+                d["windows"] = ib.window_description(cfg)
+                de.put(d, "intraday_data", info, "completed, aligned, current session, contiguous required window",
+                       state="passed" if info["status"] == "ready" else "unavailable", reason=info["reason"])
         if cover.get("asked") and cover.get("covered", 0) < cover["asked"]:
             self._journal_once_a_day("SCAN_COVERAGE_SHORT", datetime.utcnow(), {
                 "asked": cover["asked"], "covered": cover["covered"],
@@ -406,9 +437,18 @@ class TradingEngine:
 
         ranked: List[dict] = []
         for t in universe:
-            if t not in history or history[t].empty:
+            if t not in signal_history or signal_history[t].empty:
                 continue
-            if n200_scorer is not None:
+            if cfg.mode == "intraday":
+                score, components, intraday_diag = isc.compute(
+                    t, signal_history[t], signal_bench, signal_history, cfg, datetime.utcnow())
+                decisions[t]["intraday_score"] = intraday_diag
+                if score is None:
+                    de.put(decisions[t], "score", state="unavailable", reason=intraday_diag["reason"])
+                    continue
+                reasoning = reasoning_text(components, score, weights_for(cfg.mode))
+                reasoning += " Completed 5m bars; rolling windows recorded in evidence."
+            elif n200_scorer is not None:
                 ms = n200_scorer(history[t]["Close"])
                 if ms is None:
                     de.put(decisions[t], "score", threshold=cfg.min_score_to_enter,
@@ -432,10 +472,11 @@ class TradingEngine:
             de.put(decisions[t], "score", score, cfg.min_score_to_enter,
                    passed=score >= cfg.min_score_to_enter)
             decisions[t]["components"] = de.clean(components)
+            decisions[t]["multi_formula_interval"] = "1d"
             from .scoring import weights_for as evidence_weights
             decisions[t]["weights"] = de.clean({"momentum": 1-b, "quality": b} if n200_scorer is not None else evidence_weights(cfg.mode))
             with de.capture(decisions[t]):
-                timing_pass, timing_diag = timing_ok(history[t], cfg)
+                timing_pass, timing_diag = timing_ok(signal_history[t], cfg)
             # OWNER ORDER 2026-09-11 ("go with these formula" / "ash08 68"):
             # every scanned name carries the ASH08 and AshStocks verdicts
             # beside our own. Computed HERE, where the history is already in
@@ -457,10 +498,11 @@ class TradingEngine:
                 "timing_diag": timing_diag,
                 "reasoning": reasoning,
                 "multi": multi,
-                "last_close": float(history[t]["Close"].iloc[-1]),
+                "last_close": float(signal_history[t]["Close"].iloc[-1]),
                 # Carried so _target_for can read the name's own ATR without
                 # a second fetch. Never serialised into the portfolio.
-                "history": history[t],
+                "history": signal_history[t],
+                "risk_history": history.get(t),
             })
         ranked.sort(key=lambda r: -r["score"])
 
@@ -565,8 +607,9 @@ class TradingEngine:
                 if not (r["score"] >= cfg.min_score_to_enter and r["timing_pass"]):
                     continue
                 abs_ok = _abs_mom_ok(r["ticker"])
-                close = history[r["ticker"]]["Close"].dropna()
-                abs_value = float(close.iloc[-1] / close.iloc[-127] - 1) if len(close) > 127 else None
+                daily = history.get(r["ticker"])
+                close = daily["Close"].dropna() if daily is not None else None
+                abs_value = float(close.iloc[-1] / close.iloc[-127] - 1) if close is not None and len(close) > 127 else None
                 de.put(r["decision"], "absolute_momentum", abs_value, 0,
                        state="skipped" if cfg.mode != MOMENTUM_MODE else "unavailable" if abs_value is None else None,
                        passed=abs_ok, reason="126-session own return; positive required only in Momentum")
@@ -671,7 +714,10 @@ class TradingEngine:
             pass
 
         opened: List[str] = []
-        skipped: List[dict] = []
+        skipped: List[dict] = [
+            {"ticker": t, "reason": "intraday_data_" + info["reason"]}
+            for t, info in intraday_details.items()
+            if t in universe and info["status"] != "ready"]
         now = datetime.utcnow()
         prices = {r["ticker"]: r["last_close"] for r in ranked}
         # AUDIT S-9: the book's equity (drawdown governor, sizing, equity
@@ -925,6 +971,19 @@ class TradingEngine:
                     skipped.append({"ticker": pick["ticker"], "reason": "already_held"})
                     continue
                 # v5: liquidity hard floor
+                if cfg.mode == "intraday":
+                    ih = signal_history.get(pick["ticker"])
+                    ih, info = ib.validate(ih, datetime.utcnow(), min_bars=ib.required_bars(cfg))
+                    de.put(d, "intraday_data", info, "completed current-session 5m bars",
+                           state="passed" if info["status"] == "ready" else "unavailable", reason=info["reason"])
+                    if info["status"] != "ready":
+                        skipped.append({"ticker": pick["ticker"], "reason": "intraday_data_" + info["reason"]})
+                        continue
+                    if pick.get("ocean"):
+                        d["daily_selection_context"] = d.get("bar")
+                    pick["history"] = ih
+                    pick["risk_history"] = history.get(pick["ticker"])
+                    d["bar"] = info
                 tic_hist = history.get(pick["ticker"])
                 if tic_hist is not None:
                     # P2: never buy on stale candles (dead feed / unnoticed holiday).
@@ -995,7 +1054,7 @@ class TradingEngine:
                     # engine the owner just approved.
                     from .candles import candle_gate_applies
                     if not pick.get("ocean") and candle_gate_applies(cfg):
-                        ok_candle, candle_why = candle_confirmation(tic_hist, cfg)
+                        ok_candle, candle_why = candle_confirmation(signal_history.get(pick["ticker"], tic_hist), cfg)
                         de.put(d, "candle", candle_why, {"lookback": cfg.candle_breakout_lookback, "volume_mult": cfg.candle_volume_mult}, passed=ok_candle,
                                reason="Current candle gate; advisory-policy change is SEQ-07")
                         if not ok_candle:
@@ -1044,7 +1103,7 @@ class TradingEngine:
                 pick["quote_evidence"] = quote_ev
                 executable = qe.executable(live_fill_px, pick["ticker"], datetime.utcnow())
                 de.put(pick["decision"], "quote", quote_ev,
-                       "Positive routed LTP or intraday close; age recorded without a new cutoff",
+                       "Positive routed LTP or completed current-session minute close within interval + 60s of its end",
                        passed=executable, state="unavailable" if quote_ev.get("source") in ("unknown", "unavailable") else None,
                        reason="Price source/time retained; unknown injected adapters remain explicit")
                 if isinstance(live_fill_px, qe.QuoteBatch) and not executable:
@@ -1174,7 +1233,20 @@ class TradingEngine:
                 if not ir.entry_allowed(cfg.mode, entry_now):
                     skipped.append({"ticker": pick["ticker"], "reason": "intraday_entry_deadline"})
                     continue
-                self._open(pick, qty, fill, entry_now)
+                if cfg.mode == "intraday":
+                    _, final_data = ib.validate(pick.get("history"), entry_now, min_bars=ib.required_bars(cfg))
+                    de.record("intraday_data_final", final_data, "still current at entry",
+                              state="passed" if final_data["status"] == "ready" else "unavailable", reason=final_data["reason"])
+                    if final_data["status"] != "ready":
+                        skipped.append({"ticker": pick["ticker"], "reason": "intraday_data_" + final_data["reason"]})
+                        continue
+                try:
+                    self._open(pick, qty, fill, entry_now)
+                except ValueError as exc:
+                    if str(exc).startswith("intraday_"):
+                        skipped.append({"ticker": pick["ticker"], "reason": str(exc)})
+                        continue
+                    raise
                 opened.append(pick["ticker"])
         self._journal_budget_full(skipped, now)
         self._journal_loss_halt(skipped, now)
@@ -1186,7 +1258,7 @@ class TradingEngine:
         def _candle_label(tkr: str) -> str:
             # F17: record which candle pattern confirmed (or why waiting) so
             # the dashboard can SHOW it with no refetch — history is in RAM.
-            h = history.get(tkr)
+            h = signal_history.get(tkr)
             if h is None:
                 return ""
             try:
@@ -1199,7 +1271,7 @@ class TradingEngine:
             # Owner ask 2026-07-26: every candle structure is its OWN
             # parameter, not one lumped "candle confirm" lane. 18 structures
             # (10 bullish / 6 bearish / 2 neutral) recorded per stock.
-            h = history.get(tkr)
+            h = signal_history.get(tkr)
             if h is None:
                 return {}
             try:
@@ -1216,8 +1288,9 @@ class TradingEngine:
                 "decision_id": (self.portfolio.positions[r["ticker"]].trade_evidence.get("entry", {}).get("id") if r["ticker"] in opened else r["decision"]["id"]),
                 "reasoning": r["reasoning"], "last_close": r["last_close"],
                 "timing_pass": r["timing_pass"],
+                "bar": de.bar_context(signal_history.get(r["ticker"])),
                 "components": r.get("components") or {},
-                "candles": history[r["ticker"]][["Open", "High", "Low", "Close"]].tail(20).values.tolist(),
+                "candles": signal_history[r["ticker"]][["Open", "High", "Low", "Close"]].tail(20).values.tolist(),
                 "candle": _candle_label(r["ticker"]),
                 "structures": _all_structures(r["ticker"]),
                 "multi": r.get("multi"),
@@ -1474,6 +1547,11 @@ class TradingEngine:
         # 2026-10-02, exits judged on the entry ruler).
         history = fetch_daily(tickers, period="2y")
         bench = fetch_daily([cfg.benchmark], period="6mo").get(cfg.benchmark)
+        intraday_names = [t for t, p in self.portfolio.positions.items() if p.mode == "intraday"]
+        intraday_history, refresh_data = ({}, {})
+        if intraday_names:
+            intraday_history, refresh_data = idata.fetch(
+                [cfg.benchmark] + intraday_names, cfg, self.broker, datetime.utcnow())
         # Recover deadlines crossed during history retrieval with a new quote
         # lookup; never turn an old pre-fetch clock into an after-hours fill.
         deadline_exits.extend(self.square_off_intraday())
@@ -1560,7 +1638,7 @@ class TradingEngine:
             if pos is None:
                 continue  # an earlier deadline recovery may close several names
             price = prices.get(ticker)
-            if not price or price <= 0:
+            if not price or price <= 0 or not qe.executable(prices, ticker, datetime.utcnow()):
                 # AUDIT FIX A2 (2026-08-09): the stale-data guard above only
                 # fires when ALL quotes fail. A single missing quote used to
                 # fall back to the ENTRY price — so a winner whose peak sat
@@ -1568,7 +1646,7 @@ class TradingEngine:
                 # closed at entry, erasing the recorded gain. No quote = no
                 # exit decision for that name, journaled once per day.
                 no_quote_held.append(ticker)
-                de.journal_exit(self.portfolio, de.exit_decision(pos, prices, now, session=not marking_only), "held", "quote_unavailable")
+                de.journal_exit(self.portfolio, de.exit_decision(pos, prices, now, session=not marking_only), "held", "quote_unavailable_or_non_executable")
                 today_key = now.date().isoformat()
                 seen = any(e.get("action") == "EXIT_HELD_NO_QUOTE"
                            and e.get("ticker") == ticker
@@ -1591,7 +1669,16 @@ class TradingEngine:
             # quality blend — a different number, sold on a different floor.
             current_score = pos.entry_score
             score_available = False
-            if ticker in history:
+            score_frame, score_bench = history.get(ticker), bench
+            intraday_score_diag = None
+            if getattr(pos, "mode", "") == "intraday":
+                score_frame = intraday_history.get(ticker)
+                score_bench = intraday_history.get(cfg.benchmark)
+                rescored, _, intraday_score_diag = isc.compute(
+                    ticker, score_frame, score_bench, intraday_history, cfg, datetime.utcnow())
+                if rescored is not None:
+                    current_score, score_available = rescored, True
+            elif ticker in history:
                 rescored, _ = score_for_mode(
                     getattr(pos, "mode", "") or MOMENTUM_MODE,
                     ticker, history[ticker], bench, history, cfg,
@@ -1610,8 +1697,21 @@ class TradingEngine:
             xcfg = self._exit_cfg(pos, cfg)
             decision = de.exit_decision(pos, prices, datetime.utcnow(), session=not marking_only)
             decision["score_available"] = score_available
-            decision["bar"] = de.bar_context(history.get(ticker))
-            decision["benchmark"] = {"ticker": cfg.benchmark, **de.bar_context(bench)}
+            decision["bar"] = intraday_score_diag or de.bar_context(score_frame)
+            decision["benchmark"] = {"ticker": cfg.benchmark, **de.bar_context(score_bench)}
+            if intraday_score_diag:
+                decision["benchmark"] = {"ticker": cfg.benchmark, **refresh_data.get(cfg.benchmark, {})}
+                decision["intraday_data"] = refresh_data.get(ticker, intraday_score_diag)
+                decision["intraday_score"] = intraday_score_diag
+                entry_bar = ((getattr(pos, "trade_evidence", {}) or {}).get("entry") or {}).get("bar") or {}
+                decision["entry_score_comparable"] = entry_bar.get("interval") == "5m" and entry_bar.get("status") == "ready"
+                decision["entry_score_comparison"] = {
+                    "entry_interval": entry_bar.get("interval", "unavailable"),
+                    "current_interval": "5m", "comparable": decision["entry_score_comparable"],
+                    "reason": "same proved timeframe" if decision["entry_score_comparable"] else "Legacy daily/unproved entry score cannot establish a drop in five-minute score"}
+            if not qe.executable(prices, ticker, datetime.utcnow()):
+                de.journal_exit(self.portfolio, decision, "held", "quote_expired_during_rescoring")
+                continue  # an expired candle cannot change the peak/trail either
             with de.capture(decision):
                 should_exit, reason = check_exit(pos, price, current_score, xcfg, now)
             de.put(decision, "valuation_target", (getattr(pos, "val_target", None) or {}).get("exit_due"),
@@ -1662,9 +1762,9 @@ class TradingEngine:
                         f"{reason + chr(32) + 'pending valid quote;' if should_exit else 'No exit rule hit;'} ret {upct:+.1f}% with "
                         f"stop({_level(pos.stop_price, xcfg.stop_loss_pct)})"
                         f"/target({_level(pos.target_price, xcfg.take_profit_pct)}), "
-                        f"score {current_score:.0f} "
-                        f"above decay-floor {xcfg.score_decay_exit:.0f}, "
-                        f"held {(now.date() - pos.entry_date.date()).days}d of max "
+                        + (f"score {current_score:.0f} vs decay-floor {xcfg.score_decay_exit:.0f}, "
+                           if score_available else "current score unavailable; score-based exits held, ")
+                        + f"held {(now.date() - pos.entry_date.date()).days}d of max "
                         f"{xcfg.max_hold_days}d ({getattr(pos, 'mode', '') or MOMENTUM_MODE})"
                     ),
                 })
@@ -1766,6 +1866,30 @@ class TradingEngine:
         # (momentum only; see targets.py for the measurement). Computed here
         # so the BUY line carries how it was set.
         stop_price = self._stop_for(pick, fill_price, cfg=cfg)
+        # Slow target/scoring work can outlive the bar or the entry window.
+        # Recheck immediately before any journal/cash/position write. Owner
+        # instructions have their own path and do not claim automatic signals.
+        decision_path = (pick.get("decision") or {}).get("path")
+        if cfg.mode == "intraday" and decision_path in ("scan", "ocean"):
+            final_clock = datetime.utcnow()
+            _, data_check = ib.validate(pick.get("history"), final_clock,
+                                        min_bars=ib.required_bars(cfg))
+            de.put(pick["decision"], "intraday_data_final", data_check, "still current at booking",
+                   state="passed" if data_check["status"] == "ready" else "unavailable", reason=data_check["reason"])
+            if data_check["status"] != "ready":
+                raise ValueError("intraday_data_" + data_check["reason"])
+        if not ir.entry_allowed(cfg.mode, datetime.utcnow()):
+            raise ValueError("intraday_entry_deadline")
+        quote = pick.get("quote_evidence") or {}
+        if quote.get("source") == "upstox_1min_delayed":
+            batch = qe.QuoteBatch({pick["ticker"]: quote.get("price")},
+                                  evidence={pick["ticker"]: quote})
+            quote_ok = qe.executable(batch, pick["ticker"], datetime.utcnow())
+            if pick.get("decision"):
+                de.put(pick["decision"], "quote_final", qe.observation(batch, pick["ticker"], datetime.utcnow()),
+                       "Executable completed candle at booking", passed=quote_ok)
+            if not quote_ok:
+                raise ValueError("intraday_quote_expired_before_booking")
         notional = qty * fill_price
         decision = copy.deepcopy(pick.get("decision") or de.new(pick["ticker"], cfg.mode, pick.get("entry_path", "direct"), now, pick.get("history")))
         de.put(decision, "entry_deadline_final", ir.utc(now).isoformat(), "Before intraday square-off deadline", passed=True,
@@ -2311,6 +2435,10 @@ class TradingEngine:
             with de.capture(danger_decision):
                 fired = danger.evaluate_stock(df, ext=(ext_map or {}).get(ticker))
             reading = danger.plan(ticker, fired, auto)
+            action_clock = datetime.utcnow()
+            if not qe.executable(prices, ticker, action_clock) or not self._trading_allowed(action_clock):
+                de.journal_exit(self.portfolio, danger_decision, "held", "quote_or_session_expired_during_danger_check")
+                continue
             de.put(danger_decision, "danger", {"fired": fired, "automatic": auto, "action": reading.action},
                    {"tighten": "1 trigger", "exit_half": ">=2 triggers", "alert_only_days": danger.ALERT_DAYS},
                    passed=bool(fired), role="exit_trigger")
@@ -2488,7 +2616,9 @@ class TradingEngine:
         spendable = self.portfolio.cash - eq * reserve
 
         def _close_of(pk: dict):
-            frame = pk.get("history")
+            frame = pk.get("risk_history")
+            if frame is None:
+                frame = pk.get("history")
             if frame is None and history:
                 frame = history.get(pk.get("ticker"))
             try:
@@ -2633,9 +2763,9 @@ class TradingEngine:
             if px <= 0 or t not in held:
                 continue
             value = float(held[t].qty) * px
-            freed_share += float(held[t].qty) * float(held[t].entry_price)
             if not qe.executable(live, t, datetime.utcnow()):
                 continue
+            freed_share += float(held[t].qty) * float(held[t].entry_price)
             decision = de.exit_decision(held[t], live, now)
             de.put(decision, "rotation", {"progress_pct": s["progress_pct"], "target": s["target"],
                    "shortfall": shortfall, "fund_ticker": s.get("fund_ticker"), "category_room": room_now},
@@ -2666,12 +2796,25 @@ class TradingEngine:
             })
         return rotated
 
+    @staticmethod
+    def _guard_delayed_exit(ticker: str, raw_price: float) -> None:
+        """Last booking boundary for evidence-bearing delayed price exits."""
+        decision = de.current() or {}
+        quote = decision.get("quote") or {}
+        if quote.get("source") == "upstox_1min_delayed":
+            batch = qe.QuoteBatch({ticker: raw_price}, evidence={ticker: quote})
+            if not qe.executable(batch, ticker, datetime.utcnow()):
+                raise ValueError("intraday_quote_expired_before_exit")
+
     def _exit_half(self, ticker: str, raw_price: float, reason: str,
                    now: datetime) -> None:
         """Sell half the position at the live price (full close if qty==1).
         Same slippage/cost model as _close; the sold half becomes a real
         ClosedTrade — nothing vanishes from the record."""
+        self._guard_delayed_exit(ticker, raw_price)
         pos = self.portfolio.positions[ticker]
+        if pos.mode == "intraday" and not ir.in_session(datetime.utcnow()):
+            raise ValueError("intraday_market_closed")
         if pos.qty <= 1:
             self._close(ticker, raw_price, reason, now)
             return
@@ -2700,6 +2843,7 @@ class TradingEngine:
         pos.qty -= half
 
     def _close(self, ticker: str, raw_price: float, reason: str, now: datetime) -> None:
+        self._guard_delayed_exit(ticker, raw_price)
         if (getattr(self.portfolio.positions[ticker], "mode", "") == "intraday"
                 and not ir.in_session(datetime.utcnow())):
             raise ValueError("intraday_market_closed")
@@ -3693,7 +3837,11 @@ class TradingEngine:
         Quote receipt is labelled explicitly; the router does not yet provide
         an exchange timestamp. Carried marks never become executable quotes.
         """
-        return pm.collect(self.portfolio, live, history, fallback, datetime.utcnow())
+        now = datetime.utcnow()
+        live = qe.select(live, lambda t, px:
+            qe.observation(live, t, now).get("source") != "upstox_1min_delayed"
+            or qe.executable(live, t, now))
+        return pm.collect(self.portfolio, live, history, fallback, now)
 
     def _risk_marks_ready(self, prices: Dict[str, float], now: datetime) -> bool:
         missing = pm.missing_marks(self.portfolio, prices)
