@@ -120,6 +120,9 @@ the user's instructions for the current task.
 - Recheck candle/quote validity at use, after slow work and through caches or
   restarts. Missing score must not manufacture score decay or trail tightening;
   valid-quote protective exits and pending deadline recovery remain independent.
+- When changing the signal timeframe, compare saved entry scores with current
+  scores only when both have a proved matching interval. Retain the original
+  entry, stop and target; show unavailable legacy comparisons explicitly.
 - Bound provider work and expose capped, unmapped, timed-out and failed names.
   Persist the next fetch offset so a cap does not permanently starve later names.
   Page reads show saved observations without running scans or changing holdings.

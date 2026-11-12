@@ -1703,6 +1703,12 @@ class TradingEngine:
                 decision["benchmark"] = {"ticker": cfg.benchmark, **refresh_data.get(cfg.benchmark, {})}
                 decision["intraday_data"] = refresh_data.get(ticker, intraday_score_diag)
                 decision["intraday_score"] = intraday_score_diag
+                entry_bar = ((getattr(pos, "trade_evidence", {}) or {}).get("entry") or {}).get("bar") or {}
+                decision["entry_score_comparable"] = entry_bar.get("interval") == "5m" and entry_bar.get("status") == "ready"
+                decision["entry_score_comparison"] = {
+                    "entry_interval": entry_bar.get("interval", "unavailable"),
+                    "current_interval": "5m", "comparable": decision["entry_score_comparable"],
+                    "reason": "same proved timeframe" if decision["entry_score_comparable"] else "Legacy daily/unproved entry score cannot establish a drop in five-minute score"}
             if not qe.executable(prices, ticker, datetime.utcnow()):
                 de.journal_exit(self.portfolio, decision, "held", "quote_expired_during_rescoring")
                 continue  # an expired candle cannot change the peak/trail either

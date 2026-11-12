@@ -15,6 +15,7 @@
   {% if d.bar %}<p class="text-sm my-2"><b>Decision bars:</b> {{ d.bar.interval }} · last bar start {{ d.bar.last_bar or 'unavailable' }} · end {{ d.bar.last_bar_end or 'unavailable' }} · {{ d.bar.status or d.bar.completion }}{% if d.bar.reason %} · {{ d.bar.reason | replace('_', ' ') }}{% endif %}</p>{% endif %}
   {% if d.windows %}<p class="text-sm my-2"><b>Signal windows:</b> {{ text_value(d.windows) }}</p>{% endif %}
   {% if d.intraday_score %}<details class="text-sm my-2"><summary>Intraday data and component coverage</summary>{{ text_value(d.intraday_score) }}</details>{% endif %}
+  {% if d.entry_score_comparison %}<p class="text-sm my-2"><b>Entry/current score comparison:</b> {{ text_value(d.entry_score_comparison) }}</p>{% endif %}
   {% if d.components %}<p class="text-sm my-2"><b>Score components:</b> {{ text_value(d.components) }}. These contribute to the total score; they are not independent entry gates.</p>{% endif %}
   {% if d.weights %}<p class="text-sm my-2"><b>Weights used:</b> {{ text_value(d.weights) }}</p>{% endif %}
   {% if d.benchmark %}<p class="text-sm my-2"><b>Benchmark input:</b> {{ text_value(d.benchmark) }}</p>{% endif %}

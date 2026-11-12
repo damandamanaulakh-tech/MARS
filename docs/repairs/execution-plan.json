@@ -135,10 +135,10 @@
       "depends_on": [
         "SEQ-03"
       ],
-      "status": "LOCAL_TESTED",
+      "status": "CI_PENDING",
       "implementation": "IMPLEMENTED",
-      "tests": "3063_LOCAL_PASSED_ZERO_SKIPS",
-      "pull_request": null,
+      "tests": "3067_LOCAL_PASSED_ZERO_SKIPS",
+      "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/203",
       "merge_revision": null,
       "deployment_revision": null,
       "health": "NOT_CHECKED",
@@ -301,5 +301,5 @@
       "evidence": null
     }
   ],
-  "active_step_note": "SEQ-03 shipped and health verified; normal decision lifecycle observation remains pending. SEQ-04 is the next queued batch and has not started. SEQ-01/02 ordinary runtime observations also remain open."
+  "active_step_note": "SEQ-04 implemented and locally tested; PR203 published, final-head CI and deployment pending. SEQ-01/02/03 ordinary runtime observations remain separate and open. SEQ-05 is queued next; no strategy threshold promotion."
 }

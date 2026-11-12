@@ -519,6 +519,39 @@ def test_danger_calculation_cannot_use_a_quote_that_expired_during_work(tmp_path
     assert any(r.get('why') == 'quote_or_session_expired_during_danger_check' for r in e.portfolio.decision_journal)
 
 
+@pytest.mark.parametrize('entry_bar,comparable', [
+    ({'interval':'1d','status':'observed'},False), ({},False),
+    ({'interval':'5m','status':'unavailable'},False),
+    ({'interval':'5m','status':'ready'},True)])
+def test_legacy_daily_entry_score_cannot_tighten_a_5m_trailing_exit(tmp_path, monkeypatch, entry_bar, comparable):
+    from trading.tests.test_audit_s4_s9_2026_10_02 import _held_engine
+    e,_ = _held_engine(tmp_path,monkeypatch)
+    freeze_engine(monkeypatch)
+    pos=e.portfolio.positions['AAA.NS']
+    pos.mode='intraday'
+    pos.entry_date=NOW.replace(tzinfo=None)-timedelta(minutes=20)
+    pos.entry_score=80.
+    pos.peak_price=110.
+    pos.stop_price,pos.target_price=98.5,120.
+    from trading import decision_evidence as de
+    de.ensure_trade(pos)['entry'] = {'bar':entry_bar}
+    monkeypatch.setattr(e,'_valuation_pass',lambda *a,**k:None)
+    monkeypatch.setattr('trading.engine.routed_fetch_quotes',lambda *a,**k:{'AAA.NS':109.2})
+    supply_intraday(monkeypatch,bar_frame())
+    monkeypatch.setattr('trading.engine.isc.compute',lambda *a,**k:(50.,{}, {'interval':'5m','status':'ready'}))
+    e.refresh()
+    assert (pos.stop_price,pos.target_price,pos.entry_score) == (98.5,120.,80.)
+    if comparable:
+        trade=e.portfolio.trades[-1]
+        assert trade.reason == 'TRAILING_STOP'
+        d=trade.trade_evidence['exit']
+    else:
+        assert 'AAA.NS' in e.portfolio.positions and not e.portfolio.trades
+        d=next(r['evidence'] for r in reversed(e.portfolio.decision_journal) if r.get('action') == 'EXIT_DECISION' and r['ticker']=='AAA.NS')
+    assert d['entry_score_comparable'] is comparable
+    assert d['gates']['trailing']['value']['tightened'] is comparable
+
+
 @pytest.mark.parametrize('bar', [
     '2026-11-12T10:31:00+05:30',   # future
     '2026-11-12T10:30:00+05:30',   # open minute
