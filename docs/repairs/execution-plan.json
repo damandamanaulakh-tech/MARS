@@ -135,15 +135,16 @@
       "depends_on": [
         "SEQ-03"
       ],
-      "status": "QUEUED",
-      "implementation": "NOT_STARTED",
-      "tests": "NOT_RUN",
+      "status": "LOCAL_TESTED",
+      "implementation": "IMPLEMENTED",
+      "tests": "3063_LOCAL_PASSED_ZERO_SKIPS",
       "pull_request": null,
       "merge_revision": null,
       "deployment_revision": null,
       "health": "NOT_CHECKED",
-      "runtime": "NOT_OBSERVED",
-      "evidence": null
+      "runtime": "PENDING_NORMAL_INTRADAY_SCAN_AND_DATA_GAP_OBSERVATION",
+      "evidence": "docs/repairs/releases/2026-11-12-completed-intraday-data.md",
+      "research": "INTRA-001 performance subclaim remains in SEQ-08 through SEQ-11; no strategy threshold promotion."
     },
     {
       "id": "SEQ-05",

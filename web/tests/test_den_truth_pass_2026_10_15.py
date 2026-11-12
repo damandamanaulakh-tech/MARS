@@ -103,9 +103,13 @@ def test_category_rows_print_the_history_the_rotation_really_pulls():
     rows = re.findall(r'data-den-category="([^"]+)">(.*?)</tr>', html, re.S)
     assert len(rows) == 5
     for key, row in rows:
-        want = "2y" if key == "nifty200_momentum" else other
-        assert f"daily bars · {want} history" in row, (key, row[:300])
-        assert "5m bars" not in row and "1wk bars" not in row
+        if key == "intraday":
+            assert f"completed 5-minute bars · 5 regular sessions; daily context {other} history" in row
+            assert "Not measured for 5m bars" in row
+        else:
+            want = "2y" if key == "nifty200_momentum" else other
+            assert f"daily bars · {want} history" in row, (key, row[:300])
+            assert "5m bars" not in row and "1wk bars" not in row
 
 
 def test_liquidity_line_admits_market_cap_is_not_checked():

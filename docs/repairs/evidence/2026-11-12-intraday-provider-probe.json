@@ -1,0 +1,44 @@
+{
+  "observed_at": "2026-11-12T04:18:35.671421+00:00",
+  "instrument": "NSE_INDEX|Nifty 50",
+  "scope": "Development-host read-only public endpoint probe; no production engine, credentials, scan, portfolio or order called. Does not prove Render ingestion or stock universe coverage.",
+  "requests": [
+    {
+      "request": "current_5m",
+      "url": "https://api.upstox.com/v3/historical-candle/intraday/NSE_INDEX%7CNifty%2050/minutes/5",
+      "http": 200,
+      "rows": 7
+    },
+    {
+      "request": "prior_5m",
+      "url": "https://api.upstox.com/v3/historical-candle/NSE_INDEX%7CNifty%2050/minutes/5/2026-11-11/2026-11-05",
+      "http": 200,
+      "rows": 314
+    }
+  ],
+  "validation": {
+    "interval": "5m",
+    "session_timezone": "Asia/Kolkata",
+    "asof": "2026-11-12T04:18:35.671421+00:00",
+    "timestamp_kind": "bar_start",
+    "completion": "validated_closed_bars",
+    "required_bars": 64,
+    "publication_grace_seconds": 60,
+    "status": "ready",
+    "reason": "completed_current_session",
+    "rows": 306,
+    "rejected": {
+      "unfinished_bar": 1,
+      "non_trading_session": 14
+    },
+    "source": "upstox_v3_public_read_only_probe",
+    "calendar_status": "verified_regular_sessions_2026",
+    "input_rows": 321,
+    "last_bar": "2026-11-12T04:10:00+00:00",
+    "last_bar_end": "2026-11-12T04:15:00+00:00",
+    "session": "2026-11-12",
+    "age_since_close_seconds": 215.671421,
+    "missing_bars_in_window": 0,
+    "missing_bar_sample": []
+  }
+}

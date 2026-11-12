@@ -122,7 +122,7 @@ def check_exit(
             "max_hold_days": cfg.max_hold_days}
     score_available = ctx is None or ctx.get("score_available", True)
     def score_rule():
-        hit = current_score < cfg.score_decay_exit and not score_exempt
+        hit = score_available and current_score < cfg.score_decay_exit and not score_exempt
         de.record("score_decay", current_score, cfg.score_decay_exit, passed=hit,
                   state="skipped" if score_exempt else "unavailable" if not score_available else None,
                   reason="Owner/Ocean exemption" if score_exempt else "Entry-score fallback; current score unavailable" if not score_available else "Exit when score is below floor",
@@ -157,7 +157,7 @@ def check_exit(
     if peak > entry:
         trail_ret = (current_price - peak) / peak
         trail_pct = cfg.trailing_stop_pct
-        tightened = not ocean and current_score < (position.entry_score - 15.0)
+        tightened = score_available and not ocean and current_score < (position.entry_score - 15.0)
         if tightened:
             trail_pct *= 0.6
         de.record("trailing", {"return_from_peak": trail_ret, "peak": peak,

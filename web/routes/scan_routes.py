@@ -182,6 +182,7 @@ def scan_view(request: Request, error: str | None = None):
             "multi_gate_on": bool(getattr(cfg, "multi_formula_gate", False)),
             "next_rebuild": _next_friday().isoformat(),
             "skipped": p.last_scan_skipped or [],
+            "intraday_data": getattr(p, "intraday_data_status", {}) or {},
             "opened": p.last_scan_opened or [],
             "last_scan": p.last_scan,
             "running": running,
@@ -901,7 +902,12 @@ def owner_buy(request: Request, ticker: str = Form(...),
         de.put(decision, "entry_deadline_final", fill_now, "Before 15:25 IST for intraday", passed=entry_allowed(selected_mode, fill_now))
         if not entry_allowed(selected_mode, fill_now):
             return refuse("intraday_entry_deadline", "entry_deadline_final", fill_now, "Before 15:25 IST for intraday")
-        eng._open(pick, use_qty, float(price), fill_now, cfg=cfg)
+        try:
+            eng._open(pick, use_qty, float(price), fill_now, cfg=cfg)
+        except ValueError as exc:
+            if str(exc).startswith("intraday_"):
+                return refuse(str(exc), "entry_data_final", unavailable=True)
+            raise
         # AUDIT FIX A4 (2026-08-09): an owner's deliberate pick is never
         # auto-sold by score decay (check_exit skips SCORE_DECAY for this
         # tag). Stop/target/trail/max-hold still protect it.

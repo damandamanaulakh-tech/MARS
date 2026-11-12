@@ -2,6 +2,20 @@
 {% block title %}Scan — Sourceborn MARS{% endblock %}
 {% block content %}
 <a class="inline-block mb-4 underline text-sm" href="/decisions">Saved gate and trade explanations</a>
+<section class="border border-line p-4 mb-6 text-sm" data-intraday-coverage>
+  <h2 class="font-bold">Intraday candle coverage</h2>
+  {% if intraday_data %}
+  <p>{{ intraday_data.ready }} / {{ intraday_data.asked }} stocks had usable completed 5-minute bars when checked at {{ intraday_data.at | ist }}. This is a saved observation, not live coverage.</p>
+  <p class="text-ink-soft">Regular NSE session: 09:15–15:30 IST. Provider timestamps mark the start; a bar is usable after its end. Latest completed bar must belong to this session and be no older than one interval plus 60 seconds after its close. Missing, future, unfinished and broken lookback data cannot substitute daily candles.</p>
+  <p class="text-ink-soft">Rolling windows (5-minute bars): momentum {{ intraday_data.windows.momentum }}, relative strength {{ intraday_data.windows.relative_strength }}, breakout {{ intraday_data.windows.breakout }}, volume {{ intraday_data.windows.volume_short }}/{{ intraday_data.windows.volume_long }}. Daily liquidity, risk and market context retain their daily intervals.</p>
+  <p>Benchmark: {{ intraday_data.benchmark.status | default('unavailable') }} · {{ intraday_data.benchmark.reason | default('missing data') | replace('_',' ') }}.</p>
+  <p class="text-ink-soft">Each check has a {{ intraday_data.request_cap | default(120) }}-name request cap and {{ intraday_data.deadline_seconds | default(90) }}-second deadline. The next scan advances through the remaining names; every unfetched name is listed below. Five-minute strategy returns have not yet been validated by the daily-history studies.</p>
+  <details class="mt-2"><summary>Every requested stock — availability and reason</summary>
+  <div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr><th class="text-left p-2">Stock</th><th class="text-left p-2">Status / reason</th><th class="text-left p-2">Source</th><th class="text-left p-2">Last bar end / session</th><th class="text-left p-2">Missing / rejected</th></tr></thead><tbody>
+  {% for ticker, row in intraday_data.rows.items() %}<tr class="border-t" data-intraday-status="{{ row.status }}"><td class="p-2">{{ ticker }}</td><td class="p-2">{{ row.status }} · {{ row.reason | replace('_',' ') }}</td><td class="p-2">{{ row.source }}</td><td class="p-2">{{ row.last_bar_end | default('unavailable') }} / {{ row.session | default('unavailable') }}</td><td class="p-2">{{ row.missing_bars_in_window | default('unknown') }} / {{ row.rejected }}</td></tr>{% endfor %}
+  </tbody></table></div></details>
+  {% else %}<p>Unavailable — no intraday data check has been recorded yet. Daily scan coverage does not prove intraday coverage.</p>{% endif %}
+</section>
 {% if running %}
 <meta http-equiv="refresh" content="10">
 <div class="bg-amber-50 border border-amber-300 text-amber-900 p-4 mb-6 text-sm">
@@ -413,7 +427,7 @@
 <div class="bg-amber-50 border border-amber-300 text-amber-900 p-3 mb-4 text-sm"><!-- buy_desk_msg_marker -->
   🛒 Buy Desk: <strong>nothing opened</strong> — every shortlisted name was skipped (no live quote, no estimated edge, cash short or segment funds exhausted). The reasons are in the card below.
 </div>
-{% elif error in ('owner_only','blocklisted','already_held','no_quote','insufficient_cash','bad_ticket','bad_segment','category_budget_full') %}
+{% elif error in ('owner_only','blocklisted','already_held','no_quote','insufficient_cash','bad_ticket','bad_segment','category_budget_full','intraday_entry_deadline','intraday_quote_expired_before_booking') %}
 <div class="bg-amber-50 border border-amber-300 text-amber-900 p-3 mb-4 text-sm">
   🟢 BUY not placed:
   <strong>
@@ -423,6 +437,7 @@
     {% elif error == 'category_budget_full' %}the selected segment has insufficient funds for this size — see its allocation on the Risk page
     {% elif error == 'bad_segment' %}choose Momentum, Intraday, Short, Swing or Positional
     {% elif error == 'intraday_entry_deadline' %}intraday entry time has ended for today (15:25 IST); existing intraday positions are due for closing
+    {% elif error == 'intraday_quote_expired_before_booking' %}the delayed quote expired while the order was being checked; no position was opened. A fresh completed quote is needed
     {% elif error == 'blocklisted' %}that ticker is on your blocklist
     {% elif error == 'bad_ticket' %}check the numbers — qty must be a positive whole number; limit, stop and target must be finite positive numbers
     {% else %}owner login required{% endif %}</strong>.

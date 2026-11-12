@@ -206,7 +206,15 @@ def _fill_locked(engine, o: dict, price: float, now: datetime) -> None:
             "reasoning": (f"OWNER LIMIT ORDER {o['id']} filled @ ₹{fill:.2f} "
                           f"(quote ₹{quote:.2f}, limit ₹{o['limit_price']:.2f}) "
                           "— owner's call, regime halt overridden by owner.")}
-    engine._open(pick, qty, fill, now, cfg=cfg)
+    try:
+        engine._open(pick, qty, fill, now, cfg=cfg)
+    except ValueError as exc:
+        if not str(exc).startswith("intraday_"):
+            raise
+        o["note"] = str(exc)
+        de.put(decision, "entry_data_final", state="unavailable", reason=o["note"])
+        de.journal_decision(p, decision, "waiting", o["note"])
+        return
     p.positions[tkr].tags.append("owner_pick")
     note = apply_custom_levels(p.positions[tkr], o["stop_pct"], o["target_pct"], portfolio=p, now=now)
     if note:

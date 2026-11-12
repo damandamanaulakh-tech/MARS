@@ -22,7 +22,12 @@ def utc(value=None):
 
 def make(price, source, received=None, provider_at=None, interval=None, **extra):
     received = utc(received) or utc()
-    provider = utc(provider_at) if provider_at is not None else None
+    # A naive provider timestamp has no proved exchange timezone.
+    try:
+        raw = provider_at if isinstance(provider_at, datetime) else datetime.fromisoformat(str(provider_at).replace('Z', '+00:00'))
+        provider = utc(raw) if raw.tzinfo is not None else None
+    except (ValueError, TypeError):
+        provider = None
     return {"price": price, "source": source, "received_at": received.isoformat(),
             "provider_at": provider.isoformat() if provider else None,
             "provider_time_status": "observed" if provider else "unavailable",
@@ -37,6 +42,12 @@ def observation(batch, ticker, now=None):
         for field, label in (("received_at", "receipt_age_seconds"), ("provider_at", "provider_age_seconds")):
             when = utc(out.get(field)) if out.get(field) else None
             out[label] = (clock - when).total_seconds() if when else None
+        if out.get('source') == 'upstox_1min_delayed':
+            from .intraday_bars import bar_status
+            reason = (bar_status(out.get('provider_at'), 1, clock)
+                      if out.get('interval') == '1m' else 'wrong_or_unproved_interval')
+            out['bar_validity'] = reason or 'completed_current_session'
+            out['execution_eligible'] = reason is None
         return out
     # A caller-supplied price has no proved provider or provider time.
     return make((batch or {}).get(ticker), "unknown", now,
@@ -71,7 +82,6 @@ def executable(batch, ticker, now=None, *, live_only=False):
         return not live_only
     ev = observation(batch, ticker, now)
     src = ev.get("source")
-    # SEQ-03 is an evidence release, not approval for a new candle-age gate.
-    # The existing web cache enforces its own 120-second receipt limit.
-    # Provider/receipt ages are exposed for Step 4's completed-bar policy.
-    return src == "upstox" or (not live_only and src == "upstox_1min_delayed")
+    # SEQ-04: revalidate against the execution clock, including cached quotes.
+    return src == "upstox" or (not live_only and src == "upstox_1min_delayed"
+                              and ev.get('execution_eligible') is True)

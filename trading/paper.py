@@ -200,6 +200,7 @@ class Portfolio:
     last_scan_live: Optional[str] = None
     last_scan_picks: List[dict] = field(default_factory=list)
     last_scan_skipped: List[dict] = field(default_factory=list)
+    intraday_data_status: dict = field(default_factory=dict)
     last_scan_opened: List[str] = field(default_factory=list)
     last_regime: Optional[str] = None
     last_ifr_fire_date: Optional[str] = None        # IFR damage cluster fire (ISO date)
@@ -335,6 +336,7 @@ class Portfolio:
                 "last_scan_live": self.last_scan_live,
                 "last_scan_picks": self.last_scan_picks,
                 "last_scan_skipped": self.last_scan_skipped,
+                "intraday_data_status": self.intraday_data_status,
                 "last_scan_opened": self.last_scan_opened,
                 "last_regime": self.last_regime,
                 "last_ifr_fire_date": self.last_ifr_fire_date,
@@ -394,6 +396,7 @@ class Portfolio:
             p.last_scan_live = data.get("last_scan_live")
             p.last_scan_picks = list(data.get("last_scan_picks", []))
             p.last_scan_skipped = list(data.get("last_scan_skipped", []))
+            p.intraday_data_status = dict(data.get("intraday_data_status", {}) or {})
             p.last_scan_opened = list(data.get("last_scan_opened", []))
             p.last_regime = data.get("last_regime")
             p.last_ifr_fire_date = data.get("last_ifr_fire_date")
@@ -485,6 +488,7 @@ class Portfolio:
         self.last_scan_live = None
         self.last_scan_picks = []
         self.last_scan_skipped = []
+        self.intraday_data_status = {}
         self.last_scan_opened = []
         self.scan_matrix = {}
         self.momentum_shortlist = {}

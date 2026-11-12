@@ -264,11 +264,9 @@ def _entry_prices(p) -> dict:
 
 
 def _scan_history() -> tuple:
-    """What the rotation really pulls per category pass: daily bars, the
-    momentum pass 2 years, every other pass `TradingEngine.scan`'s default.
-    Read from the engine itself — the presets' bar_interval/history_period
-    fields have no reader anywhere (audit 2026-10-15), so printing them told
-    the owner intraday scans 5-minute bars when it scans daily ones."""
+    """Daily context history: momentum uses two years, others the scan default.
+    Intraday signal history is separate: completed 5m bars over five regular
+    trading sessions. The category rows state both units explicitly."""
     from trading.engine import TradingEngine
     other = "6mo"
     mom = "2y"
@@ -396,14 +394,15 @@ def _category_rows(cfg) -> list[dict]:
             "scorer": ("6m+12m momentum blended with quality"
                        if m not in COMPOSITE_MODES else
                        "AM07 composite on this category's own weights"),
-            "bar": "daily",
-            "history": hist_mom if m == "nifty200_momentum" else hist_other,
+            "bar": "completed 5-minute" if m == "intraday" else "daily",
+            "history": ("5 regular sessions; daily context " + hist_other if m == "intraday"
+                        else hist_mom if m == "nifty200_momentum" else hist_other),
             "stop_pct": _pct(over.get("stop_loss_pct", pr.stop_loss_pct)),
             "atr_stop": (m in T.ATR_STOP_MODES
                          and bool(getattr(cfg, "atr_stop_enabled", True))),
             "target_k": k,
             "target_at_median_pct": (round(k * T.MEDIAN_ATR_PCT_OF_PRICE, 1)
-                                     if k else None),
+                                     if k and m != "intraday" else None),
             "band_pct": [_pct(band[0]), _pct(band[1])],
             "fixed_target_pct": _pct(over.get("take_profit_pct", pr.take_profit_pct)),
             "trail_pct": _pct(over.get("trailing_stop_pct", pr.trailing_stop_pct)),

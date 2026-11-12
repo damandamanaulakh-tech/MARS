@@ -8,23 +8,21 @@ separate incidents. [Goals](GOALS.md), [full backlog](BACKLOG.md),
 
 ## Current batch
 
-**SEQ-03 is shipped and health verified; SEQ-04 is the next queued batch.**
-[PR #201](https://github.com/damandamanaulakh-tech/MARS/pull/201) merged as `5bee374a6c9de71b2bb15203434f90fa0a7eb7c1`.
-The matching Render revision went live 12 November 2026 00:33:29 IST; health/readiness and database
-connectivity were verified 12 November 2026 00:34:03 IST. Local and PR CI suites each passed
-**2,994 tests with zero skips**, including 60 new regression cases and 135
-focused checks. [Decision-evidence release](releases/2026-11-11-decision-evidence.md).
+**SEQ-04 is implemented and locally tested; publication, CI and deployment are pending.**
+The actual intraday scan and held-position refresh use completed five-minute bars.
+Wrong timeframe/session, future or unfinished bars, stale quotes, gaps and missing
+provider data are explicitly rejected or marked unavailable. Saved coverage is
+visible on Scan and decision explanations. 3,063 full-suite tests pass with
+zero failures or skips; 150 focused checks include 69 new cases.
+[Completed-intraday release](releases/2026-11-12-completed-intraday-data.md).
 
-The read-only production snapshot contained 49 open positions,
-193 closed trades, 0 open positions with new entry evidence,
-and 0 saved scan-decision rows. Its last save was `2026-11-11T10:06:25.991854` UTC.
-Normal post-release scan/entry/amendment/exit observation remains pending;
-no production trade, scan or outage was induced. Earlier SEQ-01 quote-gap and
-SEQ-02 recovery observations remain separately open.
+SEQ-01, SEQ-02 and SEQ-03 remain shipped and health verified with their ordinary
+runtime observations pending. The last verified functional revision before this
+batch is `5bee374a6c9de71b2bb15203434f90fa0a7eb7c1` (PR201), health checked
+12 November 2026 00:34:03 IST. No production scan or trade is induced for testing.
 
-**Next: SEQ-04 — correct intraday data.** Provider timing is now observable;
-completed bars, session alignment and age policy remain queued. Steps 04–11
-have not been represented as implemented by this evidence release.
+After SEQ-04 shipment, SEQ-05 is next. Five-minute strategy profitability remains
+unproven; later cost, research and combined-validation goals keep their own scope.
 
 ## Sequence and acceptance
 
@@ -33,7 +31,7 @@ have not been represented as implemented by this evidence release.
 | SEQ-01 | G4; AUD-002 | Preserve last observed holding values through quote gaps and restarts; show source/time and unknown values | Unchanged INR 52 lakh stays 52 lakh under a partial response; real loss still halts; no retained mark fills an exit; JSON/Mongo round trip and split handling pass | SHIPPED; health verified; normal quote-gap observation pending |
 | SEQ-02 | G13; INTRA-002; related OPS-04 | Durable intraday square-off deadline, retry and consistent segment/stop treatment | Missed job, restart, missing quote and late scan fixtures; original protection preserved; ordinary deadline outcome observed when available | SHIPPED; health verified; normal recovery observation pending |
 | SEQ-03 | G13/G9; INTRA-004, ROOT-AM07-04, ROOT-ROUTE-09 | Immutable entry/exit gate results and quote provenance | Values, thresholds, pass/fail/skip/unavailable, provider/receipt time, bar interval, stop amendments and exit trigger attached to each new trade | SHIPPED; 2994 local/CI passed, zero skips; health verified; normal lifecycle observation pending |
-| SEQ-04 | G13; INTRA-001, ROOT-AM07-04 | Connect completed intraday bars to the actual intraday data path | Correct interval, session alignment, no future/unclosed bars, explicit missing-data handling and recorded comparison with the daily baseline | QUEUED |
+| SEQ-04 | G13; INTRA-001, ROOT-AM07-04 | Connect completed intraday bars to the actual intraday data path | Correct interval, session alignment, no future/unclosed bars, explicit missing-data handling and recorded comparison with the daily baseline | LOCAL_TESTED; CI/deployment and normal runtime observation pending |
 | SEQ-05 | G13; XR-059 | Product-appropriate intraday cost model and separate historical comparison | Dated broker/exchange schedule and account-plan assumptions; buy/sell/partial-exit cases; original ledger preserved | QUEUED |
 | SEQ-06 | G9/G13; INTRA-004, XR-009, XR-061 | Sector identity, input coverage and same-window benchmark/sector context | Unknown never counts as measured strength; timestamped stock/sector/index comparisons; context does not silently become a new gate | QUEUED |
 | SEQ-07 | G13; XR-081; owner candle decision | Candle patterns assist selection, with recorded owner controls | Advisory contribution is explicit; absence alone does not veto an otherwise eligible entry; protective exits remain independent; invalid candles remain unavailable | QUEUED |

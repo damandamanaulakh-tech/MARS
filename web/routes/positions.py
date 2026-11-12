@@ -887,6 +887,7 @@ def purge_universe(request: Request):
     p.scan_matrix = {}
     p.last_scan_picks = []
     p.last_scan_skipped = []
+    p.intraday_data_status = {}
     p.last_scan_opened = []
     p.virtual_book = {}
     p.last_scan = None
