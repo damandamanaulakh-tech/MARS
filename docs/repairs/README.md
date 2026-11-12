@@ -14,13 +14,14 @@ Earlier verified batches (2 November):
 | 2 | RUN-20261102-01, daily category recovery | Merged/deployed in PR #187; Momentum look-only pass completed at 16:18 IST; 185 candidates blocked after close; full rotation remains unverified |
 | 3 | AUD-001, unfinished drawdown liquidation | Merged/deployed in [PR #188](https://github.com/damandamanaulakh-tech/MARS/pull/188); local and CI suites each 2,647 passed, zero skipped; production health verified |
 
-Latest verified functional revision: `5bee374a6c9de71b2bb15203434f90fa0a7eb7c1` ([PR #201](https://github.com/damandamanaulakh-tech/MARS/pull/201)), live 12 November 2026 00:33:29 IST; health/readiness verified 12 November 2026 00:34:03 IST. Local and PR CI suites each passed 2,994 tests with zero skips. The [decision-evidence release ledger](releases/2026-11-11-decision-evidence.md) records the exact deployment and pending normal decision lifecycle observation. The [intraday recovery release](releases/2026-11-11-intraday-recovery.md), [partial-quote release](releases/2026-11-11-partial-quote-equity.md), [resource ledger](releases/2026-11-04-online-resources.md) and [segment allocation evidence](releases/2026-11-03-segment-allocation-performance.md) retain their separate scope and limitations. These are timestamped observations; documentation-only commits can advance main without changing the application.
+Latest verified functional revision: `51e075457480715b111ea35c780baf477b4a8aa0` ([PR #203](https://github.com/damandamanaulakh-tech/MARS/pull/203)), live 12 November 2026 11:38:24 IST; health/readiness verified 12 November 2026 11:39:02 IST. Local and PR CI suites each passed 3,067 tests with zero skips. The [completed-intraday release ledger](releases/2026-11-12-completed-intraday-data.md) records the exact deployment and pending normal five-minute scan/data-gap observations. The [decision-evidence release](releases/2026-11-11-decision-evidence.md), [intraday recovery release](releases/2026-11-11-intraday-recovery.md), [partial-quote release](releases/2026-11-11-partial-quote-equity.md), [resource ledger](releases/2026-11-04-online-resources.md) and [segment allocation evidence](releases/2026-11-03-segment-allocation-performance.md) retain their separate scope and limitations. These are timestamped observations; documentation-only commits can advance main without changing the application.
 
-**SEQ-04 is implemented and locally tested; PR203 is published; final-head CI and deployment are pending.**
+**SEQ-04 is shipped and health verified; SEQ-05 is next queued.**
 Completed five-minute signal bars, session/interval/freshness checks, explicit
-missing-data coverage, and independent protective exits pass 3067 full-suite
-tests with zero skips. [Current batch](releases/2026-11-12-completed-intraday-data.md).
-The [11-step programme](EXECUTION_PLAN.md) retains earlier normal runtime checks
+missing-data coverage and independent protective exits passed 3067 local and CI
+tests with zero skips. PR203 is merged and its exact functional revision is live.
+[Deployment and test evidence](releases/2026-11-12-completed-intraday-data.md).
+The [11-step programme](EXECUTION_PLAN.md) retains ordinary runtime observations
 and Steps 05–11. Daily-history studies do not validate five-minute performance.
 
 The [11 November intraday audit](reviews/2026-11-11-intraday-trade-audit.md) reconciles 74 closes and records four new findings. [Full trade CSV](reviews/2026-11-11-intraday-trades.csv).

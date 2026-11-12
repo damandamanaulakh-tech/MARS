@@ -1,0 +1,105 @@
+{
+  "observed_at": "2026-11-12T06:09:02Z",
+  "tested_head": "5a6ee14c29dca92e6fe25df2ee0fd19aafb495e0",
+  "tested_tree": "f9d5670af317daa0cd9cc2d8a31cc6c16e01db33",
+  "merge_revision": "51e075457480715b111ea35c780baf477b4a8aa0",
+  "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/203",
+  "ci": {
+    "run_id": 43164969908,
+    "job_id": 131004610537,
+    "conclusion": "success",
+    "tests": 3067,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "no_skip_guard": "success",
+    "repair_records": "success",
+    "seconds": 340.64
+  },
+  "local_tests": {
+    "tests": 3067,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "focused": 154,
+    "new_cases": 73,
+    "seconds": 193.85,
+    "python": "3.12"
+  },
+  "deployment": {
+    "commit": {
+      "createdAt": "2026-11-12T06:06:35Z",
+      "id": "51e075457480715b111ea35c780baf477b4a8aa0",
+      "message": "Merge PR #203: use completed intraday data\n\nConnect validated completed five-minute bars to intraday decisions and show missing inputs. Reject wrong-session, future, unfinished and stale data at use; preserve independent price/deadline protection and legacy entry-score timeframe. Local and PR CI each passed 3067 tests with zero skips. Retain canonical workflow and separate live ingestion and performance evidence."
+    },
+    "createdAt": "2026-11-12T06:06:38.11311Z",
+    "finishedAt": "2026-11-12T06:08:24.249354Z",
+    "id": "dep-dbqlerjrjlhs7381k16g",
+    "startedAt": "2026-11-12T06:06:38.090028Z",
+    "status": "live",
+    "trigger": "new_commit",
+    "updatedAt": "2026-11-12T06:08:24.249684Z"
+  },
+  "health": {
+    "ok": true,
+    "ready": true,
+    "db_connected": true,
+    "db_degraded": false,
+    "write_error": null
+  },
+  "health_http_status": 200,
+  "owner_scan_http_status": 303,
+  "owner_scan_redirect": "https://sourceborn-stocks.onrender.com/login",
+  "startup": {
+    "hasMore": false,
+    "logs": [
+      {
+        "id": "f57f0c41-890a-4296-b7d3-47e3603ee339",
+        "labels": [
+          {
+            "name": "resource",
+            "value": "srv-d8cspdnavr4c738lbrd0"
+          },
+          {
+            "name": "instance",
+            "value": "srv-d8cspdnavr4c738lbrd0-tnrpq"
+          },
+          {
+            "name": "level",
+            "value": "info"
+          },
+          {
+            "name": "type",
+            "value": "app"
+          }
+        ],
+        "message": "INFO:     Application startup complete.",
+        "timestamp": "2026-11-12T06:08:14.963137855Z"
+      }
+    ],
+    "nextEndTime": "2026-11-12T06:08:14.963137855Z",
+    "nextStartTime": "2026-11-12T06:07:23Z"
+  },
+  "error_log_query": {
+    "hasMore": false,
+    "logs": [],
+    "nextEndTime": "2026-11-12T06:08:48.659657352Z",
+    "nextStartTime": "2026-11-12T06:08:24Z"
+  },
+  "runtime_observation": {
+    "last_scan": "2026-11-12T05:52:01.591229",
+    "last_save": "2026-11-12T06:05:02.936453",
+    "open_positions": 61,
+    "closed_trades": 197,
+    "intraday_positions": 12,
+    "at": "2026-11-12T06:09:02Z",
+    "intraday_data_at": null,
+    "intraday_requested": null,
+    "intraday_ready": null,
+    "production_scan_induced": false,
+    "production_trade_induced": false,
+    "new_5m_scan_observed": false
+  },
+  "runtime_status": "PENDING_NORMAL_INTRADAY_SCAN_AND_DATA_GAP_OBSERVATION",
+  "runtime_note": "Read-only snapshot at 2026-11-12T06:09:02Z: 61 open positions, 12 intraday and 197 closed trades; last save 06:05:02Z and last scan 05:52:01Z predate the deployment. No saved five-minute coverage observed yet. Natural scan, data-gap and trade-lifecycle observation remains pending."
+}
