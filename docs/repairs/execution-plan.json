@@ -1,7 +1,7 @@
 {
   "approved_date": "2026-11-11",
   "source": "Owner asked to show sequence, start one by one, and track completion in the repository.",
-  "active_step": "SEQ-05",
+  "active_step": "SEQ-06",
   "steps": [
     {
       "id": "SEQ-01",
@@ -181,15 +181,55 @@
       "depends_on": [
         "SEQ-04"
       ],
-      "status": "LOCAL_TESTED",
+      "status": "DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING",
       "implementation": "IMPLEMENTED",
-      "tests": "3128_LOCAL_PASSED_ZERO_SKIPS_93_FOCUSED",
-      "pull_request": null,
-      "merge_revision": null,
-      "deployment_revision": null,
-      "health": "NOT_CHECKED",
+      "tests": "3127_CANONICAL_PR_CI_ZERO_SKIPS_3128_LOCAL_INCLUDING_ONE_EXTRA_SYNTAX_CHECK",
+      "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/205",
+      "merge_revision": "29ca4aa338f3836b6f5c41335e2b06868823ce71",
+      "deployment_revision": "29ca4aa338f3836b6f5c41335e2b06868823ce71",
+      "health": "VERIFIED_2026-11-13T06:25:12Z",
       "runtime": "PENDING_NORMAL_FEE_BEARING_TRADE_LIFECYCLE",
-      "evidence": "docs/repairs/releases/2026-11-12-product-trading-costs.md"
+      "evidence": "docs/repairs/releases/2026-11-12-product-trading-costs.md",
+      "ci_run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43376584575",
+      "deployment_id": "dep-dbralp142hec73bd2o1g",
+      "deployed_at": "2026-11-13T06:16:36.920728Z",
+      "health_evidence": {
+        "at": "2026-11-13T06:25:12Z",
+        "http_status": 200,
+        "ok": true,
+        "ready": true,
+        "db_connected": true,
+        "db_degraded": false,
+        "write_error": null,
+        "comparison_without_login_http": 403
+      },
+      "runtime_observation": {
+        "last_scan": "2026-11-13T06:09:26.002677",
+        "last_save": "2026-11-13T06:23:54.436016",
+        "open_positions": 53,
+        "closed_trades": 214,
+        "fee_positions": 0,
+        "fee_trades": 1,
+        "recent_fee_examples": [
+          {
+            "ticker": "LEAPIND.NS",
+            "mode": "intraday",
+            "qty": 2441,
+            "exit_date": "2026-11-13T06:23:49.673254",
+            "costs": 161.53,
+            "gross_pnl": -175.8252300000299,
+            "net_pnl": -337.3552300000299,
+            "fee_status": "legacy_entry_estimate",
+            "fee_total": 161.53,
+            "entry_allocated": 45.33,
+            "sell_total": 116.2
+          }
+        ],
+        "at": "2026-11-13T06:25:48Z",
+        "production_scan_induced": false,
+        "production_trade_induced": false,
+        "observation": "One natural post-deploy close uses the new model with legacy_entry_estimate status; new-entry, partial-exit and cross-restart daily-DP lifecycle observation remains pending."
+      }
     },
     {
       "id": "SEQ-06",

@@ -55,5 +55,16 @@
     "seconds": 330.49,
     "repair_records": "success",
     "no_skip_guard": "success"
-  }
+  },
+  "final_pr_ci": {
+    "run": 43376584575,
+    "url": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43376584575",
+    "head": "b8dbe264c374b62b96e318c5c1f5c0bf7204840b",
+    "tests": 3127,
+    "skipped": 0,
+    "seconds": 332.47,
+    "repair_records": "success",
+    "no_skip_guard": "success"
+  },
+  "functional_merge_revision": "29ca4aa338f3836b6f5c41335e2b06868823ce71"
 }
