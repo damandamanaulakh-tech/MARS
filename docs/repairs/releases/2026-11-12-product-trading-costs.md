@@ -1,6 +1,6 @@
 # SEQ-05 — dated product costs and preserved historical ledger
 
-Status: **LOCAL_TESTED — 3,128 tests passed with zero skips; CI/shipment pending**.
+Status: **DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING — shipped in PR205; normal fee lifecycle observation remains separate**.
 Baseline: `6a659080c97c25a180f5ad62e3a2b1577febc14e` (main after PR204).
 Finding: **XR-059**, original wording and all original backlog IDs retained.
 The owner explicitly selected **Upstox Basic, published standard tariff**.
@@ -70,7 +70,7 @@ fees do not establish a profitable strategy or authorize threshold changes.
 
 ## Validation and shipment
 
-Five baseline failures reproduced; **60 new cases**, **93 focused checks** and **3,128 full-suite tests** pass with zero failures, errors or skips on 13 November 2026 (Python 3.12, 194.50s). [Validation evidence](../evidence/2026-11-13-cost-validation.json). The archive query projects only required fee inputs; large gate snapshots are not loaded for this page. The older 2023 walk-forward fixture explicitly selects the preserved legacy cost comparison while retaining all its window assertions. CI, PR, matching deploy and health remain pending; no shipment claimed yet.
+Five baseline failures reproduced; **60 new cases**, **93 focused checks** and **3,128 full-suite tests** pass with zero failures, errors or skips on 13 November 2026 (Python 3.12, 194.50s). [Validation evidence](../evidence/2026-11-13-cost-validation.json). The archive query projects only required fee inputs; large gate snapshots are not loaded for this page. The older 2023 walk-forward fixture explicitly selects the preserved legacy cost comparison while retaining all its window assertions. Final PR CI, matching deployment and health are verified below.
 The existing no-skip workflow remains enabled. Natural post-release entry,
 partial/final exit and DP allocation are separate observations, pending until
 normal activity supplies evidence. No historical ledger rewrite is required.
@@ -78,3 +78,27 @@ normal activity supplies evidence. No historical ledger rewrite is required.
 ### CI count reconciliation
 
 PR205 initial head `06897c9a00c5a3f55c232d5c9ff4e0c470fd5caf` passed [CI run 43375188760](https://github.com/damandamanaulakh-tech/MARS/actions/runs/43375188760): **3,127 repository tests**, zero skips, 330.49s, with repair-records and the no-skip guard successful. Local 3,128 includes one additional existing syntax-test parameter for an unrelated untracked duplicate script, `check_repair_records 2.py`. The 3,127 canonical tests all ran; no test was skipped or removed. The batch adds **60 new cases** (41 engine/cost, 17 comparison, 2 owner-order). This count-only record correction changes no application code; its CI is checked again before merge.
+
+## Verified shipment — 13 November 2026
+
+- Functional PR: [PR205](https://github.com/damandamanaulakh-tech/MARS/pull/205); final reviewed head `b8dbe264c374b62b96e318c5c1f5c0bf7204840b`.
+- Final [CI run](https://github.com/damandamanaulakh-tech/MARS/actions/runs/43376584575): **3,127 passed**, zero failures, errors or skips, 332.47s. Repair-records and no-skip guard both succeeded.
+- Merge/deployed revision: `29ca4aa338f3836b6f5c41335e2b06868823ce71`. Render deployment `dep-dbralp142hec73bd2o1g` is **live**, completed `2026-11-13T06:16:36.920728Z`.
+- Post-deploy health at `2026-11-13T06:25:12Z`: HTTP 200, ok/ready true, DB connected, not degraded, write error null. The comparison route's owner-only access check was also verified over HTTP.
+- [Deployment and runtime evidence](../evidence/2026-11-13-cost-deployment.json). Normal runtime snapshot: 53 open positions, 214 retained closes; 0 positions and 1 closed rows carry the new fee model. This snapshot is not proof of every entry/partial/final/DP lifecycle. Those ordinary observations stay pending; no trade, scan or outage was induced.
+
+## Requirement completion audit
+
+| Requirement | Authoritative evidence |
+|---|---|
+| Selected broker and dated exchange/statutory charges | Owner's Basic selection; eight primary-source records in the cost-source artifact, model version and per-order schedule metadata. |
+| Buy/sell/partial allocation and funding | Actual engine/risk/order/Buy Desk/backtest call paths; 41 cost/engine cases plus two owner-order funding cases, full CI. |
+| Restart and corporate-action durability | Actual JSON save/load and Mongo mirror/hydrate cases; split, pyramid, same-day and different-day DP allocation/cash identities. |
+| Original ledger preserved | Original 74-trade CSV SHA256 unchanged; read-only comparison/no-save tests; explicit price-correction tests retain versioned fees. |
+| Separate historical comparison | Owner HTML/CSV/JSON render tests, archive outage/cap/projection tests, 17 comparison cases, stable counterfactual IDs and committed 74-row exports. |
+| Tests, repo and workflow | Five failure reproductions; 60 new cases; all 3,127 canonical tests run in CI; no-skip gate retained; all 170 backlog records/165 original IDs/two incidents retained. |
+| Shipment | Expected PR head checked before merge, exact merge SHA live on Render, HTTP health/readiness/DB checks after deployment. |
+
+SEQ-06 (market/sector context) is next queued. Remaining strategy-performance,
+fund/BSE tax-master and actual account/contract-note assumptions are explicit;
+this fee-accounting repair does not claim profitable trading.

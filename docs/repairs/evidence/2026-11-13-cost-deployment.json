@@ -1,0 +1,71 @@
+{
+  "head_revision": "b8dbe264c374b62b96e318c5c1f5c0bf7204840b",
+  "merge_revision": "29ca4aa338f3836b6f5c41335e2b06868823ce71",
+  "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/205",
+  "ci": {
+    "run": 43376584575,
+    "url": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43376584575",
+    "head": "b8dbe264c374b62b96e318c5c1f5c0bf7204840b",
+    "tests": 3127,
+    "skipped": 0,
+    "seconds": 332.47,
+    "repair_records": "success",
+    "no_skip_guard": "success"
+  },
+  "service_id": "srv-d8cspdnavr4c738lbrd0",
+  "workspace_id": "tea-d89fjk5ckfvc738j5vmg",
+  "deploy": {
+    "id": "dep-dbralp142hec73bd2o1g",
+    "status": "live",
+    "commit": {
+      "id": "29ca4aa338f3836b6f5c41335e2b06868823ce71"
+    },
+    "createdAt": "2026-11-13T06:15:00.964055Z",
+    "finishedAt": "2026-11-13T06:16:36.920728Z"
+  },
+  "health": {
+    "at": "2026-11-13T06:25:12Z",
+    "http_status": 200,
+    "ok": true,
+    "ready": true,
+    "db_connected": true,
+    "db_degraded": false,
+    "write_error": null,
+    "comparison_without_login_http": 403
+  },
+  "runtime": {
+    "last_scan": "2026-11-13T06:09:26.002677",
+    "last_save": "2026-11-13T06:23:54.436016",
+    "open_positions": 53,
+    "closed_trades": 214,
+    "fee_positions": 0,
+    "fee_trades": 1,
+    "recent_fee_examples": [
+      {
+        "ticker": "LEAPIND.NS",
+        "mode": "intraday",
+        "qty": 2441,
+        "exit_date": "2026-11-13T06:23:49.673254",
+        "costs": 161.53,
+        "gross_pnl": -175.8252300000299,
+        "net_pnl": -337.3552300000299,
+        "fee_status": "legacy_entry_estimate",
+        "fee_total": 161.53,
+        "entry_allocated": 45.33,
+        "sell_total": 116.2
+      }
+    ],
+    "at": "2026-11-13T06:25:48Z",
+    "production_scan_induced": false,
+    "production_trade_induced": false,
+    "observation": "One natural post-deploy close uses the new model with legacy_entry_estimate status; new-entry, partial-exit and cross-restart daily-DP lifecycle observation remains pending."
+  },
+  "error_log_check": {
+    "start": "2026-11-13T06:15:00Z",
+    "end": "2026-11-13T06:25:02.253755076Z",
+    "count": 0,
+    "has_more": false
+  },
+  "production_scan_induced": false,
+  "production_trade_induced": false
+}
