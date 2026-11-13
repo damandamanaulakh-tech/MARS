@@ -16,7 +16,8 @@ Earlier verified batches (2 November):
 
 Latest verified functional revision: `51e075457480715b111ea35c780baf477b4a8aa0` ([PR #203](https://github.com/damandamanaulakh-tech/MARS/pull/203)), live 12 November 2026 11:38:24 IST; health/readiness verified 12 November 2026 11:39:02 IST. Local and PR CI suites each passed 3,067 tests with zero skips. The [completed-intraday release ledger](releases/2026-11-12-completed-intraday-data.md) records the exact deployment and pending normal five-minute scan/data-gap observations. The [decision-evidence release](releases/2026-11-11-decision-evidence.md), [intraday recovery release](releases/2026-11-11-intraday-recovery.md), [partial-quote release](releases/2026-11-11-partial-quote-equity.md), [resource ledger](releases/2026-11-04-online-resources.md) and [segment allocation evidence](releases/2026-11-03-segment-allocation-performance.md) retain their separate scope and limitations. These are timestamped observations; documentation-only commits can advance main without changing the application.
 
-**SEQ-04 is shipped and health verified; SEQ-05 is next queued.**
+**SEQ-04 is shipped and health verified; SEQ-05 is locally tested (3,128 passing, zero skips), pending CI and deployment.**
+[Cost repair and preserved historical comparison](releases/2026-11-12-product-trading-costs.md).
 Completed five-minute signal bars, session/interval/freshness checks, explicit
 missing-data coverage and independent protective exits passed 3067 local and CI
 tests with zero skips. PR203 is merged and its exact functional revision is live.

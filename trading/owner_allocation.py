@@ -23,7 +23,8 @@ def available(portfolio, cfg, mode: str) -> tuple[float, float | None]:
     """Cash and segment headroom at entry marks, matching the Risk page.
 
     The budget counts entry notional, as the engine does. Trade charges are
-    booked at close by the existing cost model. No balance is moved here.
+    handled separately: buy fees at entry, sell fees at exit (SEQ-05).
+    Callers check fee-inclusive cash before booking. No balance is moved here.
     """
     mode = segment(mode)
     marks = {p.ticker: p.entry_price for p in portfolio.positions.values()}

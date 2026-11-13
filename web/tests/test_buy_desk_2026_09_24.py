@@ -41,9 +41,13 @@ def _close_series(n: int = 300, start: float = 100.0) -> pd.Series:
 
 
 @pytest.fixture
-def book():
+def book(monkeypatch):
     """Seed the live test book with the matrix and one held name; restore."""
     from trading.paper import PaperPosition
+    class Clock(datetime):
+        @classmethod
+        def utcnow(cls): return datetime(2026, 9, 24, 14, 0)
+    monkeypatch.setattr(buy_desk, "datetime", Clock)
     p = state.portfolio()
     saved = (dict(p.scan_matrix or {}), dict(p.positions), p.cash,
              len(p.decision_journal), list(p.last_scan_picks or []))
@@ -104,14 +108,14 @@ def test_plan_fills_the_budget_in_score_order_and_stops(book, desk_cfg):
     pl = buy_desk.plan(book, desk_cfg, sl["rows"], 3_00_000.0, prices,
                        lambda t: _close_series())
     top, wait = pl["rows"]
-    # The budget includes the actual 5 bps fill, not just the quote.
-    assert top["recommended"] and top["qty"] == 2998
-    assert top["cost"] == pytest.approx(2998 * 100.05)
+    # The budget includes the 5 bps fill AND Upstox Basic buy fees (SEQ-05).
+    assert top["recommended"] and top["qty"] == 2994
+    assert top["cost"] == pytest.approx(2994 * 100.05 + 379.29, rel=0, abs=1e-8)
     assert top["cost"] <= 3_00_000.0
     assert top["notional"] >= 3_00_000.0          # the ladder wanted more; budget capped it
     assert not wait["recommended"] and wait["reason"] == "budget_remainder_below_slab"
-    assert pl["planned_total"] == pytest.approx(299_949.9)
-    assert pl["remaining"] == pytest.approx(50.1) and pl["recommended_count"] == 1
+    assert pl["planned_total"] == pytest.approx(299_928.99, rel=0, abs=1e-8)
+    assert pl["remaining"] == pytest.approx(71.01, rel=0, abs=1e-8) and pl["recommended_count"] == 1
 
 
 def test_plan_never_invents_a_price(book, desk_cfg):
@@ -148,8 +152,8 @@ def test_execute_opens_through_the_engine_and_journals(book, desk_cfg):
     assert [o["ticker"] for o in summary["opened"]] == ["TOP.NS"]
     pos = book.positions["TOP.NS"]
     assert "owner_pick" in pos.tags and "buy_desk" in pos.tags
-    assert pos.qty == 2998 and pos.entry_price == pytest.approx(100.05)      # slippage applied like an engine fill
-    assert book.cash == pytest.approx(cash_before - 2998 * pos.entry_price)
+    assert pos.qty == 2994 and pos.entry_price == pytest.approx(100.05)      # slippage applied like an engine fill
+    assert book.cash == pytest.approx(cash_before - 2994 * pos.entry_price - 379.29, rel=0, abs=1e-8)
     assert summary["spent"] <= summary["budget"]
     assert summary["market_hours_bypassed"] is True
     assert {s["ticker"] for s in summary["skipped"]} == {"WAIT.NS"}

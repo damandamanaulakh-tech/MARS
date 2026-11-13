@@ -1,4 +1,7 @@
-"""Upstox/Zerodha CNC equity delivery cost model. Applied at trade close."""
+"""Frozen legacy delivery-only formula for historical price corrections/comparisons.
+
+New paper execution uses trading.fees. Never relabel this as current Upstox pricing.
+"""
 
 from .config import Config
 

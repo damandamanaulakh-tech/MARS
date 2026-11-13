@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-semibold">Trading cost comparison</h1>
+<p class="my-3 text-sm">{{ report.assumption }}</p>
+<p class="my-3 text-sm"><b>Tariff:</b> {{ report.model }} · checked {{ report.tariff_checked_on }}.<br>
+<b>Coverage:</b> archive {{ report.coverage.archive_status }} · {{ report.coverage.archive_loaded }} of {{ report.coverage.archive_total if report.coverage.archive_total is not none else 'unknown' }} archived rows; {{ report.coverage.retained }} retained rows. Includes pre-MARS history. Totals below cover comparable rows only.</p>
+<p class="my-3">{{ report.summary.modeled }} modeled / {{ report.summary.rows }} rows; {{ report.summary.unavailable }} unavailable.
+Stored costs ₹{{ '%.2f'|format(report.summary.stored_costs_comparable) }} → modeled ₹{{ '%.2f'|format(report.summary.modeled_costs) }}.
+Stored net ₹{{ '%.2f'|format(report.summary.stored_net_comparable) }} → modeled ₹{{ '%.2f'|format(report.summary.modeled_net) }}.</p>
+<div class="flex gap-4 my-4"><a class="underline" href="/trades">Original ledger</a><a class="underline" href="?format=csv">Download comparison CSV</a><a class="underline" href="?format=json">Detailed JSON</a></div>
+<p class="text-sm my-3">Supported: ordinary NSE cash shares from 1 Oct 2024. BSE scrip groups, funds/ETFs, unknown segments and incomplete order histories are identified below. Overnight intraday is an estimate: conversion and broker penalties are unknown. An unavailable amount is never treated as zero.</p>
+<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b text-left"><th>Share / segment</th><th>Quantity / dates</th><th>Stored costs</th><th>Modeled costs / difference</th><th>Stored net</th><th>Modeled net</th><th>Status and explanation</th></tr></thead><tbody>
+{% for r in report.rows %}<tr class="border-b align-top"><td class="p-2">{{ r.ticker }}<br>{{ r.mode or 'Unknown' }}</td><td class="p-2">{{ r.qty }}<br>{{ r.entry_date }} → {{ r.exit_date }}</td><td class="p-2">₹{{ r.stored_costs }}</td><td class="p-2">{% if r.modeled_costs is not none %}₹{{ r.modeled_costs }}<br>{{ r.cost_delta }}{% else %}Unavailable{% endif %}</td><td class="p-2">₹{{ r.stored_net }}</td><td class="p-2">{{ r.modeled_net if r.modeled_net is not none else 'Unavailable' }}</td><td class="p-2">{{ r.status | replace('_',' ') }}<br>{{ r.note }}{% if r.details %}<details><summary>Buy allocation and sell components</summary><pre class="whitespace-pre-wrap">{{ r.details | tojson(indent=2) }}</pre></details>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

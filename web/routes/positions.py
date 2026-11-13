@@ -1044,3 +1044,28 @@ def seed_mine(request: Request):
     if added:
         p.save()
     return RedirectResponse(f"/positions?seeded={len(added)}", status_code=303)
+
+
+@router.get("/trades/cost-comparison")
+def trading_cost_comparison(request: Request):
+    """Owner read only: no repricing, writes, fills or ledger restatement."""
+    from fastapi.responses import JSONResponse, Response
+    from .. import cost_comparison
+    user = auth.current_user(request)
+    if not user or user.get("role") != "owner":
+        return Response("Owner only", status_code=403)
+    report = cost_comparison.view(state.portfolio())
+    fmt = request.query_params.get("format", "html")
+    if fmt == "json":
+        return JSONResponse(report)
+    if fmt == "csv":
+        import csv, io, json
+        out = io.StringIO()
+        fields = ['ticker','mode','qty','entry_date','exit_date','stored_costs','modeled_costs',
+                  'cost_delta','stored_net','modeled_net','status','note','details','model','coverage','assumption']
+        writer = csv.DictWriter(out,fieldnames=fields,extrasaction='ignore'); writer.writeheader()
+        for row in report['rows']:
+            writer.writerow({**row,'details':json.dumps(row['details']), 'model':report['model'],
+                             'coverage':json.dumps(report['coverage']),'assumption':report['assumption']})
+        return Response(out.getvalue(),media_type='text/csv',headers={'Content-Disposition':'attachment; filename="trading-cost-comparison.csv"'})
+    return templates.TemplateResponse(request, 'cost_comparison.html', {'user':user,'report':report})

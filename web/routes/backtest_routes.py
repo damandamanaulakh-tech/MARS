@@ -162,6 +162,7 @@ def backtest_run(
     request: Request,
     start_date: str = Form(...),
     end_date: str = Form(...),
+    cost_model: str = Form("upstox_basic"),
 ):
     """Kick off backtest in a background thread so HTTP returns immediately
     (no more 502 timeouts on large universe / long range). Poll /backtest/result
@@ -176,7 +177,9 @@ def backtest_run(
             return RedirectResponse("/backtest?error=already_running", status_code=303)
         _RUNNING = True
 
-    cfg = app_state.cfg()
+    import copy
+    cfg = copy.deepcopy(app_state.cfg())
+    cfg.backtest_cost_model = cost_model
 
     def _run_in_thread():
         global _LAST_RESULT, _RUNNING
@@ -203,6 +206,8 @@ def backtest_run(
                     "start_date": start_date,
                     "end_date": end_date,
                     "mode": getattr(cfg, "mode", "swing"),
+                    "cost_model": cfg.backtest_cost_model,
+                    "fee_tariff_checked_on": "2026-11-12",
                     "universe_size": len(cfg.universe),
                     "summary": {
                         "total_return_pct": _LAST_RESULT.get("total_return_pct"),

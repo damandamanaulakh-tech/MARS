@@ -8,7 +8,7 @@ separate incidents. [Goals](GOALS.md), [full backlog](BACKLOG.md),
 
 ## Current batch
 
-**SEQ-04 is shipped and health verified; SEQ-05 is next queued.**
+**SEQ-04 is shipped and health verified; SEQ-05 is in progress.**
 The actual intraday scan and held-position refresh use completed five-minute bars,
 with interval/session/freshness checks and visible missing-data coverage. Existing
 daily/unproved entry scores cannot tighten a five-minute trail through an invalid
@@ -21,7 +21,7 @@ Normal scan, missing-feed and trade-lifecycle observations remain separate from
 deployment health. No production scan, trade or outage is induced for testing.
 SEQ-01/02/03 earlier ordinary runtime observations remain recorded separately.
 Five-minute net performance remains unproven; cost and research/validation goals
-retain their original scope. SEQ-05 has not started in this batch.
+retain their original scope. SEQ-05 is in validation: owner-selected Upstox Basic, dated schedules, durable entry allocation and daily DP, separate read-only historical comparisons. [Cost batch](releases/2026-11-12-product-trading-costs.md).
 
 ## Sequence and acceptance
 
@@ -31,7 +31,7 @@ retain their original scope. SEQ-05 has not started in this batch.
 | SEQ-02 | G13; INTRA-002; related OPS-04 | Durable intraday square-off deadline, retry and consistent segment/stop treatment | Missed job, restart, missing quote and late scan fixtures; original protection preserved; ordinary deadline outcome observed when available | SHIPPED; health verified; normal recovery observation pending |
 | SEQ-03 | G13/G9; INTRA-004, ROOT-AM07-04, ROOT-ROUTE-09 | Immutable entry/exit gate results and quote provenance | Values, thresholds, pass/fail/skip/unavailable, provider/receipt time, bar interval, stop amendments and exit trigger attached to each new trade | SHIPPED; 2994 local/CI passed, zero skips; health verified; normal lifecycle observation pending |
 | SEQ-04 | G13; INTRA-001, ROOT-AM07-04 | Connect completed intraday bars to the actual intraday data path | Correct interval, session alignment, no future/unclosed bars, explicit missing-data handling and recorded comparison with the daily baseline | DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING; PR203; 3067 local/CI tests, zero skips |
-| SEQ-05 | G13; XR-059 | Product-appropriate intraday cost model and separate historical comparison | Dated broker/exchange schedule and account-plan assumptions; buy/sell/partial-exit cases; original ledger preserved | QUEUED |
+| SEQ-05 | G13; XR-059 | Product-appropriate intraday cost model and separate historical comparison | Dated broker/exchange schedule and account-plan assumptions; buy/sell/partial-exit cases; original ledger preserved | LOCAL_TESTED; 3128 tests, zero skips; CI/deploy pending |
 | SEQ-06 | G9/G13; INTRA-004, XR-009, XR-061 | Sector identity, input coverage and same-window benchmark/sector context | Unknown never counts as measured strength; timestamped stock/sector/index comparisons; context does not silently become a new gate | QUEUED |
 | SEQ-07 | G13; XR-081; owner candle decision | Candle patterns assist selection, with recorded owner controls | Advisory contribution is explicit; absence alone does not veto an otherwise eligible entry; protective exits remain independent; invalid candles remain unavailable | QUEUED |
 | SEQ-08 | G13; INTRA-003 | Compare net-profit-aware trailing exits and reachable targets | Replay with costs, slippage and intrabar ambiguity; unseen-period comparison of expectancy and drawdown; exact candidate settings reviewed before promotion | QUEUED |

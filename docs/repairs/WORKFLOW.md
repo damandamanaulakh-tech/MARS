@@ -132,3 +132,24 @@ the user's instructions for the current task.
 - Require failure-path tests, actual scan/refresh wiring, owner-page and JSON/Mongo
   reload checks, full zero-skip CI, exact deployed revision and health evidence.
   Natural runtime observations and performance validation remain separate.
+
+## Trading cost batches
+
+- Save the selected broker plan, source observation date and actual effective
+  dates separately. A current published tariff is not proof of an old account's
+  plan. Version paper assumptions and each executed order's component breakdown.
+- Debit buy fees once, allocate them across partial exits and pyramid orders,
+  and persist per-scrip/IST-day DP state in JSON and Mongo. Test split adjustments,
+  same-day delivery allocation/refunds, restarts, fee-inclusive cash and failures.
+- Keep the original closed ledger and stored backtests. Historical tariff studies
+  are separate read-only tables/exports with stored and modeled amounts, explicit
+  order/asset/coverage uncertainty and no apply-to-ledger operation. Price audit
+  corrections retain recorded versioned fees.
+- Reject unsupported new fee schedules explicitly. Missing fee data must not
+  disable a valid-quote protective sale of an existing holding: record any
+  fallback as an unverified estimate, never a verified zero-cost sale.
+- Recheck exchange circulars and broker changes before promoting a new tariff.
+  Never infer broker penalties, conversions, negotiated discounts or fund taxes
+  from a segment label. A cheaper fee comparison is not profitability evidence.
+- Retain no-skip CI and distinguish local accounting proof, merged source,
+  matching deployment health and a naturally occurring fee-bearing lifecycle.

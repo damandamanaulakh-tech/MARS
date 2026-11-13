@@ -1275,3 +1275,24 @@ def search_decision_archive(ticker: str = "", mode: str = "", limit: int = 500) 
     except Exception as exc:
         log.warning("Decision archive search failed: %s", type(exc).__name__)
         return []
+
+
+def cost_comparison_archive(limit: int = 5000) -> dict:
+    """Bounded read with coverage evidence; an outage is never an empty success."""
+    if not _CONNECTED or _DB is None:
+        return {"rows": [], "archive_status": "unavailable", "archive_total": None, "archive_loaded": 0}
+    try:
+        total = int(_DB.trades.count_documents({}, maxTimeMS=2000))
+        # Keep large historical gate snapshots out of this 512 MiB service read.
+        projection = {field: 1 for field in (
+            "ticker", "qty", "entry_date", "exit_date", "entry_price", "exit_price",
+            "gross_pnl", "costs", "net_pnl", "mode", "sector", "reason", "ca_applied",
+            "cost_evidence", "trade_evidence.trade_id", "trade_evidence.entry.fill.qty",
+            "trade_evidence.amendments.reason")}
+        projection["_id"] = 0
+        rows = list(_DB.trades.find({}, projection).sort("exit_date", -1).limit(limit).max_time_ms(3000))
+        return {"rows": rows, "archive_status": "complete" if len(rows)==total else "partial",
+                "archive_total": total, "archive_loaded": len(rows), "archive_limit": limit}
+    except Exception as exc:
+        log.warning("Fee comparison archive unavailable: %s", type(exc).__name__)
+        return {"rows": [], "archive_status": "unavailable", "archive_total": None, "archive_loaded": 0}

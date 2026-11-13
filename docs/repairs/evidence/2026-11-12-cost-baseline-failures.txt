@@ -1,0 +1,40 @@
+Baseline: 6a659080c97c25a180f5ad62e3a2b1577febc14e
+FFFFF                                                                    [100%]
+=================================== FAILURES ===================================
+__________________ test_buy_charges_are_booked_once_at_entry ___________________
+trading/tests/test_product_costs_2026_11_12.py:36: in test_buy_charges_are_booked_once_at_entry
+    assert e.portfolio.cash == pytest.approx(899969.66)
+E   assert 900000.0 == 899969.66 ± 0.89997
+E     
+E     comparison failed
+E     Obtained: 900000.0
+E     Expected: 899969.66 ± 0.89997
+____________ test_intraday_roundtrip_and_cash_use_the_held_product _____________
+trading/tests/test_product_costs_2026_11_12.py:47: in test_intraday_roundtrip_and_cash_use_the_held_product
+    assert t.costs == pytest.approx(82.97)
+E   assert 240.34989000000002 == 82.97 ± 8.3e-05
+E     
+E     comparison failed
+E     Obtained: 240.34989000000002
+E     Expected: 82.97 ± 8.3e-05
+______________ test_delivery_partial_exits_charge_dp_once_per_day ______________
+trading/tests/test_product_costs_2026_11_12.py:59: in test_delivery_partial_exits_charge_dp_once_per_day
+    assert a.cost_evidence['sell']['components']['dp'] == 20.
+           ^^^^^^^^^^^^^^^
+E   AttributeError: 'ClosedTrade' object has no attribute 'cost_evidence'. Did you mean: 'trade_evidence'?
+_______________ test_fee_inclusive_cash_refusal_changes_nothing ________________
+trading/tests/test_product_costs_2026_11_12.py:68: in test_fee_inclusive_cash_refusal_changes_nothing
+    with pytest.raises(ValueError,match='costs_cash_short'):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE ValueError
+______________ test_nse_march_revision_does_not_double_count_ipft ______________
+trading/tests/test_product_costs_2026_11_12.py:74: in test_nse_march_revision_does_not_double_count_ipft
+    from trading.fees import charge
+E   ModuleNotFoundError: No module named 'trading.fees'
+=========================== short test summary info ============================
+FAILED trading/tests/test_product_costs_2026_11_12.py::test_buy_charges_are_booked_once_at_entry
+FAILED trading/tests/test_product_costs_2026_11_12.py::test_intraday_roundtrip_and_cash_use_the_held_product
+FAILED trading/tests/test_product_costs_2026_11_12.py::test_delivery_partial_exits_charge_dp_once_per_day
+FAILED trading/tests/test_product_costs_2026_11_12.py::test_fee_inclusive_cash_refusal_changes_nothing
+FAILED trading/tests/test_product_costs_2026_11_12.py::test_nse_march_revision_does_not_double_count_ipft
+5 failed in 0.43s

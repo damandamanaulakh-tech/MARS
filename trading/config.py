@@ -465,8 +465,8 @@ class Config:
     breakout_threshold_pct: float = 0.02      # within 2% of 20-day high
     volume_confirm_ratio: float = 1.3         # 5d vol >= 1.3x 20d vol
 
-    # --- Costs (Upstox CNC equity, approximate) ---
-    brokerage_per_order: float = 0.0          # CNC = zero brokerage on Upstox/Zerodha
+    # --- Frozen legacy delivery formula (historical comparisons only) ---
+    brokerage_per_order: float = 0.0          # legacy assumption; not current Upstox pricing
     stt_buy_pct: float = 0.001                # 0.1% STT delivery buy
     stt_sell_pct: float = 0.001               # 0.1% STT delivery sell
     exchange_pct: float = 0.0000345
@@ -474,6 +474,7 @@ class Config:
     stamp_buy_pct: float = 0.00015            # 0.015% delivery
     gst_pct: float = 0.18
     dp_charges: float = 15.93                 # per scrip per day sold (delivery)
+    backtest_cost_model: str = "upstox_basic"  # legacy_delivery is explicit comparison only
     slippage_bps: float = 5.0                 # 5 bps per side
 
     # --- Universe (Nifty 200) ---

@@ -30,7 +30,8 @@ _CA_LOCK = _threading.Lock()
 CA_REFETCH_DUE: set = set()
 
 from .config import Config, STUB_COMPONENTS
-from .costs import slippage_price, trade_costs
+from .costs import slippage_price
+from . import fees
 from .data import fetch_daily
 from .quote_router import fetch_quotes as routed_fetch_quotes
 from .exits import check_exit
@@ -1243,7 +1244,7 @@ class TradingEngine:
                 try:
                     self._open(pick, qty, fill, entry_now)
                 except ValueError as exc:
-                    if str(exc).startswith("intraday_"):
+                    if str(exc).startswith(("intraday_", "costs_")):
                         skipped.append({"ticker": pick["ticker"], "reason": str(exc)})
                         continue
                     raise
@@ -1792,11 +1793,16 @@ class TradingEngine:
                         continue
                     add_qty, notional = plan
                     fill = slippage_price(ltp, "BUY", cfg)
-                    self.portfolio.cash -= add_qty * fill
+                    next_basis = fees.add_basis(pos, add_qty, fill, now)
+                    buy_cost = next_basis["orders"][-1]["fee"]["total"]
+                    if add_qty * fill + buy_cost > self.portfolio.cash + 1e-8:
+                        continue
+                    self.portfolio.cash -= add_qty * fill + buy_cost
+                    pos.cost_basis = next_basis
                     prev_adds = pos.pyramid_adds
                     before = de.protection(pos)
                     apply_pyramid(pos, add_qty, fill)
-                    de.amendment(pos, before, "PYRAMID_ADD", now, portfolio=self.portfolio, details={"qty": add_qty, "fill": fill})
+                    de.amendment(pos, before, "PYRAMID_ADD", now, portfolio=self.portfolio, details={"qty": add_qty, "fill": fill, "buy_costs": copy.deepcopy(next_basis["orders"][-1]["fee"])})
                     self.portfolio.decision_journal.append({
                         "ts": now.isoformat(), "action": "PYRAMID_ADD",
                         "ticker": ticker, "add_qty": add_qty,
@@ -1891,6 +1897,10 @@ class TradingEngine:
             if not quote_ok:
                 raise ValueError("intraday_quote_expired_before_booking")
         notional = qty * fill_price
+        cost_basis = fees.new_basis(qty, fill_price, cfg.mode, now, pick["ticker"], sector=cfg.sector_map.get(pick["ticker"], ""))
+        buy_cost = cost_basis["orders"][0]["fee"]["total"]
+        if notional + buy_cost > self.portfolio.cash + 1e-8:
+            raise ValueError("costs_cash_short")
         decision = copy.deepcopy(pick.get("decision") or de.new(pick["ticker"], cfg.mode, pick.get("entry_path", "direct"), now, pick.get("history")))
         de.put(decision, "entry_deadline_final", ir.utc(now).isoformat(), "Before intraday square-off deadline", passed=True,
                state="skipped" if cfg.mode != "intraday" else None, reason="Final engine guard; other segments exempt")
@@ -1898,13 +1908,14 @@ class TradingEngine:
         decision["fill"] = {"price": fill_price, "qty": qty, "notional": notional,
             "stop": stop_price, "target": target_price, "slippage_bps": cfg.slippage_bps,
             "target_method": de.clean(pick.get("target_diag") or {}), "stop_method": de.clean(pick.get("stop_diag") or {})}
+        decision["fill"]["buy_costs"] = copy.deepcopy(cost_basis["orders"][0]["fee"])
         decision["sizing"] = de.clean(pick.get("size_diag") or {})
         decision["ifr_multiplier"] = pick.get("ifr_applied_multiplier")
         decision["ifr_last_fire"] = self.portfolio.last_ifr_fire_date
         entry_evidence = de.finish(decision, "bought", pick.get("reasoning", ""))
         trade_evidence = {"schema": 1, "trade_id": decision["id"], "entry": entry_evidence,
                           "amendments": [], "amendments_omitted": 0}
-        self.portfolio.cash -= notional
+        self.portfolio.cash -= notional + buy_cost
         # WHY-BOUGHT journal entry — full decision context, never deleted
         self.portfolio.decision_journal.append({
             "ts": now.isoformat(),
@@ -1964,6 +1975,7 @@ class TradingEngine:
             reasoning=pick["reasoning"],
             mode=getattr(cfg, "mode", ""),
             trade_evidence=copy.deepcopy(trade_evidence),
+            cost_basis=cost_basis,
             stop_price=stop_price,
             # OWNER ORDER 2026-09-10 ("C- k x ATR"): the target is k average
             # days of range away, per horizon, not a flat percentage — a quiet
@@ -2821,12 +2833,14 @@ class TradingEngine:
         half = pos.qty // 2
         exit_price = slippage_price(raw_price, "SELL", self.cfg)
         gross = (exit_price - pos.entry_price) * half
-        costs = trade_costs(half, pos.entry_price, exit_price, self.cfg)
-        self.portfolio.cash += half * exit_price - costs
+        cost_ev, cost_basis, dp_change = fees.prepare_exit(self.portfolio, pos, half, exit_price, now, self.cfg)
+        costs = cost_ev["total"]
+        self.portfolio.cash += cost_ev["cash_credit"]
+        fees.commit_exit_state(self.portfolio, pos, cost_basis, dp_change)
         trade_ev = de.exit_snapshot(pos, raw_price, exit_price, half, reason, now, self.cfg)
-        trade_ev["exit"]["accounting"] = {"gross_pnl": gross, "costs": costs, "net_pnl": gross-costs, "method": "existing_trade_costs"}
+        trade_ev["exit"]["accounting"] = {"gross_pnl": gross, "costs": costs, "net_pnl": gross-costs, "method": cost_ev["model"], "charge_evidence": copy.deepcopy(cost_ev)}
         self.portfolio.trades.append(ClosedTrade(
-            ticker=ticker, qty=half, trade_evidence=trade_ev,
+            ticker=ticker, qty=half, trade_evidence=trade_ev, cost_evidence=copy.deepcopy(cost_ev),
             entry_date=pos.entry_date, exit_date=now,
             entry_price=pos.entry_price, exit_price=exit_price,
             gross_pnl=gross, costs=costs, net_pnl=gross - costs,
@@ -2847,20 +2861,23 @@ class TradingEngine:
         if (getattr(self.portfolio.positions[ticker], "mode", "") == "intraday"
                 and not ir.in_session(datetime.utcnow())):
             raise ValueError("intraday_market_closed")
-        pos = self.portfolio.positions.pop(ticker)
+        pos = self.portfolio.positions[ticker]
         close_evidence = copy.deepcopy(getattr(pos, "intraday_close", {}) or {})
         if close_evidence:
             close_evidence.update(status="closed", closed_at=ir.utc(now).isoformat(),
                                   exit_reason=reason)
         exit_price = slippage_price(raw_price, "SELL", self.cfg)
         gross = (exit_price - pos.entry_price) * pos.qty
-        costs = trade_costs(pos.qty, pos.entry_price, exit_price, self.cfg)
-        self.portfolio.cash += pos.qty * exit_price - costs
+        cost_ev, cost_basis, dp_change = fees.prepare_exit(self.portfolio, pos, pos.qty, exit_price, now, self.cfg)
+        costs = cost_ev["total"]
+        self.portfolio.positions.pop(ticker)
+        self.portfolio.cash += cost_ev["cash_credit"]
+        fees.commit_exit_state(self.portfolio, pos, cost_basis, dp_change)
         net_pnl = gross - costs
         trade_ev = de.exit_snapshot(pos, raw_price, exit_price, pos.qty, reason, now, self.cfg)
-        trade_ev["exit"]["accounting"] = {"gross_pnl": gross, "costs": costs, "net_pnl": net_pnl, "method": "existing_trade_costs"}
+        trade_ev["exit"]["accounting"] = {"gross_pnl": gross, "costs": costs, "net_pnl": net_pnl, "method": cost_ev["model"], "charge_evidence": copy.deepcopy(cost_ev)}
         self.portfolio.trades.append(ClosedTrade(
-            ticker=ticker, qty=pos.qty, trade_evidence=trade_ev,
+            ticker=ticker, qty=pos.qty, trade_evidence=trade_ev, cost_evidence=copy.deepcopy(cost_ev),
             entry_date=pos.entry_date, exit_date=now,
             entry_price=pos.entry_price, exit_price=exit_price,
             gross_pnl=gross, costs=costs, net_pnl=net_pnl,

@@ -132,6 +132,9 @@ def test_walk_forward_synthetic_two_windows():
     cfg.mode = "nifty200_momentum"
     cfg.apply_mode_preset()
     cfg.disable_exits = False
+    # This 2023 fixture tests window mechanics. Current NSE schedule starts
+    # October 2024; request the preserved legacy comparison explicitly.
+    cfg.backtest_cost_model = "legacy_delivery"
     uni = [f"S{i}.NS" for i in range(6)]
     cfg.universe = uni
     cfg.sector_map = {}
@@ -145,6 +148,7 @@ def test_walk_forward_synthetic_two_windows():
     assert summary["windows"] == 2
     for w in windows:
         assert "error" not in w, w
+        assert w["cost_model"] == "legacy_delivery"
         assert "total_return_pct" in w and "alpha_pct" in w
 
 
