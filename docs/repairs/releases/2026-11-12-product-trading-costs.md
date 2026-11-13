@@ -70,7 +70,11 @@ fees do not establish a profitable strategy or authorize threshold changes.
 
 ## Validation and shipment
 
-Five baseline failures reproduced; **61 new cases**, **93 focused checks** and **3,128 full-suite tests** pass with zero failures, errors or skips on 13 November 2026 (Python 3.12, 194.50s). [Validation evidence](../evidence/2026-11-13-cost-validation.json). The archive query projects only required fee inputs; large gate snapshots are not loaded for this page. The older 2023 walk-forward fixture explicitly selects the preserved legacy cost comparison while retaining all its window assertions. CI, PR, matching deploy and health remain pending; no shipment claimed yet.
+Five baseline failures reproduced; **60 new cases**, **93 focused checks** and **3,128 full-suite tests** pass with zero failures, errors or skips on 13 November 2026 (Python 3.12, 194.50s). [Validation evidence](../evidence/2026-11-13-cost-validation.json). The archive query projects only required fee inputs; large gate snapshots are not loaded for this page. The older 2023 walk-forward fixture explicitly selects the preserved legacy cost comparison while retaining all its window assertions. CI, PR, matching deploy and health remain pending; no shipment claimed yet.
 The existing no-skip workflow remains enabled. Natural post-release entry,
 partial/final exit and DP allocation are separate observations, pending until
 normal activity supplies evidence. No historical ledger rewrite is required.
+
+### CI count reconciliation
+
+PR205 initial head `06897c9a00c5a3f55c232d5c9ff4e0c470fd5caf` passed [CI run 43375188760](https://github.com/damandamanaulakh-tech/MARS/actions/runs/43375188760): **3,127 repository tests**, zero skips, 330.49s, with repair-records and the no-skip guard successful. Local 3,128 includes one additional existing syntax-test parameter for an unrelated untracked duplicate script, `check_repair_records 2.py`. The 3,127 canonical tests all ran; no test was skipped or removed. The batch adds **60 new cases** (41 engine/cost, 17 comparison, 2 owner-order). This count-only record correction changes no application code; its CI is checked again before merge.

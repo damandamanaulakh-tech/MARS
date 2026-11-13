@@ -1002,7 +1002,7 @@
     "workflow": "LOCAL_TESTED",
     "assignee": "",
     "fix_commit": "",
-    "test_result": "Five failing baseline regressions; 61 new cases, 93 focused checks and 3128 full-suite tests passed with zero skips on 13 November 2026. Deployment and normal runtime observation not yet claimed.",
+    "test_result": "Five failing baseline regressions; 60 new cases, 93 focused checks and 3128 full-suite tests passed with zero skips on 13 November 2026. Deployment and normal runtime observation not yet claimed.",
     "deployment_revision": "",
     "source_sheet": "Flaws",
     "source_row": 40

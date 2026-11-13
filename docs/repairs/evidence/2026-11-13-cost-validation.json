@@ -11,8 +11,8 @@
   "seconds": 194.504,
   "focused_checks_passed": 93,
   "baseline_failures": 5,
-  "new_test_cases_vs_baseline": 61,
-  "selection": "Every tracked canonical test under trading/tests and web/tests plus the two new SEQ-05 files. The 68 unrelated untracked duplicate files were not part of the repository test suite and remain untouched.",
+  "new_test_cases_vs_baseline": 60,
+  "selection": "Every canonical test under trading/tests and web/tests ran. Untracked duplicate test modules were excluded; an existing scripts/*.py syntax-test parametrization also collected one untracked duplicate script locally. Hence 3127 canonical plus one extra local syntax check = 3128. All 68 unrelated copies remain untouched.",
   "junit_sha256": "bfa3cf8f49eb71dbb37a33e825b04279a1e1212254e7ffc9cf01f6d26cfc7f1d",
   "checked_source_sha256": {
     "trading/backtest.py": "998ec12ee64c865175a6eaa40c64b68647a9b5d19de5311bca570fe7b844369a",
@@ -44,5 +44,16 @@
   "original_74_trade_audit_sha256": "6d50ab7bfbb6563634805ae64fb0e3f235dae2b5df47388bd3abab402e59107c",
   "no_skip_guard_changed": false,
   "production_scan_induced": false,
-  "production_trade_induced": false
+  "production_trade_induced": false,
+  "canonical_tests": 3127,
+  "extra_local_case": "trading.tests.test_audit_files_2026_10_02.test_every_script_parses[check_repair_records 2.py]",
+  "initial_pr_ci": {
+    "run": 43375188760,
+    "head": "06897c9a00c5a3f55c232d5c9ff4e0c470fd5caf",
+    "tests": 3127,
+    "skipped": 0,
+    "seconds": 330.49,
+    "repair_records": "success",
+    "no_skip_guard": "success"
+  }
 }
