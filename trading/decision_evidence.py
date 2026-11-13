@@ -76,10 +76,11 @@ def bar_context(frame, interval="1d"):
 
 
 def new(ticker, mode, path, now=None, history=None):
+    from .context_inputs import unavailable
     return {"schema": 1, "id": uuid.uuid4().hex, "ticker": ticker, "mode": mode,
             "path": path, "at": stamp(now), "gates": {},
             "revision": os.environ.get("RENDER_GIT_COMMIT") or None,
-            "bar": bar_context(history)}
+            "bar": bar_context(history), "market_context": unavailable(ticker, now)}
 
 
 @contextmanager
@@ -159,11 +160,13 @@ def amendment(pos, before, reason, now=None, *, portfolio=None, details=None):
 
 
 def exit_snapshot(pos, raw_price, fill_price, qty, reason, now, cfg):
+    from .context_inputs import unavailable
     from .quote_evidence import observation
     ctx = current()
     decision = clean(ctx) if ctx is not None and ctx.get("path") == "exit" and ctx.get("ticker") == pos.ticker else new(
         pos.ticker, pos.mode, "exit", now)
     decision.setdefault("quote", observation({pos.ticker: raw_price}, pos.ticker, now))
+    decision.setdefault("market_context", unavailable(pos.ticker, now))
     decision.update(trigger=reason, protection=protection(pos),
         fill={"raw_price": raw_price, "price": fill_price, "qty": qty,
               "slippage_bps": cfg.slippage_bps}, at=stamp(now))

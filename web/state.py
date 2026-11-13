@@ -556,6 +556,13 @@ def _bootstrap() -> None:
     except Exception:
         log.exception("history store reader attach failed")
 
+    try:
+        from trading import sector_identity as _identity, context_inputs as _context
+        _identity.set_reader(db.load_sector_identity)
+        _context.set_sector_reader(db.load_sector_rows)
+    except Exception:
+        log.exception('sector context readers attach failed')
+
     # Item 19 (owner order 2026-10-21): the engine reads the stored valuation
     # records and the index / sector closes through injected readers — the
     # same pattern; trading/ never imports web.

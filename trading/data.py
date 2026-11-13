@@ -143,6 +143,8 @@ def _from_store(tickers: list[str], period: str) -> Dict[str, pd.DataFrame]:
         df = df[df.index >= from_ts]
         if df.empty:
             continue
+        df.attrs.update(interval='1d', source='ohlcv_store', price_basis='unverified',
+                        provider_source=doc.get('source', 'unknown'))
         out[t] = df
     return out
 
@@ -254,6 +256,9 @@ def fetch_daily(tickers: list[str], period: str = "6mo") -> Dict[str, pd.DataFra
     from_upstox = from_yahoo = 0
     if missing:
         up = _fetch_daily_upstox(missing, period)
+        for frame in up.values():
+            frame.attrs.update(interval='1d', source='upstox_daily', price_basis='provider_daily',
+                               received_at=pd.Timestamp.now(tz='UTC').isoformat())
         from_upstox = len(up)
         out.update(up)
         rest = [t for t in missing if t not in up]
@@ -263,6 +268,9 @@ def fetch_daily(tickers: list[str], period: str = "6mo") -> Dict[str, pd.DataFra
                 auto_adjust=True, group_by="ticker", threads=YF_THREADS,
             )
             yh = _parse_yf_multi(raw, rest)
+            for frame in yh.values():
+                frame.attrs.update(interval='1d', source='yahoo_daily', price_basis='auto_adjusted',
+                                   received_at=pd.Timestamp.now(tz='UTC').isoformat())
             from_yahoo = len(yh)
             out.update(yh)
             del raw

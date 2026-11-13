@@ -66,6 +66,33 @@ def _card(decision, title):
                       for name, g in (decision.get("gates") or {}).items()]}
 
 
+@router.get('/market-context')
+def market_context(request: Request):
+    denied = _owner(request)
+    if denied is not None:
+        return denied
+    from trading import sector_identity as si
+    p = state.portfolio()
+    saved = [r.get('evidence') or {} for r in p.decision_journal]
+    saved += [(getattr(pos, 'trade_evidence', {}) or {}).get('entry') or
+              {'ticker': pos.ticker, 'mode': pos.mode, 'path': 'historical_entry'} for pos in p.positions.values()]
+    latest = {}
+    for d in sorted(saved, key=lambda d: d.get('at', '')):
+        if d.get('ticker'):
+            latest[(d['ticker'], d.get('mode', 'unknown'), d.get('path', 'unknown'))] = d
+    rows = sorted(latest.values(), key=lambda d: d.get('at', ''), reverse=True)[:200]
+    if request.query_params.get('format') == 'json':
+        return JSONResponse({'scope': 'latest_current_ledger_and_journal_only', 'limit': 200,
+                             'rows': [{k: d.get(k) for k in ('ticker','mode','path','id','at','market_context')} for d in rows]})
+    registry = si.snapshot()
+    return templates.TemplateResponse(request, 'market_context.html', {
+        'user': auth.current_user(request), 'active': 'scan', 'rows': rows,
+        'source_count': len(registry.get('sources', {})), 'source_total': len(si.FILES),
+        'sources': [{'name': name, 'url': si.URLS[name],
+                     'observation': (registry.get('sources') or {}).get(name),
+                     'attempt': (registry.get('attempts') or {}).get(name)} for name in si.FILES]})
+
+
 @router.get("/decisions")
 def decisions(request: Request, ticker: str = "", mode: str = ""):
     denied = _owner(request)

@@ -16,7 +16,7 @@ Earlier verified batches (2 November):
 
 Latest verified functional revision: `29ca4aa338f3836b6f5c41335e2b06868823ce71` ([PR205](https://github.com/damandamanaulakh-tech/MARS/pull/205)), Render deployment `dep-dbralp142hec73bd2o1g`, live `2026-11-13T06:16:36.920728Z`; health/readiness verified `2026-11-13T06:25:12Z`. Final PR CI passed **3,127 canonical tests with zero skips**. Local 3,128 included one additional syntax parameter for an unrelated duplicate script. [Cost release and exact evidence](releases/2026-11-12-product-trading-costs.md). Documentation-only commits can advance main without changing the deployed application.
 
-**SEQ-05 is shipped and health verified; SEQ-06 is next queued.**
+**SEQ-05 is shipped and health verified; SEQ-06 is in progress.**
 Upstox Basic fees are versioned by product, side and effective NSE schedule.
 Buy charges are allocated once, daily DP persists, and original financial
 history remains intact. [Separate 74-trade comparison](reviews/2026-11-12-intraday-cost-comparison.csv).
@@ -49,3 +49,5 @@ line numbers and draft claims must be rechecked against the current source.
 Run `python scripts/check_repair_records.py` to check record retention, unique
 IDs, CSV/JSON/table consistency, repository evidence paths and release links.
 GitHub Actions runs this check alongside the existing zero-skip application suite.
+
+SEQ-06 update, 13 November: verified official identity and exact-window context are implemented; 3186 local checks pass with zero skips; CI and shipment are in progress. [Batch record](releases/2026-11-13-market-sector-context.md). Legacy score policy and normal runtime observation remain separate.

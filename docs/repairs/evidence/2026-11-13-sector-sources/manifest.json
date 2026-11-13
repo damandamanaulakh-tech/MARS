@@ -1,0 +1,195 @@
+{
+  "Total Market": {
+    "url": "https://archives.nseindia.com/content/indices/ind_niftytotalmarket_list.csv",
+    "sha256": "55a44446dca69b7bf4b7ff58bf45532c31b19c73b79a9f949bb745936c0ebd1d",
+    "observed_at": "2026-11-13T07:49:51.241622+00:00",
+    "publication_at": null,
+    "effective_at": null,
+    "source_status": "observed",
+    "count": 749,
+    "excluded": [
+      {
+        "symbol": "BAGMANE",
+        "isin": "INE2OVN25015",
+        "series": "RR",
+        "reason": "placeholder_or_non_equity_unit"
+      },
+      {
+        "symbol": "BIRET",
+        "isin": "INE0FDU25010",
+        "series": "RR",
+        "reason": "placeholder_or_non_equity_unit"
+      },
+      {
+        "symbol": "DUMMYHEG",
+        "isin": "DUM545A01024",
+        "series": "EQ",
+        "reason": "placeholder_or_non_equity_unit"
+      },
+      {
+        "symbol": "DUMMYINXGN",
+        "isin": "DUM510W01014",
+        "series": "EQ",
+        "reason": "placeholder_or_non_equity_unit"
+      },
+      {
+        "symbol": "EMBASSY",
+        "isin": "INE041025011",
+        "series": "RR",
+        "reason": "placeholder_or_non_equity_unit"
+      }
+    ],
+    "error": null
+  },
+  "IT": {
+    "url": "https://archives.nseindia.com/content/indices/ind_niftyitlist.csv",
+    "sha256": "22d3781a4d27ac42fb4d6d537c54341ea6afa62fda02509375c4243671eb7d60",
+    "observed_at": "2026-11-13T07:49:51.140653+00:00",
+    "publication_at": null,
+    "effective_at": null,
+    "source_status": "observed",
+    "count": 10,
+    "excluded": [],
+    "error": null
+  },
+  "Bank": {
+    "url": "https://archives.nseindia.com/content/indices/ind_niftybanklist.csv",
+    "sha256": "eac5d4d5a1d9cfdbfceca604b274bcc999a1f1f36405263569cc2466ef55c64f",
+    "observed_at": "2026-11-13T07:49:51.140841+00:00",
+    "publication_at": null,
+    "effective_at": null,
+    "source_status": "observed",
+    "count": 14,
+    "excluded": [],
+    "error": null
+  },
+  "Fin Service": {
+    "url": "https://archives.nseindia.com/content/indices/ind_niftyfinancelist.csv",
+    "sha256": "2940005fd8c544b7dc83bb937b2eaa68fba7686dfb291864783cbef6402ba57f",
+    "observed_at": "2026-11-13T07:49:51.221948+00:00",
+    "publication_at": null,
+    "effective_at": null,
+    "source_status": "observed",
+    "count": 20,
+    "excluded": [],
+    "error": null
+  },
+  "Auto": {
+    "url": "https://archives.nseindia.com/content/indices/ind_niftyautolist.csv",
+    "sha256": "6dd41b7a227ceb08a6b957cbf81bd86c522a9c7f73c0c2f1a1b9e488440b32ed",
+    "observed_at": "2026-11-13T07:49:51.446075+00:00",
+    "publication_at": null,
+    "effective_at": null,
+    "source_status": "observed",
+    "count": 15,
+    "excluded": [],
+    "error": null
+  },
+  "Pharma": {
+    "url": "https://archives.nseindia.com/content/indices/ind_niftypharmalist.csv",
+    "sha256": "9013c84ddc85388dae3554d0e0cef4c56114e622d72ca2b0fdb3e544137a9f89",
+    "observed_at": "2026-11-13T07:49:51.531108+00:00",
+    "publication_at": null,
+    "effective_at": null,
+    "source_status": "observed",
+    "count": 20,
+    "excluded": [],
+    "error": null
+  },
+  "FMCG": {
+    "url": "https://archives.nseindia.com/content/indices/ind_niftyfmcglist.csv",
+    "sha256": "7a178fecd4813a44ef3916df9c48d7d280489e5ccd6a29682723a3e1a16104dd",
+    "observed_at": "2026-11-13T07:49:51.486273+00:00",
+    "publication_at": null,
+    "effective_at": null,
+    "source_status": "observed",
+    "count": 15,
+    "excluded": [],
+    "error": null
+  },
+  "Metal": {
+    "url": "https://archives.nseindia.com/content/indices/ind_niftymetallist.csv",
+    "sha256": "44e0ab7b8278fdd499c10bd1c89a99281d5f0574944162932fd3bd155d4c2ed9",
+    "observed_at": "2026-11-13T07:49:51.532982+00:00",
+    "publication_at": null,
+    "effective_at": null,
+    "source_status": "observed",
+    "count": 15,
+    "excluded": [],
+    "error": null
+  },
+  "Realty": {
+    "url": "https://archives.nseindia.com/content/indices/ind_niftyrealtylist.csv",
+    "sha256": "4ca77c907a374f8d7deaa1534012809a5049a8304554cd4a4411cec6aec0563b",
+    "observed_at": "2026-11-13T07:49:51.688629+00:00",
+    "publication_at": null,
+    "effective_at": null,
+    "source_status": "observed",
+    "count": 10,
+    "excluded": [],
+    "error": null
+  },
+  "Media": {
+    "url": "https://archives.nseindia.com/content/indices/ind_niftymedialist.csv",
+    "sha256": "7bd7ecba724eb810cde13482c09ff842ad2b8921bfffade39b61e348bac7f391",
+    "observed_at": "2026-11-13T07:49:51.824270+00:00",
+    "publication_at": null,
+    "effective_at": null,
+    "source_status": "observed",
+    "count": 10,
+    "excluded": [],
+    "error": null
+  },
+  "Healthcare": {
+    "url": "https://archives.nseindia.com/content/indices/ind_niftyhealthcarelist.csv",
+    "sha256": "b0300c4617a4c18123579c6f5923bb2cef2b90bcb4f1f3fa19369060679729f4",
+    "observed_at": "2026-11-13T07:49:51.873193+00:00",
+    "publication_at": null,
+    "effective_at": null,
+    "source_status": "observed",
+    "count": 20,
+    "excluded": [],
+    "error": null
+  },
+  "Consumer Durables": {
+    "url": "https://archives.nseindia.com/content/indices/ind_niftyconsumerdurableslist.csv",
+    "sha256": "d1b22d8a637a454b8ac27ac9e15d59b069bc6baa872b8f61a48fbd62916248c0",
+    "observed_at": "2026-11-13T07:49:51.862316+00:00",
+    "publication_at": null,
+    "effective_at": null,
+    "source_status": "observed",
+    "count": 14,
+    "excluded": [],
+    "error": null
+  },
+  "Oil & Gas": {
+    "url": "https://archives.nseindia.com/content/indices/ind_niftyoilgaslist.csv",
+    "sha256": "4a79a3c9a982be6595da0785c0651ee4958fcd57bb8f6b74c44d35fd6387912d",
+    "observed_at": "2026-11-13T07:49:51.961247+00:00",
+    "publication_at": null,
+    "effective_at": null,
+    "source_status": "observed",
+    "count": 15,
+    "excluded": [],
+    "error": null
+  },
+  "Chemicals": {
+    "url": "https://archives.nseindia.com/content/indices/ind_niftyChemicals_list.csv",
+    "sha256": "64a7465bd0d5f024719eaff1aba69028d030900221e08f82926ddfaa68ef9dab",
+    "observed_at": "2026-11-13T07:49:52.206430+00:00",
+    "publication_at": null,
+    "effective_at": null,
+    "source_status": "observed",
+    "count": 20,
+    "excluded": [],
+    "error": null
+  },
+  "Cement": {
+    "error": "Client error '404 Not Found' for url 'https://archives.nseindia.com/content/indices/ind_NiftyCement_list.csv'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+    "url": "https://archives.nseindia.com/content/indices/ind_NiftyCement_list.csv",
+    "primary_url": "https://www.niftyindices.com/IndexConstituent/ind_NiftyCement_list.csv",
+    "note": "Official primary constituent URL verified from the Nifty Cement page. Archive mirror returned 404; primary host timed out on initial workspace probe. No membership fabricated.",
+    "primary_error": "ReadTimeout",
+    "primary_attempted_at": "2026-11-13T08:00:05.003127+00:00"
+  }
+}

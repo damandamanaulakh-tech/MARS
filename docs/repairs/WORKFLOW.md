@@ -153,3 +153,23 @@ the user's instructions for the current task.
   from a segment label. A cheaper fee comparison is not profitability evidence.
 - Retain no-skip CI and distinguish local accounting proof, merged source,
   matching deployment health and a naturally occurring fee-bearing lifecycle.
+
+## Market and sector context batches
+
+- Keep official company/ISIN/industry and index membership evidence distinct
+  from a configured strategy label. Record source hashes, retrieval time and
+  publication/effective time separately; undated files do not prove history.
+- Compare all legs over identical completed timestamps and full lookbacks.
+  Reject future, unfinished, conflicting, misaligned or stale inputs; never
+  fill absent prices, shorten a requested window, or call a market fallback
+  a verified sector. Expose provider/receipt times and adjustment uncertainty.
+- Preserve existing policy thresholds. Explanatory returns do not authorize
+  new entry gates or valuation rules. Existing panel-based protection requires
+  complete, aligned verified inputs; missing inputs abstain while valid-quote
+  protective stops remain independent.
+- Source refresh must retain prior good observations, retry failed sources,
+  require acknowledged persistence and remain independent of portfolio locks.
+  Read pages show saved evidence without fetching, trading or rewriting history.
+- Prove missing-data and failure paths, real scan/refresh consumers, JSON/Mongo
+  reloads, full zero-skip CI and exact deployed revision/health. Keep ordinary
+  runtime observation and performance claims separate.

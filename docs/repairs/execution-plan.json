@@ -244,15 +244,15 @@
       "depends_on": [
         "SEQ-05"
       ],
-      "status": "QUEUED",
-      "implementation": "NOT_STARTED",
-      "tests": "NOT_RUN",
+      "status": "LOCAL_TESTED",
+      "implementation": "IMPLEMENTED",
+      "tests": "3186_LOCAL_PASSED_ZERO_SKIPS_CANONICAL_CI_PENDING",
       "pull_request": null,
       "merge_revision": null,
       "deployment_revision": null,
       "health": "NOT_CHECKED",
       "runtime": "NOT_OBSERVED",
-      "evidence": null
+      "evidence": "docs/repairs/releases/2026-11-13-market-sector-context.md"
     },
     {
       "id": "SEQ-07",

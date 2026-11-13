@@ -332,7 +332,7 @@ def _danger_engine(tmp_path, monkeypatch, pos):
     e = TradingEngine(cfg, p)
     tid = next(iter(danger.VERIFIED))
     monkeypatch.setattr(danger, "evaluate_stock", lambda df, ext=None: [tid])
-    monkeypatch.setattr(danger, "externals_for", lambda held: {})
+    monkeypatch.setattr(danger, "externals_for", lambda held, history, now: {})
     return e
 
 

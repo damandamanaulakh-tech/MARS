@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="text-2xl font-semibold">Saved market and sector comparisons</h1>
+<p class="my-3 text-sm">Latest retained decision per ticker, segment and path (up to 200). Observations are saved at decision time; this page does not fetch prices or place trades. Historical decisions without context remain unknown. The registry retains {{ source_count }} of {{ source_total }} official source snapshots; each observation carries its own source dates. A retained snapshot expires for new decisions after seven days.</p>
+<details class="my-3 text-sm"><summary>Source freshness and failed attempts</summary>{% for s in sources %}<p><a class="underline" href="{{ s.url }}">{{ s.name }}</a>: observed {{ s.observation.observed_at if s.observation else 'Unknown' }} · last attempt {{ s.attempt.at if s.attempt else 'not recorded after seed' }} · {{ s.attempt.status if s.attempt else 'seed only' }}{% if s.attempt and s.attempt.error_type %} · {{ s.attempt.error_type }}{% endif %}</p>{% endfor %}</details>
+<a class="underline text-sm" href="/decisions">Decisions and trade explanations</a> · <a class="underline text-sm" href="?format=json">Download saved comparisons</a>
+{% for row in rows %}<section class="my-5"><h2 class="text-lg font-semibold">{{ row.ticker }} · {{ row.mode }} · {{ row.path }}</h2>
+{% if row.id %}<a class="underline text-sm" href="/decisions/{{ row.id }}">Saved decision</a>{% endif %}
+{% set context = row.market_context %}{% include '_market_context.html' %}</section>
+{% else %}<p class="my-5">No retained decision context yet. A normal scan or refresh will record it; missing historical comparisons are not reconstructed.</p>{% endfor %}
+{% endblock %}

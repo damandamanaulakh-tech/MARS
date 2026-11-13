@@ -156,6 +156,11 @@ def start_if_enabled() -> None:
             id="online_resources", max_instances=1, replace_existing=True,
         )
         from datetime import timedelta as _resource_td
+        _SCHED.add_job(_sector_identity_refresh, 'cron', hour='8,12,16', minute=50,
+                       id='sector_identity', max_instances=1, replace_existing=True)
+        _SCHED.add_job(_sector_identity_refresh, 'date',
+                       run_date=startup_catchup_run_date(ist, _resource_td(seconds=45)),
+                       id='sector_identity_startup', max_instances=1)
         _SCHED.add_job(
             _online_resources_refresh, "date",
             run_date=startup_catchup_run_date(ist, _resource_td(seconds=60)),
@@ -1783,6 +1788,12 @@ def _weekly_index_refresh() -> None:
         log.exception("weekly index refresh failed: %s", e)
         _refresh_journal("DATA_REFRESH_INDEX_FAILED",
                          f"Weekly index refresh crashed: {e}")
+
+
+def _sector_identity_refresh() -> None:
+    from .sector_context import refresh
+    result = refresh()
+    log.info('Sector identity refresh: %s', result)
 
 
 def _sector_index_refresh() -> None:
