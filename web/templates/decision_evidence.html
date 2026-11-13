@@ -17,6 +17,8 @@
   {% if d.intraday_score %}<details class="text-sm my-2"><summary>Intraday data and component coverage</summary>{{ text_value(d.intraday_score) }}</details>{% endif %}
   {% if d.entry_score_comparison %}<p class="text-sm my-2"><b>Entry/current score comparison:</b> {{ text_value(d.entry_score_comparison) }}</p>{% endif %}
   {% if d.components %}<p class="text-sm my-2"><b>Score components:</b> {{ text_value(d.components) }}. These contribute to the total score; they are not independent entry gates.</p>{% endif %}
+  {% set context = d.market_context %}{% include '_market_context.html' %}
+  {% if d.external_context %}<details class="my-2 text-sm"><summary>Existing danger checks: aligned daily input coverage</summary>{{ text_value(d.external_context) }}</details>{% endif %}
   {% if d.weights %}<p class="text-sm my-2"><b>Weights used:</b> {{ text_value(d.weights) }}</p>{% endif %}
   {% if d.benchmark %}<p class="text-sm my-2"><b>Benchmark input:</b> {{ text_value(d.benchmark) }}</p>{% endif %}
   {% if d.accounting %}<p class="text-sm my-2"><b>Booked profit and costs:</b> {{ text_value(d.accounting) }}</p>{% endif %}

@@ -1,0 +1,27 @@
+Pinned baseline ade19e8fa1ee6476485c09f147580d2e47ae257f
+Current danger.externals_for([TCS.NS]) read before edits: peer_asof=2026-07-17; index_asof=2026-07-17; peer_break_count=2; index_closes=60. The engine called it without an as-of date.
+
+FFFF                                                                     [100%]
+=================================== FAILURES ===================================
+_______________ test_exact_window_and_relative_percentage_points _______________
+trading/tests/test_market_context_2026_11_13.py:22: in test_exact_window_and_relative_percentage_points
+    from trading.market_context import compare
+E   ModuleNotFoundError: No module named 'trading.market_context'
+______________ test_missing_sector_does_not_become_market_or_zero ______________
+trading/tests/test_market_context_2026_11_13.py:34: in test_missing_sector_does_not_become_market_or_zero
+    from trading.market_context import compare
+E   ModuleNotFoundError: No module named 'trading.market_context'
+______________ test_stale_market_is_not_aligned_by_trimming_stock ______________
+trading/tests/test_market_context_2026_11_13.py:44: in test_stale_market_is_not_aligned_by_trimming_stock
+    from trading.market_context import compare
+E   ModuleNotFoundError: No module named 'trading.market_context'
+________ test_unverified_config_label_cannot_establish_sector_identity _________
+trading/tests/test_market_context_2026_11_13.py:53: in test_unverified_config_label_cannot_establish_sector_identity
+    from trading.sector_identity import resolve
+E   ModuleNotFoundError: No module named 'trading.sector_identity'
+=========================== short test summary info ============================
+FAILED trading/tests/test_market_context_2026_11_13.py::test_exact_window_and_relative_percentage_points
+FAILED trading/tests/test_market_context_2026_11_13.py::test_missing_sector_does_not_become_market_or_zero
+FAILED trading/tests/test_market_context_2026_11_13.py::test_stale_market_is_not_aligned_by_trimming_stock
+FAILED trading/tests/test_market_context_2026_11_13.py::test_unverified_config_label_cannot_establish_sector_identity
+4 failed in 0.24s

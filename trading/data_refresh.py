@@ -265,7 +265,8 @@ def fetch_sector_tail(broker, last_iso: str, days_back: int = 30,
             d = ts.date().isoformat()
             if last and d <= last:
                 continue
-            out.append({"date": d, "sector": sector,
+            out.append({"date": d, "sector": sector, "source": "upstox_daily",
+                        "received_at": datetime.now(timezone.utc).isoformat(),
                         "open": float(r["Open"]), "high": float(r["High"]),
                         "low": float(r["Low"]), "close": float(r["Close"])})
     return out

@@ -49,7 +49,7 @@ def compute(ticker, frame, benchmark, history, cfg, now=None):
     components['vol_adj_upside'] = upside
     diag['component_coverage'] = {
         'relative_strength': 'measured' if aligned_bench else 'unavailable_neutral_50',
-        'sector_alignment': 'configured_sector_map; aligned_peer_bars; identity_review_is_SEQ06',
+        'sector_alignment': 'unverified_legacy_peer_component; see separate verified market_context; neutral fallback is not measured strength',
         'vol_adj_upside': 'annualized_75_bars_per_session' if vol > 0 else 'unavailable_neutral_50',
         'earnings_growth': 'zero_weight', 'short_interest': 'zero_weight',
         'analyst_revision': 'zero_weight'}

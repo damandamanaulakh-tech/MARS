@@ -1063,6 +1063,30 @@ def load_settings(doc_id: str = "default") -> dict:
     return {}
 
 
+def load_sector_identity():
+    """None = no saved snapshot; read errors are not an empty successful feed."""
+    if not _CONNECTED or _DB is None:
+        raise RuntimeError('sector_identity_store_unavailable')
+    doc = _DB.settings.find_one({'_id': 'sector_identity'})
+    if doc is not None:
+        doc.pop('_id', None)
+        if doc.get('schema') != 1 or not isinstance(doc.get('sources'), dict):
+            raise ValueError('sector_identity_store_invalid')
+    return doc
+
+
+def save_sector_identity(snapshot) -> bool:
+    if not _CONNECTED or _DB is None:
+        return False
+    try:
+        result = _DB.settings.replace_one({'_id': 'sector_identity'},
+            {**snapshot, '_id': 'sector_identity'}, upsert=True)
+        return bool(result.acknowledged)
+    except Exception as exc:
+        log.warning('Sector identity write failed: %s', type(exc).__name__)
+        return False
+
+
 # ---------- upstox token persistence ----------
 
 #: The reason the LAST token save did not land, or None. Read by the OAuth

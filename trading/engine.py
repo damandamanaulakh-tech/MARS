@@ -41,6 +41,7 @@ from . import intraday_recovery as ir
 from . import decision_evidence as de
 from . import quote_evidence as qe
 from . import intraday_bars as ib, intraday_data as idata, intraday_scoring as isc
+from . import context_inputs as ci
 from .calendars import is_market_open, market_state
 from .candles import candle_confirmation
 from .risk import RiskState, can_open
@@ -226,7 +227,9 @@ class TradingEngine:
                 "rows": {t: intraday_details[t] for t in universe}}
         decisions = {t: de.new(t, cfg.mode, "scan", datetime.utcnow(), signal_history.get(t))
                      for t in universe}
+        context_inputs = ci.prepare(universe, cfg, datetime.utcnow(), client=self.broker)
         for t, d in decisions.items():
+            d["market_context"] = ci.observation(context_inputs, t, signal_history.get(t), signal_bench, cfg, datetime.utcnow())
             h = signal_history.get(t)
             info = intraday_details.get(t)
             de.put(d, "history", len(h) if h is not None else None,
@@ -643,6 +646,8 @@ class TradingEngine:
         ocean_picks = self._ocean_picks(regime, history, universe, now)
         for pick in ocean_picks:
             d = pick.setdefault("decision", de.new(pick["ticker"], cfg.mode, "ocean", now, history.get(pick["ticker"])))
+            d['market_context'] = ci.observation(context_inputs, pick['ticker'],
+                signal_history.get(pick['ticker']), signal_bench, cfg, datetime.utcnow())
             decisions[pick["ticker"] + ":ocean"] = d
 
         picks = everest_picks
@@ -1291,6 +1296,7 @@ class TradingEngine:
                 "timing_pass": r["timing_pass"],
                 "bar": de.bar_context(signal_history.get(r["ticker"])),
                 "components": r.get("components") or {},
+                "market_context": r["decision"].get("market_context"),
                 "candles": signal_history[r["ticker"]][["Open", "High", "Low", "Close"]].tail(20).values.tolist(),
                 "candle": _candle_label(r["ticker"]),
                 "structures": _all_structures(r["ticker"]),
@@ -1553,6 +1559,9 @@ class TradingEngine:
         if intraday_names:
             intraday_history, refresh_data = idata.fetch(
                 [cfg.benchmark] + intraday_names, cfg, self.broker, datetime.utcnow())
+        refresh_context = ci.prepare(tickers, cfg, datetime.utcnow(), interval='1d')
+        intraday_context = (ci.prepare(intraday_names, cfg, datetime.utcnow(), client=self.broker, interval='5m')
+                            if intraday_names else None)
         # Recover deadlines crossed during history retrieval with a new quote
         # lookup; never turn an old pre-fetch clock into an after-hours fill.
         deadline_exits.extend(self.square_off_intraday())
@@ -1698,6 +1707,9 @@ class TradingEngine:
             xcfg = self._exit_cfg(pos, cfg)
             decision = de.exit_decision(pos, prices, datetime.utcnow(), session=not marking_only)
             decision["score_available"] = score_available
+            decision["market_context"] = ci.observation(
+                intraday_context if pos.mode == 'intraday' else refresh_context,
+                ticker, score_frame, score_bench, xcfg, datetime.utcnow())
             decision["bar"] = intraday_score_diag or de.bar_context(score_frame)
             decision["benchmark"] = {"ticker": cfg.benchmark, **de.bar_context(score_bench)}
             if intraday_score_diag:
@@ -1902,6 +1914,7 @@ class TradingEngine:
         if notional + buy_cost > self.portfolio.cash + 1e-8:
             raise ValueError("costs_cash_short")
         decision = copy.deepcopy(pick.get("decision") or de.new(pick["ticker"], cfg.mode, pick.get("entry_path", "direct"), now, pick.get("history")))
+        decision.setdefault("market_context", ci.unavailable(pick["ticker"], now))
         de.put(decision, "entry_deadline_final", ir.utc(now).isoformat(), "Before intraday square-off deadline", passed=True,
                state="skipped" if cfg.mode != "intraday" else None, reason="Final engine guard; other segments exempt")
         decision["quote"] = copy.deepcopy(pick.get("quote_evidence") or qe.observation({}, pick["ticker"], now))
@@ -2414,7 +2427,7 @@ class TradingEngine:
         # file. None on any failure, which makes those two abstain instead of
         # guessing; journaled once a day so a silent loss of cover is visible.
         held = list(self.portfolio.positions.keys())
-        ext_map = danger.externals_for(held) if danger.PANEL_FED else None
+        ext_map = danger.externals_for(held, history, now) if danger.PANEL_FED else None
         if danger.PANEL_FED and ext_map is None and held:
             already = any(
                 e.get("action") == "DANGER_PANELS_UNAVAILABLE"
@@ -2444,6 +2457,7 @@ class TradingEngine:
                 continue                # no quote / thin history = no action
             danger_decision = de.exit_decision(self.portfolio.positions[ticker], prices, now)
             danger_decision["bar"] = de.bar_context(df)
+            danger_decision['external_context'] = de.clean(getattr((ext_map or {}).get(ticker), 'context', {}))
             with de.capture(danger_decision):
                 fired = danger.evaluate_stock(df, ext=(ext_map or {}).get(ticker))
             reading = danger.plan(ticker, fired, auto)

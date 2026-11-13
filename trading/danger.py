@@ -159,8 +159,13 @@ def evaluate_stock(df: pd.DataFrame, ext=None) -> list[str]:
             observed(tid, None, "External panel unavailable")
             continue
         try:
-            result = fn(x, ext, {}, {})
-            observed(tid, result)
+            # Live panel checks use the target's SAME completed daily window.
+            # OHLCV-only checks above retain their existing policy.
+            target = getattr(ext, 'target_frame', None)
+            ext_x = _Ctx(target) if target is not None else x
+            result = fn(ext_x, ext, {}, {})
+            evidence = getattr(ext, 'context', {})
+            observed(tid, result, str(evidence.get('peer_reason' if tid == 'T12W_0094' else 'index_reason', '')))
             if result is True:
                 fired.append(tid)
         except Exception:                                   # noqa: BLE001
@@ -168,7 +173,7 @@ def evaluate_stock(df: pd.DataFrame, ext=None) -> list[str]:
     return fired
 
 
-def externals_for(tickers: list[str]):
+def externals_for(tickers: list[str], history=None, now=None):
     """Panels for the held book: peer/sector + index ONLY.
 
     Deliberately excludes delivery, F&O and deals — this runs inside
@@ -179,6 +184,8 @@ def externals_for(tickers: list[str]):
     """
     if not _EXT_FNS or not tickers:
         return None
+    if history is not None:
+        return _live_externals(tickers, history, now)
     try:
         from trading import external_panels
         ps = external_panels.panel_set(tickers, sources=("panel", "index"))
@@ -187,6 +194,109 @@ def externals_for(tickers: list[str]):
         log.warning("danger layer: panels unavailable (%s) — panel-fed "
                     "tripwires abstain this run", e)
         return None
+
+
+def _live_externals(tickers, history, now):
+    """Current stored inputs, exact completed dates, full fixed peer basket.
+
+    The calibrated peer definition and 20-session formula stay unchanged.
+    Every original peer must have a verified matching official industry and
+    every bar. Partial denominators and July's bundled file cannot fire exits.
+    No network and no delivery/F&O/deal panels are read on this live path.
+    """
+    from . import market_context as mc, sector_identity as si
+    from . import data, data_refresh, external_panels as ep
+    from .history_store import records_to_df
+    from .quote_evidence import utc
+    now = utc(now)
+    mapping = ep._sector_map()
+    needed = {p for t in tickers for p, sec in mapping.items() if sec == mapping.get(t)}
+    docs = {}
+    reader = data.history_store()
+    if reader:
+        try:
+            docs = reader(sorted(needed), 90) or {}
+        except Exception:
+            pass
+    frames = {}
+    for t, doc in docs.items():
+        try:
+            frame = records_to_df(doc)
+            if frame is not None:
+                frame.attrs.update(interval='1d', source='ohlcv_store')
+                frames[t] = frame
+        except (ValueError, TypeError, KeyError):
+            pass
+    frames.update(history)
+    snapshot = si.snapshot()
+    from .universe_refresh import read_existing, default_universe_path
+    master = read_existing(default_universe_path())
+    identities = {t: si.resolve(t, snapshot, now, instrument_isin=(master.get(t) or {}).get('isin'))
+                  for t in needed | set(tickers)}
+    rows = data_refresh.stored_index_rows()
+    index = pd.DataFrame({'Close': [r.get('nifty_close') for r in rows]},
+                         index=pd.to_datetime([r.get('date') for r in rows], errors='coerce'))
+    index.attrs.update(interval='1d', source='stored_upstox_index_daily')
+    idx, idx_info = mc.completed(index, now)
+    grid = mc.daily_grid(now, 21)
+    out = {}
+    for t in tickers:
+        sx = ep.StockExternals(ticker=t)
+        context = {'at': now.isoformat(), 'interval': '1d', 'source': 'current_stores',
+                   'peer_reason': 'target_history_unavailable', 'index_reason': 'target_history_unavailable',
+                   'expected_peers': 0, 'covered_peers': 0, 'missing_peers': [],
+                   'target_identity': identities.get(t),
+                   'start': grid[0].isoformat() if len(grid) else None,
+                   'end': grid[-1].isoformat() if len(grid) else None}
+        sx.context = context
+        out[t] = sx
+        stock, sd = mc.completed(history.get(t), now)
+        if len(grid) != 21 or not grid.isin(stock.index).all():
+            continue
+        day = grid[-1].tz_convert(mc.ib.IST).date().isoformat()
+        sx.asof = day
+        frame = history[t]
+        dates = {v.tz_convert(mc.ib.IST).date() for v in stock.index}
+        sx.target_frame = frame.loc[[pd.Timestamp(v).date() in dates for v in frame.index]]
+        required = ['Open', 'High', 'Low', 'Close', 'Volume']
+        if not set(required).issubset(sx.target_frame.columns) or len(sx.target_frame) < 22:
+            context.update(peer_reason='target_ohlcv_incomplete', index_reason='target_ohlcv_incomplete')
+            continue
+        import numpy as np
+        target_values = sx.target_frame[required].tail(22).to_numpy(dtype=float)
+        if not np.isfinite(target_values).all() or (target_values[:, :4] <= 0).any():
+            context.update(peer_reason='target_ohlcv_invalid', index_reason='target_ohlcv_invalid')
+            continue
+        if idx_info['status'] == 'ready' and grid.isin(idx.index).all():
+            sx.index_close = idx.loc[grid].to_numpy(dtype=float)
+            sx.index_asof = day
+            context['index_reason'] = 'same_completed_21_sessions'
+        else:
+            context['index_reason'] = 'missing_exact_index_window'
+        own = identities[t]
+        peers = sorted(p for p in needed if p != t and mapping.get(p) == mapping.get(t))
+        context['expected_peers'] = len(peers)
+        if own['status'] != 'verified' or not peers:
+            context['peer_reason'] = 'unverified_identity_or_no_calibrated_peers'
+            continue
+        breaks = 0
+        for p in peers:
+            ident = identities[p]
+            close, _ = mc.completed(frames.get(p), now)
+            valid = (ident['status'] == 'verified' and ident['industry'] == own['industry']
+                     and grid.isin(close.index).all())
+            if not valid:
+                context['missing_peers'].append(p)
+                continue
+            context['covered_peers'] += 1
+            values = close.loc[grid]
+            breaks += int(values.iloc[-1] <= values.iloc[:-1].min())
+        if context['covered_peers'] == len(peers):
+            sx.sector, sx.peers, sx.peer_break_20d_low = mapping[t], len(peers), breaks
+            context['peer_reason'] = 'full_fixed_peer_basket_same_completed_21_sessions'
+        else:
+            context['peer_reason'] = 'incomplete_or_unverified_peer_basket'
+    return out
 
 
 def plan(ticker: str, fired: list[str], auto: bool) -> DangerReading:

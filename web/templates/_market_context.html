@@ -1,0 +1,19 @@
+{% if context and context.window %}
+<div class="my-3 text-sm border p-3 rounded" data-context-status="{{ context.status }}">
+  <b>Saved market and sector context · {{ context.status }}</b>
+  <p>Observed {{ context.observed_at }} · {{ context.window.interval }} · {{ context.window.lookback_bars }} bars</p>
+  <p>Same window: {{ context.window.start or 'Unknown' }} → {{ context.window.end or 'Unknown' }} (offsets shown). Daily times are derived NSE session closes.</p>
+  <p>Official industry: {{ context.identity.industry or 'Unknown' }} · ISIN {{ context.identity.isin or 'Unknown' }} · {{ context.identity.reason | replace('_',' ') }}.<br>
+  Sector basket: {{ context.identity.sector_index or 'Unknown' }} · {{ context.identity.sector_reason | default('unavailable') | replace('_',' ') }}. Configured label: {{ context.identity.configured_label or 'Unknown' }}.</p>
+  <div class="overflow-x-auto"><table class="w-full text-xs mt-2"><thead><tr><th class="text-left">Leg</th><th>Return</th><th class="text-left">Result / reason</th><th class="text-left">Source / latest available close</th></tr></thead><tbody>
+  {% for label, leg in [('Stock',context.stock),('Sector',context.sector),('Market ' ~ context.market_ticker,context.market)] %}
+  <tr class="border-t"><td class="p-2">{{ label }}</td><td class="p-2">{{ '%.3f%%' | format(leg.return_pct) if leg.return_pct is not none else 'Unknown' }}</td><td class="p-2">{{ leg.status }} · {{ leg.reason | replace('_',' ') }}<br>{{ leg.present_bars }}/{{ leg.required_bars }} bars</td><td class="p-2">{{ leg.source }} · {{ leg.last_available or 'Unknown' }}<br>Received {{ leg.received_at or 'Unknown' }} · price basis {{ leg.price_basis }}</td></tr>
+  {% endfor %}</tbody></table></div>
+  <p>Stock minus sector: {{ '%.3f pp' | format(context.stock_vs_sector_pp) if context.stock_vs_sector_pp is not none else 'Unknown' }} · Stock minus market: {{ '%.3f pp' | format(context.stock_vs_market_pp) if context.stock_vs_market_pp is not none else 'Unknown' }}.</p>
+  <details class="mt-2"><summary>Identity sources and coverage</summary>
+    {% for src in context.identity.evidence %}<p><a class="underline" href="{{ src.url }}" rel="noopener">{{ src.index }} constituents</a> · retrieved {{ src.observed_at }} · {{ src.status }} · publication/effective time {{ src.effective_at or 'not supplied' }} · SHA256 {{ src.sha256 }}</p>{% endfor %}
+    <p>{{ context.note }} {{ context.relative_basis | replace('_',' ') }}</p><p>{{ context.legacy_score_sector.reason if context.legacy_score_sector else '' }}</p>
+  </details>
+  <p class="mt-2 text-ink-soft">Context only. No new entry gate, exit rule, score weight or valuation target is set by this table.</p>
+</div>
+{% else %}<p class="my-2 text-sm">Market and sector context: Unknown — {{ context.reason | default('not recorded on this historical decision') | replace('_',' ') if context else 'not recorded on this historical decision' }}.</p>{% endif %}

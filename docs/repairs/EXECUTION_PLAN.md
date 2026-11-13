@@ -8,7 +8,7 @@ separate incidents. [Goals](GOALS.md), [full backlog](BACKLOG.md),
 
 ## Current batch
 
-**SEQ-05 is shipped and health verified; SEQ-06 is next queued.**
+**SEQ-05 is shipped and health verified; SEQ-06 is in progress.**
 [PR205](https://github.com/damandamanaulakh-tech/MARS/pull/205) supplies the owner-selected Upstox Basic cost model, dated exchange
 schedules, durable entry/partial/DP accounting and separate historical comparisons.
 All **3,127 canonical CI tests pass with zero skips**; local 3,128 includes one
@@ -29,7 +29,7 @@ unproven; the original ledger, strategy thresholds and research sequence are ret
 | SEQ-03 | G13/G9; INTRA-004, ROOT-AM07-04, ROOT-ROUTE-09 | Immutable entry/exit gate results and quote provenance | Values, thresholds, pass/fail/skip/unavailable, provider/receipt time, bar interval, stop amendments and exit trigger attached to each new trade | SHIPPED; 2994 local/CI passed, zero skips; health verified; normal lifecycle observation pending |
 | SEQ-04 | G13; INTRA-001, ROOT-AM07-04 | Connect completed intraday bars to the actual intraday data path | Correct interval, session alignment, no future/unclosed bars, explicit missing-data handling and recorded comparison with the daily baseline | DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING; PR203; 3067 local/CI tests, zero skips |
 | SEQ-05 | G13; XR-059 | Product-appropriate intraday cost model and separate historical comparison | Dated broker/exchange schedule and account-plan assumptions; buy/sell/partial-exit cases; original ledger preserved | DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING; PR205; 3127 canonical CI tests, zero skips |
-| SEQ-06 | G9/G13; INTRA-004, XR-009, XR-061 | Sector identity, input coverage and same-window benchmark/sector context | Unknown never counts as measured strength; timestamped stock/sector/index comparisons; context does not silently become a new gate | QUEUED |
+| SEQ-06 | G9/G13; INTRA-004, XR-009, XR-061 | Sector identity, input coverage and same-window benchmark/sector context | Unknown never counts as measured strength; timestamped stock/sector/index comparisons; context does not silently become a new gate | LOCAL_TESTED; 3186 local tests, zero skips; CI pending |
 | SEQ-07 | G13; XR-081; owner candle decision | Candle patterns assist selection, with recorded owner controls | Advisory contribution is explicit; absence alone does not veto an otherwise eligible entry; protective exits remain independent; invalid candles remain unavailable | QUEUED |
 | SEQ-08 | G13; INTRA-003 | Compare net-profit-aware trailing exits and reachable targets | Replay with costs, slippage and intrabar ambiguity; unseen-period comparison of expectancy and drawdown; exact candidate settings reviewed before promotion | QUEUED |
 | SEQ-09 | G13; INTRA-003 | Fresh-setup/cooldown experiments after a failed trade | Record the changed setup; measure losses avoided and recoveries missed; prevent same-bar hindsight or automatic score reuse | QUEUED |
@@ -60,3 +60,5 @@ The broader G5–G10 persistence, owner concurrency, risk, job, data and valuati
 backlog remains open according to each original record. G12's five failing
 FRED numerical feeds and other documented source limitations remain open.
 Completing this sequence does not close those findings by implication.
+
+SEQ-06 update, 13 November: verified official identity and exact-window context are implemented; 3186 local checks pass with zero skips; CI and shipment are in progress. [Batch record](releases/2026-11-13-market-sector-context.md). Legacy score policy and normal runtime observation remain separate.

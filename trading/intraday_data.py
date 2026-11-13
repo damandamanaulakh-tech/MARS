@@ -56,7 +56,7 @@ def _one(client, key, now):
 
 
 def fetch(tickers, cfg, client=None, now=None, *, budget_seconds=FETCH_BUDGET_SECONDS, cap=None,
-          offset=0, priority=()):
+          offset=0, priority=(), instrument_keys=None):
     from .data import history_broker, MAX_NETWORK_FALLBACK
     now = bars.utc_now(now)
     names = list(dict.fromkeys(tickers))
@@ -76,7 +76,8 @@ def fetch(tickers, cfg, client=None, now=None, *, budget_seconds=FETCH_BUDGET_SE
     selected = order[:limit]
     for t in order[limit:]:
         details[t]['reason'] = 'intraday_fetch_cap'
-    mapping = to_instrument_keys(selected)
+    mapping = ({t: instrument_keys[t] for t in selected if t in instrument_keys}
+               if instrument_keys is not None else to_instrument_keys(selected))
     for t in selected:
         if t not in mapping:
             details[t]['reason'] = 'instrument_mapping_unavailable'
