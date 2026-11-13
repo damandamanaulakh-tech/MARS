@@ -56,6 +56,7 @@ def can_open(
     cfg: Config,
     notional_override: float | None = None,
     category: str | None = None,
+    *, when=None, include_entry_fees: bool = True,
 ) -> tuple[bool, str, int]:
     """Decide whether a new position can open. Returns (ok, reason, qty).
 
@@ -213,16 +214,32 @@ def can_open(
     else:
         de.record("portfolio_heat", state="skipped", reason="Heat cap disabled or equity unavailable")
 
+    from . import fees
+    from datetime import datetime
+    fee_when = when or datetime.utcnow()
+    if include_entry_fees:
+        try:
+            fees.check_instrument(ticker, cfg.sector_map.get(ticker, ""))
+            qty = fees.affordable_qty(qty, fill_price, cash, cfg.mode, fee_when, ticker)
+        except ValueError as exc:
+            de.record("trading_costs", state="unavailable", reason=str(exc))
+            return False, str(exc), 0
+        if qty <= 0:
+            return False, "costs_cash_short", 0
+
     # OWNER ORDER 2026-10-04: nothing below the minimum opens. A trade that
     # whole-share rounding or a trim left just short (93 x Rs 1,600 =
     # Rs 1,48,800) is rounded UP to the minimum when every money limit above
     # still has room; otherwise it is refused, never opened small.
     if min_val > 0 and qty * fill_price < min_val:
         need = int(math.ceil(min_val / fill_price))
-        if need * fill_price <= hard_room + 1e-6:
+        if (need * fill_price <= hard_room + 1e-6 and
+                (not include_entry_fees or fees.entry_total(need, fill_price, cfg.mode, fee_when, ticker) <= cash + 1e-8)):
             qty = need
         else:
             de.record("minimum_value", qty * fill_price, min_val, passed=False, reason="Whole-share rounding cannot fit hard room")
             return False, f"below_min_value_{int(min_val)}", 0
     de.record("minimum_value", qty * fill_price, min_val, passed=True)
+    if include_entry_fees:
+        de.record("trading_costs", fees.entry_total(qty, fill_price, cfg.mode, fee_when, ticker), cash, passed=True, reason="Notional plus dated buy charges fits cash")
     return True, "ok", qty

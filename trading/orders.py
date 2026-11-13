@@ -172,6 +172,12 @@ def _fill_locked(engine, o: dict, price: float, now: datetime) -> None:
         notional, _diag = position_notional_for(cfg, p.equity(marks))
         funds, _ = available(p, cfg, mode)
         qty = int(min(notional, funds) // fill)
+        from . import fees
+        try:
+            qty = fees.affordable_qty(qty, fill, p.cash, mode, now, tkr)
+        except ValueError as exc:
+            o["note"] = str(exc)
+            return
     why = refusal(p, cfg, mode, qty * fill)
     if qty < 1 or why:
         o["status"] = "cancelled"
@@ -209,7 +215,7 @@ def _fill_locked(engine, o: dict, price: float, now: datetime) -> None:
     try:
         engine._open(pick, qty, fill, now, cfg=cfg)
     except ValueError as exc:
-        if not str(exc).startswith("intraday_"):
+        if not str(exc).startswith(("intraday_", "costs_")):
             raise
         o["note"] = str(exc)
         de.put(decision, "entry_data_final", state="unavailable", reason=o["note"])

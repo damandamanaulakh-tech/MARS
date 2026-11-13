@@ -872,6 +872,12 @@ def owner_buy(request: Request, ticker: str = Form(...),
         notional, _diag = position_notional_for(cfg, equity)
         funds, left = available(p, cfg, selected_mode)
         auto_qty = int(min(notional, funds) // float(price))
+        if not want_qty and auto_qty > 0:
+            from trading import fees
+            try:
+                auto_qty = fees.affordable_qty(auto_qty, float(price), p.cash, selected_mode, datetime.utcnow(), tkr)
+            except ValueError as exc:
+                return refuse(str(exc), "trading_costs", unavailable=True)
         use_qty = want_qty or auto_qty
         why = refusal(p, cfg, selected_mode, use_qty * float(price))
         if use_qty < 1:
@@ -905,7 +911,7 @@ def owner_buy(request: Request, ticker: str = Form(...),
         try:
             eng._open(pick, use_qty, float(price), fill_now, cfg=cfg)
         except ValueError as exc:
-            if str(exc).startswith("intraday_"):
+            if str(exc).startswith(("intraday_", "costs_")):
                 return refuse(str(exc), "entry_data_final", unavailable=True)
             raise
         # AUDIT FIX A4 (2026-08-09): an owner's deliberate pick is never

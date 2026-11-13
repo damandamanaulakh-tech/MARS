@@ -102,6 +102,7 @@ class PaperPosition:
     # SEQ-02: unfinished square-off work belongs to this holding, not a job.
     intraday_close: dict = field(default_factory=dict)
     trade_evidence: dict = field(default_factory=dict)
+    cost_basis: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -129,6 +130,7 @@ class PaperPosition:
                                if isinstance(d.get("trade_evidence"), dict) else {})
         d["intraday_close"] = (dict(d["intraday_close"])
                                if isinstance(d.get("intraday_close"), dict) else {})
+        d["cost_basis"] = dict(d["cost_basis"]) if isinstance(d.get("cost_basis"), dict) else {}
         # A field a NEWER build wrote (ca_applied, val_target, the next one) must
         # not stop an older build from loading the book after a rollback: keys
         # this version does not know are dropped, never fatal (2026-10-21).
@@ -164,6 +166,7 @@ class ClosedTrade:
     ca_applied: List[str] = field(default_factory=list)
     intraday_close: dict = field(default_factory=dict)
     trade_evidence: dict = field(default_factory=dict)
+    cost_evidence: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -176,6 +179,7 @@ class ClosedTrade:
         d = dict(d)
         d["entry_date"] = datetime.fromisoformat(d["entry_date"])
         d["exit_date"] = datetime.fromisoformat(d["exit_date"])
+        d["cost_evidence"] = dict(d["cost_evidence"]) if isinstance(d.get("cost_evidence"), dict) else {}
         d.setdefault("entry_notes", "")
         d.setdefault("tags", [])
         d["ca_applied"] = list(d.get("ca_applied") or [])
@@ -201,6 +205,7 @@ class Portfolio:
     last_scan_picks: List[dict] = field(default_factory=list)
     last_scan_skipped: List[dict] = field(default_factory=list)
     intraday_data_status: dict = field(default_factory=dict)
+    cost_dp_days: dict = field(default_factory=dict)  # one delivery DP debit per symbol/IST day
     last_scan_opened: List[str] = field(default_factory=list)
     last_regime: Optional[str] = None
     last_ifr_fire_date: Optional[str] = None        # IFR damage cluster fire (ISO date)
@@ -337,6 +342,7 @@ class Portfolio:
                 "last_scan_picks": self.last_scan_picks,
                 "last_scan_skipped": self.last_scan_skipped,
                 "intraday_data_status": self.intraday_data_status,
+                "cost_dp_days": self.cost_dp_days,
                 "last_scan_opened": self.last_scan_opened,
                 "last_regime": self.last_regime,
                 "last_ifr_fire_date": self.last_ifr_fire_date,
@@ -397,6 +403,7 @@ class Portfolio:
             p.last_scan_picks = list(data.get("last_scan_picks", []))
             p.last_scan_skipped = list(data.get("last_scan_skipped", []))
             p.intraday_data_status = dict(data.get("intraday_data_status", {}) or {})
+            p.cost_dp_days = dict(data.get("cost_dp_days", {}) or {})
             p.last_scan_opened = list(data.get("last_scan_opened", []))
             p.last_regime = data.get("last_regime")
             p.last_ifr_fire_date = data.get("last_ifr_fire_date")
@@ -489,6 +496,7 @@ class Portfolio:
         self.last_scan_picks = []
         self.last_scan_skipped = []
         self.intraday_data_status = {}
+        self.cost_dp_days = {}
         self.last_scan_opened = []
         self.scan_matrix = {}
         self.momentum_shortlist = {}

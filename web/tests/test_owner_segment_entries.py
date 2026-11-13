@@ -129,3 +129,23 @@ def test_desk_second_fill_uses_remaining_segment_funds(isolated):
     assert result["skipped"][0]["reason"] == "category_budget_full"
     assert p.positions["A.NS"].mode == buy_desk.DESK_MODE
     assert cfg.mode == buy_desk.DESK_MODE
+
+
+def test_owner_market_rejects_unfunded_buy_fees(isolated):
+    c,eng,p,cfg=isolated
+    cfg.category_budgets_enabled=False  # Isolate cash fees; budget refusals are covered above.
+    p.cash=1000.; before=p.cash
+    # The share notional fits; the Basic entry charge does not.
+    r=c.post('/scan/buy',data={'ticker':'TEST','qty':'10','mode':'swing'},follow_redirects=False)
+    assert 'costs_cash_short' in r.headers['location']
+    assert p.cash==before and not p.positions
+
+
+def test_resting_limit_retains_work_when_buy_fees_cannot_be_funded(isolated):
+    c,eng,p,cfg=isolated
+    cfg.category_budgets_enabled=False
+    p.cash=1000.5  # 10 x 100.05 slipped fill, no room for its fees
+    o=orders.place_limit(p,ticker='TEST.NS',limit_price=101,qty=10,mode='short')
+    orders._fill(eng,o,100.,datetime(2026,11,12,5))
+    assert o['status']=='open' and o['note']=='costs_cash_short'
+    assert p.cash==1000.5 and not p.positions

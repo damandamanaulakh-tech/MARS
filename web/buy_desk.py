@@ -189,11 +189,19 @@ def plan(portfolio, cfg, rows: list, budget_rs: float, prices: dict,
             continue
         fill = slippage_price(price, "BUY", cfg)
         qty = int(take // fill)
+        from trading import fees
+        try:
+            qty = fees.affordable_qty(qty, fill, remaining, DESK_MODE, datetime.utcnow(), t)
+        except ValueError as exc:
+            row['reason'] = str(exc)
+            planned.append(row)
+            continue
         if qty < 1:
             row["reason"] = "price_above_size"
             planned.append(row)
             continue
-        cost = qty * fill
+        cost = fees.entry_total(qty, fill, DESK_MODE, datetime.utcnow(), t)
+        row["buy_charges"] = cost - qty * fill
         remaining -= cost
         row.update({"qty": qty, "cost": cost, "recommended": True})
         planned.append(row)
@@ -242,14 +250,19 @@ def execute(eng, portfolio, cfg, planned_rows: list, now: datetime, *,
             continue
         fill = slippage_price(float(r["price"]), "BUY", cfg)
         qty = int(r["qty"])
-        cost = qty * fill
+        from trading import fees
+        try:
+            cost = fees.entry_total(qty, fill, DESK_MODE, now, t)
+        except ValueError as exc:
+            reject(str(exc), "trading_costs", unavailable=True)
+            continue
         if qty < 1 or cost > portfolio.cash:
             reject("cash_short", "cash", {"qty": qty, "cost": cost}, portfolio.cash)
             continue
         if cost > float(budget_rs) - spent_actual + 1e-8:
             reject("budget_exhausted", "desk_budget", cost, float(budget_rs)-spent_actual)
             continue
-        why = refusal(portfolio, cfg, DESK_MODE, cost)
+        why = refusal(portfolio, cfg, DESK_MODE, qty * fill)
         if why:
             reject(why, "category_budget", cost, available(portfolio, cfg, DESK_MODE)[1])
             continue
@@ -259,7 +272,7 @@ def execute(eng, portfolio, cfg, planned_rows: list, now: datetime, *,
         de.put(decision, "owner", "BUY_DESK", "explicit owner command", passed=True, role="authority")
         from trading.owner_allocation import available
         left = available(portfolio, cfg, DESK_MODE)[1]
-        de.put(decision, "category_budget", cost, left, state="skipped" if left is None else None, passed=left is None or cost <= left)
+        de.put(decision, "category_budget", qty * fill, left, state="skipped" if left is None else None, passed=left is None or qty * fill <= left)
         de.put(decision, "quote", quote_ev, "Positive routed quote", state="unavailable" if src == "unknown" else "passed")
         de.put(decision, "cash", cost, portfolio.cash, passed=True)
         de.put(decision, "desk_budget", cost, float(budget_rs) - spent_actual, passed=True)
@@ -280,7 +293,7 @@ def execute(eng, portfolio, cfg, planned_rows: list, now: datetime, *,
         try:
             eng._open(pick, qty, fill, now, cfg=cfg)
         except ValueError as exc:
-            if not str(exc).startswith("intraday_"):
+            if not str(exc).startswith(("intraday_", "costs_")):
                 raise
             reject(str(exc), "entry_data_final", unavailable=True)
             continue
@@ -289,7 +302,7 @@ def execute(eng, portfolio, cfg, planned_rows: list, now: datetime, *,
         pos.tags.append("owner_pick")
         pos.tags.append("buy_desk")
         opened.append({"ticker": t, "qty": qty, "price": round(fill, 2),
-                       "notional": round(cost, 2), "score": float(r["score"])})
+                       "notional": round(qty * fill, 2), "cash_debit": round(cost, 2), "buy_charges": round(cost-qty*fill,2), "score": float(r["score"])})
     spent = round(spent_actual, 2)
     summary = {
         "ts": now.isoformat(), "action": "OWNER_BATCH_BUY",

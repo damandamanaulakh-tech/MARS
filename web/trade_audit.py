@@ -563,6 +563,13 @@ def audit_trade(trade, fetch_daily: Callable, fetch_minute: Callable,
                                      _side_price(sell, t.exit_price, True), cfg)
         corr_force["qty"] = t.qty
         corr_force["frac_cash"] = 0.0
+    # Versioned fees are recorded executions. A price correction must not
+    # silently replace them with today's or the frozen legacy tariff.
+    if getattr(t, "cost_evidence", None):
+        for candidate in (corr, corr_force):
+            candidate["costs"] = float(t.costs)
+            candidate["net"] = candidate["gross"] - float(t.costs)
+            candidate["cost_policy"] = "recorded_fees_preserved"
     # the fractional share (if any) is returned at cost inside the restated
     # legs, so the book's cash moves by exactly new net − old net
     delta = corr["net"] - float(t.net_pnl)
@@ -582,6 +589,8 @@ def audit_trade(trade, fetch_daily: Callable, fetch_minute: Callable,
         "rights_between": rights,
         "restate": restate,
         "needs_ca_record": needs_record,
+        "cost_evidence": dict(getattr(t, "cost_evidence", {}) or {}),
+        "stored_costs": float(t.costs),
         "stored_net": float(t.net_pnl), "stored_entry": float(t.entry_price),
         "stored_exit": float(t.exit_price),
         # a fit on a common split ratio with no CA record: shown, never corrected
@@ -1259,8 +1268,8 @@ def apply_corrections(portfolio, result: dict, ids: list, cfg=None, side: str = 
                       force: bool = False, update_archived: Optional[Callable] = None,
                       now: Optional[datetime] = None) -> dict:
     """Rewrite the fills of the given rows to the real minute prices (both
-    sides unless `side` limits it), recompute gross/costs/net with
-    trade_costs, move cash by the net delta (closed) or qty × entry delta
+    sides unless `side` limits it), recompute gross/net while preserving
+    versioned fees (legacy rows use trade_costs), move cash by the net delta (closed) or qty × entry delta
     (open), journal TRADE_PRICE_CORRECTED once per row. Refused: an id not
     in the audit, an unflagged id (unless force), an id the journal already
     names as corrected (unless force), a row whose correction would change
@@ -1408,6 +1417,10 @@ def apply_corrections(portfolio, result: dict, ids: list, cfg=None, side: str = 
                                                   "the real prices)"})
                 continue
             corr = corrected_trade(new_qty, new_entry, new_exit, cfg)
+        if r.get("cost_evidence"):
+            corr["costs"] = float(r["stored_costs"])
+            corr["net"] = corr["gross"] - corr["costs"]
+            corr["cost_policy"] = "recorded_fees_preserved"
         # a fractional share is returned at cost inside the restated legs:
         # cash moves by exactly new net − old net
         delta_cash = corr["net"] - float(old_net)

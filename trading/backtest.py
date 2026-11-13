@@ -42,6 +42,7 @@ from .data import YF_THREADS
 
 from .config import Config
 from .costs import slippage_price, trade_costs
+from . import fees
 from .exits import check_exit
 from .paper import ClosedTrade, PaperPosition, Portfolio
 from .risk import RiskState, can_open
@@ -255,12 +256,20 @@ def run_backtest(
         "timestamps so historical replay would leak future data.",
         "Sample size: small samples produce unreliable Sharpe / max DD. "
         "Treat values as directional, not point estimates.",
-        f"Costs ARE modelled and returns are NET: {cfg.slippage_bps:.0f} bps "
-        f"slippage/side + STT {cfg.stt_buy_pct*100:.1f}%/{cfg.stt_sell_pct*100:.1f}% "
-        f"buy/sell + brokerage ₹{cfg.brokerage_per_order:.0f}/order. "
-        "Benchmark is buy-and-hold (no costs) — the strategy carries a real "
-        "cost drag the benchmark does not.",
+        (f"Costs: {fees.MODEL}; dated NSE rates with the published Upstox Basic tariff "
+         "observed 2026-11-12, applied as a paper assumption (not an account contract note). "
+         "Buy charges booked once; later exits allocate entry charges and daily DP. "
+         "Rounding is per component to paise. Overnight intraday is an unverified product estimate. "
+         if getattr(cfg, "backtest_cost_model", "upstox_basic") == "upstox_basic" else
+         "Costs: LEGACY_DELIVERY comparison; old delivery-only rates, not current product-specific fees. ")
+        + f"Slippage remains {cfg.slippage_bps:g} bps per side. Benchmark is buy-and-hold without costs.",
     ]
+
+    cost_model = getattr(cfg, "backtest_cost_model", "upstox_basic")
+    if cost_model not in ("upstox_basic", "legacy_delivery"):
+        raise ValueError("costs_unknown_backtest_model")
+    if cost_model == "upstox_basic" and str(start_date)[:10] < "2024-10-01":
+        raise ValueError("costs_date_before_verified_exchange_schedule: select a range from 2024-10-01 or explicitly choose the legacy comparison")
 
     # Bulk download ONLY the window we need (+ ~14mo lookback for the momentum /
     # AM07 scorers). period="max" over 190+ stocks blows Render's memory and
@@ -550,10 +559,14 @@ def _try_open_positions(
         ok, reason, qty = can_open(
             risk, portfolio.cash, current_eq,
             portfolio.positions, ticker, fill, cfg,
+            when=next_date, include_entry_fees=getattr(cfg, "backtest_cost_model", "upstox_basic") == "upstox_basic",
         )
         if not ok or qty <= 0:
             continue
-        portfolio.cash -= qty * fill
+        cost_basis = (fees.new_basis(qty, fill, cfg.mode, next_date, ticker, sector=cfg.sector_map.get(ticker, ""))
+                      if getattr(cfg, "backtest_cost_model", "upstox_basic") == "upstox_basic" else {})
+        buy_fee = cost_basis["orders"][0]["fee"]["total"] if cost_basis else 0.0
+        portfolio.cash -= qty * fill + buy_fee
         if getattr(cfg, "mode", "") == "nifty200_momentum":
             reasoning = f"NIFTY200_MOMENTUM: 6m+12m sharpe {pick['score']:.1f}/100"
         else:
@@ -561,7 +574,7 @@ def _try_open_positions(
             reasoning = reasoning_text(pick["components"], pick["score"],
                                        _wf(getattr(cfg, "mode", None)))
         portfolio.positions[ticker] = PaperPosition(
-            ticker=ticker, qty=qty, entry_price=fill,
+            ticker=ticker, qty=qty, entry_price=fill, cost_basis=cost_basis,
             entry_date=datetime.combine(next_date, datetime.min.time()),
             sector=cfg.sector_map.get(ticker, "Unknown"),
             peak_price=fill, entry_score=pick["score"],
@@ -587,13 +600,21 @@ def _stop_price_for(cfg, fill: float, hist) -> float:
 
 
 def _close_position(portfolio, ticker, raw_price, reason, date) -> None:
-    pos = portfolio.positions.pop(ticker)
+    pos = portfolio.positions[ticker]
     exit_price = slippage_price(raw_price, "SELL", portfolio.cfg)
     gross = (exit_price - pos.entry_price) * pos.qty
-    costs = trade_costs(pos.qty, pos.entry_price, exit_price, portfolio.cfg)
-    portfolio.cash += pos.qty * exit_price - costs
+    if getattr(portfolio.cfg, "backtest_cost_model", "upstox_basic") == "upstox_basic":
+        cost_ev, basis, dp_change = fees.prepare_exit(portfolio, pos, pos.qty, exit_price, date, portfolio.cfg)
+        costs = cost_ev["total"]
+        portfolio.cash += cost_ev["cash_credit"]
+        fees.commit_exit_state(portfolio, pos, basis, dp_change)
+    else:
+        cost_ev = {"model":"legacy_delivery", "status":"explicit_comparison"}
+        costs = trade_costs(pos.qty, pos.entry_price, exit_price, portfolio.cfg)
+        portfolio.cash += pos.qty * exit_price - costs
+    portfolio.positions.pop(ticker)
     portfolio.trades.append(ClosedTrade(
-        ticker=ticker, qty=pos.qty,
+        ticker=ticker, qty=pos.qty, cost_evidence=cost_ev,
         entry_date=pos.entry_date,
         exit_date=datetime.combine(date, datetime.min.time()),
         entry_price=pos.entry_price, exit_price=exit_price,
@@ -673,6 +694,9 @@ def _compile_result(
             "stop_loss_pct": cfg.stop_loss_pct,
             "take_profit_pct": cfg.take_profit_pct,
             "max_positions": cfg.max_positions,
+            "cost_model": getattr(cfg, "backtest_cost_model", "upstox_basic"),
+            "fee_model_version": fees.MODEL if getattr(cfg, "backtest_cost_model", "upstox_basic") == "upstox_basic" else "legacy_delivery",
+            "fee_tariff_checked_on": fees.CHECKED_ON,
         },
         start_date=start_date, end_date=end_date,
         universe_size=universe_size, benchmark=benchmark,
@@ -703,6 +727,8 @@ def _compile_result(
                 "exit_date": t.exit_date.date().isoformat(),
                 "entry_price": t.entry_price, "exit_price": t.exit_price,
                 "net_pnl": t.net_pnl, "reason": t.reason, "sector": t.sector,
+                "gross_pnl": t.gross_pnl, "costs": t.costs, "mode": t.mode,
+                "cost_evidence": t.cost_evidence,
                 "entry_score": t.entry_score,
             }
             for t in trades
@@ -746,6 +772,7 @@ def walk_forward(
                 benchmark=benchmark, preloaded_history=preloaded_history,
             )
             row.update(
+                cost_model=getattr(cfg, "backtest_cost_model", "upstox_basic"),
                 n200_return_pct=r.benchmark2_total_return_pct,
                 alpha_vs_n200_pct=r.alpha2_pct,
                 total_return_pct=r.total_return_pct, alpha_pct=r.alpha_pct,

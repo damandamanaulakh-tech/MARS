@@ -1,0 +1,82 @@
+{
+  "model": "upstox-basic-equity-2026-11-12-v1",
+  "checked_on": "2026-11-12",
+  "authorized_tariff": "Owner selected Upstox Basic - published standard tariff",
+  "broker_effective_from": null,
+  "broker_effective_from_note": "Observation date is not an invented effective date; historical use is a counterfactual selected-tariff assumption.",
+  "scope": "Ordinary NSE cash equity shares; not derivatives, funds, REIT/InvIT, BSE scrip groups or negotiated tariffs.",
+  "sources": [
+    {
+      "publisher": "Upstox",
+      "url": "https://upstox.com/help-center/t-264072/",
+      "fact": "Basic per executed order: delivery min(INR20,2.5%); intraday min(INR20,0.1%)."
+    },
+    {
+      "publisher": "Upstox",
+      "url": "https://upstox.com/brokerage-charges/",
+      "fact": "Cash-share STT delivery 0.1% buy and sell; intraday 0.025% sell. Stamp delivery 0.015% buy, intraday 0.003% buy. Standard DP INR20 plus GST per scrip/sell day; intraday none. SEBI INR10/crore. No expired 2025 API discount applied."
+    },
+    {
+      "publisher": "NSE",
+      "url": "https://nsearchives.nseindia.com/content/circulars/FA64232.pdf",
+      "published": "2024-09-27",
+      "effective_from": "2024-10-01",
+      "fact": "Cash exchange fee INR297/crore/side; pre-March-2026 IPFT INR10/crore/side shown in FA73061."
+    },
+    {
+      "publisher": "NSE",
+      "url": "https://nsearchives.nseindia.com/content/circulars/FA73061.pdf",
+      "published": "2026-02-27",
+      "effective_from": "2026-03-01",
+      "fact": "Cash exchange INR306.99/crore and IPFT INR0.01/crore per side. Combined INR307/crore unchanged; do not add old IPFT on top of new combined charge."
+    },
+    {
+      "publisher": "NSE",
+      "url": "https://www.nseindia.com/static/invest/first-time-investor-sebi-turnover-fees-stt-other-levies",
+      "page_updated": "2026-04-17",
+      "fact": "Confirms equity-share STT, stamp and SEBI rates, and distinct delivery/non-delivery tax treatment."
+    },
+    {
+      "publisher": "NSE",
+      "url": "https://www.nseindia.com/static/invest/first-time-investor-stamp-duty-charges-taxes",
+      "effective_from": "2020-07-01",
+      "fact": "Centralized stamp rates: delivery 0.015%, non-delivery 0.003%, buyer side."
+    },
+    {
+      "publisher": "Upstox",
+      "url": "https://upstox.com/calculator/brokerage-calculator/",
+      "fact": "GST 18% includes brokerage, transaction and SEBI fees; main tariff additionally specifies IPFT/DP. Model uses all five service components."
+    },
+    {
+      "publisher": "Upstox",
+      "url": "https://assets.upstox.com/website/forms/individual-account-opening-form.pdf",
+      "page": 17,
+      "version": "3.1.1",
+      "fact": "Basic brokerage and standard DP corroboration; personal/negotiated concessions are not inferred."
+    }
+  ],
+  "exchange_schedules": [
+    {
+      "from": "2024-10-01",
+      "through": "2026-02-28",
+      "exchange_per_crore": 297,
+      "ipft_per_crore": 10
+    },
+    {
+      "from": "2026-03-01",
+      "through": null,
+      "exchange_per_crore": 306.99,
+      "ipft_per_crore": 0.01
+    }
+  ],
+  "assumptions": [
+    "One paper open or pyramid is one buy order; one partial/final close is one sell order. Partial broker fills of a single order are not separate orders in this model.",
+    "Rounding: INR0.01 half-up per component, GST on rounded service components. Contract-note/day statutory rounding can differ.",
+    "Same IST day delivery sales allocate the intraday buy fee and rebate paid excess; remaining delivery quantities retain their buy allocations.",
+    "DP once per exact ticker/IST sell day, durable through JSON/Mongo; canonical ticker identity required. Depository/ISIN transfers and broker-specific exemptions are not reconstructed.",
+    "Intraday held overnight is explicitly an unverified product estimate: conversion, forced broker square-off, auction, interest and penalties are unknown. Paper scheduled exits are app orders, not proof of a broker auto-square-off fee.",
+    "New unsupported exchange/known fund entries are refused with reason. Existing unsupported holdings keep protective exits with explicitly unavailable legacy estimates.",
+    "Known ETF/fund identifiers and configured sectors are refused; other NSE cash names carry an explicit ordinary_equity_share assumption, not a verified security master.",
+    "Historical costs and P&L remain original. Read-only comparisons show current selected broker tariff with dated statutory schedules; missing order history/coverage is labelled."
+  ]
+}
