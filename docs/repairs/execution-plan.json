@@ -244,34 +244,59 @@
       "depends_on": [
         "SEQ-05"
       ],
-      "status": "DEPLOYED_PERSISTENCE_BLOCKED",
+      "status": "DEPLOYED_PERSISTENCE_VERIFIED_RUNTIME_PENDING",
       "implementation": "IMPLEMENTED",
       "tests": "3185_CANONICAL_CI_PASSED_ZERO_SKIPS",
       "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/207",
       "merge_revision": "47e7e0536b6c84f9f9f6698e5d1f76e80b315b14",
       "deployment_revision": "47e7e0536b6c84f9f9f6698e5d1f76e80b315b14",
-      "health": "LIVENESS_READY_PERSISTENCE_WRITE_FAILED_2026-11-14",
-      "runtime": "SECTOR_SNAPSHOT_NOT_SAVED_ATLAS_QUOTA",
-      "evidence": "docs/repairs/releases/2026-11-13-market-sector-context.md",
+      "health": "VERIFIED_WITH_ACKNOWLEDGED_SAVES_2026-11-14",
+      "runtime": "SECTOR_SOURCE_SAVE_VERIFIED_NORMAL_COMPARISON_AND_RESTART_PENDING",
+      "evidence": "docs/repairs/releases/2026-11-14-storage-recovery.md",
       "ci_run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43390962930",
       "deployment_id": "dep-dbrcergjo6nc73ev2ug0",
       "deployed_at": "2026-11-13T08:18:20.424623Z",
       "health_evidence": {
-        "at": "2026-11-14T16:26:22Z",
+        "observed_at": "2026-11-14T17:42:27.715095+00:00",
         "http_status": 200,
         "ok": true,
-        "ready": true,
-        "db_connected": true,
-        "write_error": "AtlasError 8000: 513 MB used / 512 MB quota",
-        "persistence_healthy": false
+        "db": {
+          "connected": true,
+          "db": "sourceborn",
+          "url_set": true,
+          "degraded": false,
+          "boot_degraded": false,
+          "write_error": null,
+          "write_error_at": null
+        },
+        "readiness": {
+          "production": true,
+          "ready": true,
+          "insecure_override": false,
+          "problems": []
+        },
+        "stats": {
+          "asof": "2026-11-14T17:41:43.194686+00:00",
+          "age_s": 44.4,
+          "pending": false,
+          "elapsed_s": 8.423,
+          "error": null
+        },
+        "rounded_cluster_logical_mib": 434.0
       },
       "runtime_observation": {
-        "sector_identity_saved_documents": 0,
-        "last_portfolio_save": "2026-11-13T06:23:54.436016",
+        "sector_identity_saved_documents": 1,
+        "observed_sources": 14,
+        "required_sources": 15,
+        "unavailable_source": "Cement: ReadTimeout",
+        "sector_attempted_at": "2026-11-14T17:34:38.675187+00:00",
+        "last_portfolio_save": "2026-11-14T17:34:24.979162",
+        "normal_comparison_decision_observed": false,
+        "controlled_post_save_restart_verified": false,
         "production_scan_induced": false,
         "production_trade_induced": false
       },
-      "blocking_incident": "RUN-20261114-01",
+      "blocking_incident": null,
       "storage_recovery_plan": "docs/repairs/releases/2026-11-14-lossless-archive-plan.md",
       "owner_storage_decision": "KEEP_FREE_TIER_PRIVATE_DOWNLOAD_AND_BOUNDED_CLEANUP_REQUESTED",
       "diagnostic_followup": {
@@ -279,7 +304,7 @@
         "local_tests": 3193,
         "local_skipped": 0,
         "focused_tests": 65,
-        "deployment": "pending_capacity_recovery",
+        "deployment": "deferred_pending_state_reconciliation",
         "head": "e223d04feb2eb37d260b97300a517e8faf06abd9",
         "merge": "1efba3c792a957ad787bf52fa0a34607e366c808",
         "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/208",
@@ -288,13 +313,26 @@
         "canonical_skipped": 0
       },
       "archive_preflight": {
-        "status": "LOCAL_TESTED_NOT_LIVE_WIRED",
+        "status": "MERGED_NOT_LIVE_WIRED",
         "evidence": "docs/repairs/releases/2026-11-14-archive-preflight.md",
         "focused_tests": 54,
         "local_tests": 3248,
         "skipped": 0,
         "production_mutations": 0,
-        "backup": "native capture and local restore verification in progress"
+        "backup": "19 collections / 82740 stored documents captured, independently reread and restored; two independent off-device copies and quiesced live state not verified",
+        "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/210",
+        "merge_revision": "24f7fe0d22e7c41d4aa3d42ccf95b38a85048996",
+        "canonical_ci_tests": 3247,
+        "ci_run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43620592692"
+      },
+      "recovery_incident": "RUN-20261114-01",
+      "storage_recovery": {
+        "status": "TEMPORARY_CAPACITY_RESTORED",
+        "evidence": "docs/repairs/releases/2026-11-14-storage-recovery.md",
+        "removed_live_scan_copies": 10000,
+        "private_originals_preserved": true,
+        "permanent_retention": "pending",
+        "prior_process_spill_coverage": "unknown"
       }
     },
     {
@@ -408,5 +446,5 @@
       "evidence": null
     }
   ],
-  "active_step_note": "SEQ-06 implementation merged in PR207, 3185 canonical CI tests pass with zero skips, and exact revision is deployed. Live verification found Atlas quota rejects writes; source snapshot is absent and portfolio last_save has not advanced. Goal remains active; SEQ-07 stays queued. Earlier runtime and later performance subclaims remain open."
+  "active_step_note": "SEQ-06 remains active. PR207 is live; native backup and exact owner-requested scan-only cleanup restored normal portfolio and sector snapshot persistence. Official source ingestion is 14/15 with explicit Cement unknown, visible on the owner page. Normal saved comparison and controlled post-save restart evidence remain pending; no production trade induced. SEQ-07 stays queued; earlier runtime and later performance subclaims remain open."
 }

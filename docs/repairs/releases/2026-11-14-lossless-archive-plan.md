@@ -1,5 +1,7 @@
 # Free-tier lossless archive plan — prepared, not executed
 
+> **14 November recovery update:** [Native backup and bounded temporary cleanup](2026-11-14-storage-recovery.md) are verified. Ordinary portfolio and sector-source writes now persist. The full online compression migration below is still pending; this historical plan does not imply all A1–A9 items are complete.
+
 Owner decision, 14 November 2026: **keep the free tier; prepare a lossless
 archive plan**. A paid Atlas upgrade is not authorized. No production record
 has been changed, removed, compressed or migrated by this preparation.
@@ -28,8 +30,8 @@ A read-only sample of the earliest five and latest five scan records compressed
 73,423 evidence BSON bytes to 10,791 bytes with deflate level 9, restoring the
 sample bytes exactly. Separate groups saved **82.66%** and **87.97%**. Connector
 transport can normalize BSON types and IDs were excluded: this proves a useful
-size experiment, not a complete backup or raw-BSON migration. Full-dataset
-savings, BSON fidelity, memory and latency remain to be proved.
+size experiment, not a complete backup or raw-BSON migration. The later recovery record proves full-dataset byte fidelity and size; live adapter
+compatibility, latency and a production migration remain to be proved.
 [Sample method and hashes](../evidence/2026-11-14-journal-compression-sample.json).
 
 For planning only, reducing approximately 255 MiB of evidence by 80% could
@@ -77,19 +79,19 @@ an unlimited retention solution.
 |---|---|---|---|
 | A1 | Inventory and candidate measurement | Exact collections, rows, ID uniqueness, sizes, actual readers/writers | Complete, read-only evidence above |
 | A2 | Prepare compatible codec, readers and new writer in an isolated environment | Raw BSON round trips; every consumer above; corrupt/truncated/bomb payload rejection; bounded memory; 20000-row export parity; partial batch failure and restart retries | Partial: offline codec and file verifier tested; live adapters/writer still pending |
-| A3 | Choose and verify two durable backup destinations outside the full cluster | Encrypted archive copies, manifest/checksums, successful independent restore to scratch Mongo, permissions/retention and access after deployment restart | Not selected; no full export/backup claimed |
+| A3 | Choose and verify two durable backup destinations outside the full cluster | Encrypted archive copies, manifest/checksums, successful independent restore to scratch Mongo, permissions/retention and access after deployment restart | Partial: full native export and two local restores verified; independent off-device copies not verified |
 | A4 | Quiesce MARS writers and capture unsaved state | Live in-memory portfolio and local book/spill files preserved separately from older Mongo copy; counts/hashes and conflicts reconciled before restart | Not performed; requires controlled owner/server access |
 | A5 | Generate immutable migration manifest | Original IDs, raw BSON hashes/lengths, proposed payload hashes/lengths, field/type/row parity, actual net capacity recovered; full dry run and rollback restore pass | Not performed |
 | A6 | Review exact canary and quota bootstrap | Owner reviews affected IDs, verified backups, expected net bytes and restore route; no implicit deletion or paid tier change | Not authorized by plan preparation |
 | A7 | Migrate bounded batches | Re-read and compare against manifest, conditional update, acknowledgement, read-back/decode/hash, checkpoint after each record; stop on mismatch or refusal | Not performed |
 | A8 | Verify preservation and resume | All original IDs/counts/bytes reconstruct, all queries and exports match, capacity margin measured, ordinary saves acknowledged, restart recovery and spills replay | Not performed |
-| A9 | Complete Goal06 proof | Ordinary sector refresh acknowledged/read back with original source dates, later saved decision comparisons and controlled restart verification | Blocked by current storage incident |
+| A9 | Complete Goal06 proof | Ordinary sector refresh acknowledged/read back with original source dates, later saved decision comparisons and controlled restart verification | Partial: ordinary source/portfolio persistence and owner page verified; normal saved comparison and controlled post-save restart pending |
 
 A3 must use durable owner-approved storage, not Render `/tmp`, a developer's
 temporary sample, a public repository, a backup button that writes to the same
 full cluster, or an unverified export. Mongo native backup tools/raw BSON must
-preserve data types and index definitions. There is no currently verified full
-backup in this plan. The existing `/reports/backup` calls the same Mongo save;
+preserve data types and index definitions. A full native stored-data backup is now verified in the recovery record; the
+required independent off-device copies and quiesced live-state coverage remain open. The existing `/reports/backup` calls the same Mongo save;
 it does not solve quota or preserve a separate recoverable copy.
 
 ## Full-quota bootstrap and rollback
@@ -135,4 +137,4 @@ Binary payload changes the BSON size measured by Mongo; prove that reduction
 on the complete proposed data before claiming relief.
 [MongoDB storage accounting](https://www.mongodb.com/docs/atlas/reference/faq/storage/).
 
-Offline A2 foundation is now [implemented and locally tested](2026-11-14-archive-preflight.md). The owner subsequently requested a private downloadable backup and bounded cleanup. Native capture/restore verification is in progress; this does not yet satisfy A3 or authorize arbitrary history loss.
+Offline A2 foundation is now [implemented and locally tested](2026-11-14-archive-preflight.md). The owner subsequently requested a private downloadable backup and bounded cleanup. Native capture/restore and a separately authorized exact 10000-record cold archive are now verified. A3 still lacks independent off-device copies; A4 lacks prior-process RAM/spill capture. No arbitrary deletion or compressed live migration is authorized by this plan.

@@ -27,9 +27,20 @@
     "junit_sha256": "31e0105cdd2a2fc41e4f88dbf71203be5a0405aae16c3263208c8065d8be5a7f"
   },
   "ci": {
-    "status": "pending"
+    "status": "success",
+    "tests": 3247,
+    "skipped": 0,
+    "failed": 0,
+    "errors": 0,
+    "seconds": 297.06,
+    "repair_records": "success",
+    "no_skip_guard": "success",
+    "run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43620592692"
   },
   "production_mutations": 0,
   "deployment": "deferred; live PR207 preserved",
-  "native_backup": "capture and restore check in progress; no completed backup claim"
+  "native_backup": "Verified separately in 2026-11-14-storage-recovery.json; preflight code itself performed no production mutation.",
+  "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/210",
+  "head_revision": "60f9acd22f785a5101c6e1f35692941e41b54399",
+  "merge_revision": "24f7fe0d22e7c41d4aa3d42ccf95b38a85048996"
 }

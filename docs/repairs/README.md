@@ -14,12 +14,12 @@ Earlier verified batches (2 November):
 | 2 | RUN-20261102-01, daily category recovery | Merged/deployed in PR #187; Momentum look-only pass completed at 16:18 IST; 185 candidates blocked after close; full rotation remains unverified |
 | 3 | AUD-001, unfinished drawdown liquidation | Merged/deployed in [PR #188](https://github.com/damandamanaulakh-tech/MARS/pull/188); local and CI suites each 2,647 passed, zero skipped; production health verified |
 
-Latest deployed functional revision: `47e7e0536b6c84f9f9f6698e5d1f76e80b315b14` ([PR207](https://github.com/damandamanaulakh-tech/MARS/pull/207)), Render `dep-dbrcergjo6nc73ev2ug0`, live `2026-11-13T08:18:20.424623Z`. CI: **3185 passed, zero skips**. HTTP liveness is available; database writes fail at the shared Atlas quota. [Evidence](releases/2026-11-14-context-storage-incident.md).
+Latest deployed functional revision: `47e7e0536b6c84f9f9f6698e5d1f76e80b315b14` ([PR207](https://github.com/damandamanaulakh-tech/MARS/pull/207)), Render `dep-dbrcergjo6nc73ev2ug0`, live `2026-11-13T08:18:20.424623Z`. CI: **3185 passed, zero skips**. Database writes recovered on 14 November after the verified bounded cold archive; normal decision/restart observations remain pending. [Evidence](releases/2026-11-14-context-storage-incident.md).
 
-**SEQ-06 is deployed; persistence verification is blocked by Atlas quota.**
+**SEQ-06 is deployed; portfolio and sector-source persistence are now verified. Normal comparison/restart observation remains pending.**
 Official sector identities, matching completed comparison windows and explicit
-unknowns are implemented. The storage blocker prevents durable runtime proof;
-Goal07 remains queued. SEQ-05's fee model and the original financial history
+unknowns are implemented. The temporary storage recovery is [verified](releases/2026-11-14-storage-recovery.md);
+Goal07 remains queued while normal comparison/restart evidence is pending. SEQ-05's fee model and the original financial history
 remain unchanged, including the [separate 74-trade comparison](reviews/2026-11-12-intraday-cost-comparison.csv).
 The [11-step programme](EXECUTION_PLAN.md) retains all earlier pending runtime
 observations and future research. [SEQ-04 evidence](releases/2026-11-12-completed-intraday-data.md),
@@ -50,10 +50,10 @@ Run `python scripts/check_repair_records.py` to check record retention, unique
 IDs, CSV/JSON/table consistency, repository evidence paths and release links.
 GitHub Actions runs this check alongside the existing zero-skip application suite.
 
-SEQ-06 is deployed in PR207 (3185 canonical CI tests, zero skips), but live verification found Atlas quota blocking sector and portfolio writes. Goal06 remains active; Goal07 remains queued. [Shipment](releases/2026-11-13-market-sector-context.md) and [storage incident](releases/2026-11-14-context-storage-incident.md).
+SEQ-06 is deployed in PR207 (3185 canonical CI tests, zero skips). The Atlas quota incident was relieved by a verified 10000-record cold archive on 14 November; normal portfolio and 14/15-source sector snapshot saves are read back. Goal06 remains active for normal comparison/restart observations; Goal07 remains queued. [Shipment](releases/2026-11-13-market-sector-context.md) and [storage incident](releases/2026-11-14-context-storage-incident.md).
 
-Owner storage decision, 14 November: keep the free tier. [Lossless archive plan](releases/2026-11-14-lossless-archive-plan.md) prepared with measured sizes, preservation and restore requirements; no production migration performed.
+Owner storage decision, 14 November: keep the free tier. [Lossless archive plan](releases/2026-11-14-lossless-archive-plan.md) prepared with measured sizes, preservation and restore requirements; no compressed online migration performed; the separately authorized temporary cold archive is recorded below.
 
-Diagnostic follow-up and the owner-selected free-tier archive plan are merged in [PR208](https://github.com/damandamanaulakh-tech/MARS/pull/208): **3192 canonical CI tests, zero skips**. Its deployment awaits safe capacity recovery; live remains PR207. Goal06 is still open.
+Diagnostic follow-up and the owner-selected free-tier archive plan are merged in [PR208](https://github.com/damandamanaulakh-tech/MARS/pull/208): **3192 canonical CI tests, zero skips**. Its deployment remains deferred pending state reconciliation; live remains PR207. Goal06 is still open.
 
-The [offline archive verifier](releases/2026-11-14-archive-preflight.md) passes 54 focused and 3,248 local tests with zero skips. Live readers/writers are not changed. Private native capture and restore checks are in progress; capacity recovery and Goal06 remain open.
+The [offline archive verifier](releases/2026-11-14-archive-preflight.md) is merged in PR210 with 3,247 canonical CI tests and zero skips (54 focused / 3,248 local). The [recovery record](releases/2026-11-14-storage-recovery.md) proves all 82,740 stored documents were backed up/restored and exactly 10,000 scan-only copies removed for 74.15 MiB of temporary relief. All 30,486 remaining archive records are byte-identical. Live compression, sustainable retention and prior-process spill reconciliation remain open.
