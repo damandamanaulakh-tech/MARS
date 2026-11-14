@@ -275,11 +275,17 @@
       "storage_recovery_plan": "docs/repairs/releases/2026-11-14-lossless-archive-plan.md",
       "owner_storage_decision": "KEEP_FREE_TIER_PREPARE_LOSSLESS_ARCHIVE_PLAN",
       "diagnostic_followup": {
-        "status": "LOCAL_TESTED",
+        "status": "MERGED_DEPLOYMENT_DEFERRED_CAPACITY_RECOVERY",
         "local_tests": 3193,
         "local_skipped": 0,
         "focused_tests": 65,
-        "deployment": "pending_capacity_recovery"
+        "deployment": "pending_capacity_recovery",
+        "head": "e223d04feb2eb37d260b97300a517e8faf06abd9",
+        "merge": "1efba3c792a957ad787bf52fa0a34607e366c808",
+        "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/208",
+        "ci_run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43616515704",
+        "canonical_tests": 3192,
+        "canonical_skipped": 0
       }
     },
     {
