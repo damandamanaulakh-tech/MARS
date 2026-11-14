@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "base_revision": "923b3b4d327e76f082117634601b887f87e61ce5",
+  "scope": "offline codec and file verifier only; live adapters and migration not activated",
+  "source_sha256": {
+    "web/journal_archive_codec.py": "9212f0ead59465f1a5ede268f24e3c6063df8b9c9220d1d086bfec95e18e1cd8",
+    "web/journal_archive_preflight.py": "91e06d81b8ca488644f1bf7360e97e9b3fecc9e0f27595a389abb438cd8117a4",
+    "scripts/journal_archive_preflight.py": "d576d3d34904fe2121ade5cee638ac0afa1df1d407fc5446181c7d8c4c95a635",
+    "web/tests/test_journal_archive_codec_2026_11_14.py": "062727f75de1353c9d401cc0448eaa234356f2a88811d0c9af4091202d6862f2",
+    "web/tests/test_journal_archive_preflight_2026_11_14.py": "f344caa4feafeefcb99c21bc9fa6d22ab8a700006da1fd141f39181b21389860"
+  },
+  "focused": {
+    "passed": 54,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "full_local": {
+    "passed": 3248,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 240.19,
+    "command": "python -m pytest trading/tests/ web/tests/ --ignore-glob='* 2.py' -q -ra --junitxml=<private-result-file>",
+    "untracked_duplicate_test_files_excluded": true,
+    "untracked_duplicate_script_syntax_tests_included": 1,
+    "junit_sha256": "31e0105cdd2a2fc41e4f88dbf71203be5a0405aae16c3263208c8065d8be5a7f"
+  },
+  "ci": {
+    "status": "pending"
+  },
+  "production_mutations": 0,
+  "deployment": "deferred; live PR207 preserved",
+  "native_backup": "capture and restore check in progress; no completed backup claim"
+}

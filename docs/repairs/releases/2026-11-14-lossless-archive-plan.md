@@ -76,7 +76,7 @@ an unlimited retention solution.
 | Order | Work | Proof required | Current state |
 |---|---|---|---|
 | A1 | Inventory and candidate measurement | Exact collections, rows, ID uniqueness, sizes, actual readers/writers | Complete, read-only evidence above |
-| A2 | Prepare compatible codec, readers and new writer in an isolated environment | Raw BSON round trips; every consumer above; corrupt/truncated/bomb payload rejection; bounded memory; 20000-row export parity; partial batch failure and restart retries | Proposed; not implemented |
+| A2 | Prepare compatible codec, readers and new writer in an isolated environment | Raw BSON round trips; every consumer above; corrupt/truncated/bomb payload rejection; bounded memory; 20000-row export parity; partial batch failure and restart retries | Partial: offline codec and file verifier tested; live adapters/writer still pending |
 | A3 | Choose and verify two durable backup destinations outside the full cluster | Encrypted archive copies, manifest/checksums, successful independent restore to scratch Mongo, permissions/retention and access after deployment restart | Not selected; no full export/backup claimed |
 | A4 | Quiesce MARS writers and capture unsaved state | Live in-memory portfolio and local book/spill files preserved separately from older Mongo copy; counts/hashes and conflicts reconciled before restart | Not performed; requires controlled owner/server access |
 | A5 | Generate immutable migration manifest | Original IDs, raw BSON hashes/lengths, proposed payload hashes/lengths, field/type/row parity, actual net capacity recovered; full dry run and rollback restore pass | Not performed |
@@ -134,3 +134,5 @@ compression/compaction is not this plan's capacity mechanism. The proposed
 Binary payload changes the BSON size measured by Mongo; prove that reduction
 on the complete proposed data before claiming relief.
 [MongoDB storage accounting](https://www.mongodb.com/docs/atlas/reference/faq/storage/).
+
+Offline A2 foundation is now [implemented and locally tested](2026-11-14-archive-preflight.md). The owner subsequently requested a private downloadable backup and bounded cleanup. Native capture/restore verification is in progress; this does not yet satisfy A3 or authorize arbitrary history loss.
