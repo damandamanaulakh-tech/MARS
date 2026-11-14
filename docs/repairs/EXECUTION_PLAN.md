@@ -8,12 +8,14 @@ separate incidents. [Goals](GOALS.md), [full backlog](BACKLOG.md),
 
 ## Current batch
 
-**SEQ-06 is deployed; persistence verification is blocked by Atlas quota.**
+**SEQ-06 is deployed; portfolio and sector-source persistence are now verified. Normal comparison/restart observation remains pending.**
 [PR207](https://github.com/damandamanaulakh-tech/MARS/pull/207) verifies official sector identity and saves stock, sector and market comparisons
 on identical completed windows. All **3,185 canonical CI tests pass with zero
 skips**. Exact revision `47e7e0536b6c84f9f9f6698e5d1f76e80b315b14` is live.
-Read-only verification found Atlas rejects writes at 513 MB / 512 MB, leaving
-no saved sector snapshot. HTTP liveness is not healthy persistence.
+Initial verification found quota-refused writes. After the owner-requested
+verified cold archive, normal portfolio and sector-source saves now persist.
+The [recovery evidence](releases/2026-11-14-storage-recovery.md) retains the
+remaining lifecycle, restart and retention limits.
 [Release evidence](releases/2026-11-13-market-sector-context.md) and
 [capacity recovery requirements](releases/2026-11-14-context-storage-incident.md).
 The prior SEQ-05 cost release remains recorded separately; it is not reopened
@@ -32,7 +34,7 @@ unproven; the original ledger, strategy thresholds and research sequence are ret
 | SEQ-03 | G13/G9; INTRA-004, ROOT-AM07-04, ROOT-ROUTE-09 | Immutable entry/exit gate results and quote provenance | Values, thresholds, pass/fail/skip/unavailable, provider/receipt time, bar interval, stop amendments and exit trigger attached to each new trade | SHIPPED; 2994 local/CI passed, zero skips; health verified; normal lifecycle observation pending |
 | SEQ-04 | G13; INTRA-001, ROOT-AM07-04 | Connect completed intraday bars to the actual intraday data path | Correct interval, session alignment, no future/unclosed bars, explicit missing-data handling and recorded comparison with the daily baseline | DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING; PR203; 3067 local/CI tests, zero skips |
 | SEQ-05 | G13; XR-059 | Product-appropriate intraday cost model and separate historical comparison | Dated broker/exchange schedule and account-plan assumptions; buy/sell/partial-exit cases; original ledger preserved | DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING; PR205; 3127 canonical CI tests, zero skips |
-| SEQ-06 | G9/G13; INTRA-004, XR-009, XR-061 | Sector identity, input coverage and same-window benchmark/sector context | Unknown never counts as measured strength; timestamped stock/sector/index comparisons; context does not silently become a new gate | DEPLOYED_PERSISTENCE_BLOCKED; PR207; 3185 canonical CI tests, zero skips |
+| SEQ-06 | G9/G13; INTRA-004, XR-009, XR-061 | Sector identity, input coverage and same-window benchmark/sector context | Unknown never counts as measured strength; timestamped stock/sector/index comparisons; context does not silently become a new gate | DEPLOYED_PERSISTENCE_VERIFIED_RUNTIME_PENDING; PR207; 3185 canonical CI tests, zero skips |
 | SEQ-07 | G13; XR-081; owner candle decision | Candle patterns assist selection, with recorded owner controls | Advisory contribution is explicit; absence alone does not veto an otherwise eligible entry; protective exits remain independent; invalid candles remain unavailable | QUEUED |
 | SEQ-08 | G13; INTRA-003 | Compare net-profit-aware trailing exits and reachable targets | Replay with costs, slippage and intrabar ambiguity; unseen-period comparison of expectancy and drawdown; exact candidate settings reviewed before promotion | QUEUED |
 | SEQ-09 | G13; INTRA-003 | Fresh-setup/cooldown experiments after a failed trade | Record the changed setup; measure losses avoided and recoveries missed; prevent same-bar hindsight or automatic score reuse | QUEUED |
@@ -64,10 +66,10 @@ backlog remains open according to each original record. G12's five failing
 FRED numerical feeds and other documented source limitations remain open.
 Completing this sequence does not close those findings by implication.
 
-SEQ-06 is deployed in PR207 (3185 canonical CI tests, zero skips), but live verification found Atlas quota blocking sector and portfolio writes. Goal06 remains active; Goal07 remains queued. [Shipment](releases/2026-11-13-market-sector-context.md) and [storage incident](releases/2026-11-14-context-storage-incident.md).
+SEQ-06 is deployed in PR207 (3185 canonical CI tests, zero skips). The Atlas quota incident was relieved by a verified 10000-record cold archive on 14 November; normal portfolio and 14/15-source sector snapshot saves are read back. Goal06 remains active for normal comparison/restart observations; Goal07 remains queued. [Shipment](releases/2026-11-13-market-sector-context.md) and [storage incident](releases/2026-11-14-context-storage-incident.md).
 
-Owner storage decision, 14 November: keep the free tier. [Lossless archive plan](releases/2026-11-14-lossless-archive-plan.md) prepared with measured sizes, preservation and restore requirements; no production migration performed.
+Owner storage decision, 14 November: keep the free tier. [Lossless archive plan](releases/2026-11-14-lossless-archive-plan.md) prepared with measured sizes, preservation and restore requirements; no compressed online migration performed; the separately authorized temporary cold archive is recorded below.
 
-Diagnostic follow-up and the owner-selected free-tier archive plan are merged in [PR208](https://github.com/damandamanaulakh-tech/MARS/pull/208): **3192 canonical CI tests, zero skips**. Its deployment awaits safe capacity recovery; live remains PR207. Goal06 is still open.
+Diagnostic follow-up and the owner-selected free-tier archive plan are merged in [PR208](https://github.com/damandamanaulakh-tech/MARS/pull/208): **3192 canonical CI tests, zero skips**. Its deployment remains deferred pending state reconciliation; live remains PR207. Goal06 is still open.
 
-The [offline archive verifier](releases/2026-11-14-archive-preflight.md) passes 54 focused and 3,248 local tests with zero skips. Live readers/writers are not changed. Private native capture and restore checks are in progress; capacity recovery and Goal06 remain open.
+The [offline archive verifier](releases/2026-11-14-archive-preflight.md) is merged in PR210 with 3,247 canonical CI tests and zero skips (54 focused / 3,248 local). The [recovery record](releases/2026-11-14-storage-recovery.md) proves all 82,740 stored documents were backed up/restored and exactly 10,000 scan-only copies removed for 74.15 MiB of temporary relief. All 30,486 remaining archive records are byte-identical. Live compression, sustainable retention and prior-process spill reconciliation remain open.

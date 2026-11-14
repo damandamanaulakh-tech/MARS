@@ -1,0 +1,381 @@
+{
+  "schema": 1,
+  "recorded_date": "2026-11-14",
+  "base_revision": "24f7fe0d22e7c41d4aa3d42ccf95b38a85048996",
+  "scope": "Owner-requested temporary cold archive of exact scan-only records; no compressed records inserted online",
+  "authorization": "Owner kept free tier, requested private downloadable backup and bounded cleanup, then signed into Render for existing native export access.",
+  "backup": {
+    "archive_name": "MARS-sourceborn-2026-11-14.tar.gz",
+    "sha256": "7a4c8548a3a49fe70632839f799ff1a6138851c44e18837f8261518ff4e69b7f",
+    "compressed_bytes": 25289257,
+    "collections": 19,
+    "rows": 82740,
+    "raw_bson_bytes": 364090190,
+    "packaged_bson_and_metadata_hashes_checked": 38,
+    "local_restore_all_documents_and_indexes_equal": true,
+    "independent_off_device_backup": false,
+    "contains_private_data": true,
+    "public_repository_upload": false
+  },
+  "source_completeness": {
+    "collections": 19,
+    "documents": 82740,
+    "raw_bson_bytes": 364090190,
+    "independent_second_read_all_rows_equal": true,
+    "collection_options_and_indexes_restored": true,
+    "native_local_restore_all_bytes_equal": true,
+    "portable_restore_helper_second_full_restore_verified": true,
+    "point_in_time_quiesced": false,
+    "prior_live_RAM_or_spill_capture_verified": false
+  },
+  "cleanup": {
+    "database": "sourceborn",
+    "collection": "journal_archive",
+    "action": "SCAN_DECISION",
+    "selected_rows": 10000,
+    "selected_bytes": 77755460,
+    "first_record_at": "2026-11-11T19:09:59.437359+00:00",
+    "last_record_at": "2026-11-12T06:26:14.683818+00:00",
+    "keep_timestamp_from": "2026-11-12T10:17:09.260682+00:00",
+    "known_trade_reference_ids_excluded": 1797,
+    "manifest_sha256": "c45ee94ca88e314a47219c9646a1a41ac0661cbc8dca4d8c862be97026217fc7",
+    "script_sha256": "a55189103f5e9a41882e8612e12b29e36ed033a32240aaac662b4ce65b2167b2",
+    "local_full_rehearsal": true,
+    "changed_record_guard_test": true,
+    "live_readonly_preflight": true,
+    "live_canary": 500,
+    "acknowledged_batches": 100,
+    "batch_size": 100,
+    "first_ack_at": "2026-11-14T17:32:47.754123+00:00",
+    "last_ack_at": "2026-11-14T17:38:36.310015+00:00",
+    "remaining_records": 30486,
+    "recent_records_preserved": 20000,
+    "all_untargeted_raw_bson_equal": true,
+    "readback_at": "2026-11-14T17:40:52.058234+00:00",
+    "buy_rows_preserved": 435,
+    "sell_rows_preserved": 395,
+    "exit_decision_rows_preserved": 1561,
+    "archived_trade_ledger_rows_preserved": 181,
+    "other_collection_mutations_by_cleanup": 0,
+    "other_database_mutations": 0,
+    "online_access_to_removed_explanations": "cold backup only; compatible online reader/migration not activated"
+  },
+  "compression_proof": {
+    "rows": 40486,
+    "original_bytes": 282995386,
+    "candidate_bytes": 62355043,
+    "smaller_rows": 35613,
+    "saved_bytes": 220640343,
+    "every_original_byte_recovered": true,
+    "source_sha256": "1c54b546f5db93f01a945fd7f3a92330c645b590bec11832c240e44f53fa38f8",
+    "candidate_sha256": "f911e70d5c00fe537936ca2204835673f284c13298d7b4a46fc0353f84fa4e81",
+    "production_migration": false
+  },
+  "portfolio": {
+    "last_save_before": "2026-11-13T06:23:54.436016",
+    "last_save_after": "2026-11-14T17:34:24.979162",
+    "last_scan_before": "2026-11-13T06:09:26.002677",
+    "last_scan_after": "2026-11-13T06:09:26.002677",
+    "open_positions_before": 53,
+    "open_positions_after": 53,
+    "closed_trades_before": 214,
+    "closed_trades_after": 214,
+    "stored_closed_trades_identical": true,
+    "position_changed_fields": [
+      "intraday_close"
+    ]
+  },
+  "sector_identity": {
+    "schema": 1,
+    "model": "nse-constituents-2026-11-13-v1",
+    "attempted_at": "2026-11-14T17:34:38.675187+00:00",
+    "sources": 14,
+    "attempts": {
+      "Bank": {
+        "status": "observed",
+        "at": "2026-11-14T17:34:38.675187+00:00",
+        "count": 14
+      },
+      "Total Market": {
+        "status": "observed",
+        "at": "2026-11-14T17:34:38.675187+00:00",
+        "count": 748
+      },
+      "IT": {
+        "status": "observed",
+        "at": "2026-11-14T17:34:38.675187+00:00",
+        "count": 10
+      },
+      "Fin Service": {
+        "status": "observed",
+        "at": "2026-11-14T17:34:38.675187+00:00",
+        "count": 20
+      },
+      "Auto": {
+        "status": "observed",
+        "at": "2026-11-14T17:34:38.675187+00:00",
+        "count": 15
+      },
+      "Pharma": {
+        "status": "observed",
+        "at": "2026-11-14T17:34:38.675187+00:00",
+        "count": 20
+      },
+      "Metal": {
+        "status": "observed",
+        "at": "2026-11-14T17:34:38.675187+00:00",
+        "count": 15
+      },
+      "FMCG": {
+        "status": "observed",
+        "at": "2026-11-14T17:34:38.675187+00:00",
+        "count": 15
+      },
+      "Media": {
+        "status": "observed",
+        "at": "2026-11-14T17:34:38.675187+00:00",
+        "count": 10
+      },
+      "Realty": {
+        "status": "observed",
+        "at": "2026-11-14T17:34:38.675187+00:00",
+        "count": 10
+      },
+      "Oil & Gas": {
+        "status": "observed",
+        "at": "2026-11-14T17:34:38.675187+00:00",
+        "count": 15
+      },
+      "Chemicals": {
+        "status": "observed",
+        "at": "2026-11-14T17:34:38.675187+00:00",
+        "count": 20
+      },
+      "Healthcare": {
+        "status": "observed",
+        "at": "2026-11-14T17:34:38.675187+00:00",
+        "count": 20
+      },
+      "Consumer Durables": {
+        "status": "observed",
+        "at": "2026-11-14T17:34:38.675187+00:00",
+        "count": 14
+      },
+      "Cement": {
+        "status": "unavailable",
+        "at": "2026-11-14T17:34:38.675187+00:00",
+        "error_type": "ReadTimeout",
+        "retained_observation": null
+      }
+    },
+    "source_observations": {
+      "Total Market": {
+        "url": "https://archives.nseindia.com/content/indices/ind_niftytotalmarket_list.csv",
+        "observed_at": "2026-11-14T17:34:38.675187+00:00",
+        "publication_at": null,
+        "effective_at": null,
+        "source_status": "observed",
+        "count": 748,
+        "sha256": "df60535f43e817ce2bd259d046502318a20584859f14f9f3ecc51d4440b63cb8"
+      },
+      "IT": {
+        "url": "https://archives.nseindia.com/content/indices/ind_niftyitlist.csv",
+        "observed_at": "2026-11-14T17:34:38.675187+00:00",
+        "publication_at": null,
+        "effective_at": null,
+        "source_status": "observed",
+        "count": 10,
+        "sha256": "22d3781a4d27ac42fb4d6d537c54341ea6afa62fda02509375c4243671eb7d60"
+      },
+      "Bank": {
+        "url": "https://archives.nseindia.com/content/indices/ind_niftybanklist.csv",
+        "observed_at": "2026-11-14T17:34:38.675187+00:00",
+        "publication_at": null,
+        "effective_at": null,
+        "source_status": "observed",
+        "count": 14,
+        "sha256": "eac5d4d5a1d9cfdbfceca604b274bcc999a1f1f36405263569cc2466ef55c64f"
+      },
+      "Fin Service": {
+        "url": "https://archives.nseindia.com/content/indices/ind_niftyfinancelist.csv",
+        "observed_at": "2026-11-14T17:34:38.675187+00:00",
+        "publication_at": null,
+        "effective_at": null,
+        "source_status": "observed",
+        "count": 20,
+        "sha256": "2940005fd8c544b7dc83bb937b2eaa68fba7686dfb291864783cbef6402ba57f"
+      },
+      "Auto": {
+        "url": "https://archives.nseindia.com/content/indices/ind_niftyautolist.csv",
+        "observed_at": "2026-11-14T17:34:38.675187+00:00",
+        "publication_at": null,
+        "effective_at": null,
+        "source_status": "observed",
+        "count": 15,
+        "sha256": "6dd41b7a227ceb08a6b957cbf81bd86c522a9c7f73c0c2f1a1b9e488440b32ed"
+      },
+      "Pharma": {
+        "url": "https://archives.nseindia.com/content/indices/ind_niftypharmalist.csv",
+        "observed_at": "2026-11-14T17:34:38.675187+00:00",
+        "publication_at": null,
+        "effective_at": null,
+        "source_status": "observed",
+        "count": 20,
+        "sha256": "9013c84ddc85388dae3554d0e0cef4c56114e622d72ca2b0fdb3e544137a9f89"
+      },
+      "FMCG": {
+        "url": "https://archives.nseindia.com/content/indices/ind_niftyfmcglist.csv",
+        "observed_at": "2026-11-14T17:34:38.675187+00:00",
+        "publication_at": null,
+        "effective_at": null,
+        "source_status": "observed",
+        "count": 15,
+        "sha256": "7a178fecd4813a44ef3916df9c48d7d280489e5ccd6a29682723a3e1a16104dd"
+      },
+      "Metal": {
+        "url": "https://archives.nseindia.com/content/indices/ind_niftymetallist.csv",
+        "observed_at": "2026-11-14T17:34:38.675187+00:00",
+        "publication_at": null,
+        "effective_at": null,
+        "source_status": "observed",
+        "count": 15,
+        "sha256": "44e0ab7b8278fdd499c10bd1c89a99281d5f0574944162932fd3bd155d4c2ed9"
+      },
+      "Realty": {
+        "url": "https://archives.nseindia.com/content/indices/ind_niftyrealtylist.csv",
+        "observed_at": "2026-11-14T17:34:38.675187+00:00",
+        "publication_at": null,
+        "effective_at": null,
+        "source_status": "observed",
+        "count": 10,
+        "sha256": "4ca77c907a374f8d7deaa1534012809a5049a8304554cd4a4411cec6aec0563b"
+      },
+      "Media": {
+        "url": "https://archives.nseindia.com/content/indices/ind_niftymedialist.csv",
+        "observed_at": "2026-11-14T17:34:38.675187+00:00",
+        "publication_at": null,
+        "effective_at": null,
+        "source_status": "observed",
+        "count": 10,
+        "sha256": "7bd7ecba724eb810cde13482c09ff842ad2b8921bfffade39b61e348bac7f391"
+      },
+      "Healthcare": {
+        "url": "https://archives.nseindia.com/content/indices/ind_niftyhealthcarelist.csv",
+        "observed_at": "2026-11-14T17:34:38.675187+00:00",
+        "publication_at": null,
+        "effective_at": null,
+        "source_status": "observed",
+        "count": 20,
+        "sha256": "b0300c4617a4c18123579c6f5923bb2cef2b90bcb4f1f3fa19369060679729f4"
+      },
+      "Consumer Durables": {
+        "url": "https://archives.nseindia.com/content/indices/ind_niftyconsumerdurableslist.csv",
+        "observed_at": "2026-11-14T17:34:38.675187+00:00",
+        "publication_at": null,
+        "effective_at": null,
+        "source_status": "observed",
+        "count": 14,
+        "sha256": "d1b22d8a637a454b8ac27ac9e15d59b069bc6baa872b8f61a48fbd62916248c0"
+      },
+      "Oil & Gas": {
+        "url": "https://archives.nseindia.com/content/indices/ind_niftyoilgaslist.csv",
+        "observed_at": "2026-11-14T17:34:38.675187+00:00",
+        "publication_at": null,
+        "effective_at": null,
+        "source_status": "observed",
+        "count": 15,
+        "sha256": "4a79a3c9a982be6595da0785c0651ee4958fcd57bb8f6b74c44d35fd6387912d"
+      },
+      "Chemicals": {
+        "url": "https://archives.nseindia.com/content/indices/ind_niftyChemicals_list.csv",
+        "observed_at": "2026-11-14T17:34:38.675187+00:00",
+        "publication_at": null,
+        "effective_at": null,
+        "source_status": "observed",
+        "count": 20,
+        "sha256": "64a7465bd0d5f024719eaff1aba69028d030900221e08f82926ddfaa68ef9dab"
+      }
+    }
+  },
+  "recovery_capture": {
+    "collections": [
+      "portfolio",
+      "settings",
+      "trades"
+    ],
+    "independent_second_read_equal": true,
+    "fresh_local_restore_equal": true
+  },
+  "health": {
+    "observed_at": "2026-11-14T17:42:27.715095+00:00",
+    "http_status": 200,
+    "ok": true,
+    "db": {
+      "connected": true,
+      "db": "sourceborn",
+      "url_set": true,
+      "degraded": false,
+      "boot_degraded": false,
+      "write_error": null,
+      "write_error_at": null
+    },
+    "readiness": {
+      "production": true,
+      "ready": true,
+      "insecure_override": false,
+      "problems": []
+    },
+    "stats": {
+      "asof": "2026-11-14T17:41:43.194686+00:00",
+      "age_s": 44.4,
+      "pending": false,
+      "elapsed_s": 8.423,
+      "error": null
+    },
+    "rounded_cluster_logical_mib": 434.0
+  },
+  "runtime": {
+    "deployment_revision": "47e7e0536b6c84f9f9f6698e5d1f76e80b315b14",
+    "deployment_id": "dep-dbrcergjo6nc73ev2ug0",
+    "startup_complete_at": "2026-11-14T17:33:59.051015438Z",
+    "startup_kind": "Render free-instance wake after ordinary page navigation; no manual deploy/restart requested",
+    "market_context_owner_page": "Verified onscreen: 14/15 timestamped source snapshots; Cement Unknown/unavailable ReadTimeout; historical decisions without context remain Unknown",
+    "normal_comparison_decision_observed": false,
+    "controlled_restart_after_saved_identity": false,
+    "production_scan_induced": false,
+    "production_trade_induced": false,
+    "upstox_quote_http_status": 401,
+    "upstox_auth_recovery": "requires provider reconnect; storage cleanup does not restore token authorization"
+  },
+  "shipment": {
+    "archive_preflight_pr": "https://github.com/damandamanaulakh-tech/MARS/pull/210",
+    "archive_preflight_merge": "24f7fe0d22e7c41d4aa3d42ccf95b38a85048996",
+    "ci": {
+      "status": "success",
+      "tests": 3247,
+      "skipped": 0,
+      "failed": 0,
+      "errors": 0,
+      "seconds": 297.06,
+      "repair_records": "success",
+      "no_skip_guard": "success",
+      "run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43620592692"
+    },
+    "followup_deployment": "deferred; no new manual deployment",
+    "goal_06": "DEPLOYED_PERSISTENCE_VERIFIED_RUNTIME_PENDING",
+    "goal_07": "QUEUED"
+  },
+  "recovery_bundle": {
+    "archive_name": "MARS-recovery-bundle-2026-11-14.tar.gz",
+    "sha256": "99e3545a44538043e1edf4f1665a6cc8c13888bac20e275949cb9561f4f3e125",
+    "compressed_bytes": 25678572,
+    "all_packaged_files_independently_verified": 74,
+    "contains_private_data": true,
+    "public_repository_upload": false,
+    "independent_off_device_backup": false,
+    "source_collections": 19,
+    "source_documents": 82740,
+    "recovery_versions_included": true,
+    "portable_restore_verified": true
+  }
+}

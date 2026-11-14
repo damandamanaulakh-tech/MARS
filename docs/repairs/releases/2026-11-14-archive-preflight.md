@@ -84,8 +84,7 @@ for breadth, scanning, valuation, charts and research, including stale histories
 Clearing it would remove inputs, not merely flush an unused cache. The database
 named `test` belongs to a different app and is outside MARS cleanup scope.
 
-The owner signed in to Render and the existing MARS database connection was
-verified without changing credentials or deployment. A private native BSON
-capture of only `sourceborn` and a local restore check are in progress. Until
-their independent checks finish, neither is a verified backup or deletion basis.
+PR210 merged as `24f7fe0d22e7c41d4aa3d42ccf95b38a85048996`; [CI](https://github.com/damandamanaulakh-tech/MARS/actions/runs/43620592692) passed **3,247 canonical tests, zero skips**, including repair-record and no-skip guards. Deployment of these offline tools remains unnecessary.
+
+The later [storage recovery](2026-11-14-storage-recovery.md) records the completed native capture/restore, full-dataset compression measurement and separately authorized exact temporary cleanup. These are distinct from the offline tooling mutation count above.
 No database records have been removed by this preparation.

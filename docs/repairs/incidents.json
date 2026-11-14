@@ -22,7 +22,7 @@
   {
     "id": "RUN-20261114-01",
     "finding": "Atlas rejects sector snapshot, settings and portfolio writes at 513 MB against its 512 MB cluster quota",
-    "workflow": "REPRODUCED_CAPACITY_RECOVERY_REQUIRED",
+    "workflow": "PARTIAL_CAPACITY_RECOVERED_STATE_RECONCILIATION_PENDING",
     "related_findings": [
       "OPS-05",
       "XR-071"
@@ -32,6 +32,20 @@
     "acceptance": "Restore capacity without deleting unapproved records; observe acknowledged sector and portfolio saves, read back the snapshot, preserve dates and failures, then verify across a controlled restart. Coordinate all writers for a paid shared-cluster upgrade; do not infer success from HTTP 200.",
     "reconciliation": "Additional runtime incident; original 165 audit IDs and all 170 current backlog records retained.",
     "owner_decision": "Keep free tier. Requested private downloadable backup and bounded cleanup; exact data preservation and recovery checks precede removal. No paid upgrade authorized.",
-    "recovery_plan": "docs/repairs/releases/2026-11-14-lossless-archive-plan.md"
+    "recovery_plan": "docs/repairs/releases/2026-11-14-lossless-archive-plan.md",
+    "current_evidence": "docs/repairs/releases/2026-11-14-storage-recovery.md",
+    "recovery_observation": "14 November 17:40:52 UTC: exact 10000-row cold archive verified, all 30486 untargeted BSON unchanged. Normal stored portfolio last_save advanced to 17:34:24.979162 UTC; sector identity saved with attempt 17:34:38.675187 UTC, 14/15 observed sources and explicit Cement timeout. Health write_error cleared, rounded cluster estimate 434 MiB. Render woke a new instance; prior RAM/spills were not captured. Controlled post-save restart and normal decision lifecycle remain pending."
+  },
+  {
+    "id": "RUN-20261114-02",
+    "finding": "Upstox rejects live quote requests with HTTP 401 after storage recovery",
+    "workflow": "OBSERVED_AUTHENTICATION_RECOVERY_REQUIRED",
+    "related_findings": [
+      "ROOT-ROUTE-09"
+    ],
+    "evidence": "docs/repairs/releases/2026-11-14-storage-recovery.md",
+    "runtime_observation": "Render instance startup completed 14 November 17:33:59 UTC; repeated quote requests for 53 held instruments returned 401 from 17:34:12 UTC. Owner market-context page still displays the stored broker profile with a green indicator. This is not proof of a valid broker session; no token or credential is published.",
+    "acceptance": "Owner reconnects through the normal broker flow; verify an accepted quote response and its timestamp/source. Label rejected provider authorization unavailable even if a stored expiry/profile remains. Do not induce a trade.",
+    "reconciliation": "Additional runtime observation; all earlier incident IDs and all 170 backlog records retained."
   }
 ]
