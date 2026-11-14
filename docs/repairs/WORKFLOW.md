@@ -186,3 +186,19 @@ Coordinate a reviewed capacity recovery before further restarts that could
 lose unsaved state. Paid shared-cluster changes require owner authorization
 and maintenance of all affected writers; the repair task does not authorize
 a purchase or deletion of another application's data.
+
+## Archive preparation and cleanup
+
+Verify repository visibility before publishing any backup artifact. Public Git
+contains source and sanitized validation only; database exports, credentials
+and private manifests remain in private owner-controlled storage. File-byte
+verification, source completeness, database restore, independent durable copies
+and a consistent live-state snapshot are separate claims. Never label a
+connector-normalized sample as native BSON or a full backup.
+
+Use a new private output directory for each preparation. Preserve original
+bytes and index metadata, independently re-read every record, reject damaged
+formats explicitly, and verify the complete affected reader/writer chain before
+activating compression. Measure exact cleanup IDs and bytes after preserving
+recoverable data; a collection name or stale date alone does not establish that
+its contents are disposable. Keep unrelated apps and financial history intact.

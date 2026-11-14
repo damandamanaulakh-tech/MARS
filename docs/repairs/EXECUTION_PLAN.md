@@ -69,3 +69,5 @@ SEQ-06 is deployed in PR207 (3185 canonical CI tests, zero skips), but live veri
 Owner storage decision, 14 November: keep the free tier. [Lossless archive plan](releases/2026-11-14-lossless-archive-plan.md) prepared with measured sizes, preservation and restore requirements; no production migration performed.
 
 Diagnostic follow-up and the owner-selected free-tier archive plan are merged in [PR208](https://github.com/damandamanaulakh-tech/MARS/pull/208): **3192 canonical CI tests, zero skips**. Its deployment awaits safe capacity recovery; live remains PR207. Goal06 is still open.
+
+The [offline archive verifier](releases/2026-11-14-archive-preflight.md) passes 54 focused and 3,248 local tests with zero skips. Live readers/writers are not changed. Private native capture and restore checks are in progress; capacity recovery and Goal06 remain open.

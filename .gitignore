@@ -9,6 +9,10 @@ sourceborn_paper/
 # Node (Sourceborn SB-URR)
 node_modules/
 .env
+# Private raw-BSON archive preparation is never repository source data.
+*.bson
+*.bson.gz
+/archive-preflight-private/
 uploads/*
 !uploads/.gitkeep
 npm-debug.log*

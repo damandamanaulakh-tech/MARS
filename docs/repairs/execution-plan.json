@@ -273,7 +273,7 @@
       },
       "blocking_incident": "RUN-20261114-01",
       "storage_recovery_plan": "docs/repairs/releases/2026-11-14-lossless-archive-plan.md",
-      "owner_storage_decision": "KEEP_FREE_TIER_PREPARE_LOSSLESS_ARCHIVE_PLAN",
+      "owner_storage_decision": "KEEP_FREE_TIER_PRIVATE_DOWNLOAD_AND_BOUNDED_CLEANUP_REQUESTED",
       "diagnostic_followup": {
         "status": "MERGED_DEPLOYMENT_DEFERRED_CAPACITY_RECOVERY",
         "local_tests": 3193,
@@ -286,6 +286,15 @@
         "ci_run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43616515704",
         "canonical_tests": 3192,
         "canonical_skipped": 0
+      },
+      "archive_preflight": {
+        "status": "LOCAL_TESTED_NOT_LIVE_WIRED",
+        "evidence": "docs/repairs/releases/2026-11-14-archive-preflight.md",
+        "focused_tests": 54,
+        "local_tests": 3248,
+        "skipped": 0,
+        "production_mutations": 0,
+        "backup": "native capture and local restore verification in progress"
       }
     },
     {
