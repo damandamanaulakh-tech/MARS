@@ -8,8 +8,9 @@ Baseline: `ade19e8fa1ee6476485c09f147580d2e47ae257f` (current main fetched befor
 work). Prior functional deployment: `29ca4aa338f3836b6f5c41335e2b06868823ce71`,
 Render `dep-dbralp142hec73bd2o1g`, still live when this batch began.
 
-Status: LOCAL_TESTED. Implementation and full local validation complete. PR, CI,
-merge, deployment, health and natural runtime observations are not yet claimed.
+Status: DEPLOYED_PERSISTENCE_BLOCKED. PR207 passed CI and deployed, but
+post-deploy writes fail at the Atlas quota. Goal06 remains active; Goal07 is
+queued. [Storage incident and recovery requirements](2026-11-14-context-storage-incident.md).
 
 ## Reproduced problem
 
@@ -93,16 +94,41 @@ not manufactured from today's snapshot.
 - 58 new meaningful regressions; 116 focused current decision/context regressions
   passed with zero skips. Earlier 118 integration checks also passed.
 - Final full local suite: **3186 passed, zero failed/errors/skips**, Python 3.12,
-  196.49 seconds. The canonical CI count is expected to be 3185: local script
+  196.49 seconds. The canonical CI count is 3185: local script
   discovery includes the unrelated untracked `scripts/check_repair_records 2.py`
   syntax-check parameter. No test is skipped or removed. The canonical baseline
   is 3127 plus 58 new regressions.
 - Initial full run: 3182 passed and two old one-argument mocks failed after the
   danger helper acquired explicit history/time inputs. Those mocks now accept
   the supplied context; their stop/leash assertions are unchanged.
-- Final focused pass: **98 passed**, zero skips. CI is pending; its no-skip guard
-  remains enabled.
+- Final focused pass: **98 passed**, zero skips. PR207 CI passed all 3185 tests; its no-skip guard passed.
 - Original 74-trade audit and prior financial ledger: unchanged.
-- Matching deployment/health: pending.
+- Matching deployment: verified below. HTTP liveness/configuration readiness pass;
+  database write health fails, so healthy persistence is not claimed.
 - Normal post-deploy scan, retained source-refresh and comparison/exit observations:
-  pending. No production trade, scan or outage will be induced to close a card.
+  blocked by the storage incident. No production trade, scan or outage was induced.
+
+## Verified PR207 shipment and open runtime blocker
+
+- Implementation head: `a8a7d51ed9067f7c12e22ac6285a67176d778402`.
+- [PR207](https://github.com/damandamanaulakh-tech/MARS/pull/207) merged at
+  `2026-11-13T08:16:43Z`, revision `47e7e0536b6c84f9f9f6698e5d1f76e80b315b14`.
+- [Canonical CI](https://github.com/damandamanaulakh-tech/MARS/actions/runs/43390962930): **3185 passed**,
+  zero skipped, 352.36 seconds; test job 131770462545, repair-record job
+  131770462985. Both passed, including the no-skipped-tests guard.
+- Render `dep-dbrcergjo6nc73ev2ug0` deployed that exact merge; live at
+  `2026-11-13T08:18:20.424623Z`, still live when checked 14 November.
+- `/market-context?format=json` returned 303 without login on 13 November.
+- Correct `/healthz` returned 200 on 14 November at approximately 16:26:22 UTC:
+  ok/ready/connected true, **write_error reports Atlas quota exceeded**. A prior
+  `/health` request returned 404; it is not the configured health route. A
+  temporary approval-review network failure prevented an earlier health call;
+  the successful retry went through approval review.
+- No persisted `settings/sector_identity` document exists. A dated bundled
+  seed remains available within its seven-day freshness policy; failed writes
+  cannot refresh its dates. Read-only Mongo confirms the portfolio last saved
+  at `2026-11-13T06:23:54.436016`, before this release.
+
+This is deployment proof, not successful source-to-storage or new-trade
+observation. Original financial history and prior pending lifecycle checks
+remain intact. The next goal must not advance on a false healthy status.

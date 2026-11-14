@@ -177,7 +177,7 @@ def healthz() -> dict:
     deploy since PR #117 time out on this very page and took the app off
     the air for two days. `stats` names the snapshot's age so a stale
     number is visible as stale."""
-    from . import state
+    from . import state, sector_context
     stats = health_stats.snapshot()
     hist = stats.get("history_tickers")
     universe = None
@@ -231,6 +231,7 @@ def healthz() -> dict:
         pass
     mongo = stats.get("mongo")
     return {"ok": True, "db": state.db_status(), "history_tickers": hist,
+            "sector_context": sector_context.status(),
             "universe": universe, "scan_universe": scan_universe,
             "memory": memory, "mongo": mongo,
             # audit M-3: structure only (key names / types / list lengths)

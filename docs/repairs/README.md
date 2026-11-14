@@ -14,13 +14,13 @@ Earlier verified batches (2 November):
 | 2 | RUN-20261102-01, daily category recovery | Merged/deployed in PR #187; Momentum look-only pass completed at 16:18 IST; 185 candidates blocked after close; full rotation remains unverified |
 | 3 | AUD-001, unfinished drawdown liquidation | Merged/deployed in [PR #188](https://github.com/damandamanaulakh-tech/MARS/pull/188); local and CI suites each 2,647 passed, zero skipped; production health verified |
 
-Latest verified functional revision: `29ca4aa338f3836b6f5c41335e2b06868823ce71` ([PR205](https://github.com/damandamanaulakh-tech/MARS/pull/205)), Render deployment `dep-dbralp142hec73bd2o1g`, live `2026-11-13T06:16:36.920728Z`; health/readiness verified `2026-11-13T06:25:12Z`. Final PR CI passed **3,127 canonical tests with zero skips**. Local 3,128 included one additional syntax parameter for an unrelated duplicate script. [Cost release and exact evidence](releases/2026-11-12-product-trading-costs.md). Documentation-only commits can advance main without changing the deployed application.
+Latest deployed functional revision: `47e7e0536b6c84f9f9f6698e5d1f76e80b315b14` ([PR207](https://github.com/damandamanaulakh-tech/MARS/pull/207)), Render `dep-dbrcergjo6nc73ev2ug0`, live `2026-11-13T08:18:20.424623Z`. CI: **3185 passed, zero skips**. HTTP liveness is available; database writes fail at the shared Atlas quota. [Evidence](releases/2026-11-14-context-storage-incident.md).
 
-**SEQ-05 is shipped and health verified; SEQ-06 is in progress.**
-Upstox Basic fees are versioned by product, side and effective NSE schedule.
-Buy charges are allocated once, daily DP persists, and original financial
-history remains intact. [Separate 74-trade comparison](reviews/2026-11-12-intraday-cost-comparison.csv).
-Normal fee-bearing lifecycle observation remains separate from deployment health.
+**SEQ-06 is deployed; persistence verification is blocked by Atlas quota.**
+Official sector identities, matching completed comparison windows and explicit
+unknowns are implemented. The storage blocker prevents durable runtime proof;
+Goal07 remains queued. SEQ-05's fee model and the original financial history
+remain unchanged, including the [separate 74-trade comparison](reviews/2026-11-12-intraday-cost-comparison.csv).
 The [11-step programme](EXECUTION_PLAN.md) retains all earlier pending runtime
 observations and future research. [SEQ-04 evidence](releases/2026-11-12-completed-intraday-data.md),
 [decision evidence](releases/2026-11-11-decision-evidence.md),
@@ -50,4 +50,6 @@ Run `python scripts/check_repair_records.py` to check record retention, unique
 IDs, CSV/JSON/table consistency, repository evidence paths and release links.
 GitHub Actions runs this check alongside the existing zero-skip application suite.
 
-SEQ-06 update, 13 November: verified official identity and exact-window context are implemented; 3186 local checks pass with zero skips; CI and shipment are in progress. [Batch record](releases/2026-11-13-market-sector-context.md). Legacy score policy and normal runtime observation remain separate.
+SEQ-06 is deployed in PR207 (3185 canonical CI tests, zero skips), but live verification found Atlas quota blocking sector and portfolio writes. Goal06 remains active; Goal07 remains queued. [Shipment](releases/2026-11-13-market-sector-context.md) and [storage incident](releases/2026-11-14-context-storage-incident.md).
+
+Owner storage decision, 14 November: keep the free tier. [Lossless archive plan](releases/2026-11-14-lossless-archive-plan.md) prepared with measured sizes, preservation and restore requirements; no production migration performed.

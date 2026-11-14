@@ -244,15 +244,43 @@
       "depends_on": [
         "SEQ-05"
       ],
-      "status": "LOCAL_TESTED",
+      "status": "DEPLOYED_PERSISTENCE_BLOCKED",
       "implementation": "IMPLEMENTED",
-      "tests": "3186_LOCAL_PASSED_ZERO_SKIPS_CANONICAL_CI_PENDING",
-      "pull_request": null,
-      "merge_revision": null,
-      "deployment_revision": null,
-      "health": "NOT_CHECKED",
-      "runtime": "NOT_OBSERVED",
-      "evidence": "docs/repairs/releases/2026-11-13-market-sector-context.md"
+      "tests": "3185_CANONICAL_CI_PASSED_ZERO_SKIPS",
+      "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/207",
+      "merge_revision": "47e7e0536b6c84f9f9f6698e5d1f76e80b315b14",
+      "deployment_revision": "47e7e0536b6c84f9f9f6698e5d1f76e80b315b14",
+      "health": "LIVENESS_READY_PERSISTENCE_WRITE_FAILED_2026-11-14",
+      "runtime": "SECTOR_SNAPSHOT_NOT_SAVED_ATLAS_QUOTA",
+      "evidence": "docs/repairs/releases/2026-11-13-market-sector-context.md",
+      "ci_run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43390962930",
+      "deployment_id": "dep-dbrcergjo6nc73ev2ug0",
+      "deployed_at": "2026-11-13T08:18:20.424623Z",
+      "health_evidence": {
+        "at": "2026-11-14T16:26:22Z",
+        "http_status": 200,
+        "ok": true,
+        "ready": true,
+        "db_connected": true,
+        "write_error": "AtlasError 8000: 513 MB used / 512 MB quota",
+        "persistence_healthy": false
+      },
+      "runtime_observation": {
+        "sector_identity_saved_documents": 0,
+        "last_portfolio_save": "2026-11-13T06:23:54.436016",
+        "production_scan_induced": false,
+        "production_trade_induced": false
+      },
+      "blocking_incident": "RUN-20261114-01",
+      "storage_recovery_plan": "docs/repairs/releases/2026-11-14-lossless-archive-plan.md",
+      "owner_storage_decision": "KEEP_FREE_TIER_PREPARE_LOSSLESS_ARCHIVE_PLAN",
+      "diagnostic_followup": {
+        "status": "LOCAL_TESTED",
+        "local_tests": 3193,
+        "local_skipped": 0,
+        "focused_tests": 65,
+        "deployment": "pending_capacity_recovery"
+      }
     },
     {
       "id": "SEQ-07",
@@ -365,5 +393,5 @@
       "evidence": null
     }
   ],
-  "active_step_note": "SEQ-04 shipped and health verified in PR203 with 3067 local/CI tests and zero skips. Its remaining ordinary scan/data-gap observations stay open. SEQ-05 correct trading costs is next queued; it has not started. Earlier runtime and later performance subclaims remain tracked."
+  "active_step_note": "SEQ-06 implementation merged in PR207, 3185 canonical CI tests pass with zero skips, and exact revision is deployed. Live verification found Atlas quota rejects writes; source snapshot is absent and portfolio last_save has not advanced. Goal remains active; SEQ-07 stays queued. Earlier runtime and later performance subclaims remain open."
 }

@@ -1,0 +1,176 @@
+{
+  "observed_at": "2026-11-14T16:29:12.062571+00:00",
+  "application_revision": "47e7e0536b6c84f9f9f6698e5d1f76e80b315b14",
+  "http_status": 200,
+  "ok": true,
+  "readiness": {
+    "production": true,
+    "ready": true,
+    "insecure_override": false,
+    "problems": []
+  },
+  "db": {
+    "connected": true,
+    "db": "sourceborn",
+    "url_set": true,
+    "degraded": false,
+    "boot_degraded": false,
+    "write_error": "OperationFailure: you are over your space quota, using 513 MB of 512 MB. Writes are blocked on your cluster. Free up storage by deleting unnecessary data or add storage by updating cluster tier. Add a payment method an",
+    "write_error_at": "2026-11-14T16:23:18.118169"
+  },
+  "mongo": {
+    "data_mb": 347.0,
+    "index_mb": 2.0,
+    "storage_mb": 75.0,
+    "objects": 82740,
+    "collections": [
+      {
+        "name": "journal_archive",
+        "data_mb": 269.0,
+        "index_mb": 0.0,
+        "count": 40486
+      },
+      {
+        "name": "ohlcv",
+        "data_mb": 62.0,
+        "index_mb": 0.0,
+        "count": 2233
+      },
+      {
+        "name": "portfolio",
+        "data_mb": 3.0,
+        "index_mb": 0.0,
+        "count": 1
+      },
+      {
+        "name": "fundamentals",
+        "data_mb": 3.0,
+        "index_mb": 0.0,
+        "count": 26378
+      },
+      {
+        "name": "market_info_raw",
+        "data_mb": 2.0,
+        "index_mb": 0.0,
+        "count": 80
+      },
+      {
+        "name": "watchlist_snapshots",
+        "data_mb": 2.0,
+        "index_mb": 0.0,
+        "count": 23
+      },
+      {
+        "name": "sector_index",
+        "data_mb": 1.0,
+        "index_mb": 0.0,
+        "count": 11080
+      },
+      {
+        "name": "upstox_token",
+        "data_mb": 0.0,
+        "index_mb": 0.0,
+        "count": 1
+      },
+      {
+        "name": "resource_feeds",
+        "data_mb": 0.0,
+        "index_mb": 0.0,
+        "count": 10
+      },
+      {
+        "name": "backtests",
+        "data_mb": 0.0,
+        "index_mb": 0.0,
+        "count": 8
+      },
+      {
+        "name": "macro_daily",
+        "data_mb": 0.0,
+        "index_mb": 0.0,
+        "count": 234
+      },
+      {
+        "name": "pwoi_daily",
+        "data_mb": 0.0,
+        "index_mb": 0.0,
+        "count": 58
+      }
+    ],
+    "cluster": {
+      "databases": [
+        {
+          "name": "sourceborn",
+          "data_mb": 347.0,
+          "index_mb": 2.0,
+          "storage_mb": 75.0,
+          "collections": 19
+        },
+        {
+          "name": "ashstock",
+          "data_mb": 135.0,
+          "index_mb": 0.0,
+          "storage_mb": 82.0,
+          "collections": 4
+        },
+        {
+          "name": "test",
+          "data_mb": 12.0,
+          "index_mb": 1.0,
+          "storage_mb": 3.0,
+          "collections": 19
+        },
+        {
+          "name": "site_control",
+          "data_mb": 9.0,
+          "index_mb": 0.0,
+          "storage_mb": 19.0,
+          "collections": 20
+        },
+        {
+          "name": "sourceborn_sburr",
+          "data_mb": 2.0,
+          "index_mb": 0.0,
+          "storage_mb": 0.0,
+          "collections": 13
+        },
+        {
+          "name": "AM07",
+          "data_mb": 0.0,
+          "index_mb": 0.0,
+          "storage_mb": 0.0,
+          "collections": 2
+        },
+        {
+          "name": "G07",
+          "data_mb": 0.0,
+          "index_mb": 0.0,
+          "storage_mb": 0.0,
+          "collections": 1
+        }
+      ],
+      "total_mb": 508.0,
+      "note": "data_mb + index_mb per database is what the Atlas free tier counts against 512 MB, cluster-wide."
+    },
+    "last_write_error": "OperationFailure: you are over your space quota, using 513 MB of 512 MB. Writes are blocked on your cluster. Free up storage by deleting unnecessary data or add storage by updating cluster tier. Add a payment method an"
+  },
+  "stats": {
+    "asof": "2026-11-14T16:26:21.522643+00:00",
+    "age_s": 0.8,
+    "pending": false,
+    "elapsed_s": 8.454,
+    "error": null
+  },
+  "sector_identity_saved_documents": 0,
+  "cluster_metadata": {
+    "name": "sourceborn",
+    "tier": "FREE",
+    "provider": "AWS",
+    "region": "AP_SOUTH_1",
+    "version": "8.0.37"
+  },
+  "production_scan_induced": false,
+  "production_trade_induced": false,
+  "production_data_deleted": false,
+  "interpretation": "HTTP liveness/configuration readiness are true; persistence is failing. Atlas writer reports 513 MB / 512 MB. Rounded cached dbStats totals (508 MiB) do not overrule the server refusal."
+}

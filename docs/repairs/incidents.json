@@ -18,5 +18,20 @@
     "runtime_observation": "Twelve Momentum rows have abs_mom=false and blank outcome; Intraday loss-halt event reports 27 refusals but saves only 20 names; shared last_scan fields are overwritten by subsequent modes.",
     "acceptance": "Persist a complete per-run, per-category gate ledger; distinguish first rejection, additional computed checks and not-evaluated gates; give explicit absolute-momentum and timing failure reasons and snapshot age; preserve risk thresholds and owner-order semantics.",
     "reconciliation": "Additional incident; original 165 audit findings retained. No implementation or runtime repair claimed."
+  },
+  {
+    "id": "RUN-20261114-01",
+    "finding": "Atlas rejects sector snapshot, settings and portfolio writes at 513 MB against its 512 MB cluster quota",
+    "workflow": "REPRODUCED_CAPACITY_RECOVERY_REQUIRED",
+    "related_findings": [
+      "OPS-05",
+      "XR-071"
+    ],
+    "evidence": "docs/repairs/releases/2026-11-14-context-storage-incident.md",
+    "runtime_observation": "14 November 2026: Render AtlasError 8000 logs and /healthz write_error confirm quota refusal. Mongo sector_identity has zero documents. Portfolio remains last saved 13 November 06:23:54 UTC (53 open, 214 closed); no claim that later in-memory mutations survived. Cached rounded dbStats total is 508 MiB and does not override actual writer refusal.",
+    "acceptance": "Restore capacity without deleting unapproved records; observe acknowledged sector and portfolio saves, read back the snapshot, preserve dates and failures, then verify across a controlled restart. Coordinate all writers for a paid shared-cluster upgrade; do not infer success from HTTP 200.",
+    "reconciliation": "Additional runtime incident; original 165 audit IDs and all 170 current backlog records retained.",
+    "owner_decision": "Keep free tier; prepare a lossless archive plan. No production migration or paid upgrade authorized.",
+    "recovery_plan": "docs/repairs/releases/2026-11-14-lossless-archive-plan.md"
   }
 ]
