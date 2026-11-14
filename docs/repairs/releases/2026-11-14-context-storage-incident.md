@@ -77,4 +77,19 @@ test skip. Deploy the diagnostic code after coordinated capacity recovery
 and a confirmed save, when restarting cannot silently discard the current
 in-memory book. Mark the follow-up deployed only after exact-revision proof.
 
-Local follow-up validation: **65 focused and 3193 full-suite tests passed**, zero failures/errors/skips; full suite 235.52 seconds on Python 3.12. Canonical CI expected 3192 because the same unrelated duplicate-script syntax parameter adds one locally. CI/merge pending for this follow-up.
+Local follow-up validation: **65 focused and 3193 full-suite tests passed**, zero failures/errors/skips; full suite 235.52 seconds on Python 3.12. Canonical CI expected 3192 because the same unrelated duplicate-script syntax parameter adds one locally. Canonical PR208 CI passed 3192 tests with zero skips; both jobs and the no-skip guard passed.
+
+## Verified follow-up publication
+
+[PR208](https://github.com/damandamanaulakh-tech/MARS/pull/208) merged as
+`1efba3c792a957ad787bf52fa0a34607e366c808`, reviewed head
+`e223d04feb2eb37d260b97300a517e8faf06abd9`. [CI](https://github.com/damandamanaulakh-tech/MARS/actions/runs/43616515704)
+passed **3192 tests with zero skips**, including the no-skip and repair-record
+guards. The published tree and every file matched the tested local checkout.
+
+This merge deliberately retains the running PR207 deployment
+`47e7e0536b6c84f9f9f6698e5d1f76e80b315b14` until capacity recovery and
+preservation of unsaved state permit a coordinated restart. The new diagnostic
+UI/code is merged, **not deployed**. No production archive migration, deletion
+or paid upgrade occurred. Goal06 remains active; Goal07 remains queued.
+[Machine-readable shipment](../evidence/2026-11-14-context-followup-shipment.json).

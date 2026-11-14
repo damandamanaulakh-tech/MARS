@@ -19,7 +19,20 @@
     "web/templates/market_context.html": "e642c169f7c39d8359ced68bbf9b22bdf36455a5f7d139b6500a6a8efd7c307c",
     "web/tests/test_market_context_2026_11_13.py": "d4246307692a3cdc053ed8a64d4c1ed5d0980bc9c477e20a5afbc9f6109dea2c"
   },
-  "ci": "pending",
+  "ci": {
+    "url": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43616515704",
+    "run_id": 43616515704,
+    "test_job": 132512647770,
+    "repair_job": 132512647567,
+    "tests": 3192,
+    "skipped": 0,
+    "seconds": 285.98,
+    "test_conclusion": "success",
+    "repair_conclusion": "success",
+    "no_skip_guard": "success"
+  },
   "deployment": "deferred_until_capacity_recovery",
-  "production_changes": false
+  "production_changes": false,
+  "merge": "1efba3c792a957ad787bf52fa0a34607e366c808",
+  "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/208"
 }
