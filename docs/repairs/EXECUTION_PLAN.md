@@ -2,19 +2,22 @@
 
 Owner instruction: show the sequence, start one by one, and track completion in
 the repository. This is the current execution order for G4/G13 and the related
-data/risk work. It does not remove any of the 170 backlog records or the two
+data/risk work. It does not remove any of the 170 backlog records or three
 separate incidents. [Goals](GOALS.md), [full backlog](BACKLOG.md),
 [machine-readable sequence](execution-plan.json).
 
 ## Current batch
 
-**SEQ-05 is shipped and health verified; SEQ-06 is in progress.**
-[PR205](https://github.com/damandamanaulakh-tech/MARS/pull/205) supplies the owner-selected Upstox Basic cost model, dated exchange
-schedules, durable entry/partial/DP accounting and separate historical comparisons.
-All **3,127 canonical CI tests pass with zero skips**; local 3,128 includes one
-additional syntax check of an unrelated duplicate script. Matching revision
-`29ca4aa338f3836b6f5c41335e2b06868823ce71` is live and health was verified at `2026-11-13T06:25:12Z`.
-[Release and requirement evidence](releases/2026-11-12-product-trading-costs.md).
+**SEQ-06 is deployed; persistence verification is blocked by Atlas quota.**
+[PR207](https://github.com/damandamanaulakh-tech/MARS/pull/207) verifies official sector identity and saves stock, sector and market comparisons
+on identical completed windows. All **3,185 canonical CI tests pass with zero
+skips**. Exact revision `47e7e0536b6c84f9f9f6698e5d1f76e80b315b14` is live.
+Read-only verification found Atlas rejects writes at 513 MB / 512 MB, leaving
+no saved sector snapshot. HTTP liveness is not healthy persistence.
+[Release evidence](releases/2026-11-13-market-sector-context.md) and
+[capacity recovery requirements](releases/2026-11-14-context-storage-incident.md).
+The prior SEQ-05 cost release remains recorded separately; it is not reopened
+or erased by this incident.
 
 Normal fee lifecycle and earlier quote-gap/recovery/decision/data-gap observations
 remain separate. No production trade or scan was induced. Net performance remains
@@ -29,7 +32,7 @@ unproven; the original ledger, strategy thresholds and research sequence are ret
 | SEQ-03 | G13/G9; INTRA-004, ROOT-AM07-04, ROOT-ROUTE-09 | Immutable entry/exit gate results and quote provenance | Values, thresholds, pass/fail/skip/unavailable, provider/receipt time, bar interval, stop amendments and exit trigger attached to each new trade | SHIPPED; 2994 local/CI passed, zero skips; health verified; normal lifecycle observation pending |
 | SEQ-04 | G13; INTRA-001, ROOT-AM07-04 | Connect completed intraday bars to the actual intraday data path | Correct interval, session alignment, no future/unclosed bars, explicit missing-data handling and recorded comparison with the daily baseline | DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING; PR203; 3067 local/CI tests, zero skips |
 | SEQ-05 | G13; XR-059 | Product-appropriate intraday cost model and separate historical comparison | Dated broker/exchange schedule and account-plan assumptions; buy/sell/partial-exit cases; original ledger preserved | DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING; PR205; 3127 canonical CI tests, zero skips |
-| SEQ-06 | G9/G13; INTRA-004, XR-009, XR-061 | Sector identity, input coverage and same-window benchmark/sector context | Unknown never counts as measured strength; timestamped stock/sector/index comparisons; context does not silently become a new gate | LOCAL_TESTED; 3186 local tests, zero skips; CI pending |
+| SEQ-06 | G9/G13; INTRA-004, XR-009, XR-061 | Sector identity, input coverage and same-window benchmark/sector context | Unknown never counts as measured strength; timestamped stock/sector/index comparisons; context does not silently become a new gate | DEPLOYED_PERSISTENCE_BLOCKED; PR207; 3185 canonical CI tests, zero skips |
 | SEQ-07 | G13; XR-081; owner candle decision | Candle patterns assist selection, with recorded owner controls | Advisory contribution is explicit; absence alone does not veto an otherwise eligible entry; protective exits remain independent; invalid candles remain unavailable | QUEUED |
 | SEQ-08 | G13; INTRA-003 | Compare net-profit-aware trailing exits and reachable targets | Replay with costs, slippage and intrabar ambiguity; unseen-period comparison of expectancy and drawdown; exact candidate settings reviewed before promotion | QUEUED |
 | SEQ-09 | G13; INTRA-003 | Fresh-setup/cooldown experiments after a failed trade | Record the changed setup; measure losses avoided and recoveries missed; prevent same-bar hindsight or automatic score reuse | QUEUED |
@@ -61,4 +64,6 @@ backlog remains open according to each original record. G12's five failing
 FRED numerical feeds and other documented source limitations remain open.
 Completing this sequence does not close those findings by implication.
 
-SEQ-06 update, 13 November: verified official identity and exact-window context are implemented; 3186 local checks pass with zero skips; CI and shipment are in progress. [Batch record](releases/2026-11-13-market-sector-context.md). Legacy score policy and normal runtime observation remain separate.
+SEQ-06 is deployed in PR207 (3185 canonical CI tests, zero skips), but live verification found Atlas quota blocking sector and portfolio writes. Goal06 remains active; Goal07 remains queued. [Shipment](releases/2026-11-13-market-sector-context.md) and [storage incident](releases/2026-11-14-context-storage-incident.md).
+
+Owner storage decision, 14 November: keep the free tier. [Lossless archive plan](releases/2026-11-14-lossless-archive-plan.md) prepared with measured sizes, preservation and restore requirements; no production migration performed.

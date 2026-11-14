@@ -1,0 +1,222 @@
+{
+  "observed_at": "2026-11-14 16:33:45 UTC",
+  "actions": {
+    "documents": [
+      {
+        "_id": "SCAN_DECISION",
+        "count": 33718,
+        "bson_bytes": 274265872,
+        "first": null,
+        "last": null
+      },
+      {
+        "_id": "EXIT_DECISION",
+        "count": 1561,
+        "bson_bytes": 6237299,
+        "first": null,
+        "last": null
+      },
+      {
+        "_id": "BUY",
+        "count": 435,
+        "bson_bytes": 834090,
+        "first": null,
+        "last": null
+      },
+      {
+        "_id": "HOLD",
+        "count": 1942,
+        "bson_bytes": 624994,
+        "first": null,
+        "last": null
+      },
+      {
+        "_id": "SELL",
+        "count": 395,
+        "bson_bytes": 276473,
+        "first": null,
+        "last": null
+      },
+      {
+        "_id": "CORRECTION_VIX_REENTRY",
+        "count": 350,
+        "bson_bytes": 92324,
+        "first": null,
+        "last": null
+      },
+      {
+        "_id": "UNIVERSE_REFRESH",
+        "count": 103,
+        "bson_bytes": 73450,
+        "first": null,
+        "last": null
+      },
+      {
+        "_id": "CORRECTION_BRAKE_OFF",
+        "count": 269,
+        "bson_bytes": 67615,
+        "first": null,
+        "last": null
+      },
+      {
+        "_id": "CONTEXT",
+        "count": 218,
+        "bson_bytes": 56672,
+        "first": null,
+        "last": null
+      },
+      {
+        "_id": "NEWS_TRIGGER",
+        "count": 177,
+        "bson_bytes": 49661,
+        "first": null,
+        "last": null
+      },
+      {
+        "_id": "EXIT_DUE_MARKET_CLOSED",
+        "count": 144,
+        "bson_bytes": 40143,
+        "first": null,
+        "last": null
+      },
+      {
+        "_id": "RETAG_EXITS",
+        "count": 100,
+        "bson_bytes": 34306,
+        "first": null,
+        "last": null
+      },
+      {
+        "_id": "MARKET_CLOSED_NO_ENTRY",
+        "count": 25,
+        "bson_bytes": 29927,
+        "first": null,
+        "last": null
+      },
+      {
+        "_id": "TRIGGER_WATCHLIST",
+        "count": 91,
+        "bson_bytes": 27225,
+        "first": null,
+        "last": null
+      },
+      {
+        "_id": "SCAN_CATCHUP",
+        "count": 134,
+        "bson_bytes": 26065,
+        "first": null,
+        "last": null
+      },
+      {
+        "_id": "CORPORATE_ACTIONS_FETCHED",
+        "count": 26,
+        "bson_bytes": 19063,
+        "first": null,
+        "last": null
+      },
+      {
+        "_id": "IFR_SIGNAL_FIRED",
+        "count": 37,
+        "bson_bytes": 17020,
+        "first": null,
+        "last": null
+      },
+      {
+        "_id": "SERIES_WATCH_REFRESH",
+        "count": 97,
+        "bson_bytes": 16231,
+        "first": null,
+        "last": null
+      },
+      {
+        "_id": "RISK_DAY_ROLL",
+        "count": 74,
+        "bson_bytes": 14284,
+        "first": null,
+        "last": null
+      },
+      {
+        "_id": "MARKET_FII_SNAPSHOT",
+        "count": 52,
+        "bson_bytes": 11963,
+        "first": null,
+        "last": null
+      }
+    ],
+    "count": 20,
+    "appliedLimits": []
+  },
+  "measurements": [
+    {
+      "documents": [
+        {
+          "_id": null,
+          "count": 33718,
+          "bytes": 274265872,
+          "first": "2026-11-11T19:09:59.437359+00:00",
+          "last": "2026-11-13T06:24:29.255941+00:00"
+        }
+      ],
+      "count": 1,
+      "appliedLimits": []
+    },
+    {
+      "documents": [
+        {
+          "_id": "evidence",
+          "count": 33718,
+          "bytes": 267360929
+        },
+        {
+          "_id": "decision_id",
+          "count": 33718,
+          "bytes": 1652182
+        },
+        {
+          "_id": "ts",
+          "count": 33718,
+          "bytes": 1652182
+        },
+        {
+          "_id": "why",
+          "count": 33718,
+          "bytes": 1053835
+        },
+        {
+          "_id": "action",
+          "count": 33718,
+          "bytes": 1011540
+        },
+        {
+          "_id": "ticker",
+          "count": 33718,
+          "bytes": 913869
+        },
+        {
+          "_id": "mode",
+          "count": 33718,
+          "bytes": 891079
+        },
+        {
+          "_id": "_id",
+          "count": 33718,
+          "bytes": 809232
+        }
+      ],
+      "count": 8,
+      "appliedLimits": []
+    },
+    {
+      "documents": [
+        {
+          "_id": null,
+          "unique_ids": 33718,
+          "extra_copies": 0,
+          "max_copies": 1
+        }
+      ],
+      "count": 1,
+      "appliedLimits": []
+    }
+  ]
+}

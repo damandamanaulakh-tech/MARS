@@ -165,3 +165,87 @@ def test_actual_refresh_stores_context_without_changing_stop_exit(tmp_path,monke
     e.refresh()
     trade=next(t for t in e.portfolio.trades if t.ticker=='AAA.NS')
     assert trade.reason=='STOP_LOSS' and trade.trade_evidence['exit']['market_context']==marker
+
+@pytest.mark.parametrize('code,message,reason', [
+    (8000, 'you are over your space quota, using 513 MB of 512 MB', 'store_quota_exceeded'),
+    (13, 'not authorized mongodb+srv://user:secret@host', 'store_permission_denied'),
+    (8000, 'unrelated Atlas failure secret', 'store_write_failed'),
+])
+def test_sector_write_error_is_classified_without_leaking_server_text(monkeypatch, code, message, reason):
+    from pymongo.errors import OperationFailure
+    class Settings:
+        def replace_one(self, *args, **kwargs): raise OperationFailure(message, code)
+    monkeypatch.setattr(db, '_CONNECTED', True)
+    monkeypatch.setattr(db, '_DB', SimpleNamespace(settings=Settings()))
+    assert db.save_sector_identity(source_snapshot()) is False
+    diagnostic = db.sector_identity_write_status()
+    assert diagnostic['reason'] == reason and diagnostic['code'] == code
+    assert diagnostic['status'] == 'failed' and diagnostic['at']
+    assert message not in str(diagnostic) and 'secret' not in str(diagnostic)
+
+
+def test_sector_write_recovery_requires_ack_and_keeps_portfolio_failure(monkeypatch):
+    ack = [False]
+    class Settings:
+        def replace_one(self, *a, **kw): return SimpleNamespace(acknowledged=ack[0])
+    monkeypatch.setattr(db, '_CONNECTED', True)
+    monkeypatch.setattr(db, '_DB', SimpleNamespace(settings=Settings()))
+    monkeypatch.setattr(db, 'LAST_WRITE_ERROR', 'separate portfolio failure')
+    assert db.save_sector_identity(source_snapshot()) is False
+    assert db.sector_identity_write_status()['reason'] == 'write_unacknowledged'
+    ack[0] = True
+    assert db.save_sector_identity(source_snapshot()) is True
+    assert db.sector_identity_write_status()['status'] == 'acknowledged'
+    assert db.sector_identity_write_status()['reason'] is None
+    assert db.LAST_WRITE_ERROR == 'separate portfolio failure'
+
+
+def test_quota_failure_visible_on_owner_export_and_health_without_any_io(book, monkeypatch):
+    from pymongo.errors import OperationFailure
+    previous = source_snapshot(); before = deepcopy(previous)
+    class Settings:
+        def replace_one(self, *a, **kw): raise OperationFailure('over your space quota', 8000)
+    monkeypatch.setattr(db, '_CONNECTED', True)
+    monkeypatch.setattr(db, '_DB', SimpleNamespace(settings=Settings()))
+    monkeypatch.setattr(db, 'is_connected', lambda: True)
+    monkeypatch.setattr(db, 'load_sector_identity', lambda: previous)
+    monkeypatch.setattr(si, 'refresh', lambda *a, **kw: deepcopy(previous))
+    result = sector_context.refresh(NOW)
+    assert result['status'] == 'write_unacknowledged'
+    assert result['write']['reason'] == 'store_quota_exceeded'
+    assert previous == before
+    def forbidden(*a, **kw): raise AssertionError('health or owner view performed IO')
+    monkeypatch.setattr(si, 'refresh', forbidden)
+    monkeypatch.setattr(db, 'storage_stats', forbidden)
+    monkeypatch.setattr(si, 'snapshot', lambda: previous)
+    _, client = book
+    body = client.get('/market-context?format=json').json()
+    assert body['refresh']['last_attempt'] == result
+    assert body['refresh']['scope'] == 'current_process'
+    html = client.get('/market-context').text
+    assert 'not saved' in html and 'store_quota_exceeded' in html
+    health = client.get('/healthz').json()
+    assert health['sector_context']['last_attempt'] == result
+    assert 'secret' not in str(health['sector_context'])
+
+
+def test_process_restart_does_not_claim_source_refresh_success(monkeypatch):
+    monkeypatch.setattr(sector_context, '_last_result', None)
+    out = sector_context.status()
+    assert out['last_attempt'] is None and out['scope'] == 'current_process'
+    assert out['durability'] == 'unknown'
+
+
+def test_fresh_seed_is_not_mistaken_for_durable_snapshot(tmp_path, monkeypatch):
+    import json
+    seed = source_snapshot()
+    seed['attempts'] = {name: {'status': 'observed', 'at': NOW.isoformat()} for name in si.FILES}
+    path = tmp_path / 'seed.json'; path.write_text(json.dumps(seed))
+    monkeypatch.setattr(si, 'SEED', path)
+    monkeypatch.setattr(db, 'is_connected', lambda: True)
+    monkeypatch.setattr(db, 'load_sector_identity', lambda: None)
+    monkeypatch.setattr(si, 'refresh', lambda *a, **kw: deepcopy(seed))
+    saved = []
+    monkeypatch.setattr(db, 'save_sector_identity', lambda doc: saved.append(doc) or True)
+    assert sector_context.refresh(NOW)['status'] == 'stored'
+    assert saved == [seed]

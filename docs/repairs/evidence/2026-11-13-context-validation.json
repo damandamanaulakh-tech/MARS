@@ -39,7 +39,25 @@
     "web/templates/market_context.html": "a9750833bfc0a0e5540e91fa2de3a573feaf0d45f4f66d9699569d0ebf459876",
     "web/tests/test_market_context_2026_11_13.py": "32b73d7c0f4c003f3275124a57e3a976503612028d72c02345839a33116eeb9f"
   },
-  "ci": "pending",
-  "deployment": "pending",
+  "ci": {
+    "url": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43390962930",
+    "tests": 3185,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 352.36,
+    "test_job": 131770462545,
+    "repair_job": 131770462985,
+    "no_skip_guard": "success",
+    "conclusion": "success"
+  },
+  "deployment": {
+    "commit": "47e7e0536b6c84f9f9f6698e5d1f76e80b315b14",
+    "id": "dep-dbrcergjo6nc73ev2ug0",
+    "status": "live",
+    "finished_at": "2026-11-13T08:18:20.424623Z",
+    "persistence_health": "failed_atlas_quota",
+    "evidence": "docs/repairs/evidence/2026-11-14-context-storage-incident.json"
+  },
   "production_scan_induced": false
 }

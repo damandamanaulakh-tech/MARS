@@ -1,0 +1,36 @@
+{
+  "method": "BSON encode evidence from projected read-only connector sample, deflate level 9, decompress exact byte equality. Connector transport may normalize BSON types; this is an estimate, not a raw-BSON backup or migration proof. Original IDs excluded from sample. No production writes.",
+  "samples": [
+    {
+      "sample": "earliest_five_scan",
+      "rows": 5,
+      "evidence_bson_bytes": 36883,
+      "deflate_bytes": 6395,
+      "saved_pct": 82.66,
+      "exact_bytes_round_trip": true,
+      "sample_hashes": [
+        "070c2ef5056ec3cc4ef97908c3b567bf2615259d70c8beea5ad140266d91fe49",
+        "90128e0ca6c964705449452423222fc8203cb2a2ec43cebe38794dfd13e38ae5",
+        "f4d6f61ba84198e8b78e416dce0b7ab04cb743449d49921ce744dc5bdf6d9a83",
+        "180e78fe522925604a1481cfa8525ec9d61253733b57339d058c8fa7bb7e15c2",
+        "9fa9bb1c6a02edee04c3e8df8ab006789274612778da4f2542be097993c97a07"
+      ]
+    },
+    {
+      "sample": "latest_five_scan",
+      "rows": 5,
+      "evidence_bson_bytes": 36540,
+      "deflate_bytes": 4396,
+      "saved_pct": 87.97,
+      "exact_bytes_round_trip": true,
+      "sample_hashes": [
+        "b25b9dac9fa657f1bd6c4d52d200c800ce1d5c28cfa8d71733b6181611e5c0c2",
+        "9f91df7c5e260144508df1b5dba35c9d4ce573848377826c6d0eec5cf84be276",
+        "433377b955898e03a550c56ef7192416effd580572e4ca150dacfe24ddafeaca",
+        "80e5ba751d40515d8292c90b53ba8a099c5242c1a958fbbeb71a8c541b0a5a2e",
+        "8c2458bb4e2b91b69ad383b57728efac09a8643039bc5909cfc07657eda1e8c1"
+      ]
+    }
+  ],
+  "production_rows_migrated": 0
+}

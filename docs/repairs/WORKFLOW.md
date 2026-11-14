@@ -173,3 +173,16 @@ the user's instructions for the current task.
 - Prove missing-data and failure paths, real scan/refresh consumers, JSON/Mongo
   reloads, full zero-skip CI and exact deployed revision/health. Keep ordinary
   runtime observation and performance claims separate.
+
+## Live write failures during shipment
+
+A 200 health response or connected database is not an acknowledged write. If
+post-deploy verification finds quota/permission/refused writes, record the
+exact deployed revision, safe error code, last persisted save and separate
+incident. Keep the affected goal active with `DEPLOYED_PERSISTENCE_BLOCKED`;
+do not advance the sequence or delete records to obtain a green status.
+Process-local refresh diagnostics must say they reset to unknown on restart.
+Coordinate a reviewed capacity recovery before further restarts that could
+lose unsaved state. Paid shared-cluster changes require owner authorization
+and maintenance of all affected writers; the repair task does not authorize
+a purchase or deletion of another application's data.

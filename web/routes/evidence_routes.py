@@ -72,6 +72,7 @@ def market_context(request: Request):
     if denied is not None:
         return denied
     from trading import sector_identity as si
+    from web import sector_context
     p = state.portfolio()
     saved = [r.get('evidence') or {} for r in p.decision_journal]
     saved += [(getattr(pos, 'trade_evidence', {}) or {}).get('entry') or
@@ -83,10 +84,12 @@ def market_context(request: Request):
     rows = sorted(latest.values(), key=lambda d: d.get('at', ''), reverse=True)[:200]
     if request.query_params.get('format') == 'json':
         return JSONResponse({'scope': 'latest_current_ledger_and_journal_only', 'limit': 200,
+                             'refresh': sector_context.status(),
                              'rows': [{k: d.get(k) for k in ('ticker','mode','path','id','at','market_context')} for d in rows]})
     registry = si.snapshot()
     return templates.TemplateResponse(request, 'market_context.html', {
         'user': auth.current_user(request), 'active': 'scan', 'rows': rows,
+        'refresh': sector_context.status(),
         'source_count': len(registry.get('sources', {})), 'source_total': len(si.FILES),
         'sources': [{'name': name, 'url': si.URLS[name],
                      'observation': (registry.get('sources') or {}).get(name),

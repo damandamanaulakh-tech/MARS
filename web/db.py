@@ -1075,15 +1075,43 @@ def load_sector_identity():
     return doc
 
 
+_SECTOR_IDENTITY_WRITE = {'status': 'not_attempted', 'at': None, 'reason': None,
+                          'error_type': None, 'code': None}
+
+
+def sector_identity_write_status() -> dict:
+    """Process-local acknowledgement; safe codes only, never raw server text."""
+    return dict(_SECTOR_IDENTITY_WRITE)
+
+
 def save_sector_identity(snapshot) -> bool:
+    global _SECTOR_IDENTITY_WRITE
+    from datetime import timezone
+    diagnostic = {'status': 'failed', 'at': datetime.now(timezone.utc).isoformat(),
+                  'reason': 'store_unavailable', 'error_type': None, 'code': None}
     if not _CONNECTED or _DB is None:
+        _SECTOR_IDENTITY_WRITE = diagnostic
         return False
     try:
         result = _DB.settings.replace_one({'_id': 'sector_identity'},
             {**snapshot, '_id': 'sector_identity'}, upsert=True)
-        return bool(result.acknowledged)
+        acknowledged = result.acknowledged is True
+        diagnostic.update(status='acknowledged' if acknowledged else 'failed',
+                          reason=None if acknowledged else 'write_unacknowledged')
+        _SECTOR_IDENTITY_WRITE = diagnostic
+        return acknowledged
     except Exception as exc:
-        log.warning('Sector identity write failed: %s', type(exc).__name__)
+        code = getattr(exc, 'code', None)
+        code = code if isinstance(code, int) else None
+        reason = 'store_write_failed'
+        if code == 8000 and 'over your space quota' in str(exc).lower():
+            reason = 'store_quota_exceeded'
+        elif code == 13:
+            reason = 'store_permission_denied'
+        diagnostic.update(reason=reason, error_type=type(exc).__name__, code=code)
+        _SECTOR_IDENTITY_WRITE = diagnostic
+        log.warning('Sector identity write failed: %s code=%s reason=%s',
+                    diagnostic['error_type'], code, reason)
         return False
 
 

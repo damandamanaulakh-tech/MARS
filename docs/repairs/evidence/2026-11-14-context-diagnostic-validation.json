@@ -1,0 +1,25 @@
+{
+  "baseline": "47e7e0536b6c84f9f9f6698e5d1f76e80b315b14",
+  "local": {
+    "tests": 3193,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0
+  },
+  "seconds": 235.52,
+  "focused": 65,
+  "new_regressions": 7,
+  "canonical_expected": 3192,
+  "local_extra": "unrelated untracked duplicate-script syntax parameter retained",
+  "code_sha256": {
+    "web/db.py": "1df3ceda8f12da5314fe25a23605fef38489a54646c08976bb705b9ece959767",
+    "web/main.py": "381b47a0cb55db15db637772f0f1d563afde146206e3ebd5b682c09215598f33",
+    "web/routes/evidence_routes.py": "1cdfe08988bc4d79ea251e8726ac2603201a49cb29b5b16c40fb2d5d6404ffe6",
+    "web/sector_context.py": "cc62db448e03f6918d076480b7fd5f5a9eb45e5b3eef39e6d8565bfa954ead05",
+    "web/templates/market_context.html": "e642c169f7c39d8359ced68bbf9b22bdf36455a5f7d139b6500a6a8efd7c307c",
+    "web/tests/test_market_context_2026_11_13.py": "d4246307692a3cdc053ed8a64d4c1ed5d0980bc9c477e20a5afbc9f6109dea2c"
+  },
+  "ci": "pending",
+  "deployment": "deferred_until_capacity_recovery",
+  "production_changes": false
+}
