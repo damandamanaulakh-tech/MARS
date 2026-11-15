@@ -333,6 +333,18 @@
         "private_originals_preserved": true,
         "permanent_retention": "pending",
         "prior_process_spill_coverage": "unknown"
+      },
+      "source_freshness_followup": {
+        "status": "LOCAL_TESTED_CI_AND_DEPLOYMENT_PENDING",
+        "evidence": "docs/repairs/releases/2026-11-14-context-use-time.md",
+        "baseline": "6c4024f79e0512bec9f6a99a1bbad5a37c519828",
+        "failing_before": 5,
+        "passing_before": 3,
+        "new_tests": 14,
+        "focused_passed": 79,
+        "skipped": 0,
+        "local_full_tests": 3262,
+        "local_full_seconds": 229.1
       }
     },
     {

@@ -45,7 +45,11 @@ def identities(tickers, cfg, now, snapshot=None):
 def _prepare(tickers, cfg, now, *, client=None, interval=None):
     """Bounded sector work once per scan/refresh, never once per stock."""
     interval = interval or ('5m' if cfg.mode == 'intraday' else '1d')
-    ids = identities(tickers, cfg, now)
+    # A slow price fetch or large scan can cross a source's expiry. Keep the
+    # same observations for this batch, then resolve their age at each use.
+    # Never reread a newer registry halfway through an earlier decision.
+    snapshot = deepcopy(si.snapshot())
+    ids = identities(tickers, cfg, now, snapshot=snapshot)
     details = {}
     if interval == '5m':
         keys = {i['sector_index']: SECTOR_INDEX_KEYS[i['sector_index']] for i in ids.values()
@@ -54,7 +58,8 @@ def _prepare(tickers, cfg, now, *, client=None, interval=None):
             instrument_keys=keys, cap=len(keys), budget_seconds=20) if keys else ({}, {})
     else:
         frames = daily_sectors(now)
-    return {'identities': ids, 'frames': frames, 'details': details, 'interval': interval}
+    return {'identities': ids, 'identity_snapshot': snapshot, 'frames': frames,
+            'details': details, 'interval': interval}
 
 
 def prepare(tickers, cfg, now, *, client=None, interval=None):
@@ -67,7 +72,12 @@ def prepare(tickers, cfg, now, *, client=None, interval=None):
 
 
 def _observation(inputs, ticker, stock, market, cfg, now):
-    identity = inputs['identities'].get(ticker) or {'status': 'unknown', 'reason': 'identity_not_loaded'}
+    prepared = inputs.get('identities', {}).get(ticker) or {}
+    identity = (si.resolve(ticker, inputs['identity_snapshot'], now,
+                          configured_label=prepared.get('configured_label', cfg.sector_map.get(ticker)),
+                          instrument_isin=prepared.get('instrument_isin'))
+                if 'identity_snapshot' in inputs else
+                {'status': 'unknown', 'reason': 'identity_not_loaded'})
     sector_name = identity.get('sector_index')
     context = mc.compare(ticker, stock, inputs['frames'].get(sector_name), market, identity, now,
                          lookback=cfg.momentum_lookback_days, interval=inputs['interval'], market_ticker=cfg.benchmark)
