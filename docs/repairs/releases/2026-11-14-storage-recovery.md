@@ -1,10 +1,15 @@
 # Temporary storage recovery and durable sector-source proof
 
 **The quota refusal is relieved. MARS now persists normal portfolio saves and
-the official sector-source snapshot.** SEQ-06 remains active for an ordinary
-saved comparison lifecycle and controlled post-save restart observation. SEQ-07
-remains queued. Permanent retention and prior-process state reconciliation are
+the official sector-source snapshot.** The initial 14 November verification
+left ordinary comparison and controlled restart observations pending. The
+15 November restart result is linked below; SEQ-07 remains queued. Permanent retention and prior-process state reconciliation are
 separate open items; this is not a completed online compression migration.
+
+Later verification, 15 November: [PR212](2026-11-14-context-use-time.md) is live,
+and confirms acknowledged sector saves and unchanged financial fields across
+the release restart. Normal market-session comparison remains pending. The
+original observations below remain dated recovery evidence.
 
 The owner declined a paid tier and subsequently requested a private download
 and limited cleanup. The repository is public, so only source and sanitized
@@ -98,9 +103,9 @@ all 170 backlog rows are retained; RUN-20261114-02 is an additional incident.
 
 ## Open work
 
-1. Observe an ordinary completed-bar stock/sector/market decision and a
-   controlled restart reading the persisted registry. Preserve unknown inputs;
-   do not create a trade to obtain the observation.
+1. Observe an ordinary completed-bar stock/sector/market decision. The controlled
+   release restart and source persistence are now verified in PR212. Preserve
+   unknown inputs; do not create a trade to obtain the remaining observation.
 2. Wire and test every compressed archive reader/writer, resumable acknowledged
    migration, connected-quota spill replay, sustainable retention and the
    XR-071 refused-write entry guard. Temporary relief alone does not fix these.

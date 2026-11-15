@@ -37,7 +37,14 @@
       "skipped": 0,
       "seconds": 1.349
     },
-    "final_local_full": "running_after_fixture_correction"
+    "final_local_full": {
+      "tests": 3262,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "seconds": 236.775,
+      "xml_sha256": "394979ec652b059622282e2fc67f327bc291178b350fb61c05efdc0da832b31c"
+    }
   },
   "source_files": {
     "trading/context_inputs.py": "aa285ed770797c02493388f0dde0378eefdcd84cd5ab3c5bdc012a541c5d3759",
@@ -58,9 +65,20 @@
     "prior_process_only_state_coverage": "unknown"
   },
   "publication": {
-    "status": "pending",
-    "deployment": "pending",
-    "normal_market_comparison_observation": "pending"
+    "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/212",
+    "head": "8c7fd93746292c0d3489e072d5fcc70d135fd83b",
+    "tree": "468fd94367ad4f6a8a2e4fa672f213c83898c9a6",
+    "merge": "520ec29d6b0f02c8e23ebdd339f2e652509bbc52",
+    "ci_run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43682948103",
+    "ci_passed": 3261,
+    "ci_skipped": 0,
+    "ci_seconds": 343.44,
+    "repair_records_passed": true,
+    "no_skip_guard_passed": true,
+    "deployment_id": "dep-dbskknvf3r2c73eh4f5g",
+    "status": "deployed_health_and_restart_persistence_verified",
+    "deployment_revision": "520ec29d6b0f02c8e23ebdd339f2e652509bbc52",
+    "deployed_at": "2026-11-15T06:01:43.286781Z"
   },
   "ci_attempts": [
     {
@@ -71,6 +89,165 @@
       "skipped_tests": 0,
       "no_skip_step": "not_run_after_test_failure",
       "reason": "Existing partial-drawdown test assumed yesterday preceded stored history; false on Sunday. Reproduced with baseline context modules. Test entries now precede supplied bars; assertions and production guards unchanged."
+    },
+    {
+      "run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43682948103",
+      "head": "8c7fd93746292c0d3489e072d5fcc70d135fd83b",
+      "passed": 3261,
+      "failed": 0,
+      "skipped_tests": 0,
+      "seconds": 343.44,
+      "repair_records_passed": true,
+      "no_skip_guard_passed": true
     }
+  ],
+  "stored_data_probe": "docs/repairs/evidence/2026-11-15-stored-context-probe.json",
+  "runtime": {
+    "deployment_revision": "520ec29d6b0f02c8e23ebdd339f2e652509bbc52",
+    "deployment_id": "dep-dbskknvf3r2c73eh4f5g",
+    "deployed_at": "2026-11-15T06:01:43.286781Z",
+    "startup_complete": "2026-11-15T06:01:36.913692229Z",
+    "last_save": "2026-11-15T06:02:02.551063",
+    "open_positions": 53,
+    "closed_trades": 214,
+    "financial_core_unchanged": {
+      "cash": true,
+      "positions": true,
+      "trades": true
+    },
+    "sector_identity": {
+      "schema": 1,
+      "attempted_at": "2026-11-15T06:02:17.059620+00:00",
+      "attempts": {
+        "Fin Service": {
+          "status": "observed",
+          "at": "2026-11-15T06:02:17.059620+00:00",
+          "count": 20
+        },
+        "Auto": {
+          "status": "observed",
+          "at": "2026-11-15T06:02:17.059620+00:00",
+          "count": 15
+        },
+        "IT": {
+          "status": "observed",
+          "at": "2026-11-15T06:02:17.059620+00:00",
+          "count": 10
+        },
+        "Bank": {
+          "status": "observed",
+          "at": "2026-11-15T06:02:17.059620+00:00",
+          "count": 14
+        },
+        "Total Market": {
+          "status": "observed",
+          "at": "2026-11-15T06:02:17.059620+00:00",
+          "count": 748
+        },
+        "Metal": {
+          "status": "observed",
+          "at": "2026-11-15T06:02:17.059620+00:00",
+          "count": 15
+        },
+        "FMCG": {
+          "status": "observed",
+          "at": "2026-11-15T06:02:17.059620+00:00",
+          "count": 15
+        },
+        "Pharma": {
+          "status": "observed",
+          "at": "2026-11-15T06:02:17.059620+00:00",
+          "count": 20
+        },
+        "Media": {
+          "status": "observed",
+          "at": "2026-11-15T06:02:17.059620+00:00",
+          "count": 10
+        },
+        "Realty": {
+          "status": "observed",
+          "at": "2026-11-15T06:02:17.059620+00:00",
+          "count": 10
+        },
+        "Healthcare": {
+          "status": "observed",
+          "at": "2026-11-15T06:02:17.059620+00:00",
+          "count": 20
+        },
+        "Consumer Durables": {
+          "status": "observed",
+          "at": "2026-11-15T06:02:17.059620+00:00",
+          "count": 14
+        },
+        "Oil & Gas": {
+          "status": "observed",
+          "at": "2026-11-15T06:02:17.059620+00:00",
+          "count": 15
+        },
+        "Chemicals": {
+          "status": "observed",
+          "at": "2026-11-15T06:02:17.059620+00:00",
+          "count": 20
+        },
+        "Cement": {
+          "status": "unavailable",
+          "at": "2026-11-15T06:02:17.059620+00:00",
+          "error_type": "ReadTimeout",
+          "retained_observation": null
+        }
+      },
+      "sources": 14
+    },
+    "post_deploy_quote_401_observed": false,
+    "post_deploy_quote_401_latest": null,
+    "normal_comparison_decision_observed": false,
+    "production_scan_induced": false,
+    "production_trade_induced": false,
+    "controlled_post_save_restart_verified": true,
+    "private_after_projection_sha256": "de10940573a3cb44dcc0c957df39a2c3ebfd79d5038e0128a4b3f76d44a69a2a",
+    "health": {
+      "observed_at": "2026-11-15T06:03:05.749657+00:00",
+      "http_status": 200,
+      "ok": true,
+      "db": {
+        "connected": true,
+        "db": "sourceborn",
+        "url_set": true,
+        "degraded": false,
+        "boot_degraded": false,
+        "write_error": null,
+        "write_error_at": null
+      },
+      "readiness": {
+        "production": true,
+        "ready": true,
+        "insecure_override": false,
+        "problems": []
+      },
+      "sector_context": {
+        "scope": "current_process",
+        "last_attempt": {
+          "status": "partial",
+          "observed_sources": 14,
+          "required_sources": 15,
+          "at": "2026-11-15T06:02:17.059620+00:00"
+        },
+        "durability": "acknowledged"
+      },
+      "stats": {
+        "asof": "2026-11-15T06:02:53.169732+00:00",
+        "age_s": 12.5,
+        "pending": false,
+        "elapsed_s": 8.467,
+        "error": null
+      }
+    }
+  },
+  "remaining": [
+    "Normal market-session comparison and trade lifecycle observation",
+    "Cement source unavailable with ReadTimeout",
+    "Stored sample stock/sector histories miss 13 November; store-only benchmark absent; provider fallback not probed",
+    "Last observed broker quote requests rejected with 401 before deployment; accepted response not verified",
+    "Permanent archive integration, retention and prior-process spill reconciliation"
   ]
 }
