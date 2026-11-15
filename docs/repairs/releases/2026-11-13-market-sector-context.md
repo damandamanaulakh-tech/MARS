@@ -8,7 +8,10 @@ Baseline: `ade19e8fa1ee6476485c09f147580d2e47ae257f` (current main fetched befor
 work). Prior functional deployment: `29ca4aa338f3836b6f5c41335e2b06868823ce71`,
 Render `dep-dbralp142hec73bd2o1g`, still live when this batch began.
 
-Status: DEPLOYED_PERSISTENCE_BLOCKED. PR207 passed CI and deployed, but
+Historical status at the initial verification: DEPLOYED_PERSISTENCE_BLOCKED.
+Current recovery: [14 November storage proof](2026-11-14-storage-recovery.md);
+[decision-time freshness follow-up](2026-11-14-context-use-time.md).
+PR207 passed CI and deployed, but
 post-deploy writes fail at the Atlas quota. Goal06 remains active; Goal07 is
 queued. [Storage incident and recovery requirements](2026-11-14-context-storage-incident.md).
 

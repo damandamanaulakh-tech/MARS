@@ -5,6 +5,7 @@ prove historical membership or the publication/effective date of an undated CSV.
 """
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
+from datetime import datetime
 import csv
 import hashlib
 import io
@@ -128,14 +129,24 @@ def resolve(ticker, data, now=None, *, configured_label=None, instrument_isin=No
     now = utc(now)
     base = {'ticker': ticker, 'status': 'unknown', 'reason': 'not_in_verified_sources',
             'industry': None, 'isin': None, 'sector_index': None, 'sector_status': 'unknown',
-            'configured_label': configured_label, 'evidence': [], 'max_age_days': MAX_AGE_DAYS,
+            'configured_label': configured_label, 'instrument_isin': instrument_isin,
+            'evaluated_at': now.isoformat(), 'evidence': [], 'max_age_days': MAX_AGE_DAYS,
             'membership_basis': 'observed_current_constituents_not_historical_membership'}
     candidates = []
     for name, src in (data.get('sources') or {}).items():
         row = (src.get('rows') or {}).get(ticker)
         if not row or name not in FILES:
             continue
-        at = utc(src.get('observed_at')) if src.get('observed_at') else None
+        # Our fetcher records timezone-aware receipt times. A legacy date or
+        # naive value cannot prove when a source was observed; do not silently
+        # invent UTC for that stored evidence as we do for the engine's clock.
+        try:
+            raw_at = src.get('observed_at')
+            stamp = (raw_at if isinstance(raw_at, datetime) else
+                     datetime.fromisoformat(str(raw_at).replace('Z', '+00:00')))
+            at = utc(stamp) if stamp.tzinfo is not None and stamp.utcoffset() is not None else None
+        except (TypeError, ValueError):
+            at = None
         reason = ('source_time_unavailable' if at is None else 'source_observed_in_future' if at > now
                   else 'source_stale' if (now-at).total_seconds() > MAX_AGE_DAYS * 86400 else None)
         base['evidence'].append({'index': name, 'url': src.get('url'), 'sha256': src.get('sha256'),

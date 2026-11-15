@@ -80,6 +80,10 @@ the user's instructions for the current task.
 - Record publisher URL, observation/publication date, attempt time and scope.
   Keep unavailable, empty, partial, stale, login-required and insufficient-history
   outcomes distinct. Never substitute zero or a successful verdict for missing data.
+- Recheck source validity at decision time against the same frozen batch snapshot.
+  Do not silently assign a timezone to an unproved stored receipt time. Test the
+  real adapters and comparison on scan/exit paths, including save/reload; mocked
+  comparison results establish wiring only.
 - Use bounded requests and retained good observations. An unreadable prior cache
   must not be replaced with an empty snapshot. Completion markers require mapped
   data and acknowledged writes; independently failing sources retry independently.

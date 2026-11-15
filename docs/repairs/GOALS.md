@@ -46,3 +46,9 @@ Owner storage decision, 14 November: keep the free tier. [Lossless archive plan]
 Diagnostic follow-up and the owner-selected free-tier archive plan are merged in [PR208](https://github.com/damandamanaulakh-tech/MARS/pull/208): **3192 canonical CI tests, zero skips**. Its deployment remains deferred pending state reconciliation; live remains PR207. Goal06 is still open.
 
 The [offline archive verifier](releases/2026-11-14-archive-preflight.md) is merged in PR210 with 3,247 canonical CI tests and zero skips (54 focused / 3,248 local). The [recovery record](releases/2026-11-14-storage-recovery.md) proves all 82,740 stored documents were backed up/restored and exactly 10,000 scan-only copies removed for 74.15 MiB of temporary relief. All 30,486 remaining archive records are byte-identical. Live compression, sustainable retention and prior-process spill reconciliation remain open.
+
+Decision-time freshness follow-up: source identity is rechecked against the frozen
+batch snapshot when used, with unproved receipt times unknown. [Repair and
+real-adapter evidence](releases/2026-11-14-context-use-time.md): 79 focused tests,
+zero skips; full local suite 3262 passed, zero skips. Canonical CI and shipment
+pending. Goal06 remains active.
