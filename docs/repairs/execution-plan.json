@@ -245,19 +245,19 @@
         "SEQ-05"
       ],
       "status": "DEPLOYED_PERSISTENCE_VERIFIED_RUNTIME_PENDING",
-      "implementation": "IMPLEMENTED",
-      "tests": "3185_CANONICAL_CI_PASSED_ZERO_SKIPS",
-      "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/207",
-      "merge_revision": "47e7e0536b6c84f9f9f6698e5d1f76e80b315b14",
-      "deployment_revision": "47e7e0536b6c84f9f9f6698e5d1f76e80b315b14",
-      "health": "VERIFIED_WITH_ACKNOWLEDGED_SAVES_2026-11-14",
-      "runtime": "SECTOR_SOURCE_SAVE_VERIFIED_NORMAL_COMPARISON_AND_RESTART_PENDING",
-      "evidence": "docs/repairs/releases/2026-11-14-storage-recovery.md",
-      "ci_run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43390962930",
-      "deployment_id": "dep-dbrcergjo6nc73ev2ug0",
-      "deployed_at": "2026-11-13T08:18:20.424623Z",
+      "implementation": "IMPLEMENTED_AND_SHIPPED",
+      "tests": "3261_CANONICAL_CI_AND_3262_LOCAL_PASSED_ZERO_SKIPS",
+      "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/212",
+      "merge_revision": "520ec29d6b0f02c8e23ebdd339f2e652509bbc52",
+      "deployment_revision": "520ec29d6b0f02c8e23ebdd339f2e652509bbc52",
+      "health": "VERIFIED_2026-11-15T06:03:05Z",
+      "runtime": "SOURCE_SAVES_AND_RELEASE_RESTART_VERIFIED_NORMAL_COMPARISON_PENDING",
+      "evidence": "docs/repairs/releases/2026-11-14-context-use-time.md",
+      "ci_run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43682948103",
+      "deployment_id": "dep-dbskknvf3r2c73eh4f5g",
+      "deployed_at": "2026-11-15T06:01:43.286781Z",
       "health_evidence": {
-        "observed_at": "2026-11-14T17:42:27.715095+00:00",
+        "observed_at": "2026-11-15T06:03:05.749657+00:00",
         "http_status": 200,
         "ok": true,
         "db": {
@@ -275,42 +275,58 @@
           "insecure_override": false,
           "problems": []
         },
-        "stats": {
-          "asof": "2026-11-14T17:41:43.194686+00:00",
-          "age_s": 44.4,
-          "pending": false,
-          "elapsed_s": 8.423,
-          "error": null
+        "sector_context": {
+          "scope": "current_process",
+          "last_attempt": {
+            "status": "partial",
+            "observed_sources": 14,
+            "required_sources": 15,
+            "at": "2026-11-15T06:02:17.059620+00:00"
+          },
+          "durability": "acknowledged"
         },
-        "rounded_cluster_logical_mib": 434.0
+        "stats": {
+          "asof": "2026-11-15T06:02:53.169732+00:00",
+          "age_s": 12.5,
+          "pending": false,
+          "elapsed_s": 8.467,
+          "error": null
+        }
       },
       "runtime_observation": {
         "sector_identity_saved_documents": 1,
         "observed_sources": 14,
         "required_sources": 15,
         "unavailable_source": "Cement: ReadTimeout",
-        "sector_attempted_at": "2026-11-14T17:34:38.675187+00:00",
-        "last_portfolio_save": "2026-11-14T17:34:24.979162",
+        "sector_attempted_at": "2026-11-15T06:02:17.059620+00:00",
+        "last_portfolio_save": "2026-11-15T06:02:02.551063",
         "normal_comparison_decision_observed": false,
-        "controlled_post_save_restart_verified": false,
+        "controlled_post_save_restart_verified": true,
         "production_scan_induced": false,
-        "production_trade_induced": false
+        "production_trade_induced": false,
+        "financial_core_unchanged": {
+          "cash": true,
+          "positions": true,
+          "trades": true
+        },
+        "stored_data_probe": "docs/repairs/evidence/2026-11-15-stored-context-probe.json"
       },
       "blocking_incident": null,
       "storage_recovery_plan": "docs/repairs/releases/2026-11-14-lossless-archive-plan.md",
       "owner_storage_decision": "KEEP_FREE_TIER_PRIVATE_DOWNLOAD_AND_BOUNDED_CLEANUP_REQUESTED",
       "diagnostic_followup": {
-        "status": "MERGED_DEPLOYMENT_DEFERRED_CAPACITY_RECOVERY",
+        "status": "DEPLOYED_IN_PR212_RELEASE",
         "local_tests": 3193,
         "local_skipped": 0,
         "focused_tests": 65,
-        "deployment": "deferred_pending_state_reconciliation",
+        "deployment": "520ec29d6b0f02c8e23ebdd339f2e652509bbc52",
         "head": "e223d04feb2eb37d260b97300a517e8faf06abd9",
         "merge": "1efba3c792a957ad787bf52fa0a34607e366c808",
         "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/208",
         "ci_run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43616515704",
         "canonical_tests": 3192,
-        "canonical_skipped": 0
+        "canonical_skipped": 0,
+        "deployment_id": "dep-dbskknvf3r2c73eh4f5g"
       },
       "archive_preflight": {
         "status": "MERGED_NOT_LIVE_WIRED",
@@ -335,7 +351,7 @@
         "prior_process_spill_coverage": "unknown"
       },
       "source_freshness_followup": {
-        "status": "PR212_CI_RETRY_AFTER_BASELINE_FIXTURE_CORRECTION",
+        "status": "DEPLOYED_PERSISTENCE_VERIFIED_RUNTIME_PENDING",
         "evidence": "docs/repairs/releases/2026-11-14-context-use-time.md",
         "baseline": "6c4024f79e0512bec9f6a99a1bbad5a37c519828",
         "failing_before": 5,
@@ -347,7 +363,23 @@
         "local_full_seconds": 229.1,
         "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/212",
         "expanded_focused_passed": 126,
-        "prior_ci": "43682247182: 3260 passed, one existing Sunday fixture failure; no merge"
+        "prior_ci": "43682247182: 3260 passed, one existing Sunday fixture failure; no merge",
+        "head": "8c7fd93746292c0d3489e072d5fcc70d135fd83b",
+        "tree": "468fd94367ad4f6a8a2e4fa672f213c83898c9a6",
+        "merge_revision": "520ec29d6b0f02c8e23ebdd339f2e652509bbc52",
+        "canonical_tests": 3261,
+        "ci_run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43682948103",
+        "final_local_full_tests": 3262,
+        "final_local_full_seconds": 236.81
+      },
+      "original_context_release": {
+        "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/207",
+        "merge_revision": "47e7e0536b6c84f9f9f6698e5d1f76e80b315b14",
+        "deployment_revision": "47e7e0536b6c84f9f9f6698e5d1f76e80b315b14",
+        "ci_run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43390962930",
+        "tests": "3185_CANONICAL_CI_PASSED_ZERO_SKIPS",
+        "deployment_id": "dep-dbrcergjo6nc73ev2ug0",
+        "deployed_at": "2026-11-13T08:18:20.424623Z"
       }
     },
     {
@@ -461,5 +493,5 @@
       "evidence": null
     }
   ],
-  "active_step_note": "SEQ-06 remains active. PR207 is live; native backup and exact owner-requested scan-only cleanup restored normal portfolio and sector snapshot persistence. Official source ingestion is 14/15 with explicit Cement unknown, visible on the owner page. Normal saved comparison and controlled post-save restart evidence remain pending; no production trade induced. SEQ-07 stays queued; earlier runtime and later performance subclaims remain open."
+  "active_step_note": "SEQ-06 engineering is shipped in PR212 with 3261 canonical CI tests and zero skips. The matching Render deployment is live; health, acknowledged 14/15-source saves and financial-book preservation across the release restart are verified. A five-stock stored-data replay correctly reports missing-window inputs as unknown. Normal market-session comparison observation remains pending; SEQ-07 is queued."
 }

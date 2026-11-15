@@ -2,7 +2,9 @@
 
 > **Later 14 November update:** [Temporary capacity recovery](2026-11-14-storage-recovery.md) restored ordinary acknowledged portfolio and sector-source saves. The original incident evidence below is retained; prior-process state reconciliation and permanent retention remain open.
 
-Status: capacity recovery required. Goal06 remains active; Goal07 stays queued.
+Historical initial status: capacity recovery required. Temporary capacity is now
+restored; [PR212 release-restart persistence](2026-11-14-context-use-time.md) is
+verified. Permanent retention and prior-process reconciliation remain open.
 The core [SEQ-06 implementation](2026-11-13-market-sector-context.md) is merged
 and live. This record does not claim that a successful HTTP response proves
 persistence. The original ledger and all source evidence are retained.

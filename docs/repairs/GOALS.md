@@ -2,7 +2,7 @@
 
 Each batch must identify its source findings, demonstrate the failure, make a bounded repair, test valid and failure paths, and record local / merged / deployed / runtime-verified status separately. Strategy decisions retain their own review. Work below is ordered by the current incident and portfolio impact.
 
-11 November owner-approved execution order: [SEQ-01 through SEQ-11](EXECUTION_PLAN.md), with [machine-readable states](execution-plan.json). SEQ-01 / AUD-002 is shipped and health verified, with normal quote-gap observation pending. SEQ-02 is shipped and health verified after 2934 local and CI tests passed with zero skips; its normal recovery observation remains pending. SEQ-03 decision evidence shipped in PR201; 2994 local and CI tests pass with zero skips, with matching deployment and health verified 12 November 2026 00:34:03 IST. Normal decision lifecycle observation remains pending. SEQ-04 shipped in PR203 with 3067 local/CI tests passing and zero skips; matching deployment and health verified. Normal scan/data-gap and performance observations remain separate. SEQ-05 shipped in PR205; 3127 canonical CI tests pass with zero skips, exact deployment and health verified. Normal fee lifecycle observation remains pending. SEQ-06 is deployed with source/portfolio saves recovered and verified; normal comparison/restart observation remains pending. Original G1–G13 and all backlog IDs are retained.
+11 November owner-approved execution order: [SEQ-01 through SEQ-11](EXECUTION_PLAN.md), with [machine-readable states](execution-plan.json). SEQ-01 / AUD-002 is shipped and health verified, with normal quote-gap observation pending. SEQ-02 is shipped and health verified after 2934 local and CI tests passed with zero skips; its normal recovery observation remains pending. SEQ-03 decision evidence shipped in PR201; 2994 local and CI tests pass with zero skips, with matching deployment and health verified 12 November 2026 00:34:03 IST. Normal decision lifecycle observation remains pending. SEQ-04 shipped in PR203 with 3067 local/CI tests passing and zero skips; matching deployment and health verified. Normal scan/data-gap and performance observations remain separate. SEQ-05 shipped in PR205; 3127 canonical CI tests pass with zero skips, exact deployment and health verified. Normal fee lifecycle observation remains pending. SEQ-06 engineering is shipped in PR212, with source saves and release-restart preservation verified; normal market-session comparison remains pending. Original G1–G13 and all backlog IDs are retained.
 
 | Goal | Work and source records | Evidence required | Current state |
 |---|---|---|---|
@@ -39,16 +39,17 @@ Build incrementally toward a common portfolio command boundary, durable unfinish
 
 Completion means acceptance evidence, not the number of edited files. A local passing test does not establish live operational resolution.
 
-SEQ-06 is deployed in PR207 (3185 canonical CI tests, zero skips). The Atlas quota incident was relieved by a verified 10000-record cold archive on 14 November; normal portfolio and 14/15-source sector snapshot saves are read back. Goal06 remains active for normal comparison/restart observations; Goal07 remains queued. [Shipment](releases/2026-11-13-market-sector-context.md) and [storage incident](releases/2026-11-14-context-storage-incident.md).
+Initial SEQ-06 delivery was PR207; temporary storage recovery was verified on 14 November. SEQ-06 engineering is shipped in PR212 with 3261 canonical CI tests and zero skips. The matching Render deployment is live; health, acknowledged 14/15-source saves and financial-book preservation across the release restart are verified. A five-stock stored-data replay correctly reports missing-window inputs as unknown. Normal market-session comparison observation remains pending; SEQ-07 is queued. [Latest release](releases/2026-11-14-context-use-time.md).
 
 Owner storage decision, 14 November: keep the free tier. [Lossless archive plan](releases/2026-11-14-lossless-archive-plan.md) prepared with measured sizes, preservation and restore requirements; no compressed online migration performed; the separately authorized temporary cold archive is recorded below.
 
-Diagnostic follow-up and the owner-selected free-tier archive plan are merged in [PR208](https://github.com/damandamanaulakh-tech/MARS/pull/208): **3192 canonical CI tests, zero skips**. Its deployment remains deferred pending state reconciliation; live remains PR207. Goal06 is still open.
+Diagnostic follow-up and the owner-selected free-tier archive plan are merged in [PR208](https://github.com/damandamanaulakh-tech/MARS/pull/208): **3192 canonical CI tests, zero skips**. These diagnostics are now live in the PR212 release; the historical deployment deferral and prior-process state limits remain recorded separately.
 
 The [offline archive verifier](releases/2026-11-14-archive-preflight.md) is merged in PR210 with 3,247 canonical CI tests and zero skips (54 focused / 3,248 local). The [recovery record](releases/2026-11-14-storage-recovery.md) proves all 82,740 stored documents were backed up/restored and exactly 10,000 scan-only copies removed for 74.15 MiB of temporary relief. All 30,486 remaining archive records are byte-identical. Live compression, sustainable retention and prior-process spill reconciliation remain open.
 
 Decision-time freshness follow-up: source identity is rechecked against the frozen
 batch snapshot when used, with unproved receipt times unknown. [Repair and
 real-adapter evidence](releases/2026-11-14-context-use-time.md): 79 focused tests,
-zero skips; full local suite 3262 passed, zero skips. Canonical CI and shipment
-pending. Goal06 remains active.
+zero skips; expanded focused suite 126 and corrected full local suite 3262 passed.
+PR212 canonical CI passed 3261 tests, zero skips; exact deployment and release
+restart persistence verified. Normal market-session comparison remains pending.

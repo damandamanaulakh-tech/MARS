@@ -1,0 +1,209 @@
+{
+  "at": "2026-11-15T05:46:20+00:00",
+  "scope": "read-only replay of stored production data through real readers and comparison; not an ordinary engine decision",
+  "lookback": 21,
+  "provider_fallback": "not invoked; missing stored benchmark is not proof provider would fail",
+  "production_mutations": 0,
+  "rows": [
+    {
+      "ticker": "TCS.NS",
+      "identity_status": "verified",
+      "sector": "IT",
+      "identity_evaluated_at": "2026-11-15T05:46:20+00:00",
+      "window": {
+        "interval": "1d",
+        "lookback_bars": 21,
+        "timezone": "Asia/Kolkata",
+        "start": "2026-10-13T10:00:00+00:00",
+        "end": "2026-11-13T10:00:00+00:00"
+      },
+      "stock": {
+        "status": "unknown",
+        "reason": "missing_exact_window_bars",
+        "return_pct": null,
+        "source": "ohlcv_store",
+        "last_available": "2026-11-12T10:00:00+00:00",
+        "present_bars": 21,
+        "required_bars": 22
+      },
+      "sector_data": {
+        "status": "unknown",
+        "reason": "missing_exact_window_bars",
+        "return_pct": null,
+        "source": "stored_upstox_sector_daily",
+        "last_available": "2026-11-12T10:00:00+00:00",
+        "present_bars": 21,
+        "required_bars": 22
+      },
+      "market": {
+        "status": "unknown",
+        "reason": "missing_data",
+        "return_pct": null,
+        "source": "unknown",
+        "last_available": null
+      },
+      "stock_vs_sector_pp": null,
+      "stock_vs_market_pp": null
+    },
+    {
+      "ticker": "INFY.NS",
+      "identity_status": "verified",
+      "sector": "IT",
+      "identity_evaluated_at": "2026-11-15T05:46:20+00:00",
+      "window": {
+        "interval": "1d",
+        "lookback_bars": 21,
+        "timezone": "Asia/Kolkata",
+        "start": "2026-10-13T10:00:00+00:00",
+        "end": "2026-11-13T10:00:00+00:00"
+      },
+      "stock": {
+        "status": "unknown",
+        "reason": "missing_exact_window_bars",
+        "return_pct": null,
+        "source": "ohlcv_store",
+        "last_available": "2026-11-12T10:00:00+00:00",
+        "present_bars": 21,
+        "required_bars": 22
+      },
+      "sector_data": {
+        "status": "unknown",
+        "reason": "missing_exact_window_bars",
+        "return_pct": null,
+        "source": "stored_upstox_sector_daily",
+        "last_available": "2026-11-12T10:00:00+00:00",
+        "present_bars": 21,
+        "required_bars": 22
+      },
+      "market": {
+        "status": "unknown",
+        "reason": "missing_data",
+        "return_pct": null,
+        "source": "unknown",
+        "last_available": null
+      },
+      "stock_vs_sector_pp": null,
+      "stock_vs_market_pp": null
+    },
+    {
+      "ticker": "RELIANCE.NS",
+      "identity_status": "verified",
+      "sector": "Oil & Gas",
+      "identity_evaluated_at": "2026-11-15T05:46:20+00:00",
+      "window": {
+        "interval": "1d",
+        "lookback_bars": 21,
+        "timezone": "Asia/Kolkata",
+        "start": "2026-10-13T10:00:00+00:00",
+        "end": "2026-11-13T10:00:00+00:00"
+      },
+      "stock": {
+        "status": "unknown",
+        "reason": "missing_exact_window_bars",
+        "return_pct": null,
+        "source": "ohlcv_store",
+        "last_available": "2026-11-12T10:00:00+00:00",
+        "present_bars": 21,
+        "required_bars": 22
+      },
+      "sector_data": {
+        "status": "unknown",
+        "reason": "missing_exact_window_bars",
+        "return_pct": null,
+        "source": "stored_upstox_sector_daily",
+        "last_available": "2026-11-12T10:00:00+00:00",
+        "present_bars": 21,
+        "required_bars": 22
+      },
+      "market": {
+        "status": "unknown",
+        "reason": "missing_data",
+        "return_pct": null,
+        "source": "unknown",
+        "last_available": null
+      },
+      "stock_vs_sector_pp": null,
+      "stock_vs_market_pp": null
+    },
+    {
+      "ticker": "HDFCBANK.NS",
+      "identity_status": "verified",
+      "sector": "Bank",
+      "identity_evaluated_at": "2026-11-15T05:46:20+00:00",
+      "window": {
+        "interval": "1d",
+        "lookback_bars": 21,
+        "timezone": "Asia/Kolkata",
+        "start": "2026-10-13T10:00:00+00:00",
+        "end": "2026-11-13T10:00:00+00:00"
+      },
+      "stock": {
+        "status": "unknown",
+        "reason": "missing_exact_window_bars",
+        "return_pct": null,
+        "source": "ohlcv_store",
+        "last_available": "2026-11-12T10:00:00+00:00",
+        "present_bars": 21,
+        "required_bars": 22
+      },
+      "sector_data": {
+        "status": "unknown",
+        "reason": "missing_exact_window_bars",
+        "return_pct": null,
+        "source": "stored_upstox_sector_daily",
+        "last_available": "2026-11-12T10:00:00+00:00",
+        "present_bars": 21,
+        "required_bars": 22
+      },
+      "market": {
+        "status": "unknown",
+        "reason": "missing_data",
+        "return_pct": null,
+        "source": "unknown",
+        "last_available": null
+      },
+      "stock_vs_sector_pp": null,
+      "stock_vs_market_pp": null
+    },
+    {
+      "ticker": "MARUTI.NS",
+      "identity_status": "verified",
+      "sector": "Auto",
+      "identity_evaluated_at": "2026-11-15T05:46:20+00:00",
+      "window": {
+        "interval": "1d",
+        "lookback_bars": 21,
+        "timezone": "Asia/Kolkata",
+        "start": "2026-10-13T10:00:00+00:00",
+        "end": "2026-11-13T10:00:00+00:00"
+      },
+      "stock": {
+        "status": "unknown",
+        "reason": "missing_exact_window_bars",
+        "return_pct": null,
+        "source": "ohlcv_store",
+        "last_available": "2026-11-12T10:00:00+00:00",
+        "present_bars": 21,
+        "required_bars": 22
+      },
+      "sector_data": {
+        "status": "unknown",
+        "reason": "missing_exact_window_bars",
+        "return_pct": null,
+        "source": "stored_upstox_sector_daily",
+        "last_available": "2026-11-12T10:00:00+00:00",
+        "present_bars": 21,
+        "required_bars": 22
+      },
+      "market": {
+        "status": "unknown",
+        "reason": "missing_data",
+        "return_pct": null,
+        "source": "unknown",
+        "last_available": null
+      },
+      "stock_vs_sector_pp": null,
+      "stock_vs_market_pp": null
+    }
+  ]
+}
