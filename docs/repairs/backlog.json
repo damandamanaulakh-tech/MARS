@@ -246,7 +246,7 @@
     "workflow": "DEPLOYED_PERSISTENCE_VERIFIED_RUNTIME_PENDING",
     "assignee": "Codex",
     "fix_commit": "a8a7d51ed9067f7c12e22ac6285a67176d778402",
-    "test_result": "PR207: 3185 canonical CI tests, zero skips. PR210 offline archive tooling: 3247 canonical CI tests, zero skips. On 14 November storage recovery enabled acknowledged/read-back portfolio and sector snapshot saves (14/15 official sources, Cement explicitly unavailable); normal saved comparison lifecycle remains pending. Follow-up: five baseline failures reproduced; 79 focused tests pass with zero skips after decision-time source revalidation and real-adapter integration checks. 3262 local full-suite tests pass with zero skips; canonical CI and shipment pending.",
+    "test_result": "PR207: 3185 canonical CI tests, zero skips. PR210 offline archive tooling: 3247 canonical CI tests, zero skips. On 14 November storage recovery enabled acknowledged/read-back portfolio and sector snapshot saves (14/15 official sources, Cement explicitly unavailable); normal saved comparison lifecycle remains pending. Follow-up: five baseline failures reproduced; 79 focused tests pass with zero skips after decision-time source revalidation and real-adapter integration checks. 3262 local full-suite tests pass with zero skips; canonical CI and shipment pending. PR212 first CI exposed a pre-existing Sunday drawdown fixture error, reproduced on baseline and corrected without changing production safeguards. Expanded focused suite 126 passed, zero skips; final full/CI reruns pending.",
     "deployment_revision": "47e7e0536b6c84f9f9f6698e5d1f76e80b315b14",
     "source_sheet": "Flaws",
     "source_row": 13
@@ -2430,7 +2430,7 @@
     "workflow": "PARTIAL_DEPLOYED_PERSISTENCE_VERIFIED_RUNTIME_PENDING",
     "assignee": "Codex",
     "fix_commit": "a8a7d51ed9067f7c12e22ac6285a67176d778402",
-    "test_result": "PR207: 3185 canonical CI tests, zero skips. PR210 offline archive tooling: 3247 canonical CI tests, zero skips. On 14 November storage recovery enabled acknowledged/read-back portfolio and sector snapshot saves (14/15 official sources, Cement explicitly unavailable); normal saved comparison lifecycle remains pending. Follow-up: five baseline failures reproduced; 79 focused tests pass with zero skips after decision-time source revalidation and real-adapter integration checks. 3262 local full-suite tests pass with zero skips; canonical CI and shipment pending.",
+    "test_result": "PR207: 3185 canonical CI tests, zero skips. PR210 offline archive tooling: 3247 canonical CI tests, zero skips. On 14 November storage recovery enabled acknowledged/read-back portfolio and sector snapshot saves (14/15 official sources, Cement explicitly unavailable); normal saved comparison lifecycle remains pending. Follow-up: five baseline failures reproduced; 79 focused tests pass with zero skips after decision-time source revalidation and real-adapter integration checks. 3262 local full-suite tests pass with zero skips; canonical CI and shipment pending. PR212 first CI exposed a pre-existing Sunday drawdown fixture error, reproduced on baseline and corrected without changing production safeguards. Expanded focused suite 126 passed, zero skips; final full/CI reruns pending.",
     "deployment_revision": "47e7e0536b6c84f9f9f6698e5d1f76e80b315b14",
     "source_sheet": "Flaws",
     "source_row": 91
@@ -4754,7 +4754,7 @@
     "workflow": "PARTIAL_DEPLOYED_PERSISTENCE_VERIFIED_RUNTIME_PENDING",
     "assignee": "Codex",
     "fix_commit": "a8a7d51ed9067f7c12e22ac6285a67176d778402",
-    "test_result": "PR207: 3185 canonical CI tests, zero skips. PR210 offline archive tooling: 3247 canonical CI tests, zero skips. On 14 November storage recovery enabled acknowledged/read-back portfolio and sector snapshot saves (14/15 official sources, Cement explicitly unavailable); normal saved comparison lifecycle remains pending. Follow-up: five baseline failures reproduced; 79 focused tests pass with zero skips after decision-time source revalidation and real-adapter integration checks. 3262 local full-suite tests pass with zero skips; canonical CI and shipment pending.",
+    "test_result": "PR207: 3185 canonical CI tests, zero skips. PR210 offline archive tooling: 3247 canonical CI tests, zero skips. On 14 November storage recovery enabled acknowledged/read-back portfolio and sector snapshot saves (14/15 official sources, Cement explicitly unavailable); normal saved comparison lifecycle remains pending. Follow-up: five baseline failures reproduced; 79 focused tests pass with zero skips after decision-time source revalidation and real-adapter integration checks. 3262 local full-suite tests pass with zero skips; canonical CI and shipment pending. PR212 first CI exposed a pre-existing Sunday drawdown fixture error, reproduced on baseline and corrected without changing production safeguards. Expanded focused suite 126 passed, zero skips; final full/CI reruns pending.",
     "deployment_revision": "47e7e0536b6c84f9f9f6698e5d1f76e80b315b14",
     "source_sheet": "Owner request",
     "source_row": "2026-11-11"

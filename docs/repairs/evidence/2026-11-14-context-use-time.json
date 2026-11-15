@@ -29,13 +29,22 @@
       "skipped": 0,
       "seconds": 229.063,
       "xml_sha256": "8b2058c02cea37e79d6747b0a72842a5cdc25a031416ffb1bef38681de873cf7"
-    }
+    },
+    "expanded_focused": {
+      "tests": 126,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "seconds": 1.349
+    },
+    "final_local_full": "running_after_fixture_correction"
   },
   "source_files": {
     "trading/context_inputs.py": "aa285ed770797c02493388f0dde0378eefdcd84cd5ab3c5bdc012a541c5d3759",
     "trading/sector_identity.py": "53775300d1d9860b82195413c23e8672bba05fbac5ecb067d7d684e810f51024",
     "trading/tests/test_context_use_time_2026_11_14.py": "e02880b02879471fc643337cbe2656bc69d5d74aa7acaf9a94568f35b50e7190",
-    "web/tests/test_context_adapters_2026_11_14.py": "7a066d2cbe381c08cd80a82c4892d707e43532215b49f3d11297e4f1797d5e7e"
+    "web/tests/test_context_adapters_2026_11_14.py": "7a066d2cbe381c08cd80a82c4892d707e43532215b49f3d11297e4f1797d5e7e",
+    "trading/tests/test_exit_ruler_ocean_ladder_2026_10_02.py": "3917a9671d840d8a42d3123e82c85ee357a2a7a3e96512129c3ef99a098a7d23"
   },
   "pre_release_state": {
     "at": "2026-11-14T18:07Z",
@@ -52,5 +61,16 @@
     "status": "pending",
     "deployment": "pending",
     "normal_market_comparison_observation": "pending"
-  }
+  },
+  "ci_attempts": [
+    {
+      "run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43682247182",
+      "head": "fe7ef912e61d91f0b9ba7959f7fd0f48bb0dac72",
+      "passed": 3260,
+      "failed": 1,
+      "skipped_tests": 0,
+      "no_skip_step": "not_run_after_test_failure",
+      "reason": "Existing partial-drawdown test assumed yesterday preceded stored history; false on Sunday. Reproduced with baseline context modules. Test entries now precede supplied bars; assertions and production guards unchanged."
+    }
+  ]
 }

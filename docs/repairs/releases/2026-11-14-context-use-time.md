@@ -68,3 +68,21 @@ cannot be obtained. The private backup and temporary storage relief do not close
 permanent retention or prior-process spill reconciliation. SEQ-07 stays queued.
 
 [Sanitized checks and hashes](../evidence/2026-11-14-context-use-time.json).
+
+## 15 November: CI fixture correction
+
+The first [CI run](https://github.com/damandamanaulakh-tech/MARS/actions/runs/43682247182)
+passed 3,260 tests and failed one existing drawdown retry test; no pytest tests
+were skipped, but the downstream no-skip step did not run after the failure.
+No merge or deployment occurred on that result.
+
+On Sunday its fixture's entry was Saturday ("yesterday") while supplied daily
+history ended Friday. The real unknown-mark safeguard correctly abstained, so
+its expected cut could not occur. The same failure was independently reproduced
+with the baseline context modules. The test now places its entries before the
+supplied stored closes. All existing exit, pending-work and restart assertions
+remain; no production mark/exit behavior or threshold changed.
+
+Expanded focused checks: **126 passed, zero failures/errors/skips**. The full
+suite and canonical CI are rerun on the corrected revision; the earlier local
+3,262-pass result remains dated evidence, not a substitute for those checks.

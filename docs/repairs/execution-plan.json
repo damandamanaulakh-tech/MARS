@@ -335,7 +335,7 @@
         "prior_process_spill_coverage": "unknown"
       },
       "source_freshness_followup": {
-        "status": "LOCAL_TESTED_CI_AND_DEPLOYMENT_PENDING",
+        "status": "PR212_CI_RETRY_AFTER_BASELINE_FIXTURE_CORRECTION",
         "evidence": "docs/repairs/releases/2026-11-14-context-use-time.md",
         "baseline": "6c4024f79e0512bec9f6a99a1bbad5a37c519828",
         "failing_before": 5,
@@ -344,7 +344,10 @@
         "focused_passed": 79,
         "skipped": 0,
         "local_full_tests": 3262,
-        "local_full_seconds": 229.1
+        "local_full_seconds": 229.1,
+        "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/212",
+        "expanded_focused_passed": 126,
+        "prior_ci": "43682247182: 3260 passed, one existing Sunday fixture failure; no merge"
       }
     },
     {

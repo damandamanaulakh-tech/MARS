@@ -315,6 +315,12 @@ def test_hydrate_reads_the_cut_level(tmp_path):
 
 def test_refresh_retries_partial_drawdown_after_quotes_return(eng, monkeypatch):
     p = _book_in_drawdown(eng, -0.12)
+    # The unquoted holdings need a known post-entry observation. On Sunday,
+    # _hold's "yesterday" is Saturday, after the Friday history tail, so the
+    # real mark guard correctly abstains. Put these fixture entries before
+    # their supplied stored closes; retain all cut/restart assertions below.
+    for ticker, pos in p.positions.items():
+        pos.entry_date = eng._frames[ticker].index[-1].to_pydatetime() - timedelta(days=1)
     prices = {t: float(eng._frames[t]["Close"].iloc[-1]) for t in p.positions}
     monkeypatch.setattr("trading.engine.routed_fetch_quotes", lambda *a, **k: {"AA.NS": prices["AA.NS"]})
     assert eng.refresh()["exits_this_refresh"] == ["AA.NS"]
