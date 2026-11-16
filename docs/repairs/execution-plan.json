@@ -1,7 +1,7 @@
 {
   "approved_date": "2026-11-11",
   "source": "Owner asked to show sequence, start one by one, and track completion in the repository.",
-  "active_step": "SEQ-08",
+  "active_step": "SEQ-09",
   "steps": [
     {
       "id": "SEQ-01",
@@ -522,15 +522,15 @@
       "depends_on": [
         "SEQ-08"
       ],
-      "status": "QUEUED",
-      "implementation": "NOT_STARTED",
-      "tests": "NOT_RUN",
+      "status": "IN_PROGRESS",
+      "implementation": "RESEARCH_PROTOCOL_FROZEN",
+      "tests": "FOCUSED_IN_PROGRESS",
       "pull_request": null,
       "merge_revision": null,
       "deployment_revision": null,
       "health": "NOT_CHECKED",
       "runtime": "NOT_OBSERVED",
-      "evidence": null
+      "evidence": "research/reentry_2026_11_16/protocol.json"
     },
     {
       "id": "SEQ-10",
@@ -580,5 +580,5 @@
       "evidence": null
     }
   ],
-  "active_step_note": "SEQ-08 research is complete and merged in PR216. All 3359 local/CI tests pass with zero skips; complete offline outcome/report reproduction and repair-record checks pass. The locked candidate failed validation/holdout criteria; no settings were promoted. This holdout is consumed; actual-strategy/forward validation remains separate. SEQ-09 is queued; earlier natural-runtime observations remain pending."
+  "active_step_note": "SEQ-09 in progress: protocol committed before new acquisition; causal changed-setup rules and loss/recovery attribution under test. Holdout has not been requested. SEQ-08 remains research complete with no promotion; earlier runtime observations remain pending."
 }
