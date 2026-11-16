@@ -278,7 +278,11 @@ def test_the_backtest_sets_the_same_stop(monkeypatch):
     monkeypatch.setattr(bt, "_score_for_mode", lambda *a, **k: (80.0, {}))
     monkeypatch.setattr(bt, "timing_ok", lambda h, c: (True, "ok"))
     monkeypatch.setattr(bt, "slippage_price", lambda px, side, c: px)
-    monkeypatch.setattr(bt, "can_open", lambda *a, **k: (True, "ok", 100))
+    sized_stops = []
+    def gate(*args, **kwargs):
+        sized_stops.append(kwargs["proposed_stop_price"])
+        return True, "ok", 100
+    monkeypatch.setattr(bt, "can_open", gate)
     monkeypatch.setattr("trading.calendars.is_system_event_within",
                         lambda *a, **k: None)
     bt._try_open_positions(cfg, p, risk, {"J.NS": df}, None,
@@ -287,6 +291,7 @@ def test_the_backtest_sets_the_same_stop(monkeypatch):
     want = T.stop_price_for(MOM, 100.0, df, -0.05)[0]
     assert want < 95.0, "fixture must be jumpy enough to widen"
     assert pos.stop_price == pytest.approx(want)
+    assert sized_stops == [pos.stop_price]
 
 
 # ---------------------------------------------------------------- purity

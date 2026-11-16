@@ -56,7 +56,8 @@ No network, no config mutation, no engine/risk/orders import.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import math
 from typing import Any, Iterable, Optional
 
 # --- the estimator's constants, each with its reason -----------------------
@@ -154,14 +155,55 @@ def net_return(trade: Any) -> Optional[float]:
         entry = float(getattr(trade, "entry_price", 0) or 0)
         net = getattr(trade, "net_pnl", None)
         if net is None:
-            gross = float(getattr(trade, "gross_pnl", 0) or 0)
-            net = gross - float(getattr(trade, "costs", 0) or 0)
+            # Absent accounting is unknown; never invent zero charges or P&L.
+            gross = float(getattr(trade, "gross_pnl", None))
+            costs = float(getattr(trade, "costs", None))
+            if not math.isfinite(gross) or not math.isfinite(costs) or costs < 0:
+                return None
+            net = gross - costs
         notional = qty * entry
-        if notional <= 0:
+        if (qty <= 0 or entry <= 0 or notional <= 0 or
+                not all(math.isfinite(x) for x in (qty, entry, notional, float(net)))):
             return None
-        return float(net) / notional
-    except (TypeError, ValueError):
+        result = float(net) / notional
+        return result if math.isfinite(result) else None
+    except (TypeError, ValueError, OverflowError):
         return None
+
+
+def economic_summary(trades: Iterable[Any]) -> dict:
+    """Unclipped, all-reason accounting beside the filtered strategy sample.
+
+    Reads records only. Owner exits and portfolio exits remain visible as
+    economic losses even when the established strategy filter excludes them.
+    Unknown amounts are counted, not represented as zero-cost observations.
+    """
+    rows = list(trades)
+    net, costs, excluded_net = [], [], []
+    for t in rows:
+        r = net_return(t)
+        if r is not None:
+            recorded = getattr(t, "net_pnl", None)
+            amount = (float(recorded) if recorded is not None else
+                      float(t.gross_pnl) - float(t.costs))
+            net.append(amount)
+            if classify(getattr(t, "reason", None)) != "strategy":
+                excluded_net.append(amount)
+        try:
+            cost = float(getattr(t, "costs", None))
+            if math.isfinite(cost) and cost >= 0:
+                costs.append(cost)
+        except (ValueError, TypeError, OverflowError):
+            pass
+    return {"record_count": len(rows), "known_exits": len(net),
+            "unknown_net_exits": len(rows)-len(net),
+            "net_losses": sum(v < 0 for v in net),
+            "net_wins": sum(v > 0 for v in net),
+            "observed_net_pnl": math.fsum(net) if net else None,
+            "observed_costs": math.fsum(costs) if costs else None,
+            "unknown_cost_exits": len(rows)-len(costs),
+            "excluded_observed_net_pnl": math.fsum(excluded_net) if excluded_net else None,
+            "scope": "Same-category retained closed legs, all exit reasons; not deduplicated full-trade or archived-ledger coverage"}
 
 
 @dataclass(frozen=True)
@@ -185,6 +227,8 @@ class KellyReading:
     note: str = ""
     category: Optional[str] = None            # None = all categories pooled
     other_category: int = 0                   # trades left out for category
+    sample_state: str = "EMPTY"
+    economic: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         d = self.__dict__.copy()
@@ -213,10 +257,12 @@ def measure(trades: Iterable[Any], fraction: float = 0.29,
     by_reason: dict = {}
     usable: list = []
     excluded = unknown = other_cat = 0
+    category_trades = []
     for t in trades or []:
         if category is not None and trade_category(t) != category:
             other_cat += 1
             continue
+        category_trades.append(t)
         raw = str(getattr(t, "reason", "") or "")
         head = raw.split(" ")[0].split("(")[0].strip().upper() or "(none)"
         by_reason[head] = by_reason.get(head, 0) + 1
@@ -238,15 +284,30 @@ def measure(trades: Iterable[Any], fraction: float = 0.29,
     losses = [r for r in usable if r < 0]
     base = dict(usable=n, excluded=excluded, unknown=unknown,
                 by_reason=by_reason, wins=len(wins), losses=len(losses),
-                category=category, other_category=other_cat)
+                category=category, other_category=other_cat,
+                economic=economic_summary(category_trades))
 
-    if n < max(1, int(min_trades)) or not wins or not losses:
+    if n < max(1, int(min_trades)):
         return KellyReading(
             status="NO_SAMPLE", block_new_entries=False, **base,
-            note=(f"{n} usable strategy exit(s) — need at least one win AND "
-                  f"one loss to measure a payoff ratio. The size cap is OFF "
-                  f"until then; the slab model sizes on its own."),
+            sample_state="EMPTY" if not n else "INSUFFICIENT",
+            note=f"{n} usable strategy exits; configured minimum {max(1, int(min_trades))}. Measured edge unknown; existing slab sizing remains in control.",
         )
+
+    if not wins and losses:
+        return KellyReading(
+            status="NO_POSITIVE_EDGE", sample_state="ALL_LOSS", **base,
+            raw_win_rate=0.0, confidence=min(1.0, n / float(max(1, full_confidence))),
+            fraction=0.0, max_position_pct=0.0, block_new_entries=True,
+            note=f"{len(losses)} net losses and no net wins in {n} usable exits. No measured positive edge; new entries blocked in the configured category. Payoff and Kelly ratio unavailable, not fabricated.")
+
+    if not losses:
+        return KellyReading(
+            status="NO_SAMPLE", sample_state="NO_LOSS" if wins else "ALL_FLAT", **base,
+            raw_win_rate=len(wins)/n,
+            note="No observed net loss denominator; payoff and measured Kelly are unknown. Existing slab sizing remains in control; this is not proof of zero risk.")
+
+    base["sample_state"] = "MIXED"
 
     raw_wr = len(wins) / n
     p = (len(wins) + PRIOR_TRADES * PRIOR_WIN_RATE) / (n + PRIOR_TRADES)

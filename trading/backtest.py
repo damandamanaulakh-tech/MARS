@@ -552,9 +552,11 @@ def _try_open_positions(
             continue
         fill = slippage_price(fill_raw, "BUY", cfg)
         current_eq = portfolio.equity(todays_prices)
+        initial_stop = _stop_price_for(cfg, fill, pick["hist"])
         ok, reason, qty = can_open(
             risk, portfolio.cash, current_eq,
             portfolio.positions, ticker, fill, cfg,
+            proposed_stop_price=initial_stop,
             when=next_date, include_entry_fees=getattr(cfg, "backtest_cost_model", "upstox_basic") == "upstox_basic",
         )
         if not ok or qty <= 0:
@@ -584,7 +586,7 @@ def _try_open_positions(
             mode=getattr(cfg, "mode", ""),
             # 2026-10-05 ("Go for A"): the same ATR stop the live engine sets
             # (momentum only, measured), so /backtest tests the live rule.
-            stop_price=_stop_price_for(cfg, fill, pick["hist"]),
+            stop_price=initial_stop,
             target_price=round(fill * (1 + cfg.take_profit_pct), 2),
             trade_evidence={"schema": 1, "trade_id": entry_evidence['id'],
                 "entry": de.finish(entry_evidence, 'opened', 'Backtest next-open fill')},

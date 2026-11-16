@@ -118,7 +118,7 @@
   <div class="font-black text-xl lg:text-2xl tracking-tight">
     {% if mk.block_new_entries %}<span class="text-red-700">NO MEASURED EDGE — NEW SCAN ENTRIES BLOCKED</span>
     {% elif mk.status == 'ACTIVE' %}<span class="text-emerald-700">EDGE MEASURED — SIZE CAP ₹{{ mk_cap|inr }} PER NEW TRADE</span>
-    {% else %}<span class="text-ink-soft">NOT ENOUGH EXITS YET — NO CAP, NO BLOCK</span>{% endif %}
+    {% else %}<span class="text-ink-soft">MEASURED EDGE UNKNOWN — EXISTING SIZING APPLIES</span>{% endif %}
   </div>
   <div class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
     <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">Exits used</div><div class="tabular-nums font-bold">{{ mk.usable }}</div></div>
@@ -127,6 +127,19 @@
     <div><div class="text-[10px] tracking-widest text-ink-faint uppercase">Payoff (avg win ÷ avg loss)</div><div class="tabular-nums font-bold">{% if mk.payoff_ratio is not none %}{{ "%.2f"|format(mk.payoff_ratio) }}{% else %}—{% endif %}</div></div>
   </div>
   <div class="mt-2 text-sm text-ink-soft">{{ mk.note }}</div>
+  {% if mk.economic %}
+  <div class="mt-3 text-sm text-ink-soft" data-economic-losses>
+    <strong>All recorded exits in this category:</strong>
+    {{ mk.economic.known_exits }} with known net results,
+    {{ mk.economic.net_losses }} net losses.
+    Observed net P&amp;L: {% if mk.economic.observed_net_pnl is not none %}₹{{ mk.economic.observed_net_pnl|inr }}{% else %}unknown{% endif %};
+    recorded costs: {% if mk.economic.observed_costs is not none %}₹{{ mk.economic.observed_costs|inr }}{% else %}unknown{% endif %}.
+    {{ mk.economic.unknown_net_exits }} exits have unknown net results;
+    {{ mk.economic.unknown_cost_exits }} have unknown costs.
+    This accounting includes owner and portfolio exits left out of the strategy estimate.
+    Coverage is the retained closed legs, including partial exits; older archived records may be outside this reading.
+  </div>
+  {% endif %}
   {% endif %}
   <div class="mt-2 text-xs text-ink-faint">
     Counts strategy exits only (stop, target, trail, max-hold, decay, rotation, danger) — never your own sells, square-offs, the kill switch or the drawdown ladder.
