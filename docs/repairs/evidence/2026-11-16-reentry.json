@@ -1,0 +1,462 @@
+{
+  "goal": "SEQ-09",
+  "finding": "INTRA-003",
+  "status": "LOCAL_RESEARCH_COMPLETE_CI_PENDING",
+  "baseline_revision": "9ba36523fe0df77adbee49dbe40a6201118db4b5",
+  "protocol_commit": "75e3ac34ba8de8f702d16b73e36bbbc5b6bfa331",
+  "selection_commit": "2fe824533ec300e76ab373ff177827f31c5fc645",
+  "protocol_frozen_at": "2026-11-16T09:19:45.352305+00:00",
+  "selection_sealed_at": "2026-11-16T09:25:39.598556+00:00",
+  "holdout_opened_at": "2026-11-16T09:34:28.649915+00:00",
+  "holdout_request_started_at": "2026-11-16T09:34:28.652588+00:00",
+  "study_scope": "Research only. One next re-entry after a common failed fixed-clock seed trade, not an actual MARS selection replay, a recursive retry strategy or portfolio performance. No production policy/settings/ledger writes.",
+  "freshness": {
+    "goal08_data_start": "2026-06-15",
+    "goal08_data_end": "2026-11-13",
+    "rule": "All Goal09 dates precede every Goal08 raw bar; fail if any symbol/timestamp overlaps. Holdout acquisition starts only after training selection/code hashes are sealed and committed.",
+    "prior_knowledge": "Older research used daily panels through June 2026, including a losing Momentum cooldown experiment. These are newly acquired five-minute observations, not a claim that the historical market period or daily returns were never studied. No observed Goal08 price or outcome is used in fitting. Forward evidence remains required."
+  },
+  "splits": {
+    "train": [
+      "2026-02-02",
+      "2026-03-13"
+    ],
+    "validation": [
+      "2026-03-16",
+      "2026-04-10"
+    ],
+    "holdout": [
+      "2026-04-13",
+      "2026-06-12"
+    ]
+  },
+  "selected_arm": "breakout_reclaim",
+  "statistical_pass": false,
+  "production_policy_changed": false,
+  "production_orders_induced": false,
+  "original_ledger_changed": false,
+  "no_promotion_reasons": [
+    "holdout_coverage_below_predeclared_minimum",
+    "holdout_retry_expectancy_not_positive",
+    "training_coverage_below_predeclared_minimum",
+    "validation_coverage_below_predeclared_minimum",
+    "validation_retry_expectancy_or_gain_not_positive"
+  ],
+  "main_comparison": [
+    {
+      "arm": "breakout_reclaim",
+      "count": 104,
+      "daily_mean_retry_drawdown_bps": 1.2886725,
+      "delayed_new_losses": 1,
+      "delayed_recoveries": 1,
+      "delayed_retry_net_inr": 2024.367275,
+      "dispositions": {
+        "delayed": 2,
+        "no_retry": 102
+      },
+      "fees_inr": 165.22,
+      "flat": 0,
+      "gross_inr": 2388.45,
+      "losses": 1,
+      "losses_avoided": 67,
+      "losses_avoided_inr": 46469.410575,
+      "mean_gain_bps": 29.81322546,
+      "mean_retry_net_bps": 1.946507,
+      "mean_retry_net_inr": 19.46506995,
+      "payoff_ratio": 158.08935164,
+      "payoff_status": "measured",
+      "recoveries_missed": 37,
+      "recoveries_missed_inr": 17488.023375,
+      "retry_trades": 2,
+      "scenario": "sampled_30m",
+      "sessions": 34,
+      "slippage_bps": 5,
+      "slippage_inr": 198.862725,
+      "symbols": 15,
+      "total_episode_net_inr": -132826.1568,
+      "total_gain_inr": 31005.754475,
+      "total_retry_net_inr": 2024.367275,
+      "win_pct": 50.0,
+      "wins": 1
+    },
+    {
+      "arm": "combined_reclaim",
+      "count": 104,
+      "daily_mean_retry_drawdown_bps": 1.2886725,
+      "delayed_new_losses": 1,
+      "delayed_recoveries": 1,
+      "delayed_retry_net_inr": 2024.367275,
+      "dispositions": {
+        "delayed": 2,
+        "no_retry": 102
+      },
+      "fees_inr": 165.22,
+      "flat": 0,
+      "gross_inr": 2388.45,
+      "losses": 1,
+      "losses_avoided": 67,
+      "losses_avoided_inr": 46469.410575,
+      "mean_gain_bps": 29.81322546,
+      "mean_retry_net_bps": 1.946507,
+      "mean_retry_net_inr": 19.46506995,
+      "payoff_ratio": 158.08935164,
+      "payoff_status": "measured",
+      "recoveries_missed": 37,
+      "recoveries_missed_inr": 17488.023375,
+      "retry_trades": 2,
+      "scenario": "sampled_30m",
+      "sessions": 34,
+      "slippage_bps": 5,
+      "slippage_inr": 198.862725,
+      "symbols": 15,
+      "total_episode_net_inr": -132826.1568,
+      "total_gain_inr": 31005.754475,
+      "total_retry_net_inr": 2024.367275,
+      "win_pct": 50.0,
+      "wins": 1
+    },
+    {
+      "arm": "next_scan",
+      "count": 104,
+      "daily_mean_retry_drawdown_bps": 973.46092535,
+      "delayed_new_losses": 0,
+      "delayed_recoveries": 0,
+      "delayed_retry_net_inr": 0.0,
+      "dispositions": {
+        "same_slot": 104
+      },
+      "fees_inr": 8547.62,
+      "flat": 0,
+      "gross_inr": -10173.5,
+      "losses": 67,
+      "losses_avoided": 0,
+      "losses_avoided_inr": 0.0,
+      "mean_gain_bps": 0.0,
+      "mean_retry_net_bps": -27.86671846,
+      "mean_retry_net_inr": -278.66718462,
+      "payoff_ratio": 0.68146984,
+      "payoff_status": "measured",
+      "recoveries_missed": 0,
+      "recoveries_missed_inr": 0.0,
+      "retry_trades": 104,
+      "scenario": "sampled_30m",
+      "sessions": 34,
+      "slippage_bps": 5,
+      "slippage_inr": 10260.2672,
+      "symbols": 15,
+      "total_episode_net_inr": -163831.911275,
+      "total_gain_inr": 0.0,
+      "total_retry_net_inr": -28981.3872,
+      "win_pct": 35.57692308,
+      "wins": 37
+    },
+    {
+      "arm": "no_retry",
+      "count": 104,
+      "daily_mean_retry_drawdown_bps": 0.0,
+      "delayed_new_losses": 0,
+      "delayed_recoveries": 0,
+      "delayed_retry_net_inr": 0.0,
+      "dispositions": {
+        "no_retry": 104
+      },
+      "fees_inr": 0,
+      "flat": 0,
+      "gross_inr": 0,
+      "losses": 0,
+      "losses_avoided": 67,
+      "losses_avoided_inr": 46469.410575,
+      "mean_gain_bps": 27.86671846,
+      "mean_retry_net_bps": 0.0,
+      "mean_retry_net_inr": 0.0,
+      "payoff_ratio": null,
+      "payoff_status": "no_trades",
+      "recoveries_missed": 37,
+      "recoveries_missed_inr": 17488.023375,
+      "retry_trades": 0,
+      "scenario": "sampled_30m",
+      "sessions": 34,
+      "slippage_bps": 5,
+      "slippage_inr": 0,
+      "symbols": 15,
+      "total_episode_net_inr": -134850.524075,
+      "total_gain_inr": 28981.3872,
+      "total_retry_net_inr": 0.0,
+      "win_pct": null,
+      "wins": 0
+    },
+    {
+      "arm": "vwap_reclaim",
+      "count": 104,
+      "daily_mean_retry_drawdown_bps": 108.49909792,
+      "delayed_new_losses": 5,
+      "delayed_recoveries": 1,
+      "delayed_retry_net_inr": -7.27675,
+      "dispositions": {
+        "delayed": 6,
+        "no_retry": 98
+      },
+      "fees_inr": 494.59,
+      "flat": 0,
+      "gross_inr": 1082.9,
+      "losses": 5,
+      "losses_avoided": 67,
+      "losses_avoided_inr": 46469.410575,
+      "mean_gain_bps": 27.85972159,
+      "mean_retry_net_bps": -0.00699687,
+      "mean_retry_net_inr": -0.06996875,
+      "payoff_ratio": 4.98220435,
+      "payoff_status": "measured",
+      "recoveries_missed": 37,
+      "recoveries_missed_inr": 17488.023375,
+      "retry_trades": 6,
+      "scenario": "sampled_30m",
+      "sessions": 34,
+      "slippage_bps": 5,
+      "slippage_inr": 595.58675,
+      "symbols": 15,
+      "total_episode_net_inr": -134857.800825,
+      "total_gain_inr": 28974.11045,
+      "total_retry_net_inr": -7.27675,
+      "win_pct": 16.66666667,
+      "wins": 1
+    },
+    {
+      "arm": "wait_30m",
+      "count": 104,
+      "daily_mean_retry_drawdown_bps": 973.46092535,
+      "delayed_new_losses": 0,
+      "delayed_recoveries": 0,
+      "delayed_retry_net_inr": 0.0,
+      "dispositions": {
+        "same_slot": 104
+      },
+      "fees_inr": 8547.62,
+      "flat": 0,
+      "gross_inr": -10173.5,
+      "losses": 67,
+      "losses_avoided": 0,
+      "losses_avoided_inr": 0.0,
+      "mean_gain_bps": 0.0,
+      "mean_retry_net_bps": -27.86671846,
+      "mean_retry_net_inr": -278.66718462,
+      "payoff_ratio": 0.68146984,
+      "payoff_status": "measured",
+      "recoveries_missed": 0,
+      "recoveries_missed_inr": 0.0,
+      "retry_trades": 104,
+      "scenario": "sampled_30m",
+      "sessions": 34,
+      "slippage_bps": 5,
+      "slippage_inr": 10260.2672,
+      "symbols": 15,
+      "total_episode_net_inr": -163831.911275,
+      "total_gain_inr": 0.0,
+      "total_retry_net_inr": -28981.3872,
+      "win_pct": 35.57692308,
+      "wins": 37
+    }
+  ],
+  "paired_sensitivity": [
+    {
+      "ci95_bps": [
+        15.68045717,
+        37.19697168
+      ],
+      "count": 290,
+      "mean_gain_bps": 26.43316887,
+      "scenario": "open_high_low_close",
+      "sessions": 42,
+      "slippage_bps": 5,
+      "unit": "Matched failed-seed episodes; resample whole session days"
+    },
+    {
+      "ci95_bps": [
+        29.92010241,
+        54.72524746
+      ],
+      "count": 266,
+      "mean_gain_bps": 42.27894554,
+      "scenario": "open_high_low_close",
+      "sessions": 42,
+      "slippage_bps": 15,
+      "unit": "Matched failed-seed episodes; resample whole session days"
+    },
+    {
+      "ci95_bps": [
+        52.99175615,
+        82.43519934
+      ],
+      "count": 255,
+      "mean_gain_bps": 68.39960953,
+      "scenario": "open_high_low_close",
+      "sessions": 42,
+      "slippage_bps": 30,
+      "unit": "Matched failed-seed episodes; resample whole session days"
+    },
+    {
+      "ci95_bps": [
+        16.09510676,
+        37.77380551
+      ],
+      "count": 286,
+      "mean_gain_bps": 26.93343229,
+      "scenario": "open_low_high_close",
+      "sessions": 42,
+      "slippage_bps": 5,
+      "unit": "Matched failed-seed episodes; resample whole session days"
+    },
+    {
+      "ci95_bps": [
+        30.78093406,
+        55.84529519
+      ],
+      "count": 262,
+      "mean_gain_bps": 43.32211245,
+      "scenario": "open_low_high_close",
+      "sessions": 42,
+      "slippage_bps": 15,
+      "unit": "Matched failed-seed episodes; resample whole session days"
+    },
+    {
+      "ci95_bps": [
+        52.81439659,
+        83.13958273
+      ],
+      "count": 251,
+      "mean_gain_bps": 68.89174189,
+      "scenario": "open_low_high_close",
+      "sessions": 42,
+      "slippage_bps": 30,
+      "unit": "Matched failed-seed episodes; resample whole session days"
+    },
+    {
+      "ci95_bps": [
+        8.06926584,
+        57.77058747
+      ],
+      "count": 104,
+      "mean_gain_bps": 29.81322546,
+      "scenario": "sampled_30m",
+      "sessions": 34,
+      "slippage_bps": 5,
+      "unit": "Matched failed-seed episodes; resample whole session days"
+    },
+    {
+      "ci95_bps": [
+        24.63895325,
+        75.18783199
+      ],
+      "count": 99,
+      "mean_gain_bps": 47.16791487,
+      "scenario": "sampled_30m",
+      "sessions": 34,
+      "slippage_bps": 15,
+      "unit": "Matched failed-seed episodes; resample whole session days"
+    },
+    {
+      "ci95_bps": [
+        46.25465325,
+        101.29583261
+      ],
+      "count": 105,
+      "mean_gain_bps": 70.75255843,
+      "scenario": "sampled_30m",
+      "sessions": 34,
+      "slippage_bps": 30,
+      "unit": "Matched failed-seed episodes; resample whole session days"
+    }
+  ],
+  "full_report": "research/reentry_2026_11_16/README.md",
+  "all_comparisons": "research/reentry_2026_11_16/results.csv",
+  "tests": {
+    "new_cases": 54,
+    "expanded_cases": 102,
+    "expanded_skips": 0,
+    "full_local": {
+      "passed": 3413,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "seconds": 232.41,
+      "python": "3.12.16",
+      "collection": "tracked canonical snapshot; unrelated untracked duplicates excluded",
+      "junit_sha256": "dc7fb98cfef876b92e184fdb87a46782b7bf5b75cd6a10940bc1d2d11c2f0369"
+    },
+    "ci": "PENDING",
+    "offline_reproduction": "PASS_ALL_DECISIONS_OUTCOMES_PERIODS_AND_REPORT",
+    "source_matches_full_test_snapshot": true,
+    "initial_ci": {
+      "run_id": 43842788785,
+      "passed_tests": 3413,
+      "skips": 0,
+      "seconds": 240.17,
+      "outcome": "FAILED_STRICT_AGGREGATE_REPRODUCTION; runtime pinned, no outcomes changed"
+    }
+  },
+  "deployment": {
+    "required": false,
+    "reason": "Isolated research; no production source/settings change. All commits use [skip render]. No live behavior or deployment claim for this batch."
+  },
+  "remaining": [
+    "Actual scanner selection and portfolio replay",
+    "Recursive and cross-day retries",
+    "Forward paper validation and owner review before a policy promotion",
+    "SEQ-10 sizing and loss controls",
+    "SEQ-11 combined validation",
+    "Earlier natural runtime observations remain pending"
+  ],
+  "artifacts": {
+    "research/reentry_2026_11_16/fetch.py": "fca32ef8b515cdc2d4babb5818707ac1b3b85e761bcc3b127bebdb54866e8919",
+    "research/reentry_2026_11_16/runtime.json": "de6713097b8a058804c4c1a0b6401ca2fbced970b39488b3c3a26519350522c7",
+    "research/reentry_2026_11_16/train_validation_episodes.json.gz": "389b5b738426f51d0535ed75eee5851cb2344510365282605ad3bb72c491ca52",
+    "research/reentry_2026_11_16/requirements.txt": "70106da851287f70146587f441e6588d71520fc6b9b7c8a5b48c19e3c9616daa",
+    "research/reentry_2026_11_16/README.md": "34f5f0fd5a5cfd6f7073e8968d47ae80ff9e714a906540b76e0098af4861b2c3",
+    "research/reentry_2026_11_16/holdout_episodes.json.gz": "cdf8d58d6c87b7b237646b45a6620377d6ede576b03080dc0796d6913c617913",
+    "research/reentry_2026_11_16/holdout_opened.json": "f81decb01d6091cb7437a0a2d1d18dff3c442561454d3e95d89a2fe20b740079",
+    "research/reentry_2026_11_16/selection.json": "dda639165b58ce50a7d174957cc769f69949fdc46f58d7395357c370c1d41e59",
+    "research/reentry_2026_11_16/protocol.json": "2c130b2fc7052e32c4ac17d2aeaa1cbb6398a18c47c6474216027e9f2d613a65",
+    "research/reentry_2026_11_16/holdout.json": "a5873b6da8977baa74cd22d72b90a65d12d5e2e0665df0a3c74e83167ab5f728",
+    "research/reentry_2026_11_16/results.csv": "67766f0162076001eda1572a5c420347d369b9267aec7dd87391dbcded523874",
+    "research/reentry_2026_11_16/report.py": "21e558c40b403f8f1c4aff249f5ede2cd5e55e84d1c5b5d540d1c01f1ac77cf9",
+    "research/reentry_2026_11_16/study.py": "bb9ab82388fb05e2e5b4b19a50e390b0803e623887c49999eacf8a3dcd4c6e39",
+    "research/reentry_2026_11_16/holdout/raw_responses.json.gz": "ea15162d3875bc6ab77d22e5417661ad7c47bf1b56aa9e2d6c45eed95a733586",
+    "research/reentry_2026_11_16/holdout/manifest.json": "58fc0294671e5684333da82deb95dbf4875bfe1fcce758437bf2b38d45650d44",
+    "research/reentry_2026_11_16/holdout/protocol.json": "2c130b2fc7052e32c4ac17d2aeaa1cbb6398a18c47c6474216027e9f2d613a65",
+    "research/reentry_2026_11_16/training/raw_responses.json.gz": "9ecece32bf222bc489806a9f8f9bf1727ec080fc5922670f787e638b87b69442",
+    "research/reentry_2026_11_16/training/manifest.json": "495fbec421a55bdc389916d367baf00b8befda22fdf935f3f65b4126ef4035eb",
+    "research/reentry_2026_11_16/training/protocol.json": "2c130b2fc7052e32c4ac17d2aeaa1cbb6398a18c47c6474216027e9f2d613a65"
+  },
+  "independent_overlap_audit": {
+    "goal08_unique_symbol_timestamps": 118335,
+    "goal09_unique_symbol_timestamps": 121500,
+    "overlap": 0,
+    "normalization": "symbol plus timezone-normalized UTC bar start"
+  },
+  "protocol_commit_created_at": "2026-11-16T09:20:21Z",
+  "selection_commit_created_at": "2026-11-16T09:34:08Z",
+  "training_first_request": "2026-11-16T09:23:01.361155+00:00",
+  "outcome_count": 25638,
+  "summary_comparisons": 162,
+  "runtime_correction": {
+    "implementation": "CPython",
+    "python": "3.12.16",
+    "packages": {
+      "numpy": "2.4.6",
+      "pandas": "3.0.5",
+      "httpx": "0.28.1"
+    },
+    "provenance": "Original local runtime used to generate and seal all training, validation and holdout artifacts; versions read back from that environment after the first CI failure.",
+    "recorded_after_initial_ci_failure": true,
+    "initial_ci": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43842788785",
+    "initial_ci_python": "3.11.18",
+    "initial_ci_result": "All 3413 tests, no-skip guard, Goal08 replay/report and all individual Goal09 episodes passed; exact Goal09 holdout aggregate comparison failed.",
+    "diagnostic_method": "Recompute the unchanged holdout on its original runtime, then replace only module-level sum with the pre-3.12 sequential summation algorithm. The same aggregate check fails; all other saved summary fields remain equal.",
+    "diagnosed_leaf": ".summary[20].total_episode_net_inr",
+    "sealed_value": -526651.08015899,
+    "sequential_sum_value": -526651.080159,
+    "difference_inr": -1.0011717677116394e-08,
+    "python_source": "https://docs.python.org/3.12/whatsnew/3.12.html#other-language-changes",
+    "resolution": "Pin the original research runtime; retain byte-for-byte runner, inputs, sealed selection and outcomes, and strict equality assertions. Keep the full application suite on Python 3.11. No candidate or statistical threshold changes."
+  }
+}

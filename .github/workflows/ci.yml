@@ -33,3 +33,20 @@ jobs:
         run: python -m research.profit_protection_2026_11_16.study verify
       - name: Verify Goal08 report matches the sealed measurements
         run: python -m research.profit_protection_2026_11_16.report --check
+  reentry-research:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.16"
+          cache: pip
+          cache-dependency-path: research/reentry_2026_11_16/requirements.txt
+      - name: Install the original Goal09 numerical runtime
+        run: pip install -r research/reentry_2026_11_16/requirements.txt
+      - name: Require the recorded interpreter and numerical package versions
+        run: python -c "import json, platform, importlib.metadata as m; r=json.load(open('research/reentry_2026_11_16/runtime.json')); assert platform.python_implementation()==r['implementation']; assert platform.python_version()==r['python']; assert all(m.version(k)==v for k,v in r['packages'].items())"
+      - name: Reproduce frozen Goal09 re-entry decisions and loss-recovery attribution
+        run: python -m research.reentry_2026_11_16.study verify
+      - name: Verify Goal09 report matches the sealed measurements
+        run: python -m research.reentry_2026_11_16.report --check

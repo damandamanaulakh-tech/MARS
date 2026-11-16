@@ -220,6 +220,39 @@ the user's instructions for the current task.
   Research-only commits use `[skip render]`; record merge/CI separately from an
   application deployment, which this isolated batch does not require.
 
+## Re-entry research after a failed trade
+
+- Freeze the net-loss definition, changed-setup predicates, retry clocks,
+  eligibility, costs, sample floors and attribution before observing outcomes.
+  A new score or elapsed time alone is not proof that the failed setup changed.
+- Use a completed post-loss reset and reclaim with recorded threshold, values,
+  witness-bar times and decision time. Intrabar loss time is an interval; do
+  not use its rebound to enter in the same bar. Add explicit publication/fill
+  latency and use only the available historical prefix for ATR and session VWAP.
+- Keep the failed initial trade identical across policies within each execution
+  and slippage scenario. Separate avoided losing retries, missed profitable
+  retries and the P&L of any later entry; reconcile their signed sum to the paired
+  change. Future P&L is an evaluation label, never an eligibility input.
+- Report net-loss seeds without any remaining retry slot, unavailable outcomes,
+  no-trade decisions, and actual candidate trade counts. A filter that scarcely
+  trades has not proved recovery skill. Time-only and never-retry controls are
+  diagnostic comparisons, not automatic winning strategies.
+- Acquire a new holdout only after committing the runner and training choice.
+  Preserve all earlier studies, record date/bar overlap and disclose historical
+  daily-market knowledge separately from newly acquired intraday observations.
+  Mark access before the first holdout request; failure cannot restore unseen
+  status. Changed inputs require a new study and a new untouched holdout.
+- Frozen offline reproduction must cover every decision, fill, outcome,
+  counterfactual attribution and period, alongside zero-skip application CI.
+  The bounded one-retry experiment does not establish recursive retries,
+  cross-day state, actual scanner selections or portfolio outcomes. Promotion
+  still needs actual-strategy and forward paper evidence plus owner review.
+- Record and pin the numerical interpreter and package versions before running
+  future studies. If a replay mismatch is found later, preserve the initial
+  failure and diagnose it without changing sealed results or widening equality
+  checks. A reference-runtime correction is distinct from retuning a candidate;
+  application CI must retain its supported-runtime and zero-skip coverage.
+
 ## Live write failures during shipment
 
 A 200 health response or connected database is not an acknowledged write. If

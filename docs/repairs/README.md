@@ -1,5 +1,7 @@
 # MARS repair work
 
+SEQ-09 research is evaluated with no production policy promotion. The separately acquired 42-session intraday holdout measured losing retries withheld, recoveries missed and delayed re-entry P&L. The selected breakout-reclaim rule improved the matched comparison but failed sample and cross-scenario expectancy requirements. All 3413 canonical local tests pass with zero skips; complete frozen replay and report checks pass. CI/merge proof is pending. [Study and release record](releases/2026-11-16-reentry.md). SEQ-10 remains queued.
+
 SEQ-08 profit-protection research: [study and release](releases/2026-11-16-profit-protection.md). Five candidates evaluated on chronological train/validation/holdout periods; locked candidate rejected, no production settings changed. PR216 merged; 3359 canonical local/CI tests pass with zero skips, with full offline outcome/report reproduction verified.
 
 This repository is the source of truth for repair progress. The user directed
@@ -60,4 +62,4 @@ Diagnostic follow-up and the owner-selected free-tier archive plan are merged in
 
 The [offline archive verifier](releases/2026-11-14-archive-preflight.md) is merged in PR210 with 3,247 canonical CI tests and zero skips (54 focused / 3,248 local). The [recovery record](releases/2026-11-14-storage-recovery.md) proves all 82,740 stored documents were backed up/restored and exactly 10,000 scan-only copies removed for 74.15 MiB of temporary relief. All 30,486 remaining archive records are byte-identical. Live compression, sustainable retention and prior-process spill reconciliation remain open.
 
-SEQ-07 engineering is shipped in [PR214](https://github.com/damandamanaulakh-tech/MARS/pull/214). All **3311 canonical local and CI tests pass with zero skips**. Revision `deb07a316007e40bf5765462d2194b169d70409f` is live; readiness and the owner candle-assistance page are verified. Upstox returned six of six requested LTP quotes before and after deployment. Normal advisory decision/trade observation remains pending; SEQ-08 is queued. [Release evidence](releases/2026-11-16-candle-assistance.md).
+SEQ-07 engineering is shipped in [PR214](https://github.com/damandamanaulakh-tech/MARS/pull/214). All **3311 canonical local and CI tests pass with zero skips**. Revision `deb07a316007e40bf5765462d2194b169d70409f` is live; readiness and the owner candle-assistance page are verified. Upstox returned six of six requested LTP quotes before and after deployment. Normal advisory decision/trade observation remains pending; SEQ-08 and SEQ-09 research are recorded above. [Release evidence](releases/2026-11-16-candle-assistance.md).

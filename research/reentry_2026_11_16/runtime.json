@@ -1,0 +1,21 @@
+{
+  "implementation": "CPython",
+  "python": "3.12.16",
+  "packages": {
+    "numpy": "2.4.6",
+    "pandas": "3.0.5",
+    "httpx": "0.28.1"
+  },
+  "provenance": "Original local runtime used to generate and seal all training, validation and holdout artifacts; versions read back from that environment after the first CI failure.",
+  "recorded_after_initial_ci_failure": true,
+  "initial_ci": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43842788785",
+  "initial_ci_python": "3.11.18",
+  "initial_ci_result": "All 3413 tests, no-skip guard, Goal08 replay/report and all individual Goal09 episodes passed; exact Goal09 holdout aggregate comparison failed.",
+  "diagnostic_method": "Recompute the unchanged holdout on its original runtime, then replace only module-level sum with the pre-3.12 sequential summation algorithm. The same aggregate check fails; all other saved summary fields remain equal.",
+  "diagnosed_leaf": ".summary[20].total_episode_net_inr",
+  "sealed_value": -526651.08015899,
+  "sequential_sum_value": -526651.080159,
+  "difference_inr": -1.0011717677116394e-8,
+  "python_source": "https://docs.python.org/3.12/whatsnew/3.12.html#other-language-changes",
+  "resolution": "Pin the original research runtime; retain byte-for-byte runner, inputs, sealed selection and outcomes, and strict equality assertions. Keep the full application suite on Python 3.11. No candidate or statistical threshold changes."
+}

@@ -1,7 +1,7 @@
 {
   "approved_date": "2026-11-11",
   "source": "Owner asked to show sequence, start one by one, and track completion in the repository.",
-  "active_step": "SEQ-08",
+  "active_step": "SEQ-09",
   "steps": [
     {
       "id": "SEQ-01",
@@ -522,15 +522,15 @@
       "depends_on": [
         "SEQ-08"
       ],
-      "status": "QUEUED",
-      "implementation": "NOT_STARTED",
-      "tests": "NOT_RUN",
+      "status": "LOCAL_RESEARCH_COMPLETE_CI_PENDING",
+      "implementation": "FROZEN_CAUSAL_REENTRY_STUDY_NO_PROMOTION",
+      "tests": "54 new / 102 expanded / 3413 canonical full tests passed; zero failures/errors/skips. All frozen decisions/outcomes and reports reproduce. CI pending.",
       "pull_request": null,
       "merge_revision": null,
       "deployment_revision": null,
-      "health": "NOT_CHECKED",
-      "runtime": "NOT_OBSERVED",
-      "evidence": null
+      "health": "NOT_REQUIRED_RESEARCH_ONLY",
+      "runtime": "NO_PRODUCTION_POLICY_CHANGE",
+      "evidence": "docs/repairs/releases/2026-11-16-reentry.md"
     },
     {
       "id": "SEQ-10",
@@ -580,5 +580,5 @@
       "evidence": null
     }
   ],
-  "active_step_note": "SEQ-08 research is complete and merged in PR216. All 3359 local/CI tests pass with zero skips; complete offline outcome/report reproduction and repair-record checks pass. The locked candidate failed validation/holdout criteria; no settings were promoted. This holdout is consumed; actual-strategy/forward validation remains separate. SEQ-09 is queued; earlier natural-runtime observations remain pending."
+  "active_step_note": "SEQ-09 research evaluated; 3413 canonical full tests and offline reproduction pass, zero skips. Selected breakout-reclaim rule improves paired retry results but fails coverage/expectancy requirements. No production policy promoted. CI/merge pending; SEQ-10 remains queued, earlier runtime observations remain pending."
 }

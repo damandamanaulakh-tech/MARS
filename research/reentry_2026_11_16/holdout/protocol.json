@@ -1,0 +1,146 @@
+{
+  "schema": 1,
+  "study": "SEQ-09 causal next re-entry after an intraday net loss",
+  "frozen_at_utc": "2026-11-16T09:19:45.352305+00:00",
+  "baseline_revision": "9ba36523fe0df77adbee49dbe40a6201118db4b5",
+  "scope": "Research only. One next re-entry after a common failed fixed-clock seed trade, not an actual MARS selection replay, a recursive retry strategy or portfolio performance. No production policy/settings/ledger writes.",
+  "symbols": [
+    "BAJAJFINSV.NS",
+    "BAJFINANCE.NS",
+    "BHARTIARTL.NS",
+    "DRREDDY.NS",
+    "HDFCBANK.NS",
+    "HINDUNILVR.NS",
+    "ICICIBANK.NS",
+    "INFY.NS",
+    "M&M.NS",
+    "MARUTI.NS",
+    "ONGC.NS",
+    "RELIANCE.NS",
+    "SBIN.NS",
+    "SUNPHARMA.NS",
+    "TCS.NS"
+  ],
+  "universe_reason": "All 15 names in the pre-existing data/history_15stock panel, chosen before fetching this study's intraday prices. Fixed current-name sample; survivorship and large-cap selection limit generalization.",
+  "data_start": "2026-01-02",
+  "data_end": "2026-06-12",
+  "splits": {
+    "train": [
+      "2026-02-02",
+      "2026-03-13"
+    ],
+    "validation": [
+      "2026-03-16",
+      "2026-04-10"
+    ],
+    "holdout": [
+      "2026-04-13",
+      "2026-06-12"
+    ]
+  },
+  "freshness": {
+    "goal08_data_start": "2026-06-15",
+    "goal08_data_end": "2026-11-13",
+    "rule": "All Goal09 dates precede every Goal08 raw bar; fail if any symbol/timestamp overlaps. Holdout acquisition starts only after training selection/code hashes are sealed and committed.",
+    "prior_knowledge": "Older research used daily panels through June 2026, including a losing Momentum cooldown experiment. These are newly acquired five-minute observations, not a claim that the historical market period or daily returns were never studied. No observed Goal08 price or outcome is used in fitting. Forward evidence remains required."
+  },
+  "provider": "Upstox V3 historical-candle minutes/5; month-bounded requests, raw response bytes and hashes; timestamps are bar starts",
+  "timezone": "Asia/Kolkata",
+  "interval_minutes": 5,
+  "entry_times": [
+    "10:00",
+    "13:00"
+  ],
+  "deadline": "15:25",
+  "last_retry": "14:30",
+  "stake_inr": 100000,
+  "feature_lag_minutes": 5,
+  "scan_interval_minutes": 30,
+  "breakout_lookback_bars": 6,
+  "baseline": {
+    "stop_fraction": 0.015,
+    "trail_fraction": 0.01,
+    "target_min_fraction": 0.01,
+    "target_max_fraction": 0.06,
+    "target_atr_k": 1.0,
+    "target_interval": "completed_5m"
+  },
+  "execution_scenarios": [
+    "open_high_low_close",
+    "open_low_high_close",
+    "sampled_30m"
+  ],
+  "costs": {
+    "module": "trading.fees",
+    "model": "upstox-basic-equity-2026-11-12-v1",
+    "historical_plan": "Counterfactual selected Basic tariff, not proof of historical account charges",
+    "orders": "One buy and one full sell per sample; existing partial-exit accounting separately remains covered by Goal05 tests",
+    "slippage_bps_per_side": [
+      5,
+      15,
+      30
+    ]
+  },
+  "seed": "Identical fixed-clock long trade for all policies within each scenario/slippage. Failure means net P&L < 0 after buy/sell fees and adverse fills, regardless of exit label. Only failures with a later eligible scan before 14:30 form paired re-entry episodes. Report late/no-loss/unavailable seeds separately.",
+  "causality": "An intrabar exit is known only at that bar end. Retry slots must be strictly later than the known exit. Features use only bars completed at least five minutes before entry. All reset/cross evidence must come from full bars starting at or after the failure became known. A same-bar rebound, old score or mere elapsed time cannot satisfy a candidate.",
+  "execution_notes": "First two scenarios assume continuous monotone segments between named OHLC points, with market-trigger fills and adverse slippage, stop/target priority and gap fills at open. They are sensitivity paths, not mathematical bounds or known tick ordering. Third observes completed-bar closes only on 30-minute clock boundaries and fills those observations; all scenarios exit at the 15:25 open. No fills at an earlier stop through a gap. No liquidity/queue guarantee.",
+  "arms": [
+    {
+      "id": "next_scan",
+      "selectable": true,
+      "rule": "Control: take the first later 30-minute slot, with no changed-setup requirement."
+    },
+    {
+      "id": "wait_30m",
+      "selectable": false,
+      "rule": "Diagnostic time-only control: wait at least 30 minutes after the loss is known; this is not evidence of a changed setup."
+    },
+    {
+      "id": "breakout_reclaim",
+      "selectable": true,
+      "rule": "Freeze threshold=max(failed slipped entry, six pre-entry completed-bar highs). Observe a fully post-loss close at or below it, then a later post-loss close above it. At retry, the latest completed close must still be above it."
+    },
+    {
+      "id": "vwap_reclaim",
+      "selectable": true,
+      "rule": "Observe a fully post-loss close at/below its causal session VWAP, then a later crossing above; require the two most recent fully post-loss closes above their own causal VWAPs and the latest close higher than the preceding close. Zero-volume/invalid VWAP is unavailable, not a pass."
+    },
+    {
+      "id": "combined_reclaim",
+      "selectable": true,
+      "rule": "Both breakout_reclaim and vwap_reclaim must pass at the same decision slot."
+    },
+    {
+      "id": "no_retry",
+      "selectable": false,
+      "rule": "Diagnostic control: no same-session second trade; not eligible for selection."
+    }
+  ],
+  "vwap": "Cumulative typical-price (H+L+C)/3 times volume divided by cumulative session volume, computed on completed bars only; an OHLCV proxy, not certified tick VWAP.",
+  "episode": "Baseline makes one retry at its first eligible slot. Each candidate makes at most one retry, at its first qualifying slot, or none by 14:30. Every retry retains the current hard-stop/trail/ATR-target formula and square-off. Initial losses are common; later retries after the second trade and cross-day persistence are outside this bounded experiment.",
+  "attribution": "When the first retry is withheld, losses avoided are negative baseline retry P&L negated; recoveries missed are positive baseline retry P&L. Report both counts and INR, plus delayed candidate P&L. Exact identity: paired gain = losses avoided - recoveries missed + delayed retry net P&L. Labels use future outcomes only AFTER decisions; never as decision inputs. Same-slot trades must match exactly.",
+  "selection": {
+    "metric": "Train only: maximize the worst mean paired gain in bps of the fixed INR100000 budget over all three execution scenarios at 5bps/side. Baseline included with zero gain. Tie breaks follow declared arm order. Time-only/no-retry controls are never selectable.",
+    "validation": "Evaluate the locked training choice without switching after validation or holdout.",
+    "seal": "Freeze protocol, code, training raw data, all outcomes and selected arm before any holdout request. Mark access before fetching. Changed inputs cannot resume an opened holdout."
+  },
+  "evidence_thresholds": {
+    "minimum_train_sessions": 25,
+    "minimum_validation_sessions": 15,
+    "minimum_holdout_sessions": 20,
+    "minimum_symbols": 12,
+    "minimum_holdout_pairs": 150,
+    "minimum_holdout_candidate_trades": 50,
+    "paired_bootstrap_resamples": 2000,
+    "bootstrap_seed": 902026,
+    "candidate_requirement": "Non-baseline selected candidate; positive retry net expectancy and paired gain in validation and holdout in all three scenarios at 5 and 15bps per side; day-cluster 95% lower bound of holdout gain above zero; adequate sample counts. 30bps is reported stress. Any missing condition rejects promotion."
+  },
+  "promotion": "No automatic apply. Even a statistical pass only nominates a rule for actual-strategy replay, forward paper validation and owner review. Do not generalize to Momentum/Swing/Short/Positional or rewrite historical trades.",
+  "validity": "Use existing verified 2026 NSE regular-session validator, all 75 complete five-minute bars, no forward-fill or shortened sessions. Require preceding full regular session for causal ATR. Keep every exclusion/reason. Known special sessions are excluded explicitly.",
+  "sources": [
+    "https://upstox.com/developer/api-documentation/v3/get-historical-candle-data/",
+    "https://upstox.com/brokerage-charges/",
+    "https://nsearchives.nseindia.com/content/circulars/FA73061.pdf"
+  ],
+  "source_rechecked_on": "2026-11-16"
+}
