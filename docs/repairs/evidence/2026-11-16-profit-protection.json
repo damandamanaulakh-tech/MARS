@@ -2,7 +2,7 @@
   "schema": 1,
   "goal": "SEQ-08",
   "baseline": "b0615be779f75d0ab06dc7ab8738efaf03dc2d61",
-  "status": "LOCAL_TESTED_NO_PROMOTION_CI_PENDING",
+  "status": "RESEARCH_COMPLETE_NO_PROMOTION",
   "protocol_commit": "dd6b5b2aa89c2d9e7f57d8f5efbd1a6250d4f35a",
   "amendment_commit": "23d35cee3c6dbd8c2496f2f80ac19941ff70576f",
   "selection_seal_commit": "8ea0f8ae38cac69df413bbf2b441e30d48c0fa72",
@@ -56,7 +56,36 @@
     "study.py": "24e5e30181718d2f4e72e55be4934da090b31856e74e0ba93541de16e4430424",
     "train_validation_trades.json.gz": "b76901a3a40bc3330220035cc166e0b8d6b705c61dbe13a36c05227ee32bac2f"
   },
-  "ci": null,
-  "pull_request": null,
-  "merge": null
+  "ci": {
+    "run": 43807192211,
+    "url": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43807192211",
+    "job": 133100542307,
+    "passed": 3359,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 268.35,
+    "repair_records": "success",
+    "no_skip_guard": "success",
+    "frozen_study_reproduction": "success",
+    "rendered_report": "success",
+    "reproduction_verified_at": "2026-11-16T05:03:13Z"
+  },
+  "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/216",
+  "merge": {
+    "sha": "0f91a235a47c55d9291f5c5882cdd0953c977d85",
+    "tree": "d5dc9c34b14510540ef4bd36762c8b5aa2a6decd",
+    "matches_reviewed_tree": true,
+    "merged_at": "2026-11-16T08:59:59Z"
+  },
+  "reviewed_head": "031562195d3de516cefaecdaebe58f6a87dcbc34",
+  "reviewed_tree": "d5dc9c34b14510540ef4bd36762c8b5aa2a6decd",
+  "production_observation": {
+    "at": "2026-11-16T09:01:00Z",
+    "service": "srv-d8cspdnavr4c738lbrd0",
+    "latest_deployment": "dep-dbt893vf3r2c73f6rclg",
+    "revision": "deb07a316007e40bf5765462d2194b169d70409f",
+    "status": "live",
+    "scope": "Render deployment list; Goal07 application revision remains live. Goal08 research does not change application code or settings."
+  }
 }

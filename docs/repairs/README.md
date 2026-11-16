@@ -1,6 +1,6 @@
 # MARS repair work
 
-SEQ-08 profit-protection research: [study and release](releases/2026-11-16-profit-protection.md). Five candidates evaluated on chronological train/validation/holdout periods; locked candidate rejected, no production settings changed. 3359 canonical local tests and complete offline reproduction passed; CI/merge pending.
+SEQ-08 profit-protection research: [study and release](releases/2026-11-16-profit-protection.md). Five candidates evaluated on chronological train/validation/holdout periods; locked candidate rejected, no production settings changed. PR216 merged; 3359 canonical local/CI tests pass with zero skips, with full offline outcome/report reproduction verified.
 
 This repository is the source of truth for repair progress. The user directed
 on 2 November 2026 that updates belong in the repo and workflow, not Desktop
