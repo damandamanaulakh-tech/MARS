@@ -1,0 +1,169 @@
+{
+  "schema": 1,
+  "study": "SEQ-10 net stop risk and measured economic performance",
+  "frozen_at_utc": "2026-11-16T10:33:31.127791+00:00",
+  "baseline_revision": "e0dbdddab30394a57ebf4a21e826a12a0902c9bb",
+  "scope": "Research-only matched fixed-clock intraday long opportunities. Not MARS signal selection, compounded portfolio results, historical ledger corrections or authority to promote a sizing policy.",
+  "symbols": [
+    "360ONE.NS",
+    "ASHOKLEY.NS",
+    "BEL.NS",
+    "COALINDIA.NS",
+    "EICHERMOT.NS",
+    "GRASIM.NS",
+    "HYUNDAI.NS",
+    "IREDA.NS",
+    "LAURUSLABS.NS",
+    "MAZDOCK.NS",
+    "NMDC.NS",
+    "PIDILITIND.NS",
+    "SBICARD.NS",
+    "TATACONSUM.NS",
+    "TVSMOTOR.NS"
+  ],
+  "universe": "universe.json: 15 deterministically spaced, ISIN-matched archived Nifty200 names, none used by Goal08/09.",
+  "data_start": "2026-07-01",
+  "data_end": "2026-11-13",
+  "splits": {
+    "train": [
+      "2026-08-03",
+      "2026-08-28"
+    ],
+    "validation": [
+      "2026-09-01",
+      "2026-09-30"
+    ],
+    "holdout": [
+      "2026-10-01",
+      "2026-11-13"
+    ]
+  },
+  "freshness": {
+    "excluded_prior_symbols": [
+      "BAJAJFINSV.NS",
+      "BAJFINANCE.NS",
+      "BHARTIARTL.NS",
+      "DRREDDY.NS",
+      "HDFCBANK.NS",
+      "HINDUNILVR.NS",
+      "ICICIBANK.NS",
+      "INFY.NS",
+      "M&M.NS",
+      "MARUTI.NS",
+      "ONGC.NS",
+      "RELIANCE.NS",
+      "SBIN.NS",
+      "SUNPHARMA.NS",
+      "TCS.NS"
+    ],
+    "rule": "No Goal10 symbol overlaps Goal08/09; hence no symbol/timestamp overlap. Training and holdout acquired separately. Holdout requests require a committed code/data/selection seal.",
+    "prior_knowledge": "Same calendar period and market regime were seen through other stocks and older daily studies. This is a new historical symbol panel, not a previously unknown market era or forward evidence. August membership applied to July can introduce survivorship bias."
+  },
+  "provider": "Upstox V3 historical-candle minutes/5, month-bounded public requests; raw responses and hashes retained",
+  "timezone": "Asia/Kolkata",
+  "interval_minutes": 5,
+  "entry_times": [
+    "10:00"
+  ],
+  "feature_lag_minutes": 5,
+  "deadline": "15:25",
+  "scan_interval_minutes": 30,
+  "stake_inr": 150000,
+  "reference_equity_inr": 5000000,
+  "minimum_notional_inr": 150000,
+  "maximum_notional_inr": 300000,
+  "net_stop_budget_inr": 2500,
+  "baseline": {
+    "stop_fraction": 0.015,
+    "trail_fraction": 0.01,
+    "target_min_fraction": 0.01,
+    "target_max_fraction": 0.06,
+    "target_atr_k": 1.0,
+    "target_interval": "completed_5m"
+  },
+  "execution_scenarios": [
+    "open_high_low_close",
+    "open_low_high_close",
+    "sampled_30m"
+  ],
+  "costs": {
+    "module": "trading.fees",
+    "model": "upstox-basic-equity-2026-11-12-v1",
+    "historical_plan": "Counterfactual selected Basic tariff, not proof of historical account charges",
+    "slippage_bps_per_side": [
+      5,
+      15,
+      30
+    ],
+    "orders": "One buy and full sell per opportunity; existing partial-exit cost regressions remain mandatory."
+  },
+  "net_stop_risk": "Quantity times (adverse entry fill minus stop adverse sell fill), plus dated buy and sell fees. Solve whole-share quantity monotonically, enforce minimum notional by rejection and never by rounding above risk budget. Gap losses and sparse observation can exceed planned risk; report every exceedance.",
+  "performance": {
+    "window_sessions": 20,
+    "minimum_trades": 50,
+    "minimum_sessions": 5,
+    "prior_equivalent_trades": 50,
+    "prior_win_rate": 0.5,
+    "kelly_fraction": 0.29,
+    "full_confidence": 300,
+    "clip_returns": false,
+    "sample": "All net reference-trade outcomes, including square-off, stop, target and trail; no exit-reason exclusions. Finite complete accounting only. Empty, insufficient, all-loss, all-flat and no-loss samples explicit. Missing/one-sided payoff is unknown, not zero risk or infinite edge.",
+    "timing": "Freeze the most recent 20 verified trading sessions strictly BEFORE the decision day. No current-day outcome. Updates use completed counterfactual reference trades for every opportunity, including opportunities the candidate withheld; report as shadow observations, not actual fills."
+  },
+  "loss_control": {
+    "window_sessions": 5,
+    "net_loss_budget_inr": 12500,
+    "rule": "Experimental entry veto if sum of all net shadow-reference outcomes in the preceding five regular sessions <= -12500; fees included. Recover only as new completed shadow evidence changes the rolling sum. Missing sessions are unavailable; no current-day lookahead."
+  },
+  "arms": [
+    {
+      "id": "fixed_slab",
+      "selectable": true,
+      "rule": "150000 notional, ceil to minimum whole-share ticket, plus fees. Control only; fixed-clock proxy for slab, not full production sizing."
+    },
+    {
+      "id": "stop_risk",
+      "selectable": true,
+      "rule": "Largest integer quantity within 2500 net initial-stop risk and 300000 notional; reject below the existing 150000 floor."
+    },
+    {
+      "id": "measured_stop_risk",
+      "selectable": true,
+      "rule": "Stop-risk quantity also capped by measured fraction times reference equity. Unknown, all-loss, flat or nonpositive edge abstains; no forced round-up to floor beyond cap."
+    },
+    {
+      "id": "loss_budget_stop",
+      "selectable": true,
+      "rule": "Stop-risk quantity with the declared five-session net-loss veto."
+    },
+    {
+      "id": "no_entry",
+      "selectable": false,
+      "rule": "Diagnostic zero-exposure control; never eligible for promotion."
+    }
+  ],
+  "selection": {
+    "metric": "Train only: maximize worst mean paired INR gain per offered opportunity across three execution scenarios at 5bps per side; fixed_slab included with zero gain; deterministic declared order breaks ties. Lock winner before validation/holdout; no switching after results.",
+    "seal": "Freeze protocol, runtime, source, training raw data and training/validation outputs before any holdout request. Record first access. No retuning consumed holdout."
+  },
+  "evidence_thresholds": {
+    "minimum_train_sessions": 15,
+    "minimum_validation_sessions": 15,
+    "minimum_holdout_sessions": 20,
+    "minimum_symbols": 12,
+    "minimum_holdout_candidate_trades": 100,
+    "paired_bootstrap_resamples": 2000,
+    "bootstrap_seed": 102026,
+    "candidate_requirement": "Non-baseline selected arm; positive net expectancy and paired gain in validation and holdout for every execution scenario at 5 and 15bps per side; day-cluster 95% lower bound of holdout paired gain > 0; day-aggregated closed-PnL drawdown <= control; >=100 heldout executed trades and stated coverage. 30bps is reported stress. Every condition required."
+  },
+  "attribution": "Report losses reduced and positive returns forgone from sizing or abstention, net difference, gross PnL, fees, slippage, planned stop risk, losses beyond planned risk, deployed notional and trade counts. Net difference equals savings on losing reference trades minus foregone profits on positive reference trades; either term may be negative when size increases. No-entry arithmetic is not evidence of positive trading expectancy.",
+  "validity": "All75 completed regular 5m bars, verified2026 calendar, preceding full regular session for ATR, no forward fill. Strictly lagged completed features. No capital compounding; opportunities are matched and day-correlated. Simultaneous15xmaximum300000 fits reference5000000 before fees but this is not a complete portfolio model.",
+  "execution_notes": "Two declared monotone OHLC paths are sensitivity scenarios, not known tick order or mathematical bounds. Gap exits fill at open plus adverse slippage. Sampled30m is a declared default-cadence scenario, not a verified production cadence. End at15:25open. No liquidity/queue guarantee.",
+  "promotion": "No settings or ledger apply command. Statistical pass only nominates a candidate for full strategy replay, forward paper proof and owner review. Bounded XR026/XR031 correctness repairs are separately tested without changing configured thresholds or segment scope.",
+  "sources": [
+    "https://upstox.com/developer/api-documentation/v3/get-historical-candle-data/",
+    "https://upstox.com/brokerage-charges/",
+    "https://nsearchives.nseindia.com/content/circulars/FA73061.pdf"
+  ],
+  "source_rechecked_on": "2026-11-16"
+}

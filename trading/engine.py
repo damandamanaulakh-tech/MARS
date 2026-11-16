@@ -1155,10 +1155,12 @@ class TradingEngine:
                             notional_arg = cap_rs
                 # OWNER ORDER 2026-10-04: each category spends only its own share
                 # (momentum 40%, the other four 15% each). Ocean is exempt.
+                initial_stop = self._stop_for(pick, fill, cfg=cfg)
                 ok, reason, qty = can_open(
                     self.risk, self.portfolio.cash, current_eq,
                     self.portfolio.positions, pick["ticker"], fill, cfg,
                     notional_override=notional_arg,
+                    when=now, proposed_stop_price=initial_stop,
                     category=(None if pick.get("ocean")
                               else (getattr(cfg, "mode", "") or MOMENTUM_MODE)),
                 )
@@ -1233,7 +1235,7 @@ class TradingEngine:
                         skipped.append({"ticker": pick["ticker"], "reason": "intraday_data_" + final_data["reason"]})
                         continue
                 try:
-                    self._open(pick, qty, fill, entry_now)
+                    self._open(pick, qty, fill, entry_now, initial_stop=initial_stop)
                 except ValueError as exc:
                     if str(exc).startswith(("intraday_", "costs_")):
                         skipped.append({"ticker": pick["ticker"], "reason": str(exc)})
@@ -1852,7 +1854,7 @@ class TradingEngine:
     # ---------- internals ----------
 
     def _open(self, pick: dict, qty: int, fill_price: float, now: datetime,
-              cfg: Optional[Config] = None) -> None:
+              cfg: Optional[Config] = None, *, initial_stop: Optional[float] = None) -> None:
         """Book a new position. `cfg` is the trade category's config; the
         engine's own (the live shared one) when not given. Audit F-17
         (2026-10-02): an owner limit fill passes a momentum COPY here instead
@@ -1869,7 +1871,10 @@ class TradingEngine:
         # — the wider of the category stop and 2 x the name's own ATR, capped
         # (momentum only; see targets.py for the measurement). Computed here
         # so the BUY line carries how it was set.
-        stop_price = self._stop_for(pick, fill_price, cfg=cfg)
+        stop_price = (self._stop_for(pick, fill_price, cfg=cfg)
+                      if initial_stop is None else float(initial_stop))
+        if initial_stop is not None and not (math.isfinite(stop_price) and 0 < stop_price < fill_price):
+            raise ValueError("invalid_proposed_stop")
         # Slow target/scoring work can outlive the bar or the entry window.
         # Recheck immediately before any journal/cash/position write. Owner
         # instructions have their own path and do not claim automatic signals.

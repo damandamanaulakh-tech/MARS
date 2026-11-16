@@ -69,7 +69,18 @@ def test_an_edge_book_shows_the_cap():
 
 def test_a_thin_book_says_no_cap_no_block():
     html = _page([_t(i, -0.05, "OWNER_SELL") for i in range(40)])
-    assert "NOT ENOUGH EXITS YET" in html
+    card = html.split("measured_kelly_marker")[1].split("IFR OVERLAY")[0]
+    assert "MEASURED EDGE UNKNOWN" in card and "NEW SCAN ENTRIES BLOCKED" not in card
+    assert "All recorded exits in this category" in card and "40 net losses" in card
+
+
+def test_all_loss_strategy_sample_blocks_but_empty_sample_is_unknown():
+    html = _page([_t(i, -0.05, "STOP_LOSS") for i in range(20)])
+    assert "NEW SCAN ENTRIES BLOCKED" in html and "no net wins" in html
+    html = _page([])
+    card = html.split("measured_kelly_marker")[1].split("IFR OVERLAY")[0]
+    assert "MEASURED EDGE UNKNOWN" in card and "NEW SCAN ENTRIES BLOCKED" not in card
+    assert "Observed net P&amp;L: unknown" in card and "recorded costs: unknown" in card
 
 
 def test_settings_carries_the_switch():

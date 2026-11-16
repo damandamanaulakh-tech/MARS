@@ -57,6 +57,7 @@ def can_open(
     notional_override: float | None = None,
     category: str | None = None,
     *, when=None, include_entry_fees: bool = True,
+    proposed_stop_price: float | None = None,
 ) -> tuple[bool, str, int]:
     """Decide whether a new position can open. Returns (ok, reason, qty).
 
@@ -69,6 +70,19 @@ def can_open(
     2026-10-04, "fix it so all 5 categories get cash"): its share of the
     deployable capital is one more ceiling on the headroom. None (the
     default, and Ocean) = no category budget, the pre-2026-10-04 gate."""
+    # Compute the stop before sizing and reuse it at booking. A wider ATR
+    # stop must never consume only the category floor's risk budget.
+    if proposed_stop_price is not None:
+        try:
+            proposed_stop_price = float(proposed_stop_price)
+            valid_stop = (math.isfinite(proposed_stop_price) and
+                          0 < proposed_stop_price < fill_price)
+        except (ValueError, TypeError):
+            valid_stop = False
+        de.record("initial_stop", proposed_stop_price, {"above": 0, "below": fill_price},
+                  passed=valid_stop, role="sizing")
+        if not valid_stop:
+            return False, "invalid_proposed_stop", 0
     de.record("kill_switch", risk.kill_switch, False, passed=not risk.kill_switch)
     if risk.kill_switch:
         return False, "kill_switch_active", 0
@@ -193,23 +207,29 @@ def can_open(
         existing_heat = sum(
             p.qty * p.entry_price * _risk_frac(p) for p in open_positions.values()
         )
-        # The NEW entry's own stop is set after this gate (engine._stop_for),
-        # so its heat is counted at the category percentage here.
-        new_heat = qty * fill_price * stop_frac
-        de.record("portfolio_heat", {"existing": existing_heat, "proposed": new_heat, "equity": current_equity}, heat_cap_pct, passed=True, reason="Size may be reduced to fit the existing heat policy")
+        unit_risk = (fill_price - proposed_stop_price if proposed_stop_price is not None
+                     else fill_price * stop_frac)
+        remaining = heat_cap_pct * current_equity - existing_heat
+        # Also bound the final minimum-ticket round-up, even when the first
+        # integer quantity is just under the cap. This is the existing gross
+        # price-at-stop policy; fees and gap risk are not called zero.
+        if unit_risk > 0:
+            hard_room = min(hard_room, max(0.0, remaining) / unit_risk * fill_price)
+        new_heat = qty * unit_risk
+        de.record("portfolio_heat", {"existing": existing_heat, "proposed": new_heat,
+            "equity": current_equity, "initial_stop": proposed_stop_price,
+            "unit_price_risk": unit_risk, "costs_included": False}, heat_cap_pct,
+            passed=True, reason="Exact proposed stop; category fallback only for legacy callers. Gross stop risk excludes fees, slippage and gaps.")
         if (existing_heat + new_heat) / current_equity > heat_cap_pct:
             # Try to shrink qty to fit remaining heat budget before rejecting.
-            remaining = heat_cap_pct * current_equity - existing_heat
             if remaining <= 0:
                 de.record("portfolio_heat", remaining, 0, passed=False, reason="No remaining risk-at-stop budget")
                 return False, "portfolio_heat_cap", 0
-            qty = int(remaining / (fill_price * stop_frac))
+            qty = int(remaining / unit_risk) if unit_risk > 0 else qty
             if qty <= 0:
                 de.record("portfolio_heat", qty, 1, passed=False, reason="Heat budget cannot fund a whole share")
                 return False, "portfolio_heat_cap", 0
-            if stop_frac > 0:
-                hard_room = min(hard_room, remaining / stop_frac)
-            de.record("portfolio_heat", {"existing": existing_heat, "accepted_qty": qty, "accepted_heat": qty * fill_price * stop_frac}, heat_cap_pct * current_equity, passed=True, reason="Quantity reduced to risk budget")
+            de.record("portfolio_heat", {"existing": existing_heat, "accepted_qty": qty, "accepted_heat": qty * unit_risk}, heat_cap_pct * current_equity, passed=True, reason="Quantity reduced to exact stop risk budget")
 
     else:
         de.record("portfolio_heat", state="skipped", reason="Heat cap disabled or equity unavailable")
