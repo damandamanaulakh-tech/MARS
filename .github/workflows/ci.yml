@@ -29,3 +29,7 @@ jobs:
         run: python -m pytest trading/tests/ web/tests/ -q -ra --junitxml=pytest-results.xml
       - name: Require every collected test to run
         run: python -c "import xml.etree.ElementTree as ET; skipped = ET.parse('pytest-results.xml').findall('.//testcase/skipped'); assert not skipped, f'{len(skipped)} tests skipped; see pytest summary for missing prerequisites'"
+      - name: Reproduce frozen Goal08 research without network or settings writes
+        run: python -m research.profit_protection_2026_11_16.study verify
+      - name: Verify Goal08 report matches the sealed measurements
+        run: python -m research.profit_protection_2026_11_16.report --check
