@@ -1,9 +1,10 @@
 # SEQ-08 — Profit protection and reachable targets
 
-Status: LOCAL_TESTED_NO_PROMOTION_CI_PENDING. Research outcomes are sealed;
-3359 canonical local tests pass with zero failures/errors/skips. Full offline
-reproduction and rendered-report checks pass; CI, review and merge are pending. This batch has
-no application deployment or production-settings mutation.
+Status: RESEARCH_COMPLETE_NO_PROMOTION. [PR216](https://github.com/damandamanaulakh-tech/MARS/pull/216)
+is merged. All 3359 canonical local/CI tests pass with zero failures/errors/skips;
+CI also reproduces the complete frozen study and rendered report. The selected
+candidate failed the research criteria, so production settings stay unchanged.
+This research-only batch requires no application deployment.
 
 Baseline: `b0615be779f75d0ab06dc7ab8738efaf03dc2d61` (Goal07 evidence).
 Finding: INTRA-003; compound re-entry/sizing/full-strategy evidence remains open.
@@ -102,9 +103,9 @@ were rechecked 16 November. The archived requests provide actual provider eviden
   summaries, the frozen selection, source hashes and the rendered report
   offline. The full application suite, no-skip guard and repair-record
   validation remain mandatory.
-- Final local and CI totals, reviewed head and merge proof will be appended.
-  Research-only commits use `[skip render]`; matching application deployment
-  is not an acceptance claim for this isolated study.
+- Final local/CI and merge proof are recorded below. Research-only commits use
+  `[skip render]`; matching application deployment is not an acceptance claim
+  for this isolated study.
 
 ## Remaining work
 
@@ -125,3 +126,23 @@ The canonical full suite passed **3,359 tests, zero failures/errors/skips**, in
 comparison also pass, with no network or production calls. The no-skip guard
 and repair-record validator pass. All 170 records, 165 original IDs and four
 incidents remain. [Machine-readable checks and hashes](../evidence/2026-11-16-profit-protection.json).
+
+## Merged research and CI proof
+
+- [PR216](https://github.com/damandamanaulakh-tech/MARS/pull/216) merged at **2026-11-16T08:59:59Z**
+  (16 November 2026, **14:29:59 IST**).
+- Reviewed head: `031562195d3de516cefaecdaebe58f6a87dcbc34`.
+- Merge: `0f91a235a47c55d9291f5c5882cdd0953c977d85`.
+- Reviewed/merged tree: `d5dc9c34b14510540ef4bd36762c8b5aa2a6decd`; exact equality
+  verified after fetching main. Published blobs matched local Git hashes.
+- [CI 43807192211](https://github.com/damandamanaulakh-tech/MARS/actions/runs/43807192211): **3,359 passed**, zero failures/errors/skips,
+  268.35 seconds. Repair-record validation, explicit no-skip guard, full
+  individual-outcome/summary/selection reproduction and report comparison all
+  passed. Replay/report completed at 2026-11-16T05:03:13Z.
+- Goal08 research is complete with **no promotion**. SEQ-09 remains queued.
+  INTRA-003's separate re-entry/sizing/full-strategy claims remain open.
+
+Read-only Render check at **2026-11-16T09:01:00Z** still lists Goal07 deployment
+`dep-dbt893vf3r2c73f6rclg`, revision
+`deb07a316007e40bf5765462d2194b169d70409f`, as live. Goal08 is an isolated
+research shipment; this is not a new application deployment or trade observation.

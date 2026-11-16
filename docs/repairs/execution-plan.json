@@ -492,11 +492,11 @@
       "depends_on": [
         "SEQ-07"
       ],
-      "status": "LOCAL_TESTED_NO_PROMOTION_CI_PENDING",
+      "status": "RESEARCH_COMPLETE_NO_PROMOTION",
       "implementation": "OFFLINE_REPRODUCIBLE_STUDY",
-      "tests": "3359_LOCAL_PASSED_ZERO_SKIPS_OFFLINE_REPRODUCTION_PASSED",
-      "pull_request": null,
-      "merge_revision": null,
+      "tests": "3359_LOCAL_AND_CI_PASSED_ZERO_SKIPS_OFFLINE_REPRODUCTION_VERIFIED",
+      "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/216",
+      "merge_revision": "0f91a235a47c55d9291f5c5882cdd0953c977d85",
       "deployment_revision": null,
       "health": "NOT_APPLICABLE_RESEARCH_ONLY",
       "runtime": "RESEARCH_ONLY_NO_PRODUCTION_POLICY_CHANGE",
@@ -506,7 +506,10 @@
       "holdout_samples": 690,
       "holdout_sessions": 23,
       "settings_changed": false,
-      "validation_evidence": "docs/repairs/evidence/2026-11-16-profit-protection.json"
+      "validation_evidence": "docs/repairs/evidence/2026-11-16-profit-protection.json",
+      "reviewed_head": "031562195d3de516cefaecdaebe58f6a87dcbc34",
+      "reviewed_tree": "d5dc9c34b14510540ef4bd36762c8b5aa2a6decd",
+      "ci_run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43807192211"
     },
     {
       "id": "SEQ-09",
@@ -577,5 +580,5 @@
       "evidence": null
     }
   ],
-  "active_step_note": "SEQ-08 exit-only study evaluated 15 stocks across 30 training, 18 validation and 23 untouched holdout sessions. The sealed combined candidate failed net-expectancy and robustness criteria; production settings remain unchanged. 3359 canonical local tests passed with zero skips; complete offline reproduction passed. CI and merge pending. Earlier normal-runtime observations remain pending; SEQ-09 is queued."
+  "active_step_note": "SEQ-08 research is complete and merged in PR216. All 3359 local/CI tests pass with zero skips; complete offline outcome/report reproduction and repair-record checks pass. The locked candidate failed validation/holdout criteria; no settings were promoted. This holdout is consumed; actual-strategy/forward validation remains separate. SEQ-09 is queued; earlier natural-runtime observations remain pending."
 }
