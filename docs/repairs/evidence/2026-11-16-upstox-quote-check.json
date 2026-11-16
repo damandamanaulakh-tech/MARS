@@ -37,5 +37,38 @@
       "ticker": "^NSEI",
       "price": 25278.25
     }
-  ]
+  ],
+  "post_deploy_verification": {
+    "checked_at": "2026-11-16T04:22:54.971376Z",
+    "returned": 6,
+    "requested": 6,
+    "error": null,
+    "exchange_timestamp": null,
+    "results": [
+      {
+        "ticker": "TCS.NS",
+        "price": 2424
+      },
+      {
+        "ticker": "INFY.NS",
+        "price": 1153.3
+      },
+      {
+        "ticker": "RELIANCE.NS",
+        "price": 1343.5
+      },
+      {
+        "ticker": "HDFCBANK.NS",
+        "price": 808.85
+      },
+      {
+        "ticker": "MARUTI.NS",
+        "price": 12910
+      },
+      {
+        "ticker": "^NSEI",
+        "price": 25323.25
+      }
+    ]
+  }
 }

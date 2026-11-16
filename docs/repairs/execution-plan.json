@@ -393,16 +393,93 @@
       "depends_on": [
         "SEQ-06"
       ],
-      "status": "LOCAL_TESTED",
+      "status": "DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING",
       "implementation": "IMPLEMENTED",
-      "tests": "3311_CANONICAL_LOCAL_PASSED_ZERO_SKIPS_CI_PENDING",
-      "pull_request": null,
-      "merge_revision": null,
-      "deployment_revision": null,
-      "health": "NOT_CHECKED",
-      "runtime": "PENDING_NORMAL_SCAN_AND_PROTECTIVE_EXIT_OBSERVATION",
+      "tests": "3311_CANONICAL_LOCAL_AND_CI_PASSED_ZERO_SKIPS",
+      "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/214",
+      "merge_revision": "deb07a316007e40bf5765462d2194b169d70409f",
+      "deployment_revision": "deb07a316007e40bf5765462d2194b169d70409f",
+      "health": "VERIFIED_2026-11-16T04:22:31.287740+00:00",
+      "runtime": "PENDING_NORMAL_ADVISORY_ENTRY_AND_PROTECTIVE_EXIT_OBSERVATION",
       "evidence": "docs/repairs/releases/2026-11-16-candle-assistance.md",
-      "owner_policy": "Patterns provide advisory evidence only in all five segments. Absence cannot veto eligible buys; protective exits remain independent. No score, ranking or size adjustment."
+      "owner_policy": "Patterns provide advisory evidence only in all five segments. Absence cannot veto eligible buys; protective exits remain independent. No score, ranking or size adjustment.",
+      "ci_run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43802859207",
+      "reviewed_head": "910e081c7c48916add0d3f9a269494f5759baa98",
+      "reviewed_tree": "3a902f921df794ecf45326fa235f332f70007404",
+      "deployment_id": "dep-dbt893vf3r2c73f6rclg",
+      "deployed_at": "2026-11-16T04:22:13.237036Z",
+      "health_evidence": {
+        "observed_at": "2026-11-16T04:22:31.287740+00:00",
+        "http_status": 200,
+        "ok": true,
+        "db": {
+          "connected": true,
+          "db": "sourceborn",
+          "url_set": true,
+          "degraded": false,
+          "boot_degraded": false,
+          "write_error": null,
+          "write_error_at": null
+        },
+        "readiness": {
+          "production": true,
+          "ready": true,
+          "insecure_override": false,
+          "problems": []
+        },
+        "sector_context": {
+          "scope": "current_process",
+          "last_attempt": null,
+          "durability": "unknown"
+        },
+        "stats": {
+          "asof": "2026-11-16T04:22:12.268907+00:00",
+          "age_s": 18.9,
+          "pending": false,
+          "elapsed_s": 7.891,
+          "error": null
+        }
+      },
+      "owner_page": {
+        "observed_at": "2026-11-16T04:23:18Z",
+        "path": "/scan/parameter/candle",
+        "advisory": true,
+        "independent_exits": true,
+        "historical_outcomes_preserved": true
+      },
+      "broker_acceptance": {
+        "checked_at": "2026-11-16T04:22:54.971376Z",
+        "returned": 6,
+        "requested": 6,
+        "error": null,
+        "exchange_timestamp": null,
+        "results": [
+          {
+            "ticker": "TCS.NS",
+            "price": 2424
+          },
+          {
+            "ticker": "INFY.NS",
+            "price": 1153.3
+          },
+          {
+            "ticker": "RELIANCE.NS",
+            "price": 1343.5
+          },
+          {
+            "ticker": "HDFCBANK.NS",
+            "price": 808.85
+          },
+          {
+            "ticker": "MARUTI.NS",
+            "price": 12910
+          },
+          {
+            "ticker": "^NSEI",
+            "price": 25323.25
+          }
+        ]
+      }
     },
     {
       "id": "SEQ-08",
