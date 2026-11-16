@@ -1,6 +1,6 @@
 # MARS repair work
 
-SEQ-09 research is evaluated with no production policy promotion. The separately acquired 42-session intraday holdout measured losing retries withheld, recoveries missed and delayed re-entry P&L. The selected breakout-reclaim rule improved the matched comparison but failed sample and cross-scenario expectancy requirements. All 3413 canonical local tests pass with zero skips; complete frozen replay and report checks pass. CI/merge proof is pending. [Study and release record](releases/2026-11-16-reentry.md). SEQ-10 remains queued.
+SEQ-09 research is evaluated with no production policy promotion. The separately acquired 42-session intraday holdout measured losing retries withheld, recoveries missed and delayed re-entry P&L. The selected breakout-reclaim rule improved the matched comparison but failed sample and cross-scenario expectancy requirements. PR218 merged; all 3413 canonical local/CI tests pass with zero skips, with complete frozen replay and report checks passing on the recorded reference runtime. [Study and release record](releases/2026-11-16-reentry.md). SEQ-10 remains queued.
 
 SEQ-08 profit-protection research: [study and release](releases/2026-11-16-profit-protection.md). Five candidates evaluated on chronological train/validation/holdout periods; locked candidate rejected, no production settings changed. PR216 merged; 3359 canonical local/CI tests pass with zero skips, with full offline outcome/report reproduction verified.
 

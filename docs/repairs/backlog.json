@@ -4723,10 +4723,10 @@
     "current_evidence": "docs/repairs/releases/2026-11-16-reentry.md",
     "related_id": "G13; XR-059; OPS-04; XR-009",
     "acceptance": "Out-of-sample intraday replay including fills, costs and adverse excursions; compare payoff and drawdown as well as win rate; owner policy decision before threshold promotion.",
-    "workflow": "SEQ08_COMPLETE_NO_PROMOTION_SEQ09_LOCAL_TESTS_CI_PENDING_SEQ10_PENDING",
+    "workflow": "SEQ08_09_RESEARCH_COMPLETE_NO_PROMOTION_SEQ10_11_PENDING",
     "assignee": "Codex",
-    "fix_commit": "2fe824533ec300e76ab373ff177827f31c5fc645",
-    "test_result": "Goal09: 54 new / 102 expanded / 3413 canonical full tests passed, zero failures/errors/skips, 232.41s. Full frozen episode/decision/attribution replay and report checks pass. CI/merge pending. Selected rule fails sample/expectancy criteria; production policy retained. Goal08 PR216 and its 3359 passing tests remain in prior release evidence.",
+    "fix_commit": "032568318f14d5da2c9b5e0df9b8b97c6211b737",
+    "test_result": "Goal09 PR218 merged. 54 new / 102 expanded / 3413 canonical local and CI tests pass, zero failures/errors/skips. Exact frozen decision/outcome/attribution and report checks pass. Original research runtime pinned after a recorded aggregate mismatch; no sealed results altered. Selected rule fails sample/expectancy criteria; production policy retained. Sizing, recursive/cross-day retries and actual-strategy/forward proof remain open. Goal08 PR216 evidence is preserved.",
     "deployment_revision": "",
     "source_sheet": "Owner request",
     "source_row": "2026-11-11"
