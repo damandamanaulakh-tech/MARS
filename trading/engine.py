@@ -43,7 +43,7 @@ from . import quote_evidence as qe
 from . import intraday_bars as ib, intraday_data as idata, intraday_scoring as isc
 from . import context_inputs as ci
 from .calendars import is_market_open, market_state
-from .candles import candle_confirmation
+from .candles import candle_assessment
 from .risk import RiskState, can_open
 from .scoring import (
     MOMENTUM_MODE, compute_hot_sectors, compute_score, reasoning_text,
@@ -874,7 +874,7 @@ class TradingEngine:
         # AUDIT S-4 (owner: "go for next", 2026-10-02): the entry gates run in
         # TWO passes. Pass 1 (below) applies every gate that can refuse a pick
         # — macro halt, earnings blackout, chop, drawdown and loss halts,
-        # already held, stale data, liquidity, correlation, candle. Rotation
+        # already held, stale data, liquidity and correlation. Rotation
         # then funds ONLY the picks that cleared all of them, and pass 2 sizes
         # and opens. Before this, rotation ran first and could sell a
         # near-target position for a pick a later gate refused (on an RBI or
@@ -1050,27 +1050,13 @@ class TradingEngine:
                             "reason": f"correlated_{blocker[0]}_{blocker[1]:.2f}",
                         })
                         continue
-                    # Batch C: candle BUY-CONFIRMATION — execute only when the
-                    # latest candle confirms the signal; otherwise wait (skip is
-                    # journaled and surfaces on the watchlist / triggers card).
-                    # Ocean picks are exempt: their reclaim rail (close above the
-                    # prior day's high, no fresh 20d low) IS the confirmation —
-                    # a capitulation-reversal bar rarely forms a textbook
-                    # bullish structure, and double-gating would starve the
-                    # engine the owner just approved.
-                    from .candles import candle_gate_applies
-                    if not pick.get("ocean") and candle_gate_applies(cfg):
-                        ok_candle, candle_why = candle_confirmation(signal_history.get(pick["ticker"], tic_hist), cfg)
-                        de.put(d, "candle", candle_why, {"lookback": cfg.candle_breakout_lookback, "volume_mult": cfg.candle_volume_mult}, passed=ok_candle,
-                               reason="Current candle gate; advisory-policy change is SEQ-07")
-                        if not ok_candle:
-                            skipped.append({
-                                "ticker": pick["ticker"],
-                                "reason": f"candle_wait_{candle_why}",
-                            })
-                            continue
-                    else:
-                        de.put(d, "candle", state="skipped", reason="Ocean exemption or candle switch disabled")
+                    # SEQ-07: observe support, absence or missing data without a
+                    # veto. Score/rank, sizing, quote/risk gates and exits retain
+                    # their own rules, including Ocean's separate reclaim rail.
+                    advice = candle_assessment(signal_history.get(pick["ticker"], tic_hist), cfg)
+                    de.put(d, "candle", advice, "Advisory only; no entry or exit veto",
+                           state=advice['state'], role="advisory",
+                           reason=advice['contribution'])
                 else:
                     de.put(d, "liquidity_history", state="unavailable", reason="History missing on entry path")
                 quote_ev = qe.observation(live_fill_px, pick["ticker"], datetime.utcnow())
@@ -1262,14 +1248,13 @@ class TradingEngine:
             self.portfolio.last_scan_live = now.isoformat()
 
         def _candle_label(tkr: str) -> str:
-            # F17: record which candle pattern confirmed (or why waiting) so
+            # Record supporting pattern or explicit unavailable/disabled state so
             # the dashboard can SHOW it with no refetch — history is in RAM.
             h = signal_history.get(tkr)
             if h is None:
                 return ""
             try:
-                ok_c, why = candle_confirmation(h, cfg)
-                return why
+                return candle_assessment(h, cfg)['reason']
             except Exception:
                 return ""
 
@@ -1328,6 +1313,7 @@ class TradingEngine:
                      for s in skipped if s.get("ticker")}
         self.portfolio.scan_matrix = {
             "ts": now.isoformat(),
+            "candle_policy": "advisory",
             "mode": getattr(cfg, "mode", "?"),
             "score_floor": float(cfg.min_score_to_enter),
             "universe_size": len(universe),

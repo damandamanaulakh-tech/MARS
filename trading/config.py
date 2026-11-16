@@ -384,9 +384,8 @@ class Config:
     # C1: blend a value/quality tilt into the momentum score (0 = pure momentum,
     # 1 = pure quality). Diversifies off high-beta leaders that crash together.
     quality_blend_pct: float = 0.35
-    # Batch C: candle BUY-CONFIRMATION gate — a scored pick executes only when
-    # the latest candle confirms (breakout / URR retest / engulfing); otherwise
-    # it waits on the watchlist as candle_wait_*.
+    # SEQ-07 owner policy: enable supporting pattern observations only. No
+    # candle setting vetoes entry/exit or changes score, ranking or position size.
     candle_confirm_enabled: bool = True
     # user's reference-pic set + the 6 strong reversals from the owner's
     # 2026-07-28 chart ("i want more"). Only completed multi-bar reversals
@@ -405,7 +404,8 @@ class Config:
     # picks WITH a pattern did worse in 2015-2020 (+1.4% vs +2.5% over 60
     # days) and about the same after (+8.5% vs +7.9%) — no measured benefit.
     # The pattern is still computed and SHOWN; it just no longer blocks a
-    # momentum buy. The other four categories keep the gate.
+    # momentum buy. SEQ-07 retires the veto for all categories. Retain this
+    # legacy field for saved-settings compatibility; it has no gating effect.
     candle_confirm_skip_modes: tuple = ("nifty200_momentum",)
     # F7 (user-approved 2026-07-11): never open dust positions — a position
     # whose notional is below this is skipped (IDEA-12-shares problem).

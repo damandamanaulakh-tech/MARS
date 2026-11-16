@@ -322,7 +322,7 @@ def test_actual_scan_uses_5m_for_score_timing_candles_and_entry_target(tmp_path,
         return call
     monkeypatch.setattr(scoring, 'compute_score', spy('score', scoring.compute_score))
     monkeypatch.setattr(module, 'timing_ok', spy('timing', module.timing_ok))
-    monkeypatch.setattr(module, 'candle_confirmation', spy('candle', module.candle_confirmation))
+    monkeypatch.setattr(module, 'candle_assessment', spy('candle', module.candle_assessment))
     monkeypatch.setattr(e, '_target_for', spy('target', e._target_for))
     result = e.scan()
     assert result.opened == ['UPP.NS'], result.skipped

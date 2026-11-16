@@ -115,11 +115,11 @@ def test_the_exit_ruler_reads_the_same_weights(quiet_feeds):
 
 # ------------------------------------------------------------ 3 candle gate
 
-def test_the_candle_gate_is_off_for_momentum_only():
+def test_seq07_supersedes_the_momentum_only_candle_exemption():
     from trading.candles import candle_gate_applies
     assert not candle_gate_applies(Config(mode="nifty200_momentum"))
     for m in ("intraday", "short", "swing", "positional"):
-        assert candle_gate_applies(Config(mode=m)), m
+        assert not candle_gate_applies(Config(mode=m)), m
     off = Config(mode="swing")
     off.candle_confirm_enabled = False
     assert not candle_gate_applies(off)
@@ -131,19 +131,17 @@ def test_a_momentum_pick_buys_without_a_candle_pattern(tmp_path, monkeypatch):
     e.cfg.candle_confirm_enabled = True          # the live setting
     e.portfolio.cash = 5_00_00_000.0
     e.portfolio.positions.clear()
-    import trading.engine as E
-    monkeypatch.setattr(E, "candle_confirmation",
-                        lambda df, cfg: (False, "no_pattern"))
+    e.cfg.candle_patterns = ('engulfing',)  # actual fixture has no engulfing
     e.scan()
     assert "UPP.NS" in e.portfolio.positions
 
 
-def test_a_swing_pick_still_waits_for_a_pattern(tmp_path, monkeypatch,
+def test_a_swing_pick_now_buys_with_absent_pattern_evidence(tmp_path, monkeypatch,
                                                quiet_feeds):
-    """The pick must REACH the gate for this to mean anything: the fixture's
+    """The pick must REACH the observation for this to mean anything: the fixture's
     swing score is ~54 (< 60) and swing timing would stop it first, so the
-    floor and timing are opened up here and the candle is the only gate
-    left (the 2026-10-04 lesson: the kill-switch test passed for months
+    floor and timing are opened up here so only candle policy differs
+    (the 2026-10-04 lesson: the kill-switch test passed for months
     only because this gate happened to block its pick)."""
     from trading.tests.test_audit_s4_s9_2026_10_02 import _scan_engine
     e = _scan_engine(tmp_path, monkeypatch, event=None)
@@ -155,24 +153,19 @@ def test_a_swing_pick_still_waits_for_a_pattern(tmp_path, monkeypatch,
     e.cfg.candle_confirm_enabled = True
     e.portfolio.cash = 5_00_00_000.0
     e.portfolio.positions.clear()
-    import trading.engine as E
-    monkeypatch.setattr(E, "candle_confirmation",
-                        lambda df, cfg: (False, "no_pattern"))
-    e.scan()
-    assert not e.portfolio.positions
-    reasons = {s["ticker"]: s["reason"] for s in e.portfolio.last_scan_skipped}
-    assert reasons.get("UPP.NS") == "candle_wait_no_pattern"
-    # and with the gate passing, the same pick buys — the gate is the cause
-    monkeypatch.setattr(E, "candle_confirmation",
-                        lambda df, cfg: (True, "engulfing"))
+    e.cfg.candle_patterns = ('engulfing',)
     e.scan()
     assert "UPP.NS" in e.portfolio.positions
+    observed = e.portfolio.positions['UPP.NS'].trade_evidence['entry']['gates']['candle']
+    assert observed['role'] == 'advisory'
+    assert observed['value']['reason'] == 'no_pattern'
 
 
-def test_the_backtest_reads_the_same_predicate():
+def test_the_backtest_reads_the_same_advisory():
     import ast
     import inspect
     from trading import backtest
     tree = ast.parse(inspect.getsource(backtest))
     names = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
-    assert "_cga" in names
+    assert "candle_assessment" in names
+    assert "_cga" not in names

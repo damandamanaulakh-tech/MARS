@@ -118,7 +118,8 @@ def finish(decision, outcome, reason="", *, exit=False):
     out.update(outcome=outcome, reason=str(reason)[:700])
     for name in (EXIT_GATES if exit else ENTRY_GATES):
         if name not in out["gates"]:
-            put(out, name, state="skipped", reason="Not reached on this decision path")
+            put(out, name, state="skipped", reason="Not reached on this decision path",
+                role="advisory" if name == "candle" else "gate")
     return out
 
 

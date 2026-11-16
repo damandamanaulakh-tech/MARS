@@ -30,6 +30,7 @@ Execution model:
 from __future__ import annotations
 
 import logging
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Optional
@@ -518,20 +519,15 @@ def _try_open_positions(
             c = hist["Close"].dropna()
             if len(c) <= 127 or float(c.iloc[-1]) <= float(c.iloc[-127]):
                 continue
-        # Batch C: candle BUY-CONFIRMATION gate — mirrors the live engine so
-        # backtests measure the same entry discipline.
-        try:
-            from .candles import candle_confirmation as _cc
-            from .candles import candle_gate_applies as _cga
-            if _cga(cfg) and not _cc(hist, cfg)[0]:
-                continue
-        except Exception:
-            pass
+        # SEQ-07: mirror the live advisory policy, never a pattern veto.
+        from .candles import candle_assessment
+        candle = candle_assessment(hist, cfg)
         ranked.append({
             "ticker": ticker,
             "score": score,
             "components": components,
             "hist": hist,
+            "candle": candle,
             "decision_price": float(hist["Close"].iloc[-1]),
         })
     ranked.sort(key=lambda r: -r["score"])
@@ -573,6 +569,12 @@ def _try_open_positions(
             from .scoring import weights_for as _wf
             reasoning = reasoning_text(pick["components"], pick["score"],
                                        _wf(getattr(cfg, "mode", None)))
+        from . import decision_evidence as de
+        entry_evidence = de.new(ticker, cfg.mode, 'backtest',
+                               str(pick['hist'].index[-1]), pick['hist'])
+        de.put(entry_evidence, 'candle', pick['candle'], 'Advisory only',
+               state=pick['candle']['state'], role='advisory',
+               reason=pick['candle']['contribution'])
         portfolio.positions[ticker] = PaperPosition(
             ticker=ticker, qty=qty, entry_price=fill, cost_basis=cost_basis,
             entry_date=datetime.combine(next_date, datetime.min.time()),
@@ -584,6 +586,8 @@ def _try_open_positions(
             # (momentum only, measured), so /backtest tests the live rule.
             stop_price=_stop_price_for(cfg, fill, pick["hist"]),
             target_price=round(fill * (1 + cfg.take_profit_pct), 2),
+            trade_evidence={"schema": 1, "trade_id": entry_evidence['id'],
+                "entry": de.finish(entry_evidence, 'opened', 'Backtest next-open fill')},
         )
 
 
@@ -622,6 +626,7 @@ def _close_position(portfolio, ticker, raw_price, reason, date) -> None:
         reason=reason, sector=pos.sector,
         entry_score=pos.entry_score, reasoning=pos.reasoning,
         mode=getattr(pos, "mode", "") or "",
+        trade_evidence=deepcopy(pos.trade_evidence),
     ))
 
 

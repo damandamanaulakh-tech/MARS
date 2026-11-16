@@ -51,7 +51,7 @@
             <li>score floor <strong>{{ c.floor }}</strong>{% if c.floor != c.preset_floor %} <span class="text-amber-700">(preset {{ c.preset_floor }}, owner override)</span>{% endif %} — at or below the floor the slab model sizes ZERO, so the buy needs score &gt; floor</li>
             <li>absolute momentum: {{ eng.abs_mom_rule }}</li>
             <li>timing: {% if c.timing_off %}OFF for momentum (breakout threshold {{ c.breakout_threshold_pct }}%, volume ratio {{ c.volume_confirm_ratio }}){% else %}within {{ c.breakout_threshold_pct }}% of the 20-day high, 5d volume ≥ {{ c.volume_confirm_ratio }}× 20d{% endif %}</li>
-            <li>candle confirmation: {% if c.candle_gate %}ON{% else %}<strong>OFF</strong> for momentum (skip list: {{ eng.candle_skip_modes | join(', ') }}){% endif %}</li>
+            <li>candle assistance: <strong>advisory only</strong> in every segment; absence does not block eligible buys and protective exits stay independent</li>
             {% endfor %}
             <li>breadth band: {% if eng.breadth.enabled %}<strong>blocks while {{ (eng.breadth.low * 100) | round(0) | int }}% ≤ share of names above their own 200-DMA &lt; {{ (eng.breadth.high * 100) | round(0) | int }}%</strong>, in ALL five categories; read over the 191-name study panel the band was measured on (whole store only if too few of them have a fresh close — 2026-10-16); below the band is buyable (washout), above is healthy; min sample {{ eng.breadth.min_sample }}, store reading trusted {{ eng.breadth.store_max_age_days }} days; VIX-crush re-entry bypasses it{% else %}OFF{% endif %}
               {% if eng.breadth.today %}<span class="text-ink-faint">· today's cached reading: {{ eng.breadth.today }}</span>{% endif %}</li>
@@ -127,7 +127,7 @@
             <th class="text-right px-2 py-2 whitespace-nowrap">Trail</th>
             <th class="text-right px-2 py-2 whitespace-nowrap">Decay</th>
             <th class="text-right px-2 py-2">Max hold</th>
-            <th class="text-center px-2 py-2">Candle gate</th>
+            <th class="text-center px-2 py-2">Candles</th>
             <th class="text-center pl-2 pr-4 py-2">Kelly check</th></tr>
       </thead>
       <tbody>
@@ -145,7 +145,7 @@
           <td class="px-2 py-2 text-right tabular-nums">{{ c.trail_pct }}%</td>
           <td class="px-2 py-2 text-right tabular-nums">{{ c.decay }}</td>
           <td class="px-2 py-2 text-right tabular-nums">{{ c.hold }}d</td>
-          <td class="px-2 py-2 text-center">{{ 'ON' if c.candle_gate else 'off' }}</td>
+          <td class="px-2 py-2 text-center">advisory</td>
           <td class="pl-2 pr-4 py-2 text-center">{{ 'gated' if c.kelly_gated and eng.measured_kelly.enabled else '—' }}</td>
         </tr>
         {% endfor %}
