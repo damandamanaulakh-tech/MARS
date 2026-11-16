@@ -548,20 +548,24 @@
       "depends_on": [
         "SEQ-09"
       ],
-      "status": "LOCAL_TESTED_CI_PENDING",
-      "implementation": "EXACT_STOP_AND_ALL_LOSS_FIXES_WITH_FROZEN_RESEARCH",
-      "tests": "158 focused pass, zero skips; exact Goal10 offline replay passes; 3469 canonical full pass, zero failures/errors/skips; CI pending.",
-      "pull_request": null,
-      "merge_revision": null,
-      "deployment_revision": null,
-      "health": "NOT_CHECKED",
-      "runtime": "NATURAL_OBSERVATION_PENDING",
+      "status": "SHIPPED_RESEARCH_COMPLETE_NO_PROMOTION",
+      "implementation": "MERGED_EXACT_STOP_AND_ALL_LOSS_FIXES_FROZEN_RESEARCH_NO_PROMOTION",
+      "tests": "56 new /158 expanded /3469 canonical local and CI pass;zero failures/errors/skips;Goal08/09/10 exact offline replay/report pass.",
+      "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/220",
+      "merge_revision": "65a58509018fcce86a299328497f1ffe3ee1a142",
+      "deployment_revision": "65a58509018fcce86a299328497f1ffe3ee1a142",
+      "health": "DEPLOYED_HEALTH_VERIFIED",
+      "runtime": "PENDING_NORMAL_SCAN_AND_TRADE_OBSERVATION",
       "evidence": "docs/repairs/releases/2026-11-16-sizing.md",
       "selected_candidate": "measured_stop_risk",
       "promotion": "REJECTED_BY_PREDECLARED_CRITERIA",
       "experimental_settings_changed": false,
       "holdout_opportunities": 435,
-      "holdout_executed_selected": 0
+      "holdout_executed_selected": 0,
+      "reviewed_head": "b0c9cff68a7183873b221fa73254945cb193b44f",
+      "reviewed_tree": "8e1e24d54fe790a45c944f6ffe450347b56bbcfa",
+      "ci_run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43891672421",
+      "validation_evidence": "docs/repairs/evidence/2026-11-16-sizing.json"
     },
     {
       "id": "SEQ-11",
@@ -588,5 +592,5 @@
       "evidence": null
     }
   ],
-  "active_step_note": "Goal10 bounded XR026/XR031 correctness fixes locally tested; frozen sizing study completed with no promotion. Full CI, merge and functional deployment pending. Goal11 remains queued."
+  "active_step_note": "SEQ-10 correctness fixes shipped and deployment health verified at65a5850;3469 canonical local/CI tests pass,zero skips, plus exact Goal08/09/10 replay/report checks. Frozen sizing policy fails promotion and is not enabled. Natural scan/trade observation remains pending;SEQ-11 stays queued."
 }

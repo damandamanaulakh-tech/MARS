@@ -62,8 +62,7 @@ SEQ-09: the [fresh-data re-entry study](releases/2026-11-16-reentry.md) requires
 
 SEQ-10: [position sizing and loss controls](releases/2026-11-16-sizing.md) fixes
 XR-026's proposed-stop mismatch and XR-031's all-loss bypass, while showing known
-economic net losses/costs beside the filtered strategy sample. 3469 canonical
-local tests pass, zero skips. The separately acquired 15-stock holdout rejects
+economic net losses/costs beside the filtered strategy sample. 3,469 canonical
+local and GitHub CI tests pass, zero skips. The separately acquired 15-stock holdout rejects
 the measured-sizing candidate because it executes zero trades; no experimental
-threshold or policy is promoted. CI/merge/deployment evidence remains pending;
-SEQ-11 actual-strategy and forward paper validation stays queued.
+threshold or policy is promoted. PR220 is merged and its exact revision is live with HTTP200/readiness/Mongo health verified. Natural scan/trade observation remains pending; SEQ-11 actual-strategy and forward paper validation stays queued.
