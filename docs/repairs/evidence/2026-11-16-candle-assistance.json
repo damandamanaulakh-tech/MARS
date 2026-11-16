@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "baseline": "eac216c6680130989beaff3871b89c7562544de9",
+  "owner_policy": "candle_assistance_all_segments",
+  "baseline_tests": {
+    "failed": 15,
+    "passed": 3,
+    "skipped": 0
+  },
+  "expanded_focused": {
+    "passed": 158,
+    "skipped": 0
+  },
+  "malformed_control_targeted": {
+    "passed": 50,
+    "skipped": 0
+  },
+  "full": {
+    "tests": 3311,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 170.358,
+    "junit_sha256": "2e22c2bccd32568085e8038491773f4e7ec6e7cbca97d1b12f640961bd239145",
+    "python": "3.12.16",
+    "source_scope": "isolated copy of all tracked files plus task additions; unrelated untracked duplicate files excluded"
+  },
+  "tested_source_sha256": {
+    "trading/backtest.py": "edadbe3a3676e6cb220efe45375b40b8e65bf446f7e096bcc24e827f6884b98c",
+    "trading/candles.py": "a96e5c5aace3b5390dca6dc7e116a40554ea4fbec83a859576477744b46fbdd5",
+    "trading/config.py": "bc57bfa9ae6c3e6deb19596151882004462ad6a782b688e85d4b1e6922c7c0fe",
+    "trading/decision_evidence.py": "2c67e08e267aa797e36684cddee5d92719fce51b19c4fce57e8002e5b39880e1",
+    "trading/engine.py": "b660f998d27cc884bbc0a30f7ef854764742095aecb79a970ac7d5d8a1b2d5cb",
+    "trading/tests/test_candle_advisory_2026_11_16.py": "937870b355f52d75b4b62b1664bddd86adb764d527485e8484943280f9731e44",
+    "trading/tests/test_completed_intraday_2026_11_12.py": "991064b47d7308c954bccf3842ef0e9b0ebb0bf1f54521710ac4261b5968d08c",
+    "trading/tests/test_engines_sequence_2026_10_04.py": "3ad9c6a227b418d1f38bfe2399bf007643681bad833bee3e90fe98f09cbbac2b",
+    "web/routes/scan_routes.py": "6b8e15217230d5f1934fe4d5d7fe7be72bd07af1c83fbd08a619ec4b8e85c099",
+    "web/routes/settings_routes.py": "7213397b5994c9c2773fe43edbc3bc1ed49d1cee04808fb7da87af056c55878c",
+    "web/templates/_den_engines.html": "a214d622ca2b2c688fddd4b1da61b1db1204386a2dd6ff08e67dd9632f55c1f4",
+    "web/templates/_den_timing.html": "8a6a7cd9b3bb6398900f01d9c214fa1eddf6ef0d8a22638364223de3da36583e",
+    "web/templates/decision_evidence.html": "5a4a51d4a254be72568984763b9524020e481b9c0d01eeef8be0de4fefcb9f09",
+    "web/templates/parameter.html": "e3a52cbcad5a03d5dc8ef8469354e932af893d2ad2ce37bd6a76274d0bab4538",
+    "web/tests/test_candle_advisory_2026_11_16.py": "3e0041a5e42c1bc8a6e339c3cb3f70c27c4d3cda8db694f81bcb94b35c2f3cf0"
+  },
+  "original_records": {
+    "backlog": 170,
+    "original_ids": 165,
+    "incidents": 4
+  },
+  "ci": "PENDING",
+  "deployment": "PENDING",
+  "runtime": "PENDING_NORMAL_OBSERVATION"
+}

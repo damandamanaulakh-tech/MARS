@@ -72,6 +72,8 @@ _RESERVE_HINT = _reserve_hint()
 
 
 EDITABLE_FIELDS = [
+    ("candle_confirm_enabled", "Candle Assistance On (1/0)", "Strategy", "number", 1,
+     "Show supporting candle evidence. Neither ON nor OFF blocks an eligible buy or a protective exit; the setting is saved with each evaluated decision.", False),
     # (field_name, label, group, input_type, step, hint, is_pct)
     # F13: is_pct=True fields are stored as fractions (0.025) but SHOWN and
     # ENTERED as percentages (2.5) — no more "0.01 means 1%" confusion.

@@ -9,18 +9,19 @@
     <div class="bg-white border border-line lg:col-span-2"><!-- den_candles_marker -->
       <div class="px-4 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
         <div class="font-bold">🕯️ {{ tim.n_structures }} candle structures</div>
-        <div class="text-xs text-ink-faint">gate {{ 'ON' if tim.enabled else 'OFF' }} · breakout lookback {{ tim.lookback }} bars · volume ≥ {{ tim.vol_mult }}× · tap pages under /scan/parameter/</div>
+        <div class="text-xs text-ink-faint">assistance {{ 'ON' if tim.enabled else 'OFF' }} · breakout lookback {{ tim.lookback }} bars · volume ≥ {{ tim.vol_mult }}× · tap pages under /scan/parameter/</div>
       </div>
       <div class="p-4 text-xs space-y-3">
-        <div><span class="text-[10px] tracking-widest text-ink-faint uppercase">Bullish ({{ tim.bullish | length }}) — the {{ tim.configured | length }} green-boxed can confirm an entry; the rest are display lanes only</span>
+        <div><span class="text-[10px] tracking-widest text-ink-faint uppercase">Bullish ({{ tim.bullish | length }}) — the {{ tim.configured | length }} green-boxed provide supporting evidence; the rest are display lanes only</span>
           <div class="mt-1 flex flex-wrap gap-1">{% for n in tim.bullish %}<a href="/scan/parameter/struct:{{ n }}" class="px-1.5 py-0.5 border {% if n in tim.configured %}border-emerald-400 bg-emerald-50{% else %}border-line{% endif %} font-mono">{{ n }}</a>{% endfor %}</div></div>
         <div><span class="text-[10px] tracking-widest text-ink-faint uppercase">Bearish ({{ tim.bearish | length }}) — warn only, never buy</span>
           <div class="mt-1 flex flex-wrap gap-1">{% for n in tim.bearish %}<a href="/scan/parameter/struct:{{ n }}" class="px-1.5 py-0.5 border border-red-200 bg-red-50 font-mono">⚠ {{ n }}</a>{% endfor %}</div></div>
         <div><span class="text-[10px] tracking-widest text-ink-faint uppercase">Neutral ({{ tim.neutral | length }})</span>
           <div class="mt-1 flex flex-wrap gap-1">{% for n in tim.neutral %}<a href="/scan/parameter/struct:{{ n }}" class="px-1.5 py-0.5 border border-line font-mono">{{ n }}</a>{% endfor %}</div></div>
-        <div class="text-ink-faint">Green-boxed = in <span class="font-mono">cfg.candle_patterns</span> (the confirm set: {{ tim.configured | join(', ') }}). Gate-capable functions: {{ tim.gate_capable | join(', ') }}; breakout and urr take their own lookback/volume arguments.</div>
-        <div><span class="text-[10px] tracking-widest text-ink-faint uppercase">Who waits for a candle</span>
-          <div class="mt-1 flex flex-wrap gap-2">{% for c in tim.per_category %}<span class="px-2 py-0.5 border {% if c.gate %}border-emerald-400{% else %}border-line text-ink-faint{% endif %}">{{ c.name }}: {{ 'gate ON' if c.gate else 'off' }}</span>{% endfor %}</div></div>
+        <div class="text-ink-faint">Selected supporting patterns: {{ tim.configured | join(', ') }}. Missing or invalid pattern data remains unavailable. Intraday uses completed 5-minute bars; other segments use daily bars.</div>
+        <div><span class="text-[10px] tracking-widest text-ink-faint uppercase">Advisory in every segment</span>
+          <p>No pattern does not block an otherwise eligible buy. Protective exits stay independent. Patterns do not change scores, ranking or position size.</p>
+          <div class="mt-1 flex flex-wrap gap-2">{% for c in tim.per_category %}<span class="px-2 py-0.5 border border-line">{{ c.name }}: advisory</span>{% endfor %}</div></div>
       </div>
     </div>
     <div class="bg-white border border-line"><!-- den_piano_marker -->

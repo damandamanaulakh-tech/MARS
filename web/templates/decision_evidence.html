@@ -2,6 +2,7 @@
 {% block content %}
 <h1 class="text-2xl font-semibold">Trade and decision explanation</h1>
 <p class="text-sm text-ink-soft mt-2">Values saved when the decision ran. Entry gates pass when entry is allowed. An exit trigger passes when its condition is hit. Skipped and unavailable checks are never counted as passed.</p>
+<p class="text-sm text-ink-soft mt-2">A parameter marked advisory records supporting evidence only: failed means the pattern was absent, not that it blocked entry. Unavailable means no valid pattern verdict. Historical gate records retain their original role.</p>
 <div class="flex gap-4 my-4"><a class="underline" href="/decisions">Recent decisions</a>{% if download %}<a class="underline" href="{{ download }}">Download saved evidence</a>{% endif %}</div>
 {% if missing %}<p class="p-4 border border-amber-300 text-amber-800">{{ missing }}</p>{% endif %}
 {% for card in cards %}{% set d = card.data %}

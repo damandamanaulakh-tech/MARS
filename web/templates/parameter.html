@@ -22,6 +22,8 @@
   </div>
 </div>
 
+{% if d.advisory %}<p class="text-sm text-ink-soft mb-4">Current candle policy: advisory only. Recorded scan policy: {{ candle_policy or 'not recorded in this older snapshot' }}. Original outcomes are preserved; this page does not recompute historical eligibility.</p>{% endif %}
+
 {% if scanned == 0 %}
 <div class="bg-white border border-line p-6 lg:p-10 text-center text-ink-faint">
   No scan recorded yet — the stock lists appear after the next scan (09:20 auto or RUN SCAN NOW).
@@ -35,7 +37,7 @@
         ('waiting', '⬜ Waiting / no data', 'text-ink-faint', 'bg-slate-400')] %}
   <div class="bg-white border border-line">
     <div class="px-4 py-3 border-b border-line flex items-center justify-between gap-2">
-      <span class="text-xs font-semibold tracking-wide uppercase {{ color }}">{{ title }}</span>
+      <span class="text-xs font-semibold tracking-wide uppercase {{ color }}">{% if d.advisory %}{{ {'hit':'Pattern observed', 'weak':'No support', 'blocked':'Warning only', 'waiting':'Absent / unavailable / disabled'}[cls] }}{% else %}{{ title }}{% endif %}</span>
       <span class="text-xs tabular-nums text-ink-faint whitespace-nowrap">{{ groups[cls] | length }}</span>
     </div>
     <div class="px-4 py-3 max-h-72 lg:max-h-[480px] overflow-y-auto space-y-1">

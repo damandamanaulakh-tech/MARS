@@ -178,6 +178,21 @@ the user's instructions for the current task.
   reloads, full zero-skip CI and exact deployed revision/health. Keep ordinary
   runtime observation and performance claims separate.
 
+## Candle assistance batches
+
+- Record the owner-approved advisory policy separately from pattern detection.
+  Pattern absence, missing data and an owner-disabled check cannot become entry
+  or exit vetoes. Keep quote, data, risk and protective-exit checks independent.
+- Preserve pattern settings, actual bar interval/time, result and advisory role
+  with each evaluated decision. Do not reconstruct old roles from new settings.
+- Validate the exact OHLC/volume window; never drop a bad row or substitute an
+  older volume. Unavailable is distinct from a measured absent pattern.
+- Exercise actual entry paths for every segment, live/backtest policy parity,
+  protective exits, settings persistence, JSON/Mongo reload and owner pages.
+  Preserve historical ledgers and mark normal deployed observations separately.
+- Require full zero-skip CI, repair-record checks and exact deployed revision
+  and readiness evidence; never create production trades for verification.
+
 ## Live write failures during shipment
 
 A 200 health response or connected database is not an acknowledged write. If

@@ -1,8 +1,7 @@
-"""Candle-pattern BUY-CONFIRMATION gate (Batch C — the user's "live
-verification system").
+"""Candle-pattern assistance (SEQ-07 owner policy).
 
-A scored pick is only EXECUTED when the latest candle confirms it; otherwise
-it waits (journaled as candle_wait_* and visible on the watchlist / ⚡card).
+Patterns describe supporting evidence, warnings or unavailable inputs. Their
+absence never vetoes an otherwise eligible entry or delays a protective exit.
 
 Patterns (any enabled pattern passing = confirmed):
   breakout  — close breaks the prior N-day high on strong volume, closing in
@@ -19,22 +18,43 @@ intraday frames (UpstoxClient.get_intraday_candles) for the live 5-min layer.
 from __future__ import annotations
 
 import pandas as pd
+import numpy as np
 
 _EPS = 1e-9
 
 
 def _ok(df: pd.DataFrame, need: int) -> bool:
-    return (
-        df is not None and not df.empty
-        and all(c in df.columns for c in ("Open", "High", "Low", "Close"))
-        and len(df.dropna(subset=["Close"])) >= need
-    )
+    return _input_reason(df, need) is None
+
+
+def _input_reason(df, need, *, volume=False):
+    """Validate the exact consumed window; never drop bad rows or borrow volume."""
+    if df is None or len(df) < need:
+        return "insufficient_bars"
+    columns = ['Open', 'High', 'Low', 'Close'] + (['Volume'] if volume else [])
+    if any(c not in df for c in columns):
+        return "missing_ohlcv"
+    window = df.iloc[-need:]
+    if not window.index.is_monotonic_increasing or not window.index.is_unique:
+        return "invalid_bar_order"
+    try:
+        values = window[columns].to_numpy(dtype=float)
+        if not np.isfinite(values).all():
+            return "nonfinite_ohlcv"
+        o, h, l, c = values[:, :4].T
+        if (values[:, :4] <= 0).any() or (h < np.maximum(o, c)).any() or (l > np.minimum(o, c)).any() or (h < l).any():
+            return "incoherent_ohlc"
+        if volume and (values[:, 4] < 0).any():
+            return "invalid_volume"
+    except (TypeError, ValueError, OverflowError):
+        return "invalid_ohlcv"
+    return None
 
 
 def breakout_candle(df: pd.DataFrame, lookback: int = 20,
                     vol_mult: float = 1.5) -> bool:
     """Latest close > prior `lookback`-day high, upper-half close, big volume."""
-    if not _ok(df, lookback + 1):
+    if _input_reason(df, max(lookback, 20) + 1, volume=True):
         return False
     o, h, l, c = (float(df[k].iloc[-1]) for k in ("Open", "High", "Low", "Close"))
     prior_high = float(df["High"].iloc[-(lookback + 1):-1].max())
@@ -42,10 +62,11 @@ def breakout_candle(df: pd.DataFrame, lookback: int = 20,
         return False
     if (c - l) / max(h - l, _EPS) < 0.5:          # weak close = no conviction
         return False
-    if "Volume" in df.columns:
-        v = df["Volume"].dropna()
-        if len(v) >= 21 and float(v.iloc[-1]) < vol_mult * float(v.iloc[-21:-1].mean()):
-            return False
+    v = df['Volume'].iloc[-21:].astype(float)
+    if float(v.iloc[-1]) <= 0 or float(v.iloc[:-1].mean()) <= 0:
+        return False
+    if float(v.iloc[-1]) < vol_mult * float(v.iloc[:-1].mean()):
+        return False
     return True
 
 
@@ -478,25 +499,22 @@ NEUTRAL_PATTERNS = {
 def scan_all_patterns(df: pd.DataFrame, lookback: int = 20,
                       vol_mult: float = 1.5) -> dict:
     """Every structure's yes/no for one stock, on its latest bar.
-    Returns {name: bool} across bullish + bearish + neutral - this is what
+    Returns {name: bool | None} (None = unavailable) across all structures.
+    This is what
     makes each candle structure its own parameter instead of one lane."""
     out = {}
-    try:
-        out["breakout"] = breakout_candle(df, lookback, vol_mult)
-    except Exception:
-        out["breakout"] = False
-    try:
-        out["urr"] = urr_confirmation(df, lookback)
-    except Exception:
-        out["urr"] = False
+    def observe(name, need, fn, volume=False):
+        try:
+            out[name] = None if _input_reason(df, need, volume=volume) else bool(fn())
+        except (TypeError, ValueError, OverflowError, KeyError, IndexError):
+            out[name] = None
+    observe('breakout', max(lookback, 20) + 1, lambda: breakout_candle(df, lookback, vol_mult), True)
+    observe('urr', lookback + 11, lambda: urr_confirmation(df, lookback))
     for group in (BULLISH_PATTERNS, BEARISH_PATTERNS, NEUTRAL_PATTERNS):
         for name, fn in group.items():
             if fn is None:
                 continue
-            try:
-                out[name] = bool(fn(df))
-            except Exception:
-                out[name] = False
+            observe(name, _PATTERN_BARS[name], lambda fn=fn: fn(df))
     return out
 
 
@@ -519,26 +537,38 @@ _PATTERN_FUNCS = {
 }
 
 
-def candle_gate_applies(cfg) -> bool:
-    """True when this category's entries must wait for a candle pattern.
+_PATTERN_BARS = dict(zip(
+    ('engulfing hammer morning_star piercing tweezer_bottom three_soldiers '
+     'inverted_hammer bullish_harami three_inside_up three_outside_up three_line_strike '
+     'abandoned_baby_bull kicker_bull dragonfly_doji morning_doji_star '
+     'bearish_engulfing evening_star dark_cloud_cover tweezer_top three_black_crows '
+     'shooting_star three_inside_down three_outside_down abandoned_baby_bear kicker_bear '
+     'gravestone_doji hanging_man evening_doji_star bearish_harami doji marubozu spinning_top').split(),
+    (2, 6, 3, 2, 2, 3, 4, 2, 3, 3, 4, 3, 2, 1, 3,
+     2, 3, 2, 2, 3, 1, 3, 3, 3, 2, 1, 6, 3, 2, 1, 1, 1)))
 
-    The ONE predicate the live engine and the backtest both read, so the
-    two can never disagree (owner order 2026-10-04: off for momentum)."""
-    if not getattr(cfg, "candle_confirm_enabled", False):
-        return False
-    skip = tuple(getattr(cfg, "candle_confirm_skip_modes", ()) or ())
-    return getattr(cfg, "mode", None) not in skip
+
+def candle_gate_applies(cfg) -> bool:
+    """Compatibility predicate: SEQ-07 retires this veto for every segment.
+
+    Legacy saved switches/skip lists cannot restore the superseded gate.
+    The enabled switch still controls whether advisory evidence is evaluated.
+    """
+    return False
 
 
 def candle_confirmation(df: pd.DataFrame, cfg) -> tuple[bool, str]:
-    """(confirmed?, which_pattern | why_not). Gate is cfg-driven."""
+    """(supporting pattern?, which_pattern | why_not), never buy permission."""
     if not getattr(cfg, "candle_confirm_enabled", False):
         return True, "disabled"
     lookback = int(getattr(cfg, "candle_breakout_lookback", 20))
     vol_mult = float(getattr(cfg, "candle_volume_mult", 1.5))
     patterns = list(getattr(cfg, "candle_patterns", ["breakout", "urr", "engulfing"]))
-    if not _ok(df, lookback + 11):
-        return False, "insufficient_bars"
+    if lookback < 1 or not np.isfinite(vol_mult) or vol_mult <= 0:
+        return False, 'invalid_settings'
+    problem = _input_reason(df, lookback + 11, volume=True)
+    if problem:
+        return False, problem
     if "breakout" in patterns and breakout_candle(df, lookback, vol_mult):
         return True, "breakout"
     if "urr" in patterns and urr_confirmation(df, lookback):
@@ -548,3 +578,31 @@ def candle_confirmation(df: pd.DataFrame, cfg) -> tuple[bool, str]:
         if fn is not None and fn(df):
             return True, name
     return False, "no_pattern"
+
+
+def candle_assessment(df, cfg):
+    """Detached owner policy, observations and input provenance for one decision."""
+    from . import decision_evidence as de
+    patterns = getattr(cfg, 'candle_patterns', ())
+    skip_modes = getattr(cfg, 'candle_confirm_skip_modes', ())
+    controls = {'enabled': bool(getattr(cfg, 'candle_confirm_enabled', False)),
+                'patterns': patterns,
+                'lookback': getattr(cfg, 'candle_breakout_lookback', 20),
+                'volume_mult': getattr(cfg, 'candle_volume_mult', 1.5),
+                'legacy_skip_modes': skip_modes}
+    try:
+        if controls['enabled'] and (not isinstance(patterns, (tuple, list)) or
+                any(not isinstance(p, str) or p not in {'breakout', 'urr', *_PATTERN_FUNCS} for p in patterns)):
+            raise ValueError('invalid configured pattern set')
+        hit, why = candle_confirmation(df, cfg)
+    except (TypeError, ValueError, OverflowError, KeyError, IndexError):
+        hit, why = False, 'invalid_settings_or_input'
+    state = ('skipped' if why == 'disabled' else 'passed' if hit else
+             'failed' if why == 'no_pattern' else 'unavailable')
+    return de.clean({'schema': 1, 'policy': 'advisory', 'state': state,
+        'reason': why, 'pattern': why if hit and why != 'disabled' else None,
+        'controls': controls, 'bar': de.bar_context(df),
+        'entry_veto': False, 'exit_veto': False, 'score_adjustment': 0,
+        'contribution': 'Supporting pattern' if state == 'passed' else
+                        'No supporting pattern' if state == 'failed' else
+                        'Advisory disabled' if state == 'skipped' else 'Pattern data unavailable'})

@@ -267,10 +267,10 @@ def _factor_cell(f: str, v, t: str) -> tuple[str, str]:
 
 def _candle_cell(lbl: str, t: str) -> tuple[str, str]:
     if lbl in _CANDLE_HIT:
-        return "hit", f"{t} · candle {lbl}"
-    if lbl in ("disabled", "insufficient_bars", ""):
-        return "waiting", f"{t} · candle {lbl or 'n/a'}"
-    return "weak", f"{t} · candle {lbl}"   # no_pattern — waiting for confirmation
+        return "hit", f"{t} · supporting candle {lbl} · advisory only"
+    if lbl == 'no_pattern':
+        return "waiting", f"{t} · no supporting pattern · does not block eligible buys"
+    return "waiting", f"{t} · candle {lbl or 'unavailable'} · advisory only"
 
 
 def _outcome_cell(oc: str, t: str) -> tuple[str, str]:
@@ -329,7 +329,7 @@ def _build_piano(matrix: dict) -> dict | None:
     for t in tickers:
         cls, tip = _candle_cell(rows[t].get("candle") or "", t)
         candle_cells.append({"t": t, "cls": cls, "tip": tip})
-    _add("candle confirm", candle_cells, key="candle")
+    _add("candle assistance", candle_cells, key="candle")
 
     # Owner ask 2026-07-26: every candle structure its OWN lane, so a single
     # structure can be tapped and its pass/fail stock list read.
@@ -341,12 +341,13 @@ def _build_piano(matrix: dict) -> dict | None:
     for name in struct_names:
         cells = []
         for t in tickers:
-            fired = bool((rows[t].get("structures") or {}).get(name))
+            observed = (rows[t].get("structures") or {}).get(name)
+            fired = observed is True
             bearish = name in _BEARISH_NAMES
             cls = ("blocked" if bearish else "hit") if fired else "waiting"
             cells.append({"t": t, "cls": cls,
                           "tip": f"{t} · {name.replace('_',' ')}: "
-                                 f"{'YES' if fired else 'no'}"
+                                 f"{'unavailable' if observed is None else 'YES' if fired else 'no'}"
                                  f"{' (bearish warning)' if bearish and fired else ''}"})
         _add(("⚠ " if name in _BEARISH_NAMES else "") + name.replace("_", " "),
              cells, key=f"struct:{name}")
@@ -463,11 +464,13 @@ _PARAM_DEFS: dict[str, dict] = {
         "rule": "6-month return > 0, else blocked.",
         "knob": "trading/engine.py _abs_mom_ok"},
     "candle": {
-        "title": "Candle confirmation",
-        "what": ("Daily candlestick pattern must confirm the entry: breakout, "
-                 "hammer, engulfing, morning star, piercing, tweezer bottom or "
-                 "three soldiers. No pattern = wait (not a rejection)."),
-        "rule": "One of the confirm patterns on the daily chart.",
+        "advisory": True,
+        "title": "Candle assistance",
+        "what": ("Candle patterns provide supporting evidence or warnings. "
+                 "Intraday uses completed 5-minute bars; other segments use daily bars. "
+                 "No pattern does not block an otherwise eligible buy. "
+                 "Invalid or missing inputs stay unavailable."),
+        "rule": "Advisory only. Protective exits remain independent; score, ranking and sizing are unchanged.",
         "knob": "trading/config.py candle_confirm_enabled · patterns: trading/candles.py"},
     "outcome": {
         "title": "Final outcome",
@@ -489,17 +492,18 @@ _GENERIC_DEF = {
 def _structure_page(request: Request, name: str, rows: dict, matrix: dict):
     """One candle structure: what it means + which stocks show it today."""
     bearish = name in _BEARISH_NAMES
-    d = {"title": ("⚠ " if bearish else "") + name.replace("_", " ").title(),
+    d = {"title": ("⚠ " if bearish else "") + name.replace("_", " ").title(), "advisory": True,
          "what": _STRUCT_DEFS.get(name, "A candlestick structure read from the daily bars."),
          "rule": ("BEARISH — never triggers a buy; shown as a warning on the desk."
                   if bearish else
-                  "BULLISH — can confirm an entry when the score and gates also pass."),
+                  "BULLISH — supporting evidence only; absence does not block an eligible entry."),
          "knob": "trading/candles.py · enable per-mode: trading/config.py candle_patterns"}
     groups = {"hit": [], "weak": [], "blocked": [], "waiting": []}
     for t, r in rows.items():
-        fired = bool((r.get("structures") or {}).get(name))
+        observed = (r.get("structures") or {}).get(name)
+        fired = observed is True
         bucket = ("blocked" if bearish else "hit") if fired else "waiting"
-        groups[bucket].append({"t": t, "label": "YES" if fired else "no",
+        groups[bucket].append({"t": t, "label": "Unavailable" if observed is None else "YES" if fired else "no",
                                "score": r.get("score", 0),
                                "outcome": r.get("outcome") or ""})
     for g in groups.values():
@@ -508,7 +512,7 @@ def _structure_page(request: Request, name: str, rows: dict, matrix: dict):
         request, "parameter.html",
         {"user": auth.current_user(request), "active": "scan",
          "key": name, "d": d, "groups": groups,
-         "mode": matrix.get("mode"), "ts": matrix.get("ts"),
+         "mode": matrix.get("mode"), "ts": matrix.get("ts"), "candle_policy": matrix.get('candle_policy'),
          "scanned": len(rows), "floor": float(matrix.get("score_floor", 55.0))})
 
 
@@ -583,7 +587,7 @@ def parameter_page(request: Request, key: str):
         request, "parameter.html",
         {"user": auth.current_user(request), "active": "scan",
          "key": key, "d": d, "groups": groups,
-         "mode": matrix.get("mode"), "ts": matrix.get("ts"),
+         "mode": matrix.get("mode"), "ts": matrix.get("ts"), "candle_policy": matrix.get('candle_policy'),
          "scanned": len(rows), "floor": floor})
 
 

@@ -40,7 +40,7 @@
   {
     "id": "RUN-20261114-02",
     "finding": "Upstox rejects live quote requests with HTTP 401 after storage recovery",
-    "workflow": "OBSERVED_AUTHENTICATION_RECOVERY_REQUIRED",
+    "workflow": "QUOTE_ACCEPTANCE_VERIFIED_STATUS_LABEL_REVIEW_PENDING",
     "related_findings": [
       "ROOT-ROUTE-09"
     ],
@@ -48,6 +48,6 @@
     "runtime_observation": "Render instance startup completed 14 November 17:33:59 UTC; repeated quote requests for 53 held instruments returned 401 from 17:34:12 UTC. Owner market-context page still displays the stored broker profile with a green indicator. This is not proof of a valid broker session; no token or credential is published.",
     "acceptance": "Owner reconnects through the normal broker flow; verify an accepted quote response and its timestamp/source. Label rejected provider authorization unavailable even if a stored expiry/profile remains. Do not induce a trade.",
     "reconciliation": "Additional runtime observation; all earlier incident IDs and all 170 backlog records retained.",
-    "latest_verification": "15 November 05:43 UTC: HTTP 401 observed again before PR212 deployment. No accepted post-release quote response has been verified; absence of a new rejection in a queried log window does not prove recovery."
+    "latest_verification": "16 November 04:08:19.444911 UTC (09:38:19 IST): authenticated read-only MARS /upstox/price-check returned six positive LTP values for TCS, INFY, RELIANCE, HDFCBANK, MARUTI and Nifty 50, zero missing and error null. New saved connection at 03:59:33.852400 UTC. This verifies provider quote acceptance; exchange timestamps were not supplied. Status-label rejection behavior remains a separate open subclaim."
   }
 ]

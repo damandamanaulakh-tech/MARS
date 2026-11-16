@@ -1,7 +1,7 @@
 {
   "approved_date": "2026-11-11",
   "source": "Owner asked to show sequence, start one by one, and track completion in the repository.",
-  "active_step": "SEQ-06",
+  "active_step": "SEQ-07",
   "steps": [
     {
       "id": "SEQ-01",
@@ -393,15 +393,16 @@
       "depends_on": [
         "SEQ-06"
       ],
-      "status": "QUEUED",
-      "implementation": "NOT_STARTED",
-      "tests": "NOT_RUN",
+      "status": "LOCAL_TESTED",
+      "implementation": "IMPLEMENTED",
+      "tests": "3311_CANONICAL_LOCAL_PASSED_ZERO_SKIPS_CI_PENDING",
       "pull_request": null,
       "merge_revision": null,
       "deployment_revision": null,
       "health": "NOT_CHECKED",
-      "runtime": "NOT_OBSERVED",
-      "evidence": null
+      "runtime": "PENDING_NORMAL_SCAN_AND_PROTECTIVE_EXIT_OBSERVATION",
+      "evidence": "docs/repairs/releases/2026-11-16-candle-assistance.md",
+      "owner_policy": "Patterns provide advisory evidence only in all five segments. Absence cannot veto eligible buys; protective exits remain independent. No score, ranking or size adjustment."
     },
     {
       "id": "SEQ-08",

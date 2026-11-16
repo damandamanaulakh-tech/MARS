@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "kind": "read_only_upstox_quote_acceptance",
+  "checked_at": "2026-11-16T04:08:19.444911Z",
+  "connection_saved_at": "2026-11-16T03:59:33.852400Z",
+  "application_endpoint": "/upstox/price-check",
+  "provider_endpoint": "GET /v2/market-quote/ltp",
+  "requested": 6,
+  "returned": 6,
+  "error": null,
+  "exchange_timestamp": null,
+  "quote_freshness": "not_proved_by_this_endpoint",
+  "production_scan_induced": false,
+  "trade_induced": false,
+  "results": [
+    {
+      "ticker": "TCS.NS",
+      "price": 2420.0
+    },
+    {
+      "ticker": "INFY.NS",
+      "price": 1151.1
+    },
+    {
+      "ticker": "RELIANCE.NS",
+      "price": 1343.5
+    },
+    {
+      "ticker": "HDFCBANK.NS",
+      "price": 805.5
+    },
+    {
+      "ticker": "MARUTI.NS",
+      "price": 12883.0
+    },
+    {
+      "ticker": "^NSEI",
+      "price": 25278.25
+    }
+  ]
+}
