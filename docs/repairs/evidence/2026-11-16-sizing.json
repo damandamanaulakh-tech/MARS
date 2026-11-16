@@ -89,7 +89,8 @@
     "All-loss guard retains configured sample minimum0 (one observation required), Momentum-only default, reason filters and owner overrides.",
     "Economic summaries cover retained closed legs, including partial exits; archived full-ledger coverage is not claimed.",
     "Research shadow exits are not actual candidate fills. Same historical market period was previously viewed through other stocks.",
-    "No induced production trades, scans, ledger rewrites or automatic experimental promotion."
+    "No induced production trades, scans, ledger rewrites or automatic experimental promotion.",
+    "Rejection purity proves the risk check and isolated scan without a funding rotation. Separate XR-052 rotation-before-final-refusal finding remains open; whole-scan transactionality is not claimed."
   ],
   "release": {
     "pr": "https://github.com/damandamanaulakh-tech/MARS/pull/220",
