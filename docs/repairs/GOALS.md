@@ -39,7 +39,7 @@ Build incrementally toward a common portfolio command boundary, durable unfinish
 
 Completion means acceptance evidence, not the number of edited files. A local passing test does not establish live operational resolution.
 
-Initial SEQ-06 delivery was PR207; temporary storage recovery was verified on 14 November. SEQ-06 engineering is shipped in PR212 with 3261 canonical CI tests and zero skips. The matching Render deployment is live; health, acknowledged 14/15-source saves and financial-book preservation across the release restart are verified. A five-stock stored-data replay correctly reports missing-window inputs as unknown. Normal market-session comparison observation remains pending; SEQ-07 is active; see the 16 November candle-assistance release. [Latest release](releases/2026-11-14-context-use-time.md).
+Initial SEQ-06 delivery was PR207; temporary storage recovery was verified on 14 November. SEQ-06 engineering is shipped in PR212 with 3261 canonical CI tests and zero skips. The matching Render deployment is live; health, acknowledged 14/15-source saves and financial-book preservation across the release restart are verified. A five-stock stored-data replay correctly reports missing-window inputs as unknown. Normal market-session comparison observation remains pending; SEQ-07 engineering is shipped; see the 16 November candle-assistance release. [Goal06 release](releases/2026-11-14-context-use-time.md).
 
 Owner storage decision, 14 November: keep the free tier. [Lossless archive plan](releases/2026-11-14-lossless-archive-plan.md) prepared with measured sizes, preservation and restore requirements; no compressed online migration performed; the separately authorized temporary cold archive is recorded below.
 
@@ -54,4 +54,4 @@ zero skips; expanded focused suite 126 and corrected full local suite 3262 passe
 PR212 canonical CI passed 3261 tests, zero skips; exact deployment and release
 restart persistence verified. Normal market-session comparison remains pending.
 
-SEQ-07 is active: candles assist selection in all five segments, absence does not veto eligible buys, invalid pattern data stays unavailable, and protective exits remain independent. [Implementation and validation](releases/2026-11-16-candle-assistance.md). All 3311 canonical local tests passed with zero skips; CI and deployment are pending; SEQ-08 remains queued.
+SEQ-07 engineering is shipped in [PR214](https://github.com/damandamanaulakh-tech/MARS/pull/214). All **3311 canonical local and CI tests pass with zero skips**. Revision `deb07a316007e40bf5765462d2194b169d70409f` is live; readiness and the owner candle-assistance page are verified. Upstox returned six of six requested LTP quotes before and after deployment. Normal advisory decision/trade observation remains pending; SEQ-08 is queued. [Release evidence](releases/2026-11-16-candle-assistance.md).

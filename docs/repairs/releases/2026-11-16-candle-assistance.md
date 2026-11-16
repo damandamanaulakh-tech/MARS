@@ -1,7 +1,8 @@
 # SEQ-07 — Candles as assistance
 
-Status: LOCAL_TESTED. All 3311 canonical local tests pass with zero skips;
-canonical CI, merge and deployment verification are pending. Normal runtime observation is separate.
+Status: DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING. PR214 is live with matching revision,
+readiness, owner-page behavior and Upstox quote acceptance verified. Normal
+advisory decision/trade observation remains pending.
 
 Baseline: `eac216c6680130989beaff3871b89c7562544de9` (PR213).
 Related finding: XR-081; original GATE-01/GATE-05 review and owner policy retained.
@@ -94,3 +95,35 @@ canonical CI suite and no-skip guard remain the release authority.
 ## Final local validation
 
 The exact final application/test files passed **3,311 tests, zero failures, errors or skips**, in 170.47 seconds, using Python 3.12.16 and the pinned requirements. [Checks and source hashes](../evidence/2026-11-16-candle-assistance.json) identify the tested source. Malformed saved pattern controls also remain unavailable without raising an entry exception. Backtest entry evidence now survives closure. The no-skip guard and repair-record validator both pass locally. Canonical CI, merge and deployment remain pending.
+
+## Published, merged and live
+
+- [PR214](https://github.com/damandamanaulakh-tech/MARS/pull/214), reviewed head
+  `910e081c7c48916add0d3f9a269494f5759baa98`, merged as `deb07a316007e40bf5765462d2194b169d70409f`.
+- Reviewed and merged tree: `3a902f921df794ecf45326fa235f332f70007404`. Uploaded blobs and full tree were
+  checked against the local tree. The local checkout was synchronized to the
+  remote merge; unrelated untracked duplicate files were left untouched.
+- [CI 43802859207](https://github.com/damandamanaulakh-tech/MARS/actions/runs/43802859207):
+  **3311 passed, zero failures/errors/skips**, 260.88 seconds. Both the explicit
+  no-skip step and repair-record job passed. All 170 records, 165 original IDs
+  and four incidents remain present.
+- Render deployment `dep-dbt893vf3r2c73f6rclg` reached **live at 2026-11-16T04:22:13.237036Z**
+  (**16 November 2026, 09:52:13 IST**), running the exact merge `deb07a316007e40bf5765462d2194b169d70409f`.
+- Read-only health at `2026-11-16T04:22:31.287740+00:00`: HTTP 200, ready, Mongo
+  connected, not degraded, no reported write error. The new process has no
+  sector refresh attempt yet and reports that separate durability as unknown.
+- The live owner page `/scan/parameter/candle` shows advisory policy,
+  independent protective exits and preserved historical outcomes. Verified
+  at 2026-11-16T04:23:18Z.
+- Post-deploy Upstox repeat at **2026-11-16T04:22:54.971376Z**:
+  **6/6 positive LTP responses**, no error. Exchange timestamps were not supplied.
+- Read-only Mongo observation: 50 open positions and 217 closed trades, durable
+  save `2026-11-16T04:19:22.243319`. That save predates this deployment; it is not
+  claimed as post-restart write proof. Normal advisory persistence and trade
+  lifecycle observations remain pending. No production scan or trade was induced
+  for verification.
+
+[Sanitized release proof](../evidence/2026-11-16-candle-assistance.json) retains
+both local and runtime scope. This does not close earlier data-gap observations,
+permanent storage retention or the separate broker status-label subclaim.
+Goal08 remains queued for research.
