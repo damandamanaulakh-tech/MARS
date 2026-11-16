@@ -1,0 +1,1918 @@
+{
+  "coverage": {
+    "diagnostics": {
+      "rows_outside_verified_regular_sessions": 210
+    },
+    "exclusions": [
+      {
+        "day": "2026-11-08",
+        "reasons": {
+          "outside_verified_regular_session": 14
+        },
+        "symbol": "360ONE.NS"
+      },
+      {
+        "day": "2026-11-08",
+        "reasons": {
+          "outside_verified_regular_session": 14
+        },
+        "symbol": "ASHOKLEY.NS"
+      },
+      {
+        "day": "2026-11-08",
+        "reasons": {
+          "outside_verified_regular_session": 14
+        },
+        "symbol": "BEL.NS"
+      },
+      {
+        "day": "2026-11-08",
+        "reasons": {
+          "outside_verified_regular_session": 14
+        },
+        "symbol": "COALINDIA.NS"
+      },
+      {
+        "day": "2026-11-08",
+        "reasons": {
+          "outside_verified_regular_session": 14
+        },
+        "symbol": "EICHERMOT.NS"
+      },
+      {
+        "day": "2026-11-08",
+        "reasons": {
+          "outside_verified_regular_session": 14
+        },
+        "symbol": "GRASIM.NS"
+      },
+      {
+        "day": "2026-11-08",
+        "reasons": {
+          "outside_verified_regular_session": 14
+        },
+        "symbol": "HYUNDAI.NS"
+      },
+      {
+        "day": "2026-11-08",
+        "reasons": {
+          "outside_verified_regular_session": 14
+        },
+        "symbol": "IREDA.NS"
+      },
+      {
+        "day": "2026-11-08",
+        "reasons": {
+          "outside_verified_regular_session": 14
+        },
+        "symbol": "LAURUSLABS.NS"
+      },
+      {
+        "day": "2026-11-08",
+        "reasons": {
+          "outside_verified_regular_session": 14
+        },
+        "symbol": "MAZDOCK.NS"
+      },
+      {
+        "day": "2026-11-08",
+        "reasons": {
+          "outside_verified_regular_session": 14
+        },
+        "symbol": "NMDC.NS"
+      },
+      {
+        "day": "2026-11-08",
+        "reasons": {
+          "outside_verified_regular_session": 14
+        },
+        "symbol": "PIDILITIND.NS"
+      },
+      {
+        "day": "2026-11-08",
+        "reasons": {
+          "outside_verified_regular_session": 14
+        },
+        "symbol": "SBICARD.NS"
+      },
+      {
+        "day": "2026-11-08",
+        "reasons": {
+          "outside_verified_regular_session": 14
+        },
+        "symbol": "TATACONSUM.NS"
+      },
+      {
+        "day": "2026-11-08",
+        "reasons": {
+          "outside_verified_regular_session": 14
+        },
+        "symbol": "TVSMOTOR.NS"
+      }
+    ],
+    "valid_full_sessions": 435
+  },
+  "exclusions": [],
+  "holdout_consumed": true,
+  "holdout_hashes": {
+    "manifest.json": "0ec0f77f75cbb8a46866f0c95f5345bff028aebc1c11ba37f7eab596c30ee858",
+    "protocol.json": "1b6bbd1f889560c942ccf6ac49dd6463e285f2c4f7acfe6e937d6a194a385394",
+    "raw_responses.json.gz": "15306a8ac0cb41852bb8cb9202dca88e3ce0c02ac063acbb36ab5837f1ce0795"
+  },
+  "opened_at": "2026-11-16T14:53:59.748424+00:00",
+  "outcomes_sha256": "c120e4fe997d37518e265905e977ebccf7fbedf9099b9b5a32ea16a6f874d1c4",
+  "paired": [
+    {
+      "arm": "fixed_slab",
+      "day_clusters": 29,
+      "lower95": 0.0,
+      "mean_gain": 0.0,
+      "scenario": "open_high_low_close",
+      "slippage_bps": 5,
+      "upper95": 0.0
+    },
+    {
+      "arm": "fixed_slab",
+      "day_clusters": 29,
+      "lower95": 0.0,
+      "mean_gain": 0.0,
+      "scenario": "open_high_low_close",
+      "slippage_bps": 15,
+      "upper95": 0.0
+    },
+    {
+      "arm": "fixed_slab",
+      "day_clusters": 29,
+      "lower95": 0.0,
+      "mean_gain": 0.0,
+      "scenario": "open_high_low_close",
+      "slippage_bps": 30,
+      "upper95": 0.0
+    },
+    {
+      "arm": "fixed_slab",
+      "day_clusters": 29,
+      "lower95": 0.0,
+      "mean_gain": 0.0,
+      "scenario": "open_low_high_close",
+      "slippage_bps": 5,
+      "upper95": 0.0
+    },
+    {
+      "arm": "fixed_slab",
+      "day_clusters": 29,
+      "lower95": 0.0,
+      "mean_gain": 0.0,
+      "scenario": "open_low_high_close",
+      "slippage_bps": 15,
+      "upper95": 0.0
+    },
+    {
+      "arm": "fixed_slab",
+      "day_clusters": 29,
+      "lower95": 0.0,
+      "mean_gain": 0.0,
+      "scenario": "open_low_high_close",
+      "slippage_bps": 30,
+      "upper95": 0.0
+    },
+    {
+      "arm": "fixed_slab",
+      "day_clusters": 29,
+      "lower95": 0.0,
+      "mean_gain": 0.0,
+      "scenario": "sampled_30m",
+      "slippage_bps": 5,
+      "upper95": 0.0
+    },
+    {
+      "arm": "fixed_slab",
+      "day_clusters": 29,
+      "lower95": 0.0,
+      "mean_gain": 0.0,
+      "scenario": "sampled_30m",
+      "slippage_bps": 15,
+      "upper95": 0.0
+    },
+    {
+      "arm": "fixed_slab",
+      "day_clusters": 29,
+      "lower95": 0.0,
+      "mean_gain": 0.0,
+      "scenario": "sampled_30m",
+      "slippage_bps": 30,
+      "upper95": 0.0
+    },
+    {
+      "arm": "loss_budget_stop",
+      "day_clusters": 29,
+      "lower95": 76.4945377,
+      "mean_gain": 263.91872365,
+      "scenario": "open_high_low_close",
+      "slippage_bps": 5,
+      "upper95": 469.14475274
+    },
+    {
+      "arm": "loss_budget_stop",
+      "day_clusters": 29,
+      "lower95": 493.9666477,
+      "mean_gain": 705.39587337,
+      "scenario": "open_high_low_close",
+      "slippage_bps": 15,
+      "upper95": 914.91370877
+    },
+    {
+      "arm": "loss_budget_stop",
+      "day_clusters": 29,
+      "lower95": 932.2337109,
+      "mean_gain": 1152.24367649,
+      "scenario": "open_high_low_close",
+      "slippage_bps": 30,
+      "upper95": 1370.52399532
+    },
+    {
+      "arm": "loss_budget_stop",
+      "day_clusters": 29,
+      "lower95": 73.65456166,
+      "mean_gain": 261.96912452,
+      "scenario": "open_low_high_close",
+      "slippage_bps": 5,
+      "upper95": 467.19515362
+    },
+    {
+      "arm": "loss_budget_stop",
+      "day_clusters": 29,
+      "lower95": 488.94760192,
+      "mean_gain": 697.16449538,
+      "scenario": "open_low_high_close",
+      "slippage_bps": 15,
+      "upper95": 901.84331161
+    },
+    {
+      "arm": "loss_budget_stop",
+      "day_clusters": 29,
+      "lower95": 927.20662603,
+      "mean_gain": 1143.15433567,
+      "scenario": "open_low_high_close",
+      "slippage_bps": 30,
+      "upper95": 1356.87321631
+    },
+    {
+      "arm": "loss_budget_stop",
+      "day_clusters": 29,
+      "lower95": 67.6970296,
+      "mean_gain": 330.59336167,
+      "scenario": "sampled_30m",
+      "slippage_bps": 5,
+      "upper95": 606.53218185
+    },
+    {
+      "arm": "loss_budget_stop",
+      "day_clusters": 29,
+      "lower95": 441.15857118,
+      "mean_gain": 742.74412829,
+      "scenario": "sampled_30m",
+      "slippage_bps": 15,
+      "upper95": 1051.23439858
+    },
+    {
+      "arm": "loss_budget_stop",
+      "day_clusters": 29,
+      "lower95": 907.14700182,
+      "mean_gain": 1204.29101543,
+      "scenario": "sampled_30m",
+      "slippage_bps": 30,
+      "upper95": 1519.93931407
+    },
+    {
+      "arm": "measured_stop_risk",
+      "day_clusters": 29,
+      "lower95": 177.70453045,
+      "mean_gain": 390.2050353,
+      "scenario": "open_high_low_close",
+      "slippage_bps": 5,
+      "upper95": 604.92915533
+    },
+    {
+      "arm": "measured_stop_risk",
+      "day_clusters": 29,
+      "lower95": 493.9666477,
+      "mean_gain": 705.39587337,
+      "scenario": "open_high_low_close",
+      "slippage_bps": 15,
+      "upper95": 914.91370877
+    },
+    {
+      "arm": "measured_stop_risk",
+      "day_clusters": 29,
+      "lower95": 932.2337109,
+      "mean_gain": 1152.24367649,
+      "scenario": "open_high_low_close",
+      "slippage_bps": 30,
+      "upper95": 1370.52399532
+    },
+    {
+      "arm": "measured_stop_risk",
+      "day_clusters": 29,
+      "lower95": 173.08149922,
+      "mean_gain": 388.25543617,
+      "scenario": "open_low_high_close",
+      "slippage_bps": 5,
+      "upper95": 602.9795562
+    },
+    {
+      "arm": "measured_stop_risk",
+      "day_clusters": 29,
+      "lower95": 488.94760192,
+      "mean_gain": 697.16449538,
+      "scenario": "open_low_high_close",
+      "slippage_bps": 15,
+      "upper95": 901.84331161
+    },
+    {
+      "arm": "measured_stop_risk",
+      "day_clusters": 29,
+      "lower95": 927.20662603,
+      "mean_gain": 1143.15433567,
+      "scenario": "open_low_high_close",
+      "slippage_bps": 30,
+      "upper95": 1356.87321631
+    },
+    {
+      "arm": "measured_stop_risk",
+      "day_clusters": 29,
+      "lower95": 149.02301381,
+      "mean_gain": 446.38722398,
+      "scenario": "sampled_30m",
+      "slippage_bps": 5,
+      "upper95": 757.68165408
+    },
+    {
+      "arm": "measured_stop_risk",
+      "day_clusters": 29,
+      "lower95": 441.15857118,
+      "mean_gain": 742.74412829,
+      "scenario": "sampled_30m",
+      "slippage_bps": 15,
+      "upper95": 1051.23439858
+    },
+    {
+      "arm": "measured_stop_risk",
+      "day_clusters": 29,
+      "lower95": 907.14700182,
+      "mean_gain": 1204.29101543,
+      "scenario": "sampled_30m",
+      "slippage_bps": 30,
+      "upper95": 1519.93931407
+    },
+    {
+      "arm": "no_entry",
+      "day_clusters": 29,
+      "lower95": 177.70453045,
+      "mean_gain": 390.2050353,
+      "scenario": "open_high_low_close",
+      "slippage_bps": 5,
+      "upper95": 604.92915533
+    },
+    {
+      "arm": "no_entry",
+      "day_clusters": 29,
+      "lower95": 493.9666477,
+      "mean_gain": 705.39587337,
+      "scenario": "open_high_low_close",
+      "slippage_bps": 15,
+      "upper95": 914.91370877
+    },
+    {
+      "arm": "no_entry",
+      "day_clusters": 29,
+      "lower95": 932.2337109,
+      "mean_gain": 1152.24367649,
+      "scenario": "open_high_low_close",
+      "slippage_bps": 30,
+      "upper95": 1370.52399532
+    },
+    {
+      "arm": "no_entry",
+      "day_clusters": 29,
+      "lower95": 173.08149922,
+      "mean_gain": 388.25543617,
+      "scenario": "open_low_high_close",
+      "slippage_bps": 5,
+      "upper95": 602.9795562
+    },
+    {
+      "arm": "no_entry",
+      "day_clusters": 29,
+      "lower95": 488.94760192,
+      "mean_gain": 697.16449538,
+      "scenario": "open_low_high_close",
+      "slippage_bps": 15,
+      "upper95": 901.84331161
+    },
+    {
+      "arm": "no_entry",
+      "day_clusters": 29,
+      "lower95": 927.20662603,
+      "mean_gain": 1143.15433567,
+      "scenario": "open_low_high_close",
+      "slippage_bps": 30,
+      "upper95": 1356.87321631
+    },
+    {
+      "arm": "no_entry",
+      "day_clusters": 29,
+      "lower95": 149.02301381,
+      "mean_gain": 446.38722398,
+      "scenario": "sampled_30m",
+      "slippage_bps": 5,
+      "upper95": 757.68165408
+    },
+    {
+      "arm": "no_entry",
+      "day_clusters": 29,
+      "lower95": 441.15857118,
+      "mean_gain": 742.74412829,
+      "scenario": "sampled_30m",
+      "slippage_bps": 15,
+      "upper95": 1051.23439858
+    },
+    {
+      "arm": "no_entry",
+      "day_clusters": 29,
+      "lower95": 907.14700182,
+      "mean_gain": 1204.29101543,
+      "scenario": "sampled_30m",
+      "slippage_bps": 30,
+      "upper95": 1519.93931407
+    },
+    {
+      "arm": "stop_risk",
+      "day_clusters": 29,
+      "lower95": -23.23857837,
+      "mean_gain": -8.09360082,
+      "scenario": "open_high_low_close",
+      "slippage_bps": 5,
+      "upper95": 7.96963081
+    },
+    {
+      "arm": "stop_risk",
+      "day_clusters": 29,
+      "lower95": 493.9666477,
+      "mean_gain": 705.39587337,
+      "scenario": "open_high_low_close",
+      "slippage_bps": 15,
+      "upper95": 914.91370877
+    },
+    {
+      "arm": "stop_risk",
+      "day_clusters": 29,
+      "lower95": 932.2337109,
+      "mean_gain": 1152.24367649,
+      "scenario": "open_high_low_close",
+      "slippage_bps": 30,
+      "upper95": 1370.52399532
+    },
+    {
+      "arm": "stop_risk",
+      "day_clusters": 29,
+      "lower95": -23.17798052,
+      "mean_gain": -8.03448096,
+      "scenario": "open_low_high_close",
+      "slippage_bps": 5,
+      "upper95": 7.97199273
+    },
+    {
+      "arm": "stop_risk",
+      "day_clusters": 29,
+      "lower95": 488.94760192,
+      "mean_gain": 697.16449538,
+      "scenario": "open_low_high_close",
+      "slippage_bps": 15,
+      "upper95": 901.84331161
+    },
+    {
+      "arm": "stop_risk",
+      "day_clusters": 29,
+      "lower95": 927.20662603,
+      "mean_gain": 1143.15433567,
+      "scenario": "open_low_high_close",
+      "slippage_bps": 30,
+      "upper95": 1356.87321631
+    },
+    {
+      "arm": "stop_risk",
+      "day_clusters": 29,
+      "lower95": -33.45298623,
+      "mean_gain": -19.28841505,
+      "scenario": "sampled_30m",
+      "slippage_bps": 5,
+      "upper95": -5.40553952
+    },
+    {
+      "arm": "stop_risk",
+      "day_clusters": 29,
+      "lower95": 441.15857118,
+      "mean_gain": 742.74412829,
+      "scenario": "sampled_30m",
+      "slippage_bps": 15,
+      "upper95": 1051.23439858
+    },
+    {
+      "arm": "stop_risk",
+      "day_clusters": 29,
+      "lower95": 907.14700182,
+      "mean_gain": 1204.29101543,
+      "scenario": "sampled_30m",
+      "slippage_bps": 30,
+      "upper95": 1519.93931407
+    }
+  ],
+  "promotion": "NO_AUTOMATIC_PROMOTION; actual strategy and forward paper proof still required",
+  "reasons": [
+    "validation/open_high_low_close/5:no_positive_net_expectancy",
+    "validation/open_high_low_close/15:no_positive_net_expectancy",
+    "validation/open_low_high_close/5:no_positive_net_expectancy",
+    "validation/open_low_high_close/15:no_positive_net_expectancy",
+    "validation/sampled_30m/5:no_positive_net_expectancy",
+    "validation/sampled_30m/15:no_positive_net_expectancy",
+    "holdout/open_high_low_close/5:no_positive_net_expectancy",
+    "holdout/open_high_low_close/5:too_few_executed_trades",
+    "holdout/open_high_low_close/15:no_positive_net_expectancy",
+    "holdout/open_high_low_close/15:too_few_executed_trades",
+    "holdout/open_low_high_close/5:no_positive_net_expectancy",
+    "holdout/open_low_high_close/5:too_few_executed_trades",
+    "holdout/open_low_high_close/15:no_positive_net_expectancy",
+    "holdout/open_low_high_close/15:too_few_executed_trades",
+    "holdout/sampled_30m/5:no_positive_net_expectancy",
+    "holdout/sampled_30m/5:too_few_executed_trades",
+    "holdout/sampled_30m/15:no_positive_net_expectancy",
+    "holdout/sampled_30m/15:too_few_executed_trades"
+  ],
+  "selected_arm": "measured_stop_risk",
+  "selection_commit": "cd0eb2d8355494b81c91a2eb250eb5c7f37bd154",
+  "selection_sha256": "411153baf6aaf63264d6804a2e0c30a45b0d0a8180b3fc198456d134cbfcce53",
+  "statistical_pass": false,
+  "summary": [
+    {
+      "arm": "fixed_slab",
+      "average_notional": 150871.759192,
+      "days": 29,
+      "fees": 43782.2,
+      "gross": -60390.7687,
+      "loss_reduction": 0.0,
+      "losses": 292,
+      "max_closed_day_drawdown": 169739.19035565,
+      "net_per_opportunity": -390.2050353,
+      "net_per_trade": -390.2050353,
+      "opportunities": 435,
+      "paired_gain": 0.0,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 1060219.98063,
+      "profit_forgone": 0.0,
+      "reasons": {
+        "fixed_slab": 435
+      },
+      "scenario": "open_high_low_close",
+      "slippage": 65566.22165565,
+      "slippage_bps": 5,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": -169739.19035565,
+      "trades": 435,
+      "win_pct": 32.87356322
+    },
+    {
+      "arm": "fixed_slab",
+      "average_notional": 150849.13496116,
+      "days": 29,
+      "fees": 43739.1,
+      "gross": -66644.7959,
+      "loss_reduction": 0.0,
+      "losses": 310,
+      "max_closed_day_drawdown": 306847.20491615,
+      "net_per_opportunity": -705.39587337,
+      "net_per_trade": -705.39587337,
+      "opportunities": 435,
+      "paired_gain": 0.0,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 1124779.47489,
+      "profit_forgone": 0.0,
+      "reasons": {
+        "fixed_slab": 435
+      },
+      "scenario": "open_high_low_close",
+      "slippage": 196463.30901615,
+      "slippage_bps": 15,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": -306847.20491615,
+      "trades": 435,
+      "win_pct": 28.73563218
+    },
+    {
+      "arm": "fixed_slab",
+      "average_notional": 150856.6925894,
+      "days": 29,
+      "fees": 43684.74,
+      "gross": -65178.502,
+      "loss_reduction": 0.0,
+      "losses": 341,
+      "max_closed_day_drawdown": 501225.999274,
+      "net_per_opportunity": -1152.24367649,
+      "net_per_trade": -1152.24367649,
+      "opportunities": 435,
+      "paired_gain": 0.0,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 1221740.68629,
+      "profit_forgone": 0.0,
+      "reasons": {
+        "fixed_slab": 435
+      },
+      "scenario": "open_high_low_close",
+      "slippage": 392362.757274,
+      "slippage_bps": 30,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": -501225.999274,
+      "trades": 435,
+      "win_pct": 21.6091954
+    },
+    {
+      "arm": "fixed_slab",
+      "average_notional": 150871.759192,
+      "days": 29,
+      "fees": 43782.46,
+      "gross": -59542.0087,
+      "loss_reduction": 0.0,
+      "losses": 292,
+      "max_closed_day_drawdown": 168891.11473565,
+      "net_per_opportunity": -388.25543617,
+      "net_per_trade": -388.25543617,
+      "opportunities": 435,
+      "paired_gain": 0.0,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 1060219.98063,
+      "profit_forgone": 0.0,
+      "reasons": {
+        "fixed_slab": 435
+      },
+      "scenario": "open_low_high_close",
+      "slippage": 65566.64603565,
+      "slippage_bps": 5,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": -168891.11473565,
+      "trades": 435,
+      "win_pct": 32.87356322
+    },
+    {
+      "arm": "fixed_slab",
+      "average_notional": 150849.13496116,
+      "days": 29,
+      "fees": 43740.12,
+      "gross": -63057.7459,
+      "loss_reduction": 0.0,
+      "losses": 309,
+      "max_closed_day_drawdown": 303266.55549115,
+      "net_per_opportunity": -697.16449538,
+      "net_per_trade": -697.16449538,
+      "opportunities": 435,
+      "paired_gain": 0.0,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 1124779.47489,
+      "profit_forgone": 0.0,
+      "reasons": {
+        "fixed_slab": 435
+      },
+      "scenario": "open_low_high_close",
+      "slippage": 196468.68959115,
+      "slippage_bps": 15,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": -303266.55549115,
+      "trades": 435,
+      "win_pct": 28.96551724
+    },
+    {
+      "arm": "fixed_slab",
+      "average_notional": 150856.6925894,
+      "days": 29,
+      "fees": 43685.89,
+      "gross": -61211.588,
+      "loss_reduction": 0.0,
+      "losses": 340,
+      "max_closed_day_drawdown": 497272.136016,
+      "net_per_opportunity": -1143.15433567,
+      "net_per_trade": -1143.15433567,
+      "opportunities": 435,
+      "paired_gain": 0.0,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 1221740.68629,
+      "profit_forgone": 0.0,
+      "reasons": {
+        "fixed_slab": 435
+      },
+      "scenario": "open_low_high_close",
+      "slippage": 392374.658016,
+      "slippage_bps": 30,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": -497272.136016,
+      "trades": 435,
+      "win_pct": 21.83908046
+    },
+    {
+      "arm": "fixed_slab",
+      "average_notional": 150871.759192,
+      "days": 29,
+      "fees": 43775.23,
+      "gross": -84849.22,
+      "loss_reduction": 0.0,
+      "losses": 275,
+      "max_closed_day_drawdown": 194178.44243,
+      "net_per_opportunity": -446.38722398,
+      "net_per_trade": -446.38722398,
+      "opportunities": 435,
+      "paired_gain": 0.0,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 1060219.98063,
+      "profit_forgone": 0.0,
+      "reasons": {
+        "fixed_slab": 435
+      },
+      "scenario": "sampled_30m",
+      "slippage": 65553.99243,
+      "slippage_bps": 5,
+      "stop_risk_exceeded": 65,
+      "symbols": 15,
+      "total_net": -194178.44243,
+      "trades": 435,
+      "win_pct": 36.7816092
+    },
+    {
+      "arm": "fixed_slab",
+      "average_notional": 150849.13496116,
+      "days": 29,
+      "fees": 43734.53,
+      "gross": -82920.27,
+      "loss_reduction": 0.0,
+      "losses": 290,
+      "max_closed_day_drawdown": 323093.695805,
+      "net_per_opportunity": -742.74412829,
+      "net_per_trade": -742.74412829,
+      "opportunities": 435,
+      "paired_gain": 0.0,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 1124779.47489,
+      "profit_forgone": 0.0,
+      "reasons": {
+        "fixed_slab": 435
+      },
+      "scenario": "sampled_30m",
+      "slippage": 196438.895805,
+      "slippage_bps": 15,
+      "stop_risk_exceeded": 84,
+      "symbols": 15,
+      "total_net": -323093.695805,
+      "trades": 435,
+      "win_pct": 33.33333333
+    },
+    {
+      "arm": "fixed_slab",
+      "average_notional": 150856.6925894,
+      "days": 29,
+      "fees": 43678.29,
+      "gross": -87893.69,
+      "loss_reduction": 0.0,
+      "losses": 332,
+      "max_closed_day_drawdown": 523866.59171,
+      "net_per_opportunity": -1204.29101543,
+      "net_per_trade": -1204.29101543,
+      "opportunities": 435,
+      "paired_gain": 0.0,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 1221740.68629,
+      "profit_forgone": 0.0,
+      "reasons": {
+        "fixed_slab": 435
+      },
+      "scenario": "sampled_30m",
+      "slippage": 392294.61171,
+      "slippage_bps": 30,
+      "stop_risk_exceeded": 100,
+      "symbols": 15,
+      "total_net": -523866.59171,
+      "trades": 435,
+      "win_pct": 23.67816092
+    },
+    {
+      "arm": "loss_budget_stop",
+      "average_notional": 154007.0181358,
+      "days": 29,
+      "fees": 12106.23,
+      "gross": -24522.9007,
+      "loss_reduction": 235948.969846,
+      "losses": 83,
+      "max_closed_day_drawdown": 54934.54556965,
+      "net_per_opportunity": -126.28631165,
+      "net_per_trade": -461.63483672,
+      "opportunities": 435,
+      "paired_gain": 114804.644786,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 295960.14721,
+      "profit_forgone": 121144.32506,
+      "reasons": {
+        "below_minimum_within_risk": 1,
+        "prior_net_loss_budget": 315,
+        "sized": 119
+      },
+      "scenario": "open_high_low_close",
+      "slippage": 18305.41486965,
+      "slippage_bps": 5,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": -54934.54556965,
+      "trades": 119,
+      "win_pct": 30.25210084
+    },
+    {
+      "arm": "loss_budget_stop",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 428254.05012615,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 306847.20491615,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 121406.84521,
+      "reasons": {
+        "prior_net_loss_budget": 435
+      },
+      "scenario": "open_high_low_close",
+      "slippage": 0.0,
+      "slippage_bps": 15,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "loss_budget_stop",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 579884.686254,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 501225.999274,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 78658.68698,
+      "reasons": {
+        "prior_net_loss_budget": 435
+      },
+      "scenario": "open_high_low_close",
+      "slippage": 0.0,
+      "slippage_bps": 30,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "loss_budget_stop",
+      "average_notional": 154007.0181358,
+      "days": 29,
+      "fees": 12106.23,
+      "gross": -24522.9007,
+      "loss_reduction": 235100.894226,
+      "losses": 83,
+      "max_closed_day_drawdown": 54934.54556965,
+      "net_per_opportunity": -126.28631165,
+      "net_per_trade": -461.63483672,
+      "opportunities": 435,
+      "paired_gain": 113956.569166,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 295960.14721,
+      "profit_forgone": 121144.32506,
+      "reasons": {
+        "below_minimum_within_risk": 1,
+        "prior_net_loss_budget": 315,
+        "sized": 119
+      },
+      "scenario": "open_low_high_close",
+      "slippage": 18305.41486965,
+      "slippage_bps": 5,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": -54934.54556965,
+      "trades": 119,
+      "win_pct": 30.25210084
+    },
+    {
+      "arm": "loss_budget_stop",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 425848.36820115,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 303266.55549115,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 122581.81271,
+      "reasons": {
+        "prior_net_loss_budget": 435
+      },
+      "scenario": "open_low_high_close",
+      "slippage": 0.0,
+      "slippage_bps": 15,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "loss_budget_stop",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 576880.134596,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 497272.136016,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 79607.99858,
+      "reasons": {
+        "prior_net_loss_budget": 435
+      },
+      "scenario": "open_low_high_close",
+      "slippage": 0.0,
+      "slippage_bps": 30,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "loss_budget_stop",
+      "average_notional": 154038.73523808,
+      "days": 29,
+      "fees": 13535.15,
+      "gross": -16366.45,
+      "loss_reduction": 275903.896525,
+      "losses": 82,
+      "max_closed_day_drawdown": 50370.330105,
+      "net_per_opportunity": -115.79386231,
+      "net_per_trade": -378.7242865,
+      "opportunities": 435,
+      "paired_gain": 143808.112325,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 330839.485125,
+      "profit_forgone": 132095.7842,
+      "reasons": {
+        "below_minimum_within_risk": 2,
+        "prior_net_loss_budget": 300,
+        "sized": 133
+      },
+      "scenario": "sampled_30m",
+      "slippage": 20468.730105,
+      "slippage_bps": 5,
+      "stop_risk_exceeded": 19,
+      "symbols": 15,
+      "total_net": -50370.330105,
+      "trades": 133,
+      "win_pct": 38.34586466
+    },
+    {
+      "arm": "loss_budget_stop",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 487580.44149,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 323093.695805,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 164486.745685,
+      "reasons": {
+        "below_minimum_within_risk": 75,
+        "prior_net_loss_budget": 360
+      },
+      "scenario": "sampled_30m",
+      "slippage": 0.0,
+      "slippage_bps": 15,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "loss_budget_stop",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 632228.92425,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 523866.59171,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 108362.33254,
+      "reasons": {
+        "prior_net_loss_budget": 435
+      },
+      "scenario": "sampled_30m",
+      "slippage": 0.0,
+      "slippage_bps": 30,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "measured_stop_risk",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 333745.77369565,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 169739.19035565,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 164006.58334,
+      "reasons": {
+        "performance_no_positive_edge": 435
+      },
+      "scenario": "open_high_low_close",
+      "slippage": 0.0,
+      "slippage_bps": 5,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "measured_stop_risk",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 428254.05012615,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 306847.20491615,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 121406.84521,
+      "reasons": {
+        "performance_no_positive_edge": 435
+      },
+      "scenario": "open_high_low_close",
+      "slippage": 0.0,
+      "slippage_bps": 15,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "measured_stop_risk",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 579884.686254,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 501225.999274,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 78658.68698,
+      "reasons": {
+        "performance_no_positive_edge": 435
+      },
+      "scenario": "open_high_low_close",
+      "slippage": 0.0,
+      "slippage_bps": 30,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "measured_stop_risk",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 332897.69807565,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 168891.11473565,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 164006.58334,
+      "reasons": {
+        "performance_no_positive_edge": 435
+      },
+      "scenario": "open_low_high_close",
+      "slippage": 0.0,
+      "slippage_bps": 5,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "measured_stop_risk",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 425848.36820115,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 303266.55549115,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 122581.81271,
+      "reasons": {
+        "performance_no_positive_edge": 435
+      },
+      "scenario": "open_low_high_close",
+      "slippage": 0.0,
+      "slippage_bps": 15,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "measured_stop_risk",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 576880.134596,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 497272.136016,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 79607.99858,
+      "reasons": {
+        "performance_no_positive_edge": 435
+      },
+      "scenario": "open_low_high_close",
+      "slippage": 0.0,
+      "slippage_bps": 30,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "measured_stop_risk",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 399401.081685,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 194178.44243,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 205222.639255,
+      "reasons": {
+        "performance_no_positive_edge": 435
+      },
+      "scenario": "sampled_30m",
+      "slippage": 0.0,
+      "slippage_bps": 5,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "measured_stop_risk",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 487580.44149,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 323093.695805,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 164486.745685,
+      "reasons": {
+        "performance_no_positive_edge": 435
+      },
+      "scenario": "sampled_30m",
+      "slippage": 0.0,
+      "slippage_bps": 15,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "measured_stop_risk",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 632228.92425,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 523866.59171,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 108362.33254,
+      "reasons": {
+        "performance_no_positive_edge": 435
+      },
+      "scenario": "sampled_30m",
+      "slippage": 0.0,
+      "slippage_bps": 30,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "no_entry",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 333745.77369565,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 169739.19035565,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 164006.58334,
+      "reasons": {
+        "diagnostic_no_entry": 435
+      },
+      "scenario": "open_high_low_close",
+      "slippage": 0.0,
+      "slippage_bps": 5,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "no_entry",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 428254.05012615,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 306847.20491615,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 121406.84521,
+      "reasons": {
+        "diagnostic_no_entry": 435
+      },
+      "scenario": "open_high_low_close",
+      "slippage": 0.0,
+      "slippage_bps": 15,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "no_entry",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 579884.686254,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 501225.999274,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 78658.68698,
+      "reasons": {
+        "diagnostic_no_entry": 435
+      },
+      "scenario": "open_high_low_close",
+      "slippage": 0.0,
+      "slippage_bps": 30,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "no_entry",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 332897.69807565,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 168891.11473565,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 164006.58334,
+      "reasons": {
+        "diagnostic_no_entry": 435
+      },
+      "scenario": "open_low_high_close",
+      "slippage": 0.0,
+      "slippage_bps": 5,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "no_entry",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 425848.36820115,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 303266.55549115,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 122581.81271,
+      "reasons": {
+        "diagnostic_no_entry": 435
+      },
+      "scenario": "open_low_high_close",
+      "slippage": 0.0,
+      "slippage_bps": 15,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "no_entry",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 576880.134596,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 497272.136016,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 79607.99858,
+      "reasons": {
+        "diagnostic_no_entry": 435
+      },
+      "scenario": "open_low_high_close",
+      "slippage": 0.0,
+      "slippage_bps": 30,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "no_entry",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 399401.081685,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 194178.44243,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 205222.639255,
+      "reasons": {
+        "diagnostic_no_entry": 435
+      },
+      "scenario": "sampled_30m",
+      "slippage": 0.0,
+      "slippage_bps": 5,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "no_entry",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 487580.44149,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 323093.695805,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 164486.745685,
+      "reasons": {
+        "diagnostic_no_entry": 435
+      },
+      "scenario": "sampled_30m",
+      "slippage": 0.0,
+      "slippage_bps": 15,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "no_entry",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 632228.92425,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 523866.59171,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 108362.33254,
+      "reasons": {
+        "diagnostic_no_entry": 435
+      },
+      "scenario": "sampled_30m",
+      "slippage": 0.0,
+      "slippage_bps": 30,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "stop_risk",
+      "average_notional": 154121.11246775,
+      "days": 29,
+      "fees": 43362.06,
+      "gross": -64307.2178,
+      "loss_reduction": -2120.61253045,
+      "losses": 288,
+      "max_closed_day_drawdown": 173259.9067111,
+      "net_per_opportunity": -398.29863612,
+      "net_per_trade": -406.71339604,
+      "opportunities": 435,
+      "paired_gain": -3520.71635545,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 1060206.57644,
+      "profit_forgone": 1400.103825,
+      "reasons": {
+        "below_minimum_within_risk": 9,
+        "sized": 426
+      },
+      "scenario": "open_high_low_close",
+      "slippage": 65590.6289111,
+      "slippage_bps": 5,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": -173259.9067111,
+      "trades": 426,
+      "win_pct": 32.3943662
+    },
+    {
+      "arm": "stop_risk",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 428254.05012615,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 306847.20491615,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 121406.84521,
+      "reasons": {
+        "below_minimum_within_risk": 435
+      },
+      "scenario": "open_high_low_close",
+      "slippage": 0.0,
+      "slippage_bps": 15,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "stop_risk",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 579884.686254,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 501225.999274,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 78658.68698,
+      "reasons": {
+        "below_minimum_within_risk": 435
+      },
+      "scenario": "open_high_low_close",
+      "slippage": 0.0,
+      "slippage_bps": 30,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "stop_risk",
+      "average_notional": 154121.11246775,
+      "days": 29,
+      "fees": 43362.31,
+      "gross": -63432.7378,
+      "loss_reduction": -2094.89539045,
+      "losses": 288,
+      "max_closed_day_drawdown": 172386.1139511,
+      "net_per_opportunity": -396.28991713,
+      "net_per_trade": -404.66223932,
+      "opportunities": 435,
+      "paired_gain": -3494.99921545,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 1060206.57644,
+      "profit_forgone": 1400.103825,
+      "reasons": {
+        "below_minimum_within_risk": 9,
+        "sized": 426
+      },
+      "scenario": "open_low_high_close",
+      "slippage": 65591.0661511,
+      "slippage_bps": 5,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": -172386.1139511,
+      "trades": 426,
+      "win_pct": 32.3943662
+    },
+    {
+      "arm": "stop_risk",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 425848.36820115,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 303266.55549115,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 122581.81271,
+      "reasons": {
+        "below_minimum_within_risk": 435
+      },
+      "scenario": "open_low_high_close",
+      "slippage": 0.0,
+      "slippage_bps": 15,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "stop_risk",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 576880.134596,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 497272.136016,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 79607.99858,
+      "reasons": {
+        "below_minimum_within_risk": 435
+      },
+      "scenario": "open_low_high_close",
+      "slippage": 0.0,
+      "slippage_bps": 30,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "stop_risk",
+      "average_notional": 154121.11246775,
+      "days": 29,
+      "fees": 43353.85,
+      "gross": -93639.09,
+      "loss_reduction": -6409.963125,
+      "losses": 273,
+      "max_closed_day_drawdown": 202568.902975,
+      "net_per_opportunity": -465.67563902,
+      "net_per_trade": -475.51385675,
+      "opportunities": 435,
+      "paired_gain": -8390.460545,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 1060206.57644,
+      "profit_forgone": 1980.49742,
+      "reasons": {
+        "below_minimum_within_risk": 9,
+        "sized": 426
+      },
+      "scenario": "sampled_30m",
+      "slippage": 65575.962975,
+      "slippage_bps": 5,
+      "stop_risk_exceeded": 65,
+      "symbols": 15,
+      "total_net": -202568.902975,
+      "trades": 426,
+      "win_pct": 35.91549296
+    },
+    {
+      "arm": "stop_risk",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 487580.44149,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 323093.695805,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 164486.745685,
+      "reasons": {
+        "below_minimum_within_risk": 435
+      },
+      "scenario": "sampled_30m",
+      "slippage": 0.0,
+      "slippage_bps": 15,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    },
+    {
+      "arm": "stop_risk",
+      "average_notional": null,
+      "days": 29,
+      "fees": 0.0,
+      "gross": 0.0,
+      "loss_reduction": 632228.92425,
+      "losses": 0,
+      "max_closed_day_drawdown": 0.0,
+      "net_per_opportunity": 0.0,
+      "net_per_trade": null,
+      "opportunities": 435,
+      "paired_gain": 523866.59171,
+      "performance_states": {
+        "NO_POSITIVE_EDGE": 435
+      },
+      "planned_stop_risk_sum": 0.0,
+      "profit_forgone": 108362.33254,
+      "reasons": {
+        "below_minimum_within_risk": 435
+      },
+      "scenario": "sampled_30m",
+      "slippage": 0.0,
+      "slippage_bps": 30,
+      "stop_risk_exceeded": 0,
+      "symbols": 15,
+      "total_net": 0.0,
+      "trades": 0,
+      "win_pct": null
+    }
+  ]
+}

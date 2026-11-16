@@ -59,3 +59,11 @@ SEQ-07 engineering is shipped in [PR214](https://github.com/damandamanaulakh-tec
 SEQ-08: the [15-stock exit-only study](releases/2026-11-16-profit-protection.md) compared five policies using costs, slippage, ambiguous OHLC ordering and 30-minute observations. The locked candidate failed validation and a 23-session / 690-entry holdout; production settings stay unchanged. PR216 merged; 3359 canonical local/CI tests pass with zero skips, with full offline outcome/report reproduction verified. INTRA-003 remains open for re-entry, sizing and full-strategy/forward validation.
 
 SEQ-09: the [fresh-data re-entry study](releases/2026-11-16-reentry.md) requires completed post-loss reset/reclaim evidence in each candidate and measures losses withheld, recoveries missed and delayed retry P&L. The locked breakout-reclaim rule fails sample and cross-scenario expectancy requirements; production policy is unchanged. PR218 merged; all 3413 canonical local/CI tests pass with zero skips, with full frozen replay and report checks passing on the original reference runtime. Sizing and actual-strategy/forward validation remain separate.
+
+SEQ-10: [position sizing and loss controls](releases/2026-11-16-sizing.md) fixes
+XR-026's proposed-stop mismatch and XR-031's all-loss bypass, while showing known
+economic net losses/costs beside the filtered strategy sample. 3469 canonical
+local tests pass, zero skips. The separately acquired 15-stock holdout rejects
+the measured-sizing candidate because it executes zero trades; no experimental
+threshold or policy is promoted. CI/merge/deployment evidence remains pending;
+SEQ-11 actual-strategy and forward paper validation stays queued.

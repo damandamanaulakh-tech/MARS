@@ -1,7 +1,7 @@
 {
   "approved_date": "2026-11-11",
   "source": "Owner asked to show sequence, start one by one, and track completion in the repository.",
-  "active_step": "SEQ-09",
+  "active_step": "SEQ-10",
   "steps": [
     {
       "id": "SEQ-01",
@@ -548,15 +548,20 @@
       "depends_on": [
         "SEQ-09"
       ],
-      "status": "QUEUED",
-      "implementation": "NOT_STARTED",
-      "tests": "NOT_RUN",
+      "status": "LOCAL_TESTED_CI_PENDING",
+      "implementation": "EXACT_STOP_AND_ALL_LOSS_FIXES_WITH_FROZEN_RESEARCH",
+      "tests": "158 focused pass, zero skips; exact Goal10 offline replay passes; 3469 canonical full pass, zero failures/errors/skips; CI pending.",
       "pull_request": null,
       "merge_revision": null,
       "deployment_revision": null,
       "health": "NOT_CHECKED",
-      "runtime": "NOT_OBSERVED",
-      "evidence": null
+      "runtime": "NATURAL_OBSERVATION_PENDING",
+      "evidence": "docs/repairs/releases/2026-11-16-sizing.md",
+      "selected_candidate": "measured_stop_risk",
+      "promotion": "REJECTED_BY_PREDECLARED_CRITERIA",
+      "experimental_settings_changed": false,
+      "holdout_opportunities": 435,
+      "holdout_executed_selected": 0
     },
     {
       "id": "SEQ-11",
@@ -583,5 +588,5 @@
       "evidence": null
     }
   ],
-  "active_step_note": "SEQ-09 research is complete and merged in PR218. 3413 canonical local/CI tests pass, zero skips, with exact Goal08/09 replay/report reproduction. The selected rule fails coverage/expectancy requirements; no production policy promoted. Initial numerical-runtime CI failure is retained and resolved by pinning the original research runtime without altering sealed results. SEQ-10 remains queued; earlier normal-runtime observations remain pending."
+  "active_step_note": "Goal10 bounded XR026/XR031 correctness fixes locally tested; frozen sizing study completed with no promotion. Full CI, merge and functional deployment pending. Goal11 remains queued."
 }

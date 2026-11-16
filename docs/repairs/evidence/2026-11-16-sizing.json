@@ -1,0 +1,86 @@
+{
+  "goal": "SEQ-10",
+  "baseline_revision": "e0dbdddab30394a57ebf4a21e826a12a0902c9bb",
+  "recorded_at": "2026-11-16T14:57:16.975387+00:00",
+  "owner_request": "Actual stop risk, measured performance, net losses and costs, empty/all-loss samples, unseen data, repo/workflow, no skipping.",
+  "reproductions": {
+    "XR-026": {
+      "fill": 100,
+      "qty_before": 1000,
+      "category_stop": 95,
+      "actual_stop": 85,
+      "cap_inr": 10000,
+      "actual_risk_before": 15000,
+      "qty_after": 666,
+      "actual_risk_after": 9990
+    },
+    "XR-031": {
+      "usable": 20,
+      "wins": 0,
+      "losses": 20,
+      "status_before": "NO_SAMPLE",
+      "blocked_before": false,
+      "status_after": "NO_POSITIVE_EDGE",
+      "blocked_after": true
+    }
+  },
+  "regression_before": {
+    "first_run_failed": 20,
+    "first_run_passed": 1,
+    "qualification": "19 behavior/interface failures and one new test fixture error (None+30); fixture corrected before passing run. No existing test was removed, skipped or relaxed."
+  },
+  "validation": {
+    "focused": {
+      "tests": 158,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "canonical_full": {
+      "tests": 3469,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 185.28,
+      "new_tests": 56,
+      "source_tree_at_test": "e4bcaf45ff7d3e1632f68731827c1083084ffb88"
+    },
+    "research_replay": "PASS_EXACT",
+    "reports": "PASS",
+    "ci": "PENDING",
+    "tested_application_hashes": {
+      "trading/risk.py": "a669379c5b57e426a643ffd9800f2ef7a6c2894f68d71834e2821da54f8c9a81",
+      "trading/engine.py": "91d1f25b80c70ded3c2875d2092d863dd3a0dfda9f74b326047b09089dad52fd",
+      "trading/backtest.py": "8f75c21be47bb0e8e29c91b5f97b9d6482c3c3c548a29146be23713142cdb540",
+      "trading/measured_kelly.py": "9179283dc24cfdfb1c86dd07b7dd91c16709f166fbba015b069675c23d05ab5f",
+      "web/templates/risk.html": "f4301da27d97ba130f6987c2a9249057012ed3ea928dfa44ca9e5042da00b88b"
+    }
+  },
+  "research": {
+    "protocol_commit": "7bdb92fb0923467b8ca6939e7269fef27a7037e9",
+    "selection_commit": "cd0eb2d8355494b81c91a2eb250eb5c7f37bd154",
+    "selected": "measured_stop_risk",
+    "statistical_pass": false,
+    "holdout_opportunities": 435,
+    "selected_holdout_trades": 0,
+    "raw_bars": 105960,
+    "accepted_regular_bars": 105750,
+    "excluded_special_bars": 210,
+    "original_ledger_changed": false,
+    "experimental_settings_changed": false
+  },
+  "bounds": [
+    "Gross stop-price portfolio heat threshold remains25%; experimental net-stop risk includes dated costs/slippage separately.",
+    "All-loss guard retains configured sample minimum0 (one observation required), Momentum-only default, reason filters and owner overrides.",
+    "Economic summaries cover retained closed legs, including partial exits; archived full-ledger coverage is not claimed.",
+    "Research shadow exits are not actual candidate fills. Same historical market period was previously viewed through other stocks.",
+    "No induced production trades, scans, ledger rewrites or automatic experimental promotion."
+  ],
+  "release": {
+    "pr": null,
+    "merge_revision": null,
+    "deployment": null,
+    "health": "PENDING",
+    "runtime": "NATURAL_SCAN_AND_TRADE_OBSERVATION_PENDING"
+  }
+}

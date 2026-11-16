@@ -297,3 +297,34 @@ proof. Record free-instance cold starts and any earlier RAM/spill uncertainty.
 Two formats on one computer are not two independent backups. Keep permanent
 retention, write-failure entry guards and controlled restart verification open
 until their own acceptance evidence exists.
+
+## Position sizing and loss controls
+
+- Compute the proposed initial stop before approving an automatic entry and
+  book exactly that stop. Test ATR widening, whole-share/minimum-ticket rounding,
+  live/backtest call paths and rejected entries leaving cash/holdings unchanged.
+  Preserve configured heat thresholds and label whether a measure includes only
+  price-at-stop risk or also fees, slippage and gaps. Planned risk is not a
+  guaranteed maximum loss when execution is delayed or prices gap.
+- Treat all-loss history as observed losses, not empty evidence. Keep empty,
+  insufficient, all-flat, no-loss and invalid samples explicit; do not fabricate
+  payoff ratios, zero costs or infinite edge. Preserve the configured sample
+  minimum, segment scope and owner overrides when repairing arithmetic.
+- Report all known economic net losses and costs alongside any filtered strategy
+  sample. State excluded reasons, unknown accounting, partial-exit sample units
+  and retained-versus-archived coverage. Never rewrite original ledger entries
+  or imply that a strategy filter erased an economic loss.
+- Freeze candidate risk budgets, minimum tickets, performance windows, net-loss
+  definitions, costs, selection criteria and numerical runtime before research.
+  Use strictly prior completed outcomes; identify shadow observations separately
+  from candidate fills. Reject a size below the floor rather than rounding past
+  the risk cap. Include all exit reasons in economic comparisons.
+- Commit source/data/training choice before first holdout acquisition, record
+  first access, reject changed seals and preserve failed candidates. Disclose
+  symbol/time overlap, historical market knowledge and universe-selection bias.
+  Evaluate reduced losses, profits forgone, exposure, net expectancy, drawdown
+  and stop-risk exceedances. All-cash results cannot prove profitable trading.
+- Keep bounded correctness repairs distinct from experimental policy promotion.
+  A successful isolated comparison still needs actual-strategy and forward paper
+  evidence. Require full zero-skip application CI and exact frozen research replay;
+  record merge, deployment health and natural runtime observation separately.
