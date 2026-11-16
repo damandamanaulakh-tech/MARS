@@ -1,0 +1,10 @@
+{
+  "implementation": "CPython",
+  "python": "3.12.16",
+  "packages": {
+    "numpy": "2.4.6",
+    "pandas": "3.0.5",
+    "httpx": "0.28.1"
+  },
+  "provenance": "Frozen before any Goal10 price request or outcomes."
+}
