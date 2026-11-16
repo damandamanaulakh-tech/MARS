@@ -193,6 +193,33 @@ the user's instructions for the current task.
 - Require full zero-skip CI, repair-record checks and exact deployed revision
   and readiness evidence; never create production trades for verification.
 
+## Profit-protection and target research
+
+- Pin the actual current signal interval, exit call paths and settings before
+  choosing a baseline. Preserve a dated protocol and any source-driven amendment;
+  record whether prices or outcomes were already inspected when it changed.
+- Declare the universe, chronological training/validation/holdout periods,
+  candidates, costs, slippage, execution assumptions and rejection criteria
+  before computing results. Keep sample exclusions and provider bytes/hashes.
+- Use matched entries to isolate exits, and label fixed-clock studies separately
+  from full-strategy or portfolio replay. Daily bars cannot prove intraday
+  improvement. Validate session continuity and use only pre-entry features.
+- Model both costs and adverse fills, gaps, uncertain within-bar order and actual
+  observation cadence. A touched target need not fill; a net break-even stop can
+  still lose through a gap. Report expectancy, payoff, drawdown definition,
+  coverage, concentration and uncertainty alongside win rate.
+- Select on training only and seal data/code/config/result hashes before the
+  holdout. Do not switch winners after validation. Record holdout access before
+  evaluation so an interrupted run cannot make an observed period unseen again.
+  Retuning requires a new genuinely untouched period; retain failed candidates.
+- Research tools have no apply-to-settings or apply-to-ledger operation. A
+  statistical pass nominates a candidate for full-strategy/forward paper proof
+  and owner review; it is not permission to change production thresholds.
+- CI must reproduce the committed frozen study offline, in addition to the full
+  application suite, repair-record checks and the existing zero-skip guard.
+  Research-only commits use `[skip render]`; record merge/CI separately from an
+  application deployment, which this isolated batch does not require.
+
 ## Live write failures during shipment
 
 A 200 health response or connected database is not an acknowledged write. If

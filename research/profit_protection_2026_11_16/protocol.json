@@ -1,0 +1,146 @@
+{
+  "schema": 1,
+  "study": "SEQ-08 intraday exit-only matched-entry study",
+  "frozen_at_utc": "2026-11-16T04:38:18Z",
+  "baseline_revision": "b0615be779f75d0ab06dc7ab8738efaf03dc2d61",
+  "scope": "Research only; no production settings, ledger or entry rules are changed. Fixed-clock entries isolate exits and do not reproduce MARS selection or portfolio returns.",
+  "symbols": [
+    "BAJAJFINSV.NS",
+    "BAJFINANCE.NS",
+    "BHARTIARTL.NS",
+    "DRREDDY.NS",
+    "HDFCBANK.NS",
+    "HINDUNILVR.NS",
+    "ICICIBANK.NS",
+    "INFY.NS",
+    "M&M.NS",
+    "MARUTI.NS",
+    "ONGC.NS",
+    "RELIANCE.NS",
+    "SBIN.NS",
+    "SUNPHARMA.NS",
+    "TCS.NS"
+  ],
+  "universe_reason": "All 15 names in the pre-existing data/history_15stock panel, chosen before fetching this study's intraday prices. Fixed current-name sample; survivorship and large-cap selection limit generalization.",
+  "provider": "Upstox V3 historical-candle, minutes/5, timezone-bearing bar starts; bounded calendar-month requests; no daily substitution",
+  "data_start": "2026-06-15",
+  "data_end": "2026-11-13",
+  "splits": {
+    "train": [
+      "2026-08-03",
+      "2026-09-11"
+    ],
+    "validation": [
+      "2026-09-14",
+      "2026-10-09"
+    ],
+    "holdout": [
+      "2026-10-12",
+      "2026-11-13"
+    ]
+  },
+  "timezone": "Asia/Kolkata",
+  "interval_minutes": 5,
+  "entry_times": [
+    "10:00",
+    "13:00"
+  ],
+  "deadline": "15:25",
+  "stake_inr": 100000,
+  "entry_rule": "Buy at the stated bar open with adverse slippage, integer fee-inclusive quantity. Two independent observations per stock/session, not overlapping portfolio capital. Features use only bars completed before entry; exits cannot use pre-entry highs/lows.",
+  "validity": "Require every regular-session 5m bar from 09:15 to 15:25, coherent finite positive OHLC, finite nonnegative volume, unique aligned timezone-bearing timestamps, completed and calendar-verified sessions. Invalid or missing sessions remain excluded with reasons for every symbol/date. Do not forward-fill. Require 20 consecutive prior verified full sessions for target calibration and 14 daily true ranges; require 14 completed 5m true ranges before entry.",
+  "baseline": {
+    "stop_fraction": 0.015,
+    "trail_fraction": 0.01,
+    "target_min_fraction": 0.01,
+    "target_max_fraction": 0.06,
+    "target_atr_k": 1.0,
+    "target_interval": "completed_5m"
+  },
+  "arms": [
+    {
+      "id": "current_price_rules",
+      "trail": "current",
+      "target": "entry_atr"
+    },
+    {
+      "id": "net_activation",
+      "trail": "net_activation",
+      "target": "entry_atr"
+    },
+    {
+      "id": "atr_profit_lock",
+      "trail": "atr_lock",
+      "target": "entry_atr"
+    },
+    {
+      "id": "reachable_target",
+      "trail": "current",
+      "target": "past_session_median"
+    },
+    {
+      "id": "combined",
+      "trail": "atr_lock",
+      "target": "past_session_median"
+    }
+  ],
+  "trail_rules": {
+    "current": "Activate after peak exceeds slipped entry; trail 1% below observed peak; hard stop retains priority.",
+    "net_activation": "Keep original 1% trail distance; activate only when peak * 0.99 covers entry plus both order fees and assumed sell slippage. Once active, never loosen; price gaps can still lose money.",
+    "atr_lock": "Distance is max(2 * pre-entry ATR14 of completed 5m bars, 0.2% of entry). Activate only when peak minus this distance covers net break-even. Once active, never loosen; no guarantee against gaps."
+  },
+  "target_rule": "Past-session target is min(current completed-5m-ATR target, entry * (1 + median maximum upside from the same clock to 15:25 over exactly 20 prior complete sessions))). Floor at the quote needed for net break-even plus 0.1% of entry. Freeze target and all ATR values at entry; target calibration never sees the current session after entry.",
+  "costs": {
+    "module": "trading.fees",
+    "model": "upstox-basic-equity-2026-11-12-v1",
+    "historical_plan": "Counterfactual selected Basic tariff, not proof of historical account charges",
+    "orders": "One buy and one full sell per sample; existing partial-exit accounting separately remains covered by Goal05 tests",
+    "slippage_bps_per_side": [
+      5,
+      15,
+      30
+    ]
+  },
+  "execution_scenarios": [
+    "open_high_low_close",
+    "open_low_high_close",
+    "sampled_30m"
+  ],
+  "execution_notes": "First two scenarios assume continuous monotone segments between named OHLC points, with market-trigger fills and adverse slippage, stop/target priority and gap fills at open. They are sensitivity paths, not mathematical bounds or known tick ordering. Third observes completed-bar closes only on 30-minute clock boundaries and fills those observations; all scenarios exit at the 15:25 open. No fills at an earlier stop through a gap. No liquidity/queue guarantee.",
+  "selection": {
+    "metric": "Maximum worst-scenario mean net return in bps across the three execution scenarios at 5 bps per side, train only; tie break by declared arm order",
+    "baseline_included": true,
+    "validation": "Evaluate the single train-selected arm without switching to another winner. Preserve failure, even if another arm looks better on validation or holdout.",
+    "seal": "Write protocol, dataset and runner hashes, selected arm and train/validation results before evaluating holdout; refuse changed hashes. Once opened, this holdout is consumed and cannot be reused for retuning."
+  },
+  "evidence_thresholds": {
+    "minimum_train_sessions": 25,
+    "minimum_validation_sessions": 15,
+    "minimum_holdout_sessions": 20,
+    "minimum_symbols": 12,
+    "minimum_holdout_pairs": 240,
+    "paired_bootstrap_resamples": 2000,
+    "bootstrap_seed": 802026,
+    "candidate_requirement": "Non-baseline selected arm, positive net expectancy and positive paired improvement in validation and holdout under every execution scenario at 5 and 15 bps; day-cluster bootstrap 95% lower bound for paired holdout gain above zero; report 30 bps stress separately."
+  },
+  "report": [
+    "coverage and exclusions",
+    "train/validation/holdout dates and counts",
+    "gross return, fees, slippage, net expectancy",
+    "win/loss/flat counts and payoff ratio",
+    "target hit rate and time in trade",
+    "peak-to-exit giveback and adverse excursion",
+    "daily grouped realized drawdown, not mark-to-market portfolio drawdown",
+    "paired differences and day-cluster uncertainty",
+    "execution and cost sensitivity",
+    "per-symbol and entry-clock concentration",
+    "no-promotion reasons"
+  ],
+  "promotion": "No automatic apply operation. Even a statistical pass only nominates a candidate for full-strategy replay and forward paper validation with actual quote cadence, score/danger/sector exits, market impact and owner approval. Existing thresholds stay in force. Daily/multi-day performance is outside this intraday study.",
+  "amendment": {
+    "id": 1,
+    "before_return_evaluation": true,
+    "original_protocol_sha256": "79e4a0c507717fbf6ebc33695b549286635b94f200f961c47cf83f6eb7bf279d",
+    "reason": "Source call-path correction: engine scan attaches signal_history to pick.history, and _target_for reads it; Goal04 intraday signal history is completed 5m. No training, validation or holdout returns evaluated before correction. Acquisition completed; coverage inspection only."
+  }
+}

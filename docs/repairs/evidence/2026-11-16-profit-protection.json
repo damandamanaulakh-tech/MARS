@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "goal": "SEQ-08",
+  "baseline": "b0615be779f75d0ab06dc7ab8738efaf03dc2d61",
+  "status": "LOCAL_TESTED_NO_PROMOTION_CI_PENDING",
+  "protocol_commit": "dd6b5b2aa89c2d9e7f57d8f5efbd1a6250d4f35a",
+  "amendment_commit": "23d35cee3c6dbd8c2496f2f80ac19941ff70576f",
+  "selection_seal_commit": "8ea0f8ae38cac69df413bbf2b441e30d48c0fa72",
+  "new_regression_cases": 48,
+  "expanded_tests": 110,
+  "local_full": {
+    "passed": 3359,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 260.178,
+    "python": "3.12.16",
+    "junit_sha256": "53e2ff992bcc92e8cb15f4a3bd13e81fa316da0d3582e6855739c40bbaca39e9",
+    "scope": "Canonical tracked source plus this task additions; unrelated untracked duplicate files untouched"
+  },
+  "offline_reproduction": "All source/data hashes, every rounded trade, all three period summaries, frozen selection and report reproduced exactly",
+  "holdout": {
+    "sessions": 23,
+    "symbols": 15,
+    "paired_entries": 690,
+    "selected_candidate": "combined",
+    "statistical_pass": false,
+    "reasons": [
+      "holdout_net_expectancy_not_positive",
+      "holdout_paired_gain_not_robust",
+      "validation_net_gain_not_positive"
+    ],
+    "consumed": true
+  },
+  "settings_changed": false,
+  "deployment": "NOT_APPLICABLE_OFFLINE_RESEARCH",
+  "preservation": {
+    "backlog_records": 170,
+    "original_ids": 165,
+    "incidents": 4,
+    "historical_ledger_changed": false
+  },
+  "artifact_sha256": {
+    "README.md": "fc3ca4aa1c713ff37c1054b97c45802e926daf3cf5f54fd4376ad85c1be41eb2",
+    "fetch.py": "fbcbf98c31c838122687d49bfef84892acc773e73955fefa05083d120d8240ff",
+    "holdout.json": "c450d1dc3efce796524e5c5ca3e82ff87a161cd7f3cc7c0a022d91ae3bb54094",
+    "holdout_opened.json": "7d3e05eabc9a25f4eb358c50796677bdfe0b2b866359269b55f86ed047ac0863",
+    "holdout_trades.json.gz": "80c19949af771246f62eea682e7efb3b3d2c0f7110fbdc88514a37bfd15beb0f",
+    "manifest.json": "18e251849c840fced7a130ded7caa1dbf192cab4f1e57711076b796d6d16a628",
+    "protocol-v1.json": "79e4a0c507717fbf6ebc33695b549286635b94f200f961c47cf83f6eb7bf279d",
+    "protocol.json": "9d54b3e94fd7ca4f85804723e9081e4969d6863fa4a73a48972a9becb8abd848",
+    "raw_responses.json.gz": "4da04ec28cb67bcd033a3d735192bc8226df02c81dcd597e3c9827043e570cf0",
+    "report.py": "0f63ec260b3c5ce7751d649647618d63d6eff3406f8bb36583739cdd42f9ceff",
+    "results.csv": "3735bac68e7a849c2d615febe57689b3deab0c1c9b7482e68c9f871030c76a4a",
+    "selection.json": "daefa7a1ab54b275c1001e8e1ac815f4ac55f112116292c0c0e4a41acd6f8b63",
+    "study.py": "24e5e30181718d2f4e72e55be4934da090b31856e74e0ba93541de16e4430424",
+    "train_validation_trades.json.gz": "b76901a3a40bc3330220035cc166e0b8d6b705c61dbe13a36c05227ee32bac2f"
+  },
+  "ci": null,
+  "pull_request": null,
+  "merge": null
+}

@@ -1,7 +1,7 @@
 {
   "approved_date": "2026-11-11",
   "source": "Owner asked to show sequence, start one by one, and track completion in the repository.",
-  "active_step": "SEQ-07",
+  "active_step": "SEQ-08",
   "steps": [
     {
       "id": "SEQ-01",
@@ -492,15 +492,21 @@
       "depends_on": [
         "SEQ-07"
       ],
-      "status": "QUEUED",
-      "implementation": "NOT_STARTED",
-      "tests": "NOT_RUN",
+      "status": "LOCAL_TESTED_NO_PROMOTION_CI_PENDING",
+      "implementation": "OFFLINE_REPRODUCIBLE_STUDY",
+      "tests": "3359_LOCAL_PASSED_ZERO_SKIPS_OFFLINE_REPRODUCTION_PASSED",
       "pull_request": null,
       "merge_revision": null,
       "deployment_revision": null,
-      "health": "NOT_CHECKED",
-      "runtime": "NOT_OBSERVED",
-      "evidence": null
+      "health": "NOT_APPLICABLE_RESEARCH_ONLY",
+      "runtime": "RESEARCH_ONLY_NO_PRODUCTION_POLICY_CHANGE",
+      "evidence": "docs/repairs/releases/2026-11-16-profit-protection.md",
+      "selected_candidate": "combined",
+      "promotion": "REJECTED_BY_PREDECLARED_CRITERIA",
+      "holdout_samples": 690,
+      "holdout_sessions": 23,
+      "settings_changed": false,
+      "validation_evidence": "docs/repairs/evidence/2026-11-16-profit-protection.json"
     },
     {
       "id": "SEQ-09",
@@ -571,5 +577,5 @@
       "evidence": null
     }
   ],
-  "active_step_note": "SEQ-06 engineering is shipped in PR212 with 3261 canonical CI tests and zero skips. The matching Render deployment is live; health, acknowledged 14/15-source saves and financial-book preservation across the release restart are verified. A five-stock stored-data replay correctly reports missing-window inputs as unknown. Normal market-session comparison observation remains pending; SEQ-07 is queued."
+  "active_step_note": "SEQ-08 exit-only study evaluated 15 stocks across 30 training, 18 validation and 23 untouched holdout sessions. The sealed combined candidate failed net-expectancy and robustness criteria; production settings remain unchanged. 3359 canonical local tests passed with zero skips; complete offline reproduction passed. CI and merge pending. Earlier normal-runtime observations remain pending; SEQ-09 is queued."
 }
