@@ -95,7 +95,10 @@ Both OHLC orderings are sensitivity paths, not known tick sequences or mathemati
 
 ## Reproduce offline
 
+Use **CPython 3.12.16** and the study-specific `requirements.txt` for exact numerical reproduction. The full application CI remains on Python 3.11. `runtime.json` preserves the initial CI failure: one aggregate differed by about INR0.00000001 because Python 3.12 changed floating-point summation. Pinning the original runtime preserves all frozen source, inputs, decisions, outputs and strict equality checks; no result was regenerated or tolerance widened.
+
 ```sh
+python -m pip install -r research/reentry_2026_11_16/requirements.txt
 python -m pytest trading/tests/test_reentry_research_2026_11_16.py -q -ra
 python -m research.reentry_2026_11_16.study verify
 python -m research.reentry_2026_11_16.report --check

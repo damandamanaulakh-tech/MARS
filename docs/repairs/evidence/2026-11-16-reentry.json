@@ -385,7 +385,14 @@
     },
     "ci": "PENDING",
     "offline_reproduction": "PASS_ALL_DECISIONS_OUTCOMES_PERIODS_AND_REPORT",
-    "source_matches_full_test_snapshot": true
+    "source_matches_full_test_snapshot": true,
+    "initial_ci": {
+      "run_id": 43842788785,
+      "passed_tests": 3413,
+      "skips": 0,
+      "seconds": 240.17,
+      "outcome": "FAILED_STRICT_AGGREGATE_REPRODUCTION; runtime pinned, no outcomes changed"
+    }
   },
   "deployment": {
     "required": false,
@@ -401,15 +408,17 @@
   ],
   "artifacts": {
     "research/reentry_2026_11_16/fetch.py": "fca32ef8b515cdc2d4babb5818707ac1b3b85e761bcc3b127bebdb54866e8919",
+    "research/reentry_2026_11_16/runtime.json": "de6713097b8a058804c4c1a0b6401ca2fbced970b39488b3c3a26519350522c7",
     "research/reentry_2026_11_16/train_validation_episodes.json.gz": "389b5b738426f51d0535ed75eee5851cb2344510365282605ad3bb72c491ca52",
-    "research/reentry_2026_11_16/README.md": "9826f0c7611fa753e30407d08cb76ea4b35680dfcecacb469b6fcfa0b2e84d11",
+    "research/reentry_2026_11_16/requirements.txt": "70106da851287f70146587f441e6588d71520fc6b9b7c8a5b48c19e3c9616daa",
+    "research/reentry_2026_11_16/README.md": "34f5f0fd5a5cfd6f7073e8968d47ae80ff9e714a906540b76e0098af4861b2c3",
     "research/reentry_2026_11_16/holdout_episodes.json.gz": "cdf8d58d6c87b7b237646b45a6620377d6ede576b03080dc0796d6913c617913",
     "research/reentry_2026_11_16/holdout_opened.json": "f81decb01d6091cb7437a0a2d1d18dff3c442561454d3e95d89a2fe20b740079",
     "research/reentry_2026_11_16/selection.json": "dda639165b58ce50a7d174957cc769f69949fdc46f58d7395357c370c1d41e59",
     "research/reentry_2026_11_16/protocol.json": "2c130b2fc7052e32c4ac17d2aeaa1cbb6398a18c47c6474216027e9f2d613a65",
     "research/reentry_2026_11_16/holdout.json": "a5873b6da8977baa74cd22d72b90a65d12d5e2e0665df0a3c74e83167ab5f728",
     "research/reentry_2026_11_16/results.csv": "67766f0162076001eda1572a5c420347d369b9267aec7dd87391dbcded523874",
-    "research/reentry_2026_11_16/report.py": "c35b6f1edcf6c8a5e71efa63ea0032e5bfb8780c2e66f945463b06df1409607b",
+    "research/reentry_2026_11_16/report.py": "21e558c40b403f8f1c4aff249f5ede2cd5e55e84d1c5b5d540d1c01f1ac77cf9",
     "research/reentry_2026_11_16/study.py": "bb9ab82388fb05e2e5b4b19a50e390b0803e623887c49999eacf8a3dcd4c6e39",
     "research/reentry_2026_11_16/holdout/raw_responses.json.gz": "ea15162d3875bc6ab77d22e5417661ad7c47bf1b56aa9e2d6c45eed95a733586",
     "research/reentry_2026_11_16/holdout/manifest.json": "58fc0294671e5684333da82deb95dbf4875bfe1fcce758437bf2b38d45650d44",
@@ -428,5 +437,26 @@
   "selection_commit_created_at": "2026-11-16T09:34:08Z",
   "training_first_request": "2026-11-16T09:23:01.361155+00:00",
   "outcome_count": 25638,
-  "summary_comparisons": 162
+  "summary_comparisons": 162,
+  "runtime_correction": {
+    "implementation": "CPython",
+    "python": "3.12.16",
+    "packages": {
+      "numpy": "2.4.6",
+      "pandas": "3.0.5",
+      "httpx": "0.28.1"
+    },
+    "provenance": "Original local runtime used to generate and seal all training, validation and holdout artifacts; versions read back from that environment after the first CI failure.",
+    "recorded_after_initial_ci_failure": true,
+    "initial_ci": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43842788785",
+    "initial_ci_python": "3.11.18",
+    "initial_ci_result": "All 3413 tests, no-skip guard, Goal08 replay/report and all individual Goal09 episodes passed; exact Goal09 holdout aggregate comparison failed.",
+    "diagnostic_method": "Recompute the unchanged holdout on its original runtime, then replace only module-level sum with the pre-3.12 sequential summation algorithm. The same aggregate check fails; all other saved summary fields remain equal.",
+    "diagnosed_leaf": ".summary[20].total_episode_net_inr",
+    "sealed_value": -526651.08015899,
+    "sequential_sum_value": -526651.080159,
+    "difference_inr": -1.0011717677116394e-08,
+    "python_source": "https://docs.python.org/3.12/whatsnew/3.12.html#other-language-changes",
+    "resolution": "Pin the original research runtime; retain byte-for-byte runner, inputs, sealed selection and outcomes, and strict equality assertions. Keep the full application suite on Python 3.11. No candidate or statistical threshold changes."
+  }
 }

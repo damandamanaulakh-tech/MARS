@@ -1,0 +1,5 @@
+# Reference runtime that generated the immutable Goal09 artifacts.
+# Application dependencies and its Python 3.11 CI remain separate.
+numpy==2.4.6
+pandas==3.0.5
+httpx==0.28.1

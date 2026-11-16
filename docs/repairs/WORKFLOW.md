@@ -247,6 +247,11 @@ the user's instructions for the current task.
   The bounded one-retry experiment does not establish recursive retries,
   cross-day state, actual scanner selections or portfolio outcomes. Promotion
   still needs actual-strategy and forward paper evidence plus owner review.
+- Record and pin the numerical interpreter and package versions before running
+  future studies. If a replay mismatch is found later, preserve the initial
+  failure and diagnose it without changing sealed results or widening equality
+  checks. A reference-runtime correction is distinct from retuning a candidate;
+  application CI must retain its supported-runtime and zero-skip coverage.
 
 ## Live write failures during shipment
 
