@@ -522,15 +522,15 @@
       "depends_on": [
         "SEQ-08"
       ],
-      "status": "IN_PROGRESS",
-      "implementation": "RESEARCH_PROTOCOL_FROZEN",
-      "tests": "FOCUSED_IN_PROGRESS",
+      "status": "LOCAL_RESEARCH_COMPLETE_CI_PENDING",
+      "implementation": "FROZEN_CAUSAL_REENTRY_STUDY_NO_PROMOTION",
+      "tests": "54 new / 102 expanded / 3413 canonical full tests passed; zero failures/errors/skips. All frozen decisions/outcomes and reports reproduce. CI pending.",
       "pull_request": null,
       "merge_revision": null,
       "deployment_revision": null,
-      "health": "NOT_CHECKED",
-      "runtime": "NOT_OBSERVED",
-      "evidence": "research/reentry_2026_11_16/protocol.json"
+      "health": "NOT_REQUIRED_RESEARCH_ONLY",
+      "runtime": "NO_PRODUCTION_POLICY_CHANGE",
+      "evidence": "docs/repairs/releases/2026-11-16-reentry.md"
     },
     {
       "id": "SEQ-10",
@@ -580,5 +580,5 @@
       "evidence": null
     }
   ],
-  "active_step_note": "SEQ-09 in progress: protocol committed before new acquisition; causal changed-setup rules and loss/recovery attribution under test. Holdout has not been requested. SEQ-08 remains research complete with no promotion; earlier runtime observations remain pending."
+  "active_step_note": "SEQ-09 research evaluated; 3413 canonical full tests and offline reproduction pass, zero skips. Selected breakout-reclaim rule improves paired retry results but fails coverage/expectancy requirements. No production policy promoted. CI/merge pending; SEQ-10 remains queued, earlier runtime observations remain pending."
 }

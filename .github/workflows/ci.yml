@@ -33,3 +33,7 @@ jobs:
         run: python -m research.profit_protection_2026_11_16.study verify
       - name: Verify Goal08 report matches the sealed measurements
         run: python -m research.profit_protection_2026_11_16.report --check
+      - name: Reproduce frozen Goal09 re-entry decisions and loss-recovery attribution
+        run: python -m research.reentry_2026_11_16.study verify
+      - name: Verify Goal09 report matches the sealed measurements
+        run: python -m research.reentry_2026_11_16.report --check
