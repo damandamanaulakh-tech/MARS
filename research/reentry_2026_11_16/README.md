@@ -58,7 +58,7 @@ The locked **Post-loss breakout reclaim** rule withheld 67 losing immediate retr
 
 **The initial failed trades still happened.** Adding those common losses gives INR-132,826.16 for the selected policy's complete seed-plus-one-retry episodes in this scenario. Retry-only gains must not be presented as total-strategy profits.
 
-## Every actual retry of the locked candidate in the main holdout scenario
+## Every modeled retry of the locked candidate in the main holdout scenario
 
 | Stock | Seed entry | Loss known | Retry entry | Net retry INR | Exit |
 |---|---|---|---|---:|---|
@@ -86,10 +86,11 @@ Both OHLC orderings are sensitivity paths, not known tick sequences or mathemati
 ## Decision, coverage and limits
 
 - Statistical pass: **False**. Reasons: `holdout_coverage_below_predeclared_minimum`, `holdout_retry_expectancy_not_positive`, `training_coverage_below_predeclared_minimum`, `validation_coverage_below_predeclared_minimum`, `validation_retry_expectancy_or_gain_not_positive`.
-- The selected rule is too sparse in the actual-cadence scenario; positive paired improvement mostly reflects avoiding the unfiltered retry. It does not establish that the rule consistently identifies profitable recoveries. Validation had no breakout-reclaim trades at that cadence.
+- The selected rule is too sparse in the declared 30-minute scenario; positive paired improvement mostly reflects avoiding the unfiltered retry. It does not establish that the rule consistently identifies profitable recoveries. Validation had no breakout-reclaim trades at that cadence.
 - Required floors (fixed before acquisition): 25 training / 15 validation / 20 holdout days with episodes, 12 symbols, 150 holdout paired episodes and 50 candidate retries; positive candidate retry expectancy and gain across all scenarios at 5/15 bps, with positive paired confidence bounds. Failed floors were retained, not relaxed.
 - The CSV contains all 162 stage/policy/scenario/slippage summaries, including gross, fees, slippage, no-trade counts, payoff, and explicitly defined cumulative daily-mean retry drawdown. This drawdown is not portfolio or mark-to-market drawdown.
 - Current-name selection, provider revisions/corporate-action adjustments, actual spread/impact/queues, scanner entry gates, category budgets/loss halts, dynamic score/sector/danger exits and capital concurrency are not reconstructed. Missing coverage is reported, not replaced with a successful result.
+- The 30-minute scenario matches the code default; the live owner scheduler setting was not read for this study.
 - Same-session one-retry evidence is not recursive/cross-day re-entry or evidence for Momentum, Swing, Short or Positional. Full-strategy and forward paper validation remain separate.
 - Holdout is consumed. No retuning or selecting another arm from these results. Future candidates need a new untouched dataset; no apply-to-settings or ledger operation exists.
 

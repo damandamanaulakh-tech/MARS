@@ -522,15 +522,18 @@
       "depends_on": [
         "SEQ-08"
       ],
-      "status": "LOCAL_RESEARCH_COMPLETE_CI_PENDING",
-      "implementation": "FROZEN_CAUSAL_REENTRY_STUDY_NO_PROMOTION",
-      "tests": "54 new / 102 expanded / 3413 canonical full tests passed; zero failures/errors/skips. All frozen decisions/outcomes and reports reproduce. CI pending.",
-      "pull_request": null,
-      "merge_revision": null,
+      "status": "RESEARCH_COMPLETE_NO_PROMOTION",
+      "implementation": "MERGED_FROZEN_CAUSAL_STUDY_NO_PRODUCTION_PROMOTION",
+      "tests": "54 new / 102 expanded / 3413 canonical local and CI tests pass, zero failures/errors/skips. Exact Goal08/09 replay/report checks pass; reference runtime pinned without changing sealed results.",
+      "pull_request": "https://github.com/damandamanaulakh-tech/MARS/pull/218",
+      "merge_revision": "eb520778ea803e9457729f06263e00a7f7c6f1dd",
       "deployment_revision": null,
       "health": "NOT_REQUIRED_RESEARCH_ONLY",
       "runtime": "NO_PRODUCTION_POLICY_CHANGE",
-      "evidence": "docs/repairs/releases/2026-11-16-reentry.md"
+      "evidence": "docs/repairs/releases/2026-11-16-reentry.md",
+      "reviewed_head": "032568318f14d5da2c9b5e0df9b8b97c6211b737",
+      "reviewed_tree": "22ec5936b4f9720067472b1e7b50af575be75b83",
+      "ci_run": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43844219066"
     },
     {
       "id": "SEQ-10",
@@ -580,5 +583,5 @@
       "evidence": null
     }
   ],
-  "active_step_note": "SEQ-09 research evaluated; 3413 canonical full tests and offline reproduction pass, zero skips. Selected breakout-reclaim rule improves paired retry results but fails coverage/expectancy requirements. No production policy promoted. CI/merge pending; SEQ-10 remains queued, earlier runtime observations remain pending."
+  "active_step_note": "SEQ-09 research is complete and merged in PR218. 3413 canonical local/CI tests pass, zero skips, with exact Goal08/09 replay/report reproduction. The selected rule fails coverage/expectancy requirements; no production policy promoted. Initial numerical-runtime CI failure is retained and resolved by pinning the original research runtime without altering sealed results. SEQ-10 remains queued; earlier normal-runtime observations remain pending."
 }
