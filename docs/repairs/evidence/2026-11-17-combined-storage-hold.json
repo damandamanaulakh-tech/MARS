@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "goal": "SEQ-11",
+  "observed_at": "2026-11-17T09:57:26Z",
+  "source": "Read-only /healthz, Render deployment list and Mongo portfolio projection",
+  "http_status": 200,
+  "live_revision": "65a58509018fcce86a299328497f1ffe3ee1a142",
+  "live_deployment": "dep-dbtkffe417fc73e1cvd0",
+  "readiness": {
+    "production": true,
+    "ready": true,
+    "insecure_override": false,
+    "problems": []
+  },
+  "db": {
+    "connected": true,
+    "degraded": false,
+    "write_error": "OperationFailure: you are over your space quota, using 528 MB of 512 MB. Writes are blocked on your cluster. Free up storage by deleting unnecessary data or add storage by updating cluster tier. Add a payment method an",
+    "write_error_at": "2026-11-17T09:48:59.051533"
+  },
+  "stats_asof": "2026-11-17T09:56:29.364892+00:00",
+  "cluster_logical_mib_rounded": 523,
+  "storage_warning": "Native listDatabases sizeOnDisk is compressed allocation; it is not the logical Atlas quota. Actual writer refusal overrides estimates.",
+  "journal_archive": {
+    "name": "journal_archive",
+    "data_mb": 282,
+    "index_mb": 0,
+    "count": 40333
+  },
+  "stored_book": {
+    "positions": 39,
+    "trades": 228,
+    "last_save": "2026-11-16T10:04:52.911221"
+  },
+  "sector_snapshot_write": {
+    "status": "write_unacknowledged",
+    "at": "2026-11-17T09:26:59.604367+00:00",
+    "write": {
+      "status": "failed",
+      "at": "2026-11-17T09:27:14.702609+00:00",
+      "reason": "store_quota_exceeded",
+      "error_type": "OperationFailure",
+      "code": 8000
+    }
+  },
+  "decision": "HOLD_DEPLOYMENT_UNTIL_CURRENT_PROCESS_STATE_PRESERVED_AND_PORTFOLIO_WRITES_ACKNOWLEDGED",
+  "mutations_performed": [],
+  "native_export_access": "Previous temporary native connection absent; connected Mongo tool does not export raw BSON. Safari JavaScript from Apple Events is disabled.",
+  "pending": [
+    "Preserve and reconcile live RAM and spill history against the older Mongo book before restart",
+    "Prepare verified native backup/restore and exact bounded free-tier recovery; no arbitrary deletion or paid upgrade",
+    "Observe acknowledged ordinary portfolio save and readback before deployment",
+    "Start versioned forward observation only after safe deployment and acknowledged export"
+  ]
+}

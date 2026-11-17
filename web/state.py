@@ -43,6 +43,8 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.last_scan_skipped = list(doc.get("last_scan_skipped", []))
     p.intraday_data_status = dict(doc.get("intraday_data_status", {}) or {})
     p.cost_dp_days = dict(doc.get("cost_dp_days", {}) or {})
+    p.validation_state = dict(doc.get("validation_state", {}) or {})
+    p.validation_pending = dict(doc.get("validation_pending", {}) or {})
     p.last_scan_opened = list(doc.get("last_scan_opened", []))
     p.scan_matrix = dict(doc.get("scan_matrix", {}))
     p.momentum_shortlist = dict(doc.get("momentum_shortlist", {}) or {})
@@ -136,6 +138,12 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
                 trade.trade_evidence = small
 
     def _save_with_mirror(self: Portfolio) -> bool:
+        from trading import forward_validation as fv
+        try:
+            fv.stage(self)
+        except Exception as exc:
+            self.validation_state["capture_error"] = "capture_failed:" + type(exc).__name__
+            self.validation_state["capture_failures"] = self.validation_state.get("capture_failures", 0) + 1
         # Durable-archive the journal overflow BEFORE original_save trims RAM,
         # so the full append-only trail survives in Mongo (journal_archive)
         # while RAM stays bounded on the always-on process.
@@ -162,6 +170,8 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "last_scan_skipped": self.last_scan_skipped,
             "intraday_data_status": self.intraday_data_status,
             "cost_dp_days": self.cost_dp_days,
+            "validation_state": self.validation_state,
+            "validation_pending": self.validation_pending,
             "last_scan_opened": self.last_scan_opened,
             "last_regime": self.last_regime,
             "last_ifr_fire_date": self.last_ifr_fire_date,
@@ -201,7 +211,10 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "danger_alerts_start": self.danger_alerts_start,
             "last_save": self.last_save,
         }
-        return db.save_portfolio(doc) is True
+        saved = db.save_portfolio(doc) is True
+        if saved:
+            fv.flush(self, db.save_validation_event)
+        return saved
 
     Portfolio.save = _save_with_mirror  # type: ignore[assignment]
     _PORTFOLIO_SAVE_PATCHED = True

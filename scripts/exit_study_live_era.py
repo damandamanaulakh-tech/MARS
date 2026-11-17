@@ -53,6 +53,8 @@ def main(which: str) -> None:
     assert be is None, "A/D/D15 carry no breakeven wrapper"
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     out_path = OUT_DIR / f"{which}.json"
+    from trading.validation import guard_research_output
+    guard_research_output(out_path, parameters={"variant": which, "windows": WINDOWS})
     done: dict = {}
     if out_path.exists():
         done = json.loads(out_path.read_text())

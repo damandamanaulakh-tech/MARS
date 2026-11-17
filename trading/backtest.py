@@ -245,8 +245,8 @@ def run_backtest(
         "The valuation exit target is not modelled (live since 2026-10-21: "
         "a judged valuation base replaces k x ATR and is re-marked monthly; "
         "measured in its own pre-registered study)."
-        + (" It also runs ONE category with the whole book, while live each "
-           "category spends only its own cash share "
+        + (" It runs ONE category with that category's cash share; other "
+           "categories are not replayed concurrently "
            f"({cfg.mode}: {_category_share(cfg) * 100:.0f}% of deployable "
            "capital, owner order 2026-10-04)."
            if _category_share(cfg) is not None else ""),
@@ -405,7 +405,9 @@ def run_backtest(
             )
 
     # Compute metrics
-    final_equity = portfolio.equity({})
+    final_equity = portfolio.equity(last_prices)
+    # SEQ-11/XR-078: risk metrics include final slippage and liquidation costs.
+    equity_curve[-1] = (equity_curve[-1][0], final_equity)
     return _compile_result(
         cfg=cfg,
         start_date=start_date, end_date=end_date,
@@ -538,6 +540,13 @@ def _try_open_positions(
         t: float(history_as_of[t]["Close"].iloc[-1]) for t in history_as_of
     }
 
+    # Reuse the live measured-edge scope/cap and score-driven sizing.
+    from .engine import TradingEngine
+    from .sizing import position_notional_for
+    sizing_engine = TradingEngine(cfg, portfolio)
+    mk = sizing_engine._measured_kelly(pd.Timestamp(next_date).to_pydatetime())
+    if mk is not None and mk.block_new_entries:
+        return
     for pick in ranked:
         ticker = pick["ticker"]
         next_full = all_hist.get(ticker)
@@ -553,10 +562,17 @@ def _try_open_positions(
         fill = slippage_price(fill_raw, "BUY", cfg)
         current_eq = portfolio.equity(todays_prices)
         initial_stop = _stop_price_for(cfg, fill, pick["hist"])
+        want, diag = position_notional_for(cfg, current_eq, score=pick["score"],
+                                          close=pick["hist"]["Close"].dropna())
+        notional = want if diag.get("mode") != "fixed" else None
+        cap = sizing_engine._measured_kelly_cap(mk, cfg, current_eq)
+        if cap is not None:
+            notional = min(notional if notional is not None else cfg.position_notional(), cap)
         ok, reason, qty = can_open(
             risk, portfolio.cash, current_eq,
             portfolio.positions, ticker, fill, cfg,
-            proposed_stop_price=initial_stop,
+            proposed_stop_price=initial_stop, notional_override=notional,
+            category=cfg.mode,
             when=next_date, include_entry_fees=getattr(cfg, "backtest_cost_model", "upstox_basic") == "upstox_basic",
         )
         if not ok or qty <= 0:
@@ -650,7 +666,7 @@ def _compile_result(
     cagr_pct = ((final_equity / cfg.starting_capital) ** (1 / years) - 1) * 100
 
     # Sharpe from daily equity returns
-    eq_series = pd.Series([e for _, e in equity_curve])
+    eq_series = pd.Series([cfg.starting_capital] + [e for _, e in equity_curve])
     daily_ret = eq_series.pct_change().dropna()
     sharpe = (
         float(daily_ret.mean() / daily_ret.std() * np.sqrt(252))

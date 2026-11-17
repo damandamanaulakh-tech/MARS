@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "declared_at": "2026-11-17T10:11:41Z",
+  "phase": "after_acquisition_consumed_before_original_result_inspection",
+  "reason": "The reporting loop groups open P&L by budget category and realised P&L by stored mode. Ocean-tagged holdings can have another stored mode. Both must use the same segment definition.",
+  "change": "Replace only the reporting loop's open-holding predicate category_of(p) == mode with p.mode == mode. Keep the original source archive and results unchanged.",
+  "not_changed": ["strategy selections", "score thresholds", "sizing", "risk gates", "budgets", "fills", "costs", "closed trade counts", "net expectancy", "shared-book curves", "shared-book drawdown"],
+  "proof": "Replay all declared scenarios; require exact equality of every original output except per-segment equity curves, missing equity mark counts, final segment equity and segment drawdown. Preserve corrected attribution as a separate versioned artifact.",
+  "unseen_claim": "No new unseen claim. This is an accounting correction on consumed data, not a new candidate, tuning pass or selected slippage scenario."
+}

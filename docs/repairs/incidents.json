@@ -22,7 +22,7 @@
   {
     "id": "RUN-20261114-01",
     "finding": "Atlas rejects sector snapshot, settings and portfolio writes at 513 MB against its 512 MB cluster quota",
-    "workflow": "PARTIAL_CAPACITY_RECOVERED_STATE_RECONCILIATION_PENDING",
+    "workflow": "RECURRED_WRITE_BLOCKED_CURRENT_STATE_PRESERVATION_PENDING",
     "related_findings": [
       "OPS-05",
       "XR-071"
@@ -33,9 +33,18 @@
     "reconciliation": "Additional runtime incident; original 165 audit IDs and all 170 current backlog records retained.",
     "owner_decision": "Keep free tier. Requested private downloadable backup and bounded cleanup; exact data preservation and recovery checks precede removal. No paid upgrade authorized.",
     "recovery_plan": "docs/repairs/releases/2026-11-14-lossless-archive-plan.md",
-    "current_evidence": "docs/repairs/releases/2026-11-14-storage-recovery.md",
+    "current_evidence": "docs/repairs/releases/2026-11-17-combined-validation.md",
     "recovery_observation": "14 November 17:40:52 UTC: exact 10000-row cold archive verified, all 30486 untargeted BSON unchanged. Normal stored portfolio last_save advanced to 17:34:24.979162 UTC; sector identity saved with attempt 17:34:38.675187 UTC, 14/15 observed sources and explicit Cement timeout. Health write_error cleared, rounded cluster estimate 434 MiB. Render woke a new instance; prior RAM/spills were not captured. Controlled post-save restart and normal decision lifecycle remain pending.",
-    "release_restart_followup": "15 November PR212 release: exact live revision 520ec29d6b0f02c8e23ebdd339f2e652509bbc52; portfolio saved at 06:02:02 UTC with the checked 53-position/214-trade financial fields and cash unchanged; current process acknowledged the 14/15-source snapshot at 06:02:17 UTC, independently read back. Prior-process spills and permanent retention remain open."
+    "release_restart_followup": "15 November PR212 release: exact live revision 520ec29d6b0f02c8e23ebdd339f2e652509bbc52; portfolio saved at 06:02:02 UTC with the checked 53-position/214-trade financial fields and cash unchanged; current process acknowledged the 14/15-source snapshot at 06:02:17 UTC, independently read back. Prior-process spills and permanent retention remain open.",
+    "recurrence_2026_11_17": {
+      "observed_at": "2026-11-17T09:57:26Z",
+      "writer_refusal": "528 MB / 512 MB",
+      "stored_book_last_save": "2026-11-16T10:04:52.911221",
+      "positions": 39,
+      "closed_legs": 228,
+      "deployment_hold": true,
+      "evidence": "docs/repairs/evidence/2026-11-17-combined-storage-hold.json"
+    }
   },
   {
     "id": "RUN-20261114-02",

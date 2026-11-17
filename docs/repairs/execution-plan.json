@@ -1,7 +1,7 @@
 {
   "approved_date": "2026-11-11",
   "source": "Owner asked to show sequence, start one by one, and track completion in the repository.",
-  "active_step": "SEQ-10",
+  "active_step": "SEQ-11",
   "steps": [
     {
       "id": "SEQ-01",
@@ -581,16 +581,20 @@
       "depends_on": [
         "SEQ-10"
       ],
-      "status": "QUEUED",
-      "implementation": "NOT_STARTED",
-      "tests": "NOT_RUN",
+      "status": "LOCAL_TESTED_DEPLOYMENT_HELD_STORAGE",
+      "implementation": "ACTUAL_ENGINE_REPLAY_AND_FORWARD_OUTBOX",
+      "tests": "46 new /3515 canonical local pass; zero failures/errors/skips. Final populated-page 7 tests pass. Exact Goal08/09/10 replay/report and Goal11 full archived reproduction, attribution parity and all tables pass. GitHub CI pending.",
       "pull_request": null,
       "merge_revision": null,
       "deployment_revision": null,
-      "health": "NOT_CHECKED",
-      "runtime": "NOT_OBSERVED",
-      "evidence": null
+      "health": "HTTP200_BUT_MONGO_WRITES_REFUSED",
+      "runtime": "FORWARD_NOT_STARTED_STORAGE_HOLD",
+      "evidence": "docs/repairs/releases/2026-11-17-combined-validation.md",
+      "performance_acceptance": "PENDING_GENUINELY_NEW_FORWARD_COHORTS",
+      "storage_evidence": "docs/repairs/evidence/2026-11-17-combined-storage-hold.json",
+      "historical_result": "COMPLETED_BOUNDED_PANEL_NEGATIVE_EXPECTANCY_ALL_SCENARIOS",
+      "research": "research/combined_2026_11_17/README.md"
     }
   ],
-  "active_step_note": "SEQ-10 correctness fixes shipped and deployment health verified at65a5850;3469 canonical local/CI tests pass,zero skips, plus exact Goal08/09/10 replay/report checks. Frozen sizing policy fails promotion and is not enabled. Natural scan/trade observation remains pending;SEQ-11 stays queued."
+  "active_step_note": "SEQ-11 historical actual-engine validation and local engineering tests complete; all three scenarios negative after costs/slippage. GitHub CI/merge pending. Forward recorder locally tested; deployment held until recurring quota refusal and current RAM/spill preservation are resolved. Future forward acceptance remains open; no settings promotion."
 }

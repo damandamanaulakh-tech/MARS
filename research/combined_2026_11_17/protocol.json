@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "goal": "SEQ-11",
+  "created_before_price_acquisition": "2026-11-17T08:24:07Z",
+  "strategy": "Unmodified TradingEngine.scan, refresh, square_off_intraday and their real decision functions; current saved settings, five-category shared paper book",
+  "baseline_revision": "8900be4c07fa85dc4ffa04812a6757eb9c3db4b8",
+  "start": "2026-09-01",
+  "end": "2026-11-16",
+  "intraday_warmup_start": "2026-08-24",
+  "daily_warmup_start": "2024-09-01",
+  "symbols": [
+    "ABB.NS",
+    "ACC.NS",
+    "ADANIPORTS.NS",
+    "AMBUJACEM.NS",
+    "APOLLOHOSP.NS",
+    "ASIANPAINT.NS",
+    "AUROPHARMA.NS",
+    "BHEL.NS",
+    "BPCL.NS",
+    "CIPLA.NS",
+    "DABUR.NS",
+    "DLF.NS",
+    "GAIL.NS",
+    "HAVELLS.NS",
+    "HINDALCO.NS",
+    "IOC.NS",
+    "JSWSTEEL.NS",
+    "KOTAKBANK.NS",
+    "LT.NS",
+    "ULTRACEMCO.NS"
+  ],
+  "selection": "Predeclared 20-symbol liquid equity panel, disjoint from Goal08-10 30 stocks; no screening using this window's prices or outcomes. Current-survivor selection, not point-in-time membership of all 1205 names.",
+  "unseen_claim": "Newly acquired combined-engine holdout on disjoint symbols after the July archived daily panel. Not a claim that these companies or all historical dates have never appeared in other repository research. No tuning or selection on this holdout.",
+  "mode_order": [
+    "nifty200_momentum",
+    "intraday",
+    "short",
+    "swing",
+    "positional"
+  ],
+  "scans_ist": [
+    "09:20",
+    "14:30"
+  ],
+  "exits": "Refresh every 30 minutes at the real cron boundaries and between category scans; intraday square-off at 15:25. Ideal zero-duration scan model, no unscheduled owner/web actions or optional five-minute scan job.",
+  "fill": "Contemporaneous five-minute boundary OPEN, adverse slippage each side. Completed signal bars only. No stop-price fills, future high/low routing or daily-close fallback; absent boundary quote means unavailable.",
+  "cost_model": "upstox-basic-equity-2026-11-12-v1",
+  "slippage_bps_each_side": [
+    5,
+    15,
+    30
+  ],
+  "no_training_or_optimization": true,
+  "report": [
+    "closed economic trades and partial legs",
+    "net expectancy",
+    "net realised PnL",
+    "marked equity return",
+    "max drawdown from initial equity",
+    "segment metrics",
+    "gate states and input coverage",
+    "still-open exposure",
+    "missing data and context"
+  ],
+  "terminal": "Keep actual open positions. Mark at completed session closes; show hypothetical liquidation costs separately, never insert forced exits into actual strategy history.",
+  "forward": "Observe normal app paper activity prospectively; no induced scans or trades. Immutable code/settings identity, raw own-symbol entry bars, original fees and fills, partial-leg identities, acknowledged outbox with restart retry. Baseline legacy positions excluded from new-entry expectancy.",
+  "forward_acceptance": "Remain pending until at least 30 distinct new regular sessions and 30 fully closed economic trades in every claimed segment, complete costs/identities and declared data/mark coverage. These are coverage floors, not statistical proof. Any code/settings changes form separate cohorts. No automatic promotion.",
+  "limitations": [
+    "bounded panel changes cross-sectional breadth/correlation/IFR; cannot claim whole-universe results",
+    "missing PIT news, fundamentals, FII, sector, valuation and spread data follow existing fallback policy and remain explicit unknown coverage",
+    "provider corporate adjustments/revisions and announcement-time lineage not independently certified",
+    "daily marked drawdown can miss intraday troughs; scheduled marked curve also reported",
+    "one historical holdout cannot establish future profit"
+  ],
+  "initial_conditions": "Fresh isolated INR 5 crore book, no inherited positions or outcome history. Measured Kelly learns only from earlier replay closes. Does not reproduce the production opening ledger."
+}

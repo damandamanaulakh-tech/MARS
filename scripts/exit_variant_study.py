@@ -132,6 +132,9 @@ def breakeven_wrapper(trigger: float):
 
 
 def main() -> None:
+    from trading.validation import guard_research_output
+    guard_research_output(OUT_JSON, parameters={"variants": VARIANTS, "windows": WINDOWS})
+    guard_research_output(OUT_JSONL, parameters={"variants": VARIANTS, "windows": WINDOWS})
     hist = load_history()
     tickers = sorted(t for t in hist if t != "^NSEI")
     print(f"{len(tickers)} tickers loaded; running "

@@ -73,6 +73,10 @@ def test_backtest_does_not_refuse_an_eligible_no_pattern_pick(tmp_path, monkeypa
     cfg = Config(mode='swing', state_dir=str(tmp_path), candle_patterns=('engulfing',))
     cfg.apply_mode_preset()
     cfg.category_budgets_enabled = False
+    # A constant-price candle fixture has no volatility estimate. Keep this
+    # test's eligible ticket explicit now that the backtest uses live sizing.
+    cfg.sizing_mode = 'fixed'
+    cfg.position_size_value = cfg.min_position_value
     hist = _flat()
     next_day = date(2026, 11, 17)
     all_hist = pd.concat([hist, pd.DataFrame([hist.iloc[-1]], index=[pd.Timestamp(next_day)])])

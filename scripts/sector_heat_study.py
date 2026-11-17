@@ -92,6 +92,9 @@ def main(out_dir: str) -> None:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     ckpt_path = out / "checkpoint.json"
+    from trading.validation import guard_research_output
+    guard_research_output(ckpt_path, parameters={"study": "sector_heat"})
+
 
     print("building full-history panels...", flush=True)
     ps = XP.PanelSet(tail=0)
