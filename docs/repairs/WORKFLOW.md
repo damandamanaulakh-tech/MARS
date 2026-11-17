@@ -73,6 +73,29 @@ book for release validation; never reuse production state.
 This document records the workflow; it does not grant new permissions beyond
 the user's instructions for the current task.
 
+## Combined validation (SEQ-11)
+
+Freeze protocol, actual strategy source, numerical runtime, settings, universe
+and raw-data hashes before evaluating a holdout. Keep the acquisition marker
+before the first request; consumed data cannot become unseen again after an
+error or a code edit. Replay actual engine decisions with causal provider
+adapters, real costs and adverse slippage. Publish every declared scenario,
+blocked/unknown inputs, initial conditions, coverage and remaining open trades.
+Report net expectancy per fully closed economic trade, and distinguish marked
+book drawdown from hypothetical terminal liquidation and partial-leg outcomes.
+
+Research cache identity must match before loading old results. Preserve old
+unversioned studies; use a new output directory instead of overwriting them.
+Frozen evidence should be rerunnable from its archived source even when later
+production code changes.
+
+Forward evidence comes only from normal paper activity. Do not induce a scan or
+trade to fill a coverage target. Checkpoint the observation outbox with the book,
+require acknowledged immutable export, retry on restart, and disclose gaps or
+query limits. Separate versions and portfolio resets; inherited positions and
+owner instructions cannot establish automatic-strategy edge. Keep performance
+acceptance open until genuine future observations meet the declared coverage.
+
 ## Online source batches
 
 - Trace provider → fetch/parse → acknowledged storage → actual page or formula.

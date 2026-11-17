@@ -1,7 +1,7 @@
 {
   "approved_date": "2026-11-11",
   "source": "Owner asked to show sequence, start one by one, and track completion in the repository.",
-  "active_step": "SEQ-10",
+  "active_step": "SEQ-11",
   "steps": [
     {
       "id": "SEQ-01",
@@ -581,16 +581,16 @@
       "depends_on": [
         "SEQ-10"
       ],
-      "status": "QUEUED",
-      "implementation": "NOT_STARTED",
-      "tests": "NOT_RUN",
+      "status": "IN_PROGRESS",
+      "implementation": "ACTUAL_ENGINE_REPLAY_AND_FORWARD_OUTBOX",
+      "tests": "30 focused tests pass; full canonical suite pending.",
       "pull_request": null,
       "merge_revision": null,
       "deployment_revision": null,
       "health": "NOT_CHECKED",
       "runtime": "NOT_OBSERVED",
-      "evidence": null
+      "evidence": "docs/repairs/releases/2026-11-17-combined-validation.md"
     }
   ],
-  "active_step_note": "SEQ-10 correctness fixes shipped and deployment health verified at65a5850;3469 canonical local/CI tests pass,zero skips, plus exact Goal08/09/10 replay/report checks. Frozen sizing policy fails promotion and is not enabled. Natural scan/trade observation remains pending;SEQ-11 stays queued."
+  "active_step_note": "SEQ-11 in progress: freeze actual-engine replay inputs, acquire new bounded holdout, install passive forward observation; no unproved settings promoted. Future forward coverage remains pending."
 }

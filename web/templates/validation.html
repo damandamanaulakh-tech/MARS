@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Combined validation</h1>
+<p class="mb-4">Forward paper observation is collecting new evidence. Earlier trades and inherited positions are baseline data. No strategy setting is promoted by this report.</p>
+<p class="mb-4">Started: {{ result.capture.get('started_at', 'Not yet recorded') }} · Last acknowledged: {{ result.capture.get('last_acknowledged', 'Unknown') }} · Pending exports: {{ result.pending_exports }}</p>
+{% if result.storage_error or result.capture.get('capture_error') or result.capture.get('error') or result.query_truncated %}
+<p role="alert" class="text-red-700">Coverage incomplete: {{ result.storage_error or result.capture.get('capture_error') or result.capture.get('error') or 'Query limit reached; older events are not included.' }}</p>
+{% endif %}
+<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr>
+<th>Segment / version</th><th>Sessions observed</th><th>Closed trades</th><th>Net P&amp;L (₹)</th><th>Net expectancy / trade (₹)</th><th>Win %</th><th>Drawdown</th><th>Open or incomplete</th>
+</tr></thead><tbody>
+{% for row in result.cohorts %}<tr>
+<td>{{ row.mode }}<br>{{ row.from or 'Unknown' }} to {{ row.through or 'Unknown' }}<br><code title="{{ row.run_id }}">{{ row.run_id[:12] }}</code></td>
+<td>{{ row.observed_sessions }}</td><td>{{ row.closed_trades }}</td>
+<td>{{ row.net_pnl if row.net_pnl is not none else 'Unknown' }}</td>
+<td>{{ row.net_expectancy if row.net_expectancy is not none else 'No closed sample' }}</td>
+<td>{{ row.win_rate_pct if row.win_rate_pct is not none else 'Unknown' }}</td>
+<td>Unknown for this cohort{% if row.mixed_exit_code or row.mixed_exit_settings %}<br>Exit version changed; {{ row.mixed_exit_code }} code / {{ row.mixed_exit_settings }} settings legs{% endif %}</td><td>{{ row.open_economic_trades }}</td></tr>
+{% else %}<tr><td colspan="8">No new versioned observations yet.</td></tr>{% endfor %}
+</tbody></table></div>
+<p class="mt-4">Costs and configured adverse slippage are included in actual paper fills. Partial exits count as one economic trade only after the captured original quantity has closed. Missing costs or identity stay unknown. Different code and settings versions are shown separately.</p>
+<p class="mt-4">Shared-book equity contains inherited positions and other segments, so its drawdown cannot be assigned to one entry cohort. Own-symbol entry bars are archived; full historical peer panels and external provider snapshots remain incomplete. Forward evidence is not yet sufficient to establish an improvement.</p>
+<p class="mt-4">Observed shared-book drawdown: {{ result.shared_book.max_drawdown_pct if result.shared_book.max_drawdown_pct is not none else 'Unknown' }}{% if result.shared_book.max_drawdown_pct is not none %}%{% endif %}. Period: {{ result.shared_book.from or 'Not started' }} to {{ result.shared_book.through or 'Unknown' }}. This includes inherited holdings and all recorded versions; capital transfers are removed.</p>
+<p class="mt-4"><a href="/api/validation">Download validation JSON</a></p>
+{% endblock %}

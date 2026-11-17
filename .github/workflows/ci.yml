@@ -24,7 +24,7 @@ jobs:
           python-version: "3.11"
           cache: pip
       - name: Install dependencies
-        run: pip install -r requirements.txt pytest openpyxl
+        run: pip install -r requirements.txt pytest openpyxl freezegun==1.5.5
       - name: Run tests
         run: python -m pytest trading/tests/ web/tests/ -q -ra --junitxml=pytest-results.xml
       - name: Require every collected test to run

@@ -129,6 +129,8 @@ app.include_router(register_routes.router)
 app.include_router(den_routes.router)
 app.include_router(resource_routes.router)
 app.include_router(evidence_routes.router)
+from .routes import validation_routes
+app.include_router(validation_routes.router)
 
 
 @app.on_event("startup")

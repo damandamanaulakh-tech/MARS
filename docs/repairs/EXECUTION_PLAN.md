@@ -1,5 +1,7 @@
 # Ordered repair programme — 11 November 2026
 
+Goal 11 is active (17 November): versioned actual-engine replay, immutable research identities and passive forward paper observation. Historical results and future forward coverage stay separate; no experimental settings are promoted. [Current batch](releases/2026-11-17-combined-validation.md).
+
 Owner instruction: show the sequence, start one by one, and track completion in
 the repository. This is the current execution order for G4/G13 and the related
 data/risk work. It does not remove any of the 170 backlog records or four
