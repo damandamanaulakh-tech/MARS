@@ -1,6 +1,6 @@
 # MARS goals — one reviewed batch at a time
 
-Goal 11 is active (17 November): the versioned actual-engine historical replay is complete and exactly reproduced; all declared scenarios have negative net expectancy. All 3515 local tests pass with zero skips. GitHub CI/merge are pending, and recurring storage refusal holds deployment of the passive forward recorder. Future forward coverage stays open; no experimental settings are promoted. [Current batch](releases/2026-11-17-combined-validation.md).
+Goal 11 repository delivery is merged in [PR222](https://github.com/damandamanaulakh-tech/MARS/pull/222). All 3515 local/CI tests and six CI jobs pass with zero test skips; both full historical reproductions match. All declared scenarios have negative net expectancy. Deployment and genuine forward observation remain held on recurring storage refusal and unresolved prior-process state preservation. [Release and proof](releases/2026-11-17-combined-validation.md).
 
 Each batch must identify its source findings, demonstrate the failure, make a bounded repair, test valid and failure paths, and record local / merged / deployed / runtime-verified status separately. Strategy decisions retain their own review. Work below is ordered by the current incident and portfolio impact.
 
@@ -67,4 +67,4 @@ XR-026's proposed-stop mismatch and XR-031's all-loss bypass, while showing know
 economic net losses/costs beside the filtered strategy sample. 3,469 canonical
 local and GitHub CI tests pass, zero skips. The separately acquired 15-stock holdout rejects
 the measured-sizing candidate because it executes zero trades; no experimental
-threshold or policy is promoted. PR220 is merged and its exact revision is live with HTTP200/readiness/Mongo health verified. Natural scan/trade observation remains pending; SEQ-11 actual-strategy validation is active; forward instrumentation is locally tested and deployment is held on recurring storage refusal. See the 17 November combined-validation release.
+threshold or policy is promoted. PR220 is merged and its exact revision is live with HTTP200/readiness/Mongo health verified. Natural scan/trade observation remains pending; SEQ-11 actual-strategy validation is active; forward instrumentation is merged and CI verified; deployment is held on recurring storage refusal. See the 17 November combined-validation release.

@@ -60,7 +60,52 @@
       "coverage.csv": "29b41d778768751c336d299d6c8e03a020e285764331ac5dac71832323a9ac80"
     }
   },
-  "github_ci": "pending",
+  "github_ci": {
+    "url": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/44071003513",
+    "run_id": 44071003513,
+    "status": "completed",
+    "conclusion": "success",
+    "tests": 3515,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "test_seconds": 385.59,
+    "jobs": [
+      {
+        "id": 133996898865,
+        "name": "test",
+        "conclusion": "success"
+      },
+      {
+        "id": 133996899307,
+        "name": "reentry-research",
+        "conclusion": "success"
+      },
+      {
+        "id": 133996899310,
+        "name": "sizing-research",
+        "conclusion": "success"
+      },
+      {
+        "id": 133996899359,
+        "name": "repair-records",
+        "conclusion": "success"
+      },
+      {
+        "id": 133996899456,
+        "name": "combined-research (attribution)",
+        "conclusion": "success"
+      },
+      {
+        "id": 133996899531,
+        "name": "combined-research (original)",
+        "conclusion": "success"
+      }
+    ],
+    "original_reproduction": "All 5/15/30bps numerical outcomes exactly reproduced from frozen source; network blocked; no settings writes.",
+    "attribution_reproduction": "Every strategy outcome unchanged; corrected segment attribution and all report tables exactly reproduced.",
+    "prior_studies": "Goal08/09/10 exact replay and reports pass unchanged"
+  },
   "deployment": "held on quota-refused writes; no restart or production trades induced",
   "final_ui_regressions": {
     "tests": 7,
@@ -70,5 +115,8 @@
     "seconds": 1.3,
     "scope": "Final human segment labels, populated rupee formatting and IST timestamps; final CI reruns full suite."
   },
-  "historical_outcome": "Negative net expectancy at 5,15,30 bps per side; no promotion. Fresh 20-name panel,51 sessions,14 open holdings; full-universe/PIT external context and future performance unproved."
+  "historical_outcome": "Negative net expectancy at 5,15,30 bps per side; no promotion. Fresh 20-name panel,51 sessions,14 open holdings; full-universe/PIT external context and future performance unproved.",
+  "merge_revision": "0f141a8ea062b42d18bc60c018e9b7cff4457bcf",
+  "pull_request": 222,
+  "release_evidence": "2026-11-17-combined-release.json"
 }

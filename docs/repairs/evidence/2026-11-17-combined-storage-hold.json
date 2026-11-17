@@ -51,5 +51,28 @@
     "Prepare verified native backup/restore and exact bounded free-tier recovery; no arbitrary deletion or paid upgrade",
     "Observe acknowledged ordinary portfolio save and readback before deployment",
     "Start versioned forward observation only after safe deployment and acknowledged export"
-  ]
+  ],
+  "later_cold_start_observation": {
+    "observed_at": "2026-11-17T11:16:02.397358+00:00",
+    "startup_started_at": "2026-11-17T11:13:12.504563417Z",
+    "startup_completed_at": "2026-11-17T11:13:39.884261971Z",
+    "trigger": "ordinary health GET woke the existing free instance; no deploy or restart command issued",
+    "revision": "65a58509018fcce86a299328497f1ffe3ee1a142",
+    "deployment": "dep-dbtkffe417fc73e1cvd0",
+    "http": 200,
+    "ready": true,
+    "write_error": "quota_refused",
+    "write_error_at": "2026-11-17T11:15:54.444176",
+    "used_mb": 528,
+    "limit_mb": 512,
+    "sector_context": "write_unacknowledged",
+    "portfolio": {
+      "saved_positions": 39,
+      "saved_closed_legs": 228,
+      "last_save": "2026-11-16T10:04:52.911221",
+      "saved_financial_projection_unchanged": true
+    },
+    "prior_ram_and_spill_preservation": "not_proven",
+    "goal11_deployed": false
+  }
 }

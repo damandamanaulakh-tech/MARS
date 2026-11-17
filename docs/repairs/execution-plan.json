@@ -581,11 +581,11 @@
       "depends_on": [
         "SEQ-10"
       ],
-      "status": "LOCAL_TESTED_DEPLOYMENT_HELD_STORAGE",
+      "status": "MERGED_DEPLOYMENT_HELD_STORAGE",
       "implementation": "ACTUAL_ENGINE_REPLAY_AND_FORWARD_OUTBOX",
-      "tests": "46 new /3515 canonical local pass; zero failures/errors/skips. Final populated-page 7 tests pass. Exact Goal08/09/10 replay/report and Goal11 full archived reproduction, attribution parity and all tables pass. GitHub CI pending.",
-      "pull_request": null,
-      "merge_revision": null,
+      "tests": "PR222 merged as 0f141a8ea062b42d18bc60c018e9b7cff4457bcf; all 3515 canonical local/CI tests pass with zero failures/errors/skips. All six CI jobs pass, including full original/attribution combined replay and Goal08/09/10 reproduction/report checks. Deployment held; future forward evidence remains open. CI: https://github.com/damandamanaulakh-tech/MARS/actions/runs/44071003513",
+      "pull_request": 222,
+      "merge_revision": "0f141a8ea062b42d18bc60c018e9b7cff4457bcf",
       "deployment_revision": null,
       "health": "HTTP200_BUT_MONGO_WRITES_REFUSED",
       "runtime": "FORWARD_NOT_STARTED_STORAGE_HOLD",
@@ -593,8 +593,10 @@
       "performance_acceptance": "PENDING_GENUINELY_NEW_FORWARD_COHORTS",
       "storage_evidence": "docs/repairs/evidence/2026-11-17-combined-storage-hold.json",
       "historical_result": "COMPLETED_BOUNDED_PANEL_NEGATIVE_EXPECTANCY_ALL_SCENARIOS",
-      "research": "research/combined_2026_11_17/README.md"
+      "research": "research/combined_2026_11_17/README.md",
+      "ci": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/44071003513",
+      "release_evidence": "docs/repairs/evidence/2026-11-17-combined-release.json"
     }
   ],
-  "active_step_note": "SEQ-11 historical actual-engine validation and local engineering tests complete; all three scenarios negative after costs/slippage. GitHub CI/merge pending. Forward recorder locally tested; deployment held until recurring quota refusal and current RAM/spill preservation are resolved. Future forward acceptance remains open; no settings promotion."
+  "active_step_note": "SEQ-11 repository delivery merged in PR222; all 3515 CI tests and six jobs pass, including exact original/attribution historical replay. Every declared scenario has negative net expectancy. Deployment held on recurring quota refusal and unresolved prior-process RAM/spill preservation after an ordinary health read woke the free instance. Future forward acceptance remains open; no settings promotion."
 }
