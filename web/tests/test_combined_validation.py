@@ -22,6 +22,9 @@ class Collection:
             self.rows.setdefault(where["_id"], deepcopy(update["$setOnInsert"]))
         return SimpleNamespace(acknowledged=self.acknowledged)
 
+    def find_one(self, where, *args):
+        return self.rows.get(where["_id"])
+
 
 def test_append_only_export_is_idempotent_and_preserves_original_inputs(monkeypatch):
     runs, events = Collection(), Collection()
@@ -70,3 +73,41 @@ def test_read_page_is_authenticated_and_does_not_run_or_save_portfolio(monkeypat
 def test_query_failure_is_explicit_unknown(monkeypatch):
     monkeypatch.setattr(db, "_CONNECTED", False)
     assert db.load_validation_events() == ([], False, "database_unavailable")
+
+
+def test_mongo_outbox_waits_for_book_ack_and_retries_after_restart(monkeypatch, tmp_path):
+    runs, events = Collection(), Collection()
+    monkeypatch.setattr(db, "_CONNECTED", True)
+    monkeypatch.setattr(db, "_DB", SimpleNamespace(validation_runs=runs, validation_events=events))
+    cfg = Config(state_dir=str(tmp_path)); book = Portfolio(cfg=cfg, cash=100.)
+    writes = []
+    def refused(doc):
+        writes.append(deepcopy(doc))
+        return False
+    monkeypatch.setattr(db, "save_portfolio", refused)
+    assert book.save() is False
+    assert book.validation_pending and not events.rows and not runs.rows
+    restored = Portfolio(cfg=cfg, cash=0.)
+    state._hydrate_portfolio_from_mongo(restored, writes[-1])
+    def accepted(doc):
+        writes.append(deepcopy(doc))
+        return True
+    monkeypatch.setattr(db, "save_portfolio", accepted)
+    assert restored.save() is True
+    assert not restored.validation_pending and len(events.rows) == 2 and len(runs.rows) == 1
+    # Crash after acknowledged export but before the next book checkpoint:
+    # old pending rows re-deliver, but append-only IDs prevent duplicates.
+    again = Portfolio(cfg=cfg, cash=0.)
+    state._hydrate_portfolio_from_mongo(again, writes[-1])
+    assert again.validation_pending and again.save() is True
+    assert len(events.rows) == 2 and len(runs.rows) == 1
+
+
+def test_health_exposes_only_capture_status_from_memory(monkeypatch, tmp_path):
+    book = Portfolio(cfg=Config(state_dir=str(tmp_path)), cash=100.)
+    book.validation_state = {"started_at": "2026-11-17T06:00:00Z", "seen": ["private-id"],
+                             "last_acknowledged": "2026-11-17T06:01:00Z"}
+    monkeypatch.setattr(state, "portfolio", lambda: book)
+    body = TestClient(app).get("/healthz").json()["forward_validation"]
+    assert body["pending_exports"] == 0 and body["last_acknowledged"]
+    assert "seen" not in body and "settings" not in body

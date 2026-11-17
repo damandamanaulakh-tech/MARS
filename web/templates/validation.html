@@ -15,7 +15,7 @@
 <td>{{ row.net_pnl if row.net_pnl is not none else 'Unknown' }}</td>
 <td>{{ row.net_expectancy if row.net_expectancy is not none else 'No closed sample' }}</td>
 <td>{{ row.win_rate_pct if row.win_rate_pct is not none else 'Unknown' }}</td>
-<td>Unknown for this cohort{% if row.mixed_exit_code or row.mixed_exit_settings %}<br>Exit version changed; {{ row.mixed_exit_code }} code / {{ row.mixed_exit_settings }} settings legs{% endif %}</td><td>{{ row.open_economic_trades }}</td></tr>
+<td>Unknown for this cohort{% if row.mixed_exit_code or row.mixed_exit_settings %}<br>Exit version changed; {{ row.mixed_exit_code }} code / {{ row.mixed_exit_settings }} settings legs{% endif %}</td><td>{{ row.open_economic_trades }}<br>Unknown costs: {{ row.unknown_cost_legs }} legs<br>Owner exits: {{ row.owner_exit_legs }} legs</td></tr>
 {% else %}<tr><td colspan="8">No new versioned observations yet.</td></tr>{% endfor %}
 </tbody></table></div>
 <p class="mt-4">Costs and configured adverse slippage are included in actual paper fills. Partial exits count as one economic trade only after the captured original quantity has closed. Missing costs or identity stay unknown. Different code and settings versions are shown separately.</p>

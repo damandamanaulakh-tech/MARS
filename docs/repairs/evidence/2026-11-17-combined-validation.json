@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "goal": "SEQ-11",
+  "baseline_revision": "8900be4c07fa85dc4ffa04812a6757eb9c3db4b8",
+  "frozen_strategy_revision": "89a8e9baa02241efe4ee48f5bb3efc1449864c69",
+  "local_full": {
+    "tests": "3515",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "323.883"
+  },
+  "focused_new_tests": 46,
+  "no_skip_guard": "JUnit failures/errors/skips all zero",
+  "regressions_before": [
+    "Baseline backtest omits score notional and measured cap/category arguments",
+    "Baseline backtest terminal curve differs from final equity after liquidation fees",
+    "Initial cache guard mismatches unchanged tuple windows against JSON lists"
+  ],
+  "after": "All focused regressions and canonical full suite pass",
+  "prior_studies": {
+    "8": "exact offline source/data/period outcomes and report check pass unchanged",
+    "9": "exact offline source/data/period outcomes and report check pass unchanged",
+    "10": "exact offline source/data/period outcomes and report check pass unchanged"
+  },
+  "original_audit_sha256": "6d50ab7bfbb6563634805ae64fb0e3f235dae2b5df47388bd3abab402e59107c",
+  "runtime_source_hashes": {
+    "trading/backtest.py": "11674ece36454f0f66d08f088a6ea5f56eecb68b7ba9e9d9a4eff20bd98b8d84",
+    "trading/engine.py": "c04eae87a0da4d8fffbae6e4c1637f36b92f36e98de5e741b4219fe959b43978",
+    "trading/validation.py": "ccacf30730809a8633757268da46f29245e4c587e057f39826b805405814fe05",
+    "trading/forward_validation.py": "05ab60e22179e5ede752a5c9b0869c28cb5b2eb736d0970659af573e1234083f",
+    "trading/paper.py": "2e00fb06bdc9d47552f29a19d32ff3539af3708d8daf8fac1ac5ec4477808ad1",
+    "web/state.py": "cf27829e57bd8c4606b4c657c16d251e5ca1d0a5a5bce294463b2b933c87160f",
+    "web/db.py": "e54d1075a9a80adffff61421ad9bd515a58600d218b6b91523c6da76d872047b",
+    "web/main.py": "fad25cac002a5773977103253c4a4f428d9a8b2a593b048fb1b8aed78bb2dcc3",
+    "web/routes/validation_routes.py": "1898557b06d8fc98b77378d8a9fde0c14c92f044e024804bcd080b7d0e22e4a4",
+    "web/templates/validation.html": "51714d1d972d52f0ba1b8e62bdbf06849997ac2d46c5cc4c79617abdf0118838",
+    "trading/tests/test_combined_validation.py": "a744a349f308ac86d9aa9a790298eb9082bac54fc4877552de66a920ba1b86e0",
+    "web/tests/test_combined_validation.py": "132d859f703ce853727ef3b71df00c1846e1707bff5f0addf378f60c8d8858e6"
+  },
+  "historical_reproduction": "pending final recording",
+  "github_ci": "pending",
+  "deployment": "held on quota-refused writes; no restart or production trades induced"
+}

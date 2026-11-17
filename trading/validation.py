@@ -9,10 +9,23 @@ import math
 import os
 from pathlib import Path
 import platform
+from importlib.metadata import version
 
 MODEL = "combined-validation-v1"
 ROOT = Path(__file__).resolve().parents[1]
 MODES = ("nifty200_momentum", "intraday", "short", "swing", "positional")
+STATIC_INPUTS = (
+    "research/bt_calibration/run_2026-08-09_strict15/trigger_calibration.csv",
+    "research/bt_calibration_external/run_2026-08-13/external_trigger_calibration.csv",
+    "research/bt_calibration/run_2026-08-09/trigger_calibration.csv",
+    "research/chityy_archive/trigger_layer_v0_2/trigger_params_v0_2.csv",
+    "research/bt06/run_2026-08-24/side_score_weights.csv",
+    "research/ifr_frozen_2026-10-02/thresholds.json",
+    "research/external/selection_register_v4_279.csv",
+    "data/corporate_actions_2010_2026.csv",
+    "data/fundamentals_n200_2026-08-09.csv",
+    "data/history_upstox_export_2026-07-19.zip",
+)
 
 
 def canonical(value):
@@ -45,15 +58,17 @@ def code_identity():
     paths = [p for folder in ("trading", "web") for p in (ROOT / folder).rglob("*.py")
              if "tests" not in p.parts and " 2" not in p.name]
     paths.append(ROOT / "requirements.txt")
-    from . import danger
-    paths.extend([danger._STRICT_CSV, danger._EXTERNAL_CSV])
+    paths.extend(ROOT / name for name in STATIC_INPUTS)
     paths = [p for p in paths if p.exists()]
     hashes = {str(p.relative_to(ROOT)): file_hash(p) for p in sorted(paths)}
     return {"sha256": digest(hashes), "files": hashes,
             "revision": os.environ.get("RENDER_GIT_COMMIT"),
             "python": platform.python_version(),
-            "packages": {name: __import__("importlib.metadata", fromlist=["version"]).version(name)
-                         for name in ("numpy", "pandas")}}
+            "packages": runtime_packages()}
+
+
+def runtime_packages():
+    return {name: version(name) for name in ("numpy", "pandas", "httpx", "yfinance", "python-dateutil")}
 
 
 def identity(cfg):
@@ -103,6 +118,25 @@ def finite(value):
         return False
 
 
+def capture_entry(portfolio, cfg, pick, now, qty):
+    """Deduplicate manifests and compress raw bars before entering the book.
+
+    A 222-position portfolio must not contain 222 copies of the code file map
+    and 1,205-name universe. The manifest has its own durable outbox event.
+    """
+    import base64
+    import zlib
+    record = entry_record(cfg, pick, now, qty)
+    run = record.pop("run")
+    key = "manifest:" + run["id"]
+    if key not in portfolio.validation_state.get("seen", []):
+        portfolio.validation_pending.setdefault(key, {"_id": key, "model": MODEL,
+            "kind": "manifest", "observed_at": str(now), "run": run})
+    record["run"] = {"id": run["id"]}
+    record["data_zlib_base64"] = base64.b64encode(zlib.compress(canonical(record.pop("data")))).decode()
+    return record
+
+
 def performance(trades, equity, initial_capital, open_trade_ids=()):
     """Net expectancy per fully closed economic trade, not per partial leg.
 
@@ -133,14 +167,15 @@ def performance(trades, equity, initial_capital, open_trade_ids=()):
     missing_marks = 0
     for row in equity:
         v = row[1]
-        if finite(v) and float(v) > 0:
+        if finite(v):
             values.append(float(v))
         else:
             missing_marks += 1
-    peak, worst = (values[0], 0.0) if values else (None, None)
+    peak, worst = (values[0], 0.0 if values[0] > 0 else None) if values else (None, None)
     for value in values:
         peak = max(peak, value)
-        worst = min(worst, value / peak - 1)
+        if peak > 0:
+            worst = min(0.0 if worst is None else worst, value / peak - 1)
     n = len(pnls)
     return {"closed_trades": n, "exit_legs": len(trades),
             "net_pnl": round(sum(pnls), 2) if n else None,
@@ -172,13 +207,16 @@ def guard_research_output(output, *, parameters=None, root=ROOT):
              if p.is_file() and " 2" not in p.name and "tests" not in p.parts
              and p.suffix in (".py", ".csv", ".json", ".zip", ".gz", ".parquet")
              and p.resolve() not in (output.resolve(), sidecar.resolve())]
-    for name in ("research/bt_calibration/run_2026-08-09_strict15/trigger_calibration.csv",
-                 "research/bt_calibration_external/run_2026-08-13/external_trigger_calibration.csv"):
+    for name in STATIC_INPUTS + ("requirements.txt",):
         if (root / name).exists():
             paths.append(root / name)
     manifest = {"model": MODEL, "parameters": parameters or {},
                 "defaults": settings(Config()), "python": platform.python_version(),
-                "files": {str(p.relative_to(root)): file_hash(p) for p in sorted(paths)}}
+                "packages": runtime_packages(),
+                "files": {str(p.relative_to(root)): file_hash(p) for p in sorted(set(paths))}}
+    # Real studies use tuple-based windows/variants. Compare their canonical
+    # JSON form with the stored form, not tuples with JSON-decoded lists.
+    manifest = json.loads(canonical(manifest))
     expected = {"sha256": digest(manifest), "manifest": manifest}
     sidecar = output.with_name(output.name + ".identity.json")
     if output.exists() and not sidecar.exists():

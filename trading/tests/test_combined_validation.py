@@ -13,7 +13,8 @@ from trading.paper import Portfolio, PaperPosition, ClosedTrade
 
 
 def leg(key="a", pnl=-10, cost=2, qty=1):
-    return dict(trade_id=key, net_pnl=pnl, costs=cost, qty=qty)
+    return dict(trade_id=key, net_pnl=pnl, costs=cost, qty=qty,
+                cost_evidence={"status": "paper_estimate"})
 
 
 def test_empty_unknown_is_not_positive_edge():
@@ -47,6 +48,13 @@ def test_missing_marks_are_counted_not_zeroed():
     assert r["missing_equity_marks"] == 1 and r["max_drawdown_pct"] == 0
 
 
+def test_zero_and_negative_equity_are_real_losses_not_missing_marks():
+    r = v.performance([], [("a", 0), ("b", -10)], 100)
+    assert r["max_drawdown_pct"] == 110 and r["final_equity"] == -10
+    assert r["missing_equity_marks"] == 0
+    assert v.performance([], [("a", 0)], 0)["max_drawdown_pct"] is None
+
+
 def test_version_changes_with_settings_and_excludes_local_paths():
     a = Config(state_dir="/one"); b = deepcopy(a); b.state_dir = "/two"
     assert v.identity(a)["id"] == v.identity(b)["id"]
@@ -69,11 +77,23 @@ def test_unversioned_cache_never_overwritten(tmp_path):
     assert out.read_text() == '{"historical":true}'
 
 
-@pytest.mark.parametrize("changed", ["code", "data", "parameters"])
-def test_cache_rejects_each_identity_change(tmp_path, changed):
+def test_cache_reuses_real_tuple_based_study_parameters(tmp_path):
+    from scripts.exit_variant_study import VARIANTS, WINDOWS
+    out = tmp_path / "result.json"
+    params = {"variants": VARIANTS, "windows": WINDOWS}
+    first = v.guard_research_output(out, root=tmp_path, parameters=params)
+    out.write_text("{}")
+    assert v.guard_research_output(out, root=tmp_path, parameters=params) == first
+
+
+@pytest.mark.parametrize("changed", ["code", "data", "parameters", "requirements", "runtime", "measured_weights"])
+def test_cache_rejects_each_identity_change(tmp_path, changed, monkeypatch):
     (tmp_path / "trading").mkdir(); (tmp_path / "data").mkdir()
     code = tmp_path / "trading/a.py"; code.write_text("x=1")
     data = tmp_path / "data/a.csv"; data.write_text("a\n1")
+    req = tmp_path / "requirements.txt"; req.write_text("numpy==2.4.6")
+    weights = tmp_path / "research/bt06/run_2026-08-24/side_score_weights.csv"
+    weights.parent.mkdir(parents=True); weights.write_text("id,weight\nA,1")
     out = tmp_path / "result.json"
     v.guard_research_output(out, root=tmp_path)
     out.write_text("{}")
@@ -82,6 +102,9 @@ def test_cache_rejects_each_identity_change(tmp_path, changed):
     if changed == "code": code.write_text("x=2")
     if changed == "data": data.write_text("a\n2")
     if changed == "parameters": params = {"floor": 99}
+    if changed == "requirements": req.write_text("numpy==2.4.7")
+    if changed == "measured_weights": weights.write_text("id,weight\nA,2")
+    if changed == "runtime": monkeypatch.setattr(v, "runtime_packages", lambda: {"numpy": "different"})
     with pytest.raises(ValueError, match="identity mismatch"):
         v.guard_research_output(out, root=tmp_path, parameters=params)
     assert out.read_text() == "{}"
@@ -91,8 +114,45 @@ def test_forward_baseline_does_not_import_old_trades(tmp_path):
     p = Portfolio(cfg=Config(state_dir=str(tmp_path)), cash=100)
     fv.stage(p, datetime(2026, 11, 17, tzinfo=timezone.utc))
     events = list(p.validation_pending.values())
-    assert [x["kind"] for x in events] == ["baseline", "book"]
+    assert [x["kind"] for x in events] == ["manifest", "baseline", "book"]
     assert fv.report(events)["cohorts"][0]["closed_trades"] == 0
+
+
+def test_forward_capture_deduplicates_manifest_and_losslessly_packs_bars():
+    import base64, zlib
+    cfg = Config(custom_universe=tuple(f"S{i}.NS" for i in range(1205)))
+    p = Portfolio(cfg=cfg, cash=cfg.starting_capital)
+    frame = pd.DataFrame({"Close": range(100, 600)}, index=pd.bdate_range("2024-01-01", periods=500))
+    pick = {"decision": {"path": "scan"}, "history": frame, "risk_history": frame}
+    first = v.capture_entry(p, cfg, pick, datetime(2026, 11, 17), 10)
+    second = v.capture_entry(p, cfg, pick, datetime(2026, 11, 17), 20)
+    assert len(p.validation_pending) == 1
+    raw = json.loads(zlib.decompress(base64.b64decode(first["data_zlib_base64"])))
+    assert raw["signal"] == v.frame_data(frame)
+    assert v.digest(raw) == first["data_sha256"]
+    assert first["run"] == second["run"] and set(first["run"]) == {"id"}
+    # Bounded per-position overhead: full universe/code manifest stays outside.
+    assert len(v.canonical(first)) < 20000
+
+
+def test_manifest_export_precedes_dependent_event_after_reordered_restart():
+    p = Portfolio(cfg=Config(), cash=100.)
+    fv.stage(p)
+    p.validation_pending = dict(reversed(list(p.validation_pending.items())))
+    kinds = []
+    fv.flush(p, lambda e: kinds.append(e["kind"]) or True)
+    assert kinds[0] == "manifest" and not p.validation_pending
+
+
+def test_book_reset_preserves_pending_evidence_but_starts_new_period(tmp_path):
+    p = Portfolio(cfg=Config(state_dir=str(tmp_path)), cash=100.)
+    fv.stage(p, datetime(2026, 11, 16, tzinfo=timezone.utc))
+    before = set(p.validation_pending)
+    p.reset()
+    assert before <= set(p.validation_pending)
+    fv.stage(p, datetime(2026, 11, 17, tzinfo=timezone.utc))
+    periods = {e.get("book_epoch") for e in p.validation_pending.values() if e["kind"] == "baseline"}
+    assert len(periods) == 2
 
 
 def test_forward_outbox_survives_failed_export_and_restart(tmp_path):
@@ -126,6 +186,52 @@ def test_forward_separates_versions_and_partial_quantities():
     assert r["cohorts"][0]["max_drawdown_pct"] is None
 
 
+def test_forward_excludes_unknown_costs_without_mutating_ledger():
+    run = v.identity(Config())
+    row = leg(pnl=100)
+    row["cost_evidence"]["status"] = "overnight_intraday_estimate"
+    events = [dict(kind="entry", path="scan", run=run, trade_id="a", position={"qty": 1}),
+              dict(kind="exit", run=run, trade_id="a", trade=row)]
+    before = deepcopy(events)
+    result = fv.report(events)["cohorts"][0]
+    assert result["net_expectancy"] is None and result["unknown_cost_legs"] == 1
+    assert result["unknown_trades"] == 1 and events == before
+
+
+def test_forward_stable_exit_identity_partial_before_save_and_capture_gaps(tmp_path):
+    now = datetime(2026, 11, 17, 6, tzinfo=timezone.utc)
+    cfg = Config(state_dir=str(tmp_path))
+    p = Portfolio(cfg=cfg, cash=100.)
+    record = v.capture_entry(p, cfg, {"decision": {"path": "scan"}}, now, 10)
+    evidence = {"trade_id": "economic", "validation": record}
+    p.positions["A.NS"] = PaperPosition("A.NS", 5, 100., now, "Unknown", 100., 80., "test",
+                                       mode="intraday", trade_evidence=deepcopy(evidence))
+    close_ev = deepcopy(evidence)
+    close_ev["exit"] = {"id": "exit-one", "validation_run": v.identity(cfg)}
+    trade = ClosedTrade("A.NS", 5, now, now, 100., 99., -5., 2., -7., "stop", "Unknown", 80., "test",
+                        mode="intraday", trade_evidence=close_ev)
+    p.trades.append(trade)
+    fv.stage(p, now)
+    entry = next(e for e in p.validation_pending.values() if e["kind"] == "entry")
+    assert entry["position"]["qty"] == 10  # original, not remaining five
+    exported = []
+    fv.flush(p, lambda e: exported.append(e) or True)
+    trade.entry_notes = "owner reviewed"
+    trade.tags.append("reviewed")
+    fv.stage(p, now)
+    assert not any(e["kind"] == "exit" for e in p.validation_pending.values())
+    p.positions["A.NS"].trade_evidence = {"validation_error": "ValueError"}
+    fv.stage(p, now)
+    assert p.validation_state["capture_error"] == "entry_capture_incomplete"
+
+
+def test_forward_sessions_count_regular_exchange_days_only():
+    run = v.identity(Config())
+    events = [dict(kind="equity", run=run, point=[day + "T10:00:00Z", 100.])
+              for day in ("2026-11-14", "2026-11-15", "2026-11-16", "2026-11-17")]
+    assert fv.report(events)["cohorts"][0]["observed_sessions"] == 2
+
+
 def test_actual_replay_inputs_reject_future_daily_and_unfinished_intraday():
     from research.combined_2026_11_17.replay import Inputs
     daily = pd.DataFrame({"Close": [100, 9999]}, index=pd.to_datetime(["2026-11-16", "2026-11-17"]))
@@ -147,6 +253,28 @@ def test_replay_schedule_matches_actual_daily_rotation_and_square_off():
     assert [(ts, a) for ts, a in events if a == "scan"] == [("09:20", "scan"), ("14:30", "scan")]
     assert ("15:25", "square_off") in events
     assert ("09:00", "refresh") not in events
+
+
+@pytest.mark.parametrize("clock", ["2026-11-16T03:45:00Z", "2026-11-16T03:50:00Z", "2026-11-16T09:00:00Z"])
+def test_acceleration_preserves_all_accepted_bars_and_validity(clock):
+    from research.combined_2026_11_17.replay import Inputs
+    from research.combined_2026_11_17.reproduce import bounded_input_window
+    from trading.calendars import is_trading_day
+    dates = [pd.Timestamp(str(d.date()) + " 09:15", tz="Asia/Kolkata") + pd.Timedelta(minutes=5*i)
+             for d in pd.date_range("2026-10-01", "2026-11-17") if is_trading_day(d.date()) for i in range(75)]
+    f = pd.DataFrame({"Open": 100., "High": 101., "Low": 99., "Close": 100., "Volume": 1000.},
+                     index=pd.DatetimeIndex(dates).tz_convert("UTC"))
+    x = Inputs({}, {"A.NS": f}); x.now = pd.Timestamp(clock)
+    cfg = Config(mode="intraday")
+    before, diag = x.fetch_intraday(["A.NS"], cfg)
+    with bounded_input_window():
+        after, other = x.fetch_intraday(["A.NS"], cfg)
+    assert before.keys() == after.keys()
+    for name in before:
+        pd.testing.assert_frame_equal(before[name], after[name])
+    assert diag["A.NS"]["status"] == other["A.NS"]["status"]
+    assert diag["A.NS"]["reason"] == other["A.NS"]["reason"]
+    assert x.intraday["A.NS"] is f
 
 
 def test_actual_engine_runs_offline_with_production_scores_and_gates():

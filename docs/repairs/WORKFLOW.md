@@ -59,7 +59,7 @@ an old release note as a real-time status page.
 ```sh
 python scripts/check_repair_records.py --sync  # after editing backlog.json
 python scripts/check_repair_records.py         # read-only CI check
-pip install -r requirements.txt pytest openpyxl
+pip install -r requirements.txt pytest openpyxl freezegun==1.5.5
 python -m pytest trading/tests/ web/tests/ -q -ra --junitxml=pytest-results.xml
 ```
 
@@ -95,6 +95,12 @@ require acknowledged immutable export, retry on restart, and disclose gaps or
 query limits. Separate versions and portfolio resets; inherited positions and
 owner instructions cannot establish automatic-strategy edge. Keep performance
 acceptance open until genuine future observations meet the declared coverage.
+
+If live storage rejects portfolio writes, hold a deployment that would restart
+the process until its unsaved book and spill history are preserved. HTTP 200
+and a connected database do not establish durability. Repository/CI delivery
+can proceed with an explicit deployment hold; do not label it live or count
+unacknowledged observations as completed forward evidence.
 
 ## Online source batches
 

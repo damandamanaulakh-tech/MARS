@@ -67,4 +67,4 @@ XR-026's proposed-stop mismatch and XR-031's all-loss bypass, while showing know
 economic net losses/costs beside the filtered strategy sample. 3,469 canonical
 local and GitHub CI tests pass, zero skips. The separately acquired 15-stock holdout rejects
 the measured-sizing candidate because it executes zero trades; no experimental
-threshold or policy is promoted. PR220 is merged and its exact revision is live with HTTP200/readiness/Mongo health verified. Natural scan/trade observation remains pending; SEQ-11 actual-strategy and forward paper validation stays queued.
+threshold or policy is promoted. PR220 is merged and its exact revision is live with HTTP200/readiness/Mongo health verified. Natural scan/trade observation remains pending; SEQ-11 actual-strategy validation is active; forward instrumentation is locally tested and deployment is held on recurring storage refusal. See the 17 November combined-validation release.

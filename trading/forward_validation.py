@@ -17,6 +17,15 @@ def stage(portfolio, now=None):
     run = v.identity(portfolio.cfg)
     def add(key, payload):
         if key not in seen and key not in pending:
+            # Manifest once per run, not once per position or equity mark.
+            for field in ("run", "exit_run"):
+                full = payload.get(field)
+                if full and full.get("settings"):
+                    mk = "manifest:" + full["id"]
+                    if mk not in seen and mk not in pending:
+                        pending[mk] = {"_id": mk, "model": v.MODEL, "kind": "manifest",
+                                       "observed_at": now.isoformat(), "run": full}
+                    payload[field] = {"id": full["id"]}
             pending[key] = {"_id": key, "model": v.MODEL, "observed_at": now.isoformat(), "book_epoch": state.get("started_at"), **payload}
     # Do not relabel pre-deployment trades as future observations.
     if not state.get("started_at"):
@@ -29,24 +38,38 @@ def stage(portfolio, now=None):
     for pos in portfolio.positions.values():
         evidence = pos.trade_evidence or {}
         record = evidence.get("validation")
+        if evidence.get("validation_error"):
+            state["capture_error"] = "entry_capture_incomplete"
         if record:
             key = v.digest(["entry", evidence["trade_id"]])
+            if key in seen or key in pending:
+                continue
             add(key, {"kind": "entry", "path": record.get("path", "unknown"), "trade_id": evidence["trade_id"],
                       "run": record["run"], "input": record,
-                      "position": {k: x for k, x in pos.to_dict().items()
-                                   if k in ("ticker", "qty", "entry_price", "entry_date", "mode", "stop_price", "target_price")}})
+                      "position": {**{k: str(getattr(pos, k)) if k == "entry_date" else getattr(pos, k)
+                                      for k in ("ticker", "entry_price", "entry_date", "mode", "stop_price", "target_price")},
+                                   "qty": record.get("original_qty")}})
     for trade in portfolio.trades:
         evidence = trade.trade_evidence or {}
         record = evidence.get("validation")
+        if evidence.get("validation_error") or (evidence.get("exit") or {}).get("validation_error"):
+            state["capture_error"] = "trade_capture_incomplete"
         if not record:
+            continue
+        # Exit decision identity is immutable. A later annotation/tag change
+        # must not create another realised profit/loss observation.
+        exit_id = (evidence.get("exit") or {}).get("id")
+        if not exit_id:
+            portfolio.validation_state["capture_error"] = "exit_identity_unavailable"
+            continue
+        key = v.digest(["exit", evidence["trade_id"], exit_id])
+        if key in seen or key in pending:
             continue
         row = trade.to_dict()
         row.pop("trade_evidence", None)
         row.pop("reasoning", None)
         row.pop("entry_notes", None)
         row["trade_id"] = evidence["trade_id"]
-        # Includes quantity + timestamps + costs; same-symbol re-entries differ.
-        key = v.digest(["exit", row])
         add(key, {"kind": "exit", "trade_id": evidence["trade_id"],
                   "run": record["run"],
                   "exit_run": (evidence.get("exit") or {}).get("validation_run"),
@@ -80,7 +103,8 @@ def flush(portfolio, writer):
     """Call ONLY after portfolio.save is durably acknowledged. Idempotent IDs."""
     state, pending = portfolio.validation_state, portfolio.validation_pending
     seen = list(state.get("seen", []))
-    for key, event in list(pending.items()):
+    # Mongo/JSON key order is not an acknowledgement dependency.
+    for key, event in sorted(pending.items(), key=lambda item: item[1].get("kind") != "manifest"):
         try:
             ok = writer(deepcopy(event)) is True
         except Exception:
@@ -107,12 +131,16 @@ def report(events, *, truncated=False, pending=0):
     open_now = set(latest_book.get("open_trade_ids", []))
     excluded_owner = 0
     for event in events:
+        if event.get("kind") == "manifest":
+            continue
         run = event.get("run") or {}
         if not run.get("id"):
             continue
         group = groups.setdefault((run["id"], event.get("book_epoch")), {"run_id": run["id"], "book_epoch": event.get("book_epoch"), "mode": run.get("settings", {}).get("mode"),
             "code_sha256": run.get("code", {}).get("sha256"), "settings_sha256": run.get("settings_sha256"),
-            "trades": [], "entries": {}, "points": [], "mixed_exit_code": 0, "mixed_exit_settings": 0, "from": None, "through": None, "legacy_marks": False,
+            "trades": [], "entries": {}, "points": [], "mixed_exit_code": 0, "mixed_exit_settings": 0,
+            "unknown_cost_legs": 0, "owner_exit_legs": 0,
+            "from": None, "through": None, "legacy_marks": False,
             "capital": run.get("settings", {}).get("starting_capital", 0), "sessions": set()})
         observed = event.get("observed_at")
         if observed:
@@ -125,7 +153,15 @@ def report(events, *, truncated=False, pending=0):
             else:
                 group["entries"][event["trade_id"]] = event.get("position", {})
         if kind == "exit":
-            group["trades"].append(event["trade"])
+            row = deepcopy(event["trade"])
+            # Keep the original ledger intact. Unverified legacy/overnight
+            # charges cannot establish net expectancy for the new cohort.
+            if (row.get("cost_evidence") or {}).get("status") != "paper_estimate":
+                group["unknown_cost_legs"] += 1
+                row["costs"] = None
+            if any(word in str(row.get("reason", "")).lower() for word in ("owner", "manual")):
+                group["owner_exit_legs"] += 1
+            group["trades"].append(row)
             if event.get("exit_code_sha256") != group["code_sha256"]:
                 group["mixed_exit_code"] += 1
             if event.get("exit_settings_sha256") != group["settings_sha256"]:
@@ -133,7 +169,12 @@ def report(events, *, truncated=False, pending=0):
         if kind == "equity":
             group["points"].append(event["point"])
             group["legacy_marks"] |= bool(event.get("open_legacy_positions"))
-            group["sessions"].add(str(event["point"][0])[:10])
+            from .quote_evidence import utc
+            from .calendars import is_trading_day
+            from zoneinfo import ZoneInfo
+            at = utc(event["point"][0])
+            if at and is_trading_day(at.astimezone(ZoneInfo("Asia/Kolkata")).date()):
+                group["sessions"].add(at.astimezone(ZoneInfo("Asia/Kolkata")).date().isoformat())
     out = []
     for group in groups.values():
         # Completion requires the sum of exit legs to match known original qty.

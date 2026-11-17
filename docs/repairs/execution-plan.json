@@ -581,16 +581,18 @@
       "depends_on": [
         "SEQ-10"
       ],
-      "status": "IN_PROGRESS",
+      "status": "LOCAL_TESTED_DEPLOYMENT_HELD_STORAGE",
       "implementation": "ACTUAL_ENGINE_REPLAY_AND_FORWARD_OUTBOX",
-      "tests": "30 focused tests pass; full canonical suite pending.",
+      "tests": "44 new /97 expanded /3513 canonical local pass; zero failures/errors/skips. Combined replay and CI pending.",
       "pull_request": null,
       "merge_revision": null,
       "deployment_revision": null,
-      "health": "NOT_CHECKED",
-      "runtime": "NOT_OBSERVED",
-      "evidence": "docs/repairs/releases/2026-11-17-combined-validation.md"
+      "health": "HTTP200_BUT_MONGO_WRITES_REFUSED",
+      "runtime": "FORWARD_NOT_STARTED_STORAGE_HOLD",
+      "evidence": "docs/repairs/releases/2026-11-17-combined-validation.md",
+      "performance_acceptance": "PENDING_GENUINELY_NEW_FORWARD_COHORTS",
+      "storage_evidence": "docs/repairs/evidence/2026-11-17-combined-storage-hold.json"
     }
   ],
-  "active_step_note": "SEQ-11 in progress: freeze actual-engine replay inputs, acquire new bounded holdout, install passive forward observation; no unproved settings promoted. Future forward coverage remains pending."
+  "active_step_note": "SEQ-11 active: source, data and settings frozen; actual-engine historical replay and CI under verification. Forward instrumentation locally tested. Deployment held because quota-refused writes put current RAM/spills at risk; no settings promotion or manufactured forward evidence."
 }

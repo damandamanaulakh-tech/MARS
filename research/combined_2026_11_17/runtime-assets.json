@@ -1,0 +1,2302 @@
+{
+  "files": {
+    "data/README.md": {
+      "bytes": 15794,
+      "git_blob": "a00fdc91cfb32d01078200f5bf26a3d2d4f62784",
+      "sha256": "70b510d70b2a3b0ef4626f01aff33457623672f9ec4b90c53f9f50b542eee351"
+    },
+    "data/SOURCEBORN_STOCK_PARAMETER_MASTER_CLUBBED_v1_1.xlsx": {
+      "bytes": 18268,
+      "git_blob": "aeccdcbe472bbe03a94724b3dff741825d80cdbc",
+      "sha256": "b8444fba502c82c560f2af4f8d3c959de900bac86f638c22144dfda6872fe22d"
+    },
+    "data/analyst_ratings.csv": {
+      "bytes": 7836,
+      "git_blob": "aae81904e2d6981291ebedd2d93b854ac144217d",
+      "sha256": "31335a849fe5ec5bee28754431374d90798a022ca094d1c07fc2dfc38403f5fe"
+    },
+    "data/block_deals_2019_2026.csv": {
+      "bytes": 485598,
+      "git_blob": "3225713c11ffd076cde7de28f61ce70231642d26",
+      "sha256": "1430d9a292463d2bccdf0853daccab9515580d0f12150e5bea3cdc172294ebe4"
+    },
+    "data/bulk_deals_2019_2026.csv": {
+      "bytes": 746044,
+      "git_blob": "9b7899777d4bc451d05f4f1cd077616b5976a5f2",
+      "sha256": "3e0b3f2dfe808d365a793bcca45e005ba6c9320f657d9e9788c160a4169cc91c"
+    },
+    "data/chityy/master_extended_chityy.csv": {
+      "bytes": 57997,
+      "git_blob": "b9ff345d9ced5668d383e673dd6daab4954ee8e0",
+      "sha256": "548f63eb3389f2f2b43cbd58e2854947f64c630b963f9bea279f6ad350898e87"
+    },
+    "data/delivery_daily_2019_2026.csv.gz": {
+      "bytes": 52268806,
+      "git_blob": "6c006a45300c44a7031e0c27faf6ab46bd893a97",
+      "sha256": "43203f70c2df9e12fc54e1532258eb5670f7aecdae9766152d7e63eb2db08a4a"
+    },
+    "data/earnings_dates.csv": {
+      "bytes": 4508,
+      "git_blob": "7d82b3866b29b29ffe72dcf629c0b8dec8a61b77",
+      "sha256": "24a6b07458ba306aad64eda169eef11a8f7f3711592a55db1c52d74d72a81496"
+    },
+    "data/estimate_revisions.csv": {
+      "bytes": 34130,
+      "git_blob": "4c08236826c796c84eed2a5e9cf8dddfb4918a4a",
+      "sha256": "660b668648d1755bc9569d4cecf7ea68717720ad3f2bf536d75328d9b4d51062"
+    },
+    "data/fii_derivatives_stats_current_clean.csv": {
+      "bytes": 4423,
+      "git_blob": "d3448151f4de507c96548b19311b66da647b9f67",
+      "sha256": "36cabe3add2f256f26998ed63254b7da259ef6573f5a473297f69fc3a53217ec"
+    },
+    "data/fii_dii_cash.csv": {
+      "bytes": 13271,
+      "git_blob": "561816df090cad9a45f3aa62c960db959a8cf6bf",
+      "sha256": "b54b7f319b1456dbd098f7622db1f49ecb12ffc1c452904c332901b2c22cf6a0"
+    },
+    "data/fii_dii_cash_history_2007_2022.csv": {
+      "bytes": 765678,
+      "git_blob": "cec7cbef2580d24ccdc7a3ef688d632109987c4a",
+      "sha256": "78dd9152a24422ef851cf755535b85af4169efe2edbcbe2a4e976c722e56b368"
+    },
+    "data/fii_dii_daily_2014_2023.csv": {
+      "bytes": 75453,
+      "git_blob": "800502b4a17e9b550d1b67e65976b7b9fdd3f773",
+      "sha256": "e75d35eb1bbeb85d03ad3d372f5500b21f0d8a077419f198893e124c4716cd24"
+    },
+    "data/fii_dii_net_recent.csv": {
+      "bytes": 861,
+      "git_blob": "c30a02317ac4805a755bfc4f0a32fc6a7ec2f5b1",
+      "sha256": "c5a7fadce50d9994d463fcac9d0277b7cf96a851a48df5ca365150400b485d76"
+    },
+    "data/fo_mwpl_2026-06.csv": {
+      "bytes": 3903,
+      "git_blob": "7cb494a7199df5357bb0e31e86560447778d697b",
+      "sha256": "c218c295933a637d02a42c045020f4653e458546e90097e8f21ef72e21372299"
+    },
+    "data/fo_oi_daily_2024_2026.csv": {
+      "bytes": 4955171,
+      "git_blob": "dc0ba0de436e0ad58843f95c056a3e61158f442f",
+      "sha256": "7bfb3d85f1eb8bc8b23f3fa2225efc8a88b30dcee4d6078c37089ea5e8c0a2a4"
+    },
+    "data/fo_oi_top_contracts_2026-06-08.csv": {
+      "bytes": 1703,
+      "git_blob": "ca8926c6c7fb1df4eb17203335a741c819cda335",
+      "sha256": "f0533f3c35ce1b37170a081436c7d6875114242c3efd1c2bf3fab4fb5248dbf0"
+    },
+    "data/fo_options_pcr_oi_by_symbol_2026_06_03.csv": {
+      "bytes": 6747,
+      "git_blob": "64b0224b3b36782c6c45af4914621d81c5771c7a",
+      "sha256": "2379fe6fc2dd8bcd63ba2a3e50bed682eb8c8a5d04f905cf608f2860fd7a094a"
+    },
+    "data/fo_participant_oi_2013_2023.csv": {
+      "bytes": 7973047,
+      "git_blob": "a9773ba045508366853b5a63b37a9e28765c1bdf",
+      "sha256": "1ec8bde183c2a9f89bcc88b98579126bc540a5820150a2e68b94403e0ea72636"
+    },
+    "data/fo_participant_oi_2024_2026.csv": {
+      "bytes": 374171,
+      "git_blob": "4979a8c8e1124e922b4de978c044d86749a534dd",
+      "sha256": "79eb1c2830ab63c2acb99a380f8b38a018e2f21a17d15d3bb143a345bbc14ccb"
+    },
+    "data/fpi_monthly_net_investments_parsed.csv": {
+      "bytes": 11192,
+      "git_blob": "7606061163cde3698c8311c981f0a8e36f07e1bb",
+      "sha256": "cbd4e0fd4c205b4787a1e3dc5f15196df088f9b00b222b3a4f46d035461c6480"
+    },
+    "data/full_universe_2392.zip": {
+      "bytes": 46672135,
+      "git_blob": "d3685eb7f1bd9816adffb4a07ea0d8cd0e7d6412",
+      "sha256": "05541af5c957da1d0eea2d5355de75bfd2c9fea20f00f3601900f3867dbfe8fe"
+    },
+    "data/fundamentals_n200_2026-08-09.csv": {
+      "bytes": 598532,
+      "git_blob": "9aa16e470a141aa6610284a4d4b80a0c72fdcef2",
+      "sha256": "79b58871a249498ef23e0ccff072c408fb8f500b26ba83e38f274ad1feef6552"
+    },
+    "data/fundamentals_n200_2026-08-09_coverage.csv": {
+      "bytes": 3029,
+      "git_blob": "6940c173763ba4af81e4ad230ec15a0655129d7d",
+      "sha256": "d0263bce91847f6cb0b35a2b56604b5f701b7a61dbc1e8545241fdf6ba306d6f"
+    },
+    "data/fundamentals_yf_statements_2026-08-09.zip": {
+      "bytes": 1238069,
+      "git_blob": "8a6544b72b54fea2addbdccac8960146e61a89a5",
+      "sha256": "517bf9bd253e33d01ec6fe4295b0c13d43b8f300f8a2f4d07fda176b2cdc9470"
+    },
+    "data/geography_brsr_exports.csv": {
+      "bytes": 44556,
+      "git_blob": "4da9787e3bb2b9bc9d3377d25289991300b8b8a6",
+      "sha256": "dbdcc8f0d7f5afe0c86e24ef5201b4e625247cc6422a7d99befd3c6cba6e6837"
+    },
+    "data/geography_splits.csv": {
+      "bytes": 14454,
+      "git_blob": "e2d2a98bd137cae2ecac1b2ff9bc9efc35011010",
+      "sha256": "b0e96c1cf3244065d414aa70411a7dff38d72cc476425d99b3bf88840807e234"
+    },
+    "data/history_15stock/BAJAJFINSV.csv": {
+      "bytes": 60682,
+      "git_blob": "542efe39477a0d0325bf04de8a0dfc97bd3b07f7",
+      "sha256": "53c4aa1c3da941ee5c852f13a44fb545b5e3588be6a1550b3defb31dabe4c6e7"
+    },
+    "data/history_15stock/BAJFINANCE.csv": {
+      "bytes": 58822,
+      "git_blob": "acd600eb86a90b89995e7d4aa1f6eddb713af34e",
+      "sha256": "9e6f705285b0ba4a4c29af6256b387e3413397f4c3cc06cfa473f1d0cd52ae4b"
+    },
+    "data/history_15stock/BHARTIARTL.csv": {
+      "bytes": 117740,
+      "git_blob": "3dc0d706534befac07493f1b681eabc71027c95c",
+      "sha256": "5dae18a36269f93fcca6095ee4de15cd831aa1f0b68987001ec4de7698b1d72c"
+    },
+    "data/history_15stock/DRREDDY.csv": {
+      "bytes": 119888,
+      "git_blob": "3214d259f73d39762fdf35155637ca9e76d2cda9",
+      "sha256": "565af8a93778706b4ff67c40cd4c607f265ec2bd72002c16cebe8d06db7ee32f"
+    },
+    "data/history_15stock/HDFCBANK.csv": {
+      "bytes": 119394,
+      "git_blob": "4c2e15fe2eee49fc049b0ef14e4f1c02f253634c",
+      "sha256": "dc002e90b8b50866692df2d90c38ef3902a44ffa15724410de49ff5ba516f50c"
+    },
+    "data/history_15stock/HINDUNILVR.csv": {
+      "bytes": 122457,
+      "git_blob": "a04f31ad3db50d480250bdfae77cce2dae143d30",
+      "sha256": "d82140559aa66c628414a82f9ce4fe75b7a30e3aadf4bdf27a55ac3ed8994d83"
+    },
+    "data/history_15stock/ICICIBANK.csv": {
+      "bytes": 60600,
+      "git_blob": "8829027f50fba4cac466ce1786e4ac1457e08b50",
+      "sha256": "dfb268b46eb8234913ca26e0cfa4de000e31a9c5430d2a1404e432a48c544b85"
+    },
+    "data/history_15stock/INFY.csv": {
+      "bytes": 121093,
+      "git_blob": "a2c14e69266ef0bdc9443c900ed12a45d3cb3a29",
+      "sha256": "ec6799105537bbc6523518951878d0c2d71ddffe14f45c1a445f86e8782e45cd"
+    },
+    "data/history_15stock/M&M.csv": {
+      "bytes": 57788,
+      "git_blob": "49083673aae6729f79a98b7dc720588ec26e5848",
+      "sha256": "b18b332afb1c3a6745b38e24008bcdc8644e28daf257f7cd315d41b37564a498"
+    },
+    "data/history_15stock/MARUTI.csv": {
+      "bytes": 124576,
+      "git_blob": "deb95b7e240056b4f87c822d09411c6e6b6817be",
+      "sha256": "9f4963a6c9f7d40aecbe50e8e026632b6bb63dd628d86b58bef8618440a99076"
+    },
+    "data/history_15stock/ONGC.csv": {
+      "bytes": 58886,
+      "git_blob": "43b8cae89aa385a29aaeea9a8b298b17ab99ba7f",
+      "sha256": "1ddaca0dcff9aff6c590455c5c0e8f03652c1b66f7a1cd3aab3a9ce3b1715b5d"
+    },
+    "data/history_15stock/RELIANCE.csv": {
+      "bytes": 123804,
+      "git_blob": "e1c268a9ca7a3fbfa90b9275b1697047632989a8",
+      "sha256": "c02645833e161f3e2003239cba7d95f38356eef5d0eab87ab7bee7a1a6dea8d6"
+    },
+    "data/history_15stock/SBIN.csv": {
+      "bytes": 117572,
+      "git_blob": "2f5d3956c5da9a23a405d27d472658d223c83f51",
+      "sha256": "9d208c4e92f8c7684a0b47409b9bec7d6a177f1fa753dab2075d9ae8556941f3"
+    },
+    "data/history_15stock/SUNPHARMA.csv": {
+      "bytes": 118005,
+      "git_blob": "f4f90934d5d0ea53c6da4f919d7b248b768fecea",
+      "sha256": "d97b3f507a17a85192921fe3eec0c6e431459c25055174c318b6157ac9968534"
+    },
+    "data/history_15stock/TATASTEEL.csv": {
+      "bytes": 115897,
+      "git_blob": "74839bc79e3ba2aec23ddac377bf43acd9d20c64",
+      "sha256": "3624ccd79924481261d696c065da828aa5804eca6dc0d9dcfab21bd0c9d4ee21"
+    },
+    "data/history_15stock/TCS.csv": {
+      "bytes": 62628,
+      "git_blob": "dc0d4acf1afff52344b63603ddd54eed906816b3",
+      "sha256": "8fc98bc9f18586de95ad0dad6073698f2801fee034caa3dfd15afe86284667b5"
+    },
+    "data/history_15stock/adjustments_manifest.csv": {
+      "bytes": 844,
+      "git_blob": "76e25db76b166df249c0ad7438d4bd8083d4db10",
+      "sha256": "9c73f76b87bb276aa8dc9076105d92b4a68c09a4188ebd05035a3c72f4cb71f4"
+    },
+    "data/history_15stock_raw/02-02-2016-TO-01-02-2021-BAJAJFINSV-ALL-N.csv": {
+      "bytes": 204964,
+      "git_blob": "3aa75caceb23d978d2aec71add103d246adeb4f1",
+      "sha256": "8fd6f16eb518162e3588ed48c33116d49f334a27d50c7c3ce7e2946165a7bbf0"
+    },
+    "data/history_15stock_raw/02-02-2016-TO-01-02-2021-BHARTIARTL-ALL-N.csv": {
+      "bytes": 194945,
+      "git_blob": "d8014a281ea3a74191df862ee70f0622daabb99b",
+      "sha256": "18bfbf056a1567b3bf2974b572ae0a90619c90e703d77be82e3df8568d54e028"
+    },
+    "data/history_15stock_raw/02-02-2016-TO-01-02-2021-DRREDDY-ALL-N.csv": {
+      "bytes": 204128,
+      "git_blob": "0c89b7ab21f038aab0dc35db3f4f636a9d807032",
+      "sha256": "bace29e25ee5b4c0af524e0d8158c990ac1738e385004c00c0c1870952d9f600"
+    },
+    "data/history_15stock_raw/02-02-2016-TO-01-02-2021-HDFCBANK-ALL-N.csv": {
+      "bytes": 236275,
+      "git_blob": "90d454f4d7d61a1359095bf84f680d630aaf5647",
+      "sha256": "493fb56ca441aaa06761accde30b544cb99afcfa605a21fd7ed983d86c67c32f"
+    },
+    "data/history_15stock_raw/02-02-2016-TO-01-02-2021-HINDUNILVR-ALL-N.csv": {
+      "bytes": 205134,
+      "git_blob": "c33c853979102bc20843d95539551408dac38f1e",
+      "sha256": "e9dc57797a1beb05c630463548cfe857c65ca7af74155a2a2447b2151454d6ca"
+    },
+    "data/history_15stock_raw/02-02-2016-TO-01-02-2021-INFY-ALL-N.csv": {
+      "bytes": 195682,
+      "git_blob": "b2410a29dacea4a7324931dd69bdbd57518d696f",
+      "sha256": "f112fd603597d7a0392cdad63fb133c36fba4ad73ea3fefd38a4e7b120226ced"
+    },
+    "data/history_15stock_raw/02-02-2016-TO-01-02-2021-M&M-ALL-N.csv": {
+      "bytes": 190841,
+      "git_blob": "b53b604427f2ee5f8bff2e9fc71167989f61593c",
+      "sha256": "82a599c9a6627ee698b65c8aeb6f622c79830bfbd3b4c55f355648d7f1530985"
+    },
+    "data/history_15stock_raw/02-02-2016-TO-01-02-2021-MARUTI-ALL-N.csv": {
+      "bytes": 204487,
+      "git_blob": "bd5bc81ae1489465bbbeb454740bc21ce68ecfd9",
+      "sha256": "975c28e6f2d4ee66f3d8ffb71f658e2494a246a1b0dfcdb0bb5f3027cb9dc867"
+    },
+    "data/history_15stock_raw/02-02-2016-TO-01-02-2021-RELIANCE-ALL-N.csv": {
+      "bytes": 207373,
+      "git_blob": "f6f3837852401970e51b0aa18c9354a9b8620afe",
+      "sha256": "66b146791fa0b6a87f104f472fcb41423b69c85904b10a0736f20d9d17aa1723"
+    },
+    "data/history_15stock_raw/02-02-2016-TO-01-02-2021-SBIN-ALL-N.csv": {
+      "bytes": 620492,
+      "git_blob": "b0e3abf9106c7629a8abe925022d6fb940cc527e",
+      "sha256": "f349176091693037055102458ce2641a098b68f3c7e91cc666cb7c303e4aa6ff"
+    },
+    "data/history_15stock_raw/02-02-2016-TO-01-02-2021-SUNPHARMA-ALL-N.csv": {
+      "bytes": 193447,
+      "git_blob": "22a10acbe6d7d6a1dfbee6eb85bef2c0462572b9",
+      "sha256": "b642cc9e10c439a34a1500e8dd979773bfd0544d9483df227cac086fc1eb12b6"
+    },
+    "data/history_15stock_raw/02-02-2016-TO-01-02-2021-TATASTEEL-ALL-N.csv": {
+      "bytes": 277266,
+      "git_blob": "ef528d780b184830b580aeb6661e4cead9e40dcf",
+      "sha256": "d5bafe87d57d84b714a6a634dd3c17886447384c68d508b70ebbcc72b2eac3ea"
+    },
+    "data/history_15stock_raw/02-02-2016-TO-01-02-2021-TCS-ALL-N.csv": {
+      "bytes": 202931,
+      "git_blob": "4a5778777f1a9c33439d44c19e036fb149edb898",
+      "sha256": "c9b437227fb4fc4f7636e8482511cb789af6a3ff007259e0b0e40ce3637ea623"
+    },
+    "data/history_15stock_raw/9-06-2021-TO-9-06-2026-BAJFINANCE-ALL-N.csv": {
+      "bytes": 210784,
+      "git_blob": "f63b4ccfdcf31cbb06e693203b70654243f339aa",
+      "sha256": "9852703ffc1921b5bc7277225fc41ef6f9af4a8aeccafe18c922b938b820ce2a"
+    },
+    "data/history_15stock_raw/9-06-2021-TO-9-06-2026-BHARTIARTL-ALL-N.csv": {
+      "bytes": 208480,
+      "git_blob": "19f04d65896bc43add03a5545e3a7810d07064f5",
+      "sha256": "9a75b49ff8f950454ef65db3f305af4106432c994905bc992997837ebf16d7de"
+    },
+    "data/history_15stock_raw/9-06-2021-TO-9-06-2026-DRREDDY-ALL-N.csv": {
+      "bytes": 206120,
+      "git_blob": "e426f0297f276c404559ec49b3509859ceb9e7a8",
+      "sha256": "1c03602585d8fd973e121d2a42e06cb21cc18353a8ef03987293e971fbf8ec04"
+    },
+    "data/history_15stock_raw/9-06-2021-TO-9-06-2026-HDFCBANK-ALL-N.csv": {
+      "bytes": 216608,
+      "git_blob": "88ddc2e1c8f895dbda132d45e17ee603fa89337b",
+      "sha256": "fa06d5c40bc0467cb6d7daa1c02156ad6d697bfc27afd44f0f9f7c4383608492"
+    },
+    "data/history_15stock_raw/9-06-2021-TO-9-06-2026-HINDUNILVR-ALL-N.csv": {
+      "bytes": 211904,
+      "git_blob": "417c0a6c7f2c147d90db9903643fa75ff03d8741",
+      "sha256": "7c7c2aec9cacf35ba3aedd1c0f09a885a436824bfc521f85cc8d973694097a6d"
+    },
+    "data/history_15stock_raw/9-06-2021-TO-9-06-2026-ICICIBANK-ALL-N.csv": {
+      "bytes": 208345,
+      "git_blob": "7fdab249c49e63e59c3189c18e5866268c2e6a19",
+      "sha256": "d359bf4b9acb3a8bd394809c2b5bcec4820aee7788488bcfd0792e035f082397"
+    },
+    "data/history_15stock_raw/9-06-2021-TO-9-06-2026-INFY-ALL-N.csv": {
+      "bytes": 209229,
+      "git_blob": "2f690193cf71d6bc0b65e66a684ed439a067fbde",
+      "sha256": "4d29b7fdf4cf249e39ebcfec901aeac42572c8b0d9e9fba6bdfb72e9c6b9ca86"
+    },
+    "data/history_15stock_raw/9-06-2021-TO-9-06-2026-MARUTI-ALL-N.csv": {
+      "bytes": 209720,
+      "git_blob": "648d045e4e64ecb48f1c645e15a3f7c344ed5846",
+      "sha256": "3b453cee66d710513f53fac796033631ee28b347c9d27d9319e6106aa416da89"
+    },
+    "data/history_15stock_raw/9-06-2021-TO-9-06-2026-ONGC-ALL-N.csv": {
+      "bytes": 190718,
+      "git_blob": "c0cdf6455e51612febbbd67ac9aea356965c8ce7",
+      "sha256": "d8d47eb48110868e5f02b1b5c34298d786956f5902025dd84f6ff06818448bf8"
+    },
+    "data/history_15stock_raw/9-06-2021-TO-9-06-2026-RELIANCE-ALL-N (1).csv": {
+      "bytes": 215860,
+      "git_blob": "ef4908ace65bdf597a70ce44141a730701fdb674",
+      "sha256": "d0beb82df373efbb8cdcfb7c68cb3a21be95e5ccafee2a1d5f55a1004b4ff019"
+    },
+    "data/history_15stock_raw/9-06-2021-TO-9-06-2026-SBIN-ALL-N (1).csv": {
+      "bytes": 198073,
+      "git_blob": "72bb5d76f8d6764b21bb48d94f134d9478ddd490",
+      "sha256": "302814c50c79db08f218efbd404b3f690cefa389dbc022a1da2744eb48ed7f8b"
+    },
+    "data/history_15stock_raw/9-06-2021-TO-9-06-2026-SUNPHARMA-ALL-N.csv": {
+      "bytes": 206294,
+      "git_blob": "ed19d22cb1504de2c55157d45715cf07c462261a",
+      "sha256": "c862203756eac74f3c27b50c3f1fc7650e54b8feabb5c96febc9f8a1f4e258dd"
+    },
+    "data/history_15stock_raw/9-06-2021-TO-9-06-2026-TATASTEEL-ALL-N.csv": {
+      "bytes": 204351,
+      "git_blob": "835077269e1bceaf5ca1445d710fa2c0a00e600b",
+      "sha256": "28ed14809bafd82de37f130af0559bfc69bb0fb6852e8972a57019f1ed0f1cea"
+    },
+    "data/history_upstox_export_2026-07-19.zip": {
+      "bytes": 8760391,
+      "git_blob": "483170dbc492ffab9078d83a8c6d259277763031",
+      "sha256": "cfcec960925598fdfba20ae165e4982de7fed4dab44594987d498804a61c1510"
+    },
+    "data/holdco_stakes.csv": {
+      "bytes": 663,
+      "git_blob": "87cdd7aa20ded26c5c4222cd0f01e451902a2a0d",
+      "sha256": "9c7bb1693f72a1d76d4d7710b6a34ff7a073d06f00d7bbd52c071e2e3b6c750b"
+    },
+    "data/index_constituents/2026-08-09_ind_nifty200list.csv": {
+      "bytes": 13081,
+      "git_blob": "2cce4501ff5967b566ba3f6075cd6808413c6484",
+      "sha256": "76b8b127931953ce7e5e5511c99c3b73775140eeb83b6b293085b4a9483dce1a"
+    },
+    "data/index_constituents/2026-08-09_ind_nifty500list.csv": {
+      "bytes": 32766,
+      "git_blob": "0aeaaa20a167451b3926012b874e949903af0f3f",
+      "sha256": "637b99dc20a36a994b8dd43ae8449781258a9c94fab20ca3b87741fb39bd67db"
+    },
+    "data/index_constituents/2026-08-09_ind_nifty50list.csv": {
+      "bytes": 3352,
+      "git_blob": "12b6bef0028c64b33e03fc43003244d6b2b238bc",
+      "sha256": "9fb8832853c279448d2bc05f0e7dd5f460ed2ff35332fea8c40fc1250362ad28"
+    },
+    "data/index_daily_15y.csv": {
+      "bytes": 512363,
+      "git_blob": "8af200c73594616dac7897dc881259c0967be79f",
+      "sha256": "a081bcd52108a2d931a2639d5c96f11e8e90fc1752e8304e62fe996339abb8eb"
+    },
+    "data/india_10y_bond_yield.csv": {
+      "bytes": 136482,
+      "git_blob": "31c19695bb4b0ce34b58d929b79db617591725cd",
+      "sha256": "f8900835eb99d042f0452672518d6e3e274b6a1cddcb3d37b054c5985903923a"
+    },
+    "data/india_broad_money.csv": {
+      "bytes": 2886,
+      "git_blob": "49c3c39a4b834328cc21c20b7a23f2b1b161bfd8",
+      "sha256": "458b82032a8a047649d053db3de4e67a7c81fe29257c1b5901e18a088cc245e2"
+    },
+    "data/industry_to_index.csv": {
+      "bytes": 5737,
+      "git_blob": "a9589761350d71b94edc2b7428ee02bb9226a396",
+      "sha256": "9c458b8f805ad95abcae2b585b975eae4be69a1f798a21f44510ac4e6e12a931"
+    },
+    "data/insider_pit.csv": {
+      "bytes": 18146761,
+      "git_blob": "01bc4788fe6dbe5297e4e800c27cfae694ec7389",
+      "sha256": "e97e6c36f5fb021ea8a78b9cc8f2a421bf7857a01f65aee032736f94e592c4f4"
+    },
+    "data/lender_networth_filings.csv": {
+      "bytes": 31667,
+      "git_blob": "3dbf87dd8996588248ba9c3002d74c82e1c8000e",
+      "sha256": "a508b2de4a10a02cd81f33b429b58a5a66f2bf826e69f2d93d98aecd05345e09"
+    },
+    "data/market_internals_1996_2024.csv": {
+      "bytes": 2805759,
+      "git_blob": "6291b8951d8eee4f87089a23ded8f8c37bd94671",
+      "sha256": "535cf389150de0cec909da5bc042ee228f22bce7fa7a8e4da267143df7897811"
+    },
+    "data/nifty200_daily.csv": {
+      "bytes": 305390,
+      "git_blob": "abe7e9fadb6e6f079b12db02a2e53b6660e59758",
+      "sha256": "5a94ad928c2a50dd51a4895e387dff469303db96595563defea393f543ffd4ec"
+    },
+    "data/nse_all_stock_data.csv.zip": {
+      "bytes": 21490351,
+      "git_blob": "4b46f78bc6914e72623d9bb9ec0769b47c8bb685",
+      "sha256": "98f067b50abe8aa0eb416d4a2b91f4518d7942aa77b476d297cad5b64551c11b"
+    },
+    "data/rbi_repo_history.csv": {
+      "bytes": 6382,
+      "git_blob": "d5e6e26718e96e943f53e20c117feb98a6ed5e35",
+      "sha256": "23714208ac6db9e854d8014d98177420aa39a33986cc7cb8957c776f508dc40d"
+    },
+    "data/remapped_names.csv": {
+      "bytes": 23565,
+      "git_blob": "ef94e02a7dc340423a1f897cf5a564384403fbe9",
+      "sha256": "8a51c1cb978c291c26bb96d7c61ecc6de5b8c495b8362d5ddc16f3b93d5ff4ee"
+    },
+    "data/sector_identity_snapshot.json": {
+      "bytes": 181248,
+      "git_blob": "2a2e7dd08b7046f09e76edae73e1bb1fe9bc1e7d",
+      "sha256": "9a6bb89d0daf37ad48ac6c775e622c316b9574ffd7f233cbb534e648c55dcf11"
+    },
+    "data/segment_ebit.csv": {
+      "bytes": 1859,
+      "git_blob": "e889c5f04c2c7a8656e6af6ec9c7394760a288bb",
+      "sha256": "75d8b35596ae4c51229fd02f0d235a0819dc5ccc1b07e653ec702ea607bd90dd"
+    },
+    "data/shareholding/360ONE.json": {
+      "bytes": 19305,
+      "git_blob": "902436459ce4522b689d95e274a8a9976e51275c",
+      "sha256": "7360c123572e04badd5503a60aeb22feff37388b1b94097e60d99643b1cdeb1c"
+    },
+    "data/shareholding/ABB.json": {
+      "bytes": 16356,
+      "git_blob": "4a2703a6d029e61e646fd10838502f9e5087a7f8",
+      "sha256": "dd886693412059d69fabad4e4746997ad16c5f16116fb7027b52697048446f17"
+    },
+    "data/shareholding/ABCAPITAL.json": {
+      "bytes": 20475,
+      "git_blob": "149e0771a87a0bb2a277f9e8cb7128765a536251",
+      "sha256": "0772306b5571a88bfd3c167b4990cd84bcb20159d68bc30076bcd67b7698e816"
+    },
+    "data/shareholding/ADANIENSOL.json": {
+      "bytes": 21096,
+      "git_blob": "667dece7960db035dee1dad2fd9c84fbd5108233",
+      "sha256": "37ff4d0600e6c7dbdf34746323680a195deb8147a9e5bfb7e86dc6c4cde31de3"
+    },
+    "data/shareholding/ADANIENT.json": {
+      "bytes": 23509,
+      "git_blob": "63897ba4521c40cd7a447d54f4d58145300d9b00",
+      "sha256": "8fd806c905c77f0c5a55a32f0b9fb57fdf535bf6efe91d535b64ef1d2268f972"
+    },
+    "data/shareholding/ADANIGREEN.json": {
+      "bytes": 17634,
+      "git_blob": "b58f017f9c311e0bde2d4f7c930cba28d4b056ed",
+      "sha256": "c6a1b5cfa53f0a9e480566775495e1c961eedffe93b624fa22b0b18957a1013d"
+    },
+    "data/shareholding/ADANIPORTS.json": {
+      "bytes": 19738,
+      "git_blob": "8ec29873948a561add3a2cf40d7074662e0d76fa",
+      "sha256": "7c25890c97997fea396231d9ca213c1760bbe6d5511a6513e002618079b80559"
+    },
+    "data/shareholding/ADANIPOWER.json": {
+      "bytes": 20463,
+      "git_blob": "c220f69c54bd8fb0998a367916d09e3e78af57ed",
+      "sha256": "b7aeb73c15d51df219f36d2a2447edfa76f5a483d8bc5cd06cea7febf6b1a987"
+    },
+    "data/shareholding/ALKEM.json": {
+      "bytes": 16348,
+      "git_blob": "3478998d87818c2a1b4cedbef4861eeff6d1da66",
+      "sha256": "779f9fdc4e6e8c03afdec07de3129bedfa7e98023c70ef5ba4ee7d8d6b5015be"
+    },
+    "data/shareholding/AMBUJACEM.json": {
+      "bytes": 20016,
+      "git_blob": "db013c638e29cdb0d3357b74fde5b830a696d570",
+      "sha256": "829e186ccca2c2401956f9ec2acee1b4009e5a4cb64297760b6388c10ffb7464"
+    },
+    "data/shareholding/APLAPOLLO.json": {
+      "bytes": 18092,
+      "git_blob": "87551edacc8bd6957fbadca5dc6d5dc125df9f8e",
+      "sha256": "fb1dd90276c814a5f7a30cbf7db78ccc98ee66ea537bad80c2271f5363162eb0"
+    },
+    "data/shareholding/APOLLOHOSP.json": {
+      "bytes": 18162,
+      "git_blob": "615d75bc36958df40cb039177018ccadc8bf9567",
+      "sha256": "726f787cfbc1f897b2d54e0ec946f4a557ccef869355e042237680b75d69d0a8"
+    },
+    "data/shareholding/ASHOKLEY.json": {
+      "bytes": 18234,
+      "git_blob": "2a4a7252b3692e823c8d62faa2eb46efb9afd4c3",
+      "sha256": "088661f07190e4789b88eba92f0a833eed6c4c2184067695e535915a89ee1bbf"
+    },
+    "data/shareholding/ATGL.json": {
+      "bytes": 17113,
+      "git_blob": "1555f35b52119d93bcf1640c3d2de3984295c776",
+      "sha256": "c214778c47b9f9f84541f27a67813088f1cea297a89d4a987843814eaa39b969"
+    },
+    "data/shareholding/AUBANK.json": {
+      "bytes": 24537,
+      "git_blob": "8f4ead6cf749135395af47dbb779882e432a73ed",
+      "sha256": "9ecd25774931cfcdfcae1a01793c44d861e95e9e6fd3da2ad9222f7b0925d2fd"
+    },
+    "data/shareholding/AXISBANK.json": {
+      "bytes": 16822,
+      "git_blob": "e02ec32a838f2a2da6c9c8cf57fa30093f58fae3",
+      "sha256": "b76ca648462b46872721ad983b25ee2b8cb9bcc78713c40a3e2f2a8643839248"
+    },
+    "data/shareholding/BAJAJ-AUTO.json": {
+      "bytes": 17271,
+      "git_blob": "3b17589a9fd5b0f36c08d8c668ebb96e2371eb1a",
+      "sha256": "c97c2e4047e964733347aac8296ebefe334ac548e87a91132039b97fb13368dd"
+    },
+    "data/shareholding/BAJAJFINSV.json": {
+      "bytes": 21059,
+      "git_blob": "ca36cf37ada5b2b6b07a416828cda76f0af31310",
+      "sha256": "f5558da3b31b2fdc59616935d3e4bcdd7a9154ef6d1566f0c0dcfa8146360b7c"
+    },
+    "data/shareholding/BAJAJHLDNG.json": {
+      "bytes": 33610,
+      "git_blob": "4a619ca1aa5ea082920029b1c8fcba27775d7b6d",
+      "sha256": "d91dc02d86bb7c00ed377346bfd89336af835acd674e1e3f0cc8ddc09c9d91a7"
+    },
+    "data/shareholding/BAJFINANCE.json": {
+      "bytes": 19451,
+      "git_blob": "c42f16d1380592f28471fccb8dee0ff89326625e",
+      "sha256": "537abc96af89f1abe6ccd7c6b8a1d494682f85dfdf1d20970775bdf25603365f"
+    },
+    "data/shareholding/BANKBARODA.json": {
+      "bytes": 16083,
+      "git_blob": "9e60424d7516df5255df073e643ee24c01b656da",
+      "sha256": "1bdc6e0671f5093d82d417ac4092e1241b2b015a2ab17039ff435ca0c9e49938"
+    },
+    "data/shareholding/BANKINDIA.json": {
+      "bytes": 16852,
+      "git_blob": "9d00d0284f600d26bc1f481fae5e0dc754907b03",
+      "sha256": "92a43be1ef8113a90d2ca64868bd26c5c98e7212f5706b7d212de7d1f8b47b1d"
+    },
+    "data/shareholding/BDL.json": {
+      "bytes": 16218,
+      "git_blob": "a90ace3e256f112c167b579deff62ce8517882a4",
+      "sha256": "1b8a64c78886824b760eeaf5097556b0e7aeb429a496ef1a622f5acf652bead2"
+    },
+    "data/shareholding/BEL.json": {
+      "bytes": 16969,
+      "git_blob": "8d56df81ecb6898df2158321688e3f266e8361c2",
+      "sha256": "bc9a20ee77a0d2cdb048d72c8ab1ce04ff238cb4981ec572542e80295a9b6711"
+    },
+    "data/shareholding/BHARATFORG.json": {
+      "bytes": 42702,
+      "git_blob": "fbfa2574c48f300529f3c07b303e98ed17808ccb",
+      "sha256": "150229168b94413b61b68c36764f95f4b8f2933c3bc87cfca8cc6199d0835a27"
+    },
+    "data/shareholding/BHARTIARTL.json": {
+      "bytes": 35223,
+      "git_blob": "a3d03bbb439d913cd565f4bc791ab51f1e6a5fc7",
+      "sha256": "07dc0376ed67b4391513cf0151e57f83fc48fea545785fe1c3d734cdebecd607"
+    },
+    "data/shareholding/BHEL.json": {
+      "bytes": 16317,
+      "git_blob": "ac06d6a62cda6d01d153fed37fcd11021df69fb6",
+      "sha256": "1eb6a9a8197a501281068266744f60b6bf7e21fcc1b2a192b5c6dfa89330518b"
+    },
+    "data/shareholding/BIOCON.json": {
+      "bytes": 20260,
+      "git_blob": "c390e09fedb32f1fbd158d026d0f9bc9f606615b",
+      "sha256": "fd32a118ea4bec444bbd80b999ee7aa87c72ce7668ff85ac4f13e99ecf5491f8"
+    },
+    "data/shareholding/BLUESTARCO.json": {
+      "bytes": 17954,
+      "git_blob": "405bef8c062bf11d8705ac38a834e590691f16bf",
+      "sha256": "1d022fba1fc87c27b7aed751229ca151c15bb3193e21f34d47434b150c81630e"
+    },
+    "data/shareholding/BOSCHLTD.json": {
+      "bytes": 17245,
+      "git_blob": "3369b74e7a5bb6ab06bfe1b2ba2d2d169a1db825",
+      "sha256": "987e1e86d8aa3b9f2d6739b2334a3636cc0c1f3139f2396a4cbd0fc6ef6c53f2"
+    },
+    "data/shareholding/BPCL.json": {
+      "bytes": 17783,
+      "git_blob": "0d5ecd849f69fec96948781b0bb98ef29d0c7943",
+      "sha256": "764610053f4fcdc63532b7b2d8e5af1f485d766f662317843a954a3f2cdf2973"
+    },
+    "data/shareholding/BRITANNIA.json": {
+      "bytes": 19501,
+      "git_blob": "6b6cac671df50754335dc5741d663791ac2227e4",
+      "sha256": "9352cb14a2933450ad2b0b9b0549d50a04abc2054b5410deff5e0711dc3751a7"
+    },
+    "data/shareholding/BSE.json": {
+      "bytes": 18072,
+      "git_blob": "c8c3ce1da52fec5a596d65bb8a08e65994574a90",
+      "sha256": "890ddac4a82b3b8bd66ca8c88f974ba7b50efe79538ff0573d257f2bc867e117"
+    },
+    "data/shareholding/CANBK.json": {
+      "bytes": 16297,
+      "git_blob": "23f5fa391787c639eb2f4630d8fb8466eac4db60",
+      "sha256": "2273e9fb5441905dca0be33c43fbf8bd557d7e1b860a892a59527100dd5c23fe"
+    },
+    "data/shareholding/CGPOWER.json": {
+      "bytes": 20784,
+      "git_blob": "8794a3d93c47f3140465ded360d46b2b1bc9ad01",
+      "sha256": "6817b426d32fe3952dcc4340f9bc8a407a7d08c692ecbb6591c84efc3c4a94ba"
+    },
+    "data/shareholding/CHOLAFIN.json": {
+      "bytes": 18874,
+      "git_blob": "0d6c8d2c454c5633b139ae1b943b16d5b2962d81",
+      "sha256": "74446f6328554ae1ce6a1dae2d747110490a8ef087350ec91fb71772f93766c7"
+    },
+    "data/shareholding/CIPLA.json": {
+      "bytes": 59691,
+      "git_blob": "a3b4c2b28aed706ca25db88581f918494f9155b4",
+      "sha256": "c6dea652e2c9ff0905cb428a06ccfd4b0247b493c5fc9809a429d3a54ac1e8fd"
+    },
+    "data/shareholding/COALINDIA.json": {
+      "bytes": 16137,
+      "git_blob": "175e0d9148bbce389e8bc0d040c665c7ea091842",
+      "sha256": "0d7a9b9ac99fc46abbaa5cdee133f3dcece75c5bbd02d464cf2069740da5995e"
+    },
+    "data/shareholding/COCHINSHIP.json": {
+      "bytes": 16257,
+      "git_blob": "3c93bc00546bc1ac5197eed2564f9fdbe6dd8f04",
+      "sha256": "e930cf1fae246538575a03a4c21c383cb6c664494853bb75d97ce0710800d0a0"
+    },
+    "data/shareholding/COFORGE.json": {
+      "bytes": 19161,
+      "git_blob": "26162c470a2423553795321bf19d3af4fb1fd704",
+      "sha256": "0a9fe265532bb6148457c3f85dcbb86e680119ce67f24692545905dcefa4adf6"
+    },
+    "data/shareholding/COLPAL.json": {
+      "bytes": 16257,
+      "git_blob": "04c487fe509c0af0e3a728b255ee6c98dda7be99",
+      "sha256": "171d511a824fe448cad6903ebd7fe48afe8b5edeccec97163e0b041e8aa6172f"
+    },
+    "data/shareholding/CONCOR.json": {
+      "bytes": 17266,
+      "git_blob": "c6ca94a4a030f0bdce729bce825eaca9a04c00ee",
+      "sha256": "fa73b150db9c858918d378e270cf638f9b1b07f2ba9bf77cef79a13459ec1ad3"
+    },
+    "data/shareholding/COROMANDEL.json": {
+      "bytes": 21145,
+      "git_blob": "59ab8559216a522b38b4eb009305ef0e4b8472e4",
+      "sha256": "def19e70dea71222c3fb94fd3ba297320e6d5db99a1939d74533dac3526f686b"
+    },
+    "data/shareholding/CUMMINSIND.json": {
+      "bytes": 16207,
+      "git_blob": "4a68d33f0d0b5c3143670be07ffaed5a3ff038d5",
+      "sha256": "0a58f0123d4018d5a9ca8fa0abd9f56ff3aa9802e827eff89614b555897b68ee"
+    },
+    "data/shareholding/DABUR.json": {
+      "bytes": 16519,
+      "git_blob": "651dd794ad16968743d86fa2bc5f5617d724cf8d",
+      "sha256": "fa8affb5e100531a1c32d2d8d01641d3b2dbe122f214ee88254097ad1359797b"
+    },
+    "data/shareholding/DIVISLAB.json": {
+      "bytes": 16491,
+      "git_blob": "ed402445096346890aa0109379d9d0b5c916da26",
+      "sha256": "8f7251965b06a99ea79a0aa6dbe41a5bcac224aa7c1cfa62676b6399bdf0e657"
+    },
+    "data/shareholding/DIXON.json": {
+      "bytes": 16741,
+      "git_blob": "90013f6168d4ef802b7938c119e1f06a1a5f7dc3",
+      "sha256": "51d13cce8f8ae2c923000fa9b8a42e19575af36c1e8d4ba909d375cca57a978f"
+    },
+    "data/shareholding/DLF.json": {
+      "bytes": 16374,
+      "git_blob": "7f441a16c1d7de8ae0356f876a1f4f60daab32e3",
+      "sha256": "49ac4f568ca843b50d1f80d6b98394afdc849950b5c74f3dc8e5264f567353ca"
+    },
+    "data/shareholding/DMART.json": {
+      "bytes": 16284,
+      "git_blob": "874c738d015ef3fc0d11e17f609303c43ee64dc2",
+      "sha256": "a0dd6d0543152cce748e9d98e6e75b81e6b3b8a49bad7b8bd6bf16fa1297c477"
+    },
+    "data/shareholding/DRREDDY.json": {
+      "bytes": 25003,
+      "git_blob": "a1f834119c0c4daa8ebaf618d8aa5a955daf5e1d",
+      "sha256": "792ed0361ecad117e9a5a8c0888301f2c40aa7e4b316bcef9e73820d26806711"
+    },
+    "data/shareholding/EICHERMOT.json": {
+      "bytes": 24989,
+      "git_blob": "b0fd70bb5ac3669dcd9c09b1f9d5a32099a3310d",
+      "sha256": "4c771309bb2479d68683ca0bccd6f3884d6288d3bd1b79e1bd1bc8206453d40f"
+    },
+    "data/shareholding/ENRIN.json": {
+      "bytes": 6432,
+      "git_blob": "2eece310b81903bb546994e68f6d993eff1b02c1",
+      "sha256": "2d58485b4cb87ebf7a456a34e2c1e1cbf996db9b73728d4b4bf825200f9f445c"
+    },
+    "data/shareholding/ETERNAL.json": {
+      "bytes": 23144,
+      "git_blob": "d6016dbaf089ff797c36b55d36c5d649a3e1e0a9",
+      "sha256": "6bdeeae457d01d48b328a7836116c1cf15c39eb0f9912194f7caae6ccbb2426a"
+    },
+    "data/shareholding/EXIDEIND.json": {
+      "bytes": 16311,
+      "git_blob": "84b13a6fabcc5e99d1cec2f3a1d73e2c5b068930",
+      "sha256": "4de1e36585ed8a97f8c71e31667ccf077d88091b00fbbfeb408c480e4ca0ae56"
+    },
+    "data/shareholding/FEDERALBNK.json": {
+      "bytes": 17673,
+      "git_blob": "5c45cc6536d141055a0a78d626bb51d3d9d47675",
+      "sha256": "56a3600be7dae57afcd3dadb4242c9f7e250bdd18acce2a242f07e326d7d14bb"
+    },
+    "data/shareholding/FORTIS.json": {
+      "bytes": 17257,
+      "git_blob": "ee7b134d50c59c5842be2d736a4906655f815fe9",
+      "sha256": "003d549828db08907f90ee1f8ba55bff6b6a75009fe765407263c2d747907f3d"
+    },
+    "data/shareholding/GAIL.json": {
+      "bytes": 17764,
+      "git_blob": "d262882c8da96bff202d06d3fa3ff570068500f1",
+      "sha256": "585bf064eec4a55444cd1ecefa26f0234b92ae9fe8b5531cdf3988f40cd2d10f"
+    },
+    "data/shareholding/GLENMARK.json": {
+      "bytes": 17404,
+      "git_blob": "e3106ca173532b75b4519152af263806beecd048",
+      "sha256": "3d3e0af35811c687c50dad6f8e24cc1625febe05cdec890b64d5f95300949108"
+    },
+    "data/shareholding/GMRAIRPORT.json": {
+      "bytes": 24208,
+      "git_blob": "aae7a263e387f4c34dbe7d0df74f2a020eef28cf",
+      "sha256": "b74de6fb9ffa71bb5305b3bf351c9f36bdef6f958b37b05bcebccf7639611152"
+    },
+    "data/shareholding/GODFRYPHLP.json": {
+      "bytes": 29386,
+      "git_blob": "1b477bff5bd2da53bc4cbb5e4a3e948674123854",
+      "sha256": "9c570b6286015fd9f96f72d21e657b4917493bad92b37cb19e49df3a8c5d3042"
+    },
+    "data/shareholding/GODREJCP.json": {
+      "bytes": 17594,
+      "git_blob": "654519044a97e347a221d93ed06b6be168faa3f7",
+      "sha256": "a7c11182cb39331aa8873d48efcf8e2f2a47592083c7a7f9ef31eb9feb48815e"
+    },
+    "data/shareholding/GODREJPROP.json": {
+      "bytes": 29901,
+      "git_blob": "c0d6cd702110e38b09c477c63f9e66abcb185699",
+      "sha256": "aa9613ea22539670eff71f02a850073e06fd7868031d69db5b6bf69283916f55"
+    },
+    "data/shareholding/GRASIM.json": {
+      "bytes": 20462,
+      "git_blob": "e116626bd64ed640b46a72c803157d8ac543dc6c",
+      "sha256": "d50fedd12b01c17ef26868fe616e3090a6d5e7b0785d1604b109fbb85fd8c017"
+    },
+    "data/shareholding/GROWW.json": {
+      "bytes": 5060,
+      "git_blob": "d7daaea690184a8150cb631994c72216bd964330",
+      "sha256": "f84ee9b67d90a168d6b6372f979366de8a57ed436b1367edd8e2bc7bdb7b440c"
+    },
+    "data/shareholding/HAL.json": {
+      "bytes": 16243,
+      "git_blob": "9cb0e2eb9742223be9b45bdb037d47afca419113",
+      "sha256": "5a62fa26148ebdaa744e6acb6858a8a74328f9a276df2ca1fd5f30b55efa104a"
+    },
+    "data/shareholding/HAVELLS.json": {
+      "bytes": 22295,
+      "git_blob": "66d6e03d394fa3775edca994fe92496470c55eaa",
+      "sha256": "11cf34b924df6c9066dcbe0abfe3c55b70229920e2483545198f45cc8cc9b03d"
+    },
+    "data/shareholding/HCLTECH.json": {
+      "bytes": 23453,
+      "git_blob": "89a036e16a387881119c3b8ba4d3bb7c9e9c3e8a",
+      "sha256": "c8999d897c38a1e32dd64eb701504c283745032cd77cd932418a1a80b639d26f"
+    },
+    "data/shareholding/HDFCAMC.json": {
+      "bytes": 17304,
+      "git_blob": "1c4e5eee9049f1cbd67769de4c7bc7d57ef8db84",
+      "sha256": "74719fef130f48d7bb969a18018622863bd14c68c3f0b0c31c13e9a628489de4"
+    },
+    "data/shareholding/HDFCBANK.json": {
+      "bytes": 17739,
+      "git_blob": "9c112d477badf034b08549f8fb58d176d2fb3436",
+      "sha256": "0a6d65bd1a51b0e6d8a5e336b83addfdc6393bb25dd9dc64ca9cdfe1ce0adacd"
+    },
+    "data/shareholding/HDFCLIFE.json": {
+      "bytes": 17686,
+      "git_blob": "e53c35a4fcaacfe1bfb908c57b62a037a7243e16",
+      "sha256": "c8f36d5589880374c739d5de96989913c9e45011b63a6e67f22afa723b19b12c"
+    },
+    "data/shareholding/HEROMOTOCO.json": {
+      "bytes": 16217,
+      "git_blob": "5d7749a0abf58985ed90629da19d03e2096b4a85",
+      "sha256": "6b4568920dd2ad059924c91f02d4ad34a67b278f585c5eecce1bd76c213042e1"
+    },
+    "data/shareholding/HINDALCO.json": {
+      "bytes": 18245,
+      "git_blob": "598b1e50f902240710c2acf656c8750196282f30",
+      "sha256": "74999ad4ef16dba099f8710915cbfdf5c7243108d68b3245727314b37c729ba8"
+    },
+    "data/shareholding/HINDPETRO.json": {
+      "bytes": 17762,
+      "git_blob": "368ee9c5c1efde3814dda3276fa236f2eeb659be",
+      "sha256": "b2268999d136fc7b411376d3d81418ce40a00ff01b1656598beadcbbbac17670"
+    },
+    "data/shareholding/HINDUNILVR.json": {
+      "bytes": 16777,
+      "git_blob": "a41a7e30b2f3c3e33138b8ddd87f4adf67658a32",
+      "sha256": "0452d2647c2516c03967f8e6bf12b70d95a8a03ed022415ab0b70f977b58b7bd"
+    },
+    "data/shareholding/HINDZINC.json": {
+      "bytes": 16458,
+      "git_blob": "492aeff72a615b2ebcfc612028a36d6c2063bd9d",
+      "sha256": "cb1b6f58a05eb328c51b539804abd3e5fd562d5de6259522f91f09b798321702"
+    },
+    "data/shareholding/HUDCO.json": {
+      "bytes": 16375,
+      "git_blob": "a1dc28e853ab53a27f9505f1a6552524996c8b5e",
+      "sha256": "dd0f90257f8e383a86f89849aeed278e8aaefa1bd7ecc08845cc3f64cca9aa63"
+    },
+    "data/shareholding/HYUNDAI.json": {
+      "bytes": 7017,
+      "git_blob": "4df63f1f4181874b4262ecc68d11cc5a42323840",
+      "sha256": "f5901ac0687e62058eda0edda8e08e0613c0032612dbde79152fac704864d001"
+    },
+    "data/shareholding/ICICIAMC.json": {
+      "bytes": 3782,
+      "git_blob": "a3dbcd429b42c2a04d2e4d4826dcc3f11871629d",
+      "sha256": "e9788caf68b8db91be9a1bfad209f395cf3a89324cafdb242dd583ff55ccc618"
+    },
+    "data/shareholding/ICICIBANK.json": {
+      "bytes": 20649,
+      "git_blob": "8128a204a3001875f5682343133b6d3d9059102d",
+      "sha256": "13d445355843cda3ce348318be4ab14ec561b84d75f8d6ff9423156d2335c19b"
+    },
+    "data/shareholding/ICICIGI.json": {
+      "bytes": 18204,
+      "git_blob": "38fbb32738fc6fe0ba6433ea242a19798aadbda5",
+      "sha256": "372165cfafcca5051e6ef5eea86367fb06f06205bb87314313e35cd2cdc249f2"
+    },
+    "data/shareholding/IDEA.json": {
+      "bytes": 25223,
+      "git_blob": "71a2a02ca181071f34d23d3c02190f5b9cbfa6e1",
+      "sha256": "989e185f4e4aa1949881914b73298e29dcce1dbc5f5ea17f1d6e273b454b7160"
+    },
+    "data/shareholding/IDFCFIRSTB.json": {
+      "bytes": 24251,
+      "git_blob": "d05a67f6597ea03f29f22b850f67e74d4e70562c",
+      "sha256": "474e0b86aedf722c65186db5b9f6822b352581808d2759f665d9d93f33720da9"
+    },
+    "data/shareholding/INDHOTEL.json": {
+      "bytes": 17846,
+      "git_blob": "393348f334afb6e56bea65cba908145914c68dd5",
+      "sha256": "e17ea554752d4d911c1b7b0d2e1e856e49040a45896b7952076293edee57b4d8"
+    },
+    "data/shareholding/INDIANB.json": {
+      "bytes": 18823,
+      "git_blob": "892acba2a759cfc22b867926996fca7a1e2f1d0c",
+      "sha256": "35d17a5889822e15f7e68ab3a166b272518c270398b16148d5c4e13ba94c2cf2"
+    },
+    "data/shareholding/INDIGO.json": {
+      "bytes": 17663,
+      "git_blob": "2e09a195e826d8d6dacabd56a2610bfcbe576219",
+      "sha256": "b419290637ad76b0ed204aedbf1e823af20cd25f7c302e1d8d6f32c36ed62c49"
+    },
+    "data/shareholding/INDUSINDBK.json": {
+      "bytes": 18571,
+      "git_blob": "ea5528654a7e6a766efca6406b0afbbcde79a047",
+      "sha256": "81edc1b433f51c29e1799e2bb643931c194972aed219453ffdc02ba3a4df8a13"
+    },
+    "data/shareholding/INDUSTOWER.json": {
+      "bytes": 23217,
+      "git_blob": "ed7b6294a1477a900e7aabebb7c93a1ab6e18fad",
+      "sha256": "35bc43ffa23ab4a6e50b9cc958d8a02f348621120fe0b6fd4021d0964f5dc4e0"
+    },
+    "data/shareholding/INFY.json": {
+      "bytes": 16840,
+      "git_blob": "689fc5f638b5a14cf12bfc99db9c823ad38147d3",
+      "sha256": "0ce0116ecbe838b13491b99767ec71919746b406b55f1835534d0e1a157d1ff4"
+    },
+    "data/shareholding/IOC.json": {
+      "bytes": 17057,
+      "git_blob": "2c144f2b98d38325cef03e3e181f9bd182a54313",
+      "sha256": "d2871690474edd2a42d8df766042f63fd478eabb47ea37d04761a5022f48cd65"
+    },
+    "data/shareholding/IRCTC.json": {
+      "bytes": 17767,
+      "git_blob": "3f49893abe317c9fa6583caa4ae3db59af06b2bd",
+      "sha256": "6b3e47f86d33a97692aaa2e90402d62e6dd312ec90d1f877d72fea331de8ff36"
+    },
+    "data/shareholding/IREDA.json": {
+      "bytes": 11311,
+      "git_blob": "43793e6034c7d5d266dfaae44193ef85cb723b2c",
+      "sha256": "43af2cabcfad8ec57b118cca448bbb0b09ac57f8dfd9094b13d70190833f550b"
+    },
+    "data/shareholding/IRFC.json": {
+      "bytes": 16599,
+      "git_blob": "9379a2b8e8193582eb578b31dac6c33af3e46eec",
+      "sha256": "56914be9c5af723ca8ec0c654a11b5728f5b2c3369b60be439c463e22efdac5f"
+    },
+    "data/shareholding/ITC.json": {
+      "bytes": 19012,
+      "git_blob": "6cfc62e627cfc4d18889da7e3d0b53f99ebfd10e",
+      "sha256": "3b6944985c04f2ea0f9f13a78aa06b933b7d47376c86769be22dc90ed70f5b3e"
+    },
+    "data/shareholding/JINDALSTEL.json": {
+      "bytes": 28753,
+      "git_blob": "163abc60a3f2bf480b1138f7f645d19c6ba0d85a",
+      "sha256": "687bb7ecca2c95165c8300ebcca2d3d2c5d58600feb2c07d976f270554e3aa2e"
+    },
+    "data/shareholding/JIOFIN.json": {
+      "bytes": 13577,
+      "git_blob": "bfb5c0e9e6bf827a7650ff0fd9b52b60cff9c024",
+      "sha256": "18688c1621af8b0085912a0cf06f80c140afad36e68eec9e3d82be254386deb4"
+    },
+    "data/shareholding/JSWENERGY.json": {
+      "bytes": 18459,
+      "git_blob": "4c2a0707bc5e3f700abfd08fc77094238106aebf",
+      "sha256": "261e9791ec824c102eaca080f7283dbcc115b22cde62439d9c0cf2516dbe2bce"
+    },
+    "data/shareholding/JSWSTEEL.json": {
+      "bytes": 16516,
+      "git_blob": "8fd7533c6abe3b3a61344341f81c8204c3340a12",
+      "sha256": "ca0be6449e0e83d9663e8a908e10b169c054f884e304854c78cb1f215fc0b2e2"
+    },
+    "data/shareholding/JUBLFOOD.json": {
+      "bytes": 17002,
+      "git_blob": "d8d6b4922f64c8c053b77b71dd9721a26b23e977",
+      "sha256": "e40db4046e9b3fa9d61ddd741c0f4300a491154033f61bb4fbc3153e1c8c55a0"
+    },
+    "data/shareholding/KALYANKJIL.json": {
+      "bytes": 17957,
+      "git_blob": "45b567785a2abe672c8f3a63d982bda07cc85ba5",
+      "sha256": "522eb9f8764125c90bdd1223b6269f5981089e2cb1bb65f33b6888d1ec41bdb5"
+    },
+    "data/shareholding/KEI.json": {
+      "bytes": 18765,
+      "git_blob": "ec799b808922fed642e21ba6e1b9febb9b4cbe8e",
+      "sha256": "953dbbdada994527e8e59a60d23d8e92fc639fbf7b86256509e7a0a51d93632e"
+    },
+    "data/shareholding/KOTAKBANK.json": {
+      "bytes": 18365,
+      "git_blob": "aa2613af735414a88c413ae7e742c0e6b635514f",
+      "sha256": "c5ebb5762ccf7b914450ddf448af67d8b931a9d9cee5df18c1f2556a64b85779"
+    },
+    "data/shareholding/KPITTECH.json": {
+      "bytes": 16824,
+      "git_blob": "bbaa8b0487b81d4d2f14ef6a0d9d26abb28b6d8f",
+      "sha256": "b44be3bdfa537176c90d275fb40ac7ee99c697bbc730fc19e6309e29e43a7fd1"
+    },
+    "data/shareholding/LAURUSLABS.json": {
+      "bytes": 16305,
+      "git_blob": "904ac3cbe093f083934a86abe53b179fbfad5c57",
+      "sha256": "fca61dc1fe4237477fcf0d21f130616a9ff475a533cc50a5ab5af7ea5ece6cef"
+    },
+    "data/shareholding/LENSKART.json": {
+      "bytes": 3699,
+      "git_blob": "7adad2a96ceab031d3d69761ace5f11ec92a4bcc",
+      "sha256": "1250fdca4957924fadd265c3215b5292d87bc3d937f94468e00cbcd662946b61"
+    },
+    "data/shareholding/LGEINDIA.json": {
+      "bytes": 3888,
+      "git_blob": "c4edd4a9a3e408365f8e8de5835ff7eb84c83f58",
+      "sha256": "981dbf5e6fa31a51956380da9836d62ddf1ec95b2498732d48fd0c3149329084"
+    },
+    "data/shareholding/LICHSGFIN.json": {
+      "bytes": 16479,
+      "git_blob": "f6ba83e473de08cb7ee490999bb2fe6d9a348b75",
+      "sha256": "fe91eb25e3e630cdba300a133db59d6083c624f3161abaed7b2874b88a711001"
+    },
+    "data/shareholding/LODHA.json": {
+      "bytes": 20101,
+      "git_blob": "36529168fc0e37439fb124896b699835ed5773d6",
+      "sha256": "901c810be8f8cbf58f2421d173fac8d1633500db2b63f58fbdb8782872cf84ac"
+    },
+    "data/shareholding/LT.json": {
+      "bytes": 16848,
+      "git_blob": "90d75bd3e9679b8f8b6a679470ac0fe0f434386f",
+      "sha256": "25f10fd54969856bd1e6179e9ebafc64765debaa086bd4cc09915e5d4d916531"
+    },
+    "data/shareholding/LTF.json": {
+      "bytes": 16033,
+      "git_blob": "56b6a4f4528a429d03ca384eecbb81a9968bb386",
+      "sha256": "b7dd3f542c4517d2e61b9de632b0d1d9d38cb9f0ce4ebb8d19abfbbe046025a0"
+    },
+    "data/shareholding/LTM.json": {
+      "bytes": 16679,
+      "git_blob": "64bcbd282d3f44cc48e1df5815ce8062cae32869",
+      "sha256": "4b0fc4bb94bb77751e760094a7495e2cc645d8d23d4e89b833041d0b89507202"
+    },
+    "data/shareholding/LUPIN.json": {
+      "bytes": 16081,
+      "git_blob": "4eea960cb3f386a99aff221d4d3e925874901bc1",
+      "sha256": "77f6f957219efe18c2f19c65d864ba36cf63cd79241cd5447415978aefbe6b18"
+    },
+    "data/shareholding/MANIFEST_v2.csv": {
+      "bytes": 9835,
+      "git_blob": "5cf7aa0f27c9fe4aebdd3343a47716b313ee5e99",
+      "sha256": "3ff63deec5853c786324f9d22c651d75451640faecb83ecaaa5dc744c6cebdc6"
+    },
+    "data/shareholding/MANKIND.json": {
+      "bytes": 13801,
+      "git_blob": "263a0009ec413ff8a0325b75c76d3c2da49d6070",
+      "sha256": "cb165bab2d99104f50576212fcde3f6758cdde0fe07452862c210ad992182a22"
+    },
+    "data/shareholding/MARICO.json": {
+      "bytes": 21789,
+      "git_blob": "7fea0e9247b66a282cd7f5d37d635062cf25437d",
+      "sha256": "2f64ff4cb1a44e2211ffd1eca9f540ba349319dbd5afcf0391b6af7dcd87fb02"
+    },
+    "data/shareholding/MARUTI.json": {
+      "bytes": 17201,
+      "git_blob": "68ffb6aeb4224d6fe392b92ec076f01ccf41e9c0",
+      "sha256": "1faaa9896da4f0a63a89579b7e9c2707e4683b5e37dcb112039ebdc5510a11c7"
+    },
+    "data/shareholding/MAXHEALTH.json": {
+      "bytes": 33288,
+      "git_blob": "0146f87e7b4ce18e188f6e5bc260259442eb9387",
+      "sha256": "87bf527544ad3b3fff2221efe3e5b1eb0d6b54acd071710b1434764794c22bbe"
+    },
+    "data/shareholding/MAZDOCK.json": {
+      "bytes": 16980,
+      "git_blob": "8d1d05ae5989bc0fca749af743297ed10f8c658d",
+      "sha256": "3faa21416653e53a1a7e88576e6e4427996c0dbd16498297d83b55b3b9fed44e"
+    },
+    "data/shareholding/MFSL.json": {
+      "bytes": 17475,
+      "git_blob": "efc07bce86b67dd67c9d06f919da6674ddaf08b4",
+      "sha256": "788982e641b3c128211af7c19ff019a245c89e23ccb0fd02ae5c0ce3bff8c8e0"
+    },
+    "data/shareholding/MOTHERSON.json": {
+      "bytes": 24572,
+      "git_blob": "236bf037137cb43e415022023366dd3e563a9859",
+      "sha256": "4afb5d8ad3be3a5eed005ca002238e3614ca6ddfae218fe961f3d739956871bb"
+    },
+    "data/shareholding/MOTILALOFS.json": {
+      "bytes": 18893,
+      "git_blob": "12e7d4336cc24fc9b7548dcafba81ea351026d1e",
+      "sha256": "622aad2fdda2ddfae5960f832f041bee1346630fcf01deadabf4ec39e0719198"
+    },
+    "data/shareholding/MPHASIS.json": {
+      "bytes": 21771,
+      "git_blob": "d30a2ea59010a35af396728eeb19128c9440eef3",
+      "sha256": "a96913dbc62fd42b0fc741c8d8eb8c1d335b6c9761be4f6af3ccf5e1d1c57322"
+    },
+    "data/shareholding/MRF.json": {
+      "bytes": 16198,
+      "git_blob": "a4f754e1599701c7837ae293003c37254658d6a9",
+      "sha256": "ee10bc67b7c4c9551da15455d2cb9f630102ba530475258f478aa6a721628bf4"
+    },
+    "data/shareholding/MUTHOOTFIN.json": {
+      "bytes": 16302,
+      "git_blob": "4d2292246b78128473b07717735d9eb84b2f2f6f",
+      "sha256": "c782f57561878d7e67a561a38769260b00b9fda890fb4e6e7674ba59004fe6c9"
+    },
+    "data/shareholding/NATIONALUM.json": {
+      "bytes": 16668,
+      "git_blob": "b7050f8279093c8e037f83670c5e49cbd9176ad7",
+      "sha256": "38309901e191f22fa06f358c2ca01eb755a9febc79f8793ad5146811090e07b2"
+    },
+    "data/shareholding/NAUKRI.json": {
+      "bytes": 16460,
+      "git_blob": "71e3543a2faac5dda5ed42feda3a7842620a09db",
+      "sha256": "0b3527a922139c3e4cd26b17522903d8cc81ecf1828e3610cbf00c5630dbd246"
+    },
+    "data/shareholding/NESTLEIND.json": {
+      "bytes": 11842,
+      "git_blob": "461336c723e5e58e572982712f98c33b53890b96",
+      "sha256": "ae3bbeeb344efbf822e963802729b37c7f2c02bf7b2ecd95270ef64d0e22b114"
+    },
+    "data/shareholding/NHPC.json": {
+      "bytes": 31075,
+      "git_blob": "4e961dab0756f9289a3f923714f5936dea1e682a",
+      "sha256": "4dafadd47419ff719276721c26b7de9876727b41160fd385ec6cce7b3ebc07dd"
+    },
+    "data/shareholding/NMDC.json": {
+      "bytes": 17822,
+      "git_blob": "7f3dd6328270dc403b5948ff3f72ab1e1bd813cd",
+      "sha256": "e3e6b3d2b4e27ccc68691620f8d0a80d61e2c2138b4deaed904cfd3c800c5f7f"
+    },
+    "data/shareholding/NTPC.json": {
+      "bytes": 15913,
+      "git_blob": "da972668dca07d3f8f03ea7695b8466ec0444d59",
+      "sha256": "2565a6dc73479505684a41cb25eee742111d33ab5b0724e9812b5656569bd246"
+    },
+    "data/shareholding/NYKAA.json": {
+      "bytes": 17402,
+      "git_blob": "e22a41cfb05128b026fa17db69c31280814d0ba0",
+      "sha256": "73f25e86818f66e32df84632366cf792fedcfc5125e93205d5a5dfec7f2d30b4"
+    },
+    "data/shareholding/OBEROIRLTY.json": {
+      "bytes": 16790,
+      "git_blob": "0016e2073548daf259bdc0a04e60ea4d4cb80cdd",
+      "sha256": "f025247f999a74882254e8c397317d49c0d91a95ce1cadebb210c964074bba88"
+    },
+    "data/shareholding/OFSS.json": {
+      "bytes": 16476,
+      "git_blob": "2665a0a31787c6948c7e48873350d1c6bcd081b2",
+      "sha256": "015fb4ad4da8548833679b19399661fbb8a3955a82b4a9f8c3678ffa7043bf82"
+    },
+    "data/shareholding/OIL.json": {
+      "bytes": 16805,
+      "git_blob": "0caa2955f5a57f88f9e4b9fe40e3fd05f041bbb6",
+      "sha256": "3af77e7a1aed3219314b8b9054309a72baa44ba94b8579dd018772f1e79746fb"
+    },
+    "data/shareholding/ONGC.json": {
+      "bytes": 16573,
+      "git_blob": "5b692793d54f092a0130f373c55bef87b8f1ac5a",
+      "sha256": "d8ea1fc892383ecc45b7ff329c7482857babf0ea4c797bfdcc19970a48824e96"
+    },
+    "data/shareholding/PAGEIND.json": {
+      "bytes": 16197,
+      "git_blob": "487ce65d7a5625d7a2913a59914fdc172fe3719b",
+      "sha256": "6f54ec674d05aaf7dd1baa94003a1044f7b76754e086149e3f329c2597958a6a"
+    },
+    "data/shareholding/PATANJALI.json": {
+      "bytes": 18397,
+      "git_blob": "a886677f04415ce8a485523caf395e2f132202a6",
+      "sha256": "2cb071fe7ba6cbf25221546e61995c5e0aa3fd3c47fa681bfffb3d48590281d7"
+    },
+    "data/shareholding/PAYTM.json": {
+      "bytes": 23912,
+      "git_blob": "c12d117269ad64f9829101e729045581abb7dab9",
+      "sha256": "d82d46f9f43707732235ce2768b88449add5ed0df5ac5d8611c0897f78b14a49"
+    },
+    "data/shareholding/PERSISTENT.json": {
+      "bytes": 20229,
+      "git_blob": "b34190a80014505b509a268116445d0641b0c3ae",
+      "sha256": "69df05a4d365fdf6b1008543175bfad6dfeb11f2a462fcf179f641d517830e8f"
+    },
+    "data/shareholding/PFC.json": {
+      "bytes": 17187,
+      "git_blob": "fefaf4f213b5713c5b3298148220017143d7872c",
+      "sha256": "695b19e3604fb8116faf2b5231ec0b9ff600d06de38b682b13aff6e1e40a8b15"
+    },
+    "data/shareholding/PHOENIXLTD.json": {
+      "bytes": 18749,
+      "git_blob": "5f02e7342e1f23f4560f3cc4cdb99da46164c3e7",
+      "sha256": "85a4ba612d84f7eb85d581af29e8e6211326189d72e802927fc53dd47494e738"
+    },
+    "data/shareholding/PIDILITIND.json": {
+      "bytes": 17752,
+      "git_blob": "53ff1b6e25d7493f50943a057c461920073a13af",
+      "sha256": "0ee0bc20c013c25cfca17d653f24b851bd2582f2b89ce74d17d08b1cdb8afe01"
+    },
+    "data/shareholding/PIIND.json": {
+      "bytes": 18343,
+      "git_blob": "81b6c8bcb1ab04ab5f44d278ad908262072bf719",
+      "sha256": "3d7cb926676f85b088415e6e2f1d500baf941840c0b61dba10340333d4ea45dd"
+    },
+    "data/shareholding/PNB.json": {
+      "bytes": 17031,
+      "git_blob": "5bca188b2717c4b99dd1d57ba7e71904a96897d8",
+      "sha256": "3ad7a9c528134def6d52dd7fb1156770a0f4c4b21a34f87a641e01964ba9598d"
+    },
+    "data/shareholding/POLICYBZR.json": {
+      "bytes": 17988,
+      "git_blob": "009f60e1c452293e37cb5bbfbfbb00d84c0a8324",
+      "sha256": "90e87ccaa443a806b48952df2b5c2124e093e0652625defc9c03c74c9e9888f2"
+    },
+    "data/shareholding/POLYCAB.json": {
+      "bytes": 16639,
+      "git_blob": "89ecba87958fde8b9db9016771634a3475fae8f4",
+      "sha256": "3f5e6b30b73d31ebf659ecf4c9fe11d927fcf7f68953a8f7c11226f7e8181035"
+    },
+    "data/shareholding/POWERGRID.json": {
+      "bytes": 16689,
+      "git_blob": "f0bac833fb07a5b44072bb8cc54bc28d2f6c5569",
+      "sha256": "568312ab88815e0d4fa38c66e97caffd77906efd51856016645051a794ee08eb"
+    },
+    "data/shareholding/POWERINDIA.json": {
+      "bytes": 18834,
+      "git_blob": "894987af149b3289c9102f4b2713d8626a37d40d",
+      "sha256": "f53f3e37eb617fc68720281f2b1846c2b6dbcfc299d345b580e6bead6efd1f53"
+    },
+    "data/shareholding/PREMIERENE.json": {
+      "bytes": 8006,
+      "git_blob": "4bfffa2a77a76b8704ddfa42a604b54b4952745a",
+      "sha256": "04172b27c6c3e20e24a4e2a38a663ab67e63ad95581a6fe2d51ace30c3c3c959"
+    },
+    "data/shareholding/PRESTIGE.json": {
+      "bytes": 17246,
+      "git_blob": "2acf0a9150b609263c1fc09e44e896e856c08b26",
+      "sha256": "c508d111f31facc66290f56ce5f99f2421cdd9678b29475eb16550e8850e4a38"
+    },
+    "data/shareholding/RADICO.json": {
+      "bytes": 16825,
+      "git_blob": "46049e1eca78f8bb1735436e094a9793ef366067",
+      "sha256": "b88c5340561bb0a2fd0cd8bbeafa2cadb1887c7ce86d26e93a27a696f83e4b39"
+    },
+    "data/shareholding/RECLTD.json": {
+      "bytes": 16742,
+      "git_blob": "a62c805a0a94019d889d2b1b3b10f03b75b6a137",
+      "sha256": "abece7b4893ebed83e16a1b9eed86b3bbb98e6873012d57501d620af3dd601b5"
+    },
+    "data/shareholding/RELIANCE.json": {
+      "bytes": 40154,
+      "git_blob": "27f9418573d8dcf31022b2524c1ffc602dc88bca",
+      "sha256": "55cc778de40d88805154ea9204442faf3759643e980f37aa5200ca8e06ae7d67"
+    },
+    "data/shareholding/RVNL.json": {
+      "bytes": 16956,
+      "git_blob": "af61af3eb72db5e03fb9cd3ad44253f8cbd4b0b7",
+      "sha256": "90b7bbbb7b12ffc88183cf09630f724a49cfeb77634db3b0b857f3b0e03670a6"
+    },
+    "data/shareholding/SAIL.json": {
+      "bytes": 15957,
+      "git_blob": "fa7bc14eea0d774e879fb4d35d3cb2a920a0dbfd",
+      "sha256": "325f4533edd444b2503032ab9b3e1dae5aec47c8c5a5fedd9b3060d8e9deebf0"
+    },
+    "data/shareholding/SBICARD.json": {
+      "bytes": 18161,
+      "git_blob": "fcd937594f44d7f9e8a8d1077fce9945efb1bbb1",
+      "sha256": "8f43084bdaa7ede370898abe7e9231c6fa5ad1e31edc6edd2e25f2541c1d99e3"
+    },
+    "data/shareholding/SBILIFE.json": {
+      "bytes": 17839,
+      "git_blob": "f1110d0b50b5e0fa0a73c21cb652dfd42724416c",
+      "sha256": "13aac9b15c1b1bc1b3fdb84ee43f6139193a172872d46300139542cba9bb4c48"
+    },
+    "data/shareholding/SBIN.json": {
+      "bytes": 17870,
+      "git_blob": "85a658a03b7ca7e8d9201069bd05945a0688abf2",
+      "sha256": "be3aeebd5ddb58573f8921c90c67267c085f7771501d76c1d8bf346d58fe5f72"
+    },
+    "data/shareholding/SHREECEM.json": {
+      "bytes": 18035,
+      "git_blob": "cb20d7ce64d866f97ba3b30694a27f75177089d6",
+      "sha256": "d5db5e0b91233371bf282ad9c3dd67959ebe2840f279baa1c75c4bddb1731a64"
+    },
+    "data/shareholding/SHRIRAMFIN.json": {
+      "bytes": 25720,
+      "git_blob": "e1a31123a3e87f8eef8f354288de12427a089f40",
+      "sha256": "2037b783d039dad9846c69c9991a3c624e7f076cf1ead24eba1e77f635943df5"
+    },
+    "data/shareholding/SIEMENS.json": {
+      "bytes": 16286,
+      "git_blob": "568351e27f88dcc87aa25c6ed6d5792cd2710bd6",
+      "sha256": "036d998704433071edf03c752455fa8433c0f4a718702e2e12eccedf92d8d428"
+    },
+    "data/shareholding/SOLARINDS.json": {
+      "bytes": 16694,
+      "git_blob": "fd9c465d7d3d66a146ef30fe5f1c730dbf0b5e89",
+      "sha256": "c765c41cdbc0c0472f1f913bb708335eebe2da41d1097779864812a543ec4392"
+    },
+    "data/shareholding/SRF.json": {
+      "bytes": 17096,
+      "git_blob": "f86b13f92f92af611d4a8065d0029e2131513adf",
+      "sha256": "c612f63dccd6fc0fa257b5d6d6aaac1c58e68e964d3738675726bf976b0e02a8"
+    },
+    "data/shareholding/SUNPHARMA.json": {
+      "bytes": 19013,
+      "git_blob": "23acee6181b1959ba2b4fa5d24b7f6e5206c46fb",
+      "sha256": "8250a4e8157eaef9085a332e9947b48e42f005598a7db249fcef494778ef09c7"
+    },
+    "data/shareholding/SUPREMEIND.json": {
+      "bytes": 15514,
+      "git_blob": "72b8567cf40f42a9138dc905eda1f8dd38d4b571",
+      "sha256": "e8e908a3bc16ebe1c549d17ecafcf1ca3cc246b646965caf246b9a49cd62a5e9"
+    },
+    "data/shareholding/SUZLON.json": {
+      "bytes": 34460,
+      "git_blob": "7b5c5e3360f832d94be515d39a042bf8e8e7705b",
+      "sha256": "31a32e4d5ce6b126847746d95d97d097910eec89461f10062ce56a551cb53c37"
+    },
+    "data/shareholding/SWIGGY.json": {
+      "bytes": 8044,
+      "git_blob": "5150b74c83561eb29539ce20604688a0a63bdb02",
+      "sha256": "8e22144fa7e0105fc0df7e302ce660821492dedc766d3374e26117ff9bac7c87"
+    },
+    "data/shareholding/TATACAP.json": {
+      "bytes": 4972,
+      "git_blob": "baaa4c7d92704f77c8d48fb5343eefcbf74d1b3d",
+      "sha256": "7c59ad00c0e7e451a42a83eee7734ccbc10c24634ad334de9e8b13a25a0c8ad8"
+    },
+    "data/shareholding/TATACOMM.json": {
+      "bytes": 18407,
+      "git_blob": "6642f61a093dff9b460b772b6a2d95786dfd7a27",
+      "sha256": "2f0db83cf509ac1861035630b4a3afb045340ee34a7324c75611e71647f36f44"
+    },
+    "data/shareholding/TATACONSUM.json": {
+      "bytes": 27392,
+      "git_blob": "08582bb2c145f7d8750294ae5ecc8d7fef2a3928",
+      "sha256": "c44c0626637c7ff388d58bce8995ebf5b78b08adb5ebec72a9c10cf936f68fe8"
+    },
+    "data/shareholding/TATAELXSI.json": {
+      "bytes": 16119,
+      "git_blob": "3a2af51964944a6506e249c58f4b79e40e8e6ffe",
+      "sha256": "68602ed2a120b63b78c43be3a27bfe3036234723a0c249af7f4f9c65a22c02e9"
+    },
+    "data/shareholding/TATAINVEST.json": {
+      "bytes": 17399,
+      "git_blob": "14880a5176bf80326e24c02ad83dcdc08f5590a5",
+      "sha256": "57b7e0b791f31aabbdb94527f3854395d25471e77566f081c163fe9309497b65"
+    },
+    "data/shareholding/TATAPOWER.json": {
+      "bytes": 33638,
+      "git_blob": "abd409b7aa1fbf53b4f09d4e7e0518ae89733879",
+      "sha256": "6ef4cab4e5fd5500dc367305582d0e8eae7bd23f8f81003bb9c8a4fd1391e289"
+    },
+    "data/shareholding/TATASTEEL.json": {
+      "bytes": 24264,
+      "git_blob": "cbc5039ab6d16ce4e6ad68a00a4a872d76e3f060",
+      "sha256": "aa0b63a7f4a5e6dc6256416c740141039f8822c1e62358956ab7a33b7a93eba9"
+    },
+    "data/shareholding/TCS.json": {
+      "bytes": 17474,
+      "git_blob": "7a0b4f4ab794d7a1d9553260868aeb482f8adf38",
+      "sha256": "3844444395552356d5a7def7647ac3bf56dcc987a4d3916f2debe51248f5d3f8"
+    },
+    "data/shareholding/TECHM.json": {
+      "bytes": 17415,
+      "git_blob": "e1cdac49893a7ab7848ce3e2acdf030abfe8c7c3",
+      "sha256": "9ce52a1eac752763554993092248402a0a0cca34d82e89a353a057da21a40606"
+    },
+    "data/shareholding/TIINDIA.json": {
+      "bytes": 24385,
+      "git_blob": "86736fe7192092aadad405c10a8746501d302c26",
+      "sha256": "0e95e39710832cc40eeee096c6332e2f53e573528578b742e63c8c89b3236f5e"
+    },
+    "data/shareholding/TITAN.json": {
+      "bytes": 17277,
+      "git_blob": "b3281ba3a2d5e6394f32c0c43496a1b0ed2892d4",
+      "sha256": "900cc0a032c3cc235dd282560c0f09cff293261bdec937834d5c354a85b9353a"
+    },
+    "data/shareholding/TMCV.json": {
+      "bytes": 5226,
+      "git_blob": "c00cd47ef82183b34dd962d368262a33bf2843ec",
+      "sha256": "33e0d42732478db3caa5086572a59e9468007e1659e8410bae0967f7c39bc490"
+    },
+    "data/shareholding/TMPV.json": {
+      "bytes": 20415,
+      "git_blob": "9aa6289c0705875c9011fb8dcc79ef7cfa1bf13e",
+      "sha256": "99a6f5d19a7d5c7c4db0b1a5ce9c90e9679574b336c5940c2a835b3172ff14eb"
+    },
+    "data/shareholding/TORNTPHARM.json": {
+      "bytes": 21732,
+      "git_blob": "323df6d37c27d443c3460425e5d01888093b0482",
+      "sha256": "34c5100b9375e583e0ab222ed13d47f4143bd3c6d4ef57df938ba0650cce527b"
+    },
+    "data/shareholding/TRENT.json": {
+      "bytes": 19469,
+      "git_blob": "9cc629a07c0c6cfc216509dc76d955d3b9ebba31",
+      "sha256": "3b7e8b9915c00b6bcb3c3706b299f33da95be05cc114e77bc6259f3a8409d837"
+    },
+    "data/shareholding/TVSMOTOR.json": {
+      "bytes": 17480,
+      "git_blob": "54225ceb9cd96592598ad163389d01ee3ba14ebd",
+      "sha256": "7c365807d4e7c23eab35060a8ea54bdd14de2c6a7fc46a15ad1de1c98da75776"
+    },
+    "data/shareholding/ULTRACEMCO.json": {
+      "bytes": 16680,
+      "git_blob": "645dcf9fc83e86d8ba65d7d8e23fc9baf0c5319a",
+      "sha256": "aa17fa5712d8078d787dfe9161768d2abc5756786e52a4e4b0fb6e1d270c8c54"
+    },
+    "data/shareholding/UNIONBANK.json": {
+      "bytes": 18634,
+      "git_blob": "4e60103577cb3081ae246bf5a5c28bb2fda22bac",
+      "sha256": "bc80a7056f08b6060b703a0e16f7e95bbd07b22c2d5337b4d92a61a6f6d8c873"
+    },
+    "data/shareholding/UNITDSPR.json": {
+      "bytes": 16679,
+      "git_blob": "cd08251591839545a60abe6a8af694c3e812aa72",
+      "sha256": "64a295314c6b06893fefc6608954826d874a0c52c8c3ba2cdd86a7ec1e0e83a8"
+    },
+    "data/shareholding/UPL.json": {
+      "bytes": 44529,
+      "git_blob": "f94bf7bbad4544175824e2309aebb15e41d056b8",
+      "sha256": "ee2f4b21899a14f2f5ebdc904c0300b508d231a53391d7ecaa02a8b78814778e"
+    },
+    "data/shareholding/VBL.json": {
+      "bytes": 23618,
+      "git_blob": "f72097d6cc35f5871fad9683c311838114f9cf0a",
+      "sha256": "3def21f6e72bf655c90d3d9a4e52bd582cc926509a52e6ad5effed685ab12f19"
+    },
+    "data/shareholding/VEDL.json": {
+      "bytes": 18179,
+      "git_blob": "174cc7ad334340163517fac1b68587ad4264cb67",
+      "sha256": "7b4a9d05b2f59dae38efc2c4f64a297ee4daddf2ddcc8ebd8d72be0adca7198f"
+    },
+    "data/shareholding/VMM.json": {
+      "bytes": 7039,
+      "git_blob": "ec6335bf855bd54c2baeb23e713e157ac0908af5",
+      "sha256": "18d682c834ce463a606db11daaea2ae1fb74f31a08d24cc038116a9d5f376430"
+    },
+    "data/shareholding/VOLTAS.json": {
+      "bytes": 17940,
+      "git_blob": "f3af85c3cf31a72c10008a0c27235475dbb943d0",
+      "sha256": "1b998991ecd6b075ed6dd0aaaf28a194f8274d4eb96a3e1bb08987019e098390"
+    },
+    "data/shareholding/WAAREEENER.json": {
+      "bytes": 7012,
+      "git_blob": "4d00aa77bc49556e39c13e146f4b264187e992ef",
+      "sha256": "666089d4de9d5e8d041158e933a110f8e8f0b875296f1f7dd6fd90606287358b"
+    },
+    "data/shareholding/WIPRO.json": {
+      "bytes": 26494,
+      "git_blob": "8d4b5ea38a6f4bf804662eeccb18c9f024fff58f",
+      "sha256": "539834587ee848082ab597b2abca62d888033c33b2d370edd566d2dd76cd1ec1"
+    },
+    "data/shareholding/YESBANK.json": {
+      "bytes": 21137,
+      "git_blob": "a463303d38194391f3a32f7a6343ba171de3e6a7",
+      "sha256": "e2a2ce2a86797523d49f8748abe7e51467726606fdcb0840e456441fb8116f82"
+    },
+    "data/shareholding/ZYDUSLIFE.json": {
+      "bytes": 17728,
+      "git_blob": "366d768bd41ccf1c3042721dc6c72664e6d93652",
+      "sha256": "0548529165db18f8316de47c2b587e4cbbaf4b71433aabfdd71a0f4dccb6cff5"
+    },
+    "data/shareholding_institutional.csv": {
+      "bytes": 74806,
+      "git_blob": "d3835b6e8826d9693d74e195c8ab457e9089e641",
+      "sha256": "f4d02fde0a3eb08297f969bfa996f85d4577b0e60bc865d2ad6a41f3c8a77ae8"
+    },
+    "data/shares_outstanding.csv": {
+      "bytes": 7335,
+      "git_blob": "254bc37af1635b26e7ad0a34ddf1fbe3775729f2",
+      "sha256": "e05a610ace0fc0acd72fb10f6dae13e2f2b652ee0679d6bd048813c3bfbd57b7"
+    },
+    "data/universe_snapshots/ind_nifty200list_2017-11-13.csv": {
+      "bytes": 12124,
+      "git_blob": "d9347d8091cb4237dba329d208320f53ce032fbe",
+      "sha256": "54c9053ebaef119948dd9ecc58af9e0bd0469034cf7f4d65c15000124108bda4"
+    },
+    "data/universe_snapshots/ind_nifty200list_2018-03-15.csv": {
+      "bytes": 12181,
+      "git_blob": "1c1740d79963f11107f44ff3e4254913d776f22a",
+      "sha256": "b0315264f303b8600b3a453aa430996e0ff3c31871496a4c853f1020ccbfb09e"
+    },
+    "data/universe_snapshots/ind_nifty200list_2019-02-02.csv": {
+      "bytes": 12228,
+      "git_blob": "a81df25e8b2d601b0494132b6f3fe8787c4466b2",
+      "sha256": "57f05a6d1b10013463fceecb18956d0d3d147aa5de8683575ca5e8b881a7c61c"
+    },
+    "data/universe_snapshots/ind_nifty200list_2023-08-11.csv": {
+      "bytes": 13248,
+      "git_blob": "cca17218bc322843cf569b40eeb7cc1481cf6dc9",
+      "sha256": "b6c06c8569dc42d2fd4660cb7df5d7af2606f011f39a055444797f43403fc3b3"
+    },
+    "data/usdinr_daily.csv": {
+      "bytes": 50791,
+      "git_blob": "ae8b9761422ba3c82ca138c73f612555a79377e3",
+      "sha256": "d4e890c8e52a19c81fb656d03a71f5d73b97e328959964fac1ad6bc06da062dc"
+    },
+    "research/NEWGEN_PARAMETER_MASTER.md": {
+      "bytes": 9800,
+      "git_blob": "c0d9005163c7a7efbd3082bf6c658d1e8c487c44",
+      "sha256": "1b7b2b5a0d39826dbe60a377a8fe3cc9e898a33a8cab84f8feffe2b8b6982677"
+    },
+    "research/ash_formula_study/combinations.csv": {
+      "bytes": 516,
+      "git_blob": "de935b5f466b57fbd8a640f7afd0a44b5c3945dd",
+      "sha256": "347a0d3776c2d4d8ea367f59503529b7ded6731436105297ae7be9ad4422ec64"
+    },
+    "research/ash_formula_study/correlations.csv": {
+      "bytes": 154,
+      "git_blob": "1853c3c1c6d8b6f78bb49c7bf65fd490dc98f9fc",
+      "sha256": "fa1c0239ca40651753170d788d37818952c5349c18631ff444bf9ef97881c32f"
+    },
+    "research/ash_formula_study/filters.csv": {
+      "bytes": 1493,
+      "git_blob": "3a3831601ebdd67d914823a97590d4beb066523d",
+      "sha256": "f61521316e4cb5b9dea23e8b2699316452d45a14c434f67fb0c36f1e72f42f46"
+    },
+    "research/ash_formula_study/observations.csv.gz": {
+      "bytes": 906243,
+      "git_blob": "5e0d1d88fbfcff81f6955ab4e2935e966c1c1af9",
+      "sha256": "e322939ae8185546adeaa5c680bc59de92bb937268716c8eb7bd2203bdc82e97"
+    },
+    "research/ash_formula_study/robust_by_month.csv": {
+      "bytes": 187,
+      "git_blob": "84997192ea9dd7a72a0a40cc00c2d582ec69e85f",
+      "sha256": "b9cb0b390bcc026ac0a18d21d004c3c9f54c85110267870b7cdc94ab59e6b7ca"
+    },
+    "research/ash_formula_study/robust_by_year.csv": {
+      "bytes": 960,
+      "git_blob": "446584b275c8767289a21a14639d68a76b0f17e4",
+      "sha256": "380ff5754907fae974b04d0047a504b77b9aa165db188d097f6d76540334cf04"
+    },
+    "research/ash_formula_study/summary.md": {
+      "bytes": 7728,
+      "git_blob": "4bc443f28ba9d25b734c5e6583b6d13b2b73e340",
+      "sha256": "e9c0f98e5defd144984bbc5a3b7194329cdfeafdc9858de725d69fb6907a2858"
+    },
+    "research/breadth_recut_2026-09-09/breadth_pick_returns.csv": {
+      "bytes": 26606,
+      "git_blob": "364bea8e3d24a0253d7a76ba1398c29c1d812f62",
+      "sha256": "62020c6ac44688891c8c5314616b0ca6eefdca554688f8ec93429de363499903"
+    },
+    "research/breadth_recut_2026-09-09/predrop_calibration.csv": {
+      "bytes": 5020,
+      "git_blob": "67592a4823092cbb9f1d7aee4e31afcec31deefc",
+      "sha256": "e36e60239d0572fff61054708e6f6ab8d2311229b673edde4aaec92bae7d81cd"
+    },
+    "research/breadth_recut_2026-09-09/summary.md": {
+      "bytes": 5088,
+      "git_blob": "24848f8b11d2e6de8353e3319e3384a55c98b568",
+      "sha256": "0cb89e54963838fc7aac9ef8172ce45004eb1ba8a705f3c61598b3c707ac97cd"
+    },
+    "research/bt06/run_2026-08-24/gate_replay_compare.csv": {
+      "bytes": 110,
+      "git_blob": "672c23460e72caa5cd5f644ab37bdbdc6ad5c1a2",
+      "sha256": "79b8dace5a750b7cd65abba42a267031e0f954f1538dd13fc20501287437fff7"
+    },
+    "research/bt06/run_2026-08-24/score_calibration.csv": {
+      "bytes": 4201,
+      "git_blob": "b89d5034108797a009552e4a6997f0eeb3728996",
+      "sha256": "b8b1f56253dea5a5952508ff373933ce3518725e6b92a64e192853d94825166b"
+    },
+    "research/bt06/run_2026-08-24/side_score_weights.csv": {
+      "bytes": 5042,
+      "git_blob": "5b3f0dca96b77ff904f3f70a37193c3ebb0bd0fe",
+      "sha256": "abe81fc4a7af6086de9a5103d7249f855c4dfd5715988dd2c05c1e68f1e5db72"
+    },
+    "research/bt06/run_2026-08-24/summary.md": {
+      "bytes": 809,
+      "git_blob": "1daf676fa826731a12e173ed3770053edb69ad7e",
+      "sha256": "a7bd2dba0ace37a844782ddec619a17f18627b37c67709b42c517e35f6505084"
+    },
+    "research/bt06/run_2026-08-24/windows.npz": {
+      "bytes": 915506,
+      "git_blob": "3b4e1f183318795a7e8105535c380a2acaadcba1",
+      "sha256": "8d3a28e0ca6939a58ef0284a494f2b2f243f96de123c1b0d088a4ddf282f942d"
+    },
+    "research/bt_calibration/run_2026-08-09/gate_replay.csv": {
+      "bytes": 105,
+      "git_blob": "de426d82c5a6c618b2f39689d5f005ff5d607c0a",
+      "sha256": "0c4dccf51e1d3d5d179e615111b6cd4d687cc5d657b767c940f1d0d5f4d652d8"
+    },
+    "research/bt_calibration/run_2026-08-09/summary.md": {
+      "bytes": 989,
+      "git_blob": "4c2b65336a25adcfe7eddc179f2dd22ca1e036e2",
+      "sha256": "dd304c3bc93ef851fcb8261f76353de1cc1150f47aabd77c9d3d02b4369ae662"
+    },
+    "research/bt_calibration/run_2026-08-09/trigger_calibration.csv": {
+      "bytes": 10324,
+      "git_blob": "dfb68aaa0dc989391ffd2185c9975aa0087b328c",
+      "sha256": "76a41a1ffb930a7afefd9270be81534fc6faf20a58d131977adc1a3a7fcb5b4e"
+    },
+    "research/bt_calibration/run_2026-08-09_strict15/gate_replay.csv": {
+      "bytes": 105,
+      "git_blob": "de426d82c5a6c618b2f39689d5f005ff5d607c0a",
+      "sha256": "0c4dccf51e1d3d5d179e615111b6cd4d687cc5d657b767c940f1d0d5f4d652d8"
+    },
+    "research/bt_calibration/run_2026-08-09_strict15/summary.md": {
+      "bytes": 989,
+      "git_blob": "89b16972e38939964dbc14f93d993f34c422e826",
+      "sha256": "6ca52b288548d5105e9ed2a22f1a57aad0fcae473ddd1a6c7994474e9e8caef2"
+    },
+    "research/bt_calibration_external/run_2026-08-13/summary.md": {
+      "bytes": 4229,
+      "git_blob": "a98a94e5d48028ee263092b8c41cc93e1ef2f9d9",
+      "sha256": "c1e1db5de9d8f101d95edb528e744f8023169f55fe0d50067f58c428e9bd7ae0"
+    },
+    "research/chityy_archive/06_EARLY_WARNING.md": {
+      "bytes": 14186,
+      "git_blob": "b15ac1f1a5757e58f64fac3ec7cdb67ecde155ec",
+      "sha256": "845b88f6b58c8f9eb621cbc8c3d14384d329172488ccddfb90f99e158e49c810"
+    },
+    "research/chityy_archive/07_DATA_FORMATS.md": {
+      "bytes": 8497,
+      "git_blob": "8032f36a2cade39526160203bdafec8844eef19f",
+      "sha256": "65c42547899c3381f17dc6558974768dc66d5bc076bff95cdd9423d1e1e2a3c4"
+    },
+    "research/chityy_archive/Q1_FII_20D_ranked_year_stats.csv": {
+      "bytes": 278,
+      "git_blob": "5b16e1269ce14bcf9733413955fd5587cc5d6d77",
+      "sha256": "ab0ce1f08f410456ad46f1f896f206661eddd1bbf92e1a345352973bc156e2af"
+    },
+    "research/chityy_archive/industry_coverage_summary.csv": {
+      "bytes": 266,
+      "git_blob": "6bbca483fb70bfdf0fec73d45173e346507124fc",
+      "sha256": "b3ce0e056050717ae4b5da14607ef6d5888a803b19af7a15a8a7035967b88253"
+    },
+    "research/chityy_archive/master_30000_stock_list.csv": {
+      "bytes": 1622133,
+      "git_blob": "ddc874f57a43c2a3d7aac214a824747de2d66391",
+      "sha256": "b855a91d51829ffcc0637f22eb16f2f2661785c394e2ad873a960122326cbfa1"
+    },
+    "research/chityy_archive/n200_live_report.csv": {
+      "bytes": 123311,
+      "git_blob": "a77bfefcd6b775195c9cf12134be35f01a1a6875",
+      "sha256": "0957d9459ee283e244672fb7ab5497b1adddd6051ad11eaa7fc8e830a23c31eb"
+    },
+    "research/chityy_archive/parameter_registry.json": {
+      "bytes": 1642163,
+      "git_blob": "6a7398eeffbb1f20a4540ce4ea90edb17ecba7a0",
+      "sha256": "dc9864b74edceb59ac01e463657d3d6e8b95f7452664669d7557cdd8ef077495"
+    },
+    "research/chityy_archive/parameters_v0_7.csv": {
+      "bytes": 212305,
+      "git_blob": "2d880d4b0b048d3ae3872470516401911fb972e8",
+      "sha256": "3aa679a7e8cb1f31c62dc22c3e0367e725f63d075bff37c7ee7459ea7f5e1bf3"
+    },
+    "research/chityy_archive/prior_calibration/03_event_fire_matrix.csv": {
+      "bytes": 7211,
+      "git_blob": "6a83c31cf425062cac441aed29bcc647642a8bc4",
+      "sha256": "f1110a7166b4c2a569b3e61c859362f13abcca18624822f1056b2a9110d59f8d"
+    },
+    "research/chityy_archive/prior_calibration/Unified_Definer_Table.md": {
+      "bytes": 3920,
+      "git_blob": "3a8b447a82b7a032a189bf0428e482e3c38b9ea6",
+      "sha256": "e98bd2f08784a22cf778122429b2572546c1539f54e42cf8b6f4aa5a0f5f4fb7"
+    },
+    "research/chityy_archive/prior_calibration/new_parameter_definitions.csv": {
+      "bytes": 6440,
+      "git_blob": "b0422468b007d500b413b8948c48ec1577f330e9",
+      "sha256": "40c172348b9b38110893df72a099decb36c8d7d31dfed091d550d72432c94713"
+    },
+    "research/chityy_archive/prior_calibration/parameter_manifest.csv": {
+      "bytes": 1081,
+      "git_blob": "58a61beb7d526f214d3d9582d90bd411a0ed9a47",
+      "sha256": "c8a12e3979eb2ef0bba166cba161f244b005a5a7f42b24c7c1a77642919685a0"
+    },
+    "research/chityy_archive/prior_calibration/thresholds.csv": {
+      "bytes": 752,
+      "git_blob": "5540135f99f23f9cf5b10e2788e17db2b67bd087",
+      "sha256": "215ea61116b3105292a7d8bef9e3578e73719953aa0848c0ff071f85a41c046e"
+    },
+    "research/chityy_archive/prior_calibration/top_combo_triggers.csv": {
+      "bytes": 1415,
+      "git_blob": "bbd2744bed5d25e9157d00a42dae4792fd01486f",
+      "sha256": "d6797a499860528880f96349f4fdd5f9744221872f4e08a3271069c4157cfe61"
+    },
+    "research/chityy_archive/prior_calibration/top_pre_fall_triggers.csv": {
+      "bytes": 1772,
+      "git_blob": "35400872db1924db0070716201ecea3c22738e7c",
+      "sha256": "6504ac5d6827fb71e81703e5b7d5b00557aa4929966349f9c7e39c243923be75"
+    },
+    "research/chityy_archive/reverse_pattern_v0_4/00_read_me.csv": {
+      "bytes": 1306,
+      "git_blob": "80e91106dcb535aa7bebd8b2960e9af422687569",
+      "sha256": "7dfa51eb11eeb4c8662f17437cc3c692cbb9240a657fb8b80892c26a8d77a42a"
+    },
+    "research/chityy_archive/reverse_pattern_v0_4/01_file_source_audit.csv": {
+      "bytes": 6853,
+      "git_blob": "4007b1072f7c1ff8308e59825543d781adfcafb9",
+      "sha256": "2f9c0b4f6bf9464eb330beba7537df5bc85df2073db152931327e4c9aff8fe17"
+    },
+    "research/chityy_archive/reverse_pattern_v0_4/02_duplicate_vs_master_map.csv": {
+      "bytes": 1404,
+      "git_blob": "a98822f8ab828b4cfafa1fe4db26d2121c495cc7",
+      "sha256": "47783b993c43da79a184f34a680b7e2e79bc2959bd6f886c2d866b7e99c29b5d"
+    },
+    "research/chityy_archive/reverse_pattern_v0_4/03_parameter_landing_map.csv": {
+      "bytes": 3613,
+      "git_blob": "46805a2f287098e90c5f9da24efb005a98fac673",
+      "sha256": "6650c9ca3d12fb02e90064d985d4261876d00cdd2e8981e57e0f6cf7aeb33ed5"
+    },
+    "research/chityy_archive/reverse_pattern_v0_4/04_adopted_good_parameters.csv": {
+      "bytes": 11582,
+      "git_blob": "83112b2a3b0a09219a30a68c9fc6c194dce2a900",
+      "sha256": "929cebf37d06e6535268414afded38e3f54172d283767b964a1a5b4bbe0cb6f5"
+    },
+    "research/chityy_archive/reverse_pattern_v0_4/05_parameter_bank_1200_locked.csv": {
+      "bytes": 934592,
+      "git_blob": "60debb24de443b1bf909a7b440da961aa1a56ddc",
+      "sha256": "87b273cc5905cc8cdd05400fbe4f80170d37bfcef7acd332179e509324cb3f20"
+    },
+    "research/chityy_archive/reverse_pattern_v0_4/06_data_under_parameters.csv": {
+      "bytes": 44035,
+      "git_blob": "d6e971da6745f59b161fd57e74efe68b4fb98802",
+      "sha256": "bb5a3c71f71bf8db7abfb34110c4359cb870b281f4224d042c70b241794c00b2"
+    },
+    "research/chityy_archive/reverse_pattern_v0_4/07_reverse_rise_fall_events.csv": {
+      "bytes": 54973,
+      "git_blob": "841726e27a3da3e9ee1f49f92ec545b0230e46db",
+      "sha256": "5c9684eb4cde287867b3e1bdaac5d39fdd0ffba147dd94bd4ada43d08dbf9644"
+    },
+    "research/chityy_archive/reverse_pattern_v0_4/08_industry_pattern_engine.csv": {
+      "bytes": 2558,
+      "git_blob": "1f55631d438ede20c74737a0972e3dc937df7370",
+      "sha256": "7d1131579de6ef7604d452bc717bfbf1ae29229545e8e25993c648d9fd4e7662"
+    },
+    "research/chityy_archive/reverse_pattern_v0_4/09_pattern_library_reverse.csv": {
+      "bytes": 3293,
+      "git_blob": "433eca5010e12be843ab71d1c3061e0af17d195f",
+      "sha256": "0cd5af99b89a0a6387bfe40d18bf2f5c180deed75afabcd24cd913f5a9596203"
+    },
+    "research/chityy_archive/reverse_pattern_v0_4/10_scoring_risk_engine.csv": {
+      "bytes": 2489,
+      "git_blob": "f5881500ee4c3a8e3ab3d7a6e9b2dbda90408eab",
+      "sha256": "873d3f04229199fb6c243f7e196367b7357109271324d6dc9fb95d21d4b50b9a"
+    },
+    "research/chityy_archive/reverse_pattern_v0_4/11_data_gap_requests_next.csv": {
+      "bytes": 1725,
+      "git_blob": "ac527bb339292da707dbe25fdcf4b9031a90d998",
+      "sha256": "14fb0486d68b33e01cdddd2860b24c44bbba32ccf21f36a91fcc1c494dadbf56"
+    },
+    "research/chityy_archive/reverse_pattern_v0_4/12_dashboard.csv": {
+      "bytes": 1032,
+      "git_blob": "f2195c7d60b759f687546367056155babae9e97b",
+      "sha256": "cc58fbb9a3cb8c0bb9730c820fe8182fe95148677b2bfd0437fd5be3fb2d5f63"
+    },
+    "research/chityy_archive/reverse_pattern_v0_4/13_source_hash_check.csv": {
+      "bytes": 1611,
+      "git_blob": "c9a30d5fceca8730956a9ac72f497e77c31901ac",
+      "sha256": "f20caa689d647c2594f5a7fbfc628d7e4d3c8f019a3334e8169cf4b37b6ec711"
+    },
+    "research/chityy_archive/signal_correlation_matrix.csv": {
+      "bytes": 1896,
+      "git_blob": "e2f85c7a4fd47a7676cf604bd55c72b630e54bde",
+      "sha256": "7502b7d4d1ca674fb6f28acab1a58327bb7fffaa402f3339c8d66c50f6b96567"
+    },
+    "research/chityy_archive/signal_forward_return_distribution.csv": {
+      "bytes": 1719,
+      "git_blob": "320648a1320fc82d6fa5e32fd6048cd6fd20a491",
+      "sha256": "0564107a4fb3364da76ec5e173a68a31d6d0dac5cf96822b0b9096daa38b9ae9"
+    },
+    "research/chityy_archive/top_combo_triggers.csv": {
+      "bytes": 1131,
+      "git_blob": "96d7863323f4549a3f13c8f8f104c11ef99bdaa7",
+      "sha256": "8d57d51f1448f33d9f8e05a7b178ee642f9314c3396b978a4483b713bc760fdc"
+    },
+    "research/chityy_archive/top_pre_fall_triggers.csv": {
+      "bytes": 1380,
+      "git_blob": "44713d7ca05edc07b105c707e6c863e6d6c5b50a",
+      "sha256": "f919ea4291d9e11071ba7f49630e62133cdf8a6d46a6f4f36ad21abe82a77687"
+    },
+    "research/chityy_archive/trigger_layer_v0_2/data_extraction_request_v0_2.csv": {
+      "bytes": 1132,
+      "git_blob": "6f2aafc4dabc3a19af47ace513e5e62549bed347",
+      "sha256": "17cf0a3294524f46d16901a3640f2a53d53f03c51be43a8c958beb1867998417"
+    },
+    "research/chityy_archive/trigger_layer_v0_2/paper_running_map_v0_2.csv": {
+      "bytes": 898,
+      "git_blob": "b3bb30f31d5508b09621216248530f6a4058d801",
+      "sha256": "79652a99fc4e4273b2182dbe1869ecd9fa3f65e3d4493836aafa0908e24387aa"
+    },
+    "research/chityy_archive/trigger_layer_v0_2/proof_gap_ledger_v0_2.csv": {
+      "bytes": 712,
+      "git_blob": "d605f6a63df5808d015bf46f827f12546a731b0f",
+      "sha256": "df1ad8a29607fcab325ccda465a5a123a0c38f62e05678e0a7a935a6b3a39edd"
+    },
+    "research/chityy_archive/trigger_layer_v0_2/pyramid_insert_map_v0_2.csv": {
+      "bytes": 608,
+      "git_blob": "a79cf22adea0776631d95cd1222592b9a91e7b74",
+      "sha256": "f5665633386782c4d0c59d9ca62e5b321caff2fb60e7a368fd2f92dbc3a7701c"
+    },
+    "research/chityy_archive/trigger_layer_v0_2/reverse_backtest_design_v0_2.csv": {
+      "bytes": 1313,
+      "git_blob": "daec39ad14ba1057bba00865925bfb0be66f3d6d",
+      "sha256": "6207e2ccfa0d0788985fa978ea0d64a5766b2ef3754ee7bf44ef787a7ecb3f22"
+    },
+    "research/chityy_archive/trigger_layer_v0_2/trigger_clusters_v0_2.csv": {
+      "bytes": 1462,
+      "git_blob": "44c2b60d6484223fa9419adcbec125e9f8af4658",
+      "sha256": "2ebe81b1a5fa5868ea5eca2d2dc787fe9c9166cf0d295d5188cabf38752f31e8"
+    },
+    "research/chityy_archive/trigger_layer_v0_2/trigger_params_v0_2.csv": {
+      "bytes": 38600,
+      "git_blob": "0c388fb93d5d0424f0e34139cdb8b2cb64ff013e",
+      "sha256": "ce27b6708aa26d98a5b3fe4e36ec0633f020b8314b8cbff085ac6c46609bc877"
+    },
+    "research/chityy_archive/trigger_layer_v0_2/trigger_score_gates_v0_2.csv": {
+      "bytes": 1528,
+      "git_blob": "14888250ac18367b0b0a05715be8f3d267b08f8c",
+      "sha256": "396216e95d6c1b0babf8ecc8d5f8729fef170b7b9b418ea6627c751212ee60ca"
+    },
+    "research/exit_study_live_era/A.json": {
+      "bytes": 1599,
+      "git_blob": "321443956b91151c947816373fa1318bcdc2e5ee",
+      "sha256": "cb01e5392e9a6615ff0d731ab4aa470630984cede688aea4ef94b4c25af730f7"
+    },
+    "research/exit_study_live_era/D.json": {
+      "bytes": 1574,
+      "git_blob": "c8236a9af127369f077e15b32c5209cc05f08b22",
+      "sha256": "e30a4d63091a0bf8bb27fa0ff74391deeb7c6a924180d86268b7984aa7688433"
+    },
+    "research/exit_study_live_era/D15.json": {
+      "bytes": 1586,
+      "git_blob": "a2a5bbec762edad8a82f18d2adc87fd9980b8c9c",
+      "sha256": "2b4ac57419ce51e4001c83c3711a5a9d7de98af6bef7d78df9eb5ca4d427e28e"
+    },
+    "research/exit_study_live_era/summary.md": {
+      "bytes": 2431,
+      "git_blob": "347f7507f450ba1529c70441303bfcd49c85998e",
+      "sha256": "d1a986a1f7597b0895a2da8e520ff54192e4a242bc5689aed99bd7226db8962b"
+    },
+    "research/external/ASHSTOCKS_Flaw_Register_2026-08-09.csv": {
+      "bytes": 2545,
+      "git_blob": "f6fc85ba42fb7a53f9092189c90f0ee5b74d7c26",
+      "sha256": "953e50bec8e29c89d4649dac9472a69a27993abb9b1f964eac9aba7331f50929"
+    },
+    "research/external/Selection_Register_v4_279_OwnBuild.xlsx": {
+      "bytes": 53767,
+      "git_blob": "eb6a139862bad115078a633399e31e7936bae720",
+      "sha256": "9c6cc4baefa85ead40c5d6a2ac6a337039d2809cccf1012ad5bac2503b597207"
+    },
+    "research/external/selection_register_v4_279.csv": {
+      "bytes": 167800,
+      "git_blob": "5f84133333a0755075386421acc022f5487c4982",
+      "sha256": "113f52e42e462828999819ba9293e21b0726e7c09f9fc830f898e0be44efa919"
+    },
+    "research/fii_tide_study/fii_tide_results.csv": {
+      "bytes": 2915,
+      "git_blob": "956501ea84c90748c132f95a4f914bac584a241a",
+      "sha256": "f221cdcb10fac36f26b0357a11be4504cd27f47f53e3b6ccff0dd524934aa38f"
+    },
+    "research/fii_tide_study/meta.json": {
+      "bytes": 180,
+      "git_blob": "54b801a8f88c10017f1d29056fb45d413a66a82e",
+      "sha256": "be13ceb056399789bac3f8e897c9546932c18d7f51b0f8f7095771c64aef6b1b"
+    },
+    "research/fii_tide_study/summary.md": {
+      "bytes": 3381,
+      "git_blob": "3a69ad22134a814f8426b85344d33620963b79ce",
+      "sha256": "996f0143566dada324ec11f584f6392866d2c11b06b33f2f98e7a214d82aae07"
+    },
+    "research/ifr_frozen_2026-10-02/thresholds.json": {
+      "bytes": 3584,
+      "git_blob": "d748a8ebb93c81a890f1d8c5cf3dfadfa353b300",
+      "sha256": "d0ac292cf157e57c8d9d90403a666c0b525acb600263522183d6577171bb7ca1"
+    },
+    "research/profit_protection_2026_11_16/README.md": {
+      "bytes": 9971,
+      "git_blob": "ade519e04e4d2bf8edcd90517a1599b971f7a557",
+      "sha256": "fc3ca4aa1c713ff37c1054b97c45802e926daf3cf5f54fd4376ad85c1be41eb2"
+    },
+    "research/profit_protection_2026_11_16/holdout.json": {
+      "bytes": 70411,
+      "git_blob": "258d61f3c4dd8dbd23e4f2c10946e3bc98c91572",
+      "sha256": "c450d1dc3efce796524e5c5ca3e82ff87a161cd7f3cc7c0a022d91ae3bb54094"
+    },
+    "research/profit_protection_2026_11_16/holdout_opened.json": {
+      "bytes": 231,
+      "git_blob": "87a2927213b25973689bf30822810ab3cd0b13cd",
+      "sha256": "7d3e05eabc9a25f4eb358c50796677bdfe0b2b866359269b55f86ed047ac0863"
+    },
+    "research/profit_protection_2026_11_16/holdout_trades.json.gz": {
+      "bytes": 755282,
+      "git_blob": "3639d187ad03b43fa8cda155c6bf24d266d435b4",
+      "sha256": "80c19949af771246f62eea682e7efb3b3d2c0f7110fbdc88514a37bfd15beb0f"
+    },
+    "research/profit_protection_2026_11_16/manifest.json": {
+      "bytes": 44426,
+      "git_blob": "da01085b390d44b70d7e8b1f6ab668094c7a313b",
+      "sha256": "18e251849c840fced7a130ded7caa1dbf192cab4f1e57711076b796d6d16a628"
+    },
+    "research/profit_protection_2026_11_16/protocol-v1.json": {
+      "bytes": 6397,
+      "git_blob": "01ceee6b8882be22672a7b1a72d93a24ba702a1f",
+      "sha256": "79e4a0c507717fbf6ebc33695b549286635b94f200f961c47cf83f6eb7bf279d"
+    },
+    "research/profit_protection_2026_11_16/protocol.json": {
+      "bytes": 7345,
+      "git_blob": "bc5b34e4819e26e7fb4a26422df18bec5236efd3",
+      "sha256": "9d54b3e94fd7ca4f85804723e9081e4969d6863fa4a73a48972a9becb8abd848"
+    },
+    "research/profit_protection_2026_11_16/raw_responses.json.gz": {
+      "bytes": 1661198,
+      "git_blob": "73c8e70a33923dc200b7c1c1d12c5b6981a0d897",
+      "sha256": "4da04ec28cb67bcd033a3d735192bc8226df02c81dcd597e3c9827043e570cf0"
+    },
+    "research/profit_protection_2026_11_16/results.csv": {
+      "bytes": 49024,
+      "git_blob": "8f5f4836a53db0978220027011a188203bf833e9",
+      "sha256": "3735bac68e7a849c2d615febe57689b3deab0c1c9b7482e68c9f871030c76a4a"
+    },
+    "research/profit_protection_2026_11_16/selection.json": {
+      "bytes": 100990,
+      "git_blob": "a7eeabc869f9629abb1d1fb4f9cc30b6be910ce5",
+      "sha256": "daefa7a1ab54b275c1001e8e1ac815f4ac55f112116292c0c0e4a41acd6f8b63"
+    },
+    "research/profit_protection_2026_11_16/train_validation_trades.json.gz": {
+      "bytes": 1475967,
+      "git_blob": "a90e40e2e9ae22dfea083068ab1d50815051f9be",
+      "sha256": "b76901a3a40bc3330220035cc166e0b8d6b705c61dbe13a36c05227ee32bac2f"
+    },
+    "research/quality_liquidity_2026-10-02/result.json": {
+      "bytes": 881,
+      "git_blob": "963c3499ebf8598f19420f3731d1be47fda43c79",
+      "sha256": "cb7b7a460e8ae6db3819999e0670ebb78e1ad01f2b6bf7d66bd6561c5ad67b04"
+    },
+    "research/reentry_2026_11_16/README.md": {
+      "bytes": 12488,
+      "git_blob": "464144ac9a85f0cf0fe412742b8e9a084de07153",
+      "sha256": "8e041b451596410f524fcbf28f5de31640d595f05656697abcb34fb316ef05f4"
+    },
+    "research/reentry_2026_11_16/holdout.json": {
+      "bytes": 78708,
+      "git_blob": "6cd322a6e3e30c5e8ea510137c5cd2ee736afa84",
+      "sha256": "a5873b6da8977baa74cd22d72b90a65d12d5e2e0665df0a3c74e83167ab5f728"
+    },
+    "research/reentry_2026_11_16/holdout/manifest.json": {
+      "bytes": 22796,
+      "git_blob": "c8364fe3a8d9b8d840cc1e16cc5ab716d9831d83",
+      "sha256": "58fc0294671e5684333da82deb95dbf4875bfe1fcce758437bf2b38d45650d44"
+    },
+    "research/reentry_2026_11_16/holdout/protocol.json": {
+      "bytes": 8495,
+      "git_blob": "1e0edc0e36f07725e2ab635f4182521a3576b41b",
+      "sha256": "2c130b2fc7052e32c4ac17d2aeaa1cbb6398a18c47c6474216027e9f2d613a65"
+    },
+    "research/reentry_2026_11_16/holdout/raw_responses.json.gz": {
+      "bytes": 683489,
+      "git_blob": "512f8148cf9792cc9587bb1b126db01bd0dd7368",
+      "sha256": "ea15162d3875bc6ab77d22e5417661ad7c47bf1b56aa9e2d6c45eed95a733586"
+    },
+    "research/reentry_2026_11_16/holdout_episodes.json.gz": {
+      "bytes": 1089694,
+      "git_blob": "49be2bfeee4729e58345c4d069af41cd7556c88b",
+      "sha256": "cdf8d58d6c87b7b237646b45a6620377d6ede576b03080dc0796d6913c617913"
+    },
+    "research/reentry_2026_11_16/holdout_opened.json": {
+      "bytes": 244,
+      "git_blob": "68f8fd7b3c028fff710f9be0cda591fd070ffd42",
+      "sha256": "f81decb01d6091cb7437a0a2d1d18dff3c442561454d3e95d89a2fe20b740079"
+    },
+    "research/reentry_2026_11_16/protocol.json": {
+      "bytes": 8495,
+      "git_blob": "1e0edc0e36f07725e2ab635f4182521a3576b41b",
+      "sha256": "2c130b2fc7052e32c4ac17d2aeaa1cbb6398a18c47c6474216027e9f2d613a65"
+    },
+    "research/reentry_2026_11_16/requirements.txt": {
+      "bytes": 175,
+      "git_blob": "72eecb6869be45cd7538b206591cb7382d9a26b1",
+      "sha256": "70106da851287f70146587f441e6588d71520fc6b9b7c8a5b48c19e3c9616daa"
+    },
+    "research/reentry_2026_11_16/results.csv": {
+      "bytes": 44754,
+      "git_blob": "a89a9aa4d3efb268bd05d927154e9cba55e22ccb",
+      "sha256": "67766f0162076001eda1572a5c420347d369b9267aec7dd87391dbcded523874"
+    },
+    "research/reentry_2026_11_16/runtime.json": {
+      "bytes": 1437,
+      "git_blob": "fc57ade07ee833c428ad064b6445c07adeaed8f5",
+      "sha256": "de6713097b8a058804c4c1a0b6401ca2fbced970b39488b3c3a26519350522c7"
+    },
+    "research/reentry_2026_11_16/selection.json": {
+      "bytes": 121698,
+      "git_blob": "925a8262806db6915215c4ae6ed14f8cd139d9ed",
+      "sha256": "dda639165b58ce50a7d174957cc769f69949fdc46f58d7395357c370c1d41e59"
+    },
+    "research/reentry_2026_11_16/train_validation_episodes.json.gz": {
+      "bytes": 1389770,
+      "git_blob": "ee2012b51c07a81020d0abdab3b5b759cc1ffee2",
+      "sha256": "389b5b738426f51d0535ed75eee5851cb2344510365282605ad3bb72c491ca52"
+    },
+    "research/reentry_2026_11_16/training/manifest.json": {
+      "bytes": 29982,
+      "git_blob": "3811e7da97cb7161482e4779331268c67eb323a5",
+      "sha256": "495fbec421a55bdc389916d367baf00b8befda22fdf935f3f65b4126ef4035eb"
+    },
+    "research/reentry_2026_11_16/training/protocol.json": {
+      "bytes": 8495,
+      "git_blob": "1e0edc0e36f07725e2ab635f4182521a3576b41b",
+      "sha256": "2c130b2fc7052e32c4ac17d2aeaa1cbb6398a18c47c6474216027e9f2d613a65"
+    },
+    "research/reentry_2026_11_16/training/raw_responses.json.gz": {
+      "bytes": 1081179,
+      "git_blob": "9da8d4c97326a2986a1b2fdc0fc63f64f17fa8ae",
+      "sha256": "9ecece32bf222bc489806a9f8f9bf1727ec080fc5922670f787e638b87b69442"
+    },
+    "research/sector_heat_study/rows.csv.gz": {
+      "bytes": 1266519,
+      "git_blob": "83665b852a5b1c7404330d417f3cbe588fb65954",
+      "sha256": "fe2b06cf9b2ba8da5216397af7447830d77d2d348ac08a03cb575e4c3d9c09bd"
+    },
+    "research/sector_heat_study/sector_heat.csv": {
+      "bytes": 750,
+      "git_blob": "10032694cf46af7d9c647865242fca3eca42fa0b",
+      "sha256": "0e5a5006eaea79003888dcbb71496e92aa695a9ee98dfd3cc2818a11c8e634ff"
+    },
+    "research/sector_heat_study/summary.md": {
+      "bytes": 1771,
+      "git_blob": "b7814b852d50f5e5ed3d231358d4c291cdb6ad26",
+      "sha256": "42a8e044ed37fa2aae12fb8458738264188f8139db76e692995d19c17a94b82f"
+    },
+    "research/sizing_2026_11_16/README.md": {
+      "bytes": 7918,
+      "git_blob": "3fc61ebc5ae9513fb1825ee3e119b05391180cb9",
+      "sha256": "99e41551c01ab2d147c5f79911e4873ffe6c674a05bf30bed146475002a30a3d"
+    },
+    "research/sizing_2026_11_16/holdout.json": {
+      "bytes": 50482,
+      "git_blob": "75ced6d6878884ba22fc335a307d2c7579990335",
+      "sha256": "4d83fa0c1ec0f654d4725c77add9551d7c4a73df2d59a310bfc8429c009494d2"
+    },
+    "research/sizing_2026_11_16/holdout/manifest.json": {
+      "bytes": 15559,
+      "git_blob": "ee47cfe49d1340fca2a0c54c78e85f9df8289c41",
+      "sha256": "0ec0f77f75cbb8a46866f0c95f5345bff028aebc1c11ba37f7eab596c30ee858"
+    },
+    "research/sizing_2026_11_16/holdout/protocol.json": {
+      "bytes": 8382,
+      "git_blob": "d1774a652147fad0211464956c2b0076dbfccfa0",
+      "sha256": "1b6bbd1f889560c942ccf6ac49dd6463e285f2c4f7acfe6e937d6a194a385394"
+    },
+    "research/sizing_2026_11_16/holdout/raw_responses.json.gz": {
+      "bytes": 459416,
+      "git_blob": "edfd4bc7f1eda7e016d3f8ccf32f316f717efff2",
+      "sha256": "15306a8ac0cb41852bb8cb9202dca88e3ce0c02ac063acbb36ab5837f1ce0795"
+    },
+    "research/sizing_2026_11_16/holdout_opened.json": {
+      "bytes": 340,
+      "git_blob": "c4ec4b8d986d624e9f7c0518bb908d87b0953d10",
+      "sha256": "2e1dec5747313f763503eb8b9020fd7e1ee3aafe563e403fbd53541f1b70e5f8"
+    },
+    "research/sizing_2026_11_16/holdout_outcomes.json.gz": {
+      "bytes": 962336,
+      "git_blob": "0465b1cd75d92a721e962453f547ab39eee32ad6",
+      "sha256": "c120e4fe997d37518e265905e977ebccf7fbedf9099b9b5a32ea16a6f874d1c4"
+    },
+    "research/sizing_2026_11_16/protocol.json": {
+      "bytes": 8382,
+      "git_blob": "d1774a652147fad0211464956c2b0076dbfccfa0",
+      "sha256": "1b6bbd1f889560c942ccf6ac49dd6463e285f2c4f7acfe6e937d6a194a385394"
+    },
+    "research/sizing_2026_11_16/requirements.txt": {
+      "bytes": 41,
+      "git_blob": "ea634d7c9317ef8bfa68678c6833a39d421c7173",
+      "sha256": "c99c1c1d9e379c506fdfe44669ee6b733d876308cfc5c4735cd16a8087494146"
+    },
+    "research/sizing_2026_11_16/results.csv": {
+      "bytes": 21494,
+      "git_blob": "235bc17bf482e5c3147900327a4f4b7fc2333257",
+      "sha256": "0e483ce53a93726ba110bf94f86bba57c23e24670d024b4c7971721b1bdbb76f"
+    },
+    "research/sizing_2026_11_16/runtime.json": {
+      "bytes": 216,
+      "git_blob": "fa4fbc9f4367d6d3cc5de2b23e7bb7b9eb22ec3f",
+      "sha256": "90d99bd9d1cf6df1d81dcaacee5d6bacaa816137dcbde4409b23688503c5b2f7"
+    },
+    "research/sizing_2026_11_16/selection.json": {
+      "bytes": 73921,
+      "git_blob": "e255f7397e7671297fcf2af855ad32b93a8dbe7f",
+      "sha256": "411153baf6aaf63264d6804a2e0c30a45b0d0a8180b3fc198456d134cbfcce53"
+    },
+    "research/sizing_2026_11_16/train_validation_outcomes.json.gz": {
+      "bytes": 1348837,
+      "git_blob": "ca26c1cf187e1be3bef75b9c05a6512f198c863e",
+      "sha256": "d9e70b15ecf651411bc2f183c00cd8d45b869d28577684e3a29ec4af9113c994"
+    },
+    "research/sizing_2026_11_16/training/manifest.json": {
+      "bytes": 22775,
+      "git_blob": "bea9c00f77483f37032f1845cb03635274460d92",
+      "sha256": "f44e76319741e521685d692847bfc7e11bd7200c0d046e55b203780d4a05f364"
+    },
+    "research/sizing_2026_11_16/training/protocol.json": {
+      "bytes": 8382,
+      "git_blob": "d1774a652147fad0211464956c2b0076dbfccfa0",
+      "sha256": "1b6bbd1f889560c942ccf6ac49dd6463e285f2c4f7acfe6e937d6a194a385394"
+    },
+    "research/sizing_2026_11_16/training/raw_responses.json.gz": {
+      "bytes": 994595,
+      "git_blob": "132d86d51a085b2d0df11f633da1ed7b7f3d91b8",
+      "sha256": "9afa41bd114b2d54cb478290f11aab1a5adb88716396427affb7b55b1745ef2b"
+    },
+    "research/sizing_2026_11_16/universe.json": {
+      "bytes": 4257,
+      "git_blob": "ea4d2785283013b7723321216686766bc09317c4",
+      "sha256": "00e85461547933394f4f6e8fbfe390e52b31f60715bf2e75ae38d75229bd21e2"
+    },
+    "research/stop_cooldown_study/A15.json": {
+      "bytes": 3040,
+      "git_blob": "eb2adb0fbc47dc61d0f35adbda3580a3398fc0f8",
+      "sha256": "2f632f5ae0082d83c9962c2674d1d5cbbf06562c9bd5c6d0663abac7d0138313"
+    },
+    "research/stop_cooldown_study/A20.json": {
+      "bytes": 3041,
+      "git_blob": "1906e7c8360ca213ac738e1b04393778bd2f7dde",
+      "sha256": "92b5c9ba2f73abff4c4fa9fb02247a198ed761f962007432591be4725170229f"
+    },
+    "research/stop_cooldown_study/B10.json": {
+      "bytes": 3035,
+      "git_blob": "c4131462199155872b56d4f6a2a64131592b1c8a",
+      "sha256": "f0615ccec7536edf3f48cf1328a45c925d9a0356570912e3aaf12532e1815c87"
+    },
+    "research/stop_cooldown_study/B20.json": {
+      "bytes": 3037,
+      "git_blob": "c802692b45abfb03e073a4d4e999cad45b90985e",
+      "sha256": "6e0162b0de97c28f272bcf5dab107200c557ba86acc5c647606b2cf462eefd8f"
+    },
+    "research/stop_cooldown_study/B5.json": {
+      "bytes": 3031,
+      "git_blob": "a4745be0efcdf95f154bf4bae7bd527e40b38cd9",
+      "sha256": "61b9c5ed463ea0c07148fa7af4362853cacd4f74119e0d5197050ed2ea31c1c7"
+    },
+    "research/stop_cooldown_study/base.json": {
+      "bytes": 3040,
+      "git_blob": "2dc04085a7913827ee66702f9d6cca6e0694ca11",
+      "sha256": "c0bcf25925595d7bf1823e900b7ed98dcea49c79702f7c8bf39f020f1b29449d"
+    },
+    "research/stop_cooldown_study/summary.md": {
+      "bytes": 4407,
+      "git_blob": "5b1233ebb4710bef712d8c29ce148af9c20b0d71",
+      "sha256": "c270da249cd1ff788589cbc3ece579ec7e421d83bf1f7b877156ce74e3d87628"
+    },
+    "research/threshold_sweep/threshold_sweep_all_settings.csv": {
+      "bytes": 23327,
+      "git_blob": "b38baa3f0418505073973c853d81f7af9a355e86",
+      "sha256": "81b818fdca38fff66d4f57bd5a3974ba0e51ff9539c7573e3295a33c82d9d647"
+    },
+    "research/threshold_sweep/threshold_sweep_summary.csv": {
+      "bytes": 762,
+      "git_blob": "53372c1d5a2959332998c7e45dce02dc3e3ad2fe",
+      "sha256": "a5263444221295f2c7826e4fa0d8325701f237e56f66b2e813391ea7b6d1eb0d"
+    },
+    "research/tools/fetch_kit/DATA_INTAKE_REPORT_2026-08-09.csv": {
+      "bytes": 244816,
+      "git_blob": "403444766eb72b06be81c427b1712c5e028615ae",
+      "sha256": "9c6e1a8168be81fffe51d3f754e10ec28ba853c4b2b1e11ced444e551b8adca0"
+    },
+    "research/tools/fetch_kit/README_FETCH_GUIDE.md": {
+      "bytes": 4097,
+      "git_blob": "6e61585b1a99709dd80f7de8aa690f57ebcba3b1",
+      "sha256": "5e9faff04dd172f545fe79fb0f5b890b82c8056a89ef03ef1e3828227a572070"
+    },
+    "research/tools/fetch_kit/REJECTED_ROWS_2026-08-09.csv": {
+      "bytes": 83586,
+      "git_blob": "abb4403d22a28a08b657dbc6854d6022d16e7df9",
+      "sha256": "35248d63cb81edc6746207b8b71cc87e2e9bc1d47dea39ef9027418a5e091e5a"
+    },
+    "research/tools/fetch_kit/data_contract.csv": {
+      "bytes": 875,
+      "git_blob": "f4ca089513f330dad0a52da5bd6917afb4eb9423",
+      "sha256": "ccd03ef1fa97c1eca27d3c0caea9a5e85849b43d627b3ffcc9b9a7f566d028af"
+    },
+    "research/tunnel_studies/cochin_daily.csv": {
+      "bytes": 98007,
+      "git_blob": "b8a850854a36d38bdee5b217e6f8ce4042bce00d",
+      "sha256": "b3790f56dd0a6f7a3191998c52c9f7e1855727e102f12efada73454246233c97"
+    },
+    "research/tunnel_studies/cochin_tunnel_readings.csv": {
+      "bytes": 117210,
+      "git_blob": "168d1790ff858233f9c1d36935b6727befa44be6",
+      "sha256": "df68f10da955ae0e175fa58c7733ba03046fa2bf2edf141e024cf416b3a181f9"
+    },
+    "research/tunnel_studies/cochin_tunnel_visual.html": {
+      "bytes": 267182,
+      "git_blob": "24fc32788a2315a31915f563bbbde6c7822c7857",
+      "sha256": "9da3872ceb1e3674d644cda36a5f56c7e8f3b7c0d99f1de7a7a880169aa16858"
+    },
+    "research/tunnel_studies/four_specimen_master.html": {
+      "bytes": 19610,
+      "git_blob": "e21b1e6631f08e653bad09314f6f3ded42588caa",
+      "sha256": "4dde0ccac46dffeda0c1167bd823b7ecefa3b3f3055de9ee50bf71a3cd968036"
+    },
+    "research/tunnel_studies/hdfc_daily.csv": {
+      "bytes": 136142,
+      "git_blob": "3dd89592273fd2cd3d3fdf0672a2e9f20ca49c02",
+      "sha256": "999159b2353aedec4d047f740232f818908a92ad5f4a2becc818e4c68e7b61ea"
+    },
+    "research/tunnel_studies/hdfc_tunnel_readings.csv": {
+      "bytes": 72061,
+      "git_blob": "141671339073e06c0af7608d605fb766c871d297",
+      "sha256": "4a12582720d9f729144a956b107a1e7799d22ba9b8aabb5aef945986e39d099f"
+    },
+    "research/tunnel_studies/hdfc_tunnel_visual.html": {
+      "bytes": 144286,
+      "git_blob": "29aa2dbf849e9d8cfaaf7ba988191df5fa99c3b2",
+      "sha256": "579d42e20351c2342acdde8c5770def4f8ed56e2b25917f60e9b3be8333315ec"
+    },
+    "research/tunnel_studies/icici_daily.csv": {
+      "bytes": 144732,
+      "git_blob": "2e5665deb70ed9da6c09f54bbff409b51811abad",
+      "sha256": "65df40e2aa253e9b5d97984b8997a9fe3851a12f6f445af89a1572ab1f24537c"
+    },
+    "research/tunnel_studies/icici_tunnel_readings.csv": {
+      "bytes": 107041,
+      "git_blob": "b00eb008dd5531ea5a584fa24f2ad60a2e925a86",
+      "sha256": "cc621e12ee4b14923ae3189e61cdd7a55a9c1e73b4f8b75c78db2659b58d3d09"
+    },
+    "research/tunnel_studies/mtar_daily.csv": {
+      "bytes": 62033,
+      "git_blob": "56e325fdf665da919e6c5652c2f5c1e519ef8225",
+      "sha256": "54593b3d3bd2f4e1cd90046c4e67021695dd27c9ed5f2dbfbaccb7552f76db8b"
+    },
+    "research/tunnel_studies/mtar_tunnel_readings.csv": {
+      "bytes": 61042,
+      "git_blob": "83f6aed67d4ccb6b0d2e9753d8494d76ccc2b37d",
+      "sha256": "1f536dbf886b1dee640476d81c219b48f6880cc5961cf4bee054458233b7c8ad"
+    },
+    "research/tunnel_studies/mtar_tunnel_visual.html": {
+      "bytes": 149927,
+      "git_blob": "bca8c29a78920a91b60919a33684679097acda71",
+      "sha256": "afe22e265a4189eec7ac6c3ec6fdeeae6b38b853da91fec6de5a9e5096ab9ec4"
+    },
+    "research/tunnel_studies/tcs_daily.csv": {
+      "bytes": 150147,
+      "git_blob": "0f3ae01e067a0471026d4cde6da228b47df18352",
+      "sha256": "99398b18d7bb73222c52f0a9a0461b9e31fb32b881f2be719dbebf53cabdbda9"
+    },
+    "research/tunnel_studies/tcs_tunnel_readings.csv": {
+      "bytes": 87288,
+      "git_blob": "7fe0cd6b396c4e3e4360c851621138a62cde7d0b",
+      "sha256": "6a9177f23e691b209dc2b60f9982167f1998849829d7b56ff39309c027556b95"
+    },
+    "research/tunnel_studies/tcs_tunnel_visual.html": {
+      "bytes": 191644,
+      "git_blob": "f09f8370689897c19c7e4bf10d69df0541ec309c",
+      "sha256": "e4962602b46617660e2983db9fb1abe7356781f7f445a9e90cd795cb328ea1a0"
+    },
+    "research/universe_add_2026-09-16.csv": {
+      "bytes": 3302,
+      "git_blob": "d3011c27315b9a31b91841f7e325b4a22a129679",
+      "sha256": "54e89f29f3985df41a5ec352920d9011111850fbc5e760ebd669b35202de607a"
+    },
+    "research/universe_add_2026-09-30.csv": {
+      "bytes": 11839,
+      "git_blob": "b093acf272287f90e55e9a58209f57621f236390",
+      "sha256": "05ecbe105e3fe2eaf6b0929f83a56a002fb2f8728df8993064083693f1b7b03e"
+    },
+    "research/valuation/README.md": {
+      "bytes": 1004,
+      "git_blob": "bf55dc47a8fc6e32efe8c7580aee8d2d37ce7b9d",
+      "sha256": "514b572dcc044cb926c3489345d18930a908d458b93298bd475c1242ae81b00b"
+    },
+    "research/valuation/Tata_Technologies_IPO_valuation_model_2026-10-09.xlsx": {
+      "bytes": 19970,
+      "git_blob": "7e5e183b95a43d69b935a356e2be2f7ae794664f",
+      "sha256": "f64d23bc66eadf2046c4226534941a327484c451e7e7f5fcc02f8f63c8c9521e"
+    },
+    "research/valuation/five_stock_skeleton_2026_11_02/README.md": {
+      "bytes": 8056,
+      "git_blob": "53fe66c9960166d752227fdde9a30b631a067f52",
+      "sha256": "28852eca3ce3e0b000b548fc073acaa479cf1736cf107b4e003a52d8a8a46605"
+    },
+    "research/valuation/five_stock_skeleton_2026_11_02/inputs.json": {
+      "bytes": 3458,
+      "git_blob": "c0f45be56ac84cf311e004a90cfa7caa4a6afd2e",
+      "sha256": "663df42e7f9afc214782de1dc45240225597383378a16bae5a51e2a7be4e2e30"
+    },
+    "research/valuation/five_stock_skeleton_2026_11_02/results.csv": {
+      "bytes": 3889,
+      "git_blob": "a06d201671e497b08f7e17a4aa769576e9adbeb3",
+      "sha256": "c852dc225ee165c479b4800bb595f40d85998570fd60d64ff94a3233ce9e1941"
+    },
+    "research/valuation/five_stock_skeleton_2026_11_02/results.json": {
+      "bytes": 11994,
+      "git_blob": "55c9154235243468beb20ac93091992413e5c1b3",
+      "sha256": "c1de99142a842650af4510722e481b286abca96630e9abec7e97c0457887c662"
+    },
+    "trading/tests/fixtures/fred_DEXINUS_2026.txt": {
+      "bytes": 3902,
+      "git_blob": "232f3d7a939650586e9d54a3477d550ffbe5cc2d",
+      "sha256": "0beeec498b9867282a275fd2a6fb6f70516958416e34010c95e4cf31e1dcd2cf"
+    },
+    "trading/tests/fixtures/fred_DEXUSEU_2026.txt": {
+      "bytes": 3703,
+      "git_blob": "5ee39ecfe2b799e76afa9bbbd7998ce388b6f0d5",
+      "sha256": "07566ae10dec7b7f3c2f10668495c428df035b8af9c4c21f2d2de62886ce70fa"
+    },
+    "trading/tests/fixtures/fred_DJIA_2026.txt": {
+      "bytes": 4138,
+      "git_blob": "12f273613bd43a8b557d69d432ba5c29b3b6d048",
+      "sha256": "272b1001158d9a6a303b2e5564a0f1f3ea4b7492d478726bbc763693f8756c3e"
+    },
+    "trading/tests/fixtures/fred_NASDAQCOM_2026.txt": {
+      "bytes": 4311,
+      "git_blob": "1afe23e5cee75c982017da80f3ec27653fc14877",
+      "sha256": "5002583a88ac6ed711f47e185a484e6380f7cf81987c78093170646125b6c4b5"
+    },
+    "trading/tests/fixtures/fred_SP500_2026.txt": {
+      "bytes": 3919,
+      "git_blob": "f9810fea55fb01d453e2a1dde5a71c3697fa2014",
+      "sha256": "bed71d1310460d10e0b017679d4ffc1b3a734bfe09aa1aa77dd41322b4e624a6"
+    },
+    "trading/tests/fixtures/nse_allIndices_2026-10-19.json": {
+      "bytes": 24675,
+      "git_blob": "b242115878d48c7d423d3c1f413775a900803774",
+      "sha256": "ae741ba02fd6d5a9761570a1109c74987310ffd0d55e4ea24e1926f35f0d1cda"
+    },
+    "trading/tests/fixtures/rbi_gsec_outstanding_2026-10-19.html": {
+      "bytes": 3429,
+      "git_blob": "6bc1df1f43e3a5e0bca47aa322d9bdacaa7185d4",
+      "sha256": "d9edaa7494615b662f49516e10bc4b0c37d0d4d6706992a5d480a17b17ee5353"
+    },
+    "trading/tests/fixtures/rbi_home_gsec_market_2026-10-21.html": {
+      "bytes": 3447,
+      "git_blob": "8bcfca0aaa93203b88b9bf2ccd4cedf64d500739",
+      "sha256": "9e5824d0a34c58be63f31b5d45484b5674350911c5dbf5a79ec87acd3b087f7a"
+    },
+    "trading/tests/fixtures/rbi_home_rates_2026-10-21.html": {
+      "bytes": 4607,
+      "git_blob": "9f02c4a68dae4ebee0c2b0505e8b2de002c66f66",
+      "sha256": "05be68ed09b78c5998a5cfd9e680e88702017daaca0cedef559b0ed7158cca11"
+    },
+    "trading/tests/fixtures/rbi_mpc_resolution_excerpts_2026-10-21.json": {
+      "bytes": 2733,
+      "git_blob": "4827ed5e03aa2cd5db9210275f7e5b80766dd26f",
+      "sha256": "1cf938b6cb72a626cf376fab7af2cbe734e1d5bf76ab4dfc6b25f5b60212cc47"
+    },
+    "trading/tests/fixtures/upstox_694gs2036_candles_2026-10-20.json": {
+      "bytes": 1589,
+      "git_blob": "32bd9e7f71843b744b5cb46f35a1d040ff10ea7e",
+      "sha256": "6d36cee6f5341f7c9798bd5c05f1b75a1cb9de389e4386b78e825aed292d1dc5"
+    },
+    "trading/tests/fixtures/upstox_754gs2036_candles_2026-10-20.json": {
+      "bytes": 1634,
+      "git_blob": "64bc3536c545c9e1bd448302690bfcd3273653e3",
+      "sha256": "a257c9fde284f37cf336af14fc6ed513bedcda62c5a89f6ebb1340e17be029e7"
+    }
+  },
+  "reason": "The initial source ZIP omitted non-Python runtime dependencies, including trigger parameters, measured side weights and IFR thresholds. Restore the pre-existing exact Git assets; preserve original ZIP/seal/results. No new market inputs or candidate settings. All bytes match the pre-acquisition commit.",
+  "schema": 1,
+  "source_commit": "89a8e9baa02241efe4ee48f5bb3efc1449864c69"
+}

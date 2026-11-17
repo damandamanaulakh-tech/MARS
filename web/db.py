@@ -236,16 +236,25 @@ def save_validation_event(event: dict) -> bool:
         from trading.validation import canonical
         row = deepcopy(event)
         run = row.pop("run")
-        ack = _DB.validation_runs.update_one({"_id": run["id"]},
-            {"$setOnInsert": {**run, "_id": run["id"]}}, upsert=True)
-        if ack.acknowledged is not True:
-            return False
+        if run.get("settings"):
+            ack = _DB.validation_runs.update_one({"_id": run["id"]},
+                {"$setOnInsert": {**run, "_id": run["id"]}}, upsert=True)
+            if ack.acknowledged is not True:
+                return False
+        elif not _DB.validation_runs.find_one({"_id": run["id"]}, {"_id": 1}):
+            return False  # retain the event until its full manifest is durable
+        if row.get("kind") == "manifest":
+            return True
         row["run_id"] = run["id"]
         exit_run = row.pop("exit_run", None)
-        if exit_run:
+        if exit_run and exit_run.get("settings"):
             ack = _DB.validation_runs.update_one({"_id": exit_run["id"]},
                 {"$setOnInsert": {**exit_run, "_id": exit_run["id"]}}, upsert=True)
             if ack.acknowledged is not True:
+                return False
+            row["exit_run_id"] = exit_run["id"]
+        elif exit_run:
+            if not _DB.validation_runs.find_one({"_id": exit_run["id"]}, {"_id": 1}):
                 return False
             row["exit_run_id"] = exit_run["id"]
         if row.get("input"):

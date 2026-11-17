@@ -1921,8 +1921,8 @@ class TradingEngine:
                           "amendments": [], "amendments_omitted": 0}
         # SEQ-11: version the actual filled entry. Observation never changes eligibility.
         try:
-            from .validation import entry_record
-            trade_evidence["validation"] = entry_record(cfg, pick, now, qty=qty)
+            from .validation import capture_entry
+            trade_evidence["validation"] = capture_entry(self.portfolio, cfg, pick, now, qty)
         except Exception as exc:
             trade_evidence["validation_error"] = type(exc).__name__
         self.portfolio.cash -= notional + buy_cost

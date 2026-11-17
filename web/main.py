@@ -232,7 +232,17 @@ def healthz() -> dict:
     except Exception:
         pass
     mongo = stats.get("mongo")
+    forward = None
+    try:
+        book = state.portfolio()
+        capture = book.validation_state
+        forward = {key: capture.get(key) for key in
+                   ("started_at", "last_acknowledged", "error", "capture_error", "capture_failures")}
+        forward["pending_exports"] = len(book.validation_pending)
+    except Exception:
+        pass
     return {"ok": True, "db": state.db_status(), "history_tickers": hist,
+            "forward_validation": forward,
             "sector_context": sector_context.status(),
             "universe": universe, "scan_universe": scan_universe,
             "memory": memory, "mongo": mongo,
