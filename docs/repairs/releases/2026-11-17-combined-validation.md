@@ -7,7 +7,7 @@ Baseline main: `8900be4c07fa85dc4ffa04812a6757eb9c3db4b8`. Frozen strategy/proto
 
 ## Historical measurements
 
-The predeclared 20-name panel is disjoint from the 30 Goal08–10 names. It covers 1 September–16 November 2026: 51 regular sessions, 510 five-category scans per scenario, a fresh INR 5 crore shared book, and the actual `TradingEngine.scan`, `refresh` and intraday close/recovery functions. No patched scores, timing or risk decisions manufacture entries.
+The predeclared 20-name panel is disjoint from the 30 Goal08–10 names. It covers 1 September–16 November 2026: 51 regular sessions, 510 five-category scans per scenario, a fresh INR 5 crore shared book, and the actual `TradingEngine.scan`, `refresh` and intraday close/recovery functions. No substituted final selection scores or forced entries manufacture trades; unavailable historical providers follow the stated missing-input assumptions.
 
 | Slippage per side | Fully closed economic trades | Net expectancy INR | Fully closed net P&L INR | Daily marked drawdown % | Scheduled drawdown % | Open holdings |
 |---:|---:|---:|---:|---:|---:|---:|
@@ -28,7 +28,7 @@ Fourteen holdings remain open. Marked equity includes their value and fees alrea
 - [Protocol and acquisition marker](../../../research/combined_2026_11_17/protocol.json) were fixed before the first request. Data/code/runtime/settings hashes, raw response text and original outcome bytes are retained. Consumed data is never relabelled unseen.
 - The first isolated reproduction exposed missing non-Python assets in the source ZIP. `runtime-assets.json` verifies 459 assets / 203,326,589 bytes against the original pre-acquisition Git blob IDs and SHA256 hashes. It restores original trigger parameters, measured weights, IFR thresholds and other committed inputs; no new market data or settings are introduced. The original ZIP, seal and results remain unchanged.
 - Before inspecting the original numerical results, review found that segment reporting mixed open budget categories with closed stored modes. The separate reporting amendment groups both by stored mode. Its replay must prove every decision, fill, fee, trade count, expectancy and shared-book result unchanged; the original results remain available.
-- The fast reproduction removes only rows older than the original completed-bar validator would discard. All accepted bars and the entire original numerical result must match exactly. No strategy threshold, candidate or slippage scenario is selected after seeing the outcome.
+- Independent slippage scenarios run in fresh processes. The input acceleration removes only rows older than the original completed-bar validator would discard. All accepted bars and the entire original numerical result must match the initial sequential, unaccelerated run exactly. No strategy threshold, candidate or slippage scenario is selected after seeing the outcome.
 
 ## Bounded engineering repairs
 
@@ -42,7 +42,9 @@ Fourteen holdings remain open. Marked equity includes their value and fees alrea
 
 Final focused suite: 46 new tests, zero failures/skips. The final full canonical suite passed **3,515 tests, zero failures/errors/skips**, in 323.883 seconds. [Sanitized validation evidence](../evidence/2026-11-17-combined-validation.json). An existing candle-advisory fixture now explicitly supplies an eligible fixed-size ticket because a flat price series cannot support volatility-based sizing; its buy assertion is unchanged.
 
-Goal08, Goal09 and Goal10 frozen replay and report checks all pass unchanged. Goal11 exact archived reproduction, attribution verification, final full-suite count, GitHub CI and merge evidence are pending final recording. The CI no-skip guard remains enabled, with a separate pinned-runtime combined-research job.
+Goal08, Goal09 and Goal10 frozen replay and report checks all pass unchanged. Goal11 exactly reproduced all three original scenarios; the separate attribution replay verified every decision/fill/cost/shared-book outcome unchanged. The generated README and all five CSV tables pass their consistency check. Seven final populated-page regressions pass after the display-only labels/currency/IST changes. GitHub CI and merge evidence remain pending. The CI no-skip guard remains enabled; original reproduction and attribution verification run as two mandatory matrix jobs, alongside all existing application/research checks.
+
+[Full research report](../../../research/combined_2026_11_17/README.md), [every simulated trade](../../../research/combined_2026_11_17/trades.csv), [all segment/scenario metrics](../../../research/combined_2026_11_17/metrics.csv), [exit reasons and costs](../../../research/combined_2026_11_17/exit_reasons.csv), [gate results](../../../research/combined_2026_11_17/gates.csv), and [input coverage](../../../research/combined_2026_11_17/coverage.csv) are committed separately from the original production ledger.
 
 ## Production hold: recurring quota refusal
 

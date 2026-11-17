@@ -97,7 +97,7 @@ def render():
         f"- Source archive SHA256: `{seal['source_archive_sha256']}`.",
         "- The first reproduction exposed omitted non-Python dependencies in the source ZIP. "
         "[runtime-assets.json](runtime-assets.json) pins all 459 supplemental assets (203,326,589 bytes already in the repository) to the same pre-acquisition Git commit. "
-        "Their Git blob IDs and SHA256 hashes are checked before isolated copying. Trigger parameters, measured side weights and IFR thresholds cannot silently fall back when reproducing. "
+        "Their bytes were verified against the original Git blob IDs when the manifest was created; reproduction checks SHA256 before isolated copying. Trigger parameters, measured side weights and IFR thresholds cannot silently fall back when reproducing. "
         "The original source ZIP, seal and outcomes remain unchanged; this packages existing inputs rather than adding market data or retuning settings.",
         f"- Raw provider archive SHA256: `{result['data_sha256']}`; [manifest](manifest.json) records URLs, request/receipt times and response digests.",
         "- The response digest hashes the canonical JSON encoding of the response-text string; the archive digest hashes the complete compressed file bytes.",

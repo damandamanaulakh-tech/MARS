@@ -1,6 +1,6 @@
 # MARS goals — one reviewed batch at a time
 
-Goal 11 is active (17 November): versioned actual-engine replay, immutable research identities and passive forward paper observation. Historical results and future forward coverage stay separate; no experimental settings are promoted. [Current batch](releases/2026-11-17-combined-validation.md).
+Goal 11 is active (17 November): the versioned actual-engine historical replay is complete and exactly reproduced; all declared scenarios have negative net expectancy. All 3515 local tests pass with zero skips. GitHub CI/merge are pending, and recurring storage refusal holds deployment of the passive forward recorder. Future forward coverage stays open; no experimental settings are promoted. [Current batch](releases/2026-11-17-combined-validation.md).
 
 Each batch must identify its source findings, demonstrate the failure, make a bounded repair, test valid and failure paths, and record local / merged / deployed / runtime-verified status separately. Strategy decisions retain their own review. Work below is ordered by the current incident and portfolio impact.
 

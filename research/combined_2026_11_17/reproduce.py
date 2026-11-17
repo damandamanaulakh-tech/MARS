@@ -1,9 +1,10 @@
 """Verify against archived source, not whatever strategy main runs next month.
 
-The only acceleration removes rows older than intraday_bars.session_days would
-discard anyway, before the original validator loops over them. Accepted inputs
-and all numerical results must exactly match the original, unaccelerated run.
-This is an I/O optimization, not a new score, threshold or selected candidate.
+Independent slippage scenarios run in fresh processes. Input acceleration removes
+rows older than intraday_bars.session_days would discard anyway, before the
+original validator loops over them. Accepted inputs and all numerical results
+must exactly match the original sequential, unaccelerated run. No score,
+threshold or selected candidate changes.
 """
 from contextlib import contextmanager
 import json

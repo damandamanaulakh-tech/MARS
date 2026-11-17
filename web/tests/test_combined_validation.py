@@ -68,6 +68,18 @@ def test_read_page_is_authenticated_and_does_not_run_or_save_portfolio(monkeypat
     response = client.get("/validation")
     assert response.status_code == 200 and "No new versioned observations" in response.text
     assert client.get("/api/validation").json()["promotion"] == "none"
+    run = v.identity(Config(mode="nifty200_momentum"))
+    stamp = "2026-11-17T06:00:00Z"
+    events = [{"kind": "entry", "path": "scan", "run": run, "trade_id": "a",
+               "position": {"qty": 2}, "observed_at": stamp},
+              {"kind": "exit", "run": run, "observed_at": stamp,
+               "trade": {"trade_id": "a", "qty": 2, "net_pnl": 1234.50, "costs": 1.,
+                         "cost_evidence": {"status": "paper_estimate"}}}]
+    monkeypatch.setattr(db, "load_validation_events", lambda: (events, False, None))
+    populated = client.get("/validation")
+    assert populated.status_code == 200
+    assert "Momentum" in populated.text and "1,234.50" in populated.text
+    assert "2026-11-17 11:30 IST" in populated.text
 
 
 def test_query_failure_is_explicit_unknown(monkeypatch):

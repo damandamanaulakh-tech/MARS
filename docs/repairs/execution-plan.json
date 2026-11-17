@@ -583,7 +583,7 @@
       ],
       "status": "LOCAL_TESTED_DEPLOYMENT_HELD_STORAGE",
       "implementation": "ACTUAL_ENGINE_REPLAY_AND_FORWARD_OUTBOX",
-      "tests": "44 new /97 expanded /3513 canonical local pass; zero failures/errors/skips. Combined replay and CI pending.",
+      "tests": "46 new /3515 canonical local pass; zero failures/errors/skips. Final populated-page 7 tests pass. Exact Goal08/09/10 replay/report and Goal11 full archived reproduction, attribution parity and all tables pass. GitHub CI pending.",
       "pull_request": null,
       "merge_revision": null,
       "deployment_revision": null,
@@ -591,8 +591,10 @@
       "runtime": "FORWARD_NOT_STARTED_STORAGE_HOLD",
       "evidence": "docs/repairs/releases/2026-11-17-combined-validation.md",
       "performance_acceptance": "PENDING_GENUINELY_NEW_FORWARD_COHORTS",
-      "storage_evidence": "docs/repairs/evidence/2026-11-17-combined-storage-hold.json"
+      "storage_evidence": "docs/repairs/evidence/2026-11-17-combined-storage-hold.json",
+      "historical_result": "COMPLETED_BOUNDED_PANEL_NEGATIVE_EXPECTANCY_ALL_SCENARIOS",
+      "research": "research/combined_2026_11_17/README.md"
     }
   ],
-  "active_step_note": "SEQ-11 active: source, data and settings frozen; actual-engine historical replay and CI under verification. Forward instrumentation locally tested. Deployment held because quota-refused writes put current RAM/spills at risk; no settings promotion or manufactured forward evidence."
+  "active_step_note": "SEQ-11 historical actual-engine validation and local engineering tests complete; all three scenarios negative after costs/slippage. GitHub CI/merge pending. Forward recorder locally tested; deployment held until recurring quota refusal and current RAM/spill preservation are resolved. Future forward acceptance remains open; no settings promotion."
 }
