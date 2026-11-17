@@ -1,6 +1,6 @@
 # Ordered repair programme — 11 November 2026
 
-Goal 11 is active (17 November): the versioned actual-engine historical replay is complete and exactly reproduced; all declared scenarios have negative net expectancy. All 3515 local tests pass with zero skips. GitHub CI/merge are pending, and recurring storage refusal holds deployment of the passive forward recorder. Future forward coverage stays open; no experimental settings are promoted. [Current batch](releases/2026-11-17-combined-validation.md).
+Goal 11 repository delivery is merged in [PR222](https://github.com/damandamanaulakh-tech/MARS/pull/222). All 3515 local/CI tests and six CI jobs pass with zero test skips; both full historical reproductions match. All declared scenarios have negative net expectancy. Deployment and genuine forward observation remain held on recurring storage refusal and unresolved prior-process state preservation. [Release and proof](releases/2026-11-17-combined-validation.md).
 
 Owner instruction: show the sequence, start one by one, and track completion in
 the repository. This is the current execution order for G4/G13 and the related
@@ -43,7 +43,7 @@ unproven; the original ledger, strategy thresholds and research sequence are ret
 | SEQ-08 | G13; INTRA-003 | Compare net-profit-aware trailing exits and reachable targets | Replay with costs, slippage and intrabar ambiguity; unseen-period comparison of expectancy and drawdown; exact candidate settings reviewed before promotion | RESEARCH_COMPLETE_NO_PROMOTION |
 | SEQ-09 | G13; INTRA-003 | Fresh-setup/cooldown experiments after a failed trade | Record the changed setup; measure losses avoided and recoveries missed; prevent same-bar hindsight or automatic score reuse | RESEARCH_COMPLETE_NO_PROMOTION |
 | SEQ-10 | G7/G13; INTRA-003, XR-026, XR-031 | Intraday sizing, loss accounting and measured-edge controls | All relevant net outcomes and exact stop risk included; empty/all-loss samples explicit; policy thresholds justified by held-out evidence | SHIPPED_RESEARCH_COMPLETE_NO_PROMOTION; PR220; 3469 tests, zero skips |
-| SEQ-11 | G9/G13; XR-078, XR-103, INTRA-001, INTRA-003 | Combined replay and forward paper validation | Versioned data/code/settings, unseen periods, realistic execution/costs, adequate sample coverage, net expectancy/drawdown and no profitability guarantee | LOCAL_VERIFIED; all historical scenarios negative; exact replay passed; CI/merge pending; deployment held on storage refusal; forward acceptance pending |
+| SEQ-11 | G9/G13; XR-078, XR-103, INTRA-001, INTRA-003 | Combined replay and forward paper validation | Versioned data/code/settings, unseen periods, realistic execution/costs, adequate sample coverage, net expectancy/drawdown and no profitability guarantee | MERGED PR222; 3515 CI tests / six jobs passed; all historical scenarios negative; deployment held on storage refusal; forward acceptance pending |
 
 ## How each step advances
 

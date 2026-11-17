@@ -44,6 +44,11 @@
       "closed_legs": 228,
       "deployment_hold": true,
       "evidence": "docs/repairs/evidence/2026-11-17-combined-storage-hold.json"
+    },
+    "goal11_cold_start_followup": {
+      "evidence": "docs/repairs/evidence/2026-11-17-combined-release.json",
+      "status": "PERSISTENCE_STILL_REFUSED_PRIOR_RAM_PRESERVATION_UNKNOWN",
+      "at": "2026-11-17T11:16:02Z"
     }
   },
   {

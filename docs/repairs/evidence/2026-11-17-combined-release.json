@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "goal": "SEQ-11",
+  "functional_pr": 222,
+  "reviewed_head": "0c2e0040f3d1a815c477c6f247994cc2c6ffbaa4",
+  "merge_revision": "0f141a8ea062b42d18bc60c018e9b7cff4457bcf",
+  "verified_at": "2026-11-17 12:11:38 UTC",
+  "ci": {
+    "url": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/44071003513",
+    "run_id": 44071003513,
+    "status": "completed",
+    "conclusion": "success",
+    "tests": 3515,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "test_seconds": 385.59,
+    "jobs": [
+      {
+        "id": 133996898865,
+        "name": "test",
+        "conclusion": "success"
+      },
+      {
+        "id": 133996899307,
+        "name": "reentry-research",
+        "conclusion": "success"
+      },
+      {
+        "id": 133996899310,
+        "name": "sizing-research",
+        "conclusion": "success"
+      },
+      {
+        "id": 133996899359,
+        "name": "repair-records",
+        "conclusion": "success"
+      },
+      {
+        "id": 133996899456,
+        "name": "combined-research (attribution)",
+        "conclusion": "success"
+      },
+      {
+        "id": 133996899531,
+        "name": "combined-research (original)",
+        "conclusion": "success"
+      }
+    ],
+    "original_reproduction": "All 5/15/30bps numerical outcomes exactly reproduced from frozen source; network blocked; no settings writes.",
+    "attribution_reproduction": "Every strategy outcome unchanged; corrected segment attribution and all report tables exactly reproduced.",
+    "prior_studies": "Goal08/09/10 exact replay and reports pass unchanged"
+  },
+  "deployment": {
+    "status": "HELD_STORAGE_REFUSAL",
+    "goal11_deployed": false,
+    "current_revision": "65a58509018fcce86a299328497f1ffe3ee1a142",
+    "current_deployment": "dep-dbtkffe417fc73e1cvd0",
+    "skip_render_merge": true
+  },
+  "runtime": {
+    "observed_at": "2026-11-17T11:16:02.397358+00:00",
+    "startup_started_at": "2026-11-17T11:13:12.504563417Z",
+    "startup_completed_at": "2026-11-17T11:13:39.884261971Z",
+    "trigger": "ordinary health GET woke the existing free instance; no deploy or restart command issued",
+    "revision": "65a58509018fcce86a299328497f1ffe3ee1a142",
+    "deployment": "dep-dbtkffe417fc73e1cvd0",
+    "http": 200,
+    "ready": true,
+    "write_error": "quota_refused",
+    "write_error_at": "2026-11-17T11:15:54.444176",
+    "used_mb": 528,
+    "limit_mb": 512,
+    "sector_context": "write_unacknowledged",
+    "portfolio": {
+      "saved_positions": 39,
+      "saved_closed_legs": 228,
+      "last_save": "2026-11-16T10:04:52.911221",
+      "saved_financial_projection_unchanged": true
+    },
+    "prior_ram_and_spill_preservation": "not_proven",
+    "goal11_deployed": false
+  },
+  "forward": {
+    "new_goal11_cohorts": 0,
+    "status": "NOT_DEPLOYED_NO_NEW_FORWARD_PROOF",
+    "acceptance": "Pending genuine future sessions and complete economic trades; historical negative results do not prove future improvement."
+  }
+}
