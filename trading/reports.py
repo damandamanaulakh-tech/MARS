@@ -112,7 +112,8 @@ def write_journal_csv(portfolio: Portfolio, archived=()) -> str:
     `archived` = lines that left the in-RAM cap for the Mongo
     journal_archive (audit M-5), oldest first; they precede the book's own."""
     path = os.path.join(_ensure_dir(portfolio), "decision_journal.csv")
-    entries = list(archived or ()) + list(portfolio.decision_journal or [])
+    from itertools import chain
+    entries = chain(archived or (), portfolio.decision_journal or ())
     cols = [
         "ts", "action", "ticker", "qty", "price", "entry_price", "exit_price",
         "notional", "net_pnl", "net_pct", "hold_days", "exit_reason",

@@ -24,6 +24,8 @@ def active_book(book, monkeypatch):
 
 
 def test_mongo_round_trip_preserves_pending_deadline_and_protection(active_book, monkeypatch):
+    from web import db as history_db
+    monkeypatch.setattr(history_db, "closed_history_policy", lambda: {})
     e, _ = active_book
     stored = {}
     state._patch_portfolio_save_to_mirror_mongo()

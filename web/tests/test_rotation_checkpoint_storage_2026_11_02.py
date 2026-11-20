@@ -12,6 +12,8 @@ from web import db, state, rotation_progress as progress
 
 @pytest.mark.parametrize("acknowledged", [True, False])
 def test_mongo_acknowledgement_is_returned(monkeypatch, acknowledged):
+    from web import db as history_db
+    monkeypatch.setattr(history_db, "closed_history_policy", lambda: {})
     collection = Mock()
     collection.replace_one.return_value = SimpleNamespace(acknowledged=acknowledged)
     monkeypatch.setattr(db, "_CONNECTED", True)
@@ -23,6 +25,8 @@ def test_mongo_acknowledgement_is_returned(monkeypatch, acknowledged):
 
 
 def test_mongo_exception_is_not_success(monkeypatch):
+    from web import db as history_db
+    monkeypatch.setattr(history_db, "closed_history_policy", lambda: {})
     collection = Mock()
     collection.replace_one.side_effect = RuntimeError("write refused")
     monkeypatch.setattr(db, "_CONNECTED", True)
@@ -43,6 +47,8 @@ def test_mirror_distinguishes_local_only_from_disconnected_mongo(tmp_path, monke
 
 
 def test_checkpoint_and_book_roundtrip_together(tmp_path, monkeypatch):
+    from web import db as history_db
+    monkeypatch.setattr(history_db, "closed_history_policy", lambda: {})
     state._patch_portfolio_save_to_mirror_mongo()
     monkeypatch.setattr(db, "is_connected", lambda: True)
     stored = {}

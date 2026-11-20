@@ -117,6 +117,7 @@ def test_save_and_load_portfolio_with_mocked_mongo():
     }
     fake_db = MagicMock()
     fake_db.portfolio = fake_collection
+    fake_db.settings.find_one.return_value = None
     with patch.object(db, "_DB", fake_db), patch.object(db, "_CONNECTED", True):
         assert db.save_portfolio({"cash": 2_400_000.0}) is True
         fake_collection.replace_one.assert_called_once()

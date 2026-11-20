@@ -55,6 +55,8 @@ def _wire(monkeypatch, order, topup_ok=True):
 
 
 def test_the_0920_job_tops_up_before_it_scans(monkeypatch):
+    from web import db as history_db
+    monkeypatch.setattr(history_db, "closed_history_policy", lambda: {})
     order: list = []
     cfg = state.cfg()
     original = cfg.mode

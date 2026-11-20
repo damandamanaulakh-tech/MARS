@@ -183,6 +183,8 @@ def test_the_1430_rotation_runs_the_adjuster_first():
 def test_ca_applied_survives_the_mongo_mirror_and_hydrate(held, monkeypatch):
     """Render wipes the JSON on every restart: the field must ride the Mongo
     mirror both ways (the risk_day lesson), on positions AND closed trades."""
+    from web import db as history_db
+    monkeypatch.setattr(history_db, "closed_history_policy", lambda: {})
     from trading.paper import ClosedTrade, Portfolio
     p, pos = held
     pos.ca_applied = ["BLSE|2026-10-06"]

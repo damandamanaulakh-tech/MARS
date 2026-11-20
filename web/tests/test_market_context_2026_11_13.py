@@ -57,6 +57,8 @@ def test_comparison_is_owner_only(book,monkeypatch,role):
 
 
 def test_context_survives_buy_partial_final_exit_json_and_mongo_restart(book,monkeypatch):
+    from web import db as history_db
+    monkeypatch.setattr(history_db, "closed_history_policy", lambda: {})
     e,_=book;d=saved_context(e.portfolio)
     d['ticker']='AAA.NS'
     e._open({'ticker':'AAA.NS','score':80.,'decision':d,'reasoning':'fixture'},10,100.,NOW.replace(tzinfo=None))

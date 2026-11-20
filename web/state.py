@@ -43,6 +43,12 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.last_scan_skipped = list(doc.get("last_scan_skipped", []))
     p.intraday_data_status = dict(doc.get("intraday_data_status", {}) or {})
     p.cost_dp_days = dict(doc.get("cost_dp_days", {}) or {})
+    p.closed_history_policy = dict(doc.get("closed_history_policy", {}) or {})
+    from trading.history_retention import retain
+    try:
+        p.trades = retain(p.trades, p.closed_history_policy)
+    except ValueError:
+        log.error('Invalid closed-history policy; financial book retained for review')
     p.last_scan_opened = list(doc.get("last_scan_opened", []))
     p.scan_matrix = dict(doc.get("scan_matrix", {}))
     p.momentum_shortlist = dict(doc.get("momentum_shortlist", {}) or {})
@@ -136,6 +142,16 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
                 trade.trade_evidence = small
 
     def _save_with_mirror(self: Portfolio) -> bool:
+        from trading.history_retention import retain
+        try:
+            policy = db.closed_history_policy() if db.is_connected() else self.closed_history_policy
+            self.closed_history_policy = policy or self.closed_history_policy
+            self.trades = retain(self.trades, self.closed_history_policy)
+        except Exception:
+            # Preserve the local book, but do not overwrite the durable policy
+            # or resurrect removed history when its policy cannot be read.
+            original_save(self)
+            return False
         # Durable-archive the journal overflow BEFORE original_save trims RAM,
         # so the full append-only trail survives in Mongo (journal_archive)
         # while RAM stays bounded on the always-on process.
@@ -162,6 +178,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "last_scan_skipped": self.last_scan_skipped,
             "intraday_data_status": self.intraday_data_status,
             "cost_dp_days": self.cost_dp_days,
+            "closed_history_policy": self.closed_history_policy,
             "last_scan_opened": self.last_scan_opened,
             "last_regime": self.last_regime,
             "last_ifr_fire_date": self.last_ifr_fire_date,

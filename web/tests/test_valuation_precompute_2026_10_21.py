@@ -303,6 +303,8 @@ def _val_pos(ticker="ZZVAL.NS"):
 
 
 def test_val_target_survives_the_mongo_hydrate_and_the_save_mirror(tmp_path, monkeypatch):
+    from web import db as history_db
+    monkeypatch.setattr(history_db, "closed_history_policy", lambda: {})
     state.cfg()                                   # boot: save() is the mirror wrapper
     pos = _val_pos()
     doc = {"cash": 1.0, "positions": {pos.ticker: pos.to_dict()}}

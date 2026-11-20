@@ -181,7 +181,7 @@ def _generate_all() -> Dict[str, Optional[str]]:
         ("equity",      lambda: write_equity_csv(portfolio)),
         ("skipped",     lambda: write_skipped_csv(portfolio)),
         ("decision_journal", lambda: write_journal_csv(
-            portfolio, archived=db.list_journal_archive())),
+            portfolio, archived=db.iter_journal_archive())),
     ]
     for name, fn in writers:
         try:

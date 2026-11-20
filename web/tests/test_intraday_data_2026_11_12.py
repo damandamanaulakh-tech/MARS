@@ -22,6 +22,8 @@ def coverage():
 
 
 def test_json_and_mongo_restart_preserve_coverage_and_next_batch(tmp_path, monkeypatch):
+    from web import db as history_db
+    monkeypatch.setattr(history_db, "closed_history_policy", lambda: {})
     cfg = Config(state_dir=str(tmp_path))
     p = Portfolio.fresh(cfg)
     p.intraday_data_status = coverage()
