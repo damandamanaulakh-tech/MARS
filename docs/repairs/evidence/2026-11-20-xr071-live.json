@@ -1,0 +1,104 @@
+{
+  "deployment": {
+    "id": "dep-dc08ac6q1p3s73dfd4d0",
+    "commit": "8e894dd39ae393d4589be4103bf226f8ef75445c",
+    "status": "live",
+    "finished_at": "2026-11-20T17:38:32.277226Z"
+  },
+  "health": {
+    "observed_at": "2026-11-20T17:40:00.729465+00:00",
+    "http_status": 200,
+    "ok": true,
+    "db": {
+      "connected": true,
+      "db": "sourceborn",
+      "url_set": true,
+      "degraded": false,
+      "boot_degraded": false,
+      "write_error": null,
+      "write_error_at": null,
+      "portfolio_save_confirmed_at": "2026-11-20T17:39:32.790368",
+      "entry_block_reason": null
+    },
+    "readiness": {
+      "production": true,
+      "ready": true,
+      "insecure_override": false,
+      "problems": []
+    },
+    "forward_validation": {
+      "started_at": "2026-11-20T08:41:42.997998+00:00",
+      "last_acknowledged": "2026-11-20T17:39:26.181341+00:00",
+      "error": null,
+      "capture_error": null,
+      "capture_failures": null,
+      "pending_exports": 0
+    },
+    "memory": {
+      "rss_mb": 173,
+      "peak_mb": 182
+    }
+  },
+  "financial_comparison": {
+    "last_save": "2026-11-20T17:39:26.841795",
+    "open": 33,
+    "closed": 80,
+    "changed_fields": [
+      "validation_state",
+      "last_save",
+      "validation_pending_count"
+    ],
+    "financial_fields_unchanged": true,
+    "epoch_unchanged": true,
+    "prior_validation_seen_retained": true,
+    "seen_before": 13,
+    "seen_after": 13,
+    "pending": 3,
+    "canonical_sha256_before": "fcab50859a63bb35a35235a60d0f5eb16745779e81ed53cfbb92af36a582f40e",
+    "canonical_sha256_after": "fcab50859a63bb35a35235a60d0f5eb16745779e81ed53cfbb92af36a582f40e",
+    "compared_fields": [
+      "capital_base",
+      "cash",
+      "closed_history_policy",
+      "cost_dp_days",
+      "dd_cut_level",
+      "dd_cut_pending",
+      "dd_peak_equity",
+      "loss_by_category",
+      "loss_count",
+      "loss_day",
+      "positions",
+      "risk_day",
+      "risk_day_equity",
+      "risk_day_killed",
+      "trades"
+    ]
+  },
+  "validation_run": {
+    "_id": "64a729914510a14189042fd05186a8c626cbdf401def42141e56a5eb2405b705",
+    "code": {
+      "sha256": "0eecaeab861a6bd221f3a05e739d39ec35d946be898cdac18a19e15e90f68098",
+      "revision": "8e894dd39ae393d4589be4103bf226f8ef75445c"
+    },
+    "settings_sha256": "ea2c5a421ea259ec3817a21e7f2e36470c91512a1926f775dcc23d89f9256986"
+  },
+  "validation_events": [
+    {
+      "_id": "b7c54219623d344a4a2200349f41c26f8bcaef5c83cc14b1f5f0acf0f8ea64d6",
+      "book_epoch": "2026-11-20T08:41:42.997998+00:00",
+      "kind": "book",
+      "observed_at": "2026-11-20T17:39:26.181341+00:00",
+      "run_id": "64a729914510a14189042fd05186a8c626cbdf401def42141e56a5eb2405b705"
+    },
+    {
+      "_id": "1dc96acb32dbd9e689b16ac6ef7e0db1c85d6ad68fa993ed533a35e6377410d5",
+      "book_epoch": "2026-11-20T08:41:42.997998+00:00",
+      "kind": "equity",
+      "observed_at": "2026-11-20T17:39:26.181341+00:00",
+      "run_id": "64a729914510a14189042fd05186a8c626cbdf401def42141e56a5eb2405b705"
+    }
+  ],
+  "scope": "Read-only deployment verification; no production failure or trade induced",
+  "natural_production_refusal_recovery": "pending",
+  "outbox_note": "Mongo portfolio retains three acknowledged export rows until its next checkpoint; native validation_runs/events readback confirms all three already exist. Stable IDs make restart replay idempotent."
+}

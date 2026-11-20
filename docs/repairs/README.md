@@ -1,6 +1,6 @@
 # MARS repair work
 
-**Current batch: XR-071.** New buys wait after a failed portfolio save; protective exits and independent save retries remain active. 3,573 local tests pass with zero skips; CI and release checks are pending. [Save guard evidence](releases/2026-11-20-xr071-save-guard.md).
+**Current batch: XR-071.** New buys wait after a failed portfolio save; protective exits and independent save retries remain active. Shipped in PR227: all six CI jobs passed, with 3,572 canonical tests and zero skips. Matching deployment, startup buying block, acknowledged save and unchanged 33-open/80-closed book verified on 20 November at 17:40 UTC. Natural production refusal observation remains pending. [Save guard evidence](releases/2026-11-20-xr071-save-guard.md).
 
 SEQ-09 research is evaluated with no production policy promotion. The separately acquired 42-session intraday holdout measured losing retries withheld, recoveries missed and delayed re-entry P&L. The selected breakout-reclaim rule improved the matched comparison but failed sample and cross-scenario expectancy requirements. PR218 merged; all 3413 canonical local/CI tests pass with zero skips, with complete frozen replay and report checks passing on the recorded reference runtime. [Study and release record](releases/2026-11-16-reentry.md). SEQ-10 remains queued.
 

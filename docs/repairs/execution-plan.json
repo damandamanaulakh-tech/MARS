@@ -614,10 +614,23 @@
     "id": "XR-071",
     "approved_date": "2026-11-20",
     "goal": "Pause new buys after portfolio save failure; keep protective exits/retries and resume only after confirmed save",
-    "status": "LOCAL_TESTED",
+    "status": "DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING",
     "evidence": "docs/repairs/releases/2026-11-20-xr071-save-guard.md",
     "local_tests": 3573,
     "new_regressions": 33,
-    "skipped_tests": 0
+    "skipped_tests": 0,
+    "ci_tests": 3572,
+    "ci_run": 44741724900,
+    "ci_jobs_passed": 6,
+    "pr": 227,
+    "merge_revision": "8e894dd39ae393d4589be4103bf226f8ef75445c",
+    "reviewed_head": "f569979c3cb8fe3e253a36df414fdd1d8af5d8d8",
+    "reviewed_tree": "83b2a46e1fd20802ef6ea7933800c2caaa9d7496",
+    "deployment_id": "dep-dc08ac6q1p3s73dfd4d0",
+    "deployment_live_at": "2026-11-20T17:38:32.277226Z",
+    "health_observed_at": "2026-11-20T17:40:00.729465+00:00",
+    "portfolio_save_confirmed_at": "2026-11-20T17:39:32.790368",
+    "native_financial_readback": "unchanged: 33 open positions, 80 closed trades",
+    "production_refusal_recovery": "Natural observation pending; isolated refusal/recovery and production startup acknowledgement verified"
   }
 }
