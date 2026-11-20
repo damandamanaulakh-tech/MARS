@@ -137,6 +137,9 @@ def _fill_locked(engine, o: dict, price: float, now: datetime) -> None:
     """
     from .costs import slippage_price
     p = engine.portfolio
+    if p.entry_block_reason():
+        o["note"] = p.entry_block_reason()
+        return  # keep the owner's instruction open for its normal retry/expiry
     from .owner_allocation import segment, available, refusal
     tkr = o["ticker"]
     try:
@@ -215,10 +218,11 @@ def _fill_locked(engine, o: dict, price: float, now: datetime) -> None:
     try:
         engine._open(pick, qty, fill, now, cfg=cfg)
     except ValueError as exc:
-        if not str(exc).startswith(("intraday_", "costs_")):
+        if not str(exc).startswith(("intraday_", "costs_", "portfolio_save_")):
             raise
         o["note"] = str(exc)
-        de.put(decision, "entry_data_final", state="unavailable", reason=o["note"])
+        de.put(decision, "portfolio_save" if o["note"].startswith("portfolio_save_") else "entry_data_final",
+               state="unavailable", reason=o["note"])
         de.journal_decision(p, decision, "waiting", o["note"])
         return
     p.positions[tkr].tags.append("owner_pick")

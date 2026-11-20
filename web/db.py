@@ -124,12 +124,14 @@ def status() -> dict:
         "connected": _CONNECTED,
         "db": os.environ.get("MONGO_DB", "sourceborn") if _CONNECTED else None,
         "url_set": bool(os.environ.get("MONGO_URL")),
-        "degraded": mongo_expected() and not _CONNECTED,
+        "degraded": portfolio_entry_block_reason(reconnect=False) is not None,
         "boot_degraded": _BOOT_DEGRADED,
         # a connection that answers reads but refuses writes is NOT healthy:
         # the book is not being saved (2026-09-24, Atlas over quota)
         "write_error": LAST_WRITE_ERROR,
         "write_error_at": LAST_WRITE_ERROR_AT,
+        "portfolio_save_confirmed_at": LAST_PORTFOLIO_SAVE_AT,
+        "entry_block_reason": portfolio_entry_block_reason(reconnect=False),
     }
 
 
@@ -230,6 +232,29 @@ def _cluster_sizes(scale: int) -> Optional[dict]:
 #: and db.status() so a refused write is visible from outside.
 LAST_WRITE_ERROR: Optional[str] = None
 LAST_WRITE_ERROR_AT: Optional[str] = None
+LAST_PORTFOLIO_SAVE_AT: Optional[str] = None
+
+
+def portfolio_write_failed(reason: str) -> None:
+    """A ping, auxiliary write or restart never acknowledges the current book."""
+    global LAST_WRITE_ERROR, LAST_WRITE_ERROR_AT
+    LAST_WRITE_ERROR = reason[:240]
+    LAST_WRITE_ERROR_AT = datetime.utcnow().isoformat()
+
+
+def portfolio_entry_block_reason(*, reconnect=True) -> Optional[str]:
+    if not mongo_expected():
+        return None
+    connected = is_connected() if reconnect else _CONNECTED
+    if not connected:
+        return "portfolio_save_unavailable"
+    if LAST_WRITE_ERROR:
+        return "portfolio_save_failed"
+    if recovered_pending():
+        return "portfolio_save_recovery_pending"
+    if LAST_PORTFOLIO_SAVE_AT is None:
+        return "portfolio_save_unconfirmed"
+    return None
 
 
 def closed_history_policy() -> dict:
@@ -305,8 +330,10 @@ def load_validation_events(limit: int = 5000):
 
 
 def save_portfolio(doc: dict, doc_id: str = "default") -> bool:
-    global LAST_WRITE_ERROR, LAST_WRITE_ERROR_AT
+    global LAST_WRITE_ERROR, LAST_WRITE_ERROR_AT, LAST_PORTFOLIO_SAVE_AT
     if not _CONNECTED or _DB is None:
+        if doc_id == "default" and mongo_expected():
+            portfolio_write_failed("portfolio database unavailable")
         return False
     try:
         from trading.history_retention import retain
@@ -317,19 +344,22 @@ def save_portfolio(doc: dict, doc_id: str = "default") -> bool:
         result = _DB.portfolio.replace_one({"_id": doc_id}, {**doc, "_id": doc_id}, upsert=True)
         if result.acknowledged is not True:
             raise RuntimeError("portfolio write not acknowledged")
-        LAST_WRITE_ERROR = None
-        LAST_WRITE_ERROR_AT = None
+        if doc_id == "default":
+            LAST_WRITE_ERROR = None
+            LAST_WRITE_ERROR_AT = None
+            LAST_PORTFOLIO_SAVE_AT = datetime.utcnow().isoformat()
         return True
     except Exception as e:
-        from datetime import datetime as _dt
-        LAST_WRITE_ERROR = f"{type(e).__name__}: {str(e)[:200]}"
-        LAST_WRITE_ERROR_AT = _dt.utcnow().isoformat()
+        if doc_id == "default":
+            portfolio_write_failed(f"{type(e).__name__}: {str(e)[:200]}")
         log.warning("Mongo save_portfolio failed: %s", e)
         return False
 
 
-def load_portfolio(doc_id: str = "default") -> Optional[dict]:
+def load_portfolio(doc_id: str = "default", *, strict: bool = False) -> Optional[dict]:
     if not _CONNECTED or _DB is None:
+        if strict:
+            raise RuntimeError("portfolio database unavailable")
         return None
     try:
         doc = _DB.portfolio.find_one({"_id": doc_id})
@@ -338,6 +368,8 @@ def load_portfolio(doc_id: str = "default") -> Optional[dict]:
         return doc
     except Exception as e:
         log.warning("Mongo load_portfolio failed: %s", e)
+        if strict:
+            raise
         return None
 
 

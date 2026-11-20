@@ -10,9 +10,11 @@
      every save was lost. Never again. -->
 <div data-db-write-error="1" class="bg-red-600 text-white px-4 lg:px-6 py-4 mb-6">
   <div class="font-bold text-base lg:text-lg">⛔ Database is REFUSING WRITES — the book is NOT being saved</div>
-  <div class="text-sm text-red-100 mt-1">Every trade, journal line and login since {{ (db_status.write_error_at or '')[:16] }} lives only in this process's memory. A restart or a Render edit rolls the book back to the last saved copy. Database said: <span class="font-mono">{{ db_status.write_error }}</span></div>
-  <div class="text-sm text-red-100 mt-1">Fix: free space on the Atlas cluster (the free tier counts every database on it, see /healthz → mongo → cluster), then tap Refresh Prices — the next save clears this.</div>
+  <div class="text-sm text-red-100 mt-1">New buys are paused. Protective exits and save retries remain active. Changes since the last confirmed portfolio save may exist only in memory or local fallback files; preserve them before a restart. Save error: <span class="font-mono">{{ db_status.write_error }}</span></div>
+  <div class="text-sm text-red-100 mt-1">Last confirmed save this process: {{ db_status.portfolio_save_confirmed_at or 'not yet confirmed' }} UTC. Buying resumes only after a successful portfolio save. Fix the reported storage problem; the app retries every minute when its book is available.</div>
 </div>
+{% elif db_status and db_status.degraded %}
+<div data-db-save-pending="1" class="bg-amber-100 text-amber-950 px-4 py-4 mb-6">New buys are paused until the portfolio save is confirmed. Protective exits and save retries remain active. Status: {{ db_status.entry_block_reason }}.</div>
 {% endif %}
 
 {% if upstox_notice %}
@@ -585,8 +587,8 @@
       Quotes: {% if quote_source.source == 'upstox' %}<span class="text-emerald-700 normal-case tracking-normal font-semibold">Upstox real-time</span>{% else %}<span class="normal-case tracking-normal text-amber-700">~1-min delayed public candles — <a href="/upstox/login" class="underline">log in</a> for real-time ticks</span>{% endif %}
     </span>
     <span class="flex items-center gap-2">
-      <span class="inline-block w-2 h-2 rounded-full {% if db_status.connected and not db_status.write_error %}bg-emerald-500{% elif db_status.connected %}bg-red-500{% else %}bg-slate-400{% endif %}"></span>
-      Storage: {% if db_status.connected and db_status.write_error %}<span class="text-red-700 normal-case tracking-normal font-semibold" title="{{ db_status.write_error }}">MongoDB ({{ db_status.db }}) — WRITES REFUSED, book not being saved</span>{% elif db_status.connected %}<span class="text-emerald-700 normal-case tracking-normal font-semibold">MongoDB ({{ db_status.db }})</span>{% else %}<span class="normal-case tracking-normal">JSON on disk</span>{% endif %}
+      <span class="inline-block w-2 h-2 rounded-full {% if db_status.connected and not db_status.degraded and not db_status.write_error %}bg-emerald-500{% elif db_status.write_error %}bg-red-500{% elif db_status.degraded %}bg-amber-500{% else %}bg-slate-400{% endif %}"></span>
+      Storage: {% if db_status.connected and db_status.write_error %}<span class="text-red-700 normal-case tracking-normal font-semibold" title="{{ db_status.write_error }}">MongoDB ({{ db_status.db }}) — WRITES REFUSED, book not being saved</span>{% elif db_status.degraded %}<span class="text-amber-700 normal-case tracking-normal font-semibold">Portfolio save awaiting confirmation — buys paused</span>{% elif db_status.connected %}<span class="text-emerald-700 normal-case tracking-normal font-semibold">MongoDB ({{ db_status.db }})</span>{% else %}<span class="normal-case tracking-normal">JSON on disk</span>{% endif %}
     </span>
     <a href="/settings#mode" class="flex items-center gap-2 hover:text-ink">
       <span class="inline-block w-2 h-2 rounded-full bg-ink"></span>

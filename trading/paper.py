@@ -8,7 +8,7 @@ import os
 import threading
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, date
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 from .config import Config
 
@@ -57,6 +57,11 @@ def spill_journal(portfolio, entries):
         path = os.path.join(portfolio.cfg.state_dir, "journal_overflow.jsonl")
         with open(path, "a") as f:
             for row in entries:
+                # Assign before writing so a partial archive/retry has the same
+                # identity even when Mongo was disconnected during the spill.
+                if '_id' not in row:
+                    from uuid import uuid4
+                    row['_id'] = 'mars-journal:' + uuid4().hex
                 f.write(json.dumps(row, default=str) + "\n")
             f.flush()
             os.fsync(f.fileno())
@@ -263,7 +268,16 @@ class Portfolio:
     dd_cut_pending: dict = field(default_factory=dict)
     mark_snapshot: dict = field(default_factory=dict)
     last_save: Optional[str] = None
-    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+    # Process-local acknowledgement state; a configured durable store supplies
+    # its own fresh-start probe. Never restore a green flag from an old JSON file.
+    save_error: Optional[str] = field(default=None, init=False, repr=False)
+    _entry_probe: Optional[Callable] = field(default=None, init=False, repr=False)
+    _lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
+
+    def entry_block_reason(self) -> Optional[str]:
+        if self.save_error:
+            return "portfolio_save_failed"
+        return self._entry_probe() if self._entry_probe else None
 
     @classmethod
     def fresh(cls, cfg: Config) -> "Portfolio":

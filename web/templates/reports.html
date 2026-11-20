@@ -14,6 +14,8 @@
 
 {% if generated == 'backup_ok' %}
 <div class="bg-emerald-50 border border-emerald-300 text-emerald-900 p-3 mb-4 text-sm">Portfolio backed up to MongoDB.</div>
+{% elif generated == 'backup_local_ok' %}
+<div class="bg-emerald-50 border border-emerald-300 text-emerald-900 p-3 mb-4 text-sm">Portfolio saved to local JSON. MongoDB is not configured.</div>
 {% elif generated and generated.startswith('backup_err') %}
 <div class="bg-red-50 border border-red-300 text-red-900 p-3 mb-4 text-sm">Backup failed: <strong>{{ generated[11:] }}</strong></div>
 {% endif %}

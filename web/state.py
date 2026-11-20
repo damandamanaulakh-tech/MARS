@@ -106,6 +106,7 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.damage_store = dict(doc.get("damage_store", {}) or {})
     p.danger_alerts_start = doc.get("danger_alerts_start")
     p.last_save = doc.get("last_save")
+    p._durable_book_loaded = True
 
 
 def _patch_portfolio_save_to_mirror_mongo() -> None:
@@ -114,6 +115,28 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
     if _PORTFOLIO_SAVE_PATCHED:
         return
     original_save = Portfolio.save
+
+    def _checkpoint(save):
+        from functools import wraps
+        @wraps(save)
+        def checked(self):
+            # Serialize the complete snapshot + acknowledgement, not only the
+            # local JSON write. Entry booking uses this same reentrant lock.
+            with self._lock:
+                self._entry_probe = db.portfolio_entry_block_reason
+                try:
+                    saved = save(self) is True
+                    error = None if saved else "portfolio checkpoint not acknowledged"
+                except Exception as exc:
+                    saved, error = False, "portfolio checkpoint failed:" + type(exc).__name__
+                    log.exception("Portfolio checkpoint failed; exits and retries remain enabled")
+                self.save_error = error
+                if saved and db.is_connected():
+                    self._durable_book_loaded = True
+                if error and db.mongo_expected() and not db.LAST_WRITE_ERROR:
+                    db.portfolio_write_failed(error)
+                return saved
+        return checked
 
     def _archive_trade_overflow(self: Portfolio) -> None:
         """AUDIT M-10: move closed trades beyond TRADES_DOC_CAP to the
@@ -144,10 +167,16 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
                 total -= len(json.dumps(ev, default=str).encode()) - len(json.dumps(small).encode())
                 trade.trade_evidence = small
 
+    @_checkpoint
     def _save_with_mirror(self: Portfolio) -> bool:
         from trading.history_retention import retain
+        connected = db.is_connected()
+        if (db.recovered_pending() and db.boot_was_degraded()
+                and not getattr(self, '_durable_book_loaded', False)):
+            original_save(self)
+            return False  # hydrate/reconcile before overwriting a recovered store
         try:
-            policy = db.closed_history_policy() if db.is_connected() else self.closed_history_policy
+            policy = db.closed_history_policy() if connected else self.closed_history_policy
             self.closed_history_policy = policy or self.closed_history_policy
             self.trades = retain(self.trades, self.closed_history_policy)
         except Exception:
@@ -233,7 +262,11 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
         }
         saved = db.save_portfolio(doc) is True
         if saved:
-            fv.flush(self, db.save_validation_event)
+            try:
+                fv.flush(self, db.save_validation_event)
+            except Exception as exc:
+                self.validation_state['error'] = 'forward_export_failed:' + type(exc).__name__
+                log.exception('Forward export retained for retry after acknowledged portfolio save')
         return saved
 
     Portfolio.save = _save_with_mirror  # type: ignore[assignment]
@@ -251,8 +284,64 @@ def _spill_journal_overflow(p: Portfolio, entries: list) -> bool:
 
 
 def mongo_degraded() -> bool:
-    """The owner configured Mongo and it is currently unreachable."""
-    return db.mongo_expected() and not db.is_connected()
+    """A connection alone cannot prove the current portfolio is writable."""
+    return db.portfolio_entry_block_reason() is not None
+
+
+def replay_journal_spill(p: Portfolio) -> bool:
+    """Retry connected quota failures too; keep the file until every batch acks."""
+    import json
+    import os
+    path = _overflow_path(p)
+    with p._lock:
+        if not os.path.exists(path):
+            return True
+        if not db.is_connected():
+            return False
+        try:
+            # One network batch per invocation; a long outage must not hold
+            # the book/mode lock across thousands of archive round trips.
+            import tempfile
+            from hashlib import sha256
+            def decode(index, line):
+                row = json.loads(line)
+                if '_id' not in row:
+                    row['_id'] = 'mars-legacy-spill:' + sha256(f'{index}:{line}'.encode()).hexdigest()
+                return row
+            with open(path) as stream:
+                batch = []
+                lines = enumerate(stream)
+                for index, line in lines:
+                    if line.strip():
+                        batch.append(decode(index, line))
+                    if len(batch) == 100:
+                        break
+                if batch and db.archive_journal(batch) is not True:
+                    return False
+                # Atomically retain the remainder. Before replacement any error
+                # leaves the original intact, so replay is idempotent by ID.
+                temp_path = None
+                try:
+                    remaining = False
+                    with tempfile.NamedTemporaryFile(mode='w', dir=p.cfg.state_dir, delete=False) as pending:
+                        temp_path = pending.name
+                        for index, line in lines:
+                            if line.strip():
+                                pending.write(json.dumps(decode(index, line)) + '\n')
+                                remaining = True
+                        pending.flush()
+                        os.fsync(pending.fileno())
+                    os.replace(temp_path, path)
+                    temp_path = None
+                    if not remaining:
+                        os.remove(path)
+                    return not remaining
+                finally:
+                    if temp_path and os.path.exists(temp_path):
+                        os.remove(temp_path)
+        except Exception as exc:
+            log.warning("Journal spill retry failed; retained: %s", type(exc).__name__)
+            return False
 
 
 def heal_after_reconnect() -> None:
@@ -267,26 +356,24 @@ def heal_after_reconnect() -> None:
     """
     if not db.recovered_pending():
         return
-    db.claim_recovery()
     p = portfolio()
-    import json as _json
-    import os
-    path = _overflow_path(p)
-    if os.path.exists(path):
-        try:
-            with open(path) as f:
-                entries = [_json.loads(line) for line in f if line.strip()]
-            if not entries or db.archive_journal(entries):
-                os.remove(path)
-                log.info("replayed %d spilled journal entries to Mongo",
-                         len(entries))
-        except (OSError, ValueError) as e:
-            log.error("overflow replay failed (kept on disk): %s", e)
+    with p._lock:
+        _heal_book_after_reconnect(p)
+
+
+def _heal_book_after_reconnect(p: Portfolio) -> None:
 
     from datetime import datetime as _dt
-    if db.boot_was_degraded():
+    if db.boot_was_degraded() and not getattr(p, '_durable_book_loaded', False):
         virgin = not p.positions and not p.trades
-        persisted = db.load_portfolio()
+        try:
+            persisted = db.load_portfolio(strict=True)
+        except Exception:
+            db.portfolio_write_failed('recovery portfolio read unavailable; current book not saved')
+            return
+        if not persisted:
+            db.portfolio_write_failed('recovery portfolio missing; current book not saved')
+            return
         if virgin and persisted:
             _hydrate_portfolio_from_mongo(p, persisted)
             p.decision_journal.append({
@@ -295,15 +382,22 @@ def heal_after_reconnect() -> None:
                         "has been restored from Mongo (local book was empty)."),
             })
         elif persisted:
-            p.decision_journal.append({
+            if not any(row.get('action') == 'MONGO_RECOVERED_CONFLICT'
+                       for row in p.decision_journal[-100:]):
+                p.decision_journal.append({
                 "ts": _dt.utcnow().isoformat(),
                 "action": "MONGO_RECOVERED_CONFLICT",
                 "why": ("Mongo is back but this session already traded on a "
                         "fresh book started during the outage. NOTHING was "
-                        "overwritten — owner must reconcile (the Mongo book "
-                        "is untouched until the next save)."),
-            })
-    p.save()
+                        "overwritten — owner must reconcile before saving."),
+                })
+            db.portfolio_write_failed('recovery book conflict; reconciliation required')
+            return
+    if p.save() is True:
+        # Spill has its own independent retries; do not repeat hydration after
+        # the recovered current book is acknowledged.
+        db.claim_recovery()
+    replay_journal_spill(p)
 
 
 def _coerce_override(cfg, key: str, value):
@@ -615,6 +709,7 @@ def _bootstrap() -> None:
 
     # Wire save() to mirror to Mongo from now on
     _patch_portfolio_save_to_mirror_mongo()
+    _PORTFOLIO._entry_probe = db.portfolio_entry_block_reason
 
     # Owner order 2026-10-11 item 5: pre-15-September trades and journal
     # lines leave the live book for the archive (never deleted). One-time,

@@ -94,6 +94,11 @@ def start_if_enabled() -> None:
     # the 09:20 rotation, 494 after 14:30) and Render killed it at 10:09 IST.
     _SCHED.add_listener(_release_after_job, _job_end_mask())
 
+    # XR-071: saving is independent of entry eligibility, market hours and
+    # holdings. A halted empty book must still be able to recover.
+    _SCHED.add_job(_portfolio_save_retry, "interval", seconds=60,
+                   id="portfolio_save_retry", max_instances=1, coalesce=True)
+
     if intraday:
         _SCHED.add_job(
             _intraday_tick, "cron",
@@ -3382,8 +3387,9 @@ def _degraded_halt(where: str) -> bool:
     from datetime import datetime as _dt
 
     from . import state
+    state.db.is_connected()  # discover recovery before healing or saving a book
     state.heal_after_reconnect()
-    if not state.mongo_degraded():
+    if not state.mongo_degraded() and not state.portfolio().save_error:
         return False
     p = state.portfolio()
     today = _dt.utcnow().date().isoformat()
@@ -3392,13 +3398,33 @@ def _degraded_halt(where: str) -> bool:
                for e in p.decision_journal[-100:]):
         p.decision_journal.append({
             "ts": _dt.utcnow().isoformat(), "action": "MONGO_OFFLINE_HALT",
-            "why": (f"[{where}] MongoDB is configured but unreachable — new "
-                    "entries halted so a phantom book can't trade trades that "
-                    "vanish at the next restart. Exits still run."),
+            "why": (f"[{where}] Portfolio save is unavailable, unconfirmed or refused — "
+                    "new buys paused until an acknowledged save. Protective exits and retries remain active."),
+            "reason": p.entry_block_reason() or state.db.portfolio_entry_block_reason(),
         })
         p.save()
-    log.error("[%s] Mongo expected but down — scan entries halted", where)
+    log.error("[%s] Portfolio save not confirmed — scan entries halted", where)
     return True
+
+
+def _portfolio_save_retry() -> None:
+    """Never trade or fetch quotes. Defer behind active book operations."""
+    from trading.modes import ModeBusy, holding_mode_lock
+    from . import state
+    try:
+        with holding_mode_lock(timeout=0):
+            state.db.is_connected()
+            state.heal_after_reconnect()
+            p = state.portfolio()
+            if state.db.recovered_pending():
+                return  # unresolved recovery must never be overwritten by retry
+            if p.save_error or state.mongo_degraded() or p.validation_pending:
+                p.save()
+            state.replay_journal_spill(p)
+    except ModeBusy:
+        return
+    except Exception:
+        log.exception("Portfolio save retry failed; entries remain blocked")
 
 
 def _daily_multi_mode_scan() -> None:
