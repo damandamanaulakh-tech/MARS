@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
   push:
-    branches: [main, "claude/**", "codex/storage-recovery-2026-11-17"]
+    branches: [main, "claude/**"]
 
 jobs:
   repair-records:
@@ -25,7 +25,7 @@ jobs:
           python-version: "3.11"
           cache: pip
       - name: Install dependencies
-        run: pip install -r requirements.txt pytest openpyxl
+        run: pip install -r requirements.txt pytest openpyxl freezegun==1.5.5
       - name: Run tests
         run: python -m pytest trading/tests/ web/tests/ -q -ra --junitxml=pytest-results.xml
       - name: Require every collected test to run
@@ -66,3 +66,26 @@ jobs:
         run: python -m research.sizing_2026_11_16.study verify
       - name: Verify Goal10 report and every comparison row
         run: python -m research.sizing_2026_11_16.report --check
+  combined-research:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        evidence: [original, attribution]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.16"
+          cache: pip
+          cache-dependency-path: research/combined_2026_11_17/requirements.txt
+      - name: Install the sealed actual-engine runtime
+        run: pip install -r requirements.txt -r research/combined_2026_11_17/requirements.txt
+      - name: Reproduce every combined scenario from archived strategy source
+        if: matrix.evidence == 'original'
+        run: python -m research.combined_2026_11_17.reproduce
+      - name: Verify segment attribution preserves every strategy outcome
+        if: matrix.evidence == 'attribution'
+        run: python -m research.combined_2026_11_17.reproduce --attribution
+      - name: Verify expectancy, drawdown, costs and coverage tables
+        run: python -m research.combined_2026_11_17.report --check

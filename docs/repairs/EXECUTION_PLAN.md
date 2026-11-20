@@ -1,14 +1,16 @@
 # Ordered repair programme — 11 November 2026
 
+Goal 11 repository delivery is merged in [PR222](https://github.com/damandamanaulakh-tech/MARS/pull/222). All 3515 local/CI tests and six CI jobs pass with zero test skips; both full historical reproductions match. All declared scenarios have negative net expectancy. Deployment and genuine forward observation remain held on recurring storage refusal and unresolved prior-process state preservation. [Release and proof](releases/2026-11-17-combined-validation.md).
+
 Owner instruction: show the sequence, start one by one, and track completion in
 the repository. This is the current execution order for G4/G13 and the related
 data/risk work. It does not remove any of the 170 backlog records or four
 separate incidents. [Goals](GOALS.md), [full backlog](BACKLOG.md),
 [machine-readable sequence](execution-plan.json).
 
-## Current batch
+## Earlier release evidence
 
-SEQ-09 research is evaluated with no production policy promotion. The separately acquired 42-session intraday holdout measured losing retries withheld, recoveries missed and delayed re-entry P&L. The selected breakout-reclaim rule improved the matched comparison but failed sample and cross-scenario expectancy requirements. PR218 merged; all 3413 canonical local/CI tests pass with zero skips, with complete frozen replay and report checks passing on the recorded reference runtime. [Study and release record](releases/2026-11-16-reentry.md). SEQ-10 remains queued.
+SEQ-09 research is evaluated with no production policy promotion. The separately acquired 42-session intraday holdout measured losing retries withheld, recoveries missed and delayed re-entry P&L. The selected breakout-reclaim rule improved the matched comparison but failed sample and cross-scenario expectancy requirements. PR218 merged; all 3413 canonical local/CI tests pass with zero skips, with complete frozen replay and report checks passing on the recorded reference runtime. [Study and release record](releases/2026-11-16-reentry.md). SEQ-10 is shipped; its separate research rejects promotion.
 
 SEQ-08 research is evaluated; no settings promotion. The fixed-clock exit-only study used 15 stocks and 690 paired holdout entries over 23 sessions, with costs, adverse fills and observation-cadence sensitivity. The training-selected combined candidate failed net-expectancy and robustness criteria. PR216 merged; 3359 canonical local/CI tests pass with zero skips, with full offline outcome/report reproduction verified. [Study and release record](releases/2026-11-16-profit-protection.md). SEQ-09 research is recorded above.
 
@@ -40,8 +42,8 @@ unproven; the original ledger, strategy thresholds and research sequence are ret
 | SEQ-07 | G13; XR-081; owner candle decision | Candle patterns assist selection, with recorded owner controls | Advisory contribution is explicit; absence alone does not veto an otherwise eligible entry; protective exits remain independent; invalid candles remain unavailable | DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING; PR214; 3311 local/CI passed, zero skips; owner page verified |
 | SEQ-08 | G13; INTRA-003 | Compare net-profit-aware trailing exits and reachable targets | Replay with costs, slippage and intrabar ambiguity; unseen-period comparison of expectancy and drawdown; exact candidate settings reviewed before promotion | RESEARCH_COMPLETE_NO_PROMOTION |
 | SEQ-09 | G13; INTRA-003 | Fresh-setup/cooldown experiments after a failed trade | Record the changed setup; measure losses avoided and recoveries missed; prevent same-bar hindsight or automatic score reuse | RESEARCH_COMPLETE_NO_PROMOTION |
-| SEQ-10 | G7/G13; INTRA-003, XR-026, XR-031 | Intraday sizing, loss accounting and measured-edge controls | All relevant net outcomes and exact stop risk included; empty/all-loss samples explicit; policy thresholds justified by held-out evidence | QUEUED |
-| SEQ-11 | G9/G13; XR-078, XR-103, INTRA-001, INTRA-003 | Combined replay and forward paper validation | Versioned data/code/settings, unseen periods, realistic execution/costs, adequate sample coverage, net expectancy/drawdown and no profitability guarantee | QUEUED |
+| SEQ-10 | G7/G13; INTRA-003, XR-026, XR-031 | Intraday sizing, loss accounting and measured-edge controls | All relevant net outcomes and exact stop risk included; empty/all-loss samples explicit; policy thresholds justified by held-out evidence | SHIPPED_RESEARCH_COMPLETE_NO_PROMOTION; PR220; 3469 tests, zero skips |
+| SEQ-11 | G9/G13; XR-078, XR-103, INTRA-001, INTRA-003 | Combined replay and forward paper validation | Versioned data/code/settings, unseen periods, realistic execution/costs, adequate sample coverage, net expectancy/drawdown and no profitability guarantee | MERGED PR222; 3515 CI tests / six jobs passed; all historical scenarios negative; deployment held on storage refusal; forward acceptance pending |
 
 ## How each step advances
 

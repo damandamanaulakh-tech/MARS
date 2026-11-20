@@ -235,6 +235,67 @@ def closed_history_policy() -> dict:
     approved_ids(policy)
     return policy
 
+def save_validation_event(event: dict) -> bool:
+    """Append-only, acknowledged, idempotent outbox export; no ledger writes."""
+    if not _CONNECTED or _DB is None:
+        return False
+    try:
+        from copy import deepcopy
+        import base64
+        import zlib
+        from trading.validation import canonical
+        row = deepcopy(event)
+        run = row.pop("run")
+        if run.get("settings"):
+            ack = _DB.validation_runs.update_one({"_id": run["id"]},
+                {"$setOnInsert": {**run, "_id": run["id"]}}, upsert=True)
+            if ack.acknowledged is not True:
+                return False
+        elif not _DB.validation_runs.find_one({"_id": run["id"]}, {"_id": 1}):
+            return False  # retain the event until its full manifest is durable
+        if row.get("kind") == "manifest":
+            return True
+        row["run_id"] = run["id"]
+        exit_run = row.pop("exit_run", None)
+        if exit_run and exit_run.get("settings"):
+            ack = _DB.validation_runs.update_one({"_id": exit_run["id"]},
+                {"$setOnInsert": {**exit_run, "_id": exit_run["id"]}}, upsert=True)
+            if ack.acknowledged is not True:
+                return False
+            row["exit_run_id"] = exit_run["id"]
+        elif exit_run:
+            if not _DB.validation_runs.find_one({"_id": exit_run["id"]}, {"_id": 1}):
+                return False
+            row["exit_run_id"] = exit_run["id"]
+        if row.get("input"):
+            data = row.pop("input")
+            data.pop("run", None)
+            row["input_zlib_base64"] = base64.b64encode(zlib.compress(canonical(data))).decode()
+        ack = _DB.validation_events.update_one({"_id": row["_id"]},
+            {"$setOnInsert": row}, upsert=True)
+        return ack.acknowledged is True
+    except Exception as exc:
+        log.warning("Forward validation export failed: %s", type(exc).__name__)
+        return False
+
+
+def load_validation_events(limit: int = 5000):
+    if not _CONNECTED or _DB is None:
+        return [], False, "database_unavailable"
+    try:
+        limit = min(max(int(limit), 1), 5000)
+        rows = list(_DB.validation_events.find({}, {"input_zlib_base64": 0})
+                    .sort("observed_at", -1).limit(limit + 1))
+        truncated = len(rows) > limit
+        rows = rows[:limit]
+        runs = {r["_id"]: r for r in _DB.validation_runs.find(
+            {"_id": {"$in": list({r["run_id"] for r in rows})}})}
+        for row in rows:
+            row["run"] = runs.get(row["run_id"], {})
+        return rows, truncated, None
+    except Exception as exc:
+        return [], False, "validation_read_failed:" + type(exc).__name__
+
 
 def save_portfolio(doc: dict, doc_id: str = "default") -> bool:
     global LAST_WRITE_ERROR, LAST_WRITE_ERROR_AT

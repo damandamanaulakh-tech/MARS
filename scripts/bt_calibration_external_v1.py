@@ -97,6 +97,9 @@ def main(out_dir: str) -> None:
     # CKPT_EVERY tickers and reloaded on start, so a restart resumes instead of
     # starting over. Delete the file to force a clean run.
     ckpt_path = out / "checkpoint.json"
+    from trading.validation import guard_research_output
+    guard_research_output(ckpt_path, parameters={"study": "calibration_external_v1"})
+
 
     sides = {t.id: t.side for t in EXTERNAL_WIRED}
     fires: dict[str, int] = defaultdict(int)

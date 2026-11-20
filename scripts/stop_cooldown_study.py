@@ -171,6 +171,8 @@ def main(arm_name: str) -> None:
     arm = ARMS[arm_name]
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     out_path = OUT_DIR / f"{arm_name}.json"
+    from trading.validation import guard_research_output
+    guard_research_output(out_path, parameters={"arm": arm_name, "windows": WINDOWS})
     done = json.loads(out_path.read_text()) if out_path.exists() else {}
     hist = load_history()
     tickers = sorted(t for t in hist if t != "^NSEI")

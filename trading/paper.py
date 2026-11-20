@@ -205,6 +205,8 @@ class Portfolio:
     last_scan_picks: List[dict] = field(default_factory=list)
     last_scan_skipped: List[dict] = field(default_factory=list)
     intraday_data_status: dict = field(default_factory=dict)
+    validation_state: dict = field(default_factory=dict)
+    validation_pending: dict = field(default_factory=dict)
     cost_dp_days: dict = field(default_factory=dict)  # one delivery DP debit per symbol/IST day
     closed_history_policy: dict = field(default_factory=dict)
     last_scan_opened: List[str] = field(default_factory=list)
@@ -345,6 +347,9 @@ class Portfolio:
                 "intraday_data_status": self.intraday_data_status,
                 "cost_dp_days": self.cost_dp_days,
                 "closed_history_policy": self.closed_history_policy,
+
+                "validation_state": self.validation_state,
+                "validation_pending": self.validation_pending,
                 "last_scan_opened": self.last_scan_opened,
                 "last_regime": self.last_regime,
                 "last_ifr_fire_date": self.last_ifr_fire_date,
@@ -412,6 +417,9 @@ class Portfolio:
                 p.trades = retain(p.trades, p.closed_history_policy)
             except ValueError:
                 log.error('Invalid closed-history policy; financial book retained for review')
+
+            p.validation_state = dict(data.get("validation_state", {}) or {})
+            p.validation_pending = dict(data.get("validation_pending", {}) or {})
             p.last_scan_opened = list(data.get("last_scan_opened", []))
             p.last_regime = data.get("last_regime")
             p.last_ifr_fire_date = data.get("last_ifr_fire_date")
@@ -505,6 +513,9 @@ class Portfolio:
         self.last_scan_skipped = []
         self.intraday_data_status = {}
         self.cost_dp_days = {}
+        # SEQ-11: a reset starts another observation period. Pending evidence
+        # from the previous book must still export, never be erased here.
+        self.validation_state = {"seen": self.validation_state.get("seen", [])}
         self.last_scan_opened = []
         self.scan_matrix = {}
         self.momentum_shortlist = {}

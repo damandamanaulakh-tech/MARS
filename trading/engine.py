@@ -1919,6 +1919,12 @@ class TradingEngine:
         entry_evidence = de.finish(decision, "bought", pick.get("reasoning", ""))
         trade_evidence = {"schema": 1, "trade_id": decision["id"], "entry": entry_evidence,
                           "amendments": [], "amendments_omitted": 0}
+        # SEQ-11: version the actual filled entry. Observation never changes eligibility.
+        try:
+            from .validation import capture_entry
+            trade_evidence["validation"] = capture_entry(self.portfolio, cfg, pick, now, qty)
+        except Exception as exc:
+            trade_evidence["validation_error"] = type(exc).__name__
         self.portfolio.cash -= notional + buy_cost
         # WHY-BOUGHT journal entry — full decision context, never deleted
         self.portfolio.decision_journal.append({
@@ -2843,6 +2849,11 @@ class TradingEngine:
         self.portfolio.cash += cost_ev["cash_credit"]
         fees.commit_exit_state(self.portfolio, pos, cost_basis, dp_change)
         trade_ev = de.exit_snapshot(pos, raw_price, exit_price, half, reason, now, self.cfg)
+        try:
+            from .validation import identity
+            trade_ev["exit"]["validation_run"] = identity(self._exit_cfg(pos, self.cfg))
+        except Exception as exc:
+            trade_ev["exit"]["validation_error"] = type(exc).__name__
         trade_ev["exit"]["accounting"] = {"gross_pnl": gross, "costs": costs, "net_pnl": gross-costs, "method": cost_ev["model"], "charge_evidence": copy.deepcopy(cost_ev)}
         self.portfolio.trades.append(ClosedTrade(
             ticker=ticker, qty=half, trade_evidence=trade_ev, cost_evidence=copy.deepcopy(cost_ev),
@@ -2880,6 +2891,11 @@ class TradingEngine:
         fees.commit_exit_state(self.portfolio, pos, cost_basis, dp_change)
         net_pnl = gross - costs
         trade_ev = de.exit_snapshot(pos, raw_price, exit_price, pos.qty, reason, now, self.cfg)
+        try:
+            from .validation import identity
+            trade_ev["exit"]["validation_run"] = identity(self._exit_cfg(pos, self.cfg))
+        except Exception as exc:
+            trade_ev["exit"]["validation_error"] = type(exc).__name__
         trade_ev["exit"]["accounting"] = {"gross_pnl": gross, "costs": costs, "net_pnl": net_pnl, "method": cost_ev["model"], "charge_evidence": copy.deepcopy(cost_ev)}
         self.portfolio.trades.append(ClosedTrade(
             ticker=ticker, qty=pos.qty, trade_evidence=trade_ev, cost_evidence=copy.deepcopy(cost_ev),

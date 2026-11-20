@@ -1,9 +1,12 @@
 # Storage recovery and owner-requested closed-history cleanup
 
 Work in progress; no deployment or production deletion is claimed by this
-preparation commit. Goal11 rollout remains paused. This hotfix is based on the
-live Goal10 revision `65a58509018fcce86a299328497f1ffe3ee1a142` so storage repair
-does not activate the unreleased forward-validation recorder.
+preparation commit. The owner resumed Goal11 on 20 November while retaining
+storage recovery as the immediate dependency. The isolated storage hotfix
+`fd0700ac58c48d47769e25fc8d945ec1315f5154` is based on live Goal10
+`65a58509018fcce86a299328497f1ffe3ee1a142`. Main integration retains the Goal11
+recorder and research; deployment remains held until current state is preserved
+and the combined revision passes CI.
 
 The owner authorized a private CSV and removal of closed trades entered through
 30 September 2026, using IST entry dates, plus closed intraday history through
@@ -33,7 +36,10 @@ fields and numeric types, while reducing these 40,333 rows to 66,788,255 bytes
 not space already freed. The first full Python 3.9 capture aborted; Python 3.12
 captured every collection, but long journal rereads hit network timeouts.
 Bounded independently checked batches retain progress and refuse changed rows.
-The native restore and full source verification must finish before live cleanup.
+Full source verification and native restore then passed: 82,618 documents
+across all 19 collections, with every raw BSON document, option and index
+verified. Backup/CSV ZIP entries were independently hashed; the private
+credential export and app cookies are excluded. All copies remain on one Mac.
 
 ## Implementation
 
@@ -57,7 +63,7 @@ The native restore and full source verification must finish before live cleanup.
 
 ## Verification and shipment states
 
-Initial focused regressions: 67 passed. New storage cases: 19 passed, including
+Initial focused regressions: 67 passed. New storage cases: 20 passed, including
 IST midnight boundaries, unknown dates/modes, later partial exits, malformed
 policies, refusal, duplicate retry, partial acknowledgement and corruption.
 MongoDB 8.0.38 localhost verification passed native bulk/write/readback, 210-row
@@ -68,9 +74,16 @@ test trades or scans.
 Full canonical suite initially found 15 failures: existing fake persistence
 fixtures did not model the newly required policy read. Those fixtures now
 explicitly supply an empty cleanup policy without changing their original
-assertions. Full rerun, CI, reviewed source merge, exact deployment, native
-restore, conditional live migration, history removal and durable read-back
-remain pending in this preparation commit.
+assertions. The canonical full rerun passed 3,488 tests before the final identity case;
+the final isolated hotfix then passed **3,489 tests with zero skips** and all
+four jobs in [CI](https://github.com/damandamanaulakh-tech/MARS/actions/runs/44689081974).
+The merged storage/Goal11 focused suite passed 66 tests after installing its
+required freezegun dependency and explicitly modeling an empty cleanup policy
+in the existing outbox fixture. Local native recovery rehearsed conditional
+removal of 10,000 older scan snapshots, preserved 30,333 other originals, then
+restored all cold rows in the compressed representation. Every original byte
+remained recoverable. Main integration CI, source merge, deployment, live
+migration, history removal and durable read-back remain pending.
 
 Database exports, secrets, exact IDs and private manifests stay outside the
 public repository. Local files on one owner Mac do not constitute independent

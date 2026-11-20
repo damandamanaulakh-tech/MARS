@@ -47,7 +47,22 @@
     },
     "research_replay": "PASS_EXACT",
     "reports": "PASS",
-    "ci": "PENDING",
+    "ci": {
+      "url": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/43891672421",
+      "status": "success",
+      "tests": 3469,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 372.21,
+      "jobs": [
+        "repair-records",
+        "test",
+        "reentry-research",
+        "sizing-research"
+      ],
+      "all_required_steps": "success"
+    },
     "tested_application_hashes": {
       "trading/risk.py": "a669379c5b57e426a643ffd9800f2ef7a6c2894f68d71834e2821da54f8c9a81",
       "trading/engine.py": "91d1f25b80c70ded3c2875d2092d863dd3a0dfda9f74b326047b09089dad52fd",
@@ -74,13 +89,71 @@
     "All-loss guard retains configured sample minimum0 (one observation required), Momentum-only default, reason filters and owner overrides.",
     "Economic summaries cover retained closed legs, including partial exits; archived full-ledger coverage is not claimed.",
     "Research shadow exits are not actual candidate fills. Same historical market period was previously viewed through other stocks.",
-    "No induced production trades, scans, ledger rewrites or automatic experimental promotion."
+    "No induced production trades, scans, ledger rewrites or automatic experimental promotion.",
+    "Rejection purity proves the risk check and isolated scan without a funding rotation. Separate XR-052 rotation-before-final-refusal finding remains open; whole-scan transactionality is not claimed."
   ],
   "release": {
-    "pr": null,
-    "merge_revision": null,
-    "deployment": null,
-    "health": "PENDING",
-    "runtime": "NATURAL_SCAN_AND_TRADE_OBSERVATION_PENDING"
+    "pr": "https://github.com/damandamanaulakh-tech/MARS/pull/220",
+    "merge_revision": "65a58509018fcce86a299328497f1ffe3ee1a142",
+    "deployment": {
+      "id": "dep-dbtkffe417fc73e1cvd0",
+      "revision": "65a58509018fcce86a299328497f1ffe3ee1a142",
+      "status": "live",
+      "finished_at": "2026-11-16T18:15:02.75693Z",
+      "workspace": "Research Engine"
+    },
+    "health": {
+      "observed_at": "2026-11-16T18:15:22.237789+00:00",
+      "http_status": 200,
+      "ok": true,
+      "db": {
+        "connected": true,
+        "db": "sourceborn",
+        "url_set": true,
+        "degraded": false,
+        "boot_degraded": false,
+        "write_error": null,
+        "write_error_at": null
+      },
+      "readiness": {
+        "production": true,
+        "ready": true,
+        "insecure_override": false,
+        "problems": []
+      },
+      "stats": {
+        "asof": "2026-11-16T18:15:00.615392+00:00",
+        "age_s": 21.4,
+        "pending": false,
+        "elapsed_s": 7.941,
+        "error": null
+      }
+    },
+    "runtime": "PENDING_NORMAL_SCAN_AND_TRADE_OBSERVATION",
+    "reviewed_head": "b0c9cff68a7183873b221fa73254945cb193b44f",
+    "reviewed_tree": "8e1e24d54fe790a45c944f6ffe450347b56bbcfa",
+    "merge_tree_matches_reviewed": true,
+    "rollout_probe": {
+      "phase": "update_in_progress",
+      "path": "/healthz",
+      "result": "desktop ReadTimeout at30seconds before deploy live; post-live verification pending"
+    },
+    "monitoring": {
+      "error_log_window": {
+        "start": "2026-11-16T18:15:02Z",
+        "end": "2026-11-16T18:15:57.850853955Z",
+        "new_instance": "srv-d8cspdnavr4c738lbrd0-pktb9",
+        "errors_returned": 0,
+        "has_more": false
+      },
+      "startup_metrics": {
+        "timestamp": "2026-11-16T18:15:00Z",
+        "cpu_used": 0.0485674,
+        "cpu_limit": 0.15,
+        "memory_bytes": 193179650,
+        "memory_limit_bytes": 536870900,
+        "scope": "Single startup observation, not a sustained-load result"
+      }
+    }
   }
 }
