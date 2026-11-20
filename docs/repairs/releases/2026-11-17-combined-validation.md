@@ -1,4 +1,4 @@
-# SEQ-11 combined validation — repository delivery, deployment held
+# SEQ-11 combined validation — deployed, forward acceptance open
 
 Owner authorization: 17 November 2026, test the actual strategy on unseen data and forward paper trades; version data/code/settings, include costs/slippage, report net expectancy, drawdown and coverage, update the repo/workflow, no skips.
 Baseline main: `8900be4c07fa85dc4ffa04812a6757eb9c3db4b8`. Frozen strategy/protocol/settings commit: `89a8e9baa02241efe4ee48f5bb3efc1449864c69`.
@@ -67,3 +67,39 @@ At **11:16:02 UTC**, writes again failed at 528 MB /512 MB, with a quota error t
 No new Goal11 forward cohort is claimed. The recorder is prepared but has not been deployed or durably observed. Future acceptance requires at least 30 genuinely new regular sessions and 30 fully closed economic trades in every claimed segment, with cost/identity/coverage evidence; these coverage floors are not statistical proof. Own-symbol entry capture does not reconstruct the full peer/provider snapshot. Keep original code/settings/reset cohorts separate and preserve any gaps. No automatic promotion.
 
 The original 165 finding IDs, all 170 backlog rows and four incident records remain. The renewed storage problem is recorded as a recurrence of RUN-20261114-01, with OPS-05 and XR-071 still open. Broader original audit findings are not declared complete by this batch.
+
+## 20 November continuation: live baseline and storage recovery
+
+The owner resumed Goal11 and storage work. The 17 November hold above is a
+historical record, superseded by the verified current-state recovery in the
+[20 November storage release](2026-11-20-storage-and-history.md). Earlier
+process-only RAM/spill gaps remain unknown; they were not silently filled.
+
+[PR224](https://github.com/damandamanaulakh-tech/MARS/pull/224) merged the storage
+hotfix with Goal11 as `7337aa29510b3775de44ac0f3df2998cdc7ad85d`, matching the
+reviewed tree `0703c5c382caaf2ecfa374ccfc607e5ab7a593b0`. All **3,535 CI tests**,
+zero skips, and all six jobs passed, including both complete combined replays.
+The normal owner scan was allowed to finish. A fresh native checkpoint at
+08:37 UTC preserved 33 open positions and 80 closed rows; 3,939 newly appended
+journal records were independently re-read and restored in addition to the
+original 40,333-record backup. No production test trade or scan was induced.
+
+Render `dep-dc00e86i0phs73bblqrg` made that exact revision live at
+**08:40:32 UTC /14:10:32 IST**. Health/readiness, database writes and owner pages
+passed. An ordinary save was independently read back and restored.
+[Native forward proof](../evidence/2026-11-20-combined-live.json) verifies all
+**168 expected source/input hashes**, the settings digest and immutable run
+identity. One manifest, one inherited baseline and one book event are durable;
+the API reports zero pending exports and no storage error. The persisted outbox
+still includes already-exported IDs until the next book save; that is a retry
+checkpoint, not missing data. Restart verification remains for the follow-up
+release.
+
+The baseline contains **33 inherited positions and 80 historical closed rows**.
+There are **zero new forward entries or completed trades** in this observation.
+Forward net expectancy and drawdown are **unknown**, and all three bounded
+historical scenarios remain negative. Thirty new regular sessions and thirty
+fully closed trades per claimed segment remain the declared coverage floor;
+future observations cannot be fabricated or replaced by historical closures.
+No strategy settings were promoted. All 165 original IDs, 170 backlog rows and
+five incidents remain.

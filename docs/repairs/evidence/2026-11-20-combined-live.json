@@ -1,0 +1,52 @@
+{
+  "at": "2026-11-20T08:42:48.290925+00:00",
+  "revision": "7337aa29510b3775de44ac0f3df2998cdc7ad85d",
+  "api_http": 200,
+  "page_http": 200,
+  "matching_run_ids": [
+    "b6cfcf6e58cb1c7a240d1ede21210ec3a2b40917b6b1146510000aad1cac8ab2"
+  ],
+  "code_sha256": "5c2fa90b83b7abf8c2bc4f3a3b1dc0fa0d352fb6f85a133e1691e816ba73c8bf",
+  "verified_source_files": 168,
+  "settings_sha256": [
+    "ea2c5a421ea259ec3817a21e7f2e36470c91512a1926f775dcc23d89f9256986"
+  ],
+  "native_runs": 1,
+  "native_events": 2,
+  "event_kinds": {
+    "baseline": 1,
+    "book": 1
+  },
+  "book_epoch": "2026-11-20T08:41:42.997998+00:00",
+  "pending_api": 0,
+  "persisted_pending_already_exported": 3,
+  "baseline_inherited_positions": [
+    33
+  ],
+  "baseline_historical_legs": [
+    80
+  ],
+  "open_positions": 33,
+  "closed_rows": 80,
+  "removed_335_absent": true,
+  "native_restore": true,
+  "promotion": "none",
+  "acceptance": "pending_new_sessions_and_complete_cohort_coverage",
+  "cohorts": 1,
+  "query_truncated": false,
+  "deployment": "dep-dc00e86i0phs73bblqrg",
+  "live_at": "2026-11-20T08:40:32.305594Z",
+  "ci": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/44690960732",
+  "canonical_ci_tests": 3535,
+  "ci_skipped": 0,
+  "ci_jobs_passed": 6,
+  "full_code_file_map_verified": true,
+  "settings_and_identity_verified": true,
+  "entry_events": 0,
+  "exit_events": 0,
+  "closed_forward_trades": 0,
+  "forward_expectancy": null,
+  "forward_drawdown": null,
+  "restart_observation": "PENDING_FOLLOWUP_RELEASE",
+  "historical_performance": "negative_expectancy_all_declared_scenarios"
+}

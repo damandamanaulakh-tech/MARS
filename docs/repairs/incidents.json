@@ -22,7 +22,7 @@
   {
     "id": "RUN-20261114-01",
     "finding": "Atlas rejects sector snapshot, settings and portfolio writes at 513 MB against its 512 MB cluster quota",
-    "workflow": "RECURRED_WRITE_BLOCKED_CURRENT_STATE_PRESERVATION_PENDING",
+    "workflow": "CAPACITY_AND_DURABLE_SAVES_RECOVERED_RETENTION_PENDING",
     "related_findings": [
       "OPS-05",
       "XR-071"
@@ -33,7 +33,7 @@
     "reconciliation": "Additional runtime incident; original 165 audit IDs and all 170 current backlog records retained.",
     "owner_decision": "Keep free tier. Requested private downloadable backup and bounded cleanup; exact data preservation and recovery checks precede removal. No paid upgrade authorized.",
     "recovery_plan": "docs/repairs/releases/2026-11-14-lossless-archive-plan.md",
-    "current_evidence": "docs/repairs/releases/2026-11-17-combined-validation.md",
+    "current_evidence": "docs/repairs/releases/2026-11-20-storage-and-history.md",
     "recovery_observation": "14 November 17:40:52 UTC: exact 10000-row cold archive verified, all 30486 untargeted BSON unchanged. Normal stored portfolio last_save advanced to 17:34:24.979162 UTC; sector identity saved with attempt 17:34:38.675187 UTC, 14/15 observed sources and explicit Cement timeout. Health write_error cleared, rounded cluster estimate 434 MiB. Render woke a new instance; prior RAM/spills were not captured. Controlled post-save restart and normal decision lifecycle remain pending.",
     "release_restart_followup": "15 November PR212 release: exact live revision 520ec29d6b0f02c8e23ebdd339f2e652509bbc52; portfolio saved at 06:02:02 UTC with the checked 53-position/214-trade financial fields and cash unchanged; current process acknowledged the 14/15-source snapshot at 06:02:17 UTC, independently read back. Prior-process spills and permanent retention remain open.",
     "recurrence_2026_11_17": {
@@ -49,6 +49,12 @@
       "evidence": "docs/repairs/evidence/2026-11-17-combined-release.json",
       "status": "PERSISTENCE_STILL_REFUSED_PRIOR_RAM_PRESERVATION_UNKNOWN",
       "at": "2026-11-17T11:16:02Z"
+    },
+    "recovery_2026_11_20": {
+      "incident": "RUN-20261120-01",
+      "evidence": "docs/repairs/evidence/2026-11-20-storage-and-history.json",
+      "status": "CURRENT_STORED_STATE_BACKED_UP_RESTORED_AND_WRITING",
+      "prior_process_spill_coverage": "unknown"
     }
   },
   {
@@ -67,15 +73,27 @@
   {
     "id": "RUN-20261120-01",
     "finding": "Shared Atlas quota remains at 528.38 MiB; journal growth prevents saved portfolio updates after 16 November",
-    "workflow": "REPAIR_TESTING_BACKUP_VERIFICATION_IN_PROGRESS",
+    "workflow": "LIVE_STORAGE_AND_HISTORY_RECOVERED_EXPORT_AND_RELEASE_VERIFICATION_PENDING",
     "related_findings": [
       "OPS-05",
       "XR-071"
     ],
     "evidence": "docs/repairs/releases/2026-11-20-storage-and-history.md",
     "runtime_observation": "20 November native read: 39 open positions, 228 closed rows in portfolio, 181 archived rows. Sourceborn journal has 40333 rows / 296559871 bytes. Saved portfolio last_save remains 2026-11-16T10:04:52.911221 UTC.",
-    "acceptance": "Export and reconcile the exact owner-selected closed history, independently verify native backup and restore, prevent reappearance after save/restart, wire every compressed journal reader/writer, verify conditional migration and durable saves. Preserve cash, capital, open positions, stops, targets and later records. Keep Goal11 rollout paused.",
+    "acceptance": "Export and reconcile the exact owner-selected closed history, independently verify native backup and restore, prevent reappearance after save/restart, wire every compressed journal reader/writer, verify conditional migration and durable saves. Preserve cash, capital, open positions, stops, targets and later records. Resume owner-authorized Goal11 only after current-state preservation and required CI; future performance acceptance stays open.",
     "reconciliation": "Additional incident; original 165 IDs, 170 backlog rows and all earlier incidents retained.",
-    "owner_decision": "Keep free tier. Archive closed trades by entry date through 30 September 2026 IST; clear closed intraday history through 17 November 2026 IST. Retain 18 November onward intraday history and all open positions. Private exports only."
+    "owner_decision": "Keep free tier. Archive closed trades by entry date through 30 September 2026 IST; clear closed intraday history through 17 November 2026 IST. Retain 18 November onward intraday history and all open positions. Private exports only.",
+    "recovery_2026_11_20": {
+      "evidence": "docs/repairs/evidence/2026-11-20-storage-and-history.json",
+      "journal_originals_verified": 40333,
+      "temporary_cold_rows_restored": 10000,
+      "closed_rows_removed": 335,
+      "closed_rows_retained_at_cleanup": 75,
+      "post_restart_open": 35,
+      "post_restart_closed": 78,
+      "cluster_logical_mib": 317.53395557403564,
+      "at": "2026-11-20T08:23:21.480607+00:00",
+      "limitations": "Permanent retention, off-device backup and earlier process-only state remain open."
+    }
   }
 ]

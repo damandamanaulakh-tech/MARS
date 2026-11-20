@@ -47,6 +47,13 @@ def _try_connect() -> None:
         _DB = _CLIENT[os.environ.get("MONGO_DB", "sourceborn")]
         _CONNECTED = True
         log.info("MongoDB connected: %s", os.environ.get("MONGO_DB", "sourceborn"))
+        try:
+            from .journal_storage import ensure_indexes
+            ensure_indexes(_DB.journal_archive)
+        except Exception as index_error:
+            # An export-index failure cannot discard an otherwise connected
+            # financial book. Readers still surface unavailable exports.
+            log.warning("Journal export index unavailable: %s", type(index_error).__name__)
     except (ConfigurationError, ConnectionFailure, Exception) as e:
         log.warning("MongoDB connection failed (%s) — JSON fallback active", e)
         _CLIENT = None
