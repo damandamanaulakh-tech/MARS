@@ -1,5 +1,7 @@
 # Storage recovery and approved closed-history cleanup
 
+**Final runtime verification:** Goal11 engineering and storage recovery are shipped in [PR225](https://github.com/damandamanaulakh-tech/MARS/pull/225), revision `87285df71a7cebe6b62c01636aac0eaef5afcd9b`. All **3,539 canonical CI tests**, zero skips, and all six jobs passed, including both complete combined replays. The exact automatic Render deployment is live. Native saves, the approved cleanup, both HTTP exports, same-version restart and code-version transition are verified. All historical scenarios have negative net expectancy; **genuinely new forward performance acceptance remains open**, with no settings promotion. [Release proof](../evidence/2026-11-20-storage-and-history.json).
+
 The storage hotfix is live, native journal migration and the approved trade
 cleanup are complete, and ordinary portfolio saves have been independently
 read back and restored. The combined Goal11 integration is merged in
@@ -97,8 +99,7 @@ creation was idempotent. The live query plan now uses IXSCAN with no SORT stage.
 Automatic preparation on database connection is included in this follow-up;
 an index failure cannot discard an otherwise connected financial book.
 The live native iterator read all 20,000 rows in 40.07 seconds. The owner HTTP
-export timed out after 300 seconds during the ordinary scan; HTTP acceptance
-remains open. Render showed sustained CPU use around the 0.15-core allocation
+export timed out after 300 seconds during the ordinary scan; HTTP acceptance was pending at that time; the final repaired-route download below passed. Render showed sustained CPU use around the 0.15-core allocation
 and roughly 288–298 MiB memory during that interval, without an observed OOM.
 Those samples do not isolate the cause of HTTP latency.
 
@@ -140,7 +141,7 @@ The automatic-index follow-up passed 68 focused storage/combined regressions;
 its full Git-tracked suite passed **3,538 tests with zero failures/errors/skips**.
 The first directory-wide run also collected unrelated untracked ` 2.py` copies
 and failed 11 stale duplicate fixtures; those files were left untouched. Every
-Git-tracked test passed in the canonical rerun. Follow-up CI remains pending.
+Git-tracked test passed in the canonical rerun. That intermediate local check was followed by the completed PR225 CI and runtime evidence below.
 
 Native tests cover source-change refusal, wrong-manifest refusal, incomplete
 checkpoints, retry after a committed write loses its acknowledgement, exact
@@ -174,5 +175,27 @@ access is unavailable. The repaired route generates only the requested report;
 historical downloads do not fetch quotes, and small unrelated downloads do not
 load the journal archive. All 79 focused storage, report and combined-validation
 checks pass. The final full Git-tracked suite passes **3,540 tests**, zero failures/errors/skips
-in 219.40 seconds. Follow-up CI and live HTTP acceptance remain pending that
-release. No export row limit was reduced.
+in 219.40 seconds. PR225 CI and live HTTP acceptance subsequently passed, as recorded below. No export row limit was reduced.
+
+## Final deployed export and restart proof
+
+Reviewed head `41728fb6043c01e8591bdd459c03b33c77c899a0` and merge `87285df71a7cebe6b62c01636aac0eaef5afcd9b` have identical tree `eb9444c562217dcc307b1b4e81182777b463adc4`. [CI](https://github.com/damandamanaulakh-tech/MARS/actions/runs/44706052095) passed all six jobs, **3,539 canonical tests**, zero failures/errors/skips. Original combined outcomes matched at 09:32:44 UTC, and segment attribution matched every unchanged strategy outcome at 09:46:09 UTC. The 3,540-case local run included one extra syntax-audit parameter for an existing untracked duplicate script; no canonical test was missing. Earlier failed duplicate-module runs remain recorded above.
+
+Render `dep-dc01k6ou01pc73b9m4d0` deployed the merge automatically at **10:01:32 UTC /15:31:32 IST**. The original On Commit setting was restored at 09:17:48 UTC and independently read back; no duplicate deployment was triggered. Health and secure readiness passed. The ordinary backup at 10:09:21 UTC was independently read back and restored, with all financial fields unchanged.
+
+| Production workflow | Observed result |
+|---|---|
+| Restored cold decision | HTTP200; exact original evidence, 0.79 seconds |
+| Journal CSV | HTTP200; **20,217 rows**, 2,238,839 bytes, **65.16 seconds**; archive limit remains 20,000 |
+| Trade CSV | HTTP200; **80 rows**, **1.09 seconds**; native identities and rounded gross/cost/net totals match; all 335 removed rows absent |
+| Goal11 version transition | Two old manifests and eight events byte-identical; new source manifest separated; one baseline and original epoch retained |
+| Current forward state | Three manifests, ten events, zero pending exports in API and persisted book; zero new closed forward trades |
+| Render memory samples | About 171–216 MiB on the new instance from 10:02–10:10 UTC; application health RSS 213 MiB, process peak 241 MiB |
+
+Cluster logical usage at **10:09:15 UTC** is **334.29 MiB**, leaving **177.71 MiB** below 512 MiB. The earlier 317.53 MiB observation remains valid at its timestamp; ordinary new records and other apps account for later growth. This is finite headroom, not permanent retention. AshStocks scan ledger is now 133.54 MiB (898 records); MARS journal 78.27 MiB (46,742), OHLCV 63.12 MiB (2,233), portfolio 4.39 MiB, and fundamentals 3.55 MiB. Other apps were only inventoried. Scan-decision snapshots account for 91.11% of journal bytes in the 09:19 UTC composition check, identifying the main future archive target without deleting evidence.
+
+A separate offline composite recovery rehearsal restores 21 collections and 86,382 documents, with the cleaned book, compressed original journal, one cumulative new-identity delta and immutable forward records. The standalone localhost-only helper independently restores every BSON record, option and index, refuses a nonempty destination and rejects changed files before connecting. It is a dated composite, not an atomic all-writer snapshot. Private final downloads contain updated dated checkpoints; all copies still reside on one owner Mac.
+
+All 165 original IDs, 170 backlog rows and five incidents remain. The bounded storage/export/restart repair is complete; permanent retention, independent backup, earlier process-only gaps, the XR-071 refused-write entry guard and future performance acceptance remain open.
+
+The final separately captured journal delta contains **6,409 new identities /15,289,472 bytes** at 10:13:43 UTC. Every selected source record was independently re-read and restored. The delta is cumulative relative to the 40,333 originals; it replaces the earlier delta in a recovery assembly rather than being appended twice. Two additional ordinary protective exits before the Goal11 baseline account for the change from the earlier 35-position/78-close checkpoint to 33 positions and 80 closes. They were retained.

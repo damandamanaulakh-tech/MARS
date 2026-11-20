@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "asof": "2026-11-20T08:25:05Z",
+  "asof": "2026-11-20T10:13:37.874181+00:00",
   "incident": "RUN-20261120-01",
   "authorization": {
     "entry_cutoff_ist": "2026-10-01T00:00:00+05:30",
@@ -98,6 +98,634 @@
   "storage": {
     "before_logical_mib": 528.3766736984253,
     "after": {
+      "at": "2026-11-20T10:09:15.960667+00:00",
+      "databases": [
+        {
+          "database": "AM07",
+          "data_bytes": 198,
+          "index_bytes": 73728,
+          "storage_bytes": 73728,
+          "collections": [
+            {
+              "name": "portfolio",
+              "count": 1,
+              "data_bytes": 125,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "system",
+              "count": 1,
+              "data_bytes": 73,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            }
+          ]
+        },
+        {
+          "database": "G07",
+          "data_bytes": 941,
+          "index_bytes": 36864,
+          "storage_bytes": 36864,
+          "collections": [
+            {
+              "name": "ingestion_files",
+              "count": 3,
+              "data_bytes": 941,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            }
+          ]
+        },
+        {
+          "database": "ashstock",
+          "data_bytes": 151258835,
+          "index_bytes": 512000,
+          "storage_bytes": 85344256,
+          "collections": [
+            {
+              "name": "scan_ledger",
+              "count": 898,
+              "data_bytes": 140028465,
+              "index_bytes": 126976,
+              "storage_bytes": 79536128
+            },
+            {
+              "name": "app_state",
+              "count": 1,
+              "data_bytes": 10101630,
+              "index_bytes": 73728,
+              "storage_bytes": 5435392
+            },
+            {
+              "name": "paper_ledger",
+              "count": 423,
+              "data_bytes": 1128076,
+              "index_bytes": 237568,
+              "storage_bytes": 335872
+            },
+            {
+              "name": "upstox_auth",
+              "count": 1,
+              "data_bytes": 664,
+              "index_bytes": 73728,
+              "storage_bytes": 36864
+            }
+          ]
+        },
+        {
+          "database": "site_control",
+          "data_bytes": 10455850,
+          "index_bytes": 892928,
+          "storage_bytes": 20193280,
+          "collections": [
+            {
+              "name": "sites",
+              "count": 2,
+              "data_bytes": 4446794,
+              "index_bytes": 73728,
+              "storage_bytes": 8372224
+            },
+            {
+              "name": "work_order_reviews",
+              "count": 2,
+              "data_bytes": 3254665,
+              "index_bytes": 36864,
+              "storage_bytes": 7139328
+            },
+            {
+              "name": "factory_job_cards",
+              "count": 1,
+              "data_bytes": 1838622,
+              "index_bytes": 36864,
+              "storage_bytes": 3674112
+            },
+            {
+              "name": "material_requests",
+              "count": 948,
+              "data_bytes": 811041,
+              "index_bytes": 81920,
+              "storage_bytes": 385024
+            },
+            {
+              "name": "tat_updates",
+              "count": 77,
+              "data_bytes": 39601,
+              "index_bytes": 73728,
+              "storage_bytes": 53248
+            },
+            {
+              "name": "ceo_actions",
+              "count": 77,
+              "data_bytes": 31092,
+              "index_bytes": 36864,
+              "storage_bytes": 45056
+            },
+            {
+              "name": "gantt_tasks",
+              "count": 19,
+              "data_bytes": 9955,
+              "index_bytes": 36864,
+              "storage_bytes": 45056
+            },
+            {
+              "name": "billing_documents",
+              "count": 26,
+              "data_bytes": 9236,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "vendor_catalogue",
+              "count": 20,
+              "data_bytes": 4861,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "users",
+              "count": 9,
+              "data_bytes": 2809,
+              "index_bytes": 73728,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "cash_requests",
+              "count": 2,
+              "data_bytes": 1033,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "master_rates",
+              "count": 3,
+              "data_bytes": 993,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "client_share_links",
+              "count": 3,
+              "data_bytes": 912,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "site_transitions",
+              "count": 4,
+              "data_bytes": 889,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "finance_ledgers",
+              "count": 2,
+              "data_bytes": 697,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "billing_checklists",
+              "count": 2,
+              "data_bytes": 694,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "site_budgets",
+              "count": 2,
+              "data_bytes": 588,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "site_requirements",
+              "count": 1,
+              "data_bytes": 511,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "bank_overdrafts",
+              "count": 2,
+              "data_bytes": 447,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "subcontractors",
+              "count": 1,
+              "data_bytes": 410,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            }
+          ]
+        },
+        {
+          "database": "sourceborn",
+          "data_bytes": 165029686,
+          "index_bytes": 4952064,
+          "storage_bytes": 122646528,
+          "collections": [
+            {
+              "name": "journal_archive",
+              "count": 46742,
+              "data_bytes": 82077727,
+              "index_bytes": 2674688,
+              "storage_bytes": 79867904
+            },
+            {
+              "name": "ohlcv",
+              "count": 2233,
+              "data_bytes": 66180931,
+              "index_bytes": 118784,
+              "storage_bytes": 35868672
+            },
+            {
+              "name": "portfolio",
+              "count": 1,
+              "data_bytes": 4605442,
+              "index_bytes": 36864,
+              "storage_bytes": 1855488
+            },
+            {
+              "name": "fundamentals",
+              "count": 26378,
+              "data_bytes": 3718010,
+              "index_bytes": 827392,
+              "storage_bytes": 1589248
+            },
+            {
+              "name": "watchlist_snapshots",
+              "count": 24,
+              "data_bytes": 2620179,
+              "index_bytes": 36864,
+              "storage_bytes": 520192
+            },
+            {
+              "name": "market_info_raw",
+              "count": 86,
+              "data_bytes": 2446240,
+              "index_bytes": 36864,
+              "storage_bytes": 729088
+            },
+            {
+              "name": "sector_index",
+              "count": 11190,
+              "data_bytes": 1472202,
+              "index_bytes": 540672,
+              "storage_bytes": 614400
+            },
+            {
+              "name": "corporate_actions",
+              "count": 1777,
+              "data_bytes": 717858,
+              "index_bytes": 188416,
+              "storage_bytes": 282624
+            },
+            {
+              "name": "settings",
+              "count": 9,
+              "data_bytes": 414023,
+              "index_bytes": 36864,
+              "storage_bytes": 368640
+            },
+            {
+              "name": "index_constituents",
+              "count": 9,
+              "data_bytes": 329987,
+              "index_bytes": 36864,
+              "storage_bytes": 196608
+            },
+            {
+              "name": "validation_runs",
+              "count": 3,
+              "data_bytes": 161508,
+              "index_bytes": 36864,
+              "storage_bytes": 225280
+            },
+            {
+              "name": "macro_daily",
+              "count": 289,
+              "data_bytes": 125752,
+              "index_bytes": 40960,
+              "storage_bytes": 69632
+            },
+            {
+              "name": "resource_feeds",
+              "count": 10,
+              "data_bytes": 59913,
+              "index_bytes": 36864,
+              "storage_bytes": 73728
+            },
+            {
+              "name": "index_daily",
+              "count": 71,
+              "data_bytes": 28826,
+              "index_bytes": 36864,
+              "storage_bytes": 53248
+            },
+            {
+              "name": "pwoi_daily",
+              "count": 63,
+              "data_bytes": 28224,
+              "index_bytes": 36864,
+              "storage_bytes": 45056
+            },
+            {
+              "name": "fii_daily",
+              "count": 77,
+              "data_bytes": 13792,
+              "index_bytes": 36864,
+              "storage_bytes": 45056
+            },
+            {
+              "name": "sebi_orders",
+              "count": 36,
+              "data_bytes": 13283,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "validation_events",
+              "count": 10,
+              "data_bytes": 12852,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "backtests",
+              "count": 8,
+              "data_bytes": 2491,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "upstox_token",
+              "count": 1,
+              "data_bytes": 446,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "trades",
+              "count": 0,
+              "data_bytes": 0,
+              "index_bytes": 45056,
+              "storage_bytes": 94208
+            }
+          ]
+        },
+        {
+          "database": "sourceborn_sburr",
+          "data_bytes": 2911147,
+          "index_bytes": 483328,
+          "storage_bytes": 954368,
+          "collections": [
+            {
+              "name": "unrealtorealpasstraces",
+              "count": 2130,
+              "data_bytes": 1322999,
+              "index_bytes": 69632,
+              "storage_bytes": 200704
+            },
+            {
+              "name": "stagetraces",
+              "count": 2152,
+              "data_bytes": 1051966,
+              "index_bytes": 69632,
+              "storage_bytes": 237568
+            },
+            {
+              "name": "loopruns",
+              "count": 193,
+              "data_bytes": 180705,
+              "index_bytes": 36864,
+              "storage_bytes": 73728
+            },
+            {
+              "name": "messages",
+              "count": 146,
+              "data_bytes": 128438,
+              "index_bytes": 36864,
+              "storage_bytes": 135168
+            },
+            {
+              "name": "gaptables",
+              "count": 289,
+              "data_bytes": 98912,
+              "index_bytes": 36864,
+              "storage_bytes": 61440
+            },
+            {
+              "name": "proofledgers",
+              "count": 209,
+              "data_bytes": 70579,
+              "index_bytes": 36864,
+              "storage_bytes": 53248
+            },
+            {
+              "name": "uploadedfiles",
+              "count": 15,
+              "data_bytes": 30592,
+              "index_bytes": 36864,
+              "storage_bytes": 61440
+            },
+            {
+              "name": "chatsessions",
+              "count": 55,
+              "data_bytes": 11527,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "users",
+              "count": 39,
+              "data_bytes": 8881,
+              "index_bytes": 73728,
+              "storage_bytes": 45056
+            },
+            {
+              "name": "wildpaths",
+              "count": 16,
+              "data_bytes": 6548,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "adminlogs",
+              "count": 0,
+              "data_bytes": 0,
+              "index_bytes": 4096,
+              "storage_bytes": 4096
+            },
+            {
+              "name": "modelruns",
+              "count": 0,
+              "data_bytes": 0,
+              "index_bytes": 4096,
+              "storage_bytes": 4096
+            },
+            {
+              "name": "sourcedocuments",
+              "count": 0,
+              "data_bytes": 0,
+              "index_bytes": 4096,
+              "storage_bytes": 4096
+            }
+          ]
+        },
+        {
+          "database": "test",
+          "data_bytes": 12591778,
+          "index_bytes": 1331200,
+          "storage_bytes": 3284992,
+          "collections": [
+            {
+              "name": "unrealtorealpasstraces",
+              "count": 6787,
+              "data_bytes": 4860736,
+              "index_bytes": 114688,
+              "storage_bytes": 638976
+            },
+            {
+              "name": "stagetraces",
+              "count": 6769,
+              "data_bytes": 3555557,
+              "index_bytes": 110592,
+              "storage_bytes": 716800
+            },
+            {
+              "name": "messages",
+              "count": 416,
+              "data_bytes": 1068812,
+              "index_bytes": 118784,
+              "storage_bytes": 495616
+            },
+            {
+              "name": "gaptables",
+              "count": 2144,
+              "data_bytes": 764569,
+              "index_bytes": 61440,
+              "storage_bytes": 184320
+            },
+            {
+              "name": "loopruns",
+              "count": 578,
+              "data_bytes": 548984,
+              "index_bytes": 45056,
+              "storage_bytes": 143360
+            },
+            {
+              "name": "uploadedfiles",
+              "count": 53,
+              "data_bytes": 498081,
+              "index_bytes": 110592,
+              "storage_bytes": 368640
+            },
+            {
+              "name": "proofledgers",
+              "count": 1412,
+              "data_bytes": 487162,
+              "index_bytes": 61440,
+              "storage_bytes": 139264
+            },
+            {
+              "name": "modelruns",
+              "count": 1076,
+              "data_bytes": 378829,
+              "index_bytes": 65536,
+              "storage_bytes": 102400
+            },
+            {
+              "name": "nodebrains",
+              "count": 181,
+              "data_bytes": 252531,
+              "index_bytes": 110592,
+              "storage_bytes": 110592
+            },
+            {
+              "name": "memories",
+              "count": 202,
+              "data_bytes": 70815,
+              "index_bytes": 73728,
+              "storage_bytes": 102400
+            },
+            {
+              "name": "wildpaths",
+              "count": 112,
+              "data_bytes": 45053,
+              "index_bytes": 36864,
+              "storage_bytes": 53248
+            },
+            {
+              "name": "loopchains",
+              "count": 15,
+              "data_bytes": 31482,
+              "index_bytes": 73728,
+              "storage_bytes": 53248
+            },
+            {
+              "name": "chatsessions",
+              "count": 65,
+              "data_bytes": 18485,
+              "index_bytes": 73728,
+              "storage_bytes": 45056
+            },
+            {
+              "name": "users",
+              "count": 17,
+              "data_bytes": 8870,
+              "index_bytes": 73728,
+              "storage_bytes": 45056
+            },
+            {
+              "name": "reviews",
+              "count": 7,
+              "data_bytes": 1400,
+              "index_bytes": 147456,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "adminlogs",
+              "count": 2,
+              "data_bytes": 412,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "corpusentries",
+              "count": 0,
+              "data_bytes": 0,
+              "index_bytes": 8192,
+              "storage_bytes": 4096
+            },
+            {
+              "name": "sourcedocuments",
+              "count": 0,
+              "data_bytes": 0,
+              "index_bytes": 4096,
+              "storage_bytes": 4096
+            },
+            {
+              "name": "weeklyreports",
+              "count": 0,
+              "data_bytes": 0,
+              "index_bytes": 4096,
+              "storage_bytes": 4096
+            }
+          ]
+        }
+      ],
+      "cluster_logical_bytes": 350530547,
+      "journal_rows": 46742,
+      "packed_rows": 41523,
+      "scope": "sequential read-only observations; ordinary writers continue; no other app modified",
+      "cluster_logical_mib": 334.2919797897339,
+      "headroom_to_512_mib": 177.7080202102661
+    },
+    "warning": "sequential observations while other applications continue writing; logical data plus indexes, not physical disk allocation",
+    "earlier_after_index": {
       "at": "2026-11-20T08:23:21.480607+00:00",
       "databases": [
         {
@@ -709,8 +1337,7 @@
       "scope": "sequential read-only observations; ordinary writers continue; no other app modified",
       "cluster_logical_mib": 317.53395557403564,
       "headroom_to_512_mib": 194.46604442596436
-    },
-    "warning": "sequential observations while other applications continue writing; logical data plus indexes, not physical disk allocation"
+    }
   },
   "export_index": {
     "native": {
@@ -750,12 +1377,35 @@
       "document_mutations": 0,
       "only_mutation": "one nonunique supporting index in sourceborn.journal_archive"
     },
-    "http_export": "POST_INDEX_REQUEST_TIMED_OUT_300_SECONDS_DURING_NORMAL_SCAN; native 20000 rows passed; HTTP acceptance remains open",
+    "http_export": {
+      "at": "2026-11-20T10:08:41.291220+00:00",
+      "cold_decision_http": 200,
+      "cold_decision_exact_original_evidence": true,
+      "decision_seconds": 0.7920781249995343,
+      "csv_http": 200,
+      "csv_bytes": 2238839,
+      "csv_sha256": "a361bc848782890eab054f3daca9c95d41cce1bd128f50bfd133b933babc8da3",
+      "csv_rows": 20217,
+      "csv_seconds": 65.15602979100004,
+      "scope": "normal owner read routes; original cold evidence exact; newest bounded journal CSV; no scan or trade induced"
+    },
     "live_native_iterator": {
       "at": "2026-11-20T08:30:33.847675+00:00",
       "rows": 20000,
       "seconds": 40.07486370799961,
       "scope": "read-only live native iterator after supporting index"
+    },
+    "earlier_http_failure": "POST_INDEX_REQUEST_TIMED_OUT_300_SECONDS_DURING_NORMAL_SCAN; native 20000 rows passed; HTTP acceptance remains open",
+    "http_trade_export": {
+      "at": "2026-11-20T10:09:20.768611+00:00",
+      "http": 200,
+      "rows": 80,
+      "bytes": 22233,
+      "seconds": 1.0906119579994993,
+      "sha256": "3476f94afa1bb636684d0163196338466f38cd159d8f767efcf4f437cc0855eb",
+      "native_identity_and_rounded_money_reconciliation": true,
+      "removed_335_absent": true,
+      "scope": "ordinary owner history download, no scan or trade requested"
     }
   },
   "hotfix": {
@@ -789,7 +1439,7 @@
       "skipped": 0,
       "seconds": 372.433
     },
-    "automatic_index_preparation": "LOCAL_TESTED",
+    "automatic_index_preparation": "DEPLOYED_AND_HTTP_EXPORT_VERIFIED",
     "noncanonical_duplicate_run": {
       "passed": 3982,
       "failed": 11,
@@ -810,6 +1460,443 @@
       "errors": 0,
       "skipped": 0,
       "seconds": 219.251
+    },
+    "release": {
+      "reviewed_head": "41728fb6043c01e8591bdd459c03b33c77c899a0",
+      "reviewed_tree": "eb9444c562217dcc307b1b4e81182777b463adc4",
+      "ci": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/44706052095",
+      "tests_passed": 3539,
+      "test_skips": 0,
+      "all_six_jobs_passed": true,
+      "original_reproduction_at": "2026-11-20T09:32:44.846865Z",
+      "attribution_reproduction_at": "2026-11-20T09:46:09.698946Z",
+      "all_strategy_outcomes_unchanged": true,
+      "jobs": [
+        {
+          "id": 136185813291,
+          "name": "reentry-research",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Run actions/checkout@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Install the original Goal09 numerical runtime",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Require the recorded interpreter and numerical package versions",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Reproduce frozen Goal09 re-entry decisions and loss-recovery attribution",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Verify Goal09 report matches the sealed measurements",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 13
+            },
+            {
+              "name": "Post Run actions/checkout@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 14
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 15
+            }
+          ]
+        },
+        {
+          "id": 136185813512,
+          "name": "test",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Run actions/checkout@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Install dependencies",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Run tests",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Require every collected test to run",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Reproduce frozen Goal08 research without network or settings writes",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Verify Goal08 report matches the sealed measurements",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 8
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 15
+            },
+            {
+              "name": "Post Run actions/checkout@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 16
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 17
+            }
+          ]
+        },
+        {
+          "id": 136185813547,
+          "name": "combined-research (original)",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Run actions/checkout@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Install the sealed actual-engine runtime",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Reproduce every combined scenario from archived strategy source",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Verify segment attribution preserves every strategy outcome",
+              "status": "completed",
+              "conclusion": "skipped",
+              "number": 6
+            },
+            {
+              "name": "Verify expectancy, drawdown, costs and coverage tables",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 13
+            },
+            {
+              "name": "Post Run actions/checkout@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 14
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 15
+            }
+          ]
+        },
+        {
+          "id": 136185813601,
+          "name": "repair-records",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Run actions/checkout@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Check backlog retention and evidence links",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Post Run actions/checkout@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 8
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 9
+            }
+          ]
+        },
+        {
+          "id": 136185813674,
+          "name": "sizing-research",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Run actions/checkout@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Install the frozen Goal10 numerical runtime",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Reproduce Goal10 sizes, net losses, costs and unseen holdout",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Verify Goal10 report and every comparison row",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 11
+            },
+            {
+              "name": "Post Run actions/checkout@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 12
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 13
+            }
+          ]
+        },
+        {
+          "id": 136185813956,
+          "name": "combined-research (attribution)",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Run actions/checkout@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Install the sealed actual-engine runtime",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Reproduce every combined scenario from archived strategy source",
+              "status": "completed",
+              "conclusion": "skipped",
+              "number": 5
+            },
+            {
+              "name": "Verify segment attribution preserves every strategy outcome",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Verify expectancy, drawdown, costs and coverage tables",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Post Run actions/setup-python@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 13
+            },
+            {
+              "name": "Post Run actions/checkout@v5",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 14
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 15
+            }
+          ]
+        }
+      ],
+      "pr": "https://github.com/damandamanaulakh-tech/MARS/pull/225",
+      "merge": "87285df71a7cebe6b62c01636aac0eaef5afcd9b",
+      "tree": "eb9444c562217dcc307b1b4e81182777b463adc4",
+      "deployment": "dep-dc01k6ou01pc73b9m4d0",
+      "status": "live",
+      "trigger": "new_commit",
+      "live_at": "2026-11-20T10:01:32.672164Z"
+    },
+    "test_count_reconciliation": {
+      "local_test_cases": 3540,
+      "canonical_ci_test_cases": 3539,
+      "extra_local_parse_cases": 1,
+      "extra_case": "test_every_script_parses[check_repair_records 2.py]",
+      "cause": "Existing script syntax audit parametrizes over all scripts/*.py; an unrelated untracked duplicate contributes one local case. No test module or assertion was removed.",
+      "local_skipped": 0,
+      "ci_skipped": 0,
+      "untracked_files_modified": false
+    },
+    "native_route_rehearsal": {
+      "at": "2026-11-20T08:54:21.765963+00:00",
+      "scope": "real compressed live data; actual repaired route on local FastAPI; read-only Mongo; quote and portfolio writes forbidden",
+      "outputs": [
+        {
+          "name": "decision_journal",
+          "http": 200,
+          "rows": 20257,
+          "bytes": 2228147,
+          "sha256": "5fc584716047f7f77858a3c71c5a1b4b806492ce76eb217a13af10ce09c9e248",
+          "seconds": 33.30668829099886
+        },
+        {
+          "name": "trades",
+          "http": 200,
+          "rows": 80,
+          "bytes": 22233,
+          "sha256": "3476f94afa1bb636684d0163196338466f38cd159d8f767efcf4f437cc0855eb",
+          "seconds": 0.06380366699886508
+        }
+      ],
+      "production_mutations": 0
     }
   },
   "limits": [
@@ -854,6 +1941,396 @@
     "new_identities": 3939,
     "bytes": 9527682,
     "sha256": "17c1b72a4df6606f50b65fc5ad36404d575d902065eacadec26b9761b552ad84",
+    "independent_source_reread": true,
+    "native_restore_exact": true,
+    "scope": "new identity set observed at start; normal appends after that frontier belong to later checkpoints"
+  },
+  "post_release_checkpoint": {
+    "at": "2026-11-20T10:09:49.124936+00:00",
+    "request_http": 303,
+    "old_last_save": "2026-11-20T10:07:04.086948",
+    "new_last_save": "2026-11-20T10:09:21.683827",
+    "positions": 33,
+    "closed": 80,
+    "changed_financial_fields": [],
+    "native_readback": true,
+    "localhost_restore": true,
+    "captured_files": {
+      "portfolio.bson": {
+        "bytes": 4605442,
+        "sha256": "a701b8d4603d796262ec1455f88f80d5e2e099eeecada0f54401489c8a7e973e"
+      },
+      "trades.bson": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "settings.bson": {
+        "bytes": 414023,
+        "sha256": "557a30611b477f3b818b457198d170bcd744384a21431a83ac6639ec954a8f98"
+      },
+      "portfolio-before.bson": {
+        "bytes": 4605442,
+        "sha256": "acfcb9071fb76086edc2f15ed6d448961d0d5decad378f9afdedb3e29be40eff"
+      }
+    }
+  },
+  "post_release_version_transition": {
+    "at": "2026-11-20T10:11:50.390749+00:00",
+    "from_revision": "7337aa29510b3775de44ac0f3df2998cdc7ad85d",
+    "to_revision": "87285df71a7cebe6b62c01636aac0eaef5afcd9b",
+    "old_manifests_raw_unchanged": 2,
+    "old_events_raw_unchanged": 8,
+    "new_code_manifest_count": 1,
+    "same_book_epoch": true,
+    "baseline_event_count": 1,
+    "persisted_pending_exports": 0,
+    "cash_capital_position_identity_quantity_stop_target_unchanged": true,
+    "open_positions": 33,
+    "closed_fingerprints_unchanged": 80,
+    "earlier_equity_prefix_preserved": true,
+    "other_financial_fields_changed": [],
+    "preserved_modes": [
+      "intraday",
+      "nifty200_momentum"
+    ],
+    "production_test_trades": 0
+  },
+  "natural_goal11_restart": {
+    "at": "2026-11-20T09:05:16.080721+00:00",
+    "same_revision": "7337aa29510b3775de44ac0f3df2998cdc7ad85d",
+    "shutdown_at": "2026-11-20T08:57:40.561620672Z",
+    "startup_at": "2026-11-20T08:59:55.731754136Z",
+    "old_instance": "srv-d8cspdnavr4c738lbrd0-l6mks",
+    "new_instance": "srv-d8cspdnavr4c738lbrd0-sg8t9",
+    "deployment_or_restart_command_issued": false,
+    "run_manifest_raw_bytes_unchanged": true,
+    "existing_events_raw_bytes_unchanged": 3,
+    "normal_new_equity_events": 1,
+    "same_book_epoch": true,
+    "persisted_pending_exports": 0,
+    "cash_capital_open_position_identity_quantity_stop_target_unchanged": true,
+    "closed_fingerprints_unchanged": 80,
+    "open_positions": 33,
+    "earlier_equity_prefix_preserved": true,
+    "baseline_event_count": 1
+  },
+  "automatic_deploy_restored": {
+    "at": "2026-11-20T09:17:48.528131Z",
+    "service": "srv-d8cspdnavr4c738lbrd0",
+    "event": "evt-dc010f142hec738cgh2g",
+    "autoDeploy": "yes",
+    "autoDeployTrigger": "commit",
+    "original_trigger": "commit",
+    "dashboard_save_verified": true,
+    "connector_readback_verified": true,
+    "new_deployment_on_setting_restore": false
+  },
+  "ram_samples": {
+    "resourceId": "srv-d8cspdnavr4c738lbrd0",
+    "timeRange": {
+      "start": "2026-11-20T10:01:00Z",
+      "end": "2026-11-20T10:10:00Z"
+    },
+    "metrics": [
+      {
+        "type": "memory_usage",
+        "data": [
+          {
+            "labels": [
+              {
+                "field": "instance",
+                "value": "srv-d8cspdnavr4c738lbrd0-gvgpr"
+              },
+              {
+                "field": "service",
+                "value": "srv-d8cspdnavr4c738lbrd0"
+              },
+              {
+                "field": "resource",
+                "value": "srv-d8cspdnavr4c738lbrd0"
+              }
+            ],
+            "unit": "bytes",
+            "values": [
+              {
+                "timestamp": "2026-11-20T10:01:00Z",
+                "value": 193671170
+              }
+            ]
+          },
+          {
+            "labels": [
+              {
+                "field": "instance",
+                "value": "srv-d8cspdnavr4c738lbrd0-t26db"
+              },
+              {
+                "field": "service",
+                "value": "srv-d8cspdnavr4c738lbrd0"
+              },
+              {
+                "field": "resource",
+                "value": "srv-d8cspdnavr4c738lbrd0"
+              }
+            ],
+            "unit": "bytes",
+            "values": [
+              {
+                "timestamp": "2026-11-20T10:02:00Z",
+                "value": 179245060
+              },
+              {
+                "timestamp": "2026-11-20T10:03:00Z",
+                "value": 185090050
+              },
+              {
+                "timestamp": "2026-11-20T10:04:00Z",
+                "value": 184520700
+              },
+              {
+                "timestamp": "2026-11-20T10:05:00Z",
+                "value": 184520700
+              },
+              {
+                "timestamp": "2026-11-20T10:06:00Z",
+                "value": 223318020
+              },
+              {
+                "timestamp": "2026-11-20T10:07:00Z",
+                "value": 222781440
+              },
+              {
+                "timestamp": "2026-11-20T10:08:00Z",
+                "value": 222613500
+              },
+              {
+                "timestamp": "2026-11-20T10:09:00Z",
+                "value": 222605310
+              },
+              {
+                "timestamp": "2026-11-20T10:10:00Z",
+                "value": 226263040
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "memory_limit",
+        "data": [
+          {
+            "labels": [
+              {
+                "field": "instance",
+                "value": "srv-d8cspdnavr4c738lbrd0-t26db"
+              },
+              {
+                "field": "service",
+                "value": "srv-d8cspdnavr4c738lbrd0"
+              },
+              {
+                "field": "resource",
+                "value": "srv-d8cspdnavr4c738lbrd0"
+              }
+            ],
+            "unit": "bytes",
+            "values": [
+              {
+                "timestamp": "2026-11-20T10:02:00Z",
+                "value": 536870900
+              },
+              {
+                "timestamp": "2026-11-20T10:03:00Z",
+                "value": 536870900
+              },
+              {
+                "timestamp": "2026-11-20T10:04:00Z",
+                "value": 536870900
+              },
+              {
+                "timestamp": "2026-11-20T10:05:00Z",
+                "value": 536870900
+              },
+              {
+                "timestamp": "2026-11-20T10:06:00Z",
+                "value": 536870900
+              },
+              {
+                "timestamp": "2026-11-20T10:07:00Z",
+                "value": 536870900
+              },
+              {
+                "timestamp": "2026-11-20T10:08:00Z",
+                "value": 536870900
+              },
+              {
+                "timestamp": "2026-11-20T10:09:00Z",
+                "value": 536870900
+              },
+              {
+                "timestamp": "2026-11-20T10:10:00Z",
+                "value": 536870900
+              }
+            ]
+          },
+          {
+            "labels": [
+              {
+                "field": "instance",
+                "value": "srv-d8cspdnavr4c738lbrd0-gvgpr"
+              },
+              {
+                "field": "service",
+                "value": "srv-d8cspdnavr4c738lbrd0"
+              },
+              {
+                "field": "resource",
+                "value": "srv-d8cspdnavr4c738lbrd0"
+              }
+            ],
+            "unit": "bytes",
+            "values": [
+              {
+                "timestamp": "2026-11-20T10:01:00Z",
+                "value": 536870900
+              },
+              {
+                "timestamp": "2026-11-20T10:02:00Z",
+                "value": 536870900
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "cpu_usage",
+        "data": [
+          {
+            "labels": [
+              {
+                "field": "instance",
+                "value": "srv-d8cspdnavr4c738lbrd0-gvgpr"
+              },
+              {
+                "field": "service",
+                "value": "srv-d8cspdnavr4c738lbrd0"
+              },
+              {
+                "field": "resource",
+                "value": "srv-d8cspdnavr4c738lbrd0"
+              }
+            ],
+            "unit": "cpu",
+            "values": [
+              {
+                "timestamp": "2026-11-20T10:01:00Z",
+                "value": 0.021114333
+              }
+            ]
+          },
+          {
+            "labels": [
+              {
+                "field": "instance",
+                "value": "srv-d8cspdnavr4c738lbrd0-t26db"
+              },
+              {
+                "field": "service",
+                "value": "srv-d8cspdnavr4c738lbrd0"
+              },
+              {
+                "field": "resource",
+                "value": "srv-d8cspdnavr4c738lbrd0"
+              }
+            ],
+            "unit": "cpu",
+            "values": [
+              {
+                "timestamp": "2026-11-20T10:03:00Z",
+                "value": 0.020582983
+              },
+              {
+                "timestamp": "2026-11-20T10:04:00Z",
+                "value": 0.009785216
+              },
+              {
+                "timestamp": "2026-11-20T10:05:00Z",
+                "value": 0.0048131165
+              },
+              {
+                "timestamp": "2026-11-20T10:06:00Z",
+                "value": 0.063140616
+              },
+              {
+                "timestamp": "2026-11-20T10:07:00Z",
+                "value": 0.031010183
+              },
+              {
+                "timestamp": "2026-11-20T10:08:00Z",
+                "value": 0.0207435
+              },
+              {
+                "timestamp": "2026-11-20T10:09:00Z",
+                "value": 0.0048711835
+              },
+              {
+                "timestamp": "2026-11-20T10:10:00Z",
+                "value": 0.06691307
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "standalone_recovery_helper": {
+    "valid_restore_collections": 21,
+    "valid_restore_documents": 86382,
+    "nonempty_destination_refused": true,
+    "damaged_file_refused_before_database_connection": true,
+    "production_mutations": 0
+  },
+  "journal_composition": {
+    "at": "2026-11-20T09:19:10.636545+00:00",
+    "scope": "Read-only sequential journal composition; no deletes or retention change; dates are stored event dates, not measured ingestion rates.",
+    "stored_bytes": 82015854,
+    "top_actions": [
+      {
+        "_id": "SCAN_DECISION",
+        "rows": 38661,
+        "stored_bytes": 74721563,
+        "original_bytes": 343561594,
+        "packed_rows": 38627
+      },
+      {
+        "_id": "EXIT_DECISION",
+        "rows": 2521,
+        "stored_bytes": 4995757,
+        "original_bytes": 11829615,
+        "packed_rows": 2521
+      },
+      {
+        "_id": "HOLD",
+        "rows": 2168,
+        "stored_bytes": 700098,
+        "original_bytes": 700098,
+        "packed_rows": 0
+      },
+      {
+        "_id": "BUY",
+        "rows": 435,
+        "stored_bytes": 547661,
+        "original_bytes": 834090,
+        "packed_rows": 287
+      }
+    ],
+    "scan_decision_share_pct": 91.10624270278281
+  },
+  "latest_new_journal_backup": {
+    "at": "2026-11-20T10:13:43.771598+00:00",
+    "new_identities": 6409,
+    "bytes": 15289472,
+    "sha256": "24cce644612f249c7749b35adca4b5e692f38875892711c65dc7cb9b7eceb080",
     "independent_source_reread": true,
     "native_restore_exact": true,
     "scope": "new identity set observed at start; normal appends after that frontier belong to later checkpoints"

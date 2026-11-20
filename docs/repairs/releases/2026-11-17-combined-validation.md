@@ -3,7 +3,7 @@
 Owner authorization: 17 November 2026, test the actual strategy on unseen data and forward paper trades; version data/code/settings, include costs/slippage, report net expectancy, drawdown and coverage, update the repo/workflow, no skips.
 Baseline main: `8900be4c07fa85dc4ffa04812a6757eb9c3db4b8`. Frozen strategy/protocol/settings commit: `89a8e9baa02241efe4ee48f5bb3efc1449864c69`.
 
-**Historical result: negative net expectancy in every declared slippage scenario. No settings promotion. Forward acceptance remains open.** Deployment is held because the existing production process is refusing storage writes; restarting it before preserving RAM/spills could discard unsaved state. Repository/CI completion is separate from being live.
+**Historical result: negative net expectancy in every declared slippage scenario. No settings promotion. Forward acceptance remains open.** The 17 November storage hold recorded below was resolved by the 20 November recovery. The current engineering release is live; same-version restart, code transition and durable forward export are verified. Earlier process-only gaps remain unknown.
 
 ## Historical measurements
 
@@ -62,7 +62,7 @@ At **11:13 UTC /16:43 IST**, an ordinary health GET woke the existing free insta
 
 At **11:16:02 UTC**, writes again failed at 528 MB /512 MB, with a quota error timestamp of 11:15:54 UTC and unacknowledged sector-source storage. A read-only Mongo comparison retained exactly the same saved financial projection: 39 positions, 228 closed legs and last_save 16 November 10:04:52 UTC. This proves the saved snapshot stayed unchanged; it does **not** prove earlier RAM/spill state was preserved. Reconcile that uncertainty before claiming lossless recovery. The owner said they would restore Render access; “Render ready” confirmation and a usable native export connection remain pending.
 
-## Forward acceptance still open
+## 17 November forward acceptance status (historical)
 
 No new Goal11 forward cohort is claimed. The recorder is prepared but has not been deployed or durably observed. Future acceptance requires at least 30 genuinely new regular sessions and 30 fully closed economic trades in every claimed segment, with cost/identity/coverage evidence; these coverage floors are not statistical proof. Own-symbol entry capture does not reconstruct the full peer/provider snapshot. Keep original code/settings/reset cohorts separate and preserve any gaps. No automatic promotion.
 
@@ -103,3 +103,11 @@ fully closed trades per claimed segment remain the declared coverage floor;
 future observations cannot be fabricated or replaced by historical closures.
 No strategy settings were promoted. All 165 original IDs, 170 backlog rows and
 five incidents remain.
+
+## Final 20 November release verification
+
+Goal11 engineering and storage recovery are shipped in [PR225](https://github.com/damandamanaulakh-tech/MARS/pull/225), revision `87285df71a7cebe6b62c01636aac0eaef5afcd9b`. All **3,539 canonical CI tests**, zero skips, and all six jobs passed, including both complete combined replays. The exact automatic Render deployment is live. Native saves, the approved cleanup, both HTTP exports, same-version restart and code-version transition are verified. All historical scenarios have negative net expectancy; **genuinely new forward performance acceptance remains open**, with no settings promotion. [Release proof](2026-11-20-storage-and-history.md).
+
+The same-version natural restart retained all original manifests/events and retried the pending export. The code transition to `87285df71a7cebe6b62c01636aac0eaef5afcd9b` preserved two prior run manifests and eight prior events byte-for-byte, created a separate new code manifest, retained the original 08:41:42 UTC book epoch, and kept exactly one inherited baseline. The prior configurations represent Intraday and Momentum segment presets; their identities are kept separate. Both API and persisted outboxes are empty at 10:11:28 UTC. Cash, capital, all 33 position identities/quantities/stops/targets and 80 closed-trade fingerprints are unchanged; earlier equity history remains a prefix. No new forward entry/exit is claimed. All 168 deployed source/input hashes and settings digests were independently verified.
+
+Forward net expectancy and cohort drawdown remain unknown until eligible new observations exist. The minimum 30-session/30-closed-trade-per-claimed-segment coverage and full-universe/context limitations remain unchanged.

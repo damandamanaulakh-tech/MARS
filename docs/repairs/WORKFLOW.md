@@ -346,8 +346,10 @@ After recovery, prove actual application saves with a durable read-back and
 source timestamps; a cleared process-local error after startup alone is not
 proof. Record free-instance cold starts and any earlier RAM/spill uncertainty.
 Two formats on one computer are not two independent backups. Keep permanent
-retention, write-failure entry guards and controlled restart verification open
-until their own acceptance evidence exists.
+retention and write-failure entry guards open until their own acceptance evidence
+exists. Verify same-version restart and code-version transition separately: old
+immutable events must stay byte-identical, pending exports must retry, and a new
+code manifest must not reset the original book epoch or create another baseline.
 
 ## Position sizing and loss controls
 

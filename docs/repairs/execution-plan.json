@@ -581,29 +581,33 @@
       "depends_on": [
         "SEQ-10"
       ],
-      "status": "DEPLOYED_FORWARD_BASELINE_VERIFIED_PERFORMANCE_PENDING",
+      "status": "ENGINEERING_RELEASED_FORWARD_PERSISTENCE_VERIFIED_PERFORMANCE_PENDING",
       "implementation": "ACTUAL_ENGINE_REPLAY_AND_FORWARD_OUTBOX",
-      "tests": "3535 canonical CI tests, zero skips, all six jobs passed on integration head d4e067d. All 168 expected live source/input hashes, settings digest and run ID independently verified; 33 inherited positions and 80 historical rows form the baseline, not new forward trades.",
+      "tests": "3539 canonical CI tests, zero skips, all six jobs passed on head 41728fb6; both complete historical replays match. Native code/settings hashes, same-version restart and code-version transition verified.",
       "pull_request": 222,
       "merge_revision": "0f141a8ea062b42d18bc60c018e9b7cff4457bcf",
-      "deployment_revision": "7337aa29510b3775de44ac0f3df2998cdc7ad85d",
-      "health": "VERIFIED_2026-11-20T08:41:00Z",
-      "runtime": "DURABLE_BASELINE_AND_RUN_IDENTITY_VERIFIED_RESTART_PENDING",
+      "deployment_revision": "87285df71a7cebe6b62c01636aac0eaef5afcd9b",
+      "health": "VERIFIED_2026-11-20T10:09:49Z",
+      "runtime": "DURABLE_OUTBOX_BASELINE_RESTART_AND_CODE_TRANSITION_VERIFIED",
       "evidence": "docs/repairs/releases/2026-11-17-combined-validation.md",
       "performance_acceptance": "PENDING_GENUINELY_NEW_FORWARD_COHORTS",
       "storage_evidence": "docs/repairs/evidence/2026-11-17-combined-storage-hold.json",
       "historical_result": "COMPLETED_BOUNDED_PANEL_NEGATIVE_EXPECTANCY_ALL_SCENARIOS",
       "research": "research/combined_2026_11_17/README.md",
-      "ci": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/44690960732",
+      "ci": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/44706052095",
       "release_evidence": "docs/repairs/evidence/2026-11-20-combined-live.json",
       "storage_recovery": {
         "pr": "https://github.com/damandamanaulakh-tech/MARS/pull/224",
         "merge": "7337aa29510b3775de44ac0f3df2998cdc7ad85d",
         "evidence": "docs/repairs/releases/2026-11-20-storage-and-history.md",
-        "status": "LIVE_CAPACITY_AND_DURABLE_SAVES_RECOVERED"
+        "status": "LIVE_CAPACITY_SAVES_HISTORY_EXPORTS_AND_RESTART_VERIFIED",
+        "latest_release_pr": 225,
+        "latest_merge": "87285df71a7cebe6b62c01636aac0eaef5afcd9b"
       },
-      "deployment_id": "dep-dc00e86i0phs73bblqrg"
+      "deployment_id": "dep-dc01k6ou01pc73b9m4d0",
+      "latest_release_pr": 225,
+      "latest_merge_revision": "87285df71a7cebe6b62c01636aac0eaef5afcd9b"
     }
   ],
-  "active_step_note": "SEQ-11 live on 7337aa2 / dep-dc00e86i0phs73bblqrg after completed owner scan and native checkpoint/restore. Durable baseline, book event and code/settings/run identity verified at 08:42 UTC. No new completed forward trades exist; expectancy/drawdown remain unknown. Automatic export-index preparation and isolated report downloads are in follow-up testing. Future acceptance remains open and no policy is promoted."
+  "active_step_note": "Goal11 engineering and storage recovery are shipped and runtime verified. Performance acceptance remains open for genuinely new forward cohorts; historical scenarios are negative and no settings are promoted."
 }
