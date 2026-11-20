@@ -1,10 +1,10 @@
 # Ordered repair programme — 11 November 2026
 
-Goal 11 repository delivery is merged in [PR222](https://github.com/damandamanaulakh-tech/MARS/pull/222). All 3515 local/CI tests and six CI jobs pass with zero test skips; both full historical reproductions match. All declared scenarios have negative net expectancy. Deployment and genuine forward observation remain held on recurring storage refusal and unresolved prior-process state preservation. [Release and proof](releases/2026-11-17-combined-validation.md).
+Goal11 engineering and storage recovery are shipped in [PR225](https://github.com/damandamanaulakh-tech/MARS/pull/225), revision `87285df71a7cebe6b62c01636aac0eaef5afcd9b`. All **3,539 canonical CI tests**, zero skips, and all six jobs passed, including both complete combined replays. The exact automatic Render deployment is live. Native saves, the approved cleanup, both HTTP exports, same-version restart and code-version transition are verified. All historical scenarios have negative net expectancy; **genuinely new forward performance acceptance remains open**, with no settings promotion. [Release proof](releases/2026-11-20-storage-and-history.md).
 
 Owner instruction: show the sequence, start one by one, and track completion in
 the repository. This is the current execution order for G4/G13 and the related
-data/risk work. It does not remove any of the 170 backlog records or four
+data/risk work. It does not remove any of the 170 backlog records or five
 separate incidents. [Goals](GOALS.md), [full backlog](BACKLOG.md),
 [machine-readable sequence](execution-plan.json).
 
@@ -43,7 +43,7 @@ unproven; the original ledger, strategy thresholds and research sequence are ret
 | SEQ-08 | G13; INTRA-003 | Compare net-profit-aware trailing exits and reachable targets | Replay with costs, slippage and intrabar ambiguity; unseen-period comparison of expectancy and drawdown; exact candidate settings reviewed before promotion | RESEARCH_COMPLETE_NO_PROMOTION |
 | SEQ-09 | G13; INTRA-003 | Fresh-setup/cooldown experiments after a failed trade | Record the changed setup; measure losses avoided and recoveries missed; prevent same-bar hindsight or automatic score reuse | RESEARCH_COMPLETE_NO_PROMOTION |
 | SEQ-10 | G7/G13; INTRA-003, XR-026, XR-031 | Intraday sizing, loss accounting and measured-edge controls | All relevant net outcomes and exact stop risk included; empty/all-loss samples explicit; policy thresholds justified by held-out evidence | SHIPPED_RESEARCH_COMPLETE_NO_PROMOTION; PR220; 3469 tests, zero skips |
-| SEQ-11 | G9/G13; XR-078, XR-103, INTRA-001, INTRA-003 | Combined replay and forward paper validation | Versioned data/code/settings, unseen periods, realistic execution/costs, adequate sample coverage, net expectancy/drawdown and no profitability guarantee | MERGED PR222/224; 3535 integration CI tests / six jobs passed; storage and durable saves recovered; exact integration live; durable forward baseline/run identity verified; all historical scenarios negative; future forward acceptance pending |
+| SEQ-11 | G9/G13; XR-078, XR-103, INTRA-001, INTRA-003 | Combined replay and forward paper validation | Versioned data/code/settings, unseen periods, realistic execution/costs, adequate sample coverage, net expectancy/drawdown and no profitability guarantee | ENGINEERING SHIPPED PR222/224/225; 3539 canonical CI tests, six jobs and zero skips; durable forward restart/versioning and exports verified; historical scenarios negative; future performance acceptance open |
 
 ## How each step advances
 
