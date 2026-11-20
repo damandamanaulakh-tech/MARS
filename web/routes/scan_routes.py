@@ -915,8 +915,8 @@ def owner_buy(request: Request, ticker: str = Form(...),
         try:
             eng._open(pick, use_qty, float(price), fill_now, cfg=cfg)
         except ValueError as exc:
-            if str(exc).startswith(("intraday_", "costs_")):
-                return refuse(str(exc), "entry_data_final", unavailable=True)
+            if str(exc).startswith(("intraday_", "costs_", "portfolio_save_")):
+                return refuse(str(exc), "portfolio_save" if str(exc).startswith("portfolio_save_") else "entry_data_final", unavailable=True)
             raise
         # AUDIT FIX A4 (2026-08-09): an owner's deliberate pick is never
         # auto-sold by score decay (check_exit skips SCORE_DECAY for this

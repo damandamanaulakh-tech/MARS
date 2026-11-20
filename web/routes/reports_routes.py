@@ -270,8 +270,10 @@ def trigger_backup(request: Request):
     if not auth.current_user(request):
         return RedirectResponse("/login", status_code=303)
     try:
-        app_state.portfolio().save()
-        return RedirectResponse("/reports?generated=backup_ok", status_code=303)
+        if app_state.portfolio().save() is not True:
+            return RedirectResponse("/reports?generated=backup_err_unacknowledged", status_code=303)
+        result = "backup_ok" if db.is_connected() else "backup_local_ok"
+        return RedirectResponse(f"/reports?generated={result}", status_code=303)
     except Exception as e:
         return RedirectResponse(f"/reports?generated=backup_err_{type(e).__name__}", status_code=303)
 

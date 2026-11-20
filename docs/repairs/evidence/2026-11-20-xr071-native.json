@@ -1,0 +1,13 @@
+{
+  "mongo_version": "8.0.38",
+  "connected_refusal": true,
+  "buy_attempts_blocked": 2,
+  "protective_partial_and_final_exits": 2,
+  "durable_book_unchanged_until_ack": true,
+  "recovered_ledger_exact": true,
+  "forward_outbox_retained": true,
+  "buy_resumed_only_after_ack": true,
+  "scope": "isolated localhost database; synthetic paper book",
+  "rejected_write_code": 121,
+  "production_fault_injected": false
+}

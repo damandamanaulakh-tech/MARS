@@ -14,6 +14,7 @@ from __future__ import annotations
 import copy
 import logging
 import math
+from functools import wraps
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
@@ -67,6 +68,14 @@ def _level(price: float, pct: float) -> str:
     if price and price > 0:
         return f"₹{float(price):,.2f}"
     return f"{float(pct) * 100:+.0f}%"
+
+
+def _book_lock(method):
+    @wraps(method)
+    def locked(self, *args, **kwargs):
+        with self.portfolio._lock:
+            return method(self, *args, **kwargs)
+    return locked
 
 
 class TradingEngine:
@@ -887,6 +896,11 @@ class TradingEngine:
         cleared: list = []
         for pick in picks:
             with de.capture(pick["decision"]):
+                try:
+                    self._check_entry_persistence(pick["decision"])
+                except ValueError as exc:
+                    skipped.append({"ticker": pick["ticker"], "reason": str(exc)})
+                    continue
                 d = pick["decision"]
                 de.put(d, "market_session", self._market_state(now), "open", passed=True)
                 entry_clock = datetime.utcnow()
@@ -1076,6 +1090,12 @@ class TradingEngine:
             skipped.extend({"ticker": pk["ticker"], "reason": "intraday_entry_deadline"}
                            for pk in cleared)
             cleared = []
+        if self.portfolio.entry_block_reason():
+            for pk in cleared:
+                reason = self.portfolio.entry_block_reason()
+                de.put(pk["decision"], "portfolio_save", reason, "Confirmed portfolio save", passed=False, reason=reason)
+                skipped.append({"ticker": pk["ticker"], "reason": reason})
+            cleared = []
         try:
             rotated_out = self._rotation_exits(
                 cleared, now, entries_blocked=entries_blocked, history=history)
@@ -1237,7 +1257,7 @@ class TradingEngine:
                 try:
                     self._open(pick, qty, fill, entry_now, initial_stop=initial_stop)
                 except ValueError as exc:
-                    if str(exc).startswith(("intraday_", "costs_")):
+                    if str(exc).startswith(("intraday_", "costs_", "portfolio_save_")):
                         skipped.append({"ticker": pick["ticker"], "reason": str(exc)})
                         continue
                     raise
@@ -1797,19 +1817,25 @@ class TradingEngine:
                     buy_cost = next_basis["orders"][-1]["fee"]["total"]
                     if add_qty * fill + buy_cost > self.portfolio.cash + 1e-8:
                         continue
-                    self.portfolio.cash -= add_qty * fill + buy_cost
-                    pos.cost_basis = next_basis
-                    prev_adds = pos.pyramid_adds
-                    before = de.protection(pos)
-                    apply_pyramid(pos, add_qty, fill)
-                    de.amendment(pos, before, "PYRAMID_ADD", now, portfolio=self.portfolio, details={"qty": add_qty, "fill": fill, "buy_costs": copy.deepcopy(next_basis["orders"][-1]["fee"])})
-                    self.portfolio.decision_journal.append({
-                        "ts": now.isoformat(), "action": "PYRAMID_ADD",
-                        "ticker": ticker, "add_qty": add_qty,
-                        "price": round(fill, 2), "tranche": prev_adds + 1,
-                        "new_qty": pos.qty, "new_avg_entry": round(pos.entry_price, 2),
-                        "why": f"Winner up {(ltp/pos.entry_price-1)*100:.1f}% — pyramid tranche {prev_adds+1}.",
-                    })
+                    with self.portfolio._lock:
+                        if self.portfolio.entry_block_reason():
+                            self._journal_once_a_day("PORTFOLIO_SAVE_ENTRY_HALT", now, {
+                                "why": "Pyramid buys paused until the current book save is acknowledged; exits remain active.",
+                                "reason": self.portfolio.entry_block_reason()})
+                            continue
+                        self.portfolio.cash -= add_qty * fill + buy_cost
+                        pos.cost_basis = next_basis
+                        prev_adds = pos.pyramid_adds
+                        before = de.protection(pos)
+                        apply_pyramid(pos, add_qty, fill)
+                        de.amendment(pos, before, "PYRAMID_ADD", now, portfolio=self.portfolio, details={"qty": add_qty, "fill": fill, "buy_costs": copy.deepcopy(next_basis["orders"][-1]["fee"])})
+                        self.portfolio.decision_journal.append({
+                            "ts": now.isoformat(), "action": "PYRAMID_ADD",
+                            "ticker": ticker, "add_qty": add_qty,
+                            "price": round(fill, 2), "tranche": prev_adds + 1,
+                            "new_qty": pos.qty, "new_avg_entry": round(pos.entry_price, 2),
+                            "why": f"Winner up {(ltp/pos.entry_price-1)*100:.1f}% — pyramid tranche {prev_adds+1}.",
+                        })
             except Exception as e:
                 log.warning("Pyramid add failed: %s", e)
 
@@ -1853,12 +1879,26 @@ class TradingEngine:
 
     # ---------- internals ----------
 
+    def _check_entry_persistence(self, decision=None) -> None:
+        reason = self.portfolio.entry_block_reason()
+        if decision is not None:
+            de.put(decision, "portfolio_save", reason or "acknowledged_or_local_only",
+                   "Current book save acknowledged; no pending failure", passed=reason is None,
+                   reason=reason or "No failed portfolio checkpoint")
+        if reason:
+            self._journal_once_a_day("PORTFOLIO_SAVE_ENTRY_HALT", datetime.utcnow(), {
+                "why": "New buys paused until a portfolio save is acknowledged. Protective exits and save retries remain active.",
+                "reason": reason})
+            raise ValueError(reason)
+
+    @_book_lock
     def _open(self, pick: dict, qty: int, fill_price: float, now: datetime,
               cfg: Optional[Config] = None, *, initial_stop: Optional[float] = None) -> None:
         """Book a new position. `cfg` is the trade category's config; the
         engine's own (the live shared one) when not given. Audit F-17
         (2026-10-02): an owner limit fill passes a momentum COPY here instead
         of flipping the shared cfg.mode for the duration of the fill."""
+        self._check_entry_persistence(pick.get("decision"))
         cfg = cfg if cfg is not None else self.cfg
         if (not ir.entry_allowed(cfg.mode, now)
                 or not ir.entry_allowed(cfg.mode, datetime.utcnow())):
@@ -1902,6 +1942,7 @@ class TradingEngine:
         notional = qty * fill_price
         cost_basis = fees.new_basis(qty, fill_price, cfg.mode, now, pick["ticker"], sector=cfg.sector_map.get(pick["ticker"], ""))
         buy_cost = cost_basis["orders"][0]["fee"]["total"]
+        self._check_entry_persistence(pick.get("decision"))
         if notional + buy_cost > self.portfolio.cash + 1e-8:
             raise ValueError("costs_cash_short")
         decision = copy.deepcopy(pick.get("decision") or de.new(pick["ticker"], cfg.mode, pick.get("entry_path", "direct"), now, pick.get("history")))
@@ -2564,6 +2605,8 @@ class TradingEngine:
             so an unquoted name cannot even be suggested.
         Returns the tickers rotated out.
         """
+        if self.portfolio.entry_block_reason():
+            return []  # funding a new buy is distinct from protective selling
         cfg = self.cfg
         if not ir.entry_allowed(cfg.mode, datetime.utcnow()):
             return []
@@ -2829,6 +2872,7 @@ class TradingEngine:
             if not qe.executable(batch, ticker, datetime.utcnow()):
                 raise ValueError("intraday_quote_expired_before_exit")
 
+    @_book_lock
     def _exit_half(self, ticker: str, raw_price: float, reason: str,
                    now: datetime) -> None:
         """Sell half the position at the live price (full close if qty==1).
@@ -2872,6 +2916,7 @@ class TradingEngine:
             "evidence": copy.deepcopy(trade_ev["exit"]), "exit_reason": reason})
         pos.qty -= half
 
+    @_book_lock
     def _close(self, ticker: str, raw_price: float, reason: str, now: datetime) -> None:
         self._guard_delayed_exit(ticker, raw_price)
         if (getattr(self.portfolio.positions[ticker], "mode", "") == "intraday"

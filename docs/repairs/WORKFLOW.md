@@ -284,6 +284,15 @@ unacknowledged observations as completed forward evidence.
 
 ## Live write failures during shipment
 
+XR-071 entry checks must use the portfolio checkpoint acknowledgement, including
+policy-read and local-write failures. A ping, auxiliary write, unrelated book or
+new process cannot clear the halt. Test every actual buy boundary (automatic,
+owner, limits and pyramid), slow/concurrent failure, and recovery after a real
+acknowledgement. Preserve independently runnable protective exits and bounded
+save/spill/outbox retries; a blocked empty book must be recoverable. Backup UI
+success requires an explicit `True` return. Retain isolated failure proof and
+mark normal production refusal/recovery observation separately; never induce it.
+
 A 200 health response or connected database is not an acknowledged write. If
 post-deploy verification finds quota/permission/refused writes, record the
 exact deployed revision, safe error code, last persisted save and separate

@@ -609,5 +609,15 @@
       "latest_merge_revision": "87285df71a7cebe6b62c01636aac0eaef5afcd9b"
     }
   ],
-  "active_step_note": "Goal11 engineering and storage recovery are shipped and runtime verified. Performance acceptance remains open for genuinely new forward cohorts; historical scenarios are negative and no settings are promoted."
+  "active_step_note": "Goal11 engineering and storage recovery are shipped and runtime verified. Performance acceptance remains open for genuinely new forward cohorts; historical scenarios are negative and no settings are promoted.",
+  "current_repair": {
+    "id": "XR-071",
+    "approved_date": "2026-11-20",
+    "goal": "Pause new buys after portfolio save failure; keep protective exits/retries and resume only after confirmed save",
+    "status": "LOCAL_TESTED",
+    "evidence": "docs/repairs/releases/2026-11-20-xr071-save-guard.md",
+    "local_tests": 3573,
+    "new_regressions": 33,
+    "skipped_tests": 0
+  }
 }
