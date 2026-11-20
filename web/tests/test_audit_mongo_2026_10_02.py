@@ -76,6 +76,8 @@ class _DB:
 @pytest.fixture
 def fake_db(monkeypatch):
     def _make(**cols):
+        from types import SimpleNamespace
+        cols.setdefault('settings', SimpleNamespace(find_one=lambda *a, **k: None))
         d = _DB(**cols)
         monkeypatch.setattr(db, "_DB", d)
         monkeypatch.setattr(db, "_CONNECTED", True)
@@ -188,7 +190,7 @@ def test_the_reports_route_reads_both_archives():
     src = inspect.getsource(reports_routes._generate_all)
     code = "\n".join(l for l in src.splitlines()
                      if not l.strip().startswith("#"))
-    assert "db.list_trades()" in code and "db.list_journal_archive()" in code
+    assert "db.list_trades()" in code and "db.iter_journal_archive()" in code
 
 
 # --------------------------------------------------------------------- M-3

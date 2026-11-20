@@ -300,6 +300,8 @@ def test_split_then_pyramid_does_not_rescale_the_new_buy_order(tmp_path,monkeypa
 
 
 def test_actual_mongo_mirror_persists_cost_allocation_and_dp(tmp_path,monkeypatch):
+    from web import db as history_db
+    monkeypatch.setattr(history_db, "closed_history_policy", lambda: {})
     from web import state,db
     state._patch_portfolio_save_to_mirror_mongo()
     stored={}

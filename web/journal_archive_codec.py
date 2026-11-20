@@ -1,4 +1,4 @@
-"""Lossless journal representation, prepared for a reviewed storage migration.
+"""Lossless journal representation for mixed legacy/compressed journal storage.
 
 Pure functions only. No database client, environment read or production writer.
 Raw BSON is the preservation unit; JSON/CSV is never the backup representation.
@@ -135,7 +135,7 @@ def pack_raw(raw: bytes) -> bytes:
 def decode_record(record: Mapping | RawBSONDocument) -> dict:
     """Compatibility reader, for both old rows and verified archive envelopes.
 
-    This function is not yet wired to live database readers. RawBSONDocument
+    All archive readers use this compatibility decoder. RawBSONDocument
     retains its exact input bytes; dict inputs were already decoded by the
     caller and cannot establish a raw-byte backup claim.
     """

@@ -39,7 +39,9 @@ def mongo_up(monkeypatch):
     return fake
 
 
-def test_a_refused_save_is_recorded_and_a_later_success_clears_it(mongo_up):
+def test_a_refused_save_is_recorded_and_a_later_success_clears_it(mongo_up, monkeypatch):
+    from web import db as history_db
+    monkeypatch.setattr(history_db, "closed_history_policy", lambda: {})
     mongo_up.portfolio = _Refuse()
     db.save_portfolio({"cash": 1.0})
     assert "over your space quota" in db.LAST_WRITE_ERROR

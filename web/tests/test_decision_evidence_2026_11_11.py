@@ -106,6 +106,7 @@ def test_evidence_archive_preserves_ledger_numbers_and_retains_unacknowledged_da
     before = e.portfolio.trades[-1].to_dict()
     captured = []
     monkeypatch.setattr('trading.paper.TRADES_BYTES_CAP', 1)
+    monkeypatch.setattr(db, 'closed_history_policy', lambda: {})
     monkeypatch.setattr(db, 'is_connected', lambda: True)
     monkeypatch.setattr(db, 'archive_trade_evidence', lambda ev: captured.append(deepcopy(ev)) or acknowledged)
     monkeypatch.setattr(db, 'save_portfolio', lambda doc: True)
@@ -232,7 +233,11 @@ def test_byte_archived_trade_is_still_readable_beside_a_live_partial(book, monke
 
 @pytest.mark.parametrize("ack", [True, False])
 def test_journal_archive_requires_write_acknowledgement(monkeypatch, ack):
-    fake = SimpleNamespace(journal_archive=SimpleNamespace(insert_many=lambda *a, **k: SimpleNamespace(acknowledged=ack)))
+    saved = []
+    def bulk_write(ops, **kwargs):
+        saved.extend(op._doc['$setOnInsert'] for op in ops)
+        return SimpleNamespace(acknowledged=ack)
+    fake = SimpleNamespace(journal_archive=SimpleNamespace(bulk_write=bulk_write, find=lambda *a: saved))
     monkeypatch.setattr(db, '_DB', fake)
     monkeypatch.setattr(db, '_CONNECTED', True)
     assert db.archive_journal([{'ts':'fixture'}]) is ack

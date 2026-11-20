@@ -90,6 +90,7 @@ def test_query_failure_is_explicit_unknown(monkeypatch):
 def test_mongo_outbox_waits_for_book_ack_and_retries_after_restart(monkeypatch, tmp_path):
     runs, events = Collection(), Collection()
     monkeypatch.setattr(db, "_CONNECTED", True)
+    monkeypatch.setattr(db, "closed_history_policy", lambda: {})
     monkeypatch.setattr(db, "_DB", SimpleNamespace(validation_runs=runs, validation_events=events))
     cfg = Config(state_dir=str(tmp_path)); book = Portfolio(cfg=cfg, cash=100.)
     writes = []

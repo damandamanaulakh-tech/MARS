@@ -173,6 +173,8 @@ def test_the_per_category_counts_ride_the_real_mirror_save(monkeypatch):
     Portfolio.save hands Mongo a doc carrying loss_by_category, and the boot
     hydrate reads it back — a field missing from the mirror dies on every
     Render restart (the risk_day lesson)."""
+    from web import db as history_db
+    monkeypatch.setattr(history_db, "closed_history_policy", lambda: {})
     from trading.config import Config
     from trading.paper import Portfolio
     from web import db

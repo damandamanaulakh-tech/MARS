@@ -8,6 +8,8 @@ from web import db, state
 
 
 def test_partial_liquidation_mongo_roundtrip_and_resume(tmp_path, monkeypatch):
+    from web import db as history_db
+    monkeypatch.setattr(history_db, "closed_history_policy", lambda: {})
     state._patch_portfolio_save_to_mirror_mongo()
     monkeypatch.setattr(db, "is_connected", lambda: True)
     stored = {}

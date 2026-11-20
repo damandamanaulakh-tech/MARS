@@ -225,6 +225,16 @@ LAST_WRITE_ERROR: Optional[str] = None
 LAST_WRITE_ERROR_AT: Optional[str] = None
 
 
+def closed_history_policy() -> dict:
+    """A failed policy read must stop writes, not look like no owner cleanup."""
+    if not _CONNECTED or _DB is None:
+        raise RuntimeError('closed_history_policy_unavailable')
+    from trading.history_retention import approved_ids
+    row = _DB.settings.find_one({'_id': 'closed_history_retention'}) or {}
+    policy = row.get('policy') or {}
+    approved_ids(policy)
+    return policy
+
 def save_validation_event(event: dict) -> bool:
     """Append-only, acknowledged, idempotent outbox export; no ledger writes."""
     if not _CONNECTED or _DB is None:
@@ -292,6 +302,11 @@ def save_portfolio(doc: dict, doc_id: str = "default") -> bool:
     if not _CONNECTED or _DB is None:
         return False
     try:
+        from trading.history_retention import retain
+        policy = closed_history_policy() or doc.get('closed_history_policy', {})
+        if policy:
+            doc = {**doc, 'closed_history_policy': policy,
+                   'trades': retain(doc.get('trades', []), policy)}
         result = _DB.portfolio.replace_one({"_id": doc_id}, {**doc, "_id": doc_id}, upsert=True)
         if result.acknowledged is not True:
             raise RuntimeError("portfolio write not acknowledged")
@@ -345,6 +360,10 @@ def archive_trades(trade_docs: list) -> bool:
         return False
     try:
         from pymongo import UpdateOne
+        from trading.history_retention import retain
+        trade_docs = retain(trade_docs, closed_history_policy())
+        if not trade_docs:
+            return True
         ops = [UpdateOne({"_id": _trade_key(d)},
                          {"$setOnInsert": {**dict(d), "_id": _trade_key(d)}},
                          upsert=True)
@@ -1031,8 +1050,8 @@ def archive_journal(entries: list) -> bool:
     if not _CONNECTED or _DB is None:
         return False
     try:
-        result = _DB.journal_archive.insert_many([dict(e) for e in entries], ordered=False)
-        return bool(result.acknowledged)
+        from .journal_storage import append
+        return append(_DB.journal_archive, entries)
     except Exception as e:
         log.warning("Mongo archive_journal failed: %s", e)
         return False
@@ -1048,13 +1067,17 @@ def list_journal_archive(limit: int = 20000,
     if not _CONNECTED or _DB is None:
         return []
     try:
-        cur = (_DB.journal_archive.find(_not_pre_mars(include_pre_mars),
-                                        {"_id": 0})
-               .sort("ts", -1).limit(limit))
-        return list(reversed(list(cur)))
+        return list(iter_journal_archive(limit, include_pre_mars))
     except Exception as e:
         log.warning("Mongo list_journal_archive failed: %s", e)
         return []
+
+
+def iter_journal_archive(limit: int = 20000, include_pre_mars: bool = False):
+    if not _CONNECTED or _DB is None:
+        raise RuntimeError('journal_archive_unavailable')
+    from .journal_storage import iter_latest
+    yield from iter_latest(_DB.journal_archive, _not_pre_mars(include_pre_mars), limit)
 
 
 def count_pre_mars(collection: str) -> int:
@@ -1344,7 +1367,9 @@ def read_decision(decision_id: str) -> dict | None:
     if not _CONNECTED or _DB is None:
         return None
     try:
-        row = _DB.journal_archive.find_one({"decision_id": decision_id}, {"_id": 0}, sort=[("ts", -1)])
+        from .journal_storage import decoded
+        row = _DB.journal_archive.find_one({"decision_id": decision_id}, sort=[("ts", -1)])
+        row = decoded(row) if row else None
         return row.get("evidence") if row else None
     except Exception as exc:
         log.warning("Decision evidence read failed: %s", type(exc).__name__)
@@ -1355,7 +1380,8 @@ def read_trade_amendments(trade_id: str) -> list:
     if not _CONNECTED or _DB is None:
         return []
     try:
-        rows = _DB.journal_archive.find({"trade_id": trade_id, "action": "TRADE_AMENDMENT"}, {"_id": 0}).sort("ts", -1).limit(200)
+        from .journal_storage import decoded
+        rows = (decoded(r) for r in _DB.journal_archive.find({"trade_id": trade_id, "action": "TRADE_AMENDMENT"}).sort("ts", -1).limit(200))
         return [r["evidence"] for r in rows if r.get("evidence")]
     except Exception as exc:
         log.warning("Trade amendment read failed: %s", type(exc).__name__)
@@ -1378,14 +1404,10 @@ def search_decision_archive(ticker: str = "", mode: str = "", limit: int = 500) 
     """Filter in storage so unrelated recent symbols cannot hide a requested one."""
     if not _CONNECTED or _DB is None:
         return []
-    import re
-    query = {"evidence.gates": {"$exists": True}, **_not_pre_mars(False)}
-    if ticker:
-        query["evidence.ticker"] = {"$regex": re.escape(ticker), "$options": "i"}
-    if mode:
-        query["evidence.mode"] = mode
+    from .journal_storage import decoded, decision_query
+    query = decision_query(ticker, mode)
     try:
-        return list(_DB.journal_archive.find(query, {"_id": 0}).sort("ts", -1).limit(min(max(limit, 1), 500)))
+        return [decoded(r) for r in _DB.journal_archive.find(query).sort("ts", -1).limit(min(max(limit, 1), 500))]
     except Exception as exc:
         log.warning("Decision archive search failed: %s", type(exc).__name__)
         return []

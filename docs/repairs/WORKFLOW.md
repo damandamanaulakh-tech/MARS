@@ -313,6 +313,21 @@ its contents are disposable. Keep unrelated apps and financial history intact.
 
 ## Temporary cold archives
 
+For an owner-requested closed-history reset, freeze explicit IST entry/exit
+cutoffs and the exact selected fingerprints. Export and reconcile CSV identity
+counts and monetary totals, preserve native records, and prove restoration
+before removal. Retain open positions and later partial exits. Keep a durable
+policy preventing stale local saves or overflow replay from restoring selected
+closed rows; never reset cash, capital or loss controls to manufacture a fresh
+performance result. Unknown dates/modes stay for review. A later resumption
+does not extend a previously approved cutoff.
+
+Compressed journal migration requires all readers to accept raw and packed
+records, exact BSON recovery, idempotent acknowledged writes, bounded report
+memory, native restore and conditional source checks. Record temporary cold
+relief separately from a complete online representation migration. Preserve
+Goal11's pause when deploying a storage repair based on the last live revision.
+
 An owner-requested temporary cleanup is distinct from a live compression migration.
 Record the exact manifest hash, dates, IDs/bytes in private storage, reference
 exclusions, independent native-BSON source recheck, restore proof, conditional

@@ -116,7 +116,9 @@ def test_rotation_records_every_pass_and_journals_one_summary(tmp_path):
     assert len(p.rotation_report["rotations"]) == wnb.KEEP_ROTATIONS
 
 
-def test_the_record_survives_json_and_the_mongo_mirror(tmp_path):
+def test_the_record_survives_json_and_the_mongo_mirror(tmp_path, monkeypatch):
+    from web import db as history_db
+    monkeypatch.setattr(history_db, "closed_history_policy", lambda: {})
     cfg = Config(state_dir=str(tmp_path))
     p = Portfolio.fresh(cfg)
     p.rotation_report = {"rotations": [{"date": "2026-10-21", "where": "09:20", "passes": {}, "opened_total": 0}]}

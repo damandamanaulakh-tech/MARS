@@ -63,5 +63,19 @@
     "acceptance": "Owner reconnects through the normal broker flow; verify an accepted quote response and its timestamp/source. Label rejected provider authorization unavailable even if a stored expiry/profile remains. Do not induce a trade.",
     "reconciliation": "Additional runtime observation; all earlier incident IDs and all 170 backlog records retained.",
     "latest_verification": "16 November 04:08:19.444911 UTC (09:38:19 IST): authenticated read-only MARS /upstox/price-check returned six positive LTP values for TCS, INFY, RELIANCE, HDFCBANK, MARUTI and Nifty 50, zero missing and error null. New saved connection at 03:59:33.852400 UTC. This verifies provider quote acceptance; exchange timestamps were not supplied. Status-label rejection behavior remains a separate open subclaim. Post-deploy repeat at 04:22:54.971376 UTC also returned 6/6 positive LTP values, error null."
+  },
+  {
+    "id": "RUN-20261120-01",
+    "finding": "Shared Atlas quota remains at 528.38 MiB; journal growth prevents saved portfolio updates after 16 November",
+    "workflow": "REPAIR_TESTING_BACKUP_VERIFICATION_IN_PROGRESS",
+    "related_findings": [
+      "OPS-05",
+      "XR-071"
+    ],
+    "evidence": "docs/repairs/releases/2026-11-20-storage-and-history.md",
+    "runtime_observation": "20 November native read: 39 open positions, 228 closed rows in portfolio, 181 archived rows. Sourceborn journal has 40333 rows / 296559871 bytes. Saved portfolio last_save remains 2026-11-16T10:04:52.911221 UTC.",
+    "acceptance": "Export and reconcile the exact owner-selected closed history, independently verify native backup and restore, prevent reappearance after save/restart, wire every compressed journal reader/writer, verify conditional migration and durable saves. Preserve cash, capital, open positions, stops, targets and later records. Keep Goal11 rollout paused.",
+    "reconciliation": "Additional incident; original 165 IDs, 170 backlog rows and all earlier incidents retained.",
+    "owner_decision": "Keep free tier. Archive closed trades by entry date through 30 September 2026 IST; clear closed intraday history through 17 November 2026 IST. Retain 18 November onward intraday history and all open positions. Private exports only."
   }
 ]
