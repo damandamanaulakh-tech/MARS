@@ -325,8 +325,9 @@ does not extend a previously approved cutoff.
 Compressed journal migration requires all readers to accept raw and packed
 records, exact BSON recovery, idempotent acknowledged writes, bounded report
 memory, native restore and conditional source checks. Record temporary cold
-relief separately from a complete online representation migration. Preserve
-Goal11's pause when deploying a storage repair based on the last live revision.
+relief separately from a complete online representation migration. Use the last live revision for isolated storage relief when necessary. The owner
+resumed Goal11 on 20 November; carry that authorization forward after current
+state is preserved and required CI passes. Do not reinstate a superseded pause.
 
 An owner-requested temporary cleanup is distinct from a live compression migration.
 Record the exact manifest hash, dates, IDs/bytes in private storage, reference
@@ -334,6 +335,12 @@ exclusions, independent native-BSON source recheck, restore proof, conditional
 canary, acknowledged batch checkpoints and full untargeted-record comparison.
 Publish only sanitized counts/hashes. Explain that cold-only explanations are
 not available through the online reader until compatible restoration is wired.
+
+Verify the archive query plan under the free-tier non-spilling 32 MiB sort
+limit. ID projection alone does not guarantee a bounded server-side sort.
+Create and verify the nonunique `(ts DESC, _id DESC)` index, test repeated
+preparation, and keep financial writes connected if index preparation fails.
+Verify the owner HTTP export as well as the native iterator.
 
 After recovery, prove actual application saves with a durable read-back and
 source timestamps; a cleared process-local error after startup alone is not

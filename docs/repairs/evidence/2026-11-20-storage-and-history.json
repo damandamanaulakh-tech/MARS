@@ -1,0 +1,861 @@
+{
+  "schema": 1,
+  "asof": "2026-11-20T08:25:05Z",
+  "incident": "RUN-20261120-01",
+  "authorization": {
+    "entry_cutoff_ist": "2026-10-01T00:00:00+05:30",
+    "intraday_closed_before_ist": "2026-11-18T00:00:00+05:30",
+    "scope": "exact selected closed rows; retain all open positions and later records; keep free tier"
+  },
+  "backup": {
+    "collections": 19,
+    "documents": 82618,
+    "raw_bson_bytes": 377500835,
+    "independent_source_reread": true,
+    "native_restore_documents_options_indexes": true,
+    "zip_sha256": "808350eab20766b43e9acd96a8bfca7f396251f815ebc35e0186a899df905af1",
+    "zip_bytes": 26135657,
+    "location": "private owner download; excluded from public repo",
+    "independent_off_device_copy": false
+  },
+  "exports": {
+    "MARS-trades-entry-through-2026-09-30.csv": {
+      "rows": 240,
+      "bytes": 110770,
+      "sha256": "dfe05700c9c59bbcc8fb8fc018a8b049c6f77404219a17a09008b337f56a35c3"
+    },
+    "MARS-closed-intraday-2026-10-01-through-2026-11-17.csv": {
+      "rows": 95,
+      "bytes": 466317,
+      "sha256": "8a9bd4a571df0a7a65706652146cfa82c1f8c18db5eb01366876a4c5f630e2c1"
+    }
+  },
+  "migration": {
+    "at": "2026-11-20T08:17:41.700410+00:00",
+    "rows_verified": 40333,
+    "restored_cold_rows": 1086,
+    "replaced_rows": 23442,
+    "already_matching": 15805,
+    "all_original_bytes_recoverable": true,
+    "all_cold_rows_online": 10000,
+    "write_counters_scope": "successful retry observations only",
+    "total_rows": 41902
+  },
+  "cleanup_at_deletion": {
+    "at": "2026-11-20T07:26:01.869241+00:00",
+    "removed_closed_rows": 335,
+    "retained_closed_rows": 75,
+    "open_positions_preserved": 38,
+    "financial_fields_unchanged": [
+      "cash",
+      "positions",
+      "capital_base",
+      "dd_peak_equity",
+      "dd_cut_level",
+      "dd_cut_pending",
+      "dd_day_anchor",
+      "dd_session_date",
+      "equity_history",
+      "cost_dp_days"
+    ],
+    "book_last_save": "2026-11-20T07:15:13.326273",
+    "archive_rows_remaining": 0,
+    "exact_policy_verified": true
+  },
+  "post_restart": {
+    "at": "2026-11-20T08:11:56.254865+00:00",
+    "request_http": 303,
+    "old_last_save": "2026-11-20T08:01:21.460504",
+    "new_last_save": "2026-11-20T08:11:49.713898",
+    "positions": 35,
+    "closed": 78,
+    "changed_financial_fields": [],
+    "native_readback": true,
+    "localhost_restore": true,
+    "captured_files": {
+      "portfolio.bson": {
+        "bytes": 3354605,
+        "sha256": "777da736e60802df1bc55f121f01cb6a1fa94b1291875ecfa8e62d20f2e2bd9e"
+      },
+      "trades.bson": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "settings.bson": {
+        "bytes": 414023,
+        "sha256": "f41ff2e7ade494aed9cde139865edea775ac3b8403291fd7b40d1e2620e1d081"
+      },
+      "portfolio-before.bson": {
+        "bytes": 3354605,
+        "sha256": "9de6b66e0ed47d8d18b11bb8bef7c54cfd92dbf7eaf143f4789c59ffc941e50e"
+      }
+    },
+    "ordinary_new_exits": 3,
+    "all_335_removed_fingerprints_absent": true,
+    "all_75_retained_rows_present": true,
+    "new_closures": "normal protective exits after cleanup; not a reset"
+  },
+  "storage": {
+    "before_logical_mib": 528.3766736984253,
+    "after": {
+      "at": "2026-11-20T08:23:21.480607+00:00",
+      "databases": [
+        {
+          "database": "AM07",
+          "data_bytes": 198,
+          "index_bytes": 73728,
+          "storage_bytes": 73728,
+          "collections": [
+            {
+              "name": "portfolio",
+              "count": 1,
+              "data_bytes": 125,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "system",
+              "count": 1,
+              "data_bytes": 73,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            }
+          ]
+        },
+        {
+          "database": "G07",
+          "data_bytes": 941,
+          "index_bytes": 36864,
+          "storage_bytes": 36864,
+          "collections": [
+            {
+              "name": "ingestion_files",
+              "count": 3,
+              "data_bytes": 941,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            }
+          ]
+        },
+        {
+          "database": "ashstock",
+          "data_bytes": 147268915,
+          "index_bytes": 495616,
+          "storage_bytes": 85364736,
+          "collections": [
+            {
+              "name": "scan_ledger",
+              "count": 875,
+              "data_bytes": 136047765,
+              "index_bytes": 126976,
+              "storage_bytes": 79536128
+            },
+            {
+              "name": "app_state",
+              "count": 1,
+              "data_bytes": 10101630,
+              "index_bytes": 73728,
+              "storage_bytes": 5435392
+            },
+            {
+              "name": "paper_ledger",
+              "count": 419,
+              "data_bytes": 1118856,
+              "index_bytes": 221184,
+              "storage_bytes": 356352
+            },
+            {
+              "name": "upstox_auth",
+              "count": 1,
+              "data_bytes": 664,
+              "index_bytes": 73728,
+              "storage_bytes": 36864
+            }
+          ]
+        },
+        {
+          "database": "site_control",
+          "data_bytes": 10455850,
+          "index_bytes": 892928,
+          "storage_bytes": 20193280,
+          "collections": [
+            {
+              "name": "sites",
+              "count": 2,
+              "data_bytes": 4446794,
+              "index_bytes": 73728,
+              "storage_bytes": 8372224
+            },
+            {
+              "name": "work_order_reviews",
+              "count": 2,
+              "data_bytes": 3254665,
+              "index_bytes": 36864,
+              "storage_bytes": 7139328
+            },
+            {
+              "name": "factory_job_cards",
+              "count": 1,
+              "data_bytes": 1838622,
+              "index_bytes": 36864,
+              "storage_bytes": 3674112
+            },
+            {
+              "name": "material_requests",
+              "count": 948,
+              "data_bytes": 811041,
+              "index_bytes": 81920,
+              "storage_bytes": 385024
+            },
+            {
+              "name": "tat_updates",
+              "count": 77,
+              "data_bytes": 39601,
+              "index_bytes": 73728,
+              "storage_bytes": 53248
+            },
+            {
+              "name": "ceo_actions",
+              "count": 77,
+              "data_bytes": 31092,
+              "index_bytes": 36864,
+              "storage_bytes": 45056
+            },
+            {
+              "name": "gantt_tasks",
+              "count": 19,
+              "data_bytes": 9955,
+              "index_bytes": 36864,
+              "storage_bytes": 45056
+            },
+            {
+              "name": "billing_documents",
+              "count": 26,
+              "data_bytes": 9236,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "vendor_catalogue",
+              "count": 20,
+              "data_bytes": 4861,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "users",
+              "count": 9,
+              "data_bytes": 2809,
+              "index_bytes": 73728,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "cash_requests",
+              "count": 2,
+              "data_bytes": 1033,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "master_rates",
+              "count": 3,
+              "data_bytes": 993,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "client_share_links",
+              "count": 3,
+              "data_bytes": 912,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "site_transitions",
+              "count": 4,
+              "data_bytes": 889,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "finance_ledgers",
+              "count": 2,
+              "data_bytes": 697,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "billing_checklists",
+              "count": 2,
+              "data_bytes": 694,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "site_budgets",
+              "count": 2,
+              "data_bytes": 588,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "site_requirements",
+              "count": 1,
+              "data_bytes": 511,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "bank_overdrafts",
+              "count": 2,
+              "data_bytes": 447,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "subcontractors",
+              "count": 1,
+              "data_bytes": 410,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            }
+          ]
+        },
+        {
+          "database": "sourceborn",
+          "data_bytes": 152520696,
+          "index_bytes": 3895296,
+          "storage_bytes": 109608960,
+          "collections": [
+            {
+              "name": "journal_archive",
+              "count": 41902,
+              "data_bytes": 71077539,
+              "index_bytes": 1695744,
+              "storage_bytes": 67547136
+            },
+            {
+              "name": "ohlcv",
+              "count": 2233,
+              "data_bytes": 66141767,
+              "index_bytes": 118784,
+              "storage_bytes": 35868672
+            },
+            {
+              "name": "fundamentals",
+              "count": 26378,
+              "data_bytes": 3718010,
+              "index_bytes": 827392,
+              "storage_bytes": 1589248
+            },
+            {
+              "name": "portfolio",
+              "count": 1,
+              "data_bytes": 3354605,
+              "index_bytes": 36864,
+              "storage_bytes": 1409024
+            },
+            {
+              "name": "watchlist_snapshots",
+              "count": 24,
+              "data_bytes": 2620179,
+              "index_bytes": 36864,
+              "storage_bytes": 520192
+            },
+            {
+              "name": "market_info_raw",
+              "count": 86,
+              "data_bytes": 2446240,
+              "index_bytes": 36864,
+              "storage_bytes": 729088
+            },
+            {
+              "name": "sector_index",
+              "count": 11102,
+              "data_bytes": 1454090,
+              "index_bytes": 540672,
+              "storage_bytes": 614400
+            },
+            {
+              "name": "corporate_actions",
+              "count": 1777,
+              "data_bytes": 717858,
+              "index_bytes": 188416,
+              "storage_bytes": 282624
+            },
+            {
+              "name": "settings",
+              "count": 9,
+              "data_bytes": 414023,
+              "index_bytes": 36864,
+              "storage_bytes": 368640
+            },
+            {
+              "name": "index_constituents",
+              "count": 9,
+              "data_bytes": 329987,
+              "index_bytes": 36864,
+              "storage_bytes": 196608
+            },
+            {
+              "name": "macro_daily",
+              "count": 234,
+              "data_bytes": 101685,
+              "index_bytes": 36864,
+              "storage_bytes": 81920
+            },
+            {
+              "name": "resource_feeds",
+              "count": 10,
+              "data_bytes": 59275,
+              "index_bytes": 36864,
+              "storage_bytes": 53248
+            },
+            {
+              "name": "pwoi_daily",
+              "count": 63,
+              "data_bytes": 28224,
+              "index_bytes": 36864,
+              "storage_bytes": 45056
+            },
+            {
+              "name": "index_daily",
+              "count": 67,
+              "data_bytes": 27202,
+              "index_bytes": 36864,
+              "storage_bytes": 53248
+            },
+            {
+              "name": "fii_daily",
+              "count": 77,
+              "data_bytes": 13792,
+              "index_bytes": 36864,
+              "storage_bytes": 45056
+            },
+            {
+              "name": "sebi_orders",
+              "count": 36,
+              "data_bytes": 13283,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "backtests",
+              "count": 8,
+              "data_bytes": 2491,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "upstox_token",
+              "count": 1,
+              "data_bytes": 446,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "trades",
+              "count": 0,
+              "data_bytes": 0,
+              "index_bytes": 45056,
+              "storage_bytes": 94208
+            }
+          ]
+        },
+        {
+          "database": "sourceborn_sburr",
+          "data_bytes": 2911147,
+          "index_bytes": 483328,
+          "storage_bytes": 954368,
+          "collections": [
+            {
+              "name": "unrealtorealpasstraces",
+              "count": 2130,
+              "data_bytes": 1322999,
+              "index_bytes": 69632,
+              "storage_bytes": 200704
+            },
+            {
+              "name": "stagetraces",
+              "count": 2152,
+              "data_bytes": 1051966,
+              "index_bytes": 69632,
+              "storage_bytes": 237568
+            },
+            {
+              "name": "loopruns",
+              "count": 193,
+              "data_bytes": 180705,
+              "index_bytes": 36864,
+              "storage_bytes": 73728
+            },
+            {
+              "name": "messages",
+              "count": 146,
+              "data_bytes": 128438,
+              "index_bytes": 36864,
+              "storage_bytes": 135168
+            },
+            {
+              "name": "gaptables",
+              "count": 289,
+              "data_bytes": 98912,
+              "index_bytes": 36864,
+              "storage_bytes": 61440
+            },
+            {
+              "name": "proofledgers",
+              "count": 209,
+              "data_bytes": 70579,
+              "index_bytes": 36864,
+              "storage_bytes": 53248
+            },
+            {
+              "name": "uploadedfiles",
+              "count": 15,
+              "data_bytes": 30592,
+              "index_bytes": 36864,
+              "storage_bytes": 61440
+            },
+            {
+              "name": "chatsessions",
+              "count": 55,
+              "data_bytes": 11527,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "users",
+              "count": 39,
+              "data_bytes": 8881,
+              "index_bytes": 73728,
+              "storage_bytes": 45056
+            },
+            {
+              "name": "wildpaths",
+              "count": 16,
+              "data_bytes": 6548,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "adminlogs",
+              "count": 0,
+              "data_bytes": 0,
+              "index_bytes": 4096,
+              "storage_bytes": 4096
+            },
+            {
+              "name": "modelruns",
+              "count": 0,
+              "data_bytes": 0,
+              "index_bytes": 4096,
+              "storage_bytes": 4096
+            },
+            {
+              "name": "sourcedocuments",
+              "count": 0,
+              "data_bytes": 0,
+              "index_bytes": 4096,
+              "storage_bytes": 4096
+            }
+          ]
+        },
+        {
+          "database": "test",
+          "data_bytes": 12591778,
+          "index_bytes": 1331200,
+          "storage_bytes": 3284992,
+          "collections": [
+            {
+              "name": "unrealtorealpasstraces",
+              "count": 6787,
+              "data_bytes": 4860736,
+              "index_bytes": 114688,
+              "storage_bytes": 638976
+            },
+            {
+              "name": "stagetraces",
+              "count": 6769,
+              "data_bytes": 3555557,
+              "index_bytes": 110592,
+              "storage_bytes": 716800
+            },
+            {
+              "name": "messages",
+              "count": 416,
+              "data_bytes": 1068812,
+              "index_bytes": 118784,
+              "storage_bytes": 495616
+            },
+            {
+              "name": "gaptables",
+              "count": 2144,
+              "data_bytes": 764569,
+              "index_bytes": 61440,
+              "storage_bytes": 184320
+            },
+            {
+              "name": "loopruns",
+              "count": 578,
+              "data_bytes": 548984,
+              "index_bytes": 45056,
+              "storage_bytes": 143360
+            },
+            {
+              "name": "uploadedfiles",
+              "count": 53,
+              "data_bytes": 498081,
+              "index_bytes": 110592,
+              "storage_bytes": 368640
+            },
+            {
+              "name": "proofledgers",
+              "count": 1412,
+              "data_bytes": 487162,
+              "index_bytes": 61440,
+              "storage_bytes": 139264
+            },
+            {
+              "name": "modelruns",
+              "count": 1076,
+              "data_bytes": 378829,
+              "index_bytes": 65536,
+              "storage_bytes": 102400
+            },
+            {
+              "name": "nodebrains",
+              "count": 181,
+              "data_bytes": 252531,
+              "index_bytes": 110592,
+              "storage_bytes": 110592
+            },
+            {
+              "name": "memories",
+              "count": 202,
+              "data_bytes": 70815,
+              "index_bytes": 73728,
+              "storage_bytes": 102400
+            },
+            {
+              "name": "wildpaths",
+              "count": 112,
+              "data_bytes": 45053,
+              "index_bytes": 36864,
+              "storage_bytes": 53248
+            },
+            {
+              "name": "loopchains",
+              "count": 15,
+              "data_bytes": 31482,
+              "index_bytes": 73728,
+              "storage_bytes": 53248
+            },
+            {
+              "name": "chatsessions",
+              "count": 65,
+              "data_bytes": 18485,
+              "index_bytes": 73728,
+              "storage_bytes": 45056
+            },
+            {
+              "name": "users",
+              "count": 17,
+              "data_bytes": 8870,
+              "index_bytes": 73728,
+              "storage_bytes": 45056
+            },
+            {
+              "name": "reviews",
+              "count": 7,
+              "data_bytes": 1400,
+              "index_bytes": 147456,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "adminlogs",
+              "count": 2,
+              "data_bytes": 412,
+              "index_bytes": 36864,
+              "storage_bytes": 36864
+            },
+            {
+              "name": "corpusentries",
+              "count": 0,
+              "data_bytes": 0,
+              "index_bytes": 8192,
+              "storage_bytes": 4096
+            },
+            {
+              "name": "sourcedocuments",
+              "count": 0,
+              "data_bytes": 0,
+              "index_bytes": 4096,
+              "storage_bytes": 4096
+            },
+            {
+              "name": "weeklyreports",
+              "count": 0,
+              "data_bytes": 0,
+              "index_bytes": 4096,
+              "storage_bytes": 4096
+            }
+          ]
+        }
+      ],
+      "cluster_logical_bytes": 332958485,
+      "journal_rows": 41902,
+      "packed_rows": 36760,
+      "scope": "sequential read-only observations; ordinary writers continue; no other app modified",
+      "cluster_logical_mib": 317.53395557403564,
+      "headroom_to_512_mib": 194.46604442596436
+    },
+    "warning": "sequential observations while other applications continue writing; logical data plus indexes, not physical disk allocation"
+  },
+  "export_index": {
+    "native": {
+      "at": "2026-11-20T08:21:58.913933+00:00",
+      "before_index_error_code": 292,
+      "sort_limit_bytes": 33554432,
+      "disk_sort_allowed": false,
+      "winning_plan_stages": [
+        "LIMIT",
+        "PROJECTION_SIMPLE",
+        "FETCH",
+        "IXSCAN"
+      ],
+      "read_rows": 20000,
+      "traced_python_peak_bytes": 7144268,
+      "original_count_preserved": 40333,
+      "index_create_repeat_idempotent": true,
+      "production_mutations": 0
+    },
+    "live": {
+      "at": "2026-11-20T08:22:18.177479+00:00",
+      "index": "journal_recent_ts_id",
+      "before": [
+        {
+          "name": "_id_",
+          "key": {
+            "_id": 1
+          }
+        }
+      ],
+      "winning_plan_stages": [
+        "LIMIT",
+        "PROJECTION_SIMPLE",
+        "FETCH",
+        "IXSCAN"
+      ],
+      "document_mutations": 0,
+      "only_mutation": "one nonunique supporting index in sourceborn.journal_archive"
+    },
+    "http_export": "POST_INDEX_REQUEST_TIMED_OUT_300_SECONDS_DURING_NORMAL_SCAN; native 20000 rows passed; HTTP acceptance remains open",
+    "live_native_iterator": {
+      "at": "2026-11-20T08:30:33.847675+00:00",
+      "rows": 20000,
+      "seconds": 40.07486370799961,
+      "scope": "read-only live native iterator after supporting index"
+    }
+  },
+  "hotfix": {
+    "revision": "fd0700ac58c48d47769e25fc8d945ec1315f5154",
+    "deployment": "dep-dbvv3quc6qcc73amm5k0",
+    "live_at": "2026-11-20T07:10:16Z",
+    "ci": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/44689081974",
+    "tests": 3489,
+    "skipped": 0
+  },
+  "integration": {
+    "pr": "https://github.com/damandamanaulakh-tech/MARS/pull/224",
+    "head": "d4e067dcbfbe17c93e0af176fcc064159cd7ff9b",
+    "merge": "7337aa29510b3775de44ac0f3df2998cdc7ad85d",
+    "tree": "0703c5c382caaf2ecfa374ccfc607e5ab7a593b0",
+    "ci": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/44690960732",
+    "jobs_passed": 6,
+    "tests": 3535,
+    "skipped": 0,
+    "deployment": "dep-dc00e86i0phs73bblqrg",
+    "live_at": "2026-11-20T08:40:32.305594Z",
+    "forward_evidence": "docs/repairs/evidence/2026-11-20-combined-live.json"
+  },
+  "followup": {
+    "index_startup_focused_tests": 68,
+    "full_tests": {
+      "scope": "every Git-tracked test; same canonical files as CI",
+      "passed": 3538,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 372.433
+    },
+    "automatic_index_preparation": "LOCAL_TESTED",
+    "noncanonical_duplicate_run": {
+      "passed": 3982,
+      "failed": 11,
+      "all_failures_in_untracked_space_2_py_files": true,
+      "skipped": 0,
+      "action": "all Git-tracked tests run separately; duplicate files untouched"
+    },
+    "quote_dependency_regression": {
+      "failing_before": 2,
+      "focused_passed_after": 79,
+      "full_suite": "3540_PASSED_ZERO_SKIPS",
+      "scope": "download only the requested report; no quote requests for historical CSVs and no journal load for unrelated CSVs"
+    },
+    "final_full_tests": {
+      "scope": "every Git-tracked test after report isolation",
+      "passed": 3540,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 219.251
+    }
+  },
+  "limits": [
+    "Prior process-only RAM/spill coverage remains unknown.",
+    "All backup copies are on one owner Mac.",
+    "Permanent retention and write-refusal entry guards remain open.",
+    "Free Render instance restarts can interrupt background work.",
+    "No production scan or trade was induced.",
+    "No paid upgrade or other-application cleanup was performed."
+  ],
+  "pre_goal11_checkpoint": {
+    "at": "2026-11-20T08:37:40.649187+00:00",
+    "request_http": 303,
+    "old_last_save": "2026-11-20T08:36:10.714918",
+    "new_last_save": "2026-11-20T08:37:11.204613",
+    "positions": 33,
+    "closed": 80,
+    "changed_financial_fields": [],
+    "native_readback": true,
+    "localhost_restore": true,
+    "captured_files": {
+      "portfolio.bson": {
+        "bytes": 3364783,
+        "sha256": "6835a2def719c614697aa8ef9e90d7ed1585cf9c2a151784e85ef7ca53164bcd"
+      },
+      "trades.bson": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "settings.bson": {
+        "bytes": 414023,
+        "sha256": "3bd2760eacd7276820841dec6c08e73e4f627f94111dfa377c9a5421482ce30a"
+      },
+      "portfolio-before.bson": {
+        "bytes": 3364783,
+        "sha256": "6cc6679cd8108f90b64705fbdd516857013eeb0cc966ba4b49ca8a94449fe9c7"
+      }
+    }
+  },
+  "new_journal_backup": {
+    "at": "2026-11-20T08:38:32.597877+00:00",
+    "new_identities": 3939,
+    "bytes": 9527682,
+    "sha256": "17c1b72a4df6606f50b65fc5ad36404d575d902065eacadec26b9761b552ad84",
+    "independent_source_reread": true,
+    "native_restore_exact": true,
+    "scope": "new identity set observed at start; normal appends after that frontier belong to later checkpoints"
+  }
+}

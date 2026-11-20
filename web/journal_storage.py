@@ -7,6 +7,17 @@ from pymongo import UpdateOne
 from .journal_archive_codec import OPTIONS, pack_raw, decode_record, ArchiveFormatError
 
 
+def ensure_indexes(collection):
+    """Use index order for the bounded tail; Atlas free-tier sorts cap at 32 MiB.
+
+    Projecting only IDs in find() does not stop Mongo from holding complete
+    documents in a blocking sort. This non-unique index also preserves the
+    deterministic tie-break used by iter_latest, without enabling disk spill.
+    """
+    return collection.create_index([('ts', -1), ('_id', -1)],
+                                   name='journal_recent_ts_id')
+
+
 def _ordered(value):
     if isinstance(value, dict):
         return {k: _ordered(v) for k, v in sorted(value.items())}

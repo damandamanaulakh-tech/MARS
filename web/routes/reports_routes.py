@@ -142,7 +142,7 @@ def _watchlist_show(ts_key: Optional[str]) -> Optional[dict]:
     return None
 
 
-def _generate_all() -> Dict[str, Optional[str]]:
+def _generate_all(only: str | None = None) -> Dict[str, Optional[str]]:
     """Triggers report generation; returns {name: path}. Each file is
     always written (headers + rows). Errors are caught per-report so one
     bad generator can't take the others down."""
@@ -158,16 +158,21 @@ def _generate_all() -> Dict[str, Optional[str]]:
     # "current_price", so unrealised P&L was always 0.00 — fabricated flat
     # marks in the owner's own download. Live marks now; a name without a
     # live quote falls back to entry and the row SAYS so (price_source).
-    tickers = [pos.ticker for pos in portfolio.positions.values()]
-    live, _ = app_state.marks(tickers)
-    prices = {pos.ticker: live.get(pos.ticker, pos.entry_price)
-              for pos in portfolio.positions.values()}
-    srcs = app_state.marks_sources(tickers)
-    price_source = {
-        pos.ticker: ("live" if srcs.get(pos.ticker) == "upstox"
-                     else "delayed_close" if pos.ticker in live
-                     else "entry")
-        for pos in portfolio.positions.values()}
+    prices, price_source = {}, {}
+    # Historical downloads need no current quotes. Generating every report
+    # here made a journal/trade CSV wait for unrelated provider calls, and
+    # downloading any small report also decoded the full journal archive.
+    if only in (None, "positions"):
+        tickers = [pos.ticker for pos in portfolio.positions.values()]
+        live, _ = app_state.marks(tickers)
+        prices = {pos.ticker: live.get(pos.ticker, pos.entry_price)
+                  for pos in portfolio.positions.values()}
+        srcs = app_state.marks_sources(tickers)
+        price_source = {
+            pos.ticker: ("live" if srcs.get(pos.ticker) == "upstox"
+                         else "delayed_close" if pos.ticker in live
+                         else "entry")
+            for pos in portfolio.positions.values()}
 
     paths: Dict[str, Optional[str]] = {}
     writers = [
@@ -184,6 +189,8 @@ def _generate_all() -> Dict[str, Optional[str]]:
             portfolio, archived=db.iter_journal_archive())),
     ]
     for name, fn in writers:
+        if only is not None and name != only:
+            continue
         try:
             paths[name] = fn()
         except Exception:
@@ -273,7 +280,7 @@ def trigger_backup(request: Request):
 def download(request: Request, name: str):
     if not auth.current_user(request):
         return RedirectResponse("/login", status_code=303)
-    paths = _generate_all()
+    paths = _generate_all(only=name)
     p = paths.get(name)
     if not p or not os.path.exists(p):
         return RedirectResponse("/reports?generated=missing", status_code=303)

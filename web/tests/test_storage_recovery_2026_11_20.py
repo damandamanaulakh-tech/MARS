@@ -142,3 +142,55 @@ def test_report_consumes_archive_lazily_and_keeps_each_row(tmp_path):
         tracemalloc.stop()
     assert peak < 4_000_000  # materializing the snapshots would exceed 20 MB
     assert len(seen)==1000 and len(open(path).readlines())==1001
+
+
+@pytest.mark.parametrize('index_refused', [False, True])
+def test_connect_prepares_bounded_export_without_losing_book_on_index_refusal(monkeypatch, index_refused):
+    import pymongo
+    calls=[]
+    def create_index(keys, **kwargs):
+        calls.append((keys, kwargs))
+        if index_refused:
+            raise RuntimeError('index temporarily unavailable')
+        return kwargs['name']
+    database=SimpleNamespace(journal_archive=SimpleNamespace(create_index=create_index))
+    class Client:
+        admin=SimpleNamespace(command=lambda *_: {'ok':1})
+        def __getitem__(self, name):
+            assert name=='sourceborn'
+            return database
+    monkeypatch.setenv('MONGO_URL','mongodb://isolated-fixture.invalid')
+    monkeypatch.setenv('MONGO_DB','sourceborn')
+    monkeypatch.setattr(pymongo,'MongoClient',lambda *a,**kw:Client())
+    monkeypatch.setattr(db,'_CLIENT',None)
+    monkeypatch.setattr(db,'_DB',None)
+    monkeypatch.setattr(db,'_CONNECTED',False)
+    db._try_connect()
+    assert db._CONNECTED and db._DB is database
+    assert calls==[([('ts',-1),('_id',-1)],{'name':'journal_recent_ts_id'})]
+
+
+@pytest.mark.parametrize('name', ['decision_journal', 'trades'])
+def test_history_download_remains_available_when_live_quotes_are_unavailable(monkeypatch, tmp_path, name):
+    from fastapi.testclient import TestClient
+    from web.main import app
+    from web import auth
+    p=Portfolio.fresh(Config(state_dir=str(tmp_path)))
+    p.positions['AAA.NS']=SimpleNamespace(ticker='AAA.NS',entry_price=100.)
+    p.trades=[ClosedTrade.from_dict(trade())]
+    p.decision_journal=[{'ts':'2026-11-20T04:00:00','action':'HOLD'}]
+    monkeypatch.setattr(state,'portfolio',lambda:p)
+    monkeypatch.setattr(auth,'current_user',lambda request:{'role':'owner'})
+    def unrelated(*args,**kwargs):
+        raise AssertionError('History export called an unrelated quote provider or archive')
+    monkeypatch.setattr(state,'marks',unrelated)
+    monkeypatch.setattr(state,'marks_sources',unrelated)
+    monkeypatch.setattr(db,'list_trades',(lambda:[]) if name=='trades' else unrelated)
+    monkeypatch.setattr(db,'iter_journal_archive',
+        (lambda:iter([{'ts':'2026-11-19T04:00:00','action':'SCAN_DECISION'}])) if name=='decision_journal' else unrelated)
+    response=TestClient(app).get('/reports/download/'+name,follow_redirects=False)
+    assert response.status_code==200 and 'text/csv' in response.headers['content-type']
+    if name=='decision_journal':
+        assert 'SCAN_DECISION' in response.text and 'HOLD' in response.text
+    else:
+        assert 'STOP_LOSS' in response.text and 'net_pnl' in response.text
