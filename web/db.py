@@ -85,8 +85,20 @@ def boot_was_degraded() -> bool:
 
 
 def recovered_pending() -> bool:
-    """True once, after a dead->alive transition, until claimed by heal."""
+    """A reconnected or initially unread book still needs safe reconciliation."""
     return _RECOVERED_PENDING
+
+
+def require_portfolio_recovery(reason: str) -> None:
+    """A connected database with a refused initial book read is also degraded.
+
+    Mark this before any migration or checkpoint can write a local fallback.
+    The existing healer must read the durable book and reconcile it first.
+    """
+    global _BOOT_DEGRADED, _RECOVERED_PENDING
+    _BOOT_DEGRADED = True
+    _RECOVERED_PENDING = True
+    portfolio_write_failed(reason)
 
 
 def claim_recovery() -> None:

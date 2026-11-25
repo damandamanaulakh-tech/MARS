@@ -1,5 +1,7 @@
 # Ordered repair programme — 11 November 2026
 
+Current saving follow-up: **XR-071 / RUN-20261125-02**. Startup acknowledgement and same-pass recovery implemented; 3,639 local tests passed with zero skips. CI and release pending. The observed app recovered and saved all 39 open positions before this repair. [Follow-up evidence](releases/2026-11-25-startup-save-recovery.md).
+
 Current owner policy batch: **ALLOC-001 — six-segment allocation 30/10/24/24/10/2**. **Shipped in PR229; matching deployment, health and all six saved settings verified.** Normal entry/add/rotation observation remains pending. [Release record](releases/2026-11-25-six-segment-allocation.md). **RUN-20261125-01 remains open:** both the 10:49 and 11:14 IST intraday scans had zero ranked/buys; all initially ready frames became stale before scoring. Latest scan reconciles 1,014 capped + 82 deadline-labelled + 1 unmapped + 36 stale = 1,133 stocks. Scheduled rotation overlap/recovery has separate dated evidence. [Investigation](evidence/2026-11-25-no-new-positions.md).
 
 **Previous batch: XR-071.** New buys wait after a failed portfolio save; protective exits and independent save retries remain active. Shipped in PR227: all six CI jobs passed, with 3,572 canonical tests and zero skips. Matching deployment, startup buying block, acknowledged save and unchanged 33-open/80-closed book verified on 20 November at 17:40 UTC. Natural production refusal observation remains pending. [Save guard evidence](releases/2026-11-20-xr071-save-guard.md).
