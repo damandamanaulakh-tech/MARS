@@ -4786,5 +4786,33 @@
     "deployment_revision": "240e8711cce48a09e359250531a238c58dcee7f9",
     "source_sheet": "Owner policy",
     "source_row": 0
+  },
+  {
+    "id": "BATCH-001",
+    "priority": "P1",
+    "area": "Owner strategy entry authority",
+    "finding": "Owner requested all eligible non-intraday selections fitting each segment allocation, with one explicitly authorized measured-performance veto exception and automatic exits, without owner-deck management.",
+    "impact": "An ad hoc manual buy can misclassify entry authority or bypass strategy management; a global performance bypass could leak into subsequent automatic scans.",
+    "source_severity": "OWNER_POLICY",
+    "source_status": "OWNER_APPROVED",
+    "updated_state": "LOCAL_TESTED_CI_PENDING",
+    "review_note": "Scoped worker-only authority; durable request checkpoints; dated idempotency; no automatic replay; separate owner-batch forward cohorts retain all economic outcomes. The original batch was not executed. Owner renewed authority for next open session fresh selections during this continuation.",
+    "draft_state": "",
+    "proposed_fix": "Owner-only engine-managed paper batch over Momentum, Short, Swing and Positional with existing Ocean overlay. Override only the measured-performance entry veto; retain cash, segment, quote, stop-risk and other gates.",
+    "effort": "M",
+    "source_evidence": "Owner instructions in this conversation: all eligible names within allocations, exclude Intraday, one-time performance-gate override, then explicit next-session renewal.",
+    "source_origin": "Owner policy request",
+    "owner_decision": "Use next open session fresh selections; all eligible names fitting allocations; Intraday excluded; one-time measured-performance override; automatic exits, not owner deck.",
+    "owner_note": "No dated batch has yet been submitted to production. No real broker order authority is added.",
+    "current_evidence": "docs/repairs/releases/2026-11-26-owner-strategy-batch.md",
+    "related_id": "XR-071; ALLOC-001; SEQ-11",
+    "acceptance": "Owner authorization and same-origin POST; actual market/date checks even after slow work; no replay or duplicate fills; acknowledged saves before work; original segment/stop/target and automatic exits; other gates and positive sizing caps remain; truthful partial/interrupted counts; economic losses retained and owner results separated from automatic cohorts; JSON/Mongo reload, full zero-skip suite, six CI jobs, exact deployment.",
+    "workflow": "PUBLISHED_CI_PENDING",
+    "assignee": "Codex",
+    "fix_commit": "",
+    "test_result": "3750 full local tests passed, zero skipped/failures/errors,169.83s;560 source/template/workflow hashes unchanged during run.110 new cases. Independent review and canonical records passed. Initial failed full run retained with source-edit timing and equal-clock fixture causes. Six CI jobs, merge and exact deployment pending.",
+    "deployment_revision": "",
+    "source_sheet": "Owner policy",
+    "source_row": 0
   }
 ]

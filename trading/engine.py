@@ -14,6 +14,7 @@ from __future__ import annotations
 import copy
 import logging
 import math
+from contextlib import contextmanager
 from functools import wraps
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -86,6 +87,9 @@ class TradingEngine:
         # Optional broker client for real-time quotes. Set via .attach_broker()
         # so the engine module stays free of web/auth deps.
         self.broker = None  # UpstoxClient | None
+        # Owner batch authority belongs only to the worker executing it. A
+        # concurrent scheduled scan must never inherit its one-time exception.
+        self._strategy_batch_local = _threading.local()
         # v5: graduated drawdown + consecutive-loss controls (stateful, persist
         # across scans within a session)
         from .risk_v2 import ConsecutiveLossTracker, DrawdownGovernor
@@ -116,6 +120,142 @@ class TradingEngine:
         self.broker = broker_client
 
     # ---------- public API ----------
+
+    @contextmanager
+    def strategy_batch_request(self, *, batch_id: str, actor: str,
+                               authorized_date_ist: str,
+                               override_measured_performance: bool = False):
+        """Scope a dated owner paper batch without changing any saved setting."""
+        previous = self._active_strategy_batch()
+        self._strategy_batch_local.authority = {
+            "batch_id": batch_id, "actor": actor,
+            "authorized_date_ist": authorized_date_ist,
+            "override": {"scope": "measured_performance",
+                         "authorized": override_measured_performance is True,
+                         "applied": False},
+            "execution": "paper",
+        }
+        try:
+            yield
+        finally:
+            self._strategy_batch_local.authority = previous
+
+    def _active_strategy_batch(self):
+        return getattr(self._strategy_batch_local, "authority", None)
+
+    def _strategy_batch_decision(self, decision: dict, original_path=None):
+        authority = self._active_strategy_batch()
+        if authority is None:
+            return
+        previous = decision.get("strategy_batch") or {}
+        metadata = copy.deepcopy(authority)
+        metadata["original_path"] = (original_path or previous.get("original_path")
+                                     or decision.get("path", "scan"))
+        if previous.get("batch_id") == authority["batch_id"]:
+            metadata["override"]["applied"] = bool((previous.get("override") or {}).get("applied"))
+        decision["path"] = "owner_strategy_batch"
+        decision["strategy_batch"] = metadata
+
+    def _strategy_batch_guard(self, cfg=None, decision=None):
+        """Final wall-clock authority check; captured scan times cannot replay it."""
+        authority = self._active_strategy_batch()
+        if authority is None:
+            return
+        from .calendars import is_trading_day, MARKET_OPEN_IST, MARKET_CLOSE_IST
+        from zoneinfo import ZoneInfo
+        clock = ir.utc(datetime.utcnow()).astimezone(ZoneInfo("Asia/Kolkata"))
+        mode = (cfg or self.cfg).mode
+        reason = None
+        if authority.get("authorized_date_ist") != clock.date().isoformat():
+            reason = "strategy_batch_expired"
+        elif mode not in ("nifty200_momentum", "short", "swing", "positional"):
+            reason = "strategy_batch_segment_not_authorized"
+        elif (not is_trading_day(clock.date())
+              or not (MARKET_OPEN_IST <= (clock.hour, clock.minute) < MARKET_CLOSE_IST)):
+            reason = "strategy_batch_market_closed"
+        if decision is not None:
+            self._strategy_batch_decision(decision)
+            de.put(decision, "strategy_batch_authority", {
+                "authorized_date_ist": authority.get("authorized_date_ist"),
+                "checked_at": clock.isoformat(), "mode": mode},
+                "Same authorized IST date, continuous market session, non-intraday segment",
+                passed=reason is None, reason=reason or "Dated owner authority valid")
+        if reason:
+            raise ValueError(reason)
+
+    def _strategy_batch_quote_ok(self, pick, now, *, require_request=False):
+        """A batch cannot fill on legacy unknown adapters or an aged quote."""
+        quote = pick.get("quote_evidence") or {}
+        ticker = pick["ticker"]
+        batch = qe.QuoteBatch({ticker: quote.get("price")}, evidence={ticker: quote})
+        observation = qe.observation(batch, ticker, now)
+        from zoneinfo import ZoneInfo
+        received = qe.utc(observation.get("received_at")) if observation.get("received_at") else None
+        provider = qe.utc(observation.get("provider_at")) if observation.get("provider_at") else None
+        clock = qe.utc(now)
+        receipt_proved = bool(received and received <= clock and
+            (provider is None or provider <= clock) and
+            received.astimezone(ZoneInfo("Asia/Kolkata")).date() ==
+            clock.astimezone(ZoneInfo("Asia/Kolkata")).date())
+        if require_request:
+            requested = qe.utc(pick.get("_strategy_batch_quote_requested_at")) if pick.get("_strategy_batch_quote_requested_at") else None
+            recorded_request = qe.utc(observation.get("execution_request_started_at")) if observation.get("execution_request_started_at") else None
+            receipt_proved = bool(receipt_proved and requested and
+                                  recorded_request == requested and
+                                  requested <= received <= clock)
+        # Keep the router's existing execution policy (including completed
+        # minute expiry). This exception does not invent another age limit.
+        ok = qe.executable(batch, ticker, now) and receipt_proved
+        if pick.get("decision") is not None:
+            de.put(pick["decision"], "strategy_batch_quote", observation,
+                   ("Executable quote received from this candidate's new execution request"
+                    if require_request else
+                    "Existing executable quote policy and proved same-session receipt timestamp"),
+                   passed=ok, reason="Fresh quote required for this owner batch")
+        return ok
+
+    def _strategy_batch_execution_quote(self, pick):
+        """Fetch this candidate again before sizing; never reuse the scan LTP.
+
+        A same-day receipt proves when a provider answered, not that an old
+        quote remains executable hours later. Bound the receipt to this new
+        request instead of adding an unrelated global age threshold.
+        """
+        self._strategy_batch_guard(decision=pick.get("decision"))
+        self._check_entry_persistence(pick.get("decision"))
+        started = qe.utc(datetime.utcnow())
+        pick["_strategy_batch_quote_requested_at"] = started.isoformat()
+        try:
+            quotes = routed_fetch_quotes([pick["ticker"]], upstox_client=self.broker)
+        except Exception as exc:
+            pick["quote_evidence"] = qe.make(None, "unavailable", datetime.utcnow(),
+                reason="Execution quote request failed", execution_request_started_at=started.isoformat())
+            if pick.get("decision") is not None:
+                pick["decision"]["quote"] = copy.deepcopy(pick["quote_evidence"])
+                de.put(pick["decision"], "strategy_batch_execution_quote", pick["quote_evidence"],
+                       "New executable quote before sizing", passed=False,
+                       reason="Request failed: " + type(exc).__name__)
+            raise ValueError("strategy_batch_quote_refresh_failed") from exc
+        checked = datetime.utcnow()
+        observation = qe.observation(quotes, pick["ticker"], checked)
+        observation["execution_request_started_at"] = started.isoformat()
+        pick["quote_evidence"] = observation
+        if pick.get("decision") is not None:
+            pick["decision"]["quote"] = copy.deepcopy(observation)
+        # A slow provider must not let a saved scan clock place a late order.
+        self._strategy_batch_guard(decision=pick.get("decision"))
+        quote_ok = self._strategy_batch_quote_ok(pick, checked, require_request=True)
+        quote_ok = (quote_ok and isinstance(quotes, qe.QuoteBatch)
+                    and quotes.get(pick["ticker"]) == observation.get("price"))
+        if pick.get("decision") is not None:
+            de.put(pick["decision"], "strategy_batch_execution_quote", observation,
+                   "New executable quote received after this candidate's request began",
+                   passed=quote_ok, reason="Sizing and fill use this returned price; no earlier-price fallback")
+        if not quote_ok:
+            raise ValueError("strategy_batch_quote_unavailable_or_stale")
+        # Retain the request proof when the normal sizing loop observes it.
+        return qe.QuoteBatch({pick["ticker"]: quotes[pick["ticker"]]},
+                             evidence={pick["ticker"]: observation})
 
     def scan_universe(self, history_period: str = "6mo") -> tuple:
         """Which tickers today's scan reads, and how much history.
@@ -236,6 +376,8 @@ class TradingEngine:
                 "rows": {t: intraday_details[t] for t in universe}}
         decisions = {t: de.new(t, cfg.mode, "scan", datetime.utcnow(), signal_history.get(t))
                      for t in universe}
+        for decision in decisions.values():
+            self._strategy_batch_decision(decision, "scan")
         context_inputs = ci.prepare(universe, cfg, datetime.utcnow(), client=self.broker)
         for t, d in decisions.items():
             d["market_context"] = ci.observation(context_inputs, t, signal_history.get(t), signal_bench, cfg, datetime.utcnow())
@@ -655,6 +797,7 @@ class TradingEngine:
         ocean_picks = self._ocean_picks(regime, history, universe, now)
         for pick in ocean_picks:
             d = pick.setdefault("decision", de.new(pick["ticker"], cfg.mode, "ocean", now, history.get(pick["ticker"])))
+            self._strategy_batch_decision(d, "ocean")
             d['market_context'] = ci.observation(context_inputs, pick['ticker'],
                 signal_history.get(pick['ticker']), signal_bench, cfg, datetime.utcnow())
             decisions[pick["ticker"] + ":ocean"] = d
@@ -707,6 +850,7 @@ class TradingEngine:
         kept = []
         for pk in picks:
             pk.setdefault("decision", de.new(pk["ticker"], cfg.mode, "ocean" if pk.get("ocean") else "scan", now, history.get(pk["ticker"])))
+            self._strategy_batch_decision(pk["decision"], "ocean" if pk.get("ocean") else "scan")
             sec = cfg.sector_map.get(pk["ticker"], "Unknown")
             de.put(pk["decision"], "sector_blacklist", sec, sorted(blacklist),
                    state="skipped" if not blacklist else "unavailable" if sec == "Unknown" else None,
@@ -922,9 +1066,23 @@ class TradingEngine:
                        passed=not (mk is not None and mk.block_new_entries), reason="Ocean exempt" if pick.get("ocean") else "")
                 if (mk is not None and mk.block_new_entries
                         and not pick.get("ocean")):
-                    skipped.append({"ticker": pick["ticker"],
-                                    "reason": "measured_kelly_no_edge"})
-                    continue
+                    authority = self._active_strategy_batch()
+                    if authority and authority["override"]["authorized"]:
+                        try:
+                            self._strategy_batch_guard(decision=d)
+                        except ValueError as exc:
+                            skipped.append({"ticker": pick["ticker"], "reason": str(exc)})
+                            continue
+                        # The observed gate remains FAILED. Authority is a
+                        # separate fact; never rewrite a loss as an edge.
+                        d["strategy_batch"]["override"]["applied"] = True
+                        de.put(d, "measured_performance_override", copy.deepcopy(d["strategy_batch"]),
+                               "Owner-authorized dated exception to measured-performance entry veto only",
+                               passed=True)
+                    else:
+                        skipped.append({"ticker": pick["ticker"],
+                                        "reason": "measured_kelly_no_edge"})
+                        continue
                 de.put(d, "system_event", {"event_type": binary_event.event_type, "event_date": str(binary_event.event_date)} if binary_event else None,
                        {"lookahead_days": 3}, passed=binary_event is None,
                        state=None if binary_event_available else "unavailable", reason="Known calendar only; no matching event" if binary_event is None else "Upcoming binary event")
@@ -1082,6 +1240,16 @@ class TradingEngine:
                 if isinstance(live_fill_px, qe.QuoteBatch) and not quote_ok:
                     skipped.append({"ticker": pick["ticker"], "reason": "quote_unavailable_or_non_executable"})
                     continue
+                if self._active_strategy_batch() is not None:
+                    pick["quote_evidence"] = quote_ev
+                    try:
+                        self._strategy_batch_guard(decision=d)
+                    except ValueError as exc:
+                        skipped.append({"ticker": pick["ticker"], "reason": str(exc)})
+                        continue
+                    if not self._strategy_batch_quote_ok(pick, datetime.utcnow()):
+                        skipped.append({"ticker": pick["ticker"], "reason": "strategy_batch_quote_unavailable_or_stale"})
+                        continue
                 cleared.append(pick)
         # OWNER ORDER 2026-09-04: rotation executes. Runs BEFORE the opening
         # pass so the cash it frees is there when can_open counts it, and
@@ -1096,6 +1264,12 @@ class TradingEngine:
                 de.put(pk["decision"], "portfolio_save", reason, "Confirmed portfolio save", passed=False, reason=reason)
                 skipped.append({"ticker": pk["ticker"], "reason": reason})
             cleared = []
+        if self._active_strategy_batch() is not None:
+            try:
+                self._strategy_batch_guard()
+            except ValueError as exc:
+                skipped.extend({"ticker": pk["ticker"], "reason": str(exc)} for pk in cleared)
+                cleared = []
         try:
             rotated_out = self._rotation_exits(
                 cleared, now, entries_blocked=entries_blocked, history=history)
@@ -1110,15 +1284,23 @@ class TradingEngine:
                 if not ir.entry_allowed(cfg.mode, datetime.utcnow()):
                     skipped.append({"ticker": pick["ticker"], "reason": "intraday_entry_deadline"})
                     continue
-                live_px = live_fill_px.get(pick["ticker"])
-                quote_ev = qe.observation(live_fill_px, pick["ticker"], datetime.utcnow())
+                entry_quotes = live_fill_px
+                if self._active_strategy_batch() is not None:
+                    try:
+                        entry_quotes = self._strategy_batch_execution_quote(pick)
+                    except ValueError as exc:
+                        skipped.append({"ticker": pick["ticker"], "reason": str(exc),
+                                        "category": self._loss_halt_category(pick, cfg)})
+                        continue
+                live_px = entry_quotes.get(pick["ticker"])
+                quote_ev = qe.observation(entry_quotes, pick["ticker"], datetime.utcnow())
                 pick["quote_evidence"] = quote_ev
-                executable = qe.executable(live_fill_px, pick["ticker"], datetime.utcnow())
+                executable = qe.executable(entry_quotes, pick["ticker"], datetime.utcnow())
                 de.put(pick["decision"], "quote", quote_ev,
                        "Positive routed LTP or completed current-session minute close within interval + 60s of its end",
                        passed=executable, state="unavailable" if quote_ev.get("source") in ("unknown", "unavailable") else None,
                        reason="Price source/time retained; unknown injected adapters remain explicit")
-                if isinstance(live_fill_px, qe.QuoteBatch) and not executable:
+                if isinstance(entry_quotes, qe.QuoteBatch) and not executable:
                     skipped.append({"ticker": pick["ticker"], "reason": "quote_unavailable_or_non_executable"})
                     continue
                 if live_px and live_px > 0:
@@ -1257,7 +1439,7 @@ class TradingEngine:
                 try:
                     self._open(pick, qty, fill, entry_now, initial_stop=initial_stop)
                 except ValueError as exc:
-                    if str(exc).startswith(("intraday_", "costs_", "portfolio_save_", "category_budget_")):
+                    if str(exc).startswith(("intraday_", "costs_", "portfolio_save_", "category_budget_", "strategy_batch_")):
                         skipped.append({"ticker": pick["ticker"], "reason": str(exc),
                                         "category": self._loss_halt_category(pick, cfg)})
                         continue
@@ -1799,7 +1981,8 @@ class TradingEngine:
         marking_only = not self._trading_allowed(now)
         # F15: pyramid — add tranches to winners (opt-in, cfg.pyramid_enabled).
         # A pyramid add is a BUY; the market-hours rule covers it.
-        if getattr(cfg, "pyramid_enabled", False) and not marking_only:
+        if (getattr(cfg, "pyramid_enabled", False) and not marking_only
+                and self._active_strategy_batch() is None):
             try:
                 from .pyramid import pyramid_plan, apply_pyramid
                 for ticker in list(self.portfolio.positions.keys()):
@@ -1919,6 +2102,7 @@ class TradingEngine:
         of flipping the shared cfg.mode for the duration of the fill."""
         self._check_entry_persistence(pick.get("decision"))
         cfg = cfg if cfg is not None else self.cfg
+        self._strategy_batch_guard(cfg, pick.get("decision"))
         if (not ir.entry_allowed(cfg.mode, now)
                 or not ir.entry_allowed(cfg.mode, datetime.utcnow())):
             raise ValueError("intraday_entry_deadline")
@@ -1979,6 +2163,15 @@ class TradingEngine:
                    passed=within_share, state="skipped" if left is None else None)
         if not within_share:
             raise ValueError("category_budget_full")
+        if self._active_strategy_batch() is not None:
+            self._strategy_batch_guard(cfg, pick.get("decision"))
+            if not self._strategy_batch_quote_ok(pick, datetime.utcnow(), require_request=True):
+                raise ValueError("strategy_batch_quote_unavailable_or_stale")
+            # capture_entry reads pick.decision, so attach authority before
+            # both immutable trade evidence and forward-observation capture.
+            pick.setdefault("decision", de.new(pick["ticker"], cfg.mode,
+                            "ocean" if pick.get("ocean") else "scan", now, pick.get("history")))
+            self._strategy_batch_decision(pick["decision"])
         decision = copy.deepcopy(pick.get("decision") or de.new(pick["ticker"], cfg.mode, pick.get("entry_path", "direct"), now, pick.get("history")))
         decision.setdefault("market_context", ci.unavailable(pick["ticker"], now))
         de.put(decision, "entry_deadline_final", ir.utc(now).isoformat(), "Before intraday square-off deadline", passed=True,
@@ -2643,6 +2836,10 @@ class TradingEngine:
         if self.portfolio.entry_block_reason():
             return []  # funding a new buy is distinct from protective selling
         cfg = self.cfg
+        try:
+            self._strategy_batch_guard(cfg)
+        except ValueError:
+            return []
         if not ir.entry_allowed(cfg.mode, datetime.utcnow()):
             return []
         if not bool(getattr(cfg, "rotation_auto_enabled", True)):
@@ -2888,6 +3085,10 @@ class TradingEngine:
         freed = 0.0
         freed_share = 0.0
         for s in suggestions:
+            try:
+                self._strategy_batch_guard(cfg)
+            except ValueError:
+                break  # expired new-entry authority must not fund another buy
             if not ir.entry_allowed(cfg.mode, datetime.utcnow()):
                 break
             cash_ok = freed >= shortfall
@@ -3622,6 +3823,7 @@ class TradingEngine:
             return []   # Ocean is bonus; never block the Everest path
         finally:
             for ticker, trace in catalog.items():
+                self._strategy_batch_decision(trace, "ocean")
                 if ticker not in accepted:
                     failed = [k for k, g in trace["gates"].items() if g["state"] == "failed"]
                     missing = [k for k, g in trace["gates"].items() if g["state"] == "unavailable"]

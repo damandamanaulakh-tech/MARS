@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from copy import deepcopy
 from functools import lru_cache
 import hashlib
 import json
@@ -105,10 +106,16 @@ def entry_record(cfg, pick, now, qty=None):
     manifest = identity(cfg)
     data = {"signal": frame_data(pick.get("history")),
             "daily_risk": frame_data(pick.get("risk_history"))}
-    return {"model": MODEL, "run": manifest, "at": str(now), "original_qty": qty,
-            "path": (pick.get("decision") or {}).get("path", "unknown"),
-            "data": data, "data_sha256": digest(data),
-            "coverage": "own_symbol_inputs_only; full_peer_and_provider_snapshot_unavailable"}
+    decision = pick.get("decision") or {}
+    record = {"model": MODEL, "run": manifest, "at": str(now), "original_qty": qty,
+              "path": decision.get("path", "unknown"),
+              "data": data, "data_sha256": digest(data),
+              "coverage": "own_symbol_inputs_only; full_peer_and_provider_snapshot_unavailable"}
+    if isinstance(decision.get("strategy_batch"), dict):
+        # Owner authority is part of the executed entry, not a later label.
+        # Keep it independent of the scanner's mutable request/decision object.
+        record["strategy_batch"] = deepcopy(decision["strategy_batch"])
+    return record
 
 
 def finite(value):

@@ -654,5 +654,28 @@
       "related_open_incident": "RUN-20261125-01",
       "merge_sha": "240e8711cce48a09e359250531a238c58dcee7f9"
     }
-  ]
+  ],
+  "queued_owner_batch": {
+    "id": "BATCH-001",
+    "goal": "Owner requested all eligible non-intraday selections fitting each segment allocation, with one explicitly authorized measured-performance veto exception and automatic exits, without owner-deck management.",
+    "status": "PUBLISHED_CI_PENDING",
+    "evidence": "docs/repairs/releases/2026-11-26-owner-strategy-batch.md",
+    "depends_on": "XR-071 startup save recovery release",
+    "execution_authority": "Next open session fresh selections explicitly approved; no batch submitted yet",
+    "scope": [
+      "nifty200_momentum",
+      "short",
+      "swing",
+      "positional",
+      "existing_ocean_overlay"
+    ],
+    "exclude": [
+      "intraday"
+    ],
+    "override": "measured_performance_entry_veto_only",
+    "runtime": "NOT_EXECUTED",
+    "local_tests": 3750,
+    "skipped_tests": 0,
+    "branch": "codex/strategy-entry-batch-2026-11-26"
+  }
 }

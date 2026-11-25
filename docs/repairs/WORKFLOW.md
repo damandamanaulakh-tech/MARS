@@ -141,6 +141,26 @@ unacknowledged observations as completed forward evidence.
   normal scan and trade lifecycle when available; never induce a production
   trade solely to turn a pending evidence check into completed status.
 
+## Owner-requested strategy entry batches
+
+- Record the requested session, segments and specific exception separately from
+  automatic strategy policy. An expired instruction cannot authorize backdated
+  fills or a later session without renewed owner authority.
+- Keep engine-managed entries distinct from owner-deck orders. Persist actor,
+  request identity, original path, observed failed gate and applied exception.
+  Do not rewrite failed measured performance as a positive signal or change
+  saved settings. Remaining risk, price, allocation and persistence checks apply.
+- Acknowledge request checkpoints before work, retain duplicate IDs and expose
+  incomplete counts as unknown. Read pages and status polling must not replay
+  entries. A restart requires explicit renewed submission, never blind retry.
+- Test actual scan and protective exit paths with isolated portfolios, including
+  failure after a partial fill, late quotes/session, configuration restoration,
+  concurrency and JSON/Mongo reload. Keep production execution evidence separate
+  from test/release evidence; an approved paper batch is not a diagnostic trade.
+- Keep owner-requested cohorts separate from untouched automatic-strategy
+  evidence while retaining their costs, partial losses and full book economics.
+  Actual applied exceptions must be distinguishable from unused authorization.
+
 ## Intraday data batches
 
 - Prove the provider request's interval, timestamp meaning, timezone and regular

@@ -1,5 +1,7 @@
 # Ordered repair programme — 11 November 2026
 
+Next owner batch: **BATCH-001 — engine-managed non-intraday paper entries**. Explicit next-session authority recorded; 3,750 full local tests passed, zero skipped; independent CI pending. No production batch submitted. Saving recovery ships first. [Batch evidence](releases/2026-11-26-owner-strategy-batch.md).
+
 Current saving follow-up: **XR-071 / RUN-20261125-02**. Startup acknowledgement and same-pass recovery implemented; 3,640 local tests passed with zero skips. PR231 updated-head CI and release pending. The observed app recovered and saved all 39 open positions before this repair. [Follow-up evidence](releases/2026-11-25-startup-save-recovery.md).
 
 Current owner policy batch: **ALLOC-001 — six-segment allocation 30/10/24/24/10/2**. **Shipped in PR229; matching deployment, health and all six saved settings verified.** Normal entry/add/rotation observation remains pending. [Release record](releases/2026-11-25-six-segment-allocation.md). **RUN-20261125-01 remains open:** both the 10:49 and 11:14 IST intraday scans had zero ranked/buys; all initially ready frames became stale before scoring. Latest scan reconciles 1,014 capped + 82 deadline-labelled + 1 unmapped + 36 stale = 1,133 stocks. Scheduled rotation overlap/recovery has separate dated evidence. [Investigation](evidence/2026-11-25-no-new-positions.md).
@@ -10,7 +12,7 @@ Goal11 engineering and storage recovery are shipped in [PR225](https://github.co
 
 Owner instruction: show the sequence, start one by one, and track completion in
 the repository. This is the current execution order for G4/G13 and the related
-data/risk work. It does not remove any of the 171 backlog records or six
+data/risk work. It does not remove any of the 172 backlog records or seven
 separate incidents. [Goals](GOALS.md), [full backlog](BACKLOG.md),
 [machine-readable sequence](execution-plan.json).
 
