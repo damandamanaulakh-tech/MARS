@@ -336,7 +336,8 @@ def positions_view(
             "no_price": no_price,
             "quotes_age": state.marks_age(tickers),
             "seed_count": len(_SEED_JUNE_2026),
-            "segments": category_budgets.LABELS,
+            "segments": {segment: category_budgets.LABELS[segment]
+                         for segment in category_budgets.OWNER_SEGMENTS},
             **_sector_event_context(p, cfg),
         },
     )
@@ -977,7 +978,7 @@ def add_manual_position(
     if not isinstance(mode, str):
         mode = category_budgets.MOMENTUM  # direct calls omitting FastAPI Form
     mode = mode.strip()
-    if mode not in category_budgets.SHARE_FIELDS:
+    if mode not in category_budgets.OWNER_SEGMENTS:
         return RedirectResponse("/positions?error=bad_segment", status_code=303)
     entry_tags = [t.strip() for t in tags.split(",") if t.strip()]
     if category_budgets.OCEAN in entry_tags:

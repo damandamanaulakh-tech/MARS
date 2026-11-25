@@ -30,6 +30,12 @@ def _cfg(tmp_path=None):
     cfg = Config(state_dir=str(tmp_path or "/tmp/sb_owner_bucket"), mode=MOM)
     cfg.apply_mode_preset()
     cfg.cash_reserve_pct = 0.0
+    # Freeze these original owner-attribution boundaries at the historical
+    # Rs 2 Cr Momentum cap; the current six-share defaults have their own test.
+    cfg.budget_share_momentum = 0.40
+    cfg.budget_share_intraday = cfg.budget_share_short = 0.15
+    cfg.budget_share_swing = cfg.budget_share_positional = 0.15
+    cfg.budget_share_ocean = 0.0
     return cfg
 
 
@@ -83,7 +89,7 @@ def test_scan_positions_and_ocean_are_untouched():
     cfg = _cfg()
     book = {"OC.NS": _pos("OC.NS", 2_10_00_000.0, tags=["ocean"])}
     ok, why, _ = _gate(cfg, book, MOM, cash=BOOK - 2_10_00_000.0)
-    assert ok, why                                  # Ocean spends no share
+    assert ok, why                                  # Ocean spends no Momentum share
     assert cb.usage(cfg, book, BOOK)[0]["used"] == 0.0
 
 

@@ -696,7 +696,7 @@ def fund_summary(p, cfg, prices: dict, live_count: int) -> dict:
     Definitions, each the engine's own:
       capital    = cfg.starting_capital (total); a segment's SHARE of the
                    deployable capital (category_budget.limit — the number
-                   risk.can_open refuses on) or Ocean's ticket × slots.
+                   risk.can_open refuses on), including Ocean.
       allocated  = entry cost of the open positions (qty × entry price) —
                    the deploy-cap convention, so it agrees with the gate.
       now        = the same positions at the marks this page holds.
@@ -743,12 +743,8 @@ def fund_summary(p, cfg, prices: dict, live_count: int) -> dict:
     for cat in cb.SHARE_FIELDS:
         rows.append(_row(cat, cb.LABELS[cat], cb.limit(cfg, cat, equity),
                          cb.share(cfg, cat)))
-    ocean_limit = (float(getattr(cfg, "ocean_position_value", 0.0) or 0.0)
-                   * int(getattr(cfg, "ocean_max_positions", 0) or 0))
-    rows.append(_row(cb.OCEAN, "Ocean", ocean_limit or None, None,
-                     note="ticket × slots, outside the five shares"))
     # Entry provenance does not create a separate allocation bucket.
-    known = set(cb.SHARE_FIELDS) | {cb.OCEAN}
+    known = set(cb.SHARE_FIELDS)
     for cat in sorted({cb.category_of(x) for x in positions} - known):
         rows.append(_row(cat, cat.replace("_", " ").title(), None, None,
                          note="no budget applies to this category"))

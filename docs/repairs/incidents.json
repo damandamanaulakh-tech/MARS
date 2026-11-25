@@ -101,5 +101,14 @@
       "http_trade_rows": 80,
       "same_version_and_release_restart_verified": true
     }
+  },
+  {
+    "id": "RUN-20261125-01",
+    "finding": "Intraday scan fetched 37 valid stock frames but slow pre-scoring work aged all 37 beyond freshness; 1010 more capped and 82 marked deadline, yielding zero ranked/picks/buys",
+    "workflow": "CONFIRMED_RUNTIME_NOT_FIXED",
+    "evidence": "docs/repairs/evidence/2026-11-25-no-new-positions.md",
+    "runtime_observation": "25 November 10:49 IST scan: 1129 names reconciled as1010cap+82deadline-labelled+37stale. All37 archived raw BSON checksums verified. Saveguard clear; currentrotations incomplete/stale; detailed evidence preserves times and unknowns.",
+    "acceptance": "Keep completed-bar, session and freshness requirements; score fresh bounded batches and retain incomplete fetch work. Test slow providers, empty responses, restarts and late scoring. Verify new normal per-segment runs without forcing trades.",
+    "reconciliation": "Additional incident; prior original findings and incident records retained."
   }
 ]

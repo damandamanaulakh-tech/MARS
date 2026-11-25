@@ -1,7 +1,8 @@
-"""Per-category cash budgets — owner order 2026-10-04.
+"""Per-category cash budgets — owner orders 2026-10-04 and 2026-11-21.
 
 "fix it so all 5 categories get cash", with the split the owner picked:
-momentum 40%, intraday / short / swing / positional 15% each.
+The original split is superseded by Momentum 30%, Intraday 10%, Short 24%,
+Swing 24%, Positional 10%, Ocean 2% (100% of deployable equity).
 
 WHY: the 09:20 rotation scans momentum first. A replay of the live machine on
 a strong week (2024-01, real engine code over the committed panel) opened 46
@@ -12,12 +13,12 @@ later passes ever see money on a day momentum finds plenty to buy.
 THE RULES, each stated to the owner before it was built:
   * A share is a fraction of the DEPLOYABLE capital — equity times
     (1 - regime reserve), the same cap `risk.can_open` already enforces. In a
-    correction the 20% reserve shrinks all five shares alike; none starves.
+    correction the 20% reserve shrinks all six shares alike; none starves.
   * Positions count at ENTRY cost (qty x entry price), the convention the
     deploy cap uses, so the two limits can never disagree about what is spent.
   * A share a category does not use stays as cash. It is never lent to
     another category: a quiet intraday day does not hand momentum more.
-  * Ocean is exempt — it has its own 8-slot ceiling and ticket.
+  * Ocean spends its 2% share; its own slot ceiling and ticket also apply.
   * A position's category is the trade category it was opened under
     (`PaperPosition.mode`). A blank mode is momentum, the same reading the
     boot retag uses; an unknown mode belongs to no budget.
@@ -28,7 +29,7 @@ THE RULES, each stated to the owner before it was built:
     an overfull segment has no room for further entries until room returns.
 
 Pure arithmetic, no I/O. Risk, entry validation and every allocation page
-read the same segment totals. Ocean remains outside the five shares.
+read the same six segment totals.
 """
 from __future__ import annotations
 
@@ -47,6 +48,7 @@ SHARE_FIELDS: dict[str, str] = {
     "short": "budget_share_short",
     "swing": "budget_share_swing",
     "positional": "budget_share_positional",
+    OCEAN: "budget_share_ocean",
 }
 
 LABELS: dict[str, str] = {
@@ -55,7 +57,18 @@ LABELS: dict[str, str] = {
     "short": "Short",
     "swing": "Swing",
     "positional": "Positional",
+    OCEAN: "Ocean",
 }
+
+# Persisted with all six settings in a single Mongo document update. A later
+# deliberate owner edit is retained; this order is not forced on every boot.
+OWNER_ALLOCATION_MARKER = "allocation_order_2026_11_21"
+OWNER_SHARES = {
+    MOMENTUM: 0.30, "intraday": 0.10, "short": 0.24,
+    "swing": 0.24, "positional": 0.10, OCEAN: 0.02,
+}
+# Ocean is a separate automatic engine, not an extra manual strategy option.
+OWNER_SEGMENTS = tuple(c for c in SHARE_FIELDS if c != OCEAN)
 
 
 def enabled(cfg) -> bool:
@@ -65,7 +78,8 @@ def enabled(cfg) -> bool:
 def category_of(pos) -> str:
     """Strategy allocation, independent of who opened the position.
 
-    Ocean retains its separate engine budget. Legacy blank modes retain the
+    Ocean tags identify its share even on older momentum-mode positions.
+    Legacy blank modes retain the
     existing Momentum fallback; unknown modes remain visible as unclassified
     budget rows rather than silently claiming another strategy's money.
     """
@@ -83,7 +97,7 @@ def is_owner(pos) -> bool:
 
 def share(cfg, category: Optional[str]) -> Optional[float]:
     """This category's fraction of deployable capital, or None when no
-    budget applies (switched off, Ocean, an unknown category)."""
+    budget applies (switched off or an unknown category)."""
     if not enabled(cfg) or category is None:
         return None
     field = SHARE_FIELDS.get(category)

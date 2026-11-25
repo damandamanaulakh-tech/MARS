@@ -152,7 +152,7 @@
 {% if budgets %}
 <div class="bg-white border border-line p-4 lg:p-6 mb-6 border-l-4 border-l-slate-400"
      data-category-budget="category_budget_marker">
-  <div class="text-xs tracking-widest text-ink-faint uppercase mb-2">CASH SHARE PER CATEGORY (owner order 2026-10-04)</div>
+  <div class="text-xs tracking-widest text-ink-faint uppercase mb-2">CASH SHARE PER SEGMENT (owner order 2026-11-21)</div>
   <div class="overflow-x-auto">
   <table class="w-full text-sm">
     <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
@@ -173,12 +173,12 @@
   </table>
   </div>
   {% if budget_total is not none and (budget_total - 1.0)|abs > 0.001 %}
-  <div class="mt-2 text-sm text-amber-800">The five shares add up to {{ "%.0f%%"|format(budget_total * 100) }}, not 100% — {% if budget_total < 1 %}the rest stays as cash no category can spend{% else %}the deploy cap still stops the book at 100%, so the last category in the 09:20 order can be squeezed{% endif %}.</div>
+  <div class="mt-2 text-sm text-amber-800">The six shares add up to {{ "%.0f%%"|format(budget_total * 100) }}, not 100% — {% if budget_total < 1 %}the rest stays as cash no category can spend{% else %}the deploy cap still stops the book at 100%, so the last category in the 09:20 order can be squeezed{% endif %}.</div>
   {% endif %}
   <div class="mt-2 text-xs text-ink-faint">
     Shares are of the deployable capital: equity (using the valuation evidence above) minus the regime reserve{% if cfg.cash_reserve_pct > 0 %} — {{ "%.0f%%"|format(cfg.cash_reserve_pct * 100) }} right now{% endif %}.
     Spent counts each position at its entry cost. A share a category does not use stays as cash; it is never lent to another category.
-    Owner-added positions and automatic positions count under their stored strategy segment. New owner BUY orders and limit fills use the selected segment’s cash share; the Buy Desk uses Momentum. Existing holdings stay open if their segment is over limit. Imports of existing real holdings are accounted under the chosen segment. Ocean remains outside these shares (its own {{ cfg.ocean_max_positions }}-slot limit). Every holding still counts in the book-wide deploy cap and heat used for automatic entries.
+    Owner-added positions and automatic positions count under their stored strategy segment. New owner BUY orders and limit fills use the selected segment’s cash share; the Buy Desk uses Momentum. Existing holdings stay open if their segment is over limit. Imports of existing real holdings are accounted under the chosen segment. Ocean uses its own share within the same total and retains its {{ cfg.ocean_max_positions }}-slot limit and per-trade ticket. Every holding still counts in the book-wide deploy cap and heat used for automatic entries.
     For automatic scan sizing, a remainder smaller than the ₹{{ cfg.position_slab_value|inr }} slab counts as full. A typed owner quantity is checked against the actual remaining share.
   </div>
 </div>

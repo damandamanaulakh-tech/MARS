@@ -80,7 +80,7 @@
       <div class="p-4 text-sm space-y-3">
         <div>
           <div class="text-[10px] tracking-widest text-ink-faint uppercase">Ticket</div>
-          <div class="text-xs mt-1">₹<strong>{{ eng.ocean.ticket | inr }}</strong> per dip trade (fixed, "ocean_fixed"), max <strong>{{ eng.ocean.max_positions }}</strong> concurrent slots = ₹{{ (eng.ocean.ticket * eng.ocean.max_positions) | inr }} at most. The can_open gates apply (cash, regime reserve, sector cap, heat, ceiling, minimum size) EXCEPT the category cash share — Ocean sits outside the five shares — and the measured-Kelly cap is not applied to it.</div>
+          <div class="text-xs mt-1">₹<strong>{{ eng.ocean.ticket | inr }}</strong> per dip trade (fixed, "ocean_fixed"), max <strong>{{ eng.ocean.max_positions }}</strong> concurrent slots. Ocean also uses its own cash share within the six-segment allocation; the Risk page shows its current percentage, limit and remaining funds. Its ticket × slots ceiling is ₹{{ (eng.ocean.ticket * eng.ocean.max_positions) | inr }}, and the cash-share limit may bind earlier. The can_open gates apply (cash, regime reserve, category share, sector cap, heat, ceiling, minimum size); the measured-Kelly cap is not applied to it.</div>
         </div>
         <div>
           <div class="text-[10px] tracking-widest text-ink-faint uppercase">Selection (all must pass) — engines/ocean.py evaluate()</div>
@@ -110,7 +110,7 @@
   <!-- PER-CATEGORY TABLE -->
   <div class="bg-white border border-line mb-4"><!-- den_categories_marker -->
     <div class="px-4 py-3 border-b border-line flex flex-wrap items-center justify-between gap-2">
-      <div class="font-bold">Five categories — floors, brackets, gates, cash shares</div>
+      <div class="font-bold">Five strategy presets — floors, brackets, gates, cash shares</div>
       <div class="text-xs text-ink-faint">modes.PRESETS + owner overrides · targets.ATR_TARGET_K / TARGET_BAND · category shares {{ 'ON' if eng.shares_enabled else 'OFF' }}</div>
     </div>
     <div class="overflow-x-auto">

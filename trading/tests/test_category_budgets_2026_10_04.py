@@ -16,10 +16,28 @@ from trading.config import Config
 from trading.paper import PaperPosition, Portfolio
 from trading.portfolio_marks import remember
 from trading.risk import RiskState, can_open
-from trading.tests.test_audit_s4_s9_2026_10_02 import _near_target, _scan_engine
+from trading.tests.test_audit_s4_s9_2026_10_02 import _near_target, _scan_engine as _base_scan_engine
 
 MOM = "nifty200_momentum"
 BOOK = 5_00_00_000.0
+
+
+def _historical_shares(cfg):
+    """Keep the original boundary/rotation scenarios reproducible after the
+    owner changed the live allocation on 2026-11-21. Default policy is tested
+    separately below; these fixtures deliberately retain their Rs 2 Cr cap.
+    """
+    cfg.budget_share_momentum = 0.40
+    cfg.budget_share_intraday = cfg.budget_share_short = 0.15
+    cfg.budget_share_swing = cfg.budget_share_positional = 0.15
+    cfg.budget_share_ocean = 0.0
+    return cfg
+
+
+def _scan_engine(*args, **kwargs):
+    engine = _base_scan_engine(*args, **kwargs)
+    _historical_shares(engine.cfg)
+    return engine
 
 
 def _pos(ticker, rupees, mode=MOM, tags=None, price=100.0):
@@ -40,7 +58,7 @@ def _cfg(tmp_path=None):
     cfg = Config(state_dir=str(tmp_path or "/tmp/sb_cat_budget"), mode=MOM)
     cfg.apply_mode_preset()
     cfg.cash_reserve_pct = 0.0
-    return cfg
+    return _historical_shares(cfg)
 
 
 def _book(momentum_rupees):
@@ -53,11 +71,12 @@ def test_the_owner_split_is_the_default():
     from trading import category_budget as cb
     cfg = Config()
     assert cb.enabled(cfg)
-    assert cb.share(cfg, MOM) == pytest.approx(0.40)
-    for m in ("intraday", "short", "swing", "positional"):
-        assert cb.share(cfg, m) == pytest.approx(0.15), m
+    expected = {MOM: 0.30, "intraday": 0.10, "short": 0.24,
+                "swing": 0.24, "positional": 0.10, "ocean": 0.02}
+    assert set(cb.SHARE_FIELDS) == set(expected)
+    for mode, fraction in expected.items():
+        assert cb.share(cfg, mode) == pytest.approx(fraction), mode
     assert cb.share_total(cfg) == pytest.approx(1.0)
-    assert cb.share(cfg, "ocean") is None          # Ocean is exempt
 
 
 def test_a_position_belongs_to_the_category_it_was_opened_under():
@@ -120,17 +139,18 @@ def test_a_remainder_under_the_slab_is_a_full_share():
     assert not ok and why == "category_budget_full"
 
 
-def test_ocean_and_the_switch_bypass_the_shares():
+def test_an_unspecified_category_and_the_switch_bypass_the_shares():
     cfg = _cfg()
     book = _book(2_05_00_000.0)
-    ok, _, _ = _gate(cfg, book, None, cash=BOOK - 2_05_00_000.0)   # Ocean
+    # None is the generic backwards-compatible risk API, not Ocean's entry path.
+    ok, _, _ = _gate(cfg, book, None, cash=BOOK - 2_05_00_000.0)
     assert ok
     cfg.category_budgets_enabled = False
     ok, _, _ = _gate(cfg, book, MOM, cash=BOOK - 2_05_00_000.0)
     assert ok
 
 
-def test_ocean_positions_spend_no_category_share():
+def test_ocean_positions_spend_no_momentum_share():
     cfg = _cfg()
     book = {"OC.NS": _pos("OC.NS", 2_10_00_000.0, mode=MOM, tags=["ocean"])}
     ok, why, _ = _gate(cfg, book, MOM, cash=BOOK - 2_10_00_000.0)
@@ -402,7 +422,6 @@ def test_the_owners_manual_states_the_live_shares():
     from pathlib import Path
     cfg = Config()
     brief = (Path(__file__).resolve().parents[2] / "docs" / "APP_BRIEF.md").read_text()
-    assert f"**{cfg.budget_share_momentum * 100:.0f}%**" in brief
-    assert f"**{cfg.budget_share_swing * 100:.0f}% each**" in brief
-    assert cfg.budget_share_intraday == cfg.budget_share_short \
-        == cfg.budget_share_swing == cfg.budget_share_positional
+    from trading import category_budget as cb
+    for category, field in cb.SHARE_FIELDS.items():
+        assert f"**{cb.LABELS[category]} {getattr(cfg, field) * 100:.0f}%**" in brief

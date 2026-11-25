@@ -103,9 +103,9 @@ def scan_view(request: Request, error: str | None = None):
         last_err = _LAST_SCAN_ERROR
 
     from collections import Counter
-    from trading.category_budget import LABELS, MOMENTUM
+    from trading.category_budget import LABELS, MOMENTUM, OWNER_SEGMENTS
     scan_mode = (p.scan_matrix or {}).get("mode") or MOMENTUM
-    scan_mode = scan_mode if scan_mode in LABELS else MOMENTUM
+    scan_mode = scan_mode if scan_mode in OWNER_SEGMENTS else MOMENTUM
     picks = p.last_scan_picks or []
     piano = _build_piano(p.scan_matrix or {})
     # The owner's funnel arithmetic (their design 2026-08-13: "in real life
@@ -164,7 +164,7 @@ def scan_view(request: Request, error: str | None = None):
             # while the live target was +12).
             "preset_stop": round(abs(_momentum_preset().stop_loss_pct) * 100, 1),
             "preset_target": round(_momentum_preset().take_profit_pct * 100, 1),
-            "segments": LABELS,
+            "segments": {segment: LABELS[segment] for segment in OWNER_SEGMENTS},
             "scan_mode": scan_mode,
             "picks": picks,
             "slots": slots,
@@ -893,6 +893,9 @@ def owner_buy(request: Request, ticker: str = Form(...),
         pick = next((dict(pk) for pk in (p.last_scan_picks or [])
                      if pk.get("ticker") == tkr), None) or \
             {"ticker": tkr, "score": 0.0, "components": {}, "timing_pass": True}
+        # The owner selected a manual strategy segment. A copied Ocean
+        # shortlist signal is context, not authority to change that segment.
+        pick.pop("ocean", None)
         pick["reasoning"] = ("OWNER BUY CALL — user pushed this YES pick into "
                             "the book (regime halt overridden by owner). "
                             + str(pick.get("reasoning", "")))[:220]
@@ -915,6 +918,10 @@ def owner_buy(request: Request, ticker: str = Form(...),
         try:
             eng._open(pick, use_qty, float(price), fill_now, cfg=cfg)
         except ValueError as exc:
+            if str(exc).startswith("category_budget_"):
+                gate = decision.get("gates", {}).get("category_budget_final", {})
+                return refuse(str(exc), "category_budget_final",
+                              gate.get("value"), gate.get("threshold"))
             if str(exc).startswith(("intraday_", "costs_", "portfolio_save_")):
                 return refuse(str(exc), "portfolio_save" if str(exc).startswith("portfolio_save_") else "entry_data_final", unavailable=True)
             raise

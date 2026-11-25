@@ -87,12 +87,13 @@ EDITABLE_FIELDS = [
     ("max_position_pct",        "Max % per Position",      "Capital", "number", 0.5,  "Fallback sizing when Position Size (Rs) is 0", True),
     ("max_positions",           "Max Open Positions",      "Capital", "number", 1,    "Total positions at once", False),
     ("max_sector_positions",    "Max Positions per Sector","Capital", "number", 1,    "Diversification cap", False),
-    ("category_budgets_enabled","Category Cash Shares On (1/0)","Capital","number", 1,  "OWNER ORDER 2026-10-04 ('fix it so all 5 categories get cash'). 1 = each category spends only its own share of the deployable capital, so momentum (scanned first at 09:20) cannot use up the cash before intraday/short/swing/positional are scanned. A share left unused stays as cash. 0 = one shared pot (momentum first). Usage on the Risk page", False),
-    ("budget_share_momentum",   "Momentum Cash Share %",   "Capital", "number", 1,    "Share of deployable capital momentum may spend (owner pick: 40)", True),
-    ("budget_share_intraday",   "Intraday Cash Share %",   "Capital", "number", 1,    "Owner pick: 15. Returns to cash every day at the 15:25 square-off", True),
-    ("budget_share_short",      "Short Cash Share %",      "Capital", "number", 1,    "Owner pick: 15", True),
-    ("budget_share_swing",      "Swing Cash Share %",      "Capital", "number", 1,    "Owner pick: 15", True),
-    ("budget_share_positional", "Positional Cash Share %", "Capital", "number", 1,    "Owner pick: 15. The five shares should add up to 100", True),
+    ("category_budgets_enabled","Category Cash Shares On (1/0)","Capital","number", 1,  "OWNER ORDER 2026-11-21: 1 = each of the six segments, including Ocean, spends only its own share of deployable capital. Unused shares stay as cash. 0 = one shared pot. Ocean keeps its ticket and slot limits. Usage on the Risk page", False),
+    ("budget_share_momentum",   "Momentum Cash Share %",   "Capital", "number", 1,    "Share of deployable capital momentum may spend (owner pick: 30)", True),
+    ("budget_share_intraday",   "Intraday Cash Share %",   "Capital", "number", 1,    "Owner pick: 10. Returns to cash every day at the 15:25 square-off", True),
+    ("budget_share_short",      "Short Cash Share %",      "Capital", "number", 1,    "Owner pick: 24", True),
+    ("budget_share_swing",      "Swing Cash Share %",      "Capital", "number", 1,    "Owner pick: 24", True),
+    ("budget_share_positional", "Positional Cash Share %", "Capital", "number", 1,    "Owner pick: 10", True),
+    ("budget_share_ocean",      "Ocean Cash Share %",      "Capital", "number", 1,    "Owner pick: 2. Ocean uses this share as well as its ticket and slot limits. All six shares should add up to 100", True),
     ("stop_loss_pct",           "Stop Loss %",             "Risk",    "number", 0.5,  "The category's stop (negative % e.g. -5). For momentum it is the FLOOR: the ATR stop below can only widen it. Applies to new trades; held positions keep the stop they were opened with", True),
     ("atr_stop_enabled",        "ATR Stop On (1/0)",       "Risk",    "number", 1,    "OWNER ORDER 2026-10-05 ('Go for A'). 1 = a new MOMENTUM buy's stop is the wider of the category stop (-5%) and 2 x its own 14-day ATR, capped at -15%. MEASURED (research/stop_cooldown_study): beat the fixed -5% in train (+2.82 vs +0.88) and in the holdout (+21.14 vs +19.33), 30% fewer stop-outs. Cost: trade size is unchanged, so a losing trade on a jumpy name can lose more than 5% (6.8% on average, 15% at most). 0 = fixed stop. Other categories always use their fixed stop", False),
     ("take_profit_pct",         "Take Profit %",           "Risk",    "number", 0.5,  "FALLBACK target only. A new trade's target is k x its own 14-day ATR, kept inside the category's band (Den section 2); this % is used only when the ATR cannot be computed. Held positions keep the target they were opened with", True),
@@ -520,7 +521,7 @@ def _settings_save_body(form):
     # deployable capital — never negative, never more than all of it.
     for _f in ("budget_share_momentum", "budget_share_intraday",
                "budget_share_short", "budget_share_swing",
-               "budget_share_positional"):
+               "budget_share_positional", "budget_share_ocean"):
         _v = float(getattr(cfg, _f, 0.0) or 0.0)
         _c = min(1.0, max(0.0, _v))
         if _c != _v:

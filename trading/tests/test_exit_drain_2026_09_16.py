@@ -250,14 +250,21 @@ def test_a_real_funded_pick_still_rotates(tmp_path, monkeypatch):
     eng = _engine(tmp_path, mode="nifty200_momentum")
     monkeypatch.setattr(eng_mod, "routed_fetch_quotes",
                         lambda *a, **k: {"TCS.NS": 119.0})
-    pos = _pos(entry=100.0, qty=10)
+    # The 2026-11-21 allocation gives Ocean 2% of deployable equity. Use a
+    # funded book and a sale large enough to cover its real ticket: the old
+    # Rs 1,000 whole-book fixture cannot afford an Ocean entry under that rule.
+    pos = _pos(entry=100.0, qty=1500)
     pos.target_price = 120.0
     eng.portfolio.positions["TCS.NS"] = pos
+    eng.portfolio.positions["KEPT.NS"] = _pos(
+        ticker="KEPT.NS", entry=100.0, qty=498500, mode="swing", tags=["owner_pick"])
     eng.portfolio.cash = 0.0
     real_pick = [{"ticker": "INFY.NS", "score": 80.0, "ocean": True}]
     out = eng._rotation_exits(real_pick, datetime(2026, 9, 16, 5, 0),
                               entries_blocked=True)
     assert out == ["TCS.NS"]
+    assert "KEPT.NS" in eng.portfolio.positions
+    assert eng.portfolio.cash >= eng.cfg.ocean_position_value
 
 
 # ---------------------------------------------------------------------------

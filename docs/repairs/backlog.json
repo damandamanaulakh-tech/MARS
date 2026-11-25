@@ -4758,5 +4758,33 @@
     "deployment_revision": "520ec29d6b0f02c8e23ebdd339f2e652509bbc52",
     "source_sheet": "Owner request",
     "source_row": "2026-11-11"
+  },
+  {
+    "id": "ALLOC-001",
+    "priority": "P1",
+    "area": "Capital allocation",
+    "finding": "Owner requested six deployable-equity shares30/10/24/24/10/2 in the real app; Ocean previously bypassed shares and appeared outside the five budgets.",
+    "impact": "Incorrect segment cash authority and inconsistent UI totals; all entry/add/funding paths must obey the approved share.",
+    "source_severity": "OWNER_POLICY",
+    "source_status": "OWNER_APPROVED_2026_11_21",
+    "updated_state": "IMPLEMENTATION_UNDER_VALIDATION",
+    "review_note": "Preserve manual strategy allocation, existing holdings, protective exits and ledger. Independent review covers locked booking refusals and mixed normal/Ocean funding.",
+    "draft_state": "",
+    "proposed_fix": "Unified six-share budget, atomic one-time saved-setting migration, all buy/add paths, correct UI totals and no forced liquidation.",
+    "effort": "M",
+    "source_evidence": "Explicit owner instruction in this chat21November; real app, not PPT.",
+    "source_origin": "Owner allocation decision",
+    "owner_decision": "Momentum30%;Intraday10%;Swing24%;Short24%;Positional10%;Ocean2%.",
+    "owner_note": "",
+    "current_evidence": "docs/repairs/releases/2026-11-25-six-segment-allocation.md",
+    "related_id": "OPS-07",
+    "acceptance": "All six shares sum100%; Ocean counted once and enforced at entry/add; manual entries use selected strategy; same-segment rotation and aggregate funding correct; settings survive boot without overriding later edits; full zero-skip suite/CI and exact live settings read-back.",
+    "workflow": "IMPLEMENTED_VALIDATION_PENDING",
+    "assignee": "",
+    "fix_commit": "",
+    "test_result": "Focused checks pass; final full suite and review fixes pending.",
+    "deployment_revision": "",
+    "source_sheet": "Owner policy",
+    "source_row": 0
   }
 ]

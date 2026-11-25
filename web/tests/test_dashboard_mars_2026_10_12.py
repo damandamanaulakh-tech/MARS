@@ -56,7 +56,7 @@ def _mixed_book() -> dict:
         # mode still allocates to Momentum (owner order 2026-11-03)
         "OWNPK.NS": _pos("OWNPK.NS", 50, 2000.0, mode="", tags=["owner_pick"],
                          score=0.0),
-        # Ocean: outside the five shares, ticket x slots
+        # Ocean: one of the six capital shares since the 2026-11-21 order.
         "OCNX.NS": _pos("OCNX.NS", 10, 500.0, mode="nifty200_momentum",
                         tags=["ocean"], score=100.0),
     }
@@ -104,8 +104,8 @@ def test_fund_block_renders_every_segment_without_the_total_row():
     with _Book():
         page = _render()
     assert "fund_summary_marker" in page
-    for seg in list(cb.SHARE_FIELDS) + [cb.OCEAN]:
-        assert f'data-fund-segment="{seg}"' in page, seg
+    for seg in cb.SHARE_FIELDS:
+        assert page.count(f'data-fund-segment="{seg}"') == 1, seg
     assert 'data-fund-segment="total"' not in page
     assert "Shares are of the deployable capital" not in page
     assert "Ocean counts its own ticket" not in page
@@ -138,8 +138,8 @@ def test_fund_arithmetic_is_the_books_own(tmp_path):
     assert rows["swing"]["allocated"] == 100_000.0
     assert rows["swing"]["pnl"] == 10_000.0             # green on the page
     assert rows[cb.OCEAN]["allocated"] == 5_000.0
-    assert rows[cb.OCEAN]["limit"] == (cfg.ocean_position_value
-                                       * cfg.ocean_max_positions)
+    assert rows[cb.OCEAN]["limit"] == cb.limit(cfg, cb.OCEAN, p.equity(prices))
+    assert len(f["rows"]) == len(cb.SHARE_FIELDS)
     assert rows["intraday"]["open"] == 0 and rows["intraday"]["pnl"] == 0.0
     # totals
     assert f["allocated"] == 205_000.0

@@ -34,8 +34,8 @@ Paper money only. Nothing here can place a real order.
 | Biggest single trade | 5% of the book (₹25 lakh) | 2026-09-10 |
 | Smallest trade | **₹1,50,000**. A short trade is rounded up to ₹1.5L if there is room, otherwise skipped | 2026-10-04 ("no 25 k is needed") |
 | Most positions at once | 222. This is a ceiling, not a target | 2026-09-10 |
-| Cash share per category | **Momentum 40%**; intraday, short, swing and positional **15% each**. A share a category does not use stays as cash | 2026-10-04 |
-| Ocean (dip-buying engine) trade | ₹1,68,750, up to 8 at once, outside the category shares | 2026-08-30 |
+| Cash share per category | **Momentum 30%**, **Intraday 10%**, **Swing 24%**, **Short 24%**, **Positional 10%**, **Ocean 2%** of deployable equity after reserve. Unused shares stay cash; owner entries use their stored strategy. | 2026-11-21 (supersedes 2026-10-04 split) |
+| Ocean (dip-buying engine) trade | ₹1,68,750, up to 8 at once, also bounded by its 2% share | 2026-08-30 ticket; 2026-11-21 budget |
 | Measured-Kelly check | On, **momentum only**. If momentum's own closed trades show no edge after costs, the momentum scan opens nothing new; if they show an edge, each momentum trade is capped at the size that record supports. Intraday, short, swing, positional and Ocean are neither counted in the reading nor blocked by it | 2026-10-02 ("F9- write it"); 2026-10-05 ("make it momentum only") |
 | Cash kept back | 0% normally, 20% in a correction, 40% in a panic | 2026-07-27 |
 

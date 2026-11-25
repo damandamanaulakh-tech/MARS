@@ -14,7 +14,7 @@ from . import category_budget as cb
 def segment(value: str | None) -> str:
     """Missing legacy ticket/order mode was Momentum; explicit unknown fails."""
     mode = (value or "").strip() or cb.MOMENTUM
-    if mode not in cb.SHARE_FIELDS:
+    if mode not in cb.OWNER_SEGMENTS:
         raise ValueError("bad_segment")
     return mode
 

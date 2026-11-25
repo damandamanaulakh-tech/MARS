@@ -92,6 +92,7 @@ def pass_record(mode: str, res: Any, journal_since: list, floor: float,
     reasons = Counter(str(s.get("reason", "")).split(" ")[0][:40]
                       for s in skipped if isinstance(s, dict))
     blocks = [{"action": str(e.get("action")),
+               "category": str(e.get("category") or mode),
                "why": str(e.get("why") or e.get("detail") or "")[:240]}
               for e in journal_since
               if isinstance(e, dict) and e.get("action") in BLOCK_ACTIONS]
@@ -132,6 +133,11 @@ def stopped_by(rec: dict) -> str:
     if blocks:
         b = blocks[0]
         word = BLOCK_WORDS.get(b["action"], b["action"].lower().replace("_", " "))
+        category = b.get("category")
+        if category and category != rec.get("mode"):
+            # Ocean is evaluated within a strategy pass. Keep its refusal
+            # distinct from a block on the pass's own allocation.
+            word = f"{cb.LABELS.get(category, category)}: {word}"
         why = (b.get("why") or "").strip()
         return f"{word}" + (f" — {why[:140]}" if why else "")
     scanned = int(rec.get("scanned") or 0)
@@ -152,7 +158,8 @@ def summary_text(rot: dict) -> str:
     total = int(rot.get("opened_total") or 0)
     head = f"{rot.get('where', '?')} rotation: {'NO BUYS' if total == 0 else f'{total} buys'}."
     parts = []
-    for m in rot.get("order") or list(cb.SHARE_FIELDS):
+    # Ocean has a cash share but no separate scheduled strategy pass.
+    for m in rot.get("order") or list(cb.OWNER_SEGMENTS):
         rec = (rot.get("passes") or {}).get(m)
         if not rec:
             parts.append(f"{cb.LABELS.get(m, m)}: not run")
@@ -179,7 +186,7 @@ def card(portfolio, cfg, today_iso: str) -> dict:
     latest = rots[0] if rots else None
     rows = []
     if latest:
-        for m in latest.get("order") or list(cb.SHARE_FIELDS):
+        for m in latest.get("order") or list(cb.OWNER_SEGMENTS):
             rec = (latest.get("passes") or {}).get(m)
             if not rec:
                 rows.append({"mode": m, "label": cb.LABELS.get(m, m), "scanned": 0,

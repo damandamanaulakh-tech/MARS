@@ -155,15 +155,18 @@ class Config:
     # 20% reserve shrinks every share alike instead of starving the last
     # category in line. A share a category does not use stays as cash; it is
     # never lent to another. Positions count at entry cost, the same as the
-    # deploy cap. Ocean is exempt (its own 8-slot limit). Owner decision
+    # deploy cap. Owner decision
     # 2026-11-03: manual BUY / limit / Buy Desk positions use their strategy
     # share too; owner provenance is a separate label, never a cash bucket.
+    # Owner order 2026-11-21 supersedes the split above: all SIX engines
+    # share 100% of deployable equity. Ocean's ticket/slot ceilings also apply.
     category_budgets_enabled: bool = True
-    budget_share_momentum: float = 0.40
-    budget_share_intraday: float = 0.15
-    budget_share_short: float = 0.15
-    budget_share_swing: float = 0.15
-    budget_share_positional: float = 0.15
+    budget_share_momentum: float = 0.30
+    budget_share_intraday: float = 0.10
+    budget_share_short: float = 0.24
+    budget_share_swing: float = 0.24
+    budget_share_positional: float = 0.10
+    budget_share_ocean: float = 0.02
     # Sizing. "fixed" = the owner's own number, position_size_value above.
     #
     # REVERTED to fixed 2026-08-04 (owner: "still u r making 30000 positions").

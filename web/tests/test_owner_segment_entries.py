@@ -43,7 +43,9 @@ def test_ticket_uses_selected_segment_and_preserves_config(isolated, mode):
 def test_ticket_rejects_exceeding_segment_without_debit(isolated):
     c, eng, p, cfg = isolated
     before = p.cash
-    response = c.post("/scan/buy", data={"ticker": "TEST", "qty": "1501", "mode": "swing"}, follow_redirects=False)
+    # Keep the exact one-share-over boundary when the owner's allocation changes.
+    over_budget_qty = int(cfg.starting_capital * cfg.budget_share_swing / 100) + 1
+    response = c.post("/scan/buy", data={"ticker": "TEST", "qty": str(over_budget_qty), "mode": "swing"}, follow_redirects=False)
     assert "category_budget_full" in response.headers["location"]
     assert p.cash == before and not p.positions
 
@@ -70,7 +72,10 @@ def test_limit_keeps_selected_segment_until_fill(isolated):
 
 def test_limit_rechecks_budget_at_slipped_fill(isolated):
     c, eng, p, cfg = isolated
-    order = orders.place_limit(p, ticker="TEST.NS", limit_price=101, qty=1500, mode="short")
+    # At the raw quote this fills the share exactly; adverse fill slippage
+    # makes the entry exceed the same segment's actual available budget.
+    qty_at_quote = int(cfg.starting_capital * cfg.budget_share_short / 100)
+    order = orders.place_limit(p, ticker="TEST.NS", limit_price=101, qty=qty_at_quote, mode="short")
     orders._fill(eng, order, 100.0, datetime(2026, 11, 3, 5))
     assert order["status"] == "cancelled"
     assert "category_budget_full" in order["note"]
