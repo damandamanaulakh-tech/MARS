@@ -56,6 +56,7 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.scan_matrix = dict(doc.get("scan_matrix", {}))
     p.momentum_shortlist = dict(doc.get("momentum_shortlist", {}) or {})
     p.rotation_report = dict(doc.get("rotation_report", {}) or {})
+    p.strategy_batch = dict(doc.get("strategy_batch", {}) or {})
     p.last_regime = doc.get("last_regime")
     p.last_ifr_fire_date = doc.get("last_ifr_fire_date")
     p.last_ifr_ratio_fire_date = doc.get("last_ifr_ratio_fire_date")
@@ -283,6 +284,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "scan_matrix": self.scan_matrix,
             "momentum_shortlist": getattr(self, "momentum_shortlist", {}) or {},
             "rotation_report": getattr(self, "rotation_report", {}) or {},
+            "strategy_batch": getattr(self, "strategy_batch", {}) or {},
             "pending_orders": self.pending_orders[-200:],
             "filings": self.filings[:100],
             "risk_day": self.risk_day,

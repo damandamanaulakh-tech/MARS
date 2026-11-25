@@ -131,6 +131,11 @@ def scan_view(request: Request, error: str | None = None):
     # pledge, two quarters, 193 symbols) — but only inside /register, which
     # is not the screen the owner buys from. Nothing is fetched here.
     holdings = _institutional(picks)
+    from .. import strategy_batch
+    from ..clock import ist_today_iso
+    from uuid import uuid4
+    batch_status = strategy_batch.status(p)
+    batch_request_id = f"{ist_today_iso()}:{uuid4()}"
     # OWNER ORDER 2026-09-24: the shortlist + recommended-to-buy card, sized
     # to a rupee budget. Preview sizes at the scan's own last close (this page
     # fetches no quotes); the BUY uses the live quote at tap time.
@@ -191,6 +196,8 @@ def scan_view(request: Request, error: str | None = None):
             "vbook": vbook[:40],
             "v_summary": v_summary,
             "holdings": holdings,
+            "strategy_batch": batch_status,
+            "strategy_batch_request_id": batch_request_id,
             "piano": piano,
             "pending_orders": [o for o in (p.pending_orders or [])
                                if o.get("status") == "open"],
@@ -690,6 +697,51 @@ def scan_run(request: Request):
 
     threading.Thread(target=_run, daemon=True).start()
     return RedirectResponse("/scan?error=started", status_code=303)
+
+
+def _batch_same_origin(request: Request) -> bool:
+    """Browser entry instructions require an authenticated same-origin POST."""
+    from urllib.parse import urlsplit
+    source = request.headers.get("origin") or request.headers.get("referer")
+    if not source:
+        return False
+    try:
+        parsed = urlsplit(source)
+        return (parsed.scheme in {"http", "https"}
+                and parsed.scheme == request.url.scheme
+                and parsed.netloc.lower() == request.url.netloc.lower())
+    except ValueError:
+        return False
+
+
+@router.get("/scan/strategy-batch")
+def strategy_batch_status(request: Request):
+    user = auth.current_user(request)
+    if not user or user.get("role") != "owner":
+        return JSONResponse({"status": "rejected", "reason": "owner_only"}, status_code=403)
+    from .. import strategy_batch
+    return JSONResponse(strategy_batch.status(state.portfolio()))
+
+
+@router.post("/scan/strategy-batch")
+def strategy_batch_start(request: Request, request_id: str = Form(...),
+                         override_measured_performance: bool = Form(False)):
+    user = auth.current_user(request)
+    if not user or user.get("role") != "owner":
+        return JSONResponse({"status": "rejected", "reason": "owner_only"}, status_code=403)
+    if not _batch_same_origin(request):
+        return JSONResponse({"status": "rejected", "reason": "same_origin_required"},
+                            status_code=403)
+    from .. import strategy_batch
+    result = strategy_batch.start(
+        state.engine(),
+        requested_by=str(user.get("email") or user.get("name") or "owner"),
+        request_id=request_id,
+        override_measured_performance=override_measured_performance,
+    )
+    code = {"accepted": 202, "queued": 202, "running": 202, "busy": 409,
+            "save_failed": 409, "rejected": 400, "expired": 410}.get(result.get("status"), 200)
+    return JSONResponse(result, status_code=code)
 
 
 _DL_LOCK = threading.Lock()

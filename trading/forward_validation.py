@@ -9,6 +9,94 @@ from datetime import datetime, timezone
 from . import validation as v
 
 
+def _entry_authority(record):
+    """Small immutable entry provenance, also stored outside compressed inputs."""
+    authority = {"path": record.get("path", "unknown")}
+    if isinstance(record.get("strategy_batch"), dict):
+        authority["strategy_batch"] = deepcopy(record["strategy_batch"])
+    return authority
+
+
+def _is_owner_batch(event):
+    return (event.get("path") == "owner_strategy_batch"
+            or isinstance(event.get("strategy_batch"), dict))
+
+
+def _event_trade_key(event):
+    return ((event.get("run") or {}).get("id"), event.get("book_epoch"),
+            event.get("trade_id") or (event.get("trade") or {}).get("trade_id"))
+
+
+def _owner_batch_authorities(events):
+    """Use every retained witness before grouping newest-first event queries.
+
+    A missing entry in a truncated query cannot turn an owner batch exit into
+    ordinary strategy evidence. Any retained batch witness excludes that trade.
+    """
+    owners = {}
+    for event in events:
+        if event.get("kind") not in ("entry", "exit"):
+            continue
+        witness = event if _is_owner_batch(event) else event.get("input") or {}
+        if _is_owner_batch(witness):
+            key = _event_trade_key(event)
+            if key not in owners or event.get("kind") == "entry":
+                owners[key] = _entry_authority(witness)
+    return owners
+
+
+def _observed_economics(events, owner_authorities):
+    """Ledger amounts by segment/epoch, including partial and owner realizations.
+
+    These are recorded outcomes, not automatic-strategy expectancy. Unknown
+    amounts are counted and never substituted with zero. No ledger is rewritten.
+    """
+    from types import SimpleNamespace
+    from .category_budget import category_of
+    groups = {}
+    for event in events:
+        if event.get("kind") != "exit":
+            continue
+        row = event.get("trade") or {}
+        mode = category_of(SimpleNamespace(mode=row.get("mode") or "unknown",
+                                           tags=row.get("tags") or []))
+        group = groups.setdefault((event.get("book_epoch"), mode), {
+            "book_epoch": event.get("book_epoch"), "mode": mode, "exit_legs": 0,
+            "owner_batch_exit_legs": 0, "unknown_net_legs": 0,
+            "unknown_cost_legs": 0, "unverified_cost_legs": 0,
+            "known_net_pnl": 0., "known_costs": 0., "versions": set(),
+            "from": None, "through": None})
+        observed = event.get("observed_at")
+        if observed:
+            group["from"] = min(group["from"] or observed, observed)
+            group["through"] = max(group["through"] or observed, observed)
+        group["exit_legs"] += 1
+        group["owner_batch_exit_legs"] += _event_trade_key(event) in owner_authorities
+        group["versions"].add((event.get("run") or {}).get("id", "unknown"))
+        if v.finite(row.get("net_pnl")):
+            group["known_net_pnl"] += float(row["net_pnl"])
+        else:
+            group["unknown_net_legs"] += 1
+        if v.finite(row.get("costs")) and float(row["costs"]) >= 0:
+            group["known_costs"] += float(row["costs"])
+        else:
+            group["unknown_cost_legs"] += 1
+        group["unverified_cost_legs"] += (row.get("cost_evidence") or {}).get("status") != "paper_estimate"
+    out = []
+    for group in groups.values():
+        for value, missing in (("known_net_pnl", "unknown_net_legs"),
+                               ("known_costs", "unknown_cost_legs")):
+            group[value] = (round(group[value], 2)
+                            if group[missing] < group["exit_legs"] else None)
+        group["net_pnl"] = group["known_net_pnl"] if not group["unknown_net_legs"] else None
+        group["costs"] = group["known_costs"] if not group["unknown_cost_legs"] else None
+        group["versions"] = sorted(group["versions"])
+        group["metric_unit"] = "recorded_exit_legs_including_partial_realizations"
+        group["time_scope"] = "retained_event_observation_timestamps"
+        out.append(group)
+    return out
+
+
 def stage(portfolio, now=None):
     now = now or datetime.now(timezone.utc)
     state = portfolio.validation_state
@@ -44,8 +132,8 @@ def stage(portfolio, now=None):
             key = v.digest(["entry", evidence["trade_id"]])
             if key in seen or key in pending:
                 continue
-            add(key, {"kind": "entry", "path": record.get("path", "unknown"), "trade_id": evidence["trade_id"],
-                      "run": record["run"], "input": record,
+            add(key, {"kind": "entry", **_entry_authority(record), "trade_id": evidence["trade_id"],
+                      "run": record["run"], "input": deepcopy(record),
                       "position": {**{k: str(getattr(pos, k)) if k == "entry_date" else getattr(pos, k)
                                       for k in ("ticker", "entry_price", "entry_date", "mode", "stop_price", "target_price")},
                                    "qty": record.get("original_qty")}})
@@ -70,7 +158,7 @@ def stage(portfolio, now=None):
         row.pop("reasoning", None)
         row.pop("entry_notes", None)
         row["trade_id"] = evidence["trade_id"]
-        add(key, {"kind": "exit", "trade_id": evidence["trade_id"],
+        add(key, {"kind": "exit", **_entry_authority(record), "trade_id": evidence["trade_id"],
                   "run": record["run"],
                   "exit_run": (evidence.get("exit") or {}).get("validation_run"),
                   "exit_code_sha256": ((evidence.get("exit") or {}).get("validation_run") or {}).get("code", {}).get("sha256"),
@@ -78,8 +166,8 @@ def stage(portfolio, now=None):
                   "trade": row})
         # A position may have opened and closed before the first mirror save.
         add(v.digest(["entry", evidence["trade_id"]]), {
-            "kind": "entry", "path": record.get("path", "unknown"), "trade_id": evidence["trade_id"], "run": record["run"],
-            "input": record, "position": {"ticker": trade.ticker, "mode": trade.mode,
+            "kind": "entry", **_entry_authority(record), "trade_id": evidence["trade_id"], "run": record["run"],
+            "input": deepcopy(record), "position": {"ticker": trade.ticker, "mode": trade.mode,
                 "entry_date": str(trade.entry_date), "entry_price": trade.entry_price, "qty": record.get("original_qty")},
             "captured_from_closed_trade": True})
     book = {"open_trade_ids": [(p.trade_evidence or {}).get("trade_id") for p in portfolio.positions.values()],
@@ -126,6 +214,7 @@ def flush(portfolio, writer):
 def report(events, *, truncated=False, pending=0):
     """Do not pool code/settings cohorts, partial legs, or inherited positions."""
     groups = {}
+    owner_authorities = _owner_batch_authorities(events)
     books = [e for e in events if e.get("kind") == "book"]
     latest_book = max(books, key=lambda e: e.get("observed_at", ""), default={})
     open_now = set(latest_book.get("open_trade_ids", []))
@@ -136,7 +225,20 @@ def report(events, *, truncated=False, pending=0):
         run = event.get("run") or {}
         if not run.get("id"):
             continue
-        group = groups.setdefault((run["id"], event.get("book_epoch")), {"run_id": run["id"], "book_epoch": event.get("book_epoch"), "mode": run.get("settings", {}).get("mode"),
+        authority = owner_authorities.get(_event_trade_key(event))
+        owner_batch = authority is not None and event.get("kind") in ("entry", "exit")
+        mode = run.get("settings", {}).get("mode")
+        if owner_batch:
+            batch = authority.get("strategy_batch") or {}
+            mode = ("ocean" if batch.get("original_path") == "ocean" else
+                    (event.get("position") or event.get("trade") or {}).get("mode") or mode)
+        cohort = "owner_strategy_batch" if owner_batch else "automatic"
+        # Keep owner-requested outcomes separate even when code/settings match.
+        group_key = (run["id"], event.get("book_epoch"), cohort, mode if owner_batch else None)
+        group = groups.setdefault(group_key, {"run_id": run["id"], "book_epoch": event.get("book_epoch"), "mode": mode,
+            "cohort": cohort, "automatic_strategy_evidence": not owner_batch,
+            "batch_ids": set(), "override_authorized_entries": set(),
+            "performance_override_entries": set(), "authority_unavailable_entries": set(),
             "code_sha256": run.get("code", {}).get("sha256"), "settings_sha256": run.get("settings_sha256"),
             "trades": [], "entries": {}, "points": [], "mixed_exit_code": 0, "mixed_exit_settings": 0,
             "unknown_cost_legs": 0, "owner_exit_legs": 0,
@@ -146,9 +248,24 @@ def report(events, *, truncated=False, pending=0):
         if observed:
             group["from"] = min(group["from"] or observed, observed)
             group["through"] = max(group["through"] or observed, observed)
+        if owner_batch and (authority.get("strategy_batch") or {}).get("batch_id"):
+            # The entry may have fallen outside a bounded query; exit witnesses
+            # still identify the owner request without proving original size.
+            group["batch_ids"].add(str(authority["strategy_batch"]["batch_id"]))
         kind = event.get("kind")
         if kind == "entry":
-            if event.get("path") not in ("scan", "ocean"):
+            if owner_batch:
+                excluded_owner += 1
+                group["entries"][event["trade_id"]] = event.get("position", {})
+                batch = authority.get("strategy_batch") or {}
+                if not batch.get("batch_id"):
+                    group["authority_unavailable_entries"].add(event["trade_id"])
+                override = batch.get("override") or {}
+                if override.get("authorized") is True:
+                    group["override_authorized_entries"].add(event["trade_id"])
+                if override.get("applied") is True:
+                    group["performance_override_entries"].add(event["trade_id"])
+            elif event.get("path") not in ("scan", "ocean"):
                 excluded_owner += 1
             else:
                 group["entries"][event["trade_id"]] = event.get("position", {})
@@ -175,7 +292,7 @@ def report(events, *, truncated=False, pending=0):
             at = utc(event["point"][0])
             if at and is_trading_day(at.astimezone(ZoneInfo("Asia/Kolkata")).date()):
                 group["sessions"].add(at.astimezone(ZoneInfo("Asia/Kolkata")).date().isoformat())
-    out = []
+    out, owner_batch_cohorts = [], []
     for group in groups.values():
         # Completion requires the sum of exit legs to match known original qty.
         quantities = {}
@@ -192,9 +309,17 @@ def report(events, *, truncated=False, pending=0):
         metrics["max_drawdown_pct"] = None
         metrics["final_equity"] = None
         metrics["drawdown_reason"] = "shared_book_equity_not_attributable_to_this_cohort"
-        group.pop("entries")
+        group["entries_observed"] = len(group.pop("entries"))
         group["observed_sessions"] = len(group.pop("sessions"))
-        out.append({**group, **metrics, "book_equity_points": len(points)})
+        group["batch_ids"] = sorted(group["batch_ids"])
+        for name in ("override_authorized_entries", "performance_override_entries", "authority_unavailable_entries"):
+            group[name] = len(group[name])
+        result = {**group, **metrics, "book_equity_points": len(points)}
+        if group["cohort"] == "owner_strategy_batch":
+            result["exclusion_reason"] = "owner_requested_batch_not_untouched_automatic_strategy"
+            owner_batch_cohorts.append(result)
+        else:
+            out.append(result)
     epoch = latest_book.get("book_epoch")
     points = sorted([e for e in events if e.get("kind") == "equity" and e.get("book_epoch") == epoch], key=lambda e: str(e["point"][0]))
     # Operational drawdown of the actual shared book, with capital transfers
@@ -215,7 +340,11 @@ def report(events, *, truncated=False, pending=0):
     book_metrics["from"] = curve[0][0] if curve else None
     book_metrics["through"] = curve[-1][0] if curve else None
     book_metrics["versions"] = sorted({e.get("run", {}).get("id", "unknown") for e in points})
-    return {"model": v.MODEL, "status": "collecting_forward_evidence", "cohorts": out, "shared_book": book_metrics,
+    return {"model": v.MODEL, "status": "collecting_forward_evidence", "cohorts": out,
+            "owner_batch_cohorts": owner_batch_cohorts,
+            "observed_economics": _observed_economics(events, owner_authorities),
+            "observed_economics_scope": "Recorded exit legs by segment and book epoch, including owner batches and partial realizations; retained-query coverage only, not automatic-strategy expectancy",
+            "shared_book": book_metrics,
             "query_truncated": truncated, "pending_exports": pending,
             "excluded_owner_or_unknown_entries": excluded_owner,
             "coverage": "own_symbol_entry_inputs; no full peer/provider replay archive",
