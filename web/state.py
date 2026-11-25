@@ -109,6 +109,54 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p._durable_book_loaded = True
 
 
+def _load_startup_portfolio(p: Portfolio) -> bool:
+    """Distinguish an empty durable store from an unavailable initial read."""
+    expected = db.mongo_expected()
+    try:
+        persisted = db.load_portfolio(strict=True) if expected else db.load_portfolio()
+        if persisted:
+            _hydrate_portfolio_from_mongo(p, persisted)
+    except Exception as exc:
+        p._durable_book_read_confirmed = False
+        p._durable_book_loaded = False
+        db.require_portfolio_recovery("initial portfolio read failed:" + type(exc).__name__)
+        log.warning("Initial portfolio read failed (%s); fallback cannot overwrite the durable book",
+                    type(exc).__name__)
+        return False
+    if expected:
+        # A successful strict read returning None permits initial creation.
+        # This is separate from loading an existing durable financial book.
+        p._durable_book_read_confirmed = True
+    return True
+
+
+def _confirm_startup_portfolio_save(p: Portfolio) -> bool:
+    """Checkpoint a restored book before slow broker or scheduler work starts.
+
+    Loading an old snapshot is not acknowledgement of this process's save.
+    A failed Mongo read, however, must never authorize saving a fresh fallback
+    over the durable book. Existing reconnect/reconciliation handles that case.
+    """
+    if (db.mongo_expected()
+            and not getattr(p, "_durable_book_loaded", False)
+            and not getattr(p, "_durable_book_read_confirmed", False)):
+        log.warning("Startup portfolio checkpoint deferred: durable book not loaded")
+        return False
+    try:
+        saved = p.save() is True
+    except Exception as exc:
+        p.save_error = "startup portfolio checkpoint failed:" + type(exc).__name__
+        if db.mongo_expected():
+            db.portfolio_write_failed(p.save_error)
+        log.exception("Startup portfolio checkpoint failed; exits and retries remain enabled")
+        return False
+    if saved:
+        log.info("Startup portfolio checkpoint acknowledged")
+    else:
+        log.warning("Startup portfolio checkpoint unconfirmed; new buys remain paused")
+    return saved
+
+
 def _patch_portfolio_save_to_mirror_mongo() -> None:
     """Wrap Portfolio.save() once so every save mirrors to Mongo (when connected)."""
     global _PORTFOLIO_SAVE_PATCHED
@@ -734,9 +782,7 @@ def _bootstrap() -> None:
 
     # Load portfolio: prefer Mongo (survives restarts), fall back to JSON
     _PORTFOLIO = Portfolio.load_or_fresh(_CFG)
-    persisted = db.load_portfolio()
-    if persisted:
-        _hydrate_portfolio_from_mongo(_PORTFOLIO, persisted)
+    _load_startup_portfolio(_PORTFOLIO)
 
     # Wire save() to mirror to Mongo from now on
     _patch_portfolio_save_to_mirror_mongo()
@@ -774,6 +820,10 @@ def _bootstrap() -> None:
         _PORTFOLIO.save()
 
     _ENGINE = TradingEngine(_CFG, _PORTFOLIO)
+
+    # XR-071 follow-up: an unchanged restored book still needs this process's
+    # acknowledgement. Do it before provider work can delay the minute retry.
+    _confirm_startup_portfolio_save(_PORTFOLIO)
 
     # Attach Upstox broker if a token is persisted in Mongo
     _attach_broker_if_persisted()

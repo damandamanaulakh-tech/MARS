@@ -390,3 +390,22 @@ code manifest must not reset the original book epoch or create another baseline.
   A successful isolated comparison still needs actual-strategy and forward paper
   evidence. Require full zero-skip application CI and exact frozen research replay;
   record merge, deployment health and natural runtime observation separately.
+
+## Startup save acknowledgement follow-up
+
+A restored database document is not a save acknowledgement for the new process.
+Before broker/provider work or scheduler startup, attempt a real checkpoint only
+when the durable book was successfully hydrated, a strict initial read confirmed
+an empty store, or the installation is explicitly local-only. Never use a failed
+read or partially hydrated fallback as authority to overwrite
+the database. Flag initial read/hydration failure before migration saves, and keep
+all subsequent direct saves and retries blocked until safe reconciliation.
+Keep unresolved recovery and conflicting books blocked.
+
+Warning deduplication must not suppress a checkpoint retry. After a retry, inspect
+the actual entry guard again; a successful confirmed save should allow the current
+pass to continue. Retain mode/book serialization because scans also mutate shared
+configuration and evidence. Busy work must defer without changing the journal.
+Saving maintenance remains registered even when both trading schedules are off;
+that does not enable any entry job. Test startup ordering, refusal, missing ack,
+busy locks, prior warnings, unresolved recovery and protective exits separately.

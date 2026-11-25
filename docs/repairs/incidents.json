@@ -110,5 +110,14 @@
     "runtime_observation": "25 November: 10:49 IST scan reconciles 1010 capped + 82 deadline-labelled + 37 stale = 1129; 11:14 IST scan reconciles 1014 capped + 82 deadline-labelled + 1 unmapped + 36 stale = 1133. Every initially ready score record verified against raw BSON checksum; zero ranked/picks/buys. Save guard clear. Render confirms overlapping rotation was skipped 23 November14:30 IST; exact stalled preparation stage unknown. Later normal exits leave21open/92closed; no diagnostic trades induced. Actual service uses Render Free, limit 0.15 CPU; near-limit usage observed during scans. Shutdown at11:53IST and restart at12:00IST observed; exact platform reason unknown. Startup save block cleared at12:01:12IST. Allocation release does not resolve these separate issues.",
     "acceptance": "Keep completed-bar, session and freshness requirements; score fresh bounded batches and retain incomplete fetch work. Test slow providers, empty responses, restarts and late scoring. Verify new normal per-segment runs without forcing trades. Record scheduler stage timing and bounded preparation/retry; decide always-running hosting separately without silently adding a charge.",
     "reconciliation": "Additional incident; prior original findings and incident records retained."
+  },
+  {
+    "id": "RUN-20261125-02",
+    "finding": "Restored portfolio starts unconfirmed; same-day warning can suppress recovery save and a successful save still halts its current scan",
+    "workflow": "PUBLISHED_CI_PENDING",
+    "evidence": "docs/repairs/releases/2026-11-25-startup-save-recovery.md",
+    "runtime_observation": "25 November screenshot at15:08IST shows portfolio_save_unconfirmed and39open. Render start09:38:28UTC; halt logged09:47:34UTC. Mongo later confirms39open94closed,last_save10:06:55.997175UTC. Health at12:06:33UTC confirms acknowledgement and no entryblock. Shared storage about401MB/512MB atlatercheck, no current writeerror. Exact earlier lock holder and first recovery time unknown.",
+    "acceptance": "Checkpoint a proved restored book before provider/scheduler work; failed/unacknowledged saves keep entries blocked; previous warning cannot suppress retry; successful acknowledgement allows the current pass; busy locks and unresolved recovery cannot mutate or overwrite the book; maintenance remains enabled without trading jobs; protective exits remain independently tested.",
+    "reconciliation": "Additional follow-up to XR-071; existing original finding and prior release proof retained. No failure, restart or trade induced for diagnosis."
   }
 ]

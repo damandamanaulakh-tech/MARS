@@ -611,14 +611,14 @@
   ],
   "active_step_note": "Goal11 engineering and storage recovery are shipped and runtime verified. Performance acceptance remains open for genuinely new forward cohorts; historical scenarios are negative and no settings are promoted.",
   "current_repair": {
-    "id": "ALLOC-001",
-    "approved_date": "2026-11-21",
-    "goal": "Apply owner six-segment cash allocation in the real app",
-    "status": "DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING",
-    "evidence": "docs/repairs/releases/2026-11-25-six-segment-allocation.md",
-    "runtime": "PR229 matching deployment and all six persisted settings verified; normal entry/add/rotation observation pending",
-    "related_open_incident": "RUN-20261125-01",
-    "merge_sha": "240e8711cce48a09e359250531a238c58dcee7f9"
+    "id": "XR-071",
+    "approved_date": "2026-11-25",
+    "goal": "Confirm startup portfolio saves and recover the same pass without weakening entry protection",
+    "status": "PUBLISHED_CI_PENDING",
+    "evidence": "docs/repairs/releases/2026-11-25-startup-save-recovery.md",
+    "runtime": "Current app recovered before repair; follow-up release not yet deployed",
+    "related_open_incident": "RUN-20261125-02",
+    "pr": "https://github.com/damandamanaulakh-tech/MARS/pull/231"
   },
   "previous_repairs": [
     {
@@ -643,6 +643,16 @@
       "portfolio_save_confirmed_at": "2026-11-20T17:39:32.790368",
       "native_financial_readback": "unchanged: 33 open positions, 80 closed trades",
       "production_refusal_recovery": "Natural observation pending; isolated refusal/recovery and production startup acknowledgement verified"
+    },
+    {
+      "id": "ALLOC-001",
+      "approved_date": "2026-11-21",
+      "goal": "Apply owner six-segment cash allocation in the real app",
+      "status": "DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING",
+      "evidence": "docs/repairs/releases/2026-11-25-six-segment-allocation.md",
+      "runtime": "PR229 matching deployment and all six persisted settings verified; normal entry/add/rotation observation pending",
+      "related_open_incident": "RUN-20261125-01",
+      "merge_sha": "240e8711cce48a09e359250531a238c58dcee7f9"
     }
   ]
 }

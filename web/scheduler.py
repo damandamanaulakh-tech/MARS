@@ -70,8 +70,7 @@ def start_if_enabled() -> None:
     intraday = os.environ.get("INTRADAY_SCHEDULER") == "1"
     daily = daily_enabled()
     if not (intraday or daily):
-        log.info("Schedulers disabled (DAILY_SCHEDULER=0 and INTRADAY_SCHEDULER unset)")
-        return
+        log.info("Trading schedules disabled; portfolio save maintenance remains active")
     if _SCHED is not None:
         return
     try:
@@ -3380,29 +3379,52 @@ _CATCHUP_LOCK = threading.Lock()
 
 
 def _degraded_halt(where: str) -> bool:
-    """AUDIT FIX C1: a boot during a Mongo outage used to trade a phantom
-    fresh book all day, and those trades vanished at the next restart. While
-    Mongo is expected-but-down, scans do NOT open positions; the halt is
-    journaled once per day and pushed to the phone."""
-    from datetime import datetime as _dt
+    """Retry a blocked checkpoint before deciding whether this pass must halt.
 
+    Warning deduplication must never suppress recovery. Keep the mode lock:
+    scans also mutate shared configuration and evidence outside the book lock.
+    A busy scan defers this attempt without touching the book or its journal.
+    """
+    from datetime import datetime as _dt
+    from trading.modes import ModeBusy, holding_mode_lock
     from . import state
-    state.db.is_connected()  # discover recovery before healing or saving a book
-    state.heal_after_reconnect()
-    if not state.mongo_degraded() and not state.portfolio().save_error:
-        return False
+
+    state.db.is_connected()
     p = state.portfolio()
-    today = _dt.utcnow().date().isoformat()
-    if not any(e.get("action") == "MONGO_OFFLINE_HALT"
-               and str(e.get("ts", "")).startswith(today)
-               for e in p.decision_journal[-100:]):
-        p.decision_journal.append({
-            "ts": _dt.utcnow().isoformat(), "action": "MONGO_OFFLINE_HALT",
-            "why": (f"[{where}] Portfolio save is unavailable, unconfirmed or refused — "
-                    "new buys paused until an acknowledged save. Protective exits and retries remain active."),
-            "reason": p.entry_block_reason() or state.db.portfolio_entry_block_reason(),
-        })
-        p.save()
+    if not state.mongo_degraded() and not p.save_error:
+        return False
+    try:
+        with holding_mode_lock(timeout=0):
+            state.heal_after_reconnect()
+            p = state.portfolio()
+            if not state.mongo_degraded() and not p.save_error:
+                return False
+            if state.db.recovered_pending():
+                log.warning("[%s] Portfolio recovery unresolved; new buys remain paused", where)
+                return True
+            with p._lock:
+                today = _dt.utcnow().date().isoformat()
+                if not any(e.get("action") == "MONGO_OFFLINE_HALT"
+                           and str(e.get("ts", "")).startswith(today)
+                           for e in p.decision_journal[-100:]):
+                    p.decision_journal.append({
+                        "ts": _dt.utcnow().isoformat(), "action": "MONGO_OFFLINE_HALT",
+                        "why": (f"[{where}] Portfolio save is unavailable, unconfirmed or refused — "
+                                "new buys paused until an acknowledged save. Protective exits and retries remain active."),
+                        "reason": p.entry_block_reason() or state.db.portfolio_entry_block_reason(),
+                    })
+                # Retry even when this day's warning came from an older process.
+                p.save()
+            # A truthy return or a database ping alone is not an acknowledgement.
+            if not state.mongo_degraded() and not p.save_error:
+                log.info("[%s] Portfolio save confirmed; entry checks may proceed", where)
+                return False
+    except ModeBusy:
+        log.info("[%s] Portfolio save retry deferred by active work; new buys remain paused", where)
+        return True
+    except Exception:
+        log.exception("[%s] Portfolio recovery save failed; new buys remain paused", where)
+        return True
     log.error("[%s] Portfolio save not confirmed — scan entries halted", where)
     return True
 
