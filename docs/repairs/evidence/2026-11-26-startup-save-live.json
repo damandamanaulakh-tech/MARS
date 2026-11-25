@@ -1,0 +1,30 @@
+{
+  "pr": 231,
+  "reviewed_head": "37c90fe1f4e3ef6d3d602295faf10563abf34dc8",
+  "tree": "4e50a1c1f0f3b98da09b846a1db02219aaee4a11",
+  "merge": "e094369d9da5e2c238050cc7e0c32c12bf4e2245",
+  "ci": 45682345922,
+  "ci_jobs": 6,
+  "ci_tests": 3640,
+  "ci_test_duration_s": 390.61,
+  "deployment": "dep-dc3jvm60tbcc73bufji0",
+  "live_at": "2026-11-25T20:08:37.770293Z",
+  "startup_complete_at": "2026-11-25T20:08:34.559941978Z",
+  "save_confirmed_at": "2026-11-25T20:08:32.208029",
+  "mongo_last_save": "2026-11-25T20:08:27.284407",
+  "entry_block_reason": null,
+  "write_error": null,
+  "ready": true,
+  "open": 39,
+  "closed": 94,
+  "financial_projection_sha256": "1171458e35388f01cd5969802f99b2a23f2eff1eb6785e77f846acc1d6f5824b",
+  "book_epoch": "2026-11-20T08:41:42.997998+00:00",
+  "pending_exports": 0,
+  "cluster_mb": 421,
+  "health_verified_at": "2026-11-25T20:09:59Z",
+  "timestamp_provenance": {
+    "save_confirmed_at": "Raw observed timezone-free string; web/db.py writer uses datetime.utcnow().isoformat(), so UTC.",
+    "mongo_last_save": "Raw observed timezone-free string; trading/paper.py writer uses datetime.utcnow().isoformat(), so UTC."
+  },
+  "cluster_mb_unit": "MiB (1024 * 1024 scale); original health field name retained"
+}

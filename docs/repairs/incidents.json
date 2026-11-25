@@ -114,10 +114,21 @@
   {
     "id": "RUN-20261125-02",
     "finding": "Restored portfolio starts unconfirmed; same-day warning can suppress recovery save and a successful save still halts its current scan",
-    "workflow": "PUBLISHED_CI_PENDING",
+    "workflow": "STARTUP_ACKNOWLEDGEMENT_RUNTIME_VERIFIED",
     "evidence": "docs/repairs/releases/2026-11-25-startup-save-recovery.md",
-    "runtime_observation": "25 November screenshot at15:08IST shows portfolio_save_unconfirmed and39open. Render start09:38:28UTC; halt logged09:47:34UTC. Mongo later confirms39open94closed,last_save10:06:55.997175UTC. Health at12:06:33UTC confirms acknowledgement and no entryblock. Shared storage about401MB/512MB atlatercheck, no current writeerror. Exact earlier lock holder and first recovery time unknown.",
+    "runtime_observation": "25 November screenshot at15:08IST shows portfolio_save_unconfirmed and39open. Render start09:38:28UTC; halt logged09:47:34UTC. Mongo later confirms39open94closed,last_save10:06:55.997175UTC. Health at12:06:33UTC confirms acknowledgement and no entryblock. Shared storage about401MB/512MB atlatercheck, no current writeerror. Exact earlier lock holder and first recovery time unknown. Follow-up release: new process acknowledges its save at 20:08:32 UTC before startup completion at 20:08:34 UTC; same selected 39-open / 94-closed financial projection, no entry block or write error, epoch retained and zero pending exports. Natural refused-write recovery remains unobserved separately.",
     "acceptance": "Checkpoint a proved restored book before provider/scheduler work; failed/unacknowledged saves keep entries blocked; previous warning cannot suppress retry; successful acknowledgement allows the current pass; busy locks and unresolved recovery cannot mutate or overwrite the book; maintenance remains enabled without trading jobs; protective exits remain independently tested.",
-    "reconciliation": "Additional follow-up to XR-071; existing original finding and prior release proof retained. No failure, restart or trade induced for diagnosis."
+    "reconciliation": "Additional follow-up to XR-071; existing original finding and prior release proof retained. No failure, restart or trade induced for diagnosis.",
+    "release_revision": "e094369d9da5e2c238050cc7e0c32c12bf4e2245",
+    "release_pr": 231
+  },
+  {
+    "id": "RUN-20261126-01",
+    "finding": "Append-only journal growth is dominated by scan decisions, including startup-triggered off-hours scans while entries are blocked.",
+    "workflow": "CONFIRMED_RUNTIME_RETENTION_PENDING",
+    "evidence": "docs/repairs/evidence/2026-11-26-journal-growth-inventory.md",
+    "runtime_observation": "Read-only aggregate: 79,249 rows / 148.08 MiB; SCAN_DECISION: 70,114 rows / 138.81 MiB = 93.74%. A measured 15-minute window has 3,231 scan decisions / 6.10 MiB. Two recent catch-up markers classify startup triggers. Writers were active; counts changed, so this is not an atomic backup. No raw payload export, decoded-hash verification or DB mutation. Later health reported a 421 MiB / 512 MiB shared-cluster estimate.",
+    "acceptance": "Prepare complete resumable export and reference-aware dry-run retention with independent restore proof. Review repeated startup/off-hours work against completed-input identity; preserve next-session recovery, protective exits and gate/trade evidence. Measure actual retained storage and shared headroom; no blanket trade/journal deletion or unsupported growth forecast.",
+    "reconciliation": "Additional incident linked to OPS-05; prior storage recovery, history cleanup, all original findings and existing incidents remain retained."
   }
 ]
