@@ -218,6 +218,15 @@ def _fill_locked(engine, o: dict, price: float, now: datetime) -> None:
     try:
         engine._open(pick, qty, fill, now, cfg=cfg)
     except ValueError as exc:
+        if str(exc).startswith("category_budget_"):
+            # Eligibility used an earlier allocation reading. Keep the day
+            # order pending when the locked booking check finds less room.
+            o["note"] = str(exc)
+            gate = decision.get("gates", {}).get("category_budget_final", {})
+            de.put(decision, "category_budget_final", gate.get("value"),
+                   gate.get("threshold"), state="failed", reason=o["note"])
+            de.journal_decision(p, decision, "waiting", o["note"])
+            return
         if not str(exc).startswith(("intraday_", "costs_", "portfolio_save_")):
             raise
         o["note"] = str(exc)

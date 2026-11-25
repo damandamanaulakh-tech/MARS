@@ -505,6 +505,33 @@ def _migrate_archive_pre_mars(p: Portfolio) -> dict:
     return out
 
 
+def _migrate_segment_allocation(cfg, overrides: dict) -> bool:
+    """Apply the 21-Nov owner allocation once, without touching the book.
+
+    Shares and marker use one atomic settings merge: a failed write cannot
+    leave a durable marker claiming an allocation which was never stored.
+    Runtime still uses the requested policy; a failed acknowledgement is
+    logged and retried on next boot. Subsequent owner settings edits survive.
+    """
+    from trading import category_budget as cb
+    if overrides.get(cb.OWNER_ALLOCATION_MARKER) is True:
+        return False
+    update = {cb.SHARE_FIELDS[c]: v for c, v in cb.OWNER_SHARES.items()}
+    update["category_budgets_enabled"] = True
+    db.save_settings({**update, cb.OWNER_ALLOCATION_MARKER: True})
+    for key, value in update.items():
+        setattr(cfg, key, value)
+    saved = db.load_settings()
+    confirmed = (saved.get(cb.OWNER_ALLOCATION_MARKER) is True
+                 and all(saved.get(k) == v for k, v in update.items()))
+    if confirmed:
+        log.info("Six-segment allocation 2026-11-21 persisted and confirmed")
+    else:
+        log.warning("Six-segment allocation active in memory; settings save "
+                    "not confirmed, retry on next boot")
+    return confirmed
+
+
 def _bootstrap() -> None:
     global _CFG, _PORTFOLIO, _ENGINE
     _CFG = Config()
@@ -631,6 +658,10 @@ def _bootstrap() -> None:
     # footprint: cleared once, and slab rules again. The Settings field still
     # accepts "fixed" for a deliberate choice made after this boot.
     _migrate_slab_restore(_CFG)
+
+    # Explicit owner instruction applies to the running app, including
+    # persisted overrides from the old five-share allocation.
+    _migrate_segment_allocation(_CFG, overrides)
 
     # Apply mode preset (sets stops, target, etc. per chosen horizon)
     _CFG.apply_mode_preset()

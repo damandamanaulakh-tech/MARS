@@ -1,6 +1,8 @@
 # MARS goals — one reviewed batch at a time
 
-Current owner-authorized batch: **XR-071 — portfolio save entry guard**. Goal11 engineering and storage recovery shipped in PR225/PR226; future forward-performance acceptance remains open. XR-071 shipped in PR227 after all six CI jobs passed (3,572 canonical tests, zero skips). Matching deployment, startup buying block, acknowledged save and financial preservation verified at 17:40 UTC on 20 November; natural production refusal observation remains pending. [Current batch](releases/2026-11-20-xr071-save-guard.md).
+Current owner policy batch: **ALLOC-001 — six-segment allocation 30/10/24/24/10/2**. Implementation/release validation in progress; not yet live. [Release record](releases/2026-11-25-six-segment-allocation.md). **RUN-20261125-01** separately records 1,010 fetch-capped, 82 deadline-labelled and 37 stale intraday names with zero ranked/buys; it remains open. [Evidence](evidence/2026-11-25-no-new-positions.md).
+
+Previous owner-authorized batch: **XR-071 — portfolio save entry guard**. Goal11 engineering and storage recovery shipped in PR225/PR226; future forward-performance acceptance remains open. XR-071 shipped in PR227 after all six CI jobs passed (3,572 canonical tests, zero skips). Matching deployment, startup buying block, acknowledged save and financial preservation verified at 17:40 UTC on 20 November; natural production refusal observation remains pending. [Current batch](releases/2026-11-20-xr071-save-guard.md).
 
 Each batch must identify its source findings, demonstrate the failure, make a bounded repair, test valid and failure paths, and record local / merged / deployed / runtime-verified status separately. Strategy decisions retain their own review. Work below is ordered by the current incident and portfolio impact.
 

@@ -217,6 +217,7 @@ SANDBOX_KNOBS: list[dict] = [
     {"name": "share_short",      "label": "Short share %",      "kind": "pct"},
     {"name": "share_swing",      "label": "Swing share %",      "kind": "pct"},
     {"name": "share_positional", "label": "Positional share %", "kind": "pct"},
+    {"name": "share_ocean", "label": "Ocean share %", "kind": "pct"},
 ]
 DRAFT_DOC_ID = "formula_drafts"
 MAX_SANDBOX_SYMBOLS = 25
@@ -912,6 +913,7 @@ def _live_draft(cfg) -> dict:
         "share_short": _pct(getattr(cfg, "budget_share_short", 0.0), 2),
         "share_swing": _pct(getattr(cfg, "budget_share_swing", 0.0), 2),
         "share_positional": _pct(getattr(cfg, "budget_share_positional", 0.0), 2),
+        "share_ocean": _pct(getattr(cfg, "budget_share_ocean", 0.0), 2),
         "symbols": "",
     }
 
@@ -975,6 +977,7 @@ def _draft_cfg(cfg, draft: dict):
     c2.budget_share_short = float(draft["share_short"]) / 100.0
     c2.budget_share_swing = float(draft["share_swing"]) / 100.0
     c2.budget_share_positional = float(draft["share_positional"]) / 100.0
+    c2.budget_share_ocean = float(draft.get("share_ocean", cfg.budget_share_ocean * 100)) / 100.0
     return c2
 
 

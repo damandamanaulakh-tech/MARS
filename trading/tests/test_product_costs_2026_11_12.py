@@ -192,7 +192,9 @@ def test_split_preserves_total_entry_fees_and_does_not_double_charge(tmp_path,mo
 
 def test_fees_and_slippage_are_separate_not_charged_twice(tmp_path,monkeypatch):
     e=engine(tmp_path,monkeypatch); e.cfg.slippage_bps=5
-    e._open({'ticker':'AAA.NS','score':80.,'reasoning':'slip'},1000,100.05,NOW)
+    # Leave room for the slipped fill inside the owner's 10% Intraday share;
+    # the fee identity is independent of allocation-boundary rejection.
+    e._open({'ticker':'AAA.NS','score':80.,'reasoning':'slip'},999,100.05,NOW)
     e._close('AAA.NS',101.,'OWNER_SELL',NOW)
     t=e.portfolio.trades[-1]
     assert t.entry_price==100.05 and t.exit_price==pytest.approx(100.9495)

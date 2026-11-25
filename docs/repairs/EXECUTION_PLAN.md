@@ -1,12 +1,14 @@
 # Ordered repair programme — 11 November 2026
 
-**Current batch: XR-071.** New buys wait after a failed portfolio save; protective exits and independent save retries remain active. Shipped in PR227: all six CI jobs passed, with 3,572 canonical tests and zero skips. Matching deployment, startup buying block, acknowledged save and unchanged 33-open/80-closed book verified on 20 November at 17:40 UTC. Natural production refusal observation remains pending. [Save guard evidence](releases/2026-11-20-xr071-save-guard.md).
+Current owner policy batch: **ALLOC-001 — six-segment allocation 30/10/24/24/10/2**. Implementation/release validation in progress; not yet live. [Release record](releases/2026-11-25-six-segment-allocation.md). **RUN-20261125-01** separately records 1,010 fetch-capped, 82 deadline-labelled and 37 stale intraday names with zero ranked/buys; it remains open. [Evidence](evidence/2026-11-25-no-new-positions.md).
+
+**Previous batch: XR-071.** New buys wait after a failed portfolio save; protective exits and independent save retries remain active. Shipped in PR227: all six CI jobs passed, with 3,572 canonical tests and zero skips. Matching deployment, startup buying block, acknowledged save and unchanged 33-open/80-closed book verified on 20 November at 17:40 UTC. Natural production refusal observation remains pending. [Save guard evidence](releases/2026-11-20-xr071-save-guard.md).
 
 Goal11 engineering and storage recovery are shipped in [PR225](https://github.com/damandamanaulakh-tech/MARS/pull/225), revision `87285df71a7cebe6b62c01636aac0eaef5afcd9b`. All **3,539 canonical CI tests**, zero skips, and all six jobs passed, including both complete combined replays. The exact automatic Render deployment is live. Native saves, the approved cleanup, both HTTP exports, same-version restart and code-version transition are verified. All historical scenarios have negative net expectancy; **genuinely new forward performance acceptance remains open**, with no settings promotion. [Release proof](releases/2026-11-20-storage-and-history.md).
 
 Owner instruction: show the sequence, start one by one, and track completion in
 the repository. This is the current execution order for G4/G13 and the related
-data/risk work. It does not remove any of the 170 backlog records or five
+data/risk work. It does not remove any of the 171 backlog records or six
 separate incidents. [Goals](GOALS.md), [full backlog](BACKLOG.md),
 [machine-readable sequence](execution-plan.json).
 

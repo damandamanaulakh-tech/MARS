@@ -293,6 +293,11 @@ def execute(eng, portfolio, cfg, planned_rows: list, now: datetime, *,
         try:
             eng._open(pick, qty, fill, now, cfg=cfg)
         except ValueError as exc:
+            if str(exc).startswith("category_budget_"):
+                gate = decision.get("gates", {}).get("category_budget_final", {})
+                reject(str(exc), "category_budget_final",
+                       gate.get("value"), gate.get("threshold"))
+                continue
             if not str(exc).startswith(("intraday_", "costs_", "portfolio_save_")):
                 raise
             reject(str(exc), "portfolio_save" if str(exc).startswith("portfolio_save_") else "entry_data_final", unavailable=True)

@@ -1173,16 +1173,15 @@ class TradingEngine:
                             "capped": bool(want > cap_rs)}
                         if want > cap_rs:
                             notional_arg = cap_rs
-                # OWNER ORDER 2026-10-04: each category spends only its own share
-                # (momentum 40%, the other four 15% each). Ocean is exempt.
+                # Owner order 2026-11-21: all six segments, including Ocean,
+                # spend only their own share of deployable capital.
                 initial_stop = self._stop_for(pick, fill, cfg=cfg)
                 ok, reason, qty = can_open(
                     self.risk, self.portfolio.cash, current_eq,
                     self.portfolio.positions, pick["ticker"], fill, cfg,
                     notional_override=notional_arg,
                     when=now, proposed_stop_price=initial_stop,
-                    category=(None if pick.get("ocean")
-                              else (getattr(cfg, "mode", "") or MOMENTUM_MODE)),
+                    category=self._loss_halt_category(pick, cfg),
                 )
                 pick["size_diag"] = size_diag
                 # v7: size throttle = MIN of (strength, IFR) instead of product.
@@ -1239,7 +1238,8 @@ class TradingEngine:
                         })
                         continue
                 if not ok:
-                    skipped.append({"ticker": pick["ticker"], "reason": reason})
+                    skipped.append({"ticker": pick["ticker"], "reason": reason,
+                                    "category": self._loss_halt_category(pick, cfg)})
                     continue
                 entry_now = datetime.utcnow()
                 de.record("entry_deadline_final", de.stamp(entry_now), "15:25 IST", passed=ir.entry_allowed(cfg.mode, entry_now),
@@ -1257,8 +1257,9 @@ class TradingEngine:
                 try:
                     self._open(pick, qty, fill, entry_now, initial_stop=initial_stop)
                 except ValueError as exc:
-                    if str(exc).startswith(("intraday_", "costs_", "portfolio_save_")):
-                        skipped.append({"ticker": pick["ticker"], "reason": str(exc)})
+                    if str(exc).startswith(("intraday_", "costs_", "portfolio_save_", "category_budget_")):
+                        skipped.append({"ticker": pick["ticker"], "reason": str(exc),
+                                        "category": self._loss_halt_category(pick, cfg)})
                         continue
                     raise
                 opened.append(pick["ticker"])
@@ -1823,6 +1824,24 @@ class TradingEngine:
                                 "why": "Pyramid buys paused until the current book save is acknowledged; exits remain active.",
                                 "reason": self.portfolio.entry_block_reason()})
                             continue
+                        # An add spends the holding's own segment share, even
+                        # when refresh runs under a different active mode.
+                        # Recheck under the book lock after planning: another
+                        # entry may have consumed the room in the meantime.
+                        from . import category_budget as cb
+                        category = cb.category_of(pos)
+                        left = cb.room(cfg, self.portfolio.positions, category,
+                                       self.portfolio.equity(marks))
+                        if left is not None and add_qty * fill > left + 1e-8:
+                            self.portfolio.decision_journal.append({
+                                "ts": now.isoformat(), "action": "PYRAMID_CATEGORY_BUDGET_FULL",
+                                "ticker": ticker, "category": category,
+                                "wanted": add_qty * fill, "room": left,
+                                "why": "Pyramid tranche exceeds its segment's remaining allocation; existing protection remains active.",
+                            })
+                            continue
+                        if add_qty * fill + buy_cost > self.portfolio.cash + 1e-8:
+                            continue
                         self.portfolio.cash -= add_qty * fill + buy_cost
                         pos.cost_basis = next_basis
                         prev_adds = pos.pyramid_adds
@@ -1945,6 +1964,21 @@ class TradingEngine:
         self._check_entry_persistence(pick.get("decision"))
         if notional + buy_cost > self.portfolio.cash + 1e-8:
             raise ValueError("costs_cash_short")
+        # This is the final locked booking boundary for scans, owner entries
+        # and limits. A prior eligibility check cannot reserve a cash share.
+        # Retained marks value the book here; they are never execution prices.
+        from . import category_budget as cb
+        category = self._loss_halt_category(pick, cfg)
+        left = cb.room(cfg, self.portfolio.positions, category,
+                       self.portfolio.equity({}))
+        within_share = left is None or notional <= left + 1e-8
+        if pick.get("decision") is not None:
+            de.put(pick["decision"], "category_budget_final",
+                   {"category": category, "notional": notional, "room": left},
+                   "Entry cost within remaining segment allocation at booking",
+                   passed=within_share, state="skipped" if left is None else None)
+        if not within_share:
+            raise ValueError("category_budget_full")
         decision = copy.deepcopy(pick.get("decision") or de.new(pick["ticker"], cfg.mode, pick.get("entry_path", "direct"), now, pick.get("history")))
         decision.setdefault("market_context", ci.unavailable(pick["ticker"], now))
         de.put(decision, "entry_deadline_final", ir.utc(now).isoformat(), "Before intraday square-off deadline", passed=True,
@@ -2582,7 +2616,8 @@ class TradingEngine:
 
     def _rotation_exits(self, picks: list, now: datetime,
                         entries_blocked: bool = False,
-                        history: Optional[dict] = None) -> list:
+                        history: Optional[dict] = None, *,
+                        _reserved_cash: float = 0.0) -> list:
         """OWNER ORDER 2026-09-04 ("skipper exit suggestion is there but not
         executed — make it happen"): the F6 rotation suggester EXECUTES.
 
@@ -2679,7 +2714,9 @@ class TradingEngine:
         eq = self.portfolio.cash + sum(
             float(p.qty) * float(p.entry_price) for p in held.values())
         reserve = float(getattr(cfg, "cash_reserve_pct", 0.0) or 0.0)
-        spendable = self.portfolio.cash - eq * reserve
+        # Earlier groups have not booked yet. Keep their planned spend
+        # separate from actual cash so it cannot fund two groups at once.
+        spendable = self.portfolio.cash - eq * reserve - _reserved_cash
 
         def _close_of(pk: dict):
             frame = pk.get("risk_history")
@@ -2702,6 +2739,42 @@ class TradingEngine:
         cash_floor = float(getattr(cfg, "rotation_cash_trigger_pct", 0.05) or 0.0)
         cash_low = eq > 0 and (self.portfolio.cash / eq) < cash_floor
 
+        # One scan may contain both its ordinary strategy and Ocean picks.
+        # Their shares are independent, but their funding still draws from
+        # the same cash. Reserve each fundable group's estimated spend for
+        # later groups without debiting the actual portfolio before a buy.
+        from . import category_budget as cb
+        if cb.enabled(cfg):
+            groups = {}
+            for pk in fresh:
+                groups.setdefault(self._loss_halt_category(pk, cfg), []).append(pk)
+            if len(groups) > 1:
+                from .risk import min_trade_value
+                rotated = []
+                reserved = _reserved_cash
+                for category, group in groups.items():
+                    rotated.extend(self._rotation_exits(group, now,
+                        entries_blocked=entries_blocked, history=history,
+                        _reserved_cash=reserved))
+                    current_eq = self.portfolio.cash + sum(
+                        float(p.qty) * float(p.entry_price)
+                        for p in self.portfolio.positions.values())
+                    available = max(0.0, self.portfolio.cash
+                                    - current_eq * reserve - reserved)
+                    share_room = cb.room(cfg, self.portfolio.positions,
+                                         category, current_eq)
+                    if share_room is not None:
+                        available = min(available, share_room)
+                    for pk in group:
+                        ticket = _ticket(pk)
+                        planned = min(ticket, available)
+                        floor = max(cb.min_open(cfg), min_trade_value(cfg, ticket))
+                        if planned <= 0 or planned < floor:
+                            continue
+                        reserved += planned
+                        available -= planned
+                return rotated
+
         if not fresh:
             if cash_low:
                 self._journal_once_a_day("ROTATION_NOTHING_TO_FUND", now, {
@@ -2723,13 +2796,11 @@ class TradingEngine:
         # it — selling another category's holding frees cash this pick still
         # cannot spend, shrinking the book for nothing (the S-4 rule). A share
         # is counted at ENTRY cost, so a sale frees the holding's cost from
-        # the share (and its market value as cash). Ocean picks sit outside
-        # the shares.
-        from . import category_budget as cb
-        cat = getattr(cfg, "mode", "") or MOMENTUM_MODE
+        # the share (and its market value as cash). Ocean now follows the
+        # same rule under the owner's six-segment allocation.
+        cat = self._loss_halt_category(fresh[0], cfg)
         share_limit = cb.limit(cfg, cat, eq)
-        budget_need = sum(tickets[pk["ticker"]] for pk in fresh
-                          if not pk.get("ocean"))
+        budget_need = sum(tickets.values())
         room_now = (share_limit - cb.used(held.values(), cat)
                     if share_limit is not None else None)
         same_category_only = (room_now is not None and budget_need > 0
@@ -2834,7 +2905,8 @@ class TradingEngine:
             freed_share += float(held[t].qty) * float(held[t].entry_price)
             decision = de.exit_decision(held[t], live, now)
             de.put(decision, "rotation", {"progress_pct": s["progress_pct"], "target": s["target"],
-                   "shortfall": shortfall, "fund_ticker": s.get("fund_ticker"), "category_room": room_now},
+                   "shortfall": shortfall, "fund_ticker": s.get("fund_ticker"), "category_room": room_now,
+                   "cash_reserved_for_earlier_picks": _reserved_cash},
                    {"min_progress": min_prog, "cash_trigger": cash_floor}, passed=True, role="exit_trigger")
             with de.capture(decision):
                 self._close(t, px, "ROTATION_EXIT", now)
@@ -2846,6 +2918,7 @@ class TradingEngine:
                 "target": s["target"], "freed": round(value, 2),
                 "fund_ticker": s.get("fund_ticker"),
                 "fund_score": s.get("fund_score"),
+                "cash_reserved_for_earlier_picks": _reserved_cash,
                 "short_of": ("category_share" if same_category_only
                              else "cash"),
                 "why": (f"Rotated out {t} at ₹{px:,.2f} — {s['progress_pct']}% "
@@ -2856,6 +2929,8 @@ class TradingEngine:
                            f"of the ₹{budget_need:,.0f} it needs"
                            if same_category_only else
                            f"Cash was short by ₹{shortfall:,.0f}")
+                        + (f"; ₹{_reserved_cash:,.0f} is reserved for earlier "
+                           "eligible picks in this scan" if _reserved_cash else "")
                         + f"; ₹{freed:,.0f} freed so far. "
                         f"Owner order 2026-09-04 — the suggester executes."),
                 "cash_after": round(self.portfolio.cash, 2),
@@ -3294,36 +3369,38 @@ class TradingEngine:
         """One CATEGORY_BUDGET_FULL line per category per day when this pass
         refused picks because its share was spent (owner order 2026-10-04).
         A refusal the owner cannot see is the lying-screen class."""
-        names = [s["ticker"] for s in skipped
-                 if s.get("reason") == "category_budget_full"]
-        if not names:
-            return
         cfg = self.cfg
-        cat = getattr(cfg, "mode", "") or MOMENTUM_MODE
-        today_iso = now.date().isoformat()
-        if any(e.get("action") == "CATEGORY_BUDGET_FULL"
-               and e.get("category") == cat
-               and str(e.get("ts", "")).startswith(today_iso)
-               for e in self.portfolio.decision_journal[-60:]):
+        by_category = {}
+        for row in skipped:
+            if row.get("reason") == "category_budget_full":
+                cat = row.get("category") or (getattr(cfg, "mode", "") or MOMENTUM_MODE)
+                by_category.setdefault(cat, []).append(row["ticker"])
+        if not by_category:
             return
+        today_iso = now.date().isoformat()
+        written = {e.get("category") for e in self.portfolio.decision_journal
+                   if e.get("action") == "CATEGORY_BUDGET_FULL"
+                   and str(e.get("ts", "")).startswith(today_iso)}
         from . import category_budget as cb
         positions = self.portfolio.positions
-        base = self.portfolio.cash + sum(
-            float(p.qty) * float(p.entry_price) for p in positions.values())
-        lim = cb.limit(cfg, cat, base) or 0.0
-        spent = cb.used(positions.values(), cat)
-        self.portfolio.decision_journal.append({
-            "ts": now.isoformat(), "action": "CATEGORY_BUDGET_FULL",
-            "category": cat,
-            "share": cb.share(cfg, cat),
-            "limit": round(lim, 0), "used": round(spent, 0),
-            "refused": names[:20], "refused_count": len(names),
-            "why": (f"{cb.LABELS.get(cat, cat)} has spent its "
-                    f"{(cb.share(cfg, cat) or 0) * 100:.0f}% share "
-                    f"(Rs {spent:,.0f} of Rs {lim:,.0f}); {len(names)} pick(s) "
-                    f"waited. The other categories keep their own shares — "
-                    f"owner order 2026-10-04."),
-        })
+        base = self.portfolio.equity({})
+        for cat, names in by_category.items():
+            if cat in written:
+                continue
+            lim = cb.limit(cfg, cat, base) or 0.0
+            spent = cb.used(positions.values(), cat)
+            self.portfolio.decision_journal.append({
+                "ts": now.isoformat(), "action": "CATEGORY_BUDGET_FULL",
+                "category": cat,
+                "share": cb.share(cfg, cat),
+                "limit": round(lim, 0), "used": round(spent, 0),
+                "refused": names[:20], "refused_count": len(names),
+                "why": (f"{cb.LABELS.get(cat, cat)} has insufficient room in its "
+                        f"{(cb.share(cfg, cat) or 0) * 100:.0f}% share "
+                        f"(Rs {spent:,.0f} of Rs {lim:,.0f}); {len(names)} pick(s) "
+                        f"waited. The other segments keep their own shares — "
+                        f"owner order 2026-11-21."),
+            })
 
     # ------------------------------------------------- loss halt per category
     # Owner order 2026-10-21 ("Halt only the category that lost").

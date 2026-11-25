@@ -56,19 +56,19 @@ one-page record, every number checked against the code, is
    Ocean are neither counted nor blocked. The reading is on the Risk page;
    Settings switches it off. Your own BUY button and the Buy Desk are never
    blocked by it.
-   **Cash share per category (your order 2026-10-04, "fix it so all 5
-   categories get cash"):** momentum may spend **40%** of the book (₹2 crore
-   on ₹5 crore), intraday, short, swing and positional **15% each** (₹75
-   lakh). Before this, momentum is scanned first at 09:20 and could spend
-   all the cash before the other four were looked at. A share a category
-   does not use stays as cash — it is never lent to another. In a correction
-   the 20% safety reserve shrinks all five shares alike (momentum ₹1.6 crore,
-   the others ₹60 lakh). Ocean sits outside the shares (its own 8 slots).
-   Your BUY button, limit fills and the Buy Desk are never refused, and
-   what they buy sits in its own "owner" bucket outside the five shares,
-   like Ocean (owner order 2026-10-21; before it those buys counted as
-   momentum and could fill its share). The Risk page shows each share, spent and left;
-   Settings can change the five numbers or switch the shares off.
+   **Cash share per segment (owner order 2026-11-21):** **Momentum 30%**,
+   **Intraday 10%**, **Swing 24%**, **Short 24%**, **Positional 10%** and
+   **Ocean 2%**. Together these allocate 100% of deployable equity, after
+   the regime reserve. On a ₹5 crore book with no reserve, the ceilings are
+   ₹1.5 crore, ₹50 lakh, ₹1.2 crore, ₹1.2 crore, ₹50 lakh and ₹10 lakh.
+   A correction's 20% reserve shrinks every share by 20%; unused room stays
+   cash and is never lent to another segment. Positions count at entry cost.
+   Ocean also keeps its ₹1,68,750 ticket and eight-position ceiling.
+   Owner BUY, limit fills and Buy Desk positions count under their stored
+   strategy, with owner provenance shown separately (order 2026-11-03).
+   Existing holdings are not sold merely because a new share is smaller;
+   overfull segments have no room for new buys or adds until room returns.
+   The Risk page and dashboard show all six shares. MARS Den can edit them.
    **Momentum buys no longer wait for a candle pattern** (your order
    2026-10-04, "off for momentum" — 12 years measured, the wait added
    nothing). Intraday, short, swing and positional still wait, and each of

@@ -30,7 +30,7 @@ def _pos(t, rupees, mode):
         stop_price=95.0, target_price=120.0)
 
 
-def test_the_risk_page_shows_all_five_shares():
+def test_the_risk_page_shows_all_six_shares():
     p = state.portfolio()
     saved = dict(p.positions)
     try:
@@ -41,23 +41,25 @@ def test_the_risk_page_shows_all_five_shares():
         html = r.text
         assert "category_budget_marker" in html
         card = html.split("category_budget_marker")[1].split("IFR OVERLAY")[0]
-        for label in ("Momentum", "Intraday", "Short", "Swing", "Positional"):
+        for label in ("Momentum", "Intraday", "Short", "Swing", "Positional", "Ocean"):
             assert label in card, label
-        assert "40%" in card and "15%" in card
+        for fraction in ("30%", "10%", "24%", "2%"):
+            assert fraction in card
         assert "₹10,00,000" in card and "₹3,00,000" in card
     finally:
         p.positions = saved
 
 
-def test_settings_carries_the_switch_and_the_five_shares():
+def test_settings_carries_the_switch_and_the_six_shares():
     from web.routes import settings_routes
     keys = [row[0] for row in settings_routes.EDITABLE_FIELDS]
     for k in ("category_budgets_enabled", "budget_share_momentum",
               "budget_share_intraday", "budget_share_short",
-              "budget_share_swing", "budget_share_positional"):
+              "budget_share_swing", "budget_share_positional", "budget_share_ocean"):
         assert k in keys, k
     pct = settings_routes._PCT_FIELDS
     assert "budget_share_momentum" in pct          # shown and typed as %
+    assert "budget_share_ocean" in pct
 
 
 def _save_settings_page(c):

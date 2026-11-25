@@ -59,10 +59,10 @@ def test_money_lines_match_the_config():
 def test_category_shares_match_the_config():
     c, d = Config(), _doc()
     assert c.category_budgets_enabled is True
-    assert c.budget_share_momentum == 0.40 and "**Momentum 40%**" in d
-    for k in ("intraday", "short", "swing", "positional"):
-        assert getattr(c, f"budget_share_{k}") == 0.15
-    assert "**15% each**" in d
+    from trading import category_budget as cb
+    for category, field in cb.SHARE_FIELDS.items():
+        assert f"**{cb.LABELS[category]} {getattr(c, field) * 100:.0f}%**" in d
+    assert cb.share_total(c) == 1.0
 
 
 def test_reserve_ladder_matches_risk_v2():
