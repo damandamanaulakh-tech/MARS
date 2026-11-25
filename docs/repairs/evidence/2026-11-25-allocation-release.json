@@ -1,0 +1,90 @@
+{
+  "owner_order": {
+    "date": "2026-11-21",
+    "scope": "Real application; no investor presentation changes",
+    "basis": "Deployable equity after existing regime reserve"
+  },
+  "observed_at": "2026-11-25T06:46:18Z",
+  "pr": 229,
+  "reviewed_head": "44fdc0dc98803f9830a96baac053f39c9da4c0e5",
+  "reviewed_tree": "3425254d2eebe18c4c06c032462dfd4aac10437d",
+  "merge_sha": "240e8711cce48a09e359250531a238c58dcee7f9",
+  "ci": {
+    "url": "https://github.com/damandamanaulakh-tech/MARS/actions/runs/45555785910",
+    "canonical_tests_passed": 3614,
+    "local_tests_passed": 3615,
+    "test_skips": 0,
+    "jobs": [
+      {
+        "name": "reentry-research",
+        "conclusion": "success"
+      },
+      {
+        "name": "test",
+        "conclusion": "success"
+      },
+      {
+        "name": "combined-research (original)",
+        "conclusion": "success"
+      },
+      {
+        "name": "repair-records",
+        "conclusion": "success"
+      },
+      {
+        "name": "sizing-research",
+        "conclusion": "success"
+      },
+      {
+        "name": "combined-research (attribution)",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "deployment": {
+    "id": "dep-dc386oc9v7es73fodfkg",
+    "commit": "240e8711cce48a09e359250531a238c58dcee7f9",
+    "status": "live",
+    "started_at": "2026-11-25T06:42:41.892978Z",
+    "finished_at": "2026-11-25T06:44:13.181905Z",
+    "trigger": "new_commit"
+  },
+  "health": {
+    "ready": true,
+    "connected": true,
+    "degraded": false,
+    "write_error": null,
+    "portfolio_save_confirmed_at": "2026-11-25T06:45:13.201115",
+    "entry_block_reason": null
+  },
+  "settings": {
+    "allocation_order_2026_11_21": true,
+    "budget_share_intraday": 0.1,
+    "budget_share_momentum": 0.3,
+    "budget_share_ocean": 0.02,
+    "budget_share_positional": 0.1,
+    "budget_share_short": 0.24,
+    "budget_share_swing": 0.24,
+    "category_budgets_enabled": true
+  },
+  "financial_comparison": {
+    "cash": 43762074.39798673,
+    "positions": true,
+    "trades": true,
+    "sha256": {
+      "before": "1f2370cd8096e98bb4236aed3def940545e080ba7198c32a232d0646b4bf3fd1",
+      "after": "1f2370cd8096e98bb4236aed3def940545e080ba7198c32a232d0646b4bf3fd1"
+    },
+    "before_last_save": "2026-11-25T06:35:19.883916",
+    "after_last_save": "2026-11-25T06:45:07.508094",
+    "open_count": 21,
+    "closed_count": 92,
+    "scope": "Exact comparison of cash; all open positions' ticker, mode, tags, quantity, entry price/date, stop, target, custom levels, original quantity, pyramid count, cost basis and corporate-action identifiers; all closed records' ticker, quantity, entry/exit price/date, gross/net P&L, costs, reason, sector, mode, tags, corporate actions and cost evidence. Dynamic marks and full decision evidence are outside this comparison."
+  },
+  "runtime_pending": [
+    "Normal six-segment entry/add/rotation outcomes",
+    "RUN-20261125-01: intraday latency, fetch retries and scheduled rotation recovery",
+    "Always-running hosting decision; service compute plan remains Free"
+  ],
+  "production_actions": "No diagnostic scan or order submitted. Existing automatic activity retained; only the approved code deployment changed runtime."
+}

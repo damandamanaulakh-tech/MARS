@@ -614,10 +614,11 @@
     "id": "ALLOC-001",
     "approved_date": "2026-11-21",
     "goal": "Apply owner six-segment cash allocation in the real app",
-    "status": "IMPLEMENTED_VALIDATION_PENDING",
+    "status": "DEPLOYED_HEALTH_VERIFIED_RUNTIME_PENDING",
     "evidence": "docs/repairs/releases/2026-11-25-six-segment-allocation.md",
-    "runtime": "Not yet deployed;25November live predecessor verified",
-    "related_open_incident": "RUN-20261125-01"
+    "runtime": "PR229 matching deployment and all six persisted settings verified; normal entry/add/rotation observation pending",
+    "related_open_incident": "RUN-20261125-01",
+    "merge_sha": "240e8711cce48a09e359250531a238c58dcee7f9"
   },
   "previous_repairs": [
     {
