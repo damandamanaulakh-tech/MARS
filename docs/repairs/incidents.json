@@ -107,8 +107,8 @@
     "finding": "Intraday scan fetched 37 valid stock frames but slow pre-scoring work aged all 37 beyond freshness; 1010 more capped and 82 marked deadline, yielding zero ranked/picks/buys",
     "workflow": "CONFIRMED_RUNTIME_NOT_FIXED",
     "evidence": "docs/repairs/evidence/2026-11-25-no-new-positions.md",
-    "runtime_observation": "25 November 10:49 IST scan: 1129 names reconciled as1010cap+82deadline-labelled+37stale. All37 archived raw BSON checksums verified. Saveguard clear; currentrotations incomplete/stale; detailed evidence preserves times and unknowns.",
-    "acceptance": "Keep completed-bar, session and freshness requirements; score fresh bounded batches and retain incomplete fetch work. Test slow providers, empty responses, restarts and late scoring. Verify new normal per-segment runs without forcing trades.",
+    "runtime_observation": "25 November: 10:49 IST scan reconciles 1010 capped + 82 deadline-labelled + 37 stale = 1129; 11:14 IST scan reconciles 1014 capped + 82 deadline-labelled + 1 unmapped + 36 stale = 1133. Every initially ready score record verified against raw BSON checksum; zero ranked/picks/buys. Save guard clear. Render confirms overlapping rotation was skipped 23 November14:30 IST; exact stalled preparation stage unknown. Later normal exits leave21open/92closed; no diagnostic trades induced. Actual service uses Render Free, limit 0.15 CPU; near-limit usage observed during scans. Shutdown at11:53IST and restart at12:00IST observed; exact platform reason unknown. Startup save block cleared at12:01:12IST. Allocation release does not resolve these separate issues.",
+    "acceptance": "Keep completed-bar, session and freshness requirements; score fresh bounded batches and retain incomplete fetch work. Test slow providers, empty responses, restarts and late scoring. Verify new normal per-segment runs without forcing trades. Record scheduler stage timing and bounded preparation/retry; decide always-running hosting separately without silently adding a charge.",
     "reconciliation": "Additional incident; prior original findings and incident records retained."
   }
 ]
