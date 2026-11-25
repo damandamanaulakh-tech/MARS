@@ -1,8 +1,8 @@
 # MARS goals — one reviewed batch at a time
 
-Next owner batch: **BATCH-001 — engine-managed non-intraday paper entries**. Explicit next-session authority recorded; 3,750 full local tests passed, zero skipped; independent CI pending. No production batch submitted. Saving recovery ships first. [Batch evidence](releases/2026-11-26-owner-strategy-batch.md).
+Owner entry control: **BATCH-001 shipped in PR232**. All six CI jobs and 3,750 tests passed, zero skipped. Exact live deployment, acknowledged save and unchanged selected financial projection verified. No owner batch submitted during this release; the single authorized attempt is scheduled for **26 November at 09:20 IST**, subject to session, normal owner access and remaining entry checks. [Batch release and limits](releases/2026-11-26-owner-strategy-batch.md).
 
-Current saving follow-up: **XR-071 / RUN-20261125-02**. Startup acknowledgement and same-pass recovery implemented; 3,640 local tests passed with zero skips. PR231 updated-head CI and release pending. The observed app recovered and saved all 39 open positions before this repair. [Follow-up evidence](releases/2026-11-25-startup-save-recovery.md).
+Current saving follow-up: **XR-071 / RUN-20261125-02 shipped in PR231**. All six CI jobs and 3,640 tests passed, zero skipped. Exact deployment and save acknowledgement before startup completion verified; selected cash/39-position/94-trade projection unchanged. Natural refused-write recovery remains separate. [Release proof](releases/2026-11-25-startup-save-recovery.md).
 
 Current owner policy batch: **ALLOC-001 — six-segment allocation 30/10/24/24/10/2**. **Shipped in PR229; matching deployment, health and all six saved settings verified.** Normal entry/add/rotation observation remains pending. [Release record](releases/2026-11-25-six-segment-allocation.md). **RUN-20261125-01 remains open:** both the 10:49 and 11:14 IST intraday scans had zero ranked/buys; all initially ready frames became stale before scoring. Latest scan reconciles 1,014 capped + 82 deadline-labelled + 1 unmapped + 36 stale = 1,133 stocks. Scheduled rotation overlap/recovery has separate dated evidence. [Investigation](evidence/2026-11-25-no-new-positions.md).
 
@@ -78,3 +78,5 @@ threshold or policy is promoted. PR220 is merged and its exact revision is live 
 ## 20 November completed storage and release verification
 
 Goal11 engineering and storage recovery are shipped in [PR225](https://github.com/damandamanaulakh-tech/MARS/pull/225), revision `87285df71a7cebe6b62c01636aac0eaef5afcd9b`. All **3,539 canonical CI tests**, zero skips, and all six jobs passed, including both complete combined replays. The exact automatic Render deployment is live. Native saves, the approved cleanup, both HTTP exports, same-version restart and code-version transition are verified. All historical scenarios have negative net expectancy; **genuinely new forward performance acceptance remains open**, with no settings promotion. [Release proof](releases/2026-11-20-storage-and-history.md).
+
+Storage follow-up: **RUN-20261126-01** confirms scan decisions dominate the growing journal, including startup-triggered off-hours observations. Compression remains wired; permanent retention is not implemented. [Current measured inventory and next bounded action](evidence/2026-11-26-journal-growth-inventory.md).

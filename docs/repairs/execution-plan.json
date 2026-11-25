@@ -614,11 +614,18 @@
     "id": "XR-071",
     "approved_date": "2026-11-25",
     "goal": "Confirm startup portfolio saves and recover the same pass without weakening entry protection",
-    "status": "PUBLISHED_CI_PENDING",
+    "status": "DEPLOYED_STARTUP_SAVE_VERIFIED_REFUSAL_RUNTIME_PENDING",
     "evidence": "docs/repairs/releases/2026-11-25-startup-save-recovery.md",
-    "runtime": "Current app recovered before repair; follow-up release not yet deployed",
+    "runtime": "Startup acknowledgement before readiness verified; natural refusal recovery remains pending",
     "related_open_incident": "RUN-20261125-02",
-    "pr": "https://github.com/damandamanaulakh-tech/MARS/pull/231"
+    "pr": "https://github.com/damandamanaulakh-tech/MARS/pull/231",
+    "merge_revision": "e094369d9da5e2c238050cc7e0c32c12bf4e2245",
+    "deployment_id": "dep-dc3jvm60tbcc73bufji0",
+    "local_tests": 3640,
+    "ci_tests": 3640,
+    "skipped_tests": 0,
+    "ci_jobs_passed": 6,
+    "ci_run": 45682345922
   },
   "previous_repairs": [
     {
@@ -658,7 +665,7 @@
   "queued_owner_batch": {
     "id": "BATCH-001",
     "goal": "Owner requested all eligible non-intraday selections fitting each segment allocation, with one explicitly authorized measured-performance veto exception and automatic exits, without owner-deck management.",
-    "status": "PUBLISHED_CI_PENDING",
+    "status": "DEPLOYED_HEALTH_VERIFIED_OWNER_EXECUTION_PENDING",
     "evidence": "docs/repairs/releases/2026-11-26-owner-strategy-batch.md",
     "depends_on": "XR-071 startup save recovery release",
     "execution_authority": "Next open session fresh selections explicitly approved; no batch submitted yet",
@@ -676,6 +683,23 @@
     "runtime": "NOT_EXECUTED",
     "local_tests": 3750,
     "skipped_tests": 0,
-    "branch": "codex/strategy-entry-batch-2026-11-26"
+    "branch": "codex/strategy-entry-batch-2026-11-26",
+    "pr": "https://github.com/damandamanaulakh-tech/MARS/pull/232",
+    "merge_revision": "672b094d80a37f83c6c9238a564d735d7269a795",
+    "deployment_id": "dep-dc3kf8t9el5s73ad658g",
+    "ci_run": 45688095000,
+    "ci_tests": 3750,
+    "ci_jobs_passed": 6,
+    "scheduled_attempt_date_ist": "2026-11-26",
+    "scheduled_attempt_time_ist": "09:20",
+    "scheduled_attempt_count": 1,
+    "owner_authenticated_page_observed": false
+  },
+  "storage_followup": {
+    "incident": "RUN-20261126-01",
+    "status": "CONFIRMED_RUNTIME_RETENTION_PENDING",
+    "evidence": "docs/repairs/evidence/2026-11-26-journal-growth-inventory.md",
+    "mutation_performed": false,
+    "proposed_preflight": "docs/repairs/evidence/2026-11-26-storage-retention-preflight-plan.md"
   }
 }

@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "observed_by_utc": "2026-11-25T20:09:59Z",
+  "source": "MARS /healthz after PR231 deployment",
+  "unit": "MiB; health retains historical _mb field names; web/db.py uses scale=1024*1024",
+  "scope": "Rounded sequential database and collection statistics, not an atomic snapshot; size metadata only, no private payloads. Top collection list is limited to 12. Zero rounded size is not proof of an empty collection.",
+  "mongo": {
+    "data_mb": 232.0,
+    "index_mb": 9.0,
+    "storage_mb": 195.0,
+    "objects": 123976,
+    "collections": [
+      {
+        "name": "journal_archive",
+        "data_mb": 152.0,
+        "index_mb": 7.0,
+        "count": 81327
+      },
+      {
+        "name": "ohlcv",
+        "data_mb": 63.0,
+        "index_mb": 0.0,
+        "count": 2233
+      },
+      {
+        "name": "portfolio",
+        "data_mb": 4.0,
+        "index_mb": 0.0,
+        "count": 1
+      },
+      {
+        "name": "fundamentals",
+        "data_mb": 3.0,
+        "index_mb": 0.0,
+        "count": 26378
+      },
+      {
+        "name": "market_info_raw",
+        "data_mb": 2.0,
+        "index_mb": 0.0,
+        "count": 92
+      },
+      {
+        "name": "watchlist_snapshots",
+        "data_mb": 2.0,
+        "index_mb": 0.0,
+        "count": 26
+      },
+      {
+        "name": "sector_index",
+        "data_mb": 1.0,
+        "index_mb": 0.0,
+        "count": 11234
+      },
+      {
+        "name": "upstox_token",
+        "data_mb": 0.0,
+        "index_mb": 0.0,
+        "count": 1
+      },
+      {
+        "name": "resource_feeds",
+        "data_mb": 0.0,
+        "index_mb": 0.0,
+        "count": 10
+      },
+      {
+        "name": "backtests",
+        "data_mb": 0.0,
+        "index_mb": 0.0,
+        "count": 8
+      },
+      {
+        "name": "macro_daily",
+        "data_mb": 0.0,
+        "index_mb": 0.0,
+        "count": 340
+      },
+      {
+        "name": "pwoi_daily",
+        "data_mb": 0.0,
+        "index_mb": 0.0,
+        "count": 65
+      }
+    ],
+    "cluster": {
+      "databases": [
+        {
+          "name": "sourceborn",
+          "data_mb": 232.0,
+          "index_mb": 9.0,
+          "storage_mb": 195.0,
+          "collections": 21
+        },
+        {
+          "name": "ashstock",
+          "data_mb": 156.0,
+          "index_mb": 0.0,
+          "storage_mb": 83.0,
+          "collections": 4
+        },
+        {
+          "name": "test",
+          "data_mb": 12.0,
+          "index_mb": 1.0,
+          "storage_mb": 3.0,
+          "collections": 19
+        },
+        {
+          "name": "site_control",
+          "data_mb": 9.0,
+          "index_mb": 0.0,
+          "storage_mb": 19.0,
+          "collections": 20
+        },
+        {
+          "name": "sourceborn_sburr",
+          "data_mb": 2.0,
+          "index_mb": 0.0,
+          "storage_mb": 0.0,
+          "collections": 13
+        },
+        {
+          "name": "AM07",
+          "data_mb": 0.0,
+          "index_mb": 0.0,
+          "storage_mb": 0.0,
+          "collections": 2
+        },
+        {
+          "name": "G07",
+          "data_mb": 0.0,
+          "index_mb": 0.0,
+          "storage_mb": 0.0,
+          "collections": 1
+        }
+      ],
+      "total_mb": 421.0,
+      "note": "data_mb + index_mb per database is what the Atlas free tier counts against 512 MB, cluster-wide."
+    },
+    "last_write_error": null
+  }
+}

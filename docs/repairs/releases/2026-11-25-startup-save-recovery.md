@@ -1,6 +1,6 @@
 # Startup portfolio save recovery — 25 November 2026
 
-Status: PR231 published; final full local validation passed; updated-head CI and release pending.
+Status: PR231 shipped; all six CI jobs passed. Exact live revision and startup save acknowledgement verified. Natural refused-write recovery remains pending.
 
 ## Scope and observed state
 
@@ -45,7 +45,7 @@ or a remote strategy branch; this repair does not claim that work shipped.
 - Keep original ledger, cash, segment, stop, target, performance gates and
   protective exits unchanged.
 
-## Validation and shipping
+## Initial validation and shipping checkpoint (historical)
 
 - Baseline reproduction: 12 failed / 3 passed new cases before the repair.
 - Final focused validation: 58 passed (25 new + 33 existing), zero skips.
@@ -55,9 +55,9 @@ or a remote strategy branch; this repair does not claim that work shipped.
 - Repair records: 171 backlog records and seven incidents valid; all original
   165 finding IDs retained. Full application suite: **3,639 passed, zero skips,
   failures or errors**, 260.20 seconds, Python 3.12.16. Independent review found
-  no blocking issue. All six GitHub CI jobs remain required before merge.
-- New functional merge, exact deployment and live startup acknowledgement:
-  pending. A healthy predecessor does not prove this repair is deployed.
+  no blocking issue. At this checkpoint, all six GitHub CI jobs were still required before merge.
+- At this checkpoint, functional merge, exact deployment and live startup
+  acknowledgement were pending; their observed final results follow below.
 - Natural production write-refusal recovery remains distinct from isolated
   failure tests. No artificial outage or trade will be induced.
 
@@ -79,4 +79,49 @@ and trading settings are unchanged. Fourteen focused cases and both original
 cross-boundary reproductions pass, with zero skips. Final full-suite rerun and
 fresh CI for the updated head are required; the failed attempt is retained.
 
-Final local suite after the clock-fixture correction: **3,640 passed, zero skips, failures or errors**, Python 3.12.16, 180.07 seconds. The JUnit no-skip check and canonical repair-record check also passed. Updated-head GitHub CI and functional deployment remain pending.
+Final local suite after the clock-fixture correction: **3,640 passed, zero skips, failures or errors**, Python 3.12.16, 180.07 seconds. The JUnit no-skip check and canonical repair-record check also passed. At that checkpoint, updated-head GitHub CI and functional deployment were pending; their final results follow.
+
+## Final release and live startup proof
+
+All six jobs in [CI 45682345922](https://github.com/damandamanaulakh-tech/MARS/actions/runs/45682345922)
+passed on reviewed head `37c90fe1f4e3ef6d3d602295faf10563abf34dc8`,
+tree `4e50a1c1f0f3b98da09b846a1db02219aaee4a11`: **3,640 application tests,
+zero skipped tests**, and both complete frozen combined-strategy replays.
+The first failed CI attempt remains documented above.
+
+[PR231](https://github.com/damandamanaulakh-tech/MARS/pull/231) merged as
+`e094369d9da5e2c238050cc7e0c32c12bf4e2245`. The merged tree exactly matches the
+reviewed tree; the merge preserves ancestry for the separate dependent PR232.
+Render automatically deployed `dep-dc3jvm60tbcc73bufji0`, matching that merge
+revision, and reported live at **2026-11-25 20:08:37.770293 UTC**.
+
+The pre-release Free-host wake reproduced the original startup gap: startup
+completed at 19:58:50 UTC with no acknowledgement; the normal minute retry
+confirmed saving at 19:59:54.748464 UTC. Only after that confirmation and all six
+CI successes was the release merged. No forced restart, outage, or diagnostic
+trade was used. The health read woke the normally sleeping Free service.
+
+In the new process, save acknowledgement is **20:08:32.208029 UTC**, before
+startup completion at **20:08:34.559941978 UTC**. Post-release health, verified by
+20:09:59 UTC, is ready, connected, not degraded, with no write error or entry
+block. The helper's informational log was not returned by the log query; the
+acknowledgement timestamp, new-instance startup log and durable Mongo readback
+provide the observed ordering evidence.
+
+Mongo readback has 39 open positions and 94 closed trades, last_save
+20:08:27.284407 UTC. Cash, selected position quantity/entry/segment/stop/target/fee
+fields and selected closed-trade values are unchanged from the private
+pre-release projection. Its canonical SHA256 remains
+`1171458e35388f01cd5969802f99b2a23f2eff1eb6785e77f846acc1d6f5824b`.
+This is a selected financial projection, not a full BSON backup or proof that
+mutable observations are byte-identical. Raw book data remains private.
+
+Forward epoch `2026-11-20T08:41:42.997998+00:00` is retained; pending exports=0,
+with no capture/export error. Shared cluster health reports approximately 421 MiB
+against 512 MiB. [Structured release proof](../evidence/2026-11-26-startup-save-live.json).
+
+**Startup acknowledgement is runtime verified.** A future natural refused-write
+recovery remains separate from the passing isolated recovery tests. The saving
+repair does not bypass performance, quote, allocation or other entry checks.
+The additional non-intraday owner batch is separately tracked in PR232 and is
+not execution evidence for this release.

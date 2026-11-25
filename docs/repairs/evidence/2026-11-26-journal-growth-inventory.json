@@ -1,0 +1,2834 @@
+{
+  "schema": 1,
+  "subject": "MARS journal growth and after-hours scan inventory",
+  "report_date_ist": "2026-11-26",
+  "scope": {
+    "database": "sourceborn",
+    "collection": "journal_archive",
+    "read_only_database_operations": true,
+    "production_mutations": 0,
+    "private_row_payloads_fetched": false,
+    "raw_backup_exported": false,
+    "compression_payloads_decoded_or_hash_verified": false
+  },
+  "observation": {
+    "server_query_started_at": "2026-11-25T19:45:04.334Z",
+    "timezone_for_event_day_groups": "Asia/Kolkata",
+    "atomic_snapshot": false,
+    "limitations": [
+      "Writers remained active. Aggregation and follow-up count/database statistics were separate reads, not a quiesced or transactionally consistent backup.",
+      "Stored bytes are the sum of BSON document sizes, excluding collection indexes. They are not on-disk compressed storage or total cluster quota usage.",
+      "Original byte totals for compressed records are declared archive metadata; this aggregate did not decompress payloads or independently verify original hashes.",
+      "Event dates describe recorded event times, not insertion times or a measured constant ingestion rate.",
+      "Absence of a top-level trade_id is not proof that a scan decision has no trade reference elsewhere. Its decision_id may be referenced by trades, open positions or research."
+    ]
+  },
+  "totals": {
+    "rows": 79249,
+    "stored_bson_bytes": 155273748,
+    "declared_original_bytes": 670772164,
+    "unknown_event_time_rows": 0,
+    "earliest_event_at": "2026-06-15T10:05:02.315Z",
+    "latest_event_at": "2026-11-25T19:44:43.807Z",
+    "observed_at": "2026-11-25T19:45:04.334Z"
+  },
+  "derived_summary": {
+    "journal_mib": 148.0806,
+    "scan_decision_mib": 138.8095,
+    "scan_decision_share_pct": 93.7392,
+    "metadata_declared_original_mib": 639.6982,
+    "stored_reduction_vs_metadata_declared_original_pct": 76.8515
+  },
+  "by_action": [
+    {
+      "action": "SCAN_DECISION",
+      "rows": 70114,
+      "stored_bson_bytes": 145552319,
+      "declared_original_bytes": 650521164
+    },
+    {
+      "action": "EXIT_DECISION",
+      "rows": 3176,
+      "stored_bson_bytes": 6671898,
+      "declared_original_bytes": 15838316
+    },
+    {
+      "action": "HOLD",
+      "rows": 2447,
+      "stored_bson_bytes": 800317,
+      "declared_original_bytes": 800317
+    },
+    {
+      "action": "SELL",
+      "rows": 434,
+      "stored_bson_bytes": 765821,
+      "declared_original_bytes": 1563884
+    },
+    {
+      "action": "BUY",
+      "rows": 455,
+      "stored_bson_bytes": 676577,
+      "declared_original_bytes": 1200048
+    },
+    {
+      "action": "CORRECTION_VIX_REENTRY",
+      "rows": 350,
+      "stored_bson_bytes": 92324,
+      "declared_original_bytes": 92324
+    },
+    {
+      "action": "UNIVERSE_REFRESH",
+      "rows": 112,
+      "stored_bson_bytes": 80686,
+      "declared_original_bytes": 80686
+    },
+    {
+      "action": "CORRECTION_BRAKE_OFF",
+      "rows": 269,
+      "stored_bson_bytes": 67615,
+      "declared_original_bytes": 67615
+    },
+    {
+      "action": "CONTEXT",
+      "rows": 240,
+      "stored_bson_bytes": 62434,
+      "declared_original_bytes": 62434
+    },
+    {
+      "action": "NEWS_TRIGGER",
+      "rows": 177,
+      "stored_bson_bytes": 49661,
+      "declared_original_bytes": 49661
+    },
+    {
+      "action": "EXIT_DUE_MARKET_CLOSED",
+      "rows": 144,
+      "stored_bson_bytes": 40143,
+      "declared_original_bytes": 40143
+    },
+    {
+      "action": "RETAG_EXITS",
+      "rows": 100,
+      "stored_bson_bytes": 34306,
+      "declared_original_bytes": 34306
+    },
+    {
+      "action": "SCAN_CATCHUP",
+      "rows": 162,
+      "stored_bson_bytes": 32460,
+      "declared_original_bytes": 32460
+    },
+    {
+      "action": "TRIGGER_WATCHLIST",
+      "rows": 91,
+      "stored_bson_bytes": 27225,
+      "declared_original_bytes": 27225
+    },
+    {
+      "action": "MARKET_CLOSED_NO_ENTRY",
+      "rows": 31,
+      "stored_bson_bytes": 26982,
+      "declared_original_bytes": 36463
+    },
+    {
+      "action": "CORPORATE_ACTIONS_FETCHED",
+      "rows": 28,
+      "stored_bson_bytes": 18134,
+      "declared_original_bytes": 20334
+    },
+    {
+      "action": "SERIES_WATCH_REFRESH",
+      "rows": 106,
+      "stored_bson_bytes": 18011,
+      "declared_original_bytes": 18011
+    },
+    {
+      "action": "IFR_SIGNAL_FIRED",
+      "rows": 37,
+      "stored_bson_bytes": 17020,
+      "declared_original_bytes": 17020
+    },
+    {
+      "action": "TRADE_AMENDMENT",
+      "rows": 8,
+      "stored_bson_bytes": 16258,
+      "declared_original_bytes": 39109
+    },
+    {
+      "action": "RISK_DAY_ROLL",
+      "rows": 80,
+      "stored_bson_bytes": 15564,
+      "declared_original_bytes": 15564
+    },
+    {
+      "action": "MARKET_FII_SNAPSHOT",
+      "rows": 58,
+      "stored_bson_bytes": 13399,
+      "declared_original_bytes": 13399
+    },
+    {
+      "action": "OPTION_CHAIN_SNAPSHOT",
+      "rows": 57,
+      "stored_bson_bytes": 12377,
+      "declared_original_bytes": 12377
+    },
+    {
+      "action": "DATA_REFRESH_INDEX",
+      "rows": 43,
+      "stored_bson_bytes": 11588,
+      "declared_original_bytes": 11588
+    },
+    {
+      "action": "OWNER_SELL",
+      "rows": 43,
+      "stored_bson_bytes": 11561,
+      "declared_original_bytes": 11561
+    },
+    {
+      "action": "EXIT_HELD_NO_QUOTE",
+      "rows": 33,
+      "stored_bson_bytes": 9937,
+      "declared_original_bytes": 9937
+    },
+    {
+      "action": "CATEGORY_BUDGET_FULL",
+      "rows": 14,
+      "stored_bson_bytes": 8771,
+      "declared_original_bytes": 8771
+    },
+    {
+      "action": "MEASURED_KELLY_BLOCKED",
+      "rows": 23,
+      "stored_bson_bytes": 8588,
+      "declared_original_bytes": 8588
+    },
+    {
+      "action": "UPSTOX_CONNECTED",
+      "rows": 38,
+      "stored_bson_bytes": 8322,
+      "declared_original_bytes": 8322
+    },
+    {
+      "action": "ROTATION_BUDGET_FULL",
+      "rows": 13,
+      "stored_bson_bytes": 7815,
+      "declared_original_bytes": 7815
+    },
+    {
+      "action": "MARKET_CLOSED_MARK_ONLY",
+      "rows": 28,
+      "stored_bson_bytes": 7393,
+      "declared_original_bytes": 7393
+    },
+    {
+      "action": "OCEAN_BLOCKED",
+      "rows": 26,
+      "stored_bson_bytes": 7334,
+      "declared_original_bytes": 7334
+    },
+    {
+      "action": "DATA_REFRESH_SECTOR",
+      "rows": 37,
+      "stored_bson_bytes": 6946,
+      "declared_original_bytes": 6946
+    },
+    {
+      "action": "VALUATION_PRECOMPUTE",
+      "rows": 12,
+      "stored_bson_bytes": 6274,
+      "declared_original_bytes": 6274
+    },
+    {
+      "action": "ROTATION_MARKET_CLOSED",
+      "rows": 20,
+      "stored_bson_bytes": 5554,
+      "declared_original_bytes": 5554
+    },
+    {
+      "action": "CONSECUTIVE_LOSS_HALT",
+      "rows": 6,
+      "stored_bson_bytes": 5391,
+      "declared_original_bytes": 5391
+    },
+    {
+      "action": "WATCHLIST_CAPTURED",
+      "rows": 27,
+      "stored_bson_bytes": 5379,
+      "declared_original_bytes": 5379
+    },
+    {
+      "action": "VALUATION_RETARGET",
+      "rows": 11,
+      "stored_bson_bytes": 5279,
+      "declared_original_bytes": 5279
+    },
+    {
+      "action": "SCAN_COVERAGE_SHORT",
+      "rows": 17,
+      "stored_bson_bytes": 5277,
+      "declared_original_bytes": 5277
+    },
+    {
+      "action": "DANGER_TIGHTEN",
+      "rows": 13,
+      "stored_bson_bytes": 5089,
+      "declared_original_bytes": 5089
+    },
+    {
+      "action": "MARKET_FEEDS_FAILED",
+      "rows": 11,
+      "stored_bson_bytes": 5043,
+      "declared_original_bytes": 5043
+    },
+    {
+      "action": "DATA_REFRESH_WEEKLY_START",
+      "rows": 16,
+      "stored_bson_bytes": 4363,
+      "declared_original_bytes": 4363
+    },
+    {
+      "action": "DANGER_ALERT",
+      "rows": 9,
+      "stored_bson_bytes": 3754,
+      "declared_original_bytes": 3754
+    },
+    {
+      "action": "DATA_REFRESH_FII",
+      "rows": 16,
+      "stored_bson_bytes": 3643,
+      "declared_original_bytes": 3643
+    },
+    {
+      "action": "REGISTER_PRECOMPUTE",
+      "rows": 13,
+      "stored_bson_bytes": 3441,
+      "declared_original_bytes": 3441
+    },
+    {
+      "action": "UNIVERSE_PURGE",
+      "rows": 14,
+      "stored_bson_bytes": 3352,
+      "declared_original_bytes": 3352
+    },
+    {
+      "action": "OWNER_BATCH_BUY",
+      "rows": 2,
+      "stored_bson_bytes": 3277,
+      "declared_original_bytes": 9649
+    },
+    {
+      "action": "MACRO_FEEDS",
+      "rows": 9,
+      "stored_bson_bytes": 3252,
+      "declared_original_bytes": 3252
+    },
+    {
+      "action": "UNIVERSE_BATCH",
+      "rows": 3,
+      "stored_bson_bytes": 2903,
+      "declared_original_bytes": 3213
+    },
+    {
+      "action": "REMOVE",
+      "rows": 12,
+      "stored_bson_bytes": 2696,
+      "declared_original_bytes": 2696
+    },
+    {
+      "action": "MARKET_FEEDS",
+      "rows": 11,
+      "stored_bson_bytes": 2496,
+      "declared_original_bytes": 2496
+    },
+    {
+      "action": "ROTATION_SUMMARY",
+      "rows": 3,
+      "stored_bson_bytes": 2216,
+      "declared_original_bytes": 2401
+    },
+    {
+      "action": "ROTATION_NOTHING_TO_FUND",
+      "rows": 5,
+      "stored_bson_bytes": 1480,
+      "declared_original_bytes": 1480
+    },
+    {
+      "action": "VALUATION_REMARK",
+      "rows": 3,
+      "stored_bson_bytes": 1443,
+      "declared_original_bytes": 1443
+    },
+    {
+      "action": "TRADE_PRICE_CORRECTED",
+      "rows": 1,
+      "stored_bson_bytes": 1230,
+      "declared_original_bytes": 1450
+    },
+    {
+      "action": "UPSTOX_CONNECT_FAILED",
+      "rows": 2,
+      "stored_bson_bytes": 1210,
+      "declared_original_bytes": 1210
+    },
+    {
+      "action": "DATA_REFRESH_SEBI",
+      "rows": 3,
+      "stored_bson_bytes": 1101,
+      "declared_original_bytes": 1101
+    },
+    {
+      "action": "FILINGS_FAILED",
+      "rows": 4,
+      "stored_bson_bytes": 1092,
+      "declared_original_bytes": 1092
+    },
+    {
+      "action": "OWNER_SECTOR_EXIT",
+      "rows": 2,
+      "stored_bson_bytes": 1015,
+      "declared_original_bytes": 1015
+    },
+    {
+      "action": "DATA_REFRESH_DAILY",
+      "rows": 4,
+      "stored_bson_bytes": 745,
+      "declared_original_bytes": 745
+    },
+    {
+      "action": "DATA_REFRESH_SECTOR_FAILED",
+      "rows": 4,
+      "stored_bson_bytes": 704,
+      "declared_original_bytes": 704
+    },
+    {
+      "action": "DATA_REFRESH_CONSTITUENTS",
+      "rows": 3,
+      "stored_bson_bytes": 683,
+      "declared_original_bytes": 683
+    },
+    {
+      "action": "VALUATION_REMARK_WAITING",
+      "rows": 2,
+      "stored_bson_bytes": 518,
+      "declared_original_bytes": 518
+    },
+    {
+      "action": "CAPITAL_ADJUST",
+      "rows": 2,
+      "stored_bson_bytes": 409,
+      "declared_original_bytes": 409
+    },
+    {
+      "action": "DANGER_LAYER_ARMED",
+      "rows": 1,
+      "stored_bson_bytes": 397,
+      "declared_original_bytes": 397
+    },
+    {
+      "action": "TRIGGER_LAYER_FAILED",
+      "rows": 2,
+      "stored_bson_bytes": 382,
+      "declared_original_bytes": 382
+    },
+    {
+      "action": "FDA_NEWS_FAILED",
+      "rows": 2,
+      "stored_bson_bytes": 362,
+      "declared_original_bytes": 362
+    },
+    {
+      "action": "KILL_SWITCH_SCAN",
+      "rows": 2,
+      "stored_bson_bytes": 356,
+      "declared_original_bytes": 356
+    },
+    {
+      "action": "MARS_ARCHIVE_PRE_2026_09_15",
+      "rows": 1,
+      "stored_bson_bytes": 339,
+      "declared_original_bytes": 339
+    },
+    {
+      "action": "MONGO_OFFLINE_HALT",
+      "rows": 1,
+      "stored_bson_bytes": 328,
+      "declared_original_bytes": 328
+    },
+    {
+      "action": "CLOSE_ALL",
+      "rows": 1,
+      "stored_bson_bytes": 310,
+      "declared_original_bytes": 310
+    },
+    {
+      "action": "DATA_REFRESH_WEEKLY",
+      "rows": 1,
+      "stored_bson_bytes": 309,
+      "declared_original_bytes": 309
+    },
+    {
+      "action": "DATA_REFRESH_FUNDAMENTALS",
+      "rows": 1,
+      "stored_bson_bytes": 241,
+      "declared_original_bytes": 241
+    },
+    {
+      "action": "UNIVERSE_BATCH_FAILED",
+      "rows": 1,
+      "stored_bson_bytes": 234,
+      "declared_original_bytes": 234
+    },
+    {
+      "action": "OPTION_CHAIN_FAILED",
+      "rows": 1,
+      "stored_bson_bytes": 201,
+      "declared_original_bytes": 201
+    },
+    {
+      "action": "MARKET_FII_FAILED",
+      "rows": 1,
+      "stored_bson_bytes": 194,
+      "declared_original_bytes": 194
+    }
+  ],
+  "by_codec": [
+    {
+      "codec": "zlib/v1",
+      "rows": 73654,
+      "stored_bson_bytes": 153049692,
+      "declared_original_bytes": 668548108
+    },
+    {
+      "codec": "legacy_or_uncompressed",
+      "rows": 5595,
+      "stored_bson_bytes": 2224056,
+      "declared_original_bytes": 2224056
+    }
+  ],
+  "by_action_codec": [
+    {
+      "action": "SCAN_DECISION",
+      "codec": "zlib/v1",
+      "rows": 70080,
+      "stored_bson_bytes": 145175008,
+      "declared_original_bytes": 650143853,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 70080
+    },
+    {
+      "action": "EXIT_DECISION",
+      "codec": "zlib/v1",
+      "rows": 3176,
+      "stored_bson_bytes": 6671898,
+      "declared_original_bytes": 15838316,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 3176
+    },
+    {
+      "action": "HOLD",
+      "codec": "legacy_or_uncompressed",
+      "rows": 2447,
+      "stored_bson_bytes": 800317,
+      "declared_original_bytes": 800317,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "SELL",
+      "codec": "zlib/v1",
+      "rows": 60,
+      "stored_bson_bytes": 592047,
+      "declared_original_bytes": 1390110,
+      "trade_reference_rows": 60,
+      "decision_reference_rows": 60
+    },
+    {
+      "action": "BUY",
+      "codec": "zlib/v1",
+      "rows": 307,
+      "stored_bson_bytes": 564250,
+      "declared_original_bytes": 1087721,
+      "trade_reference_rows": 46,
+      "decision_reference_rows": 46
+    },
+    {
+      "action": "SCAN_DECISION",
+      "codec": "legacy_or_uncompressed",
+      "rows": 34,
+      "stored_bson_bytes": 377311,
+      "declared_original_bytes": 377311,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 34
+    },
+    {
+      "action": "SELL",
+      "codec": "legacy_or_uncompressed",
+      "rows": 374,
+      "stored_bson_bytes": 173774,
+      "declared_original_bytes": 173774,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "BUY",
+      "codec": "legacy_or_uncompressed",
+      "rows": 148,
+      "stored_bson_bytes": 112327,
+      "declared_original_bytes": 112327,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "CORRECTION_VIX_REENTRY",
+      "codec": "legacy_or_uncompressed",
+      "rows": 350,
+      "stored_bson_bytes": 92324,
+      "declared_original_bytes": 92324,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "UNIVERSE_REFRESH",
+      "codec": "legacy_or_uncompressed",
+      "rows": 112,
+      "stored_bson_bytes": 80686,
+      "declared_original_bytes": 80686,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "CORRECTION_BRAKE_OFF",
+      "codec": "legacy_or_uncompressed",
+      "rows": 269,
+      "stored_bson_bytes": 67615,
+      "declared_original_bytes": 67615,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "CONTEXT",
+      "codec": "legacy_or_uncompressed",
+      "rows": 240,
+      "stored_bson_bytes": 62434,
+      "declared_original_bytes": 62434,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "NEWS_TRIGGER",
+      "codec": "legacy_or_uncompressed",
+      "rows": 177,
+      "stored_bson_bytes": 49661,
+      "declared_original_bytes": 49661,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "EXIT_DUE_MARKET_CLOSED",
+      "codec": "legacy_or_uncompressed",
+      "rows": 144,
+      "stored_bson_bytes": 40143,
+      "declared_original_bytes": 40143,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "RETAG_EXITS",
+      "codec": "legacy_or_uncompressed",
+      "rows": 100,
+      "stored_bson_bytes": 34306,
+      "declared_original_bytes": 34306,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "SCAN_CATCHUP",
+      "codec": "legacy_or_uncompressed",
+      "rows": 162,
+      "stored_bson_bytes": 32460,
+      "declared_original_bytes": 32460,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "TRIGGER_WATCHLIST",
+      "codec": "legacy_or_uncompressed",
+      "rows": 91,
+      "stored_bson_bytes": 27225,
+      "declared_original_bytes": 27225,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "SERIES_WATCH_REFRESH",
+      "codec": "legacy_or_uncompressed",
+      "rows": 106,
+      "stored_bson_bytes": 18011,
+      "declared_original_bytes": 18011,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "MARKET_CLOSED_NO_ENTRY",
+      "codec": "zlib/v1",
+      "rows": 11,
+      "stored_bson_bytes": 17186,
+      "declared_original_bytes": 26667,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "IFR_SIGNAL_FIRED",
+      "codec": "legacy_or_uncompressed",
+      "rows": 37,
+      "stored_bson_bytes": 17020,
+      "declared_original_bytes": 17020,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "RISK_DAY_ROLL",
+      "codec": "legacy_or_uncompressed",
+      "rows": 80,
+      "stored_bson_bytes": 15564,
+      "declared_original_bytes": 15564,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "TRADE_AMENDMENT",
+      "codec": "zlib/v1",
+      "rows": 6,
+      "stored_bson_bytes": 14929,
+      "declared_original_bytes": 37780,
+      "trade_reference_rows": 6,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "MARKET_FII_SNAPSHOT",
+      "codec": "legacy_or_uncompressed",
+      "rows": 58,
+      "stored_bson_bytes": 13399,
+      "declared_original_bytes": 13399,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "OPTION_CHAIN_SNAPSHOT",
+      "codec": "legacy_or_uncompressed",
+      "rows": 57,
+      "stored_bson_bytes": 12377,
+      "declared_original_bytes": 12377,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "DATA_REFRESH_INDEX",
+      "codec": "legacy_or_uncompressed",
+      "rows": 43,
+      "stored_bson_bytes": 11588,
+      "declared_original_bytes": 11588,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "OWNER_SELL",
+      "codec": "legacy_or_uncompressed",
+      "rows": 43,
+      "stored_bson_bytes": 11561,
+      "declared_original_bytes": 11561,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "CORPORATE_ACTIONS_FETCHED",
+      "codec": "legacy_or_uncompressed",
+      "rows": 20,
+      "stored_bson_bytes": 11132,
+      "declared_original_bytes": 11132,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "EXIT_HELD_NO_QUOTE",
+      "codec": "legacy_or_uncompressed",
+      "rows": 33,
+      "stored_bson_bytes": 9937,
+      "declared_original_bytes": 9937,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "MARKET_CLOSED_NO_ENTRY",
+      "codec": "legacy_or_uncompressed",
+      "rows": 20,
+      "stored_bson_bytes": 9796,
+      "declared_original_bytes": 9796,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "CATEGORY_BUDGET_FULL",
+      "codec": "legacy_or_uncompressed",
+      "rows": 14,
+      "stored_bson_bytes": 8771,
+      "declared_original_bytes": 8771,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "MEASURED_KELLY_BLOCKED",
+      "codec": "legacy_or_uncompressed",
+      "rows": 23,
+      "stored_bson_bytes": 8588,
+      "declared_original_bytes": 8588,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "UPSTOX_CONNECTED",
+      "codec": "legacy_or_uncompressed",
+      "rows": 38,
+      "stored_bson_bytes": 8322,
+      "declared_original_bytes": 8322,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "ROTATION_BUDGET_FULL",
+      "codec": "legacy_or_uncompressed",
+      "rows": 13,
+      "stored_bson_bytes": 7815,
+      "declared_original_bytes": 7815,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "MARKET_CLOSED_MARK_ONLY",
+      "codec": "legacy_or_uncompressed",
+      "rows": 28,
+      "stored_bson_bytes": 7393,
+      "declared_original_bytes": 7393,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "OCEAN_BLOCKED",
+      "codec": "legacy_or_uncompressed",
+      "rows": 26,
+      "stored_bson_bytes": 7334,
+      "declared_original_bytes": 7334,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "CORPORATE_ACTIONS_FETCHED",
+      "codec": "zlib/v1",
+      "rows": 8,
+      "stored_bson_bytes": 7002,
+      "declared_original_bytes": 9202,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "DATA_REFRESH_SECTOR",
+      "codec": "legacy_or_uncompressed",
+      "rows": 37,
+      "stored_bson_bytes": 6946,
+      "declared_original_bytes": 6946,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "VALUATION_PRECOMPUTE",
+      "codec": "legacy_or_uncompressed",
+      "rows": 12,
+      "stored_bson_bytes": 6274,
+      "declared_original_bytes": 6274,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "ROTATION_MARKET_CLOSED",
+      "codec": "legacy_or_uncompressed",
+      "rows": 20,
+      "stored_bson_bytes": 5554,
+      "declared_original_bytes": 5554,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "CONSECUTIVE_LOSS_HALT",
+      "codec": "legacy_or_uncompressed",
+      "rows": 6,
+      "stored_bson_bytes": 5391,
+      "declared_original_bytes": 5391,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "WATCHLIST_CAPTURED",
+      "codec": "legacy_or_uncompressed",
+      "rows": 27,
+      "stored_bson_bytes": 5379,
+      "declared_original_bytes": 5379,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "VALUATION_RETARGET",
+      "codec": "legacy_or_uncompressed",
+      "rows": 11,
+      "stored_bson_bytes": 5279,
+      "declared_original_bytes": 5279,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "SCAN_COVERAGE_SHORT",
+      "codec": "legacy_or_uncompressed",
+      "rows": 17,
+      "stored_bson_bytes": 5277,
+      "declared_original_bytes": 5277,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "DANGER_TIGHTEN",
+      "codec": "legacy_or_uncompressed",
+      "rows": 13,
+      "stored_bson_bytes": 5089,
+      "declared_original_bytes": 5089,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "MARKET_FEEDS_FAILED",
+      "codec": "legacy_or_uncompressed",
+      "rows": 11,
+      "stored_bson_bytes": 5043,
+      "declared_original_bytes": 5043,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "DATA_REFRESH_WEEKLY_START",
+      "codec": "legacy_or_uncompressed",
+      "rows": 16,
+      "stored_bson_bytes": 4363,
+      "declared_original_bytes": 4363,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "DANGER_ALERT",
+      "codec": "legacy_or_uncompressed",
+      "rows": 9,
+      "stored_bson_bytes": 3754,
+      "declared_original_bytes": 3754,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "DATA_REFRESH_FII",
+      "codec": "legacy_or_uncompressed",
+      "rows": 16,
+      "stored_bson_bytes": 3643,
+      "declared_original_bytes": 3643,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "REGISTER_PRECOMPUTE",
+      "codec": "legacy_or_uncompressed",
+      "rows": 13,
+      "stored_bson_bytes": 3441,
+      "declared_original_bytes": 3441,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "UNIVERSE_PURGE",
+      "codec": "legacy_or_uncompressed",
+      "rows": 14,
+      "stored_bson_bytes": 3352,
+      "declared_original_bytes": 3352,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "OWNER_BATCH_BUY",
+      "codec": "zlib/v1",
+      "rows": 2,
+      "stored_bson_bytes": 3277,
+      "declared_original_bytes": 9649,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "MACRO_FEEDS",
+      "codec": "legacy_or_uncompressed",
+      "rows": 9,
+      "stored_bson_bytes": 3252,
+      "declared_original_bytes": 3252,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "REMOVE",
+      "codec": "legacy_or_uncompressed",
+      "rows": 12,
+      "stored_bson_bytes": 2696,
+      "declared_original_bytes": 2696,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "MARKET_FEEDS",
+      "codec": "legacy_or_uncompressed",
+      "rows": 11,
+      "stored_bson_bytes": 2496,
+      "declared_original_bytes": 2496,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "UNIVERSE_BATCH",
+      "codec": "zlib/v1",
+      "rows": 2,
+      "stored_bson_bytes": 2061,
+      "declared_original_bytes": 2371,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "ROTATION_NOTHING_TO_FUND",
+      "codec": "legacy_or_uncompressed",
+      "rows": 5,
+      "stored_bson_bytes": 1480,
+      "declared_original_bytes": 1480,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "VALUATION_REMARK",
+      "codec": "legacy_or_uncompressed",
+      "rows": 3,
+      "stored_bson_bytes": 1443,
+      "declared_original_bytes": 1443,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "ROTATION_SUMMARY",
+      "codec": "legacy_or_uncompressed",
+      "rows": 2,
+      "stored_bson_bytes": 1412,
+      "declared_original_bytes": 1412,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "TRADE_AMENDMENT",
+      "codec": "legacy_or_uncompressed",
+      "rows": 2,
+      "stored_bson_bytes": 1329,
+      "declared_original_bytes": 1329,
+      "trade_reference_rows": 2,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "TRADE_PRICE_CORRECTED",
+      "codec": "zlib/v1",
+      "rows": 1,
+      "stored_bson_bytes": 1230,
+      "declared_original_bytes": 1450,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "UPSTOX_CONNECT_FAILED",
+      "codec": "legacy_or_uncompressed",
+      "rows": 2,
+      "stored_bson_bytes": 1210,
+      "declared_original_bytes": 1210,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "DATA_REFRESH_SEBI",
+      "codec": "legacy_or_uncompressed",
+      "rows": 3,
+      "stored_bson_bytes": 1101,
+      "declared_original_bytes": 1101,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "FILINGS_FAILED",
+      "codec": "legacy_or_uncompressed",
+      "rows": 4,
+      "stored_bson_bytes": 1092,
+      "declared_original_bytes": 1092,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "OWNER_SECTOR_EXIT",
+      "codec": "legacy_or_uncompressed",
+      "rows": 2,
+      "stored_bson_bytes": 1015,
+      "declared_original_bytes": 1015,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "UNIVERSE_BATCH",
+      "codec": "legacy_or_uncompressed",
+      "rows": 1,
+      "stored_bson_bytes": 842,
+      "declared_original_bytes": 842,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "ROTATION_SUMMARY",
+      "codec": "zlib/v1",
+      "rows": 1,
+      "stored_bson_bytes": 804,
+      "declared_original_bytes": 989,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "DATA_REFRESH_DAILY",
+      "codec": "legacy_or_uncompressed",
+      "rows": 4,
+      "stored_bson_bytes": 745,
+      "declared_original_bytes": 745,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "DATA_REFRESH_SECTOR_FAILED",
+      "codec": "legacy_or_uncompressed",
+      "rows": 4,
+      "stored_bson_bytes": 704,
+      "declared_original_bytes": 704,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "DATA_REFRESH_CONSTITUENTS",
+      "codec": "legacy_or_uncompressed",
+      "rows": 3,
+      "stored_bson_bytes": 683,
+      "declared_original_bytes": 683,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "VALUATION_REMARK_WAITING",
+      "codec": "legacy_or_uncompressed",
+      "rows": 2,
+      "stored_bson_bytes": 518,
+      "declared_original_bytes": 518,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "CAPITAL_ADJUST",
+      "codec": "legacy_or_uncompressed",
+      "rows": 2,
+      "stored_bson_bytes": 409,
+      "declared_original_bytes": 409,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "DANGER_LAYER_ARMED",
+      "codec": "legacy_or_uncompressed",
+      "rows": 1,
+      "stored_bson_bytes": 397,
+      "declared_original_bytes": 397,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "TRIGGER_LAYER_FAILED",
+      "codec": "legacy_or_uncompressed",
+      "rows": 2,
+      "stored_bson_bytes": 382,
+      "declared_original_bytes": 382,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "FDA_NEWS_FAILED",
+      "codec": "legacy_or_uncompressed",
+      "rows": 2,
+      "stored_bson_bytes": 362,
+      "declared_original_bytes": 362,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "KILL_SWITCH_SCAN",
+      "codec": "legacy_or_uncompressed",
+      "rows": 2,
+      "stored_bson_bytes": 356,
+      "declared_original_bytes": 356,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "MARS_ARCHIVE_PRE_2026_09_15",
+      "codec": "legacy_or_uncompressed",
+      "rows": 1,
+      "stored_bson_bytes": 339,
+      "declared_original_bytes": 339,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "MONGO_OFFLINE_HALT",
+      "codec": "legacy_or_uncompressed",
+      "rows": 1,
+      "stored_bson_bytes": 328,
+      "declared_original_bytes": 328,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "CLOSE_ALL",
+      "codec": "legacy_or_uncompressed",
+      "rows": 1,
+      "stored_bson_bytes": 310,
+      "declared_original_bytes": 310,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "DATA_REFRESH_WEEKLY",
+      "codec": "legacy_or_uncompressed",
+      "rows": 1,
+      "stored_bson_bytes": 309,
+      "declared_original_bytes": 309,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "DATA_REFRESH_FUNDAMENTALS",
+      "codec": "legacy_or_uncompressed",
+      "rows": 1,
+      "stored_bson_bytes": 241,
+      "declared_original_bytes": 241,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "UNIVERSE_BATCH_FAILED",
+      "codec": "legacy_or_uncompressed",
+      "rows": 1,
+      "stored_bson_bytes": 234,
+      "declared_original_bytes": 234,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "OPTION_CHAIN_FAILED",
+      "codec": "legacy_or_uncompressed",
+      "rows": 1,
+      "stored_bson_bytes": 201,
+      "declared_original_bytes": 201,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    },
+    {
+      "action": "MARKET_FII_FAILED",
+      "codec": "legacy_or_uncompressed",
+      "rows": 1,
+      "stored_bson_bytes": 194,
+      "declared_original_bytes": 194,
+      "trade_reference_rows": 0,
+      "decision_reference_rows": 0
+    }
+  ],
+  "by_event_day": [
+    {
+      "event_day_ist": "2026-11-26",
+      "rows": 4552,
+      "stored_bson_bytes": 10082974
+    },
+    {
+      "event_day_ist": "2026-11-25",
+      "rows": 20754,
+      "stored_bson_bytes": 46945229
+    },
+    {
+      "event_day_ist": "2026-11-24",
+      "rows": 1,
+      "stored_bson_bytes": 604
+    },
+    {
+      "event_day_ist": "2026-11-23",
+      "rows": 4717,
+      "stored_bson_bytes": 10613111
+    },
+    {
+      "event_day_ist": "2026-11-21",
+      "rows": 2265,
+      "stored_bson_bytes": 4990826
+    },
+    {
+      "event_day_ist": "2026-11-20",
+      "rows": 6458,
+      "stored_bson_bytes": 15063752
+    },
+    {
+      "event_day_ist": "2026-11-16",
+      "rows": 7437,
+      "stored_bson_bytes": 16798452
+    },
+    {
+      "event_day_ist": "2026-11-15",
+      "rows": 2265,
+      "stored_bson_bytes": 4847478
+    },
+    {
+      "event_day_ist": "2026-11-14",
+      "rows": 1,
+      "stored_bson_bytes": 566
+    },
+    {
+      "event_day_ist": "2026-11-13",
+      "rows": 19174,
+      "stored_bson_bytes": 32581218
+    },
+    {
+      "event_day_ist": "2026-11-12",
+      "rows": 7149,
+      "stored_bson_bytes": 11615131
+    },
+    {
+      "event_day_ist": "2026-11-11",
+      "rows": 205,
+      "stored_bson_bytes": 103823
+    },
+    {
+      "event_day_ist": "2026-11-10",
+      "rows": 13,
+      "stored_bson_bytes": 4702
+    },
+    {
+      "event_day_ist": "2026-11-07",
+      "rows": 8,
+      "stored_bson_bytes": 3212
+    },
+    {
+      "event_day_ist": "2026-11-06",
+      "rows": 78,
+      "stored_bson_bytes": 26404
+    },
+    {
+      "event_day_ist": "2026-11-05",
+      "rows": 239,
+      "stored_bson_bytes": 108147
+    },
+    {
+      "event_day_ist": "2026-11-04",
+      "rows": 174,
+      "stored_bson_bytes": 83398
+    },
+    {
+      "event_day_ist": "2026-11-03",
+      "rows": 223,
+      "stored_bson_bytes": 103573
+    },
+    {
+      "event_day_ist": "2026-11-02",
+      "rows": 117,
+      "stored_bson_bytes": 48599
+    },
+    {
+      "event_day_ist": "2026-10-30",
+      "rows": 122,
+      "stored_bson_bytes": 54544
+    },
+    {
+      "event_day_ist": "2026-10-29",
+      "rows": 67,
+      "stored_bson_bytes": 28539
+    },
+    {
+      "event_day_ist": "2026-10-28",
+      "rows": 70,
+      "stored_bson_bytes": 28311
+    },
+    {
+      "event_day_ist": "2026-10-27",
+      "rows": 59,
+      "stored_bson_bytes": 23761
+    },
+    {
+      "event_day_ist": "2026-10-22",
+      "rows": 49,
+      "stored_bson_bytes": 25560
+    },
+    {
+      "event_day_ist": "2026-10-21",
+      "rows": 121,
+      "stored_bson_bytes": 36801
+    },
+    {
+      "event_day_ist": "2026-10-19",
+      "rows": 57,
+      "stored_bson_bytes": 17691
+    },
+    {
+      "event_day_ist": "2026-10-16",
+      "rows": 60,
+      "stored_bson_bytes": 17982
+    },
+    {
+      "event_day_ist": "2026-10-15",
+      "rows": 57,
+      "stored_bson_bytes": 17465
+    },
+    {
+      "event_day_ist": "2026-10-14",
+      "rows": 47,
+      "stored_bson_bytes": 14566
+    },
+    {
+      "event_day_ist": "2026-10-13",
+      "rows": 70,
+      "stored_bson_bytes": 20695
+    },
+    {
+      "event_day_ist": "2026-10-12",
+      "rows": 62,
+      "stored_bson_bytes": 23122
+    },
+    {
+      "event_day_ist": "2026-10-11",
+      "rows": 11,
+      "stored_bson_bytes": 3629
+    },
+    {
+      "event_day_ist": "2026-10-10",
+      "rows": 3,
+      "stored_bson_bytes": 640
+    },
+    {
+      "event_day_ist": "2026-10-09",
+      "rows": 43,
+      "stored_bson_bytes": 13478
+    },
+    {
+      "event_day_ist": "2026-10-08",
+      "rows": 26,
+      "stored_bson_bytes": 8668
+    },
+    {
+      "event_day_ist": "2026-10-07",
+      "rows": 35,
+      "stored_bson_bytes": 10596
+    },
+    {
+      "event_day_ist": "2026-10-06",
+      "rows": 59,
+      "stored_bson_bytes": 19176
+    },
+    {
+      "event_day_ist": "2026-10-05",
+      "rows": 66,
+      "stored_bson_bytes": 41077
+    },
+    {
+      "event_day_ist": "2026-10-02",
+      "rows": 9,
+      "stored_bson_bytes": 3244
+    },
+    {
+      "event_day_ist": "2026-10-01",
+      "rows": 42,
+      "stored_bson_bytes": 15697
+    },
+    {
+      "event_day_ist": "2026-09-30",
+      "rows": 110,
+      "stored_bson_bytes": 41877
+    },
+    {
+      "event_day_ist": "2026-09-29",
+      "rows": 50,
+      "stored_bson_bytes": 21904
+    },
+    {
+      "event_day_ist": "2026-09-28",
+      "rows": 31,
+      "stored_bson_bytes": 10123
+    },
+    {
+      "event_day_ist": "2026-09-21",
+      "rows": 100,
+      "stored_bson_bytes": 41559
+    },
+    {
+      "event_day_ist": "2026-09-16",
+      "rows": 59,
+      "stored_bson_bytes": 21006
+    },
+    {
+      "event_day_ist": "2026-09-15",
+      "rows": 140,
+      "stored_bson_bytes": 38272
+    },
+    {
+      "event_day_ist": "2026-09-14",
+      "rows": 7,
+      "stored_bson_bytes": 1850
+    },
+    {
+      "event_day_ist": "2026-09-13",
+      "rows": 2,
+      "stored_bson_bytes": 474
+    },
+    {
+      "event_day_ist": "2026-09-12",
+      "rows": 6,
+      "stored_bson_bytes": 1628
+    },
+    {
+      "event_day_ist": "2026-09-11",
+      "rows": 73,
+      "stored_bson_bytes": 20336
+    },
+    {
+      "event_day_ist": "2026-09-10",
+      "rows": 33,
+      "stored_bson_bytes": 8467
+    },
+    {
+      "event_day_ist": "2026-09-09",
+      "rows": 34,
+      "stored_bson_bytes": 10344
+    },
+    {
+      "event_day_ist": "2026-09-08",
+      "rows": 67,
+      "stored_bson_bytes": 21582
+    },
+    {
+      "event_day_ist": "2026-09-07",
+      "rows": 33,
+      "stored_bson_bytes": 8703
+    },
+    {
+      "event_day_ist": "2026-09-04",
+      "rows": 39,
+      "stored_bson_bytes": 11685
+    },
+    {
+      "event_day_ist": "2026-09-03",
+      "rows": 27,
+      "stored_bson_bytes": 7129
+    },
+    {
+      "event_day_ist": "2026-09-02",
+      "rows": 27,
+      "stored_bson_bytes": 7744
+    },
+    {
+      "event_day_ist": "2026-09-01",
+      "rows": 39,
+      "stored_bson_bytes": 12450
+    },
+    {
+      "event_day_ist": "2026-08-31",
+      "rows": 34,
+      "stored_bson_bytes": 9222
+    },
+    {
+      "event_day_ist": "2026-08-30",
+      "rows": 6,
+      "stored_bson_bytes": 1438
+    },
+    {
+      "event_day_ist": "2026-08-28",
+      "rows": 30,
+      "stored_bson_bytes": 10305
+    },
+    {
+      "event_day_ist": "2026-08-27",
+      "rows": 30,
+      "stored_bson_bytes": 10146
+    },
+    {
+      "event_day_ist": "2026-08-26",
+      "rows": 28,
+      "stored_bson_bytes": 9805
+    },
+    {
+      "event_day_ist": "2026-08-25",
+      "rows": 76,
+      "stored_bson_bytes": 27721
+    },
+    {
+      "event_day_ist": "2026-08-24",
+      "rows": 38,
+      "stored_bson_bytes": 13208
+    },
+    {
+      "event_day_ist": "2026-08-21",
+      "rows": 50,
+      "stored_bson_bytes": 20862
+    },
+    {
+      "event_day_ist": "2026-08-20",
+      "rows": 18,
+      "stored_bson_bytes": 7582
+    },
+    {
+      "event_day_ist": "2026-08-19",
+      "rows": 59,
+      "stored_bson_bytes": 25424
+    },
+    {
+      "event_day_ist": "2026-08-18",
+      "rows": 34,
+      "stored_bson_bytes": 9768
+    },
+    {
+      "event_day_ist": "2026-08-17",
+      "rows": 7,
+      "stored_bson_bytes": 2294
+    },
+    {
+      "event_day_ist": "2026-08-13",
+      "rows": 15,
+      "stored_bson_bytes": 4639
+    },
+    {
+      "event_day_ist": "2026-08-12",
+      "rows": 40,
+      "stored_bson_bytes": 19538
+    },
+    {
+      "event_day_ist": "2026-08-11",
+      "rows": 25,
+      "stored_bson_bytes": 7829
+    },
+    {
+      "event_day_ist": "2026-08-10",
+      "rows": 13,
+      "stored_bson_bytes": 3113
+    },
+    {
+      "event_day_ist": "2026-08-09",
+      "rows": 15,
+      "stored_bson_bytes": 11548
+    },
+    {
+      "event_day_ist": "2026-08-07",
+      "rows": 11,
+      "stored_bson_bytes": 3157
+    },
+    {
+      "event_day_ist": "2026-08-06",
+      "rows": 11,
+      "stored_bson_bytes": 3104
+    },
+    {
+      "event_day_ist": "2026-08-05",
+      "rows": 10,
+      "stored_bson_bytes": 2908
+    },
+    {
+      "event_day_ist": "2026-08-04",
+      "rows": 24,
+      "stored_bson_bytes": 15916
+    },
+    {
+      "event_day_ist": "2026-08-03",
+      "rows": 74,
+      "stored_bson_bytes": 38913
+    },
+    {
+      "event_day_ist": "2026-07-31",
+      "rows": 57,
+      "stored_bson_bytes": 20596
+    },
+    {
+      "event_day_ist": "2026-07-30",
+      "rows": 18,
+      "stored_bson_bytes": 9036
+    },
+    {
+      "event_day_ist": "2026-07-29",
+      "rows": 49,
+      "stored_bson_bytes": 15969
+    },
+    {
+      "event_day_ist": "2026-07-28",
+      "rows": 14,
+      "stored_bson_bytes": 6488
+    },
+    {
+      "event_day_ist": "2026-07-27",
+      "rows": 26,
+      "stored_bson_bytes": 12774
+    },
+    {
+      "event_day_ist": "2026-07-26",
+      "rows": 23,
+      "stored_bson_bytes": 7897
+    },
+    {
+      "event_day_ist": "2026-07-25",
+      "rows": 5,
+      "stored_bson_bytes": 2359
+    },
+    {
+      "event_day_ist": "2026-07-24",
+      "rows": 8,
+      "stored_bson_bytes": 2076
+    },
+    {
+      "event_day_ist": "2026-07-23",
+      "rows": 17,
+      "stored_bson_bytes": 8658
+    },
+    {
+      "event_day_ist": "2026-07-22",
+      "rows": 23,
+      "stored_bson_bytes": 9773
+    },
+    {
+      "event_day_ist": "2026-07-21",
+      "rows": 10,
+      "stored_bson_bytes": 5850
+    },
+    {
+      "event_day_ist": "2026-07-17",
+      "rows": 92,
+      "stored_bson_bytes": 35277
+    },
+    {
+      "event_day_ist": "2026-07-10",
+      "rows": 55,
+      "stored_bson_bytes": 18092
+    },
+    {
+      "event_day_ist": "2026-07-09",
+      "rows": 46,
+      "stored_bson_bytes": 14982
+    },
+    {
+      "event_day_ist": "2026-07-07",
+      "rows": 43,
+      "stored_bson_bytes": 13376
+    },
+    {
+      "event_day_ist": "2026-07-06",
+      "rows": 43,
+      "stored_bson_bytes": 13378
+    },
+    {
+      "event_day_ist": "2026-07-03",
+      "rows": 44,
+      "stored_bson_bytes": 14015
+    },
+    {
+      "event_day_ist": "2026-07-02",
+      "rows": 3,
+      "stored_bson_bytes": 1933
+    },
+    {
+      "event_day_ist": "2026-07-01",
+      "rows": 9,
+      "stored_bson_bytes": 5837
+    },
+    {
+      "event_day_ist": "2026-06-30",
+      "rows": 2,
+      "stored_bson_bytes": 1302
+    },
+    {
+      "event_day_ist": "2026-06-29",
+      "rows": 1,
+      "stored_bson_bytes": 648
+    },
+    {
+      "event_day_ist": "2026-06-26",
+      "rows": 28,
+      "stored_bson_bytes": 9141
+    },
+    {
+      "event_day_ist": "2026-06-25",
+      "rows": 29,
+      "stored_bson_bytes": 9677
+    },
+    {
+      "event_day_ist": "2026-06-24",
+      "rows": 29,
+      "stored_bson_bytes": 9791
+    },
+    {
+      "event_day_ist": "2026-06-23",
+      "rows": 28,
+      "stored_bson_bytes": 9172
+    },
+    {
+      "event_day_ist": "2026-06-19",
+      "rows": 5,
+      "stored_bson_bytes": 3231
+    },
+    {
+      "event_day_ist": "2026-06-18",
+      "rows": 34,
+      "stored_bson_bytes": 11921
+    },
+    {
+      "event_day_ist": "2026-06-17",
+      "rows": 6,
+      "stored_bson_bytes": 3636
+    },
+    {
+      "event_day_ist": "2026-06-16",
+      "rows": 6,
+      "stored_bson_bytes": 2246
+    },
+    {
+      "event_day_ist": "2026-06-15",
+      "rows": 6,
+      "stored_bson_bytes": 2603
+    }
+  ],
+  "by_pre_mars": [
+    {
+      "pre_mars": true,
+      "rows": 1794,
+      "stored_bson_bytes": 652566
+    },
+    {
+      "pre_mars": false,
+      "rows": 77455,
+      "stored_bson_bytes": 154621182
+    }
+  ],
+  "verification": {
+    "aggregate_limits_applied": [],
+    "facet_reconciliations": {
+      "by_action_codec": {
+        "rows": 79249,
+        "stored_bson_bytes": 155273748
+      },
+      "by_event_day": {
+        "rows": 79249,
+        "stored_bson_bytes": 155273748
+      },
+      "by_pre_mars": {
+        "rows": 79249,
+        "stored_bson_bytes": 155273748
+      }
+    },
+    "all_facets_reconcile": true,
+    "followup_count": 79649,
+    "followup_count_delta": 400,
+    "followup_note": "The later independent count increased by 400; this confirms active appends rather than a frozen inventory.",
+    "recent_scan_facets_reconcile": true
+  },
+  "database_stats_separate_followup": {
+    "database": "sourceborn",
+    "data_bytes": 241506276,
+    "index_bytes": 10039296,
+    "storage_bytes": 200265728,
+    "objects": 122391,
+    "collections": 21,
+    "indexes": 22,
+    "note": "A later sourceborn-only read; no new cluster-wide total was measured in this inventory."
+  },
+  "indexes_observed": [
+    {
+      "name": "_id_",
+      "key": {
+        "_id": 1
+      }
+    },
+    {
+      "name": "journal_recent_ts_id",
+      "key": {
+        "ts": -1,
+        "_id": -1
+      }
+    }
+  ],
+  "comparison_to_dated_inventory": {
+    "baseline": {
+      "source_file": "docs/repairs/evidence/2026-11-20-storage-and-history.json",
+      "section": "journal_composition",
+      "observed_at": "2026-11-20T09:19:10.636545+00:00",
+      "stored_bson_bytes": 82015854,
+      "scan_decision_rows": 38661,
+      "scan_decision_stored_bson_bytes": 74721563
+    },
+    "journal_byte_delta": 73257894,
+    "scan_decision_byte_delta": 70830756,
+    "scan_decision_row_delta": 31453,
+    "note": "Endpoint comparison only; not a growth forecast or proof that only inserts occurred between dates."
+  },
+  "after_hours_observation": {
+    "archive_recent_scan_window": {
+      "totals": [
+        {
+          "rows": 3231,
+          "stored_bson_bytes": 6397077,
+          "window_end": "2026-11-25T19:47:03.930Z",
+          "window_start": "2026-11-25T19:32:03.930Z",
+          "packed_rows": 3231
+        }
+      ],
+      "by_minute_mode": [
+        {
+          "_id": {
+            "minute_utc": "2026-11-25T19:32:00Z",
+            "mode": "nifty200_momentum",
+            "outcome": "unavailable_in_compressed_envelope"
+          },
+          "rows": 1129,
+          "stored_bson_bytes": 1858993
+        },
+        {
+          "_id": {
+            "minute_utc": "2026-11-25T19:44:00Z",
+            "mode": "intraday",
+            "outcome": "unavailable_in_compressed_envelope"
+          },
+          "rows": 2102,
+          "stored_bson_bytes": 4538084
+        }
+      ]
+    },
+    "portfolio_ram_tail": {
+      "window": [
+        {
+          "window_end": "2026-11-25T19:47:34.660Z",
+          "window_start": "2026-11-25T19:32:34.660Z",
+          "tail_rows": 156,
+          "earliest_tail_at": "2026-11-25T19:44:24.711Z",
+          "latest_tail_at": "2026-11-25T19:44:24.810Z"
+        }
+      ],
+      "recent_scan_outcomes": [
+        {
+          "_id": {
+            "mode": "intraday",
+            "outcome": "blocked"
+          },
+          "rows": 156,
+          "earliest_event_at": "2026-11-25T19:44:24.711Z",
+          "latest_event_at": "2026-11-25T19:44:24.810Z"
+        }
+      ],
+      "recent_scan_gates": [
+        {
+          "_id": {
+            "mode": "intraday",
+            "gate": "history",
+            "state": "unavailable"
+          },
+          "rows": 156
+        },
+        {
+          "_id": {
+            "mode": "intraday",
+            "gate": "intraday_data",
+            "state": "unavailable"
+          },
+          "rows": 156
+        }
+      ],
+      "operation_counts_since_1800": []
+    },
+    "archived_operations_since_1800_utc": [
+      {
+        "action": "MARKET_CLOSED_NO_ENTRY",
+        "rows": 3,
+        "earliest_event_at": "2026-11-25T19:24:03.813Z",
+        "latest_event_at": "2026-11-25T19:44:49.813Z",
+        "observed_at": "2026-11-25T19:47:55.738Z"
+      },
+      {
+        "action": "ROTATION_MARKET_CLOSED",
+        "rows": 3,
+        "earliest_event_at": "2026-11-25T19:24:03.813Z",
+        "latest_event_at": "2026-11-25T19:44:49.813Z",
+        "observed_at": "2026-11-25T19:47:55.738Z"
+      },
+      {
+        "action": "SCAN_CATCHUP",
+        "rows": 2,
+        "earliest_event_at": "2026-11-25T18:31:17.642Z",
+        "latest_event_at": "2026-11-25T19:21:21.610Z",
+        "observed_at": "2026-11-25T19:47:55.738Z"
+      }
+    ],
+    "catchup_trigger_classification": [
+      {
+        "trigger": "startup",
+        "rows": 2,
+        "earliest_event_at": "2026-11-25T18:31:17.642Z",
+        "latest_event_at": "2026-11-25T19:21:21.610Z",
+        "observed_at": "2026-11-25T19:48:44.279Z"
+      }
+    ],
+    "render_startup_logs": {
+      "service": "MARS",
+      "workspace": "Research Engine",
+      "query_start": "2026-11-25T18:00:00Z",
+      "has_more": false,
+      "observations": [
+        {
+          "at": "2026-11-25T18:29:11.378656222Z",
+          "event": "waiting_for_application_startup"
+        },
+        {
+          "at": "2026-11-25T18:29:17.642837765Z",
+          "event": "application_startup_complete"
+        },
+        {
+          "at": "2026-11-25T19:19:14.313964056Z",
+          "event": "waiting_for_application_startup"
+        },
+        {
+          "at": "2026-11-25T19:19:20.583129434Z",
+          "event": "application_startup_complete"
+        }
+      ],
+      "catchup_log_text_matches": 0
+    },
+    "limitations": [
+      "Archive compressed query metadata retains mode but not gates/outcome. Archived outcomes were not decoded or inferred.",
+      "The separately read current portfolio tail contains only 156 recent Intraday observations; its blocked/unavailable results cannot be generalized to all 3231 archived observations.",
+      "The recent windows are UTC and span only a portion of ongoing overnight work. Counts are not complete scan-run totals."
+    ],
+    "evidence": [
+      "3231 archived SCAN_DECISION records totaling 6397077 BSON bytes have event timestamps within the measured 15-minute overnight window; all carry zlib/v1 markers.",
+      "The current portfolio RAM tail has 156 Intraday SCAN_DECISION records, all blocked with history and intraday_data unavailable.",
+      "Two archived SCAN_CATCHUP records since18:00 UTC classify their trigger as startup. Their timestamps are approximately120 seconds after the two Render startup-complete observations.",
+      "Three MARKET_CLOSED_NO_ENTRY and three ROTATION_MARKET_CLOSED archive markers were observed since18:00 UTC."
+    ],
+    "inference": "Existing startup catch-up behavior is an evidenced generator of after-hours journal data. These metadata-only reads do not identify every scan invocation or establish that every new byte came from catch-up, and they do not prove the full entry/exit ledger."
+  },
+  "code_paths": {
+    "all_candidate_decisions": "trading/engine.py: scan() journals every decisions.values() result",
+    "startup_delay": "web/scheduler.py: start_scheduler() schedules catchup_scan_if_missed('startup') after120 seconds",
+    "after_hours_policy": "web/scheduler.py: catchup_scan_if_missed() explicitly permits off-hours scoring/display and suppresses another only after a same-IST-day last_scan",
+    "archive_writer": "web/state.py -> web/db.py:archive_journal -> web/journal_storage.py:append",
+    "codec": "web/journal_archive_codec.py:pack_raw uses zlib level9 and retains smaller verified envelope",
+    "ram_limit": "trading/paper.py:JOURNAL_RAM_CAP=5000 and JOURNAL_BYTES_CAP=2097152",
+    "report_limit": "web/journal_storage.py:iter_latest is bounded to newest20000 archive documents in100-document batches",
+    "retention": "web/db.py labels journal_archive append-only/unbounded; existing closed_history_policy applies exact approved trade fingerprints, not journal TTL"
+  },
+  "proposed_next_batch": {
+    "status": "proposal_only_not_implemented_or_authorized_for_deletion",
+    "focus": "Bound startup/off-hours review work and prepare lossless archive retention",
+    "items": [
+      "Reconcile desired overnight review behavior with once-per-session or completed-daily-input identity; test restart before checkpoint and delayed catch-up without suppressing the next actual trading session.",
+      "Preserve selection/gate evidence and all trade-related references; do not solve volume by silently dropping failed checks.",
+      "Implement resumable complete archive export with counts/hashes and an independent durable restore check before any separately authorized conditional retention.",
+      "Measure daily action bytes on bounded retained metadata and report headroom; retain uncertainty for other applications sharing the cluster."
+    ]
+  },
+  "aggregate_pipelines": {
+    "composition": [
+      {
+        "$project": {
+          "_id": 0,
+          "action": {
+            "$ifNull": [
+              "$action",
+              "unknown"
+            ]
+          },
+          "stored_bytes": {
+            "$bsonSize": "$$ROOT"
+          },
+          "codec": {
+            "$cond": [
+              {
+                "$eq": [
+                  "$_mars_journal_bson.format",
+                  "mars.journal.raw-bson"
+                ]
+              },
+              {
+                "$concat": [
+                  {
+                    "$ifNull": [
+                      "$_mars_journal_bson.codec",
+                      "unknown"
+                    ]
+                  },
+                  "/v",
+                  {
+                    "$convert": {
+                      "input": "$_mars_journal_bson.version",
+                      "to": "string",
+                      "onError": "unknown",
+                      "onNull": "unknown"
+                    }
+                  }
+                ]
+              },
+              {
+                "$cond": [
+                  {
+                    "$eq": [
+                      {
+                        "$type": "$_mars_journal_bson"
+                      },
+                      "missing"
+                    ]
+                  },
+                  "legacy_or_uncompressed",
+                  "unrecognized_marker"
+                ]
+              }
+            ]
+          },
+          "declared_original_bytes": {
+            "$cond": [
+              {
+                "$eq": [
+                  "$_mars_journal_bson.format",
+                  "mars.journal.raw-bson"
+                ]
+              },
+              "$_mars_journal_bson.raw_bytes",
+              {
+                "$bsonSize": "$$ROOT"
+              }
+            ]
+          },
+          "event_at": {
+            "$convert": {
+              "input": "$ts",
+              "to": "date",
+              "onError": null,
+              "onNull": null
+            }
+          },
+          "pre_mars": {
+            "$eq": [
+              "$pre_mars",
+              true
+            ]
+          },
+          "has_trade_reference": {
+            "$ne": [
+              {
+                "$ifNull": [
+                  "$trade_id",
+                  ""
+                ]
+              },
+              ""
+            ]
+          },
+          "has_decision_reference": {
+            "$ne": [
+              {
+                "$ifNull": [
+                  "$decision_id",
+                  ""
+                ]
+              },
+              ""
+            ]
+          }
+        }
+      },
+      {
+        "$facet": {
+          "totals": [
+            {
+              "$group": {
+                "_id": null,
+                "rows": {
+                  "$sum": 1
+                },
+                "stored_bson_bytes": {
+                  "$sum": "$stored_bytes"
+                },
+                "declared_original_bytes": {
+                  "$sum": "$declared_original_bytes"
+                },
+                "unknown_event_time_rows": {
+                  "$sum": {
+                    "$cond": [
+                      {
+                        "$eq": [
+                          "$event_at",
+                          null
+                        ]
+                      },
+                      1,
+                      0
+                    ]
+                  }
+                },
+                "earliest_event_at": {
+                  "$min": "$event_at"
+                },
+                "latest_event_at": {
+                  "$max": "$event_at"
+                },
+                "observed_at": {
+                  "$first": "$$NOW"
+                }
+              }
+            },
+            {
+              "$project": {
+                "_id": 0
+              }
+            }
+          ],
+          "by_action_codec": [
+            {
+              "$group": {
+                "_id": {
+                  "action": "$action",
+                  "codec": "$codec"
+                },
+                "rows": {
+                  "$sum": 1
+                },
+                "stored_bson_bytes": {
+                  "$sum": "$stored_bytes"
+                },
+                "declared_original_bytes": {
+                  "$sum": "$declared_original_bytes"
+                },
+                "trade_reference_rows": {
+                  "$sum": {
+                    "$cond": [
+                      "$has_trade_reference",
+                      1,
+                      0
+                    ]
+                  }
+                },
+                "decision_reference_rows": {
+                  "$sum": {
+                    "$cond": [
+                      "$has_decision_reference",
+                      1,
+                      0
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "$sort": {
+                "stored_bson_bytes": -1
+              }
+            }
+          ],
+          "by_event_day": [
+            {
+              "$group": {
+                "_id": {
+                  "$dateToString": {
+                    "date": "$event_at",
+                    "format": "%Y-%m-%d",
+                    "timezone": "Asia/Kolkata",
+                    "onNull": "unknown"
+                  }
+                },
+                "rows": {
+                  "$sum": 1
+                },
+                "stored_bson_bytes": {
+                  "$sum": "$stored_bytes"
+                }
+              }
+            },
+            {
+              "$sort": {
+                "_id": -1
+              }
+            }
+          ],
+          "by_pre_mars": [
+            {
+              "$group": {
+                "_id": "$pre_mars",
+                "rows": {
+                  "$sum": 1
+                },
+                "stored_bson_bytes": {
+                  "$sum": "$stored_bytes"
+                }
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "recent_archive": [
+      {
+        "$match": {
+          "action": "SCAN_DECISION"
+        }
+      },
+      {
+        "$project": {
+          "_id": 0,
+          "event_at": {
+            "$convert": {
+              "input": "$ts",
+              "to": "date",
+              "onError": null,
+              "onNull": null
+            }
+          },
+          "stored_bytes": {
+            "$bsonSize": "$$ROOT"
+          },
+          "mode": {
+            "$ifNull": [
+              "$_mars_journal_query.mode",
+              {
+                "$ifNull": [
+                  "$evidence.mode",
+                  "unknown"
+                ]
+              }
+            ]
+          },
+          "packed": {
+            "$eq": [
+              "$_mars_journal_bson.format",
+              "mars.journal.raw-bson"
+            ]
+          },
+          "legacy_outcome": {
+            "$ifNull": [
+              "$evidence.outcome",
+              "unavailable_in_compressed_envelope"
+            ]
+          }
+        }
+      },
+      {
+        "$match": {
+          "$expr": {
+            "$and": [
+              {
+                "$gte": [
+                  "$event_at",
+                  {
+                    "$subtract": [
+                      "$$NOW",
+                      900000
+                    ]
+                  }
+                ]
+              },
+              {
+                "$lte": [
+                  "$event_at",
+                  "$$NOW"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "$facet": {
+          "totals": [
+            {
+              "$group": {
+                "_id": null,
+                "rows": {
+                  "$sum": 1
+                },
+                "stored_bson_bytes": {
+                  "$sum": "$stored_bytes"
+                },
+                "window_end": {
+                  "$first": "$$NOW"
+                },
+                "window_start": {
+                  "$first": {
+                    "$subtract": [
+                      "$$NOW",
+                      900000
+                    ]
+                  }
+                },
+                "packed_rows": {
+                  "$sum": {
+                    "$cond": [
+                      "$packed",
+                      1,
+                      0
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "$project": {
+                "_id": 0
+              }
+            }
+          ],
+          "by_minute_mode": [
+            {
+              "$group": {
+                "_id": {
+                  "minute_utc": {
+                    "$dateToString": {
+                      "date": "$event_at",
+                      "format": "%Y-%m-%dT%H:%M:00Z"
+                    }
+                  },
+                  "mode": "$mode",
+                  "outcome": "$legacy_outcome"
+                },
+                "rows": {
+                  "$sum": 1
+                },
+                "stored_bson_bytes": {
+                  "$sum": "$stored_bytes"
+                }
+              }
+            },
+            {
+              "$sort": {
+                "_id.minute_utc": 1,
+                "_id.mode": 1
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "recent_portfolio_tail": [
+      {
+        "$project": {
+          "decision_journal": 1,
+          "_id": 0
+        }
+      },
+      {
+        "$unwind": "$decision_journal"
+      },
+      {
+        "$project": {
+          "_id": 0,
+          "action": "$decision_journal.action",
+          "event_at": {
+            "$convert": {
+              "input": "$decision_journal.ts",
+              "to": "date",
+              "onError": null,
+              "onNull": null
+            }
+          },
+          "mode": {
+            "$ifNull": [
+              "$decision_journal.evidence.mode",
+              {
+                "$ifNull": [
+                  "$decision_journal.mode",
+                  "unknown"
+                ]
+              }
+            ]
+          },
+          "outcome": {
+            "$ifNull": [
+              "$decision_journal.evidence.outcome",
+              "unknown"
+            ]
+          },
+          "gates": {
+            "$ifNull": [
+              "$decision_journal.evidence.gates",
+              {}
+            ]
+          }
+        }
+      },
+      {
+        "$facet": {
+          "window": [
+            {
+              "$group": {
+                "_id": null,
+                "window_end": {
+                  "$first": "$$NOW"
+                },
+                "window_start": {
+                  "$first": {
+                    "$subtract": [
+                      "$$NOW",
+                      900000
+                    ]
+                  }
+                },
+                "tail_rows": {
+                  "$sum": 1
+                },
+                "earliest_tail_at": {
+                  "$min": "$event_at"
+                },
+                "latest_tail_at": {
+                  "$max": "$event_at"
+                }
+              }
+            },
+            {
+              "$project": {
+                "_id": 0
+              }
+            }
+          ],
+          "recent_scan_outcomes": [
+            {
+              "$match": {
+                "action": "SCAN_DECISION",
+                "$expr": {
+                  "$and": [
+                    {
+                      "$gte": [
+                        "$event_at",
+                        {
+                          "$subtract": [
+                            "$$NOW",
+                            900000
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "$lte": [
+                        "$event_at",
+                        "$$NOW"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "$group": {
+                "_id": {
+                  "mode": "$mode",
+                  "outcome": "$outcome"
+                },
+                "rows": {
+                  "$sum": 1
+                },
+                "earliest_event_at": {
+                  "$min": "$event_at"
+                },
+                "latest_event_at": {
+                  "$max": "$event_at"
+                }
+              }
+            }
+          ],
+          "recent_scan_gates": [
+            {
+              "$match": {
+                "action": "SCAN_DECISION",
+                "$expr": {
+                  "$and": [
+                    {
+                      "$gte": [
+                        "$event_at",
+                        {
+                          "$subtract": [
+                            "$$NOW",
+                            900000
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "$lte": [
+                        "$event_at",
+                        "$$NOW"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "$project": {
+                "mode": 1,
+                "gates": {
+                  "$objectToArray": "$gates"
+                }
+              }
+            },
+            {
+              "$unwind": "$gates"
+            },
+            {
+              "$match": {
+                "gates.v.state": {
+                  "$in": [
+                    "failed",
+                    "unavailable"
+                  ]
+                }
+              }
+            },
+            {
+              "$group": {
+                "_id": {
+                  "mode": "$mode",
+                  "gate": "$gates.k",
+                  "state": "$gates.v.state"
+                },
+                "rows": {
+                  "$sum": 1
+                }
+              }
+            },
+            {
+              "$sort": {
+                "_id.mode": 1,
+                "_id.gate": 1
+              }
+            }
+          ],
+          "operation_counts_since_1800": [
+            {
+              "$match": {
+                "action": {
+                  "$in": [
+                    "SCAN_CATCHUP",
+                    "ROTATION_MARKET_CLOSED",
+                    "MARKET_CLOSED_NO_ENTRY",
+                    "ROTATION_SUMMARY",
+                    "SCAN_FAILED"
+                  ]
+                },
+                "$expr": {
+                  "$gte": [
+                    "$event_at",
+                    {
+                      "$dateFromString": {
+                        "dateString": "2026-11-25T18:00:00Z"
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "$group": {
+                "_id": "$action",
+                "rows": {
+                  "$sum": 1
+                },
+                "earliest_event_at": {
+                  "$min": "$event_at"
+                },
+                "latest_event_at": {
+                  "$max": "$event_at"
+                }
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "operation_counts": [
+      {
+        "$match": {
+          "action": {
+            "$in": [
+              "SCAN_CATCHUP",
+              "ROTATION_MARKET_CLOSED",
+              "MARKET_CLOSED_NO_ENTRY",
+              "ROTATION_SUMMARY",
+              "SCAN_FAILED",
+              "OWNER_STRATEGY_BATCH_REQUEST",
+              "OWNER_STRATEGY_BATCH"
+            ]
+          }
+        }
+      },
+      {
+        "$project": {
+          "_id": 0,
+          "action": 1,
+          "event_at": {
+            "$convert": {
+              "input": "$ts",
+              "to": "date",
+              "onError": null,
+              "onNull": null
+            }
+          }
+        }
+      },
+      {
+        "$match": {
+          "$expr": {
+            "$and": [
+              {
+                "$gte": [
+                  "$event_at",
+                  {
+                    "$dateFromString": {
+                      "dateString": "2026-11-25T18:00:00Z"
+                    }
+                  }
+                ]
+              },
+              {
+                "$lte": [
+                  "$event_at",
+                  "$$NOW"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "$group": {
+          "_id": "$action",
+          "rows": {
+            "$sum": 1
+          },
+          "earliest_event_at": {
+            "$min": "$event_at"
+          },
+          "latest_event_at": {
+            "$max": "$event_at"
+          },
+          "observed_at": {
+            "$first": "$$NOW"
+          }
+        }
+      },
+      {
+        "$sort": {
+          "_id": 1
+        }
+      }
+    ],
+    "catchup_trigger_classification": [
+      {
+        "$match": {
+          "action": "SCAN_CATCHUP"
+        }
+      },
+      {
+        "$project": {
+          "_id": 0,
+          "event_at": {
+            "$convert": {
+              "input": "$ts",
+              "to": "date",
+              "onError": null,
+              "onNull": null
+            }
+          },
+          "trigger": {
+            "$switch": {
+              "branches": [
+                {
+                  "case": {
+                    "$regexMatch": {
+                      "input": {
+                        "$ifNull": [
+                          "$why",
+                          ""
+                        ]
+                      },
+                      "regex": "triggered by startup\\."
+                    }
+                  },
+                  "then": "startup"
+                },
+                {
+                  "case": {
+                    "$regexMatch": {
+                      "input": {
+                        "$ifNull": [
+                          "$why",
+                          ""
+                        ]
+                      },
+                      "regex": "triggered by .*upstox",
+                      "options": "i"
+                    }
+                  },
+                  "then": "upstox_connect"
+                }
+              ],
+              "default": "other_or_unavailable"
+            }
+          }
+        }
+      },
+      {
+        "$match": {
+          "$expr": {
+            "$and": [
+              {
+                "$gte": [
+                  "$event_at",
+                  {
+                    "$dateFromString": {
+                      "dateString": "2026-11-25T18:00:00Z"
+                    }
+                  }
+                ]
+              },
+              {
+                "$lte": [
+                  "$event_at",
+                  "$$NOW"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        "$group": {
+          "_id": "$trigger",
+          "rows": {
+            "$sum": 1
+          },
+          "earliest_event_at": {
+            "$min": "$event_at"
+          },
+          "latest_event_at": {
+            "$max": "$event_at"
+          },
+          "observed_at": {
+            "$first": "$$NOW"
+          }
+        }
+      }
+    ]
+  }
+}
