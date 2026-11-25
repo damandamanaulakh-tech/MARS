@@ -299,10 +299,10 @@
     "current_evidence": "docs/repairs/releases/2026-11-25-startup-save-recovery.md",
     "related_id": "",
     "acceptance": "Refused save leaves explicit degraded/write-failed status and blocks new entries; successful acknowledged save clears it; exits and failure reporting remain available.",
-    "workflow": "FOLLOWUP_LOCAL_TESTED_CI_PENDING",
+    "workflow": "FOLLOWUP_PUBLISHED_CI_PENDING",
     "assignee": "Codex",
     "fix_commit": "8e894dd39ae393d4589be4103bf226f8ef75445c",
-    "test_result": "3572 canonical CI cases passed, zero failures/skips; all six jobs passed (44741724900), including both full combined replays. 3573 local cases include one pre-existing untracked script-syntax parameter; 33 new XR-071 cases. Native Mongo 8.0.38 connected refusal/recovery passed. Live startup block, acknowledged save, unchanged financial projection and forward epoch verified at 17:40 UTC; natural refusal observation pending. Follow-up baseline: 12 of 15 new cases failed before implementation; 58 focused cases now pass (25 new and 33 existing save-guard cases). Full local suite: 3639 passed, zero skipped/failed/errors, 260.20s on Python3.12.16. CI and new deployment pending.",
+    "test_result": "3572 canonical CI cases passed, zero failures/skips; all six jobs passed (44741724900), including both full combined replays. 3573 local cases include one pre-existing untracked script-syntax parameter; 33 new XR-071 cases. Native Mongo 8.0.38 connected refusal/recovery passed. Live startup block, acknowledged save, unchanged financial projection and forward epoch verified at 17:40 UTC; natural refusal observation pending. Follow-up baseline: 12 of 15 new cases failed before implementation; 58 focused cases now pass (25 new and 33 existing save-guard cases). Full local suite: 3639 passed, zero skipped/failed/errors, 260.20s on Python3.12.16. CI and new deployment pending. First PR231 CI attempt exposed two existing positions-fixture failures across IST midnight (3637 passed, 2 failed). Both reproduced without production changes; original assertions retained and explicit midnight test added. Final local suite: 3640 passed, zero skipped/failed/errors, 180.07s. Updated-head CI and release pending.",
     "deployment_revision": "8e894dd39ae393d4589be4103bf226f8ef75445c",
     "source_sheet": "Flaws",
     "source_row": 15

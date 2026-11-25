@@ -114,7 +114,7 @@
   {
     "id": "RUN-20261125-02",
     "finding": "Restored portfolio starts unconfirmed; same-day warning can suppress recovery save and a successful save still halts its current scan",
-    "workflow": "LOCAL_TESTED_CI_PENDING",
+    "workflow": "PUBLISHED_CI_PENDING",
     "evidence": "docs/repairs/releases/2026-11-25-startup-save-recovery.md",
     "runtime_observation": "25 November screenshot at15:08IST shows portfolio_save_unconfirmed and39open. Render start09:38:28UTC; halt logged09:47:34UTC. Mongo later confirms39open94closed,last_save10:06:55.997175UTC. Health at12:06:33UTC confirms acknowledgement and no entryblock. Shared storage about401MB/512MB atlatercheck, no current writeerror. Exact earlier lock holder and first recovery time unknown.",
     "acceptance": "Checkpoint a proved restored book before provider/scheduler work; failed/unacknowledged saves keep entries blocked; previous warning cannot suppress retry; successful acknowledgement allows the current pass; busy locks and unresolved recovery cannot mutate or overwrite the book; maintenance remains enabled without trading jobs; protective exits remain independently tested.",

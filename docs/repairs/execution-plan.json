@@ -614,10 +614,11 @@
     "id": "XR-071",
     "approved_date": "2026-11-25",
     "goal": "Confirm startup portfolio saves and recover the same pass without weakening entry protection",
-    "status": "LOCAL_TESTED_CI_PENDING",
+    "status": "PUBLISHED_CI_PENDING",
     "evidence": "docs/repairs/releases/2026-11-25-startup-save-recovery.md",
     "runtime": "Current app recovered before repair; follow-up release not yet deployed",
-    "related_open_incident": "RUN-20261125-02"
+    "related_open_incident": "RUN-20261125-02",
+    "pr": "https://github.com/damandamanaulakh-tech/MARS/pull/231"
   },
   "previous_repairs": [
     {

@@ -1,6 +1,6 @@
 # Startup portfolio save recovery — 25 November 2026
 
-Status: full local validation passed; publication, CI and release pending.
+Status: PR231 published; final full local validation passed; updated-head CI and release pending.
 
 ## Scope and observed state
 
@@ -60,3 +60,23 @@ or a remote strategy branch; this repair does not claim that work shipped.
   pending. A healthy predecessor does not prove this repair is deployed.
 - Natural production write-refusal recovery remains distinct from isolated
   failure tests. No artificial outage or trade will be induced.
+
+## First CI attempt and midnight regression
+
+[PR231](https://github.com/damandamanaulakh-tech/MARS/pull/231), first head
+eba0bf90a81fda6ebe2386fb4cf85fb857838052, passed local validation but
+[CI attempt 45675481416](https://github.com/damandamanaulakh-tech/MARS/actions/runs/45675481416)
+reported 3,637 passed and two existing positions-page test failures.
+Collection occurred before IST midnight and the requests ran after midnight.
+The fixture's module-level current date was one day behind the correct page.
+
+Both failures were reproduced with the unchanged fixture by collecting at
+2026-11-25 18:29:59 UTC and requesting at 18:30:01 UTC. The fixture now has
+one explicit reference day and a scoped frozen clock. All original assertions
+remain. A new test proves all eight held-day values and their average advance
+at IST midnight while the UTC date remains unchanged. Production date logic
+and trading settings are unchanged. Fourteen focused cases and both original
+cross-boundary reproductions pass, with zero skips. Final full-suite rerun and
+fresh CI for the updated head are required; the failed attempt is retained.
+
+Final local suite after the clock-fixture correction: **3,640 passed, zero skips, failures or errors**, Python 3.12.16, 180.07 seconds. The JUnit no-skip check and canonical repair-record check also passed. Updated-head GitHub CI and functional deployment remain pending.

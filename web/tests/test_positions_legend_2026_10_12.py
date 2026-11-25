@@ -18,9 +18,10 @@ from __future__ import annotations
 import re
 from datetime import date, datetime, timedelta
 
+import pytest
 from fastapi.testclient import TestClient
+from freezegun import freeze_time
 
-from trading.calendars import _ist_now
 from trading.paper import PaperPosition
 from web import auth as auth_mod, state
 from web.main import app
@@ -46,7 +47,18 @@ def _pos(ticker: str, **kw) -> PaperPosition:
     return PaperPosition(ticker=ticker, **base)
 
 
-_TODAY = _ist_now().date()
+_TODAY = date(2026, 10, 12)
+
+
+@pytest.fixture(autouse=True)
+def _fixed_ist_day():
+    """Collection and page requests must not disagree across IST midnight.
+
+    Entry ages and expected totals use one explicit day. The page still reads
+    the real IST clock conversion, with time frozen only for these tests.
+    """
+    with freeze_time('2026-10-12T04:00:00Z') as clock:
+        yield clock
 
 
 def _days_ago(n: int) -> datetime:
@@ -186,6 +198,26 @@ def test_entry_day_helper_accepts_datetime_date_and_garbage():
     assert positions_mod._entry_day(date(2026, 10, 1)) == date(2026, 10, 1)
     assert positions_mod._entry_day(None) is None
     assert positions_mod._entry_day("2026-10-01") is None
+
+
+def test_days_and_average_advance_at_ist_midnight_while_utc_day_is_unchanged(
+        monkeypatch, _fixed_ist_day):
+    _fixed_ist_day.move_to('2026-10-12T18:29:59Z')
+    with _Book(monkeypatch):
+        client = _client()
+        before = client.get('/positions').text
+        _fixed_ist_day.move_to('2026-10-12T18:30:01Z')
+        after = client.get('/positions').text
+
+    assert datetime.utcnow().date() == _TODAY
+    assert positions_mod._today_ist() == _TODAY + timedelta(days=1)
+    before_days = [int(value) for value in _attr(before, 'data-days-held')]
+    after_days = [int(value) for value in _attr(after, 'data-days-held')]
+    assert len(before_days) == len(after_days) == 8
+    assert after_days == [days + 1 for days in before_days]
+    before_average = float(_attr(before, 'data-avg-days-held')[0])
+    after_average = float(_attr(after, 'data-avg-days-held')[0])
+    assert after_average == before_average + 1.0
 
 
 def test_a_future_dated_entry_reads_zero_days_not_negative(monkeypatch):
