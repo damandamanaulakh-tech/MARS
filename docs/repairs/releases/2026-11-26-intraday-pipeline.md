@@ -119,8 +119,10 @@ floor, weight, stop, target, size, segment share or freshness rule changed.
   still buys; the Render config needs no new setting; every stored status
   shape still renders).
 - Existing intraday and scheduler tests (196 selected by name) pass.
-- Full suite: **running at the time of the first commit of this batch; its
-  actual totals are recorded in a follow-up commit.** No claim is made here.
+- Full local suite on commit `8026daf` from a clean state directory:
+  **3,809 passed, 0 failed, 0 errors, 0 skipped** (675 s; junit report read
+  back). Baseline main was 3,750; the 59 new tests account for the difference.
+  CI on the pull request is recorded separately once it completes.
 - Side-pass cost control added after review of the first cut: the daily
   panel, FII flows and the market regime (all one-figure-a-day inputs) are
   loaded once and reused for 30 minutes by the side pass only, and the pass

@@ -4838,7 +4838,7 @@
     "workflow": "LOCAL_TESTED_PUBLISHED_DEPLOYMENT_HOLD",
     "assignee": "Claude",
     "fix_commit": "",
-    "test_result": "59 new focused tests pass (39 trading, 20 web); the same files give 49 failed / 10 passed on baseline dc503543f089e46641a8c625435a95894b009699. Full suite and CI totals pending at first commit; recorded in a follow-up. Not merged, not deployed, no runtime observation.",
+    "test_result": "Full local suite on 8026daf: 3,809 passed, 0 failed, 0 skipped (baseline 3,750 + 59 new). The 59 new focused tests (39 trading, 20 web) give 49 failed / 10 passed on baseline dc503543f089e46641a8c625435a95894b009699. CI on PR234 pending at this commit. Not merged, not deployed, no runtime observation.",
     "deployment_revision": "",
     "source_sheet": "Owner request",
     "source_row": 0
