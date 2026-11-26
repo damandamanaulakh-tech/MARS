@@ -187,8 +187,13 @@ the range is visible rather than implied.
 - **On the code before the repair, 20 of those 24 tests fail.** The 4 that
   pass pin behaviour that must not change.
 - Existing danger and trigger suites: 98 passed, unchanged.
-- Full local suite: running at this commit from a clean state directory; the
-  total is recorded in the next commit.
+- Full local suite from a clean state directory, on the complete repair:
+  **4,025 passed, 0 failed, 0 errors, 0 skipped** (649 s).
+- Earlier in this repair CI and the local suite both gave 4,012 passed and
+  one failure — `test_blind_reading_matches_what_the_layer_really_counts`,
+  written on 2026-10-15, which asserted the fault's own symptom. It was
+  repointed to the invariant it is named for and checked in both directions;
+  verified to fail (2 of 8) against the pre-repair commit.
 
 ## Limitations and open items
 
