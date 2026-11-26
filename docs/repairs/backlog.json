@@ -4954,5 +4954,33 @@
     "deployment_revision": "",
     "source_sheet": "Owner request",
     "source_row": 0
+  },
+  {
+    "id": "XR-060B",
+    "priority": "P2",
+    "area": "Money path",
+    "finding": "The danger leash floor silently narrows once a position's stop has risen above its entry price. engine._danger_pass computes the floor as the wider of 2.5%, the position's category stop and its ENTRY-STOP WIDTH, but it derives that width from the CURRENT stop_price under the guard `0 < stop < entry`. After one tighten on a winner the stop sits above entry, the guard fails, the width reads 0 and the floor falls to the category stop. Traced: a momentum position with a 12% ATR stop gets a 12% leash on the first danger day and a 5% leash on every one after.",
+    "impact": "EXIT: a winning position is put on a leash less than half the width the owner accepted at entry, so an ordinary pullback stops it out of a winner. It cannot lose money below entry (the stop is above it), so this gives up upside rather than creating a loss.",
+    "source_severity": "MEDIUM",
+    "source_status": "OPEN - found 2026-11-27 in the adversarial review of XR-060, reproduced.",
+    "updated_state": "CONFIRMED_MAIN",
+    "review_note": "Pre-existing: the guard has read the live stop_price since the 2026-10-05 ATR stop went in. It was unreachable while the danger layer was blind, because a second fire on the same position essentially never happened. XR-060 makes it reachable. NOT fixed in the XR-060 batch, to keep that repair bounded; it needs the width accepted at entry to be remembered on the position rather than recomputed, which is a new persisted field and touches the entry paths.",
+    "draft_state": "",
+    "proposed_fix": "Store the entry-stop width on PaperPosition when the position is opened (engine._open and the owner order paths), persist it JSON+Mongo both ways, and read THAT in the leash floor instead of recomputing from the current stop.",
+    "effort": "S",
+    "source_evidence": "engine._danger_pass, the entry_width block: `if 0 < _sp < _ep` with _sp = pos.stop_price. Traced 12.00% -> 5.00% -> 5.00% over three danger days on a position bought at 100 with an 88 stop as the price rises 120/125/130.",
+    "source_origin": "Adversarial review of XR-060, engine lens",
+    "owner_decision": "None - awaiting the owner's word.",
+    "owner_note": "",
+    "current_evidence": "docs/repairs/releases/2026-11-27-danger-verdict.md",
+    "related_id": "XR-060",
+    "acceptance": "A position whose stop has risen above entry keeps a leash no narrower than the width it was given at entry, across repeated danger days.",
+    "workflow": "NOT_STARTED",
+    "assignee": "",
+    "fix_commit": "",
+    "test_result": "",
+    "deployment_revision": "",
+    "source_sheet": "Review",
+    "source_row": ""
   }
 ]

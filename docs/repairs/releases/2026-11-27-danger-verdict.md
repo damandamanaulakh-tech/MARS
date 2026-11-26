@@ -61,7 +61,12 @@ layer exactly as the engine did.
 `triggers._cluster_fired` counted a cluster member with the same identity
 test, so the owner's accumulation (`T12W_0032`) and distribution
 (`T12W_0081`) cluster counts under-reported. Measured on one real-shaped
-series: distribution counted **1** by identity against **3** by value. Those
+series: distribution counted **1** by identity against **3** by value. The
+review measured it across the whole committed panel and the change is much
+larger than that one series suggested: **T12W_0032's verdict flips on 88 of
+191 names and T12W_0081's on 43**. It stays display-only all the same —
+across those 191 names the owner's gate verdicts changed on **none**, because
+`triggers.evaluate` already coerced the values the gates read. Those
 two feed the owner's own gates, the selection-sequence ladder and the
 /triggers screens, and are **display only** — no money path reads them
 (`trading/triggers` is barred from the engine by the standing boundary
@@ -95,10 +100,12 @@ counting its fires is what made them live.
 **An entry-side change, which an earlier draft of this record wrongly denied.**
 `engines/ocean.py` rail R4 is a BUY veto fed by `danger.evaluate_stock`
 (`engine.py:4229`). With the tripwires counted it vetoes Ocean candidates it
-previously waved through — reproduced in review on a real-shaped candidate
-35.2% below its 200-DMA. Ocean has produced zero entries in twelve years of
-the committed panel, so the practical effect is nil, but the claim "entries
-are not changed" was false and is withdrawn.
+previously waved through. **Measured on the committed 191 x 12-year panel:
+152 of 275 Ocean candidate bars flip from pass to veto, and the bars clearing
+both stock rails fall from 20 to 10.** Ocean's own funnel has produced
+essentially no entries in twelve years, so the effect on trades is still
+negligible, but "the practical effect is nil" overstated it and "entries are
+not changed" was simply false. Both are withdrawn.
 
 Not changed: the tripwire formulas, their calibrated verdicts, the VERIFIED
 list, `TIGHTEN_PCT`, the leash floor, the half-exit rule, the alert-only
@@ -112,8 +119,21 @@ The engine acts on a held name only (`engine._danger_pass`):
 - **1 tripwire → the stop becomes a trailing leash off the live price**,
   whose width is floored at the wider of 2.5%, the position's own category
   stop and its entry-stop width (the 2026-09-16 and 2026-10-04 owner rules).
-  So it ratchets a winner's stop up and **cannot be tighter than the risk
-  already accepted at entry**.
+  It ratchets a winner's stop up, and on the FIRST danger day it cannot be
+  tighter than the width accepted at entry.
+  **CORRECTION, recorded as XR-060B.** An earlier draft of this record, and
+  what was said to the owner, claimed that guarantee holds for every fire. It
+  does not. The floor derives the entry width from the CURRENT `stop_price`
+  under the guard `0 < stop < entry`, so once a tighten has lifted the stop
+  above entry the guard fails, the width reads 0 and the floor falls to the
+  category stop. Traced on a momentum position bought at 100 with an 88 stop
+  as the price rises: **12% leash on day one, 5% on every day after**. The
+  position cannot lose money below entry at that point, so this gives up
+  upside rather than creating a loss — but the claim was wrong and is
+  withdrawn. Pre-existing since the 2026-10-05 ATR stop; unreachable while
+  the layer was blind, reachable now. NOT repaired in this batch, to keep it
+  bounded: it needs the accepted width remembered on the position rather than
+  recomputed, which is a new persisted field on every entry path.
 - **2+ tripwires → half the position is sold** (a real closed trade; a full
   close when the quantity is 1).
 - Alerts only during the first `ALERT_DAYS`; once per ticker per day; no
