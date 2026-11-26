@@ -129,3 +129,44 @@ rows** — 77% of the database, growing about 25 MB a day, 94% of it
 scan-decision rows (RUN-20261126-01). The database grew from ~251 MB on
 25 November to 321.7 MB now. Retention is not implemented and remains an
 owner decision against the standing append-only rule.
+
+## Confirmed in the Atlas console — 27 November 02:16-02:21 IST (owner screenshots)
+
+| | |
+|---|---|
+| Cluster | `sourceborn`, **ACTIVE** |
+| Tier | **M10 (General)** — paid |
+| Data size | **1.06 GB of 128 TB (0%)** |
+| Region | AWS Mumbai (ap-south-1) |
+| Backups | **ON** · Auto-scaling **ON** |
+| Connections | 68 of 1,500 |
+| Banner at 02:16 | *"We are deploying your changes (current action: configuring MongoDB)"* |
+
+**This closes the storage fault for good.** The 512 MB ceiling is gone; the
+free tier's refusal text that the dashboard carried all evening describes a
+limit that no longer applies.
+
+**Cause, corrected.** This file first inferred that a plan change at about
+18:35 IST moved the cluster to new hosts. The console says otherwise: at
+18:34 IST the cluster was still the free tier and **full**, which is the
+13:04:53 UTC refusal; the **M10 upgrade ran tonight**, its deploy was still
+finishing at 02:16 IST, and writes began landing at 02:05 IST as it
+completed. The reconfiguration is what ended both halves of the fault — the
+refusals (the tier) and the dead link (the process reconnecting to the
+reconfigured cluster) — and the restart that came with it is what rolled the
+book back to the 14:23:56 IST copy.
+
+**Backups give no route to the discarded state.** Backups are a paid-tier
+feature and were switched on with this upgrade, so no snapshot of the
+01:07 IST book exists to restore. The owner's downloads and the screenshot
+recorded above remain the only record of it.
+
+**What the journal growth means now.** It is no longer an outage risk: at
+1.06 GB of 128 TB, about 25 MB a day will not fill this cluster. With
+auto-scaling ON it is a **cost** question instead of a breakage one, so
+retention stays worth doing but is no longer urgent, and still needs the
+owner's word against the standing append-only rule.
+
+State at 02:22 IST: `connected true`, `degraded false`, no write error,
+2,233 stored stocks, statistics refresh 8.4 s, one steady process
+(rss 266 / peak 333 MiB), new buys unpaused.
