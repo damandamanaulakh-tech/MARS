@@ -108,8 +108,24 @@ cluster the `MONGO_URL` setting points at, must be confirmed in the Atlas
 console first; this session cannot see it. If it does not, the app must not
 be restarted: the running process would be the only copy.
 
-Last observation: `/healthz` 26 Nov 15:36 UTC — unchanged (`connected: true`,
-`mongo: null`, `write_error_at` 13:04:53, last confirmed save 08:53:56).
+Last observation: `/healthz` **27 Nov 01:18 IST** (19:48 UTC) — unchanged
+after 6½ hours (`connected: true`, `mongo: null`, `history_tickers` 0,
+statistics refresh 12.141 s, `write_error_at` 13:04:53, last confirmed save
+08:53:56, `entry_block_reason: portfolio_save_failed`). The owner's dashboard
+screenshot of 01:07 IST and the book figures standing in memory at that moment
+are recorded in
+[evidence/2026-11-27-live-book-before-restart.md](../evidence/2026-11-27-live-book-before-restart.md):
+51 open positions, ₹4.99 Cr equity, ₹2.37 Cr cash, Upstox connected.
+
+**A reading that narrows the fault.** Render memory peaked at 749 MiB on that
+live process, above the old 512 MiB ceiling, so the hosting side of the
+owner's upgrade is in effect. The refusal text, however, still names a 512 MB
+limit — the Atlas **free tier** storage cap — while the owner states the
+database is paid. Both cannot describe one cluster at one moment, so either
+the paid tier sits on a different cluster than `MONGO_URL` names, or it has
+not taken effect on this one. Settling that in the Atlas console comes
+**before** the restart: a restart taken first reconnects and meets the same
+refusal, losing the in-memory changes for nothing.
 
 ## Open
 
