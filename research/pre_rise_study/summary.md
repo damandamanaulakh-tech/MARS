@@ -61,6 +61,13 @@ This is consistent with the earlier finding that the rise-side triggers do
 not predict rises. The signal is therefore shown as a label with this record
 beside it, and is not used by any buy, size or exit rule.
 
-Files: `pre_rise_calibration.csv` (every cell), `pre_rise_calibration.json`
-(the same, read by `trading/pre_rise.py` for the on-screen record),
-`pre_rise_fires.csv` (each fire with its 20-session return).
+Files, in `run_2026-11-26/`: `pre_rise_calibration.csv` (every cell),
+`pre_rise_calibration.json` (the same, read by `trading/pre_rise.py` for the
+on-screen record), `pre_rise_fires.csv` (each fire with its 20-session
+return) and `pre_rise_calibration.json.identity.json` (hashes of the code and
+data that produced the result; the script refuses to overwrite the result
+once either has changed, so a rerun then needs a new directory).
+
+The rule was fixed by the owner's decision before any data was read and has
+no free number, so nothing was chosen on either half; both halves were read
+once and the failed result is kept as measured.

@@ -16,7 +16,12 @@ The two conditions are evaluated with vectorised copies of the production
 formulas; the script first proves they equal trading.triggers._t0005 /
 _t0057 bar for bar on a sample before using them.
 
+The rule was fixed by the owner's decision before any data was read here and
+has no free number to choose, so nothing was selected on either half; both
+halves were read once and the failed result is kept as measured.
+
 Usage: python scripts/pre_rise_study.py [out_dir]
+(an existing result is never overwritten: trading.validation.guard_research_output)
 """
 from __future__ import annotations
 
@@ -90,6 +95,13 @@ def prove_equal(panel: dict, sample: int = 12, bars: int = 250) -> int:
 def main(out_dir: str) -> None:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
+    # XR-103: a result is tied to the code and data that produced it. An
+    # existing result is never overwritten; a rerun after any change must
+    # write to a new directory.
+    from trading.validation import guard_research_output
+    guard_research_output(out / "pre_rise_calibration.json",
+                          parameters={"study": "pre_rise", "within": WITHIN,
+                                      "labels": LABELS, "split": str(SPLIT.date())})
     panel = load_panel()
     checked = prove_equal(panel)
     rows = []
