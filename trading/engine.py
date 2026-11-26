@@ -52,7 +52,7 @@ from .scoring import (
     MOMENTUM_MODE, compute_hot_sectors, compute_score, reasoning_text,
     score_for_mode, set_scoring_context, weights_for,
 )
-from .timing import timing_ok
+from .timing import gate2_blocks, timing_ok, volume_gates
 
 
 @dataclass
@@ -776,6 +776,14 @@ class TradingEngine:
             decisions[t]["weights"] = de.clean({"momentum": 1-b, "quality": b} if n200_scorer is not None else evidence_weights(cfg.mode))
             with de.capture(decisions[t]):
                 timing_pass, timing_diag = timing_ok(signal_history[t], cfg)
+            # Owner decision 2026-11-26: the two volume gates as separate
+            # readings on the bars this pass scores on. A reading only; what
+            # each one may refuse is decided in the pick loop below.
+            try:
+                vol_gates = volume_gates(signal_history[t], cfg)
+            except Exception:
+                log.exception("volume gates failed for %s", t)
+                vol_gates = None
             # OWNER ORDER 2026-09-11 ("go with these formula" / "ash08 68"):
             # every scanned name carries the ASH08 and AshStocks verdicts
             # beside our own. Computed HERE, where the history is already in
@@ -795,6 +803,7 @@ class TradingEngine:
                 "components": components,
                 "timing_pass": timing_pass,
                 "timing_diag": timing_diag,
+                "volume_gates": vol_gates,
                 "reasoning": reasoning,
                 "multi": multi,
                 "last_close": float(signal_history[t]["Close"].iloc[-1]),
@@ -911,6 +920,11 @@ class TradingEngine:
         # Collected here, reported below: `skipped` and `now` are not bound
         # until the entry section further down this method.
         multi_blocked: List[dict] = []
+        # Volume Gate 2 (the spike) refuses a buy only in the segments the
+        # owner named — Intraday. Names it stops are reported below with the
+        # other refusals and counted in the pass summary.
+        spike_blocks = gate2_blocks(cfg)
+        volume_blocked: List[str] = []
         for d in decisions.values():
             de.put(d, "regime", {"reading": regime.regime if regime else None,
                 "last_known": self.portfolio.last_regime, "vix_reentry": vix_reentry,
@@ -924,6 +938,18 @@ class TradingEngine:
             for r in ranked:
                 if not (r["score"] >= cfg.min_score_to_enter and r["timing_pass"]):
                     continue
+                if spike_blocks:
+                    spike = (r.get("volume_gates") or {}).get("gate2") or {}
+                    spike_ok = spike.get("ok")
+                    de.put(r["decision"], "volume_spike", spike.get("ratio"), spike.get("need"),
+                           passed=bool(spike_ok),
+                           state="unavailable" if spike_ok is None else None,
+                           reason=("Latest bar's volume against the mean of the "
+                                   f"{int(getattr(cfg, 'volume_gate2_lookback', 20))} bars before it; "
+                                   "required in this segment"))
+                    if not spike_ok:
+                        volume_blocked.append(r["ticker"])
+                        continue
                 abs_ok = _abs_mom_ok(r["ticker"])
                 daily = history.get(r["ticker"])
                 close = daily["Close"].dropna() if daily is not None else None
@@ -1054,6 +1080,8 @@ class TradingEngine:
         # The owner's three-formula filter, if they have switched it on: say
         # on the page AND in the journal which names it removed, and why. A
         # gate that silently shrinks the buy list is the lying-screen class.
+        for ticker in volume_blocked:
+            skipped.append({"ticker": ticker, "reason": "volume_spike"})
         for b in multi_blocked:
             skipped.append({"ticker": b["ticker"], "reason": b["reason"]})
             self._journal_once_a_day(
@@ -1672,6 +1700,7 @@ class TradingEngine:
                 "candle": _candle_label(r["ticker"]),
                 "structures": _all_structures(r["ticker"]),
                 "multi": r.get("multi"),
+                "volume_gates": r.get("volume_gates"),
                 "opened": r["ticker"] in opened,
             }
             for r in ranked[:50]
@@ -1703,6 +1732,7 @@ class TradingEngine:
             "mode": getattr(cfg, "mode", "?"),
             "score_floor": float(cfg.min_score_to_enter),
             "universe_size": len(universe),
+            "volume_gates": self._volume_gate_summary(ranked, skipped, cfg),
             "rows": {
                 r["ticker"]: {
                     "decision_id": (self.portfolio.positions[r["ticker"]].trade_evidence.get("entry", {}).get("id") if r["ticker"] in opened else r["decision"]["id"]),
@@ -1710,6 +1740,7 @@ class TradingEngine:
                           for k, v in (r.get("components") or {}).items()},
                     "score": round(float(r["score"]), 1),
                     "timing": bool(r["timing_pass"]),
+                    "vol": self._volume_gate_cell(r.get("volume_gates")),
                     "abs_mom": bool(_abs_mom_ok(r["ticker"])),
                     "candle": _candle_label(r["ticker"]),
                     "structures": _all_structures(r["ticker"]),
@@ -1823,6 +1854,44 @@ class TradingEngine:
                             "loaded": time.monotonic(), "history": history,
                             "cover": dict(cover), "bench": bench}
 
+    @staticmethod
+    def _volume_gate_cell(gates) -> Optional[dict]:
+        """One stock's two volume readings in the compact form the scan
+        record keeps: t = trend (Gate 1), s = spike (Gate 2); *k = passed
+        (None = could not be read), *r = the ratio."""
+        if not isinstance(gates, dict):
+            return None
+        g1, g2 = gates.get("gate1") or {}, gates.get("gate2") or {}
+        return {"tk": g1.get("ok"), "tr": g1.get("ratio"),
+                "sk": g2.get("ok"), "sr": g2.get("ratio")}
+
+    @staticmethod
+    def _volume_gate_summary(ranked, skipped, cfg) -> dict:
+        """How many scored stocks pass each volume gate in this pass, the
+        mark each needs here, and whether it can refuse a buy here. `stopped`
+        = stocks that cleared score and timing and were refused by the spike
+        gate alone (zero wherever the gate is only a reading)."""
+        rows = [r.get("volume_gates") for r in ranked if isinstance(r.get("volume_gates"), dict)]
+        out: dict = {"of": len(ranked)}
+        for key in ("gate1", "gate2"):
+            cells = [g.get(key) or {} for g in rows]
+            known = [c for c in cells if c.get("ok") is not None]
+            first = cells[0] if cells else {}
+            out[key] = {"need": first.get("need"), "blocks": bool(first.get("blocks")),
+                        "known": len(known), "passed": sum(1 for c in known if c.get("ok"))}
+            if key == "gate1":
+                out[key]["applies"] = bool(first.get("applies"))
+        if not rows:
+            # nothing scored: still say what this segment's rule is
+            out["gate1"].update(need=float(cfg.volume_confirm_ratio),
+                                applies=float(cfg.volume_confirm_ratio) > 0,
+                                blocks=float(cfg.volume_confirm_ratio) > 0
+                                and bool(getattr(cfg, "volume_gate1_enabled", True)))
+            out["gate2"].update(need=float(getattr(cfg, "volume_gate2_ratio", 1.5)),
+                                blocks=gate2_blocks(cfg))
+        out["gate2"]["stopped"] = sum(1 for row in skipped if row.get("reason") == "volume_spike")
+        return out
+
     def _finish_side_pass(self, decisions, ranked, cleared_score, opened, skipped, now) -> None:
         """Record a 5-minute Intraday pass without touching the shared
         screens. One INTRADAY_PASS line always; a full SCAN_DECISION record
@@ -1869,6 +1938,7 @@ class TradingEngine:
             "opened": list(opened),
             "not_bought": [{"reason": k, "stocks": n} for k, n in top],
             "timing": status.get("timing"),
+            "volume_gates": self._volume_gate_summary(ranked, skipped, self.cfg),
         }
         status["last_pass"] = summary
         self.portfolio.intraday_data_status = status
@@ -1879,6 +1949,10 @@ class TradingEngine:
         if top:
             why += " Not bought — " + "; ".join(
                 f"{k.replace('_', ' ')}: {n}" for k, n in top[:4]) + "."
+        spike = (summary.get("volume_gates") or {}).get("gate2") or {}
+        if spike.get("blocks"):
+            why += (f" Volume spike gate ({spike.get('need'):g}x): "
+                    f"{spike.get('stopped', 0)} stock(s) that cleared score and timing were stopped by it.")
         self.portfolio.decision_journal.append({
             "ts": now.isoformat(), "action": "INTRADAY_PASS", "mode": "intraday",
             "why": why, **{k: v for k, v in summary.items() if k != "at"}})

@@ -81,6 +81,14 @@
     {% if card.valuation %}
     <div data-stock-card-valuation="1">{% if card.valuation.target is not none %}<span class="font-semibold text-ink">Valuation target ₹{{ card.valuation.target | inr(2) }}</span> ({{ '%+.1f' % card.valuation.upside_pct }}% from the last stored close{% if card.valuation.asof %}, record dated {{ card.valuation.asof }}{% endif %}) — a new buy in any segment except Intraday takes this as its target instead of the ATR target above.{% else %}Valuation target: none would be used — {{ card.valuation.text }}. A new buy takes the ATR target above.{% endif %}</div>
     {% endif %}
+    {% if card.volume_gates %}
+    {% set vg = card.volume_gates %}
+    <div data-stock-card-volume="1"><span class="font-semibold text-ink">Volume, on the stored daily bars:</span>
+      <span class="whitespace-nowrap">Gate 1 · trend (last 5 days ÷ last 20) {% if vg.trend_ratio is not none %}<b>{{ '%.2f' % vg.trend_ratio }}×</b>{% else %}—{% endif %}</span>
+      {% if vg.trend_ratio is not none %}— {% for g in vg.segments %}<span class="whitespace-nowrap">{{ g.label }} {% if not g.applies %}off{% else %}needs {{ g.need }}× <span class="{% if g.ok %}text-emerald-700{% else %}text-rose-700{% endif %}">{{ '✓' if g.ok else '✗' }}</span>{% endif %}</span>{% if not loop.last %} · {% endif %}{% endfor %}{% endif %}.
+      <span class="whitespace-nowrap">Gate 2 · spike (latest day ÷ the 20 before it) {% if vg.spike_ratio is not none %}<b>{{ '%.2f' % vg.spike_ratio }}×</b>, needs {{ vg.spike_need }}× <span class="{% if vg.spike_ok %}text-emerald-700{% else %}text-amber-700{% endif %}">{{ '✓' if vg.spike_ok else '✗' }}</span>{% else %}—{% endif %}</span>
+      — a reading only in these four segments. Intraday reads both gates on 5-minute bars at its own scan (Gate 2 refuses a buy there); not shown here.</div>
+    {% endif %}
     {% for n in card.notes %}<div>{{ n }}</div>{% endfor %}
     <div>CLEARED = score at or above the segment's buy mark · WATCH = 55 up to it · BELOW = under 55 · NOT SCORED = no stored score for that segment. Stops and targets are what the app's own rules would set on a buy at the last stored close; the real ones are set at the actual fill price, and other checks (cash, segment share, liquidity, market state) still decide whether anything is bought.</div>
   </div>

@@ -497,6 +497,23 @@ class Config:
     breakout_threshold_pct: float = 0.02      # within 2% of 20-day high
     volume_confirm_ratio: float = 1.3         # 5d vol >= 1.3x 20d vol
 
+    # --- The two volume gates (owner decision 2026-11-26: "two volume gates
+    # shown separately ... hard 1.5x spike, blocking Intraday only") ---
+    # Gate 1 = the 5-bar v 20-bar TREND above (`volume_confirm_ratio`, each
+    # segment's own mark). It has always been half of the timing check; True
+    # here = required, as before. False = measured and shown, not required.
+    volume_gate1_enabled: bool = True
+    # Gate 2 = the SPIKE: the latest bar's volume against the mean of the 20
+    # bars before it. It refuses a buy only in the segments listed in
+    # `volume_gate2_block_modes`; in every other segment it is a reading on
+    # the Scan page. The 1.5 is the owner's number; whether the gate helps
+    # returns in any segment is NOT measured (the list is extended only after
+    # a test, on the owner's word). False = a reading everywhere.
+    volume_gate2_enabled: bool = True
+    volume_gate2_ratio: float = 1.5
+    volume_gate2_lookback: int = 20
+    volume_gate2_block_modes: tuple = ("intraday",)
+
     # --- Frozen legacy delivery formula (historical comparisons only) ---
     brokerage_per_order: float = 0.0          # legacy assumption; not current Upstox pricing
     stt_buy_pct: float = 0.001                # 0.1% STT delivery buy

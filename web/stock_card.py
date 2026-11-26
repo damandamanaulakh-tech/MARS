@@ -22,6 +22,9 @@ What each row is:
   target     same functions the engine calls (trading.targets). Intraday is
              priced off 5-minute bars at the moment of entry, so the card
              states its rule and no price.
+  volume     the two volume gates (trading.timing) on the stored daily bars,
+             with each daily segment's own Gate 1 mark. Intraday reads its
+             5-minute bars at its own scan and is not shown.
 """
 from __future__ import annotations
 
@@ -105,6 +108,33 @@ def valuation_text(v: dict) -> str:
     if reason.startswith("not_judged"):
         return "the valuation chain could not judge this stock (" + reason.split(":", 1)[-1] + ")"
     return _VALUATION_WHY.get(reason, reason.replace("_", " ") or "not available")
+
+
+def _volume_gates(df, mode_cfg: Callable) -> Optional[dict]:
+    """Both volume gates on the stored daily bars, with each daily segment's
+    own Gate 1 mark. None when the bars carry no volume or nothing can be read."""
+    from trading import category_budget as cb
+    try:
+        from trading import timing as TM
+        if "Volume" not in df:
+            return None
+        rows, trend, spike = [], None, None
+        for mode in SEGMENTS:
+            if mode == "intraday":
+                continue
+            gates = TM.volume_gates(df, mode_cfg(mode))
+            g1, spike = gates["gate1"], gates["gate2"]
+            trend = g1.get("ratio") if trend is None else trend
+            rows.append({"label": cb.LABELS.get(mode, mode), "need": g1.get("need"),
+                         "applies": bool(g1.get("applies")), "ok": g1.get("ok"),
+                         "blocks": bool(g1.get("blocks"))})
+        if spike is None or (trend is None and spike.get("ratio") is None):
+            return None
+        return {"trend_ratio": trend, "segments": rows,
+                "spike_ratio": spike.get("ratio"), "spike_ok": spike.get("ok"),
+                "spike_need": spike.get("need")}
+    except Exception:                                          # noqa: BLE001
+        return None
 
 
 def build(ticker: str, df, portfolio, cfg, mode_cfg: Callable, today=None) -> dict:
@@ -192,6 +222,11 @@ def build(ticker: str, df, portfolio, cfg, mode_cfg: Callable, today=None) -> di
                        target_source=(f"{tdiag.get('k'):g} × ATR" if tdiag.get("source") == "atr"
                                       else "segment fixed target"))
         out["segments"].append(row)
+
+    # ---- the two volume gates on the stored DAILY bars (owner decision
+    # 2026-11-26). One reading of each; the mark Gate 1 needs differs by
+    # segment. Intraday reads 5-minute bars at its own scan, not these.
+    out["volume_gates"] = _volume_gates(df, mode_cfg) if out["has_data"] else None
 
     # ---- the book
     pos = getattr(portfolio, "positions", {}).get(ticker)

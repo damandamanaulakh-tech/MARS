@@ -421,6 +421,35 @@ def _category_rows(cfg) -> list[dict]:
     return rows
 
 
+def _volume_gate_rules(cfg) -> dict:
+    """The two volume gates as the code applies them, per segment (owner
+    decision 2026-11-26). Read from the live settings and presets."""
+    from trading import category_budget as cb
+    from trading import modes as M
+    gate1 = []
+    for mode in cb.OWNER_SEGMENTS:
+        preset = M.PRESETS.get(mode)
+        if preset is None:
+            continue
+        over = (getattr(cfg, "preset_overrides", None) or {}).get(mode) or {}
+        try:
+            need = float(over.get("volume_confirm_ratio", preset.volume_confirm_ratio))
+        except (TypeError, ValueError):
+            need = float(preset.volume_confirm_ratio)
+        gate1.append({"label": cb.LABELS.get(mode, mode), "need": need})
+    gate2_on = bool(getattr(cfg, "volume_gate2_enabled", True))
+    return {
+        "gate1": gate1, "gate1_on": bool(getattr(cfg, "volume_gate1_enabled", True)),
+        "short": int(cfg.volume_short_days), "long": int(cfg.volume_long_days),
+        "gate2_need": float(getattr(cfg, "volume_gate2_ratio", 1.5)),
+        "gate2_lookback": int(getattr(cfg, "volume_gate2_lookback", 20)),
+        "gate2_on": gate2_on,
+        "gate2_refuses_in": ([cb.LABELS.get(m, str(m))
+                              for m in (getattr(cfg, "volume_gate2_block_modes", ()) or ())]
+                             if gate2_on else []),
+    }
+
+
 def _sizing_block(cfg) -> dict:
     """The slab formula from trading/sizing.py, plus an ILLUSTRATION ladder
     computed with the same pure functions at a stated 20% annual vol. The
@@ -649,6 +678,7 @@ def _engines(cfg, p) -> dict:
         "momentum": mf,
         "momentum_doc": mf["doc"],
         "market_hours": _market_hours(),
+        "volume_gates": _volume_gate_rules(cfg),
         "abs_mom_rule": ("own 6-month return > 0 (engine.scan _abs_mom_ok: "
                          "last close above the close 126 bars earlier) — "
                          "momentum pass only"),

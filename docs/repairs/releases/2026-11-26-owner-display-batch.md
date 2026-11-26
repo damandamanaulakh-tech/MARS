@@ -15,6 +15,11 @@ gap measure and a stock page that shows targets and segment verdicts. Defaults
 approved ("go with defaults"). Items land one at a time; each is listed here
 only once it is implemented and tested.
 
+The two volume gates are recorded separately as
+[VOL-001](2026-11-26-volume-gates.md): the second gate refuses Intraday buys,
+so it is not a display-only item and does not belong under this batch's
+"display only" statement.
+
 ## Item 1 — fund summary adds closed trades and the totals match
 
 Before: the dashboard fund block showed open positions only. A book with
