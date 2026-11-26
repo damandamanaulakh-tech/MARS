@@ -252,6 +252,53 @@
   {% endfor %}
 </div>
 {% endif %}
+{#- Owner order 2026-11-26: "market goes quite high but not much movement in
+    stocks, this bubble I want to define". The Momentum scan stores the reading
+    (trading/market_gap.py); this card only prints it. Display only. -#}
+{% if market_gap %}
+<div class="bg-white border border-line mb-6" data-market-gap="market_gap_marker">
+  <div class="px-4 lg:px-6 py-3 border-b border-line flex flex-wrap items-baseline justify-between gap-2">
+    <div class="font-bold">Market vs stocks</div>
+    <div class="text-xs {% if market_gap.stale %}text-amber-700{% else %}text-ink-faint{% endif %}">daily closes to {{ market_gap.asof }}{% if market_gap.stale %} — {% if market_gap.age_days is not none %}{{ market_gap.age_days }} days old{% else %}date unreadable{% endif %}, read with care{% endif %} · describes what happened, not a forecast</div>
+  </div>
+  <div class="px-4 lg:px-6 py-3 text-sm">
+    {% set h = market_gap.headline %}
+    <div class="font-semibold {% if h.state == 'narrow' %}text-amber-800{% endif %}" data-market-gap-state="{{ h.state }}">
+      Over {{ h.sessions }} sessions the Nifty is <span class="whitespace-nowrap">{{ '%+.1f' % h.index_pct }}%</span> and the typical stock is <span class="whitespace-nowrap">{{ '%+.1f' % h.median_pct }}%</span>:
+      a gap of <span class="whitespace-nowrap">{{ '%+.1f' % h.gap_points }} points</span>. <span class="whitespace-nowrap">{{ '%.0f' % h.beat_pct }}% of stocks</span> are ahead of the index.
+      {{ market_gap.words }}
+    </div>
+  </div>
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-y border-line">
+      <tr><th class="text-left px-4 lg:px-6 py-2">Window</th><th class="text-right px-2 py-2">Nifty</th>
+          <th class="text-right px-2 py-2 leading-tight">Typical<br>stock</th><th class="text-right px-2 py-2">Gap</th>
+          <th class="text-right px-2 py-2 leading-tight">Stocks ahead<br>of the index</th><th class="text-right px-2 py-2 leading-tight">Stocks<br>up</th>
+          <th class="text-right px-4 lg:px-6 py-2 leading-tight">Stocks<br>counted</th></tr>
+    </thead>
+    <tbody>
+      {% for r in market_gap.rows %}
+      <tr class="border-b border-line/60 last:border-0" data-market-gap-window="{{ r.sessions }}">
+        <td class="px-4 lg:px-6 py-2 whitespace-nowrap">{{ r.sessions }} sessions</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap {% if r.index_pct >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}">{{ '%+.1f' % r.index_pct }}%</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap {% if r.median_pct >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}">{{ '%+.1f' % r.median_pct }}%</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap font-semibold">{{ '%+.1f' % r.gap_points }} pts</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">{{ '%.0f' % r.beat_pct }}%</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">{{ '%.0f' % r.up_pct }}%</td>
+        <td class="px-4 lg:px-6 py-2 text-right tabular-nums whitespace-nowrap">{{ r.sample }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="px-4 lg:px-6 py-2 border-t border-line text-[11px] text-ink-faint">
+    Typical stock = the median return of the company shares in the scan list (funds left out; a stock counts only with a full window of closes).
+    "Narrow rally" = the index up, a gap of {{ market_gap.narrow_gap | round(0) | int }} points or more and fewer than {{ market_gap.narrow_beat_pct | round(0) | int }}% of stocks ahead of it — these two cut-offs are assumptions taken from the 25 November example, not a tested signal.
+    No buy, sell or size rule reads this card.
+  </div>
+</div>
+{% endif %}
 <!-- Stored global observations; the market feed refreshes them independently. -->
 <section class="mb-6" data-international="international_chip_marker">
   <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] mb-2">

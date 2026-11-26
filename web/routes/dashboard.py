@@ -296,6 +296,7 @@ def dashboard(request: Request):
             # web/market_panels.py. The sector strip and scan coverage moved
             # to /scan, evidence and ATR to the MARS Den (owner 2026-10-12).
             "index_strip": _panel(mp.index_strip),
+            "market_gap": _panel(mp.market_gap_panel, p),
             "global_markets": _panel(mp.global_market_panel),
             "breadth": _panel(mp.breadth_panel),
             "why_no_buy": why_no_buy,

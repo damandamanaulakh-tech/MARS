@@ -102,6 +102,7 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.universe_ledger = list(doc.get("universe_ledger", []) or [])
     p.breadth_store = dict(doc.get("breadth_store", {}) or {})
     p.breadth_today = dict(doc.get("breadth_today", {}) or {})
+    p.market_gap = dict(doc.get("market_gap", {}) or {})
     p.option_chain = dict(doc.get("option_chain", {}) or {})
     p.register_market = dict(doc.get("register_market", {}) or {})
     p.damage_store = dict(doc.get("damage_store", {}) or {})
@@ -304,6 +305,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "universe_ledger": self.universe_ledger[-1500:],
             "breadth_store": self.breadth_store,
             "breadth_today": self.breadth_today,
+            "market_gap": self.market_gap,
             "option_chain": self.option_chain,
             "register_market": self.register_market,
             "damage_store": self.damage_store,

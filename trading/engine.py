@@ -456,6 +456,11 @@ class TradingEngine:
             bench = fetch_daily([cfg.benchmark], period=history_period).get(cfg.benchmark)
             if side_pass:
                 self._side_daily_keep(universe, history_period, history, cover, bench)
+        # Owner order 2026-11-26: the index-versus-typical-stock gap, read
+        # once a pass by the Momentum scan (two years of bars for the whole
+        # list are in hand here). Display only — nothing below reads it.
+        if cfg.mode == MOMENTUM_MODE and not side_pass:
+            self._store_market_gap(history, bench)
         # Daily panels retain their daily purpose: liquidity, breadth, regime,
         # damage and risk sizing. Intraday signals have a separate validated path.
         # RUN-20261125-01 (owner order 2026-11-26): the signal inputs — the
@@ -3665,6 +3670,25 @@ class TradingEngine:
             de.record("breadth", state="unavailable", reason=f"{type(e).__name__}; existing fail-open policy")
             log.warning("breadth gate failed (fail-open): %s", e)
         return False
+
+    def _store_market_gap(self, history: dict, bench) -> None:
+        """Keep the day's index-versus-median-stock reading for the dashboard
+        (trading/market_gap.py). Written only on a real reading — a thin or
+        failed one never replaces a good one. Display only; never raises."""
+        try:
+            from .market_gap import reading
+            try:
+                from .universes import fund_unit_tickers
+                funds = fund_unit_tickers()
+            except Exception:
+                funds = frozenset()
+            got = reading(history, bench, exclude=funds)
+            if got:
+                got["computed"] = datetime.utcnow().isoformat()
+                got["benchmark"] = self.cfg.benchmark
+                self.portfolio.market_gap = got
+        except Exception:
+            log.exception("market gap reading failed — the previous one stands")
 
     def _cache_breadth_today(self, history: dict, now: datetime):
         """Compute the scan bucket's breadth and cache it on

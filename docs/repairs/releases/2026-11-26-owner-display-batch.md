@@ -113,3 +113,40 @@ its own box; the page does not).
 
 Limitation: stops and targets are worked from the last STORED close, not a
 live quote, and the page says so; the real ones are set at the fill price.
+
+## Item 4 — "Market vs stocks": the index against the typical stock
+
+Owner: "now market goes quite high but not much movement in stocks, this
+bubble I want to define".
+
+- `trading/market_gap.py` (pure, no network): for 20 and 60 sessions, the
+  benchmark's return, the MEDIAN return of the company shares in the scan
+  list, the gap in percentage points, the share of stocks ahead of the index
+  and the share that are up. A stock votes only with a full window of closes
+  ending within 7 days of the index's last bar; fund units are left out;
+  fewer than 100 voters gives no reading.
+- The Momentum scan (which already holds two years of bars for the whole
+  list) stores the reading on the book (`Portfolio.market_gap`, saved to JSON
+  and Mongo and read back from both). A thin or failed reading never replaces
+  a good one. The 5-minute side pass and the other categories do not write it.
+- Dashboard card "Market vs stocks" under the index strip: one plain sentence
+  for the longest window, both windows in a table, the as-of date, and an
+  amber "days old" note when the reading is more than 5 days old.
+- "Narrow rally" is worded when the index is up, the gap is 5 points or more
+  and fewer than 40% of stocks are ahead. **Both cut-offs are ASSUMED** from
+  the 25 November example and printed as assumptions; nothing was tested as a
+  predictor and the card says it describes what happened, not a forecast.
+- No trading rule reads it: a test walks the syntax tree of the engine and
+  eleven rule modules — the engine only ever assigns the field.
+
+Check against real data: on the public daily closes saved on 25 November
+(253 company shares and the Nifty) the function returns, for 60 sessions,
+Nifty +7.17%, median stock -2.95%, gap 10.12 points, 22% of stocks ahead; for
+20 sessions +13.49% / +7.17% / 6.32 points / 26% ahead.
+
+Tests: `trading/tests/test_market_gap_2026_11_26.py` (13) and
+`web/tests/test_market_gap_card_2026_11_26.py` (10).
+
+Limitation: the reading is as fresh as the last Momentum scan and the stored
+daily bars; it appears on the live dashboard only after the first Momentum
+pass on the deployed revision.

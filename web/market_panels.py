@@ -689,6 +689,53 @@ def gates_in_force(cfg) -> dict:
     }
 
 
+def market_gap_panel(p, today_iso: str = None) -> dict:
+    """The stored index-versus-typical-stock reading for the dashboard card
+    (owner order 2026-11-26). {} when none is stored, so the card hides.
+    Reads the book only — the Momentum scan writes the reading."""
+    from datetime import date
+    from trading import market_gap as mg
+    from .clock import ist_today_iso
+    stored = getattr(p, "market_gap", None)
+    if not isinstance(stored, dict) or not isinstance(stored.get("windows"), dict):
+        return {}
+    rows = []
+    for window in mg.WINDOWS:
+        w = stored["windows"].get(str(window))
+        if not isinstance(w, dict):
+            continue
+        try:
+            rows.append({
+                "sessions": window,
+                "index_pct": float(w["index_pct"]), "median_pct": float(w["median_pct"]),
+                "gap_points": float(w["gap_points"]),
+                "beat_pct": float(w["beat_share"]) * 100.0,
+                "up_pct": float(w["up_share"]) * 100.0,
+                "sample": int(w["sample"]), "state": str(w.get("state") or ""),
+            })
+        except (KeyError, TypeError, ValueError):
+            continue
+    if not rows:
+        return {}
+    asof = str(stored.get("asof") or "")
+    age = None
+    try:
+        age = (date.fromisoformat(today_iso or ist_today_iso()) - date.fromisoformat(asof)).days
+    except ValueError:
+        pass
+    headline = rows[-1]                       # the longest window the scan could read
+    words = {
+        "narrow": "The index is up but the typical stock is not keeping up — a narrow rally.",
+        "broad": "The typical stock is keeping pace with the index — a broad move.",
+        "falling": "The index itself is down over this window.",
+    }.get(headline["state"], "")
+    return {"rows": rows, "asof": asof, "age_days": age,
+            "stale": age is None or age > 5,
+            "headline": headline, "words": words,
+            "narrow_gap": mg.NARROW_GAP_POINTS,
+            "narrow_beat_pct": mg.NARROW_BEAT_SHARE * 100.0}
+
+
 def watch_label(score, buy_floor, watch_floor) -> str:
     """Where a scored stock stands against its segment's marks (owner order
     2026-11-26, "Watch Floor - 55 and above"). Display only.
