@@ -55,19 +55,41 @@ def _frame(n: int = 320) -> pd.DataFrame:
 
 
 def test_blind_reading_matches_what_the_layer_really_counts(monkeypatch):
-    # one tripwire answering a NumPy True, one answering Python True
-    fake = {"T_NUMPY": lambda x: np.True_, "T_PYTHON": lambda x: True}
-    monkeypatch.setattr(danger, "_FNS", fake)
+    """The screen must agree with the engine, whichever way the answer goes.
+
+    REPOINTED 2026-11-27 (XR-060 repaired). This test was written the day the
+    fault was found and asserted its symptom: a NumPy answer read as blind and
+    was not counted. The layer now reads an answer by value, so both are
+    counted and nothing is blind. The invariant the test is named for is
+    unchanged, and is now checked in BOTH directions so it cannot pass
+    vacuously again.
+    """
     monkeypatch.setattr(danger, "_EXT_FNS", {})
+
+    # 1. both boolean kinds: the screen says nothing is blind, and the money
+    #    path counts both.
+    monkeypatch.setattr(danger, "_FNS",
+                        {"T_NUMPY": lambda x: np.True_, "T_PYTHON": lambda x: True})
     monkeypatch.setattr(D, "_BLIND", None)
     blind = D._danger_blind()
-    assert blind["blind"] == ["T_NUMPY"] and blind["countable"] == ["T_PYTHON"]
-    # ... and that is exactly what the money path counts
-    assert danger.evaluate_stock(_frame()) == ["T_PYTHON"]
+    assert blind["blind"] == []
+    assert sorted(blind["countable"]) == ["T_NUMPY", "T_PYTHON"]
+    assert sorted(danger.evaluate_stock(_frame())) == ["T_NUMPY", "T_PYTHON"]
+
+    # 2. an answer the layer genuinely cannot read: the screen names it blind
+    #    and the money path does not count it. The two still agree.
+    monkeypatch.setattr(danger, "_FNS",
+                        {"T_BAD": lambda x: np.array([True, False]),
+                         "T_OK": lambda x: np.True_})
+    monkeypatch.setattr(D, "_BLIND", None)
+    blind = D._danger_blind()
+    assert blind["blind"] == ["T_BAD"] and blind["countable"] == ["T_OK"]
+    assert danger.evaluate_stock(_frame()) == ["T_OK"]
 
 
-def test_blind_warning_disappears_once_every_tripwire_returns_a_python_bool(monkeypatch):
-    monkeypatch.setattr(danger, "_FNS", {"T_A": lambda x: bool(np.True_),
+def test_blind_warning_disappears_once_every_tripwire_can_be_read(monkeypatch):
+    # XR-060: a NumPy answer is readable now, so it must not raise the warning.
+    monkeypatch.setattr(danger, "_FNS", {"T_A": lambda x: np.True_,
                                          "T_B": lambda x: False})
     monkeypatch.setattr(D, "_BLIND", None)
     try:
