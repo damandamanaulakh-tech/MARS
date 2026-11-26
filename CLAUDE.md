@@ -115,8 +115,8 @@ Atlas, not in any repo — repo moves never touch money or memory.
     Recommendation: leave it off. Seventh entry-side signal to fail.
   Full local suite on 8f74b78: 3,983 passed, 0 failed, 0 errors, 0 skipped (~11 minutes when run
   ALONE from a clean `/tmp/sourceborn_paper`; never run two test jobs at once — they share that
-  folder; do not edit repo files while it runs). CI clean on the eight commits to 9248374; on
-  ab6fc59 CI failed ONE test (a Den line reading a settings value an earlier test left behind —
+  folder; do not edit repo files while it runs). CI clean on the eight commits to 9248374 and on 8f74b78 (the head's test
+  fix); on ab6fc59 CI failed ONE test (a Den line reading a settings value an earlier test left behind —
   not an app fault), fixed in 8f74b78 with a shared `clean_settings()` fixture; CI queue runs
   ~40 min behind.
 - **PARKED, NOT IN ANY BRANCH: XR-060** (owner: tables 1-3 "due with other" batch). The fix is

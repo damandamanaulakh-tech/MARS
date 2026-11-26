@@ -80,7 +80,7 @@ survivor panel.
   `8f74b78` with a `clean_settings()` context manager shared by the two
   Settings-reading test files; the Den test now also asserts that an owner
   per-segment edit is what that line prints. CI on `ab6fc59` failed on that
-  one test and nothing else.
+  one test and nothing else, and CI on `8f74b78` reported nothing failed.
 - Full local suite on commit `8f74b78` from a clean state directory:
   **3,983 passed, 0 failed, 0 errors, 0 skipped** (655 s; junit report read
   back).
