@@ -689,6 +689,27 @@ def gates_in_force(cfg) -> dict:
     }
 
 
+def watch_label(score, buy_floor, watch_floor) -> str:
+    """Where a scored stock stands against its segment's marks (owner order
+    2026-11-26, "Watch Floor - 55 and above"). Display only.
+
+      "cleared" — at or above the buy mark: the score no longer holds it
+                  back (other gates may; the page prints those beside it);
+      "watch"   — from the watch floor up to the buy mark;
+      ""        — below the watch floor, or a score/mark that is not a
+                  number. Never a guess: a missing score is not a watch.
+    """
+    try:
+        s, buy, watch = float(score), float(buy_floor), float(watch_floor)
+    except (TypeError, ValueError):
+        return ""
+    if s != s or buy != buy or watch != watch:        # NaN
+        return ""
+    if s >= buy:
+        return "cleared"
+    return "watch" if s >= watch else ""
+
+
 def fund_summary(p, cfg, prices: dict, live_count: int) -> dict:
     """Capital · allocated · reserved · used · cash · P&L, per segment and
     in total (owner order 2026-10-12, item 30b).

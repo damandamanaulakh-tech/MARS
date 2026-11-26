@@ -4852,7 +4852,7 @@
     "source_severity": "OWNER_POLICY",
     "source_status": "OWNER_APPROVED_2026_11_26",
     "updated_state": "PARTIAL_LOCAL_TESTED_PUBLISHED_DEPLOYMENT_HOLD",
-    "review_note": "Item 1 (fund summary: booked, released today, balancing lines) implemented and tested. Remaining items not started. Display only.",
+    "review_note": "Item 1 (fund summary: booked, released today, balancing lines) and item 2 (WATCH label from 55 on the dashboard watchlist and Scan page) implemented and tested. Remaining items not started. Display only.",
     "draft_state": "",
     "proposed_fix": "Read-only panels and columns built from values the engine already computes; no gate, size, stop, target or cash change.",
     "effort": "M",
@@ -4866,7 +4866,7 @@
     "workflow": "PARTIAL_LOCAL_TESTED_PUBLISHED_DEPLOYMENT_HOLD",
     "assignee": "Claude",
     "fix_commit": "",
-    "test_result": "Item 1: 10 new tests pass; full-suite total recorded with the commit.",
+    "test_result": "Item 1: 10 new tests; full local suite on 7d8c113 3,819 passed, 0 skipped. Item 2: 15 new tests; all 1,560 web tests pass. CI pending. Not merged, not deployed.",
     "deployment_revision": "",
     "source_sheet": "Owner request",
     "source_row": 0

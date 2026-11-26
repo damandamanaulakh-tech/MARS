@@ -71,6 +71,12 @@ def _ifr_window_active(p) -> bool:
     return False
 
 
+
+def _segment_label(mode: str) -> str:
+    """Momentum / Intraday / Short / Swing / Positional for a stored mode."""
+    from trading import category_budget as cb
+    return cb.LABELS.get(mode, str(mode or "").replace("_", " ").title() or "this segment")
+
 @router.get("/", response_class=HTMLResponse)
 def dashboard(request: Request):
     if not auth.current_user(request):
@@ -148,12 +154,27 @@ def dashboard(request: Request):
                 return f"⛔ {raw[:18]}"
         return ""
     # Owner item 30c: the FULL watchlist (was [:8]).
+    # Owner order 2026-11-26 ("Watch Floor - 55 and above"): the list is the
+    # scored names from the watch floor up, each labelled against the buy
+    # mark of the pass that scored it; names under the floor are counted,
+    # not listed. The marks come from the stored scan record, so the label
+    # can never be judged against a different category's mark.
+    _matrix = p.scan_matrix if isinstance(p.scan_matrix, dict) else {}
+    try:
+        buy_floor = float(_matrix.get("score_floor", cfg.min_score_to_enter))
+    except (TypeError, ValueError):
+        buy_floor = float(cfg.min_score_to_enter)
+    watch_floor = float(getattr(cfg, "watch_floor", 55.0) or 0.0)
+    watch_mode = str(_matrix.get("mode") or getattr(cfg, "mode", "") or "")
+    _not_held = [r for r in picks_raw if r.get("ticker") not in held]
     watchlist = [{
         "ticker": r.get("ticker", "?"),
         "score": round(_score_of(r), 1),
         "last_close": r.get("last_close"),
         "blocked": _blocked_reason(r.get("ticker", "")),
-    } for r in picks_raw if r.get("ticker") not in held]
+        "label": mp.watch_label(_score_of(r), buy_floor, watch_floor),
+    } for r in _not_held if mp.watch_label(_score_of(r), buy_floor, watch_floor)]
+    watch_below = len(_not_held) - len(watchlist)
 
     # The "why not today" block (item 32) left the page on the owner's
     # 2026-10-12 screenshot markup; market_panels.why_not_today stays (pure,
@@ -264,6 +285,9 @@ def dashboard(request: Request):
             "prices": prices,
             "today_picks": today_picks,
             "watchlist": watchlist,
+            "watch": {"floor": watch_floor, "buy_floor": buy_floor,
+                      "segment": _segment_label(watch_mode),
+                      "below": watch_below},
             # derived from the registry so a new bearish structure can never
             # show as a green chip here (the 18->34 expansion caught this)
             "bearish_names": _bearish_names(),

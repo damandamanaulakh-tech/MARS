@@ -108,6 +108,20 @@ def scan_view(request: Request, error: str | None = None):
     scan_mode = scan_mode if scan_mode in OWNER_SEGMENTS else MOMENTUM
     picks = p.last_scan_picks or []
     piano = _build_piano(p.scan_matrix or {})
+    # Owner order 2026-11-26 ("Watch Floor - 55 and above"): the label is
+    # computed here for the page and never written onto the stored picks.
+    watch = None
+    try:
+        from .. import market_panels as _mp
+        _m = p.scan_matrix if isinstance(p.scan_matrix, dict) else {}
+        _buy = float(_m.get("score_floor", cfg.min_score_to_enter))
+        _watch = float(getattr(cfg, "watch_floor", 55.0) or 0.0)
+        watch = {"floor": _watch, "buy_floor": _buy,
+                 "segment": LABELS.get(scan_mode, "this segment"),
+                 "labels": {r.get("ticker"): _mp.watch_label(r.get("score"), _buy, _watch)
+                            for r in picks if isinstance(r, dict)}}
+    except Exception:
+        log.exception("watch labels failed")
     # The owner's funnel arithmetic (their design 2026-08-13: "in real life
     # capital amount is fixed once i use 60-70% then cant use as using
     # here") — how many of these picks today's cash can actually fund, by
@@ -172,6 +186,7 @@ def scan_view(request: Request, error: str | None = None):
             "segments": {segment: LABELS[segment] for segment in OWNER_SEGMENTS},
             "scan_mode": scan_mode,
             "picks": picks,
+            "watch": watch,
             "slots": slots,
             "buy_desk": buy_desk,
             **_universe_badge(cfg, p),

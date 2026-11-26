@@ -439,7 +439,7 @@
   <div class="border border-line bg-white">
     <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
       <div class="font-bold">👀 Watchlist</div>
-      <div class="text-xs text-ink-faint">Top scored, not yet held</div>
+      <div class="text-xs text-ink-faint" data-watch-rule="watch_rule_marker">Not held, score {{ watch.floor | round(0) | int }} and above · WATCH = {{ watch.floor | round(0) | int }} up to the {{ watch.segment }} buy mark {{ watch.buy_floor | round(0) | int }} · CLEARED = at or above it{% if watch.below %} · {{ watch.below }} more scored below {{ watch.floor | round(0) | int }} or carry no score{% endif %}</div>
     </div>
     {% if watchlist %}
     <div class="overflow-x-auto">
@@ -454,9 +454,10 @@
         <tr class="border-b border-line last:border-0">
           <td class="px-3 py-2.5 font-semibold whitespace-nowrap">{{ t.ticker | replace('.NS','') }}
             <a href="/chart/{{ t.ticker }}" title="candle chart" class="ml-1 no-underline">📈</a></td>
-          <td class="px-2 py-2.5 tabular-nums text-right">{{ t.score }}</td>
+          <td class="px-2 py-2.5 tabular-nums text-right whitespace-nowrap" data-watch-label="{{ t.label }}">{{ t.score }}
+            {% if t.label == 'cleared' %}<span class="ml-1 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide bg-emerald-50 text-emerald-800 border border-emerald-200" title="score at or above the buy mark; any other reason it was not bought is in the next column">CLEARED</span>{% else %}<span class="ml-1 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide bg-amber-50 text-amber-800 border border-amber-200" title="score between the watch floor and the buy mark — shown, never bought on the score alone">WATCH</span>{% endif %}</td>
           <td class="px-2 py-2.5 tabular-nums text-right whitespace-nowrap">{% if t.last_close %}₹{{ t.last_close | inr(2) }}{% else %}—{% endif %}</td>
-          <td class="px-2 py-2.5 text-right text-xs {% if t.blocked.startswith('⛔') %}text-red-600{% else %}text-amber-700{% endif %}">{{ t.blocked or '—' }}</td>
+          <td class="px-2 py-2.5 text-right text-xs {% if t.blocked.startswith('⛔') %}text-red-600{% else %}text-amber-700{% endif %}">{{ t.blocked or ('below the buy mark' if t.label == 'watch' else '—') }}</td>
           {% if user and user.role == 'owner' %}
           <td class="px-3 py-2.5 text-right">
             <form method="post" action="/scan/buy"
@@ -472,7 +473,7 @@
     </table>
     </div>
     {% else %}
-    <div class="px-4 lg:px-6 py-8 text-center text-ink-faint text-sm">Empty — every scored pick is already in the book, or no scan yet.</div>
+    <div class="px-4 lg:px-6 py-8 text-center text-ink-faint text-sm">Empty — every scored pick at {{ watch.floor | round(0) | int }} or above is already in the book, or no scan yet.</div>
     {% endif %}
   </div>
 </div>

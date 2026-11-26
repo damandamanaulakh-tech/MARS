@@ -461,6 +461,11 @@ class Config:
     intraday_last_entry_time: str = "14:45"
     intraday_max_positions: int = 10
     intraday_rebuy_after_stop: bool = False
+    # OWNER ORDER 2026-11-26 (formula table: "Watch Floor - 55 and above").
+    # DISPLAY ONLY: a scored stock from this mark up to its segment's buy
+    # mark is labelled WATCH on the dashboard watchlist and the Scan page.
+    # No gate, size or exit reads it — the buy marks (62/72/70/60/68) decide.
+    watch_floor: float = 55.0
     # OWNER ORDER 2026-09-10: "for b there is simple trigger point when cash
     # is below 5%, rest all the time rotaiton will be done as per a - adding &
     # rotating from watch list". Below this share of equity in cash, rotation

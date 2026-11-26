@@ -50,3 +50,30 @@ capital change, four damaged stored trades, the rendered page, an empty book.
 Limitations: the block reads the trades the live book lists; it does not load
 the archive. Charges paid on open positions are not itemised on this card.
 Not observed on the live dashboard (a session cannot log in to it).
+
+Full local suite with item 1 on commit `7d8c113`: **3,819 passed, 0 failed,
+0 skipped** (junit report read back).
+
+## Item 2 — WATCH label from 55
+
+Owner decision: "Watch Floor - 55 and above". `Config.watch_floor = 55.0`,
+display only — a test asserts no engine, risk, order, danger, sizing, exit,
+scoring or timing module reads it. The buy marks (62 / 72 / 70 / 60 / 68) are
+unchanged and still decide.
+
+- `web/market_panels.watch_label(score, buy_mark, watch_floor)`: `cleared` at
+  or above the buy mark, `watch` from the watch floor up to it, blank below or
+  when the score is not a number. Each stock is judged against the buy mark
+  of the pass that scored it (read from the stored scan record).
+- Dashboard watchlist: now the not-held names scored 55 and above, each with
+  a WATCH or CLEARED chip; names below 55 (or with no stored score) are
+  counted in the header, not listed. A WATCH row with no other recorded
+  reason reads "below the buy mark".
+- Scan page: a WATCH chip beside the score. The page computes the label; the
+  stored picks are not modified by a page view (test-pinned).
+
+Tests: `web/tests/test_watch_label_2026_11_26.py` (15). All 1,560 web tests
+pass with items 1 and 2.
+
+Behaviour to know: the dashboard watchlist used to list every scored name
+not held, whatever its score. A name scored below 55 no longer appears there.
