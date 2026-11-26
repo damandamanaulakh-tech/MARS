@@ -1,0 +1,16 @@
+period,band,buys,multiplier,mean_outcome_pct,stopped_pct,target_pct
+whole period,under 12,1797,1.15,5.736,56.0,41.9
+whole period,12 to under 16,4837,1.0,2.459,69.6,29.3
+whole period,16 to under 20,2693,0.8,2.708,68.4,29.5
+whole period,20 to under 25,1325,0.65,4.22,62.6,36.4
+whole period,25 and above,403,0.5,7.069,50.9,47.9
+to 2020-06-30,under 12,639,1.15,4.045,62.1,34.6
+to 2020-06-30,12 to under 16,1843,1.0,2.3,70.0,28.5
+to 2020-06-30,16 to under 20,1173,0.8,1.734,72.5,25.7
+to 2020-06-30,20 to under 25,209,0.65,-2.182,88.5,11.0
+to 2020-06-30,25 and above,66,0.5,4.477,60.6,37.9
+after 2020-06-30,under 12,1158,1.15,6.669,52.7,45.9
+after 2020-06-30,12 to under 16,2994,1.0,2.557,69.3,29.8
+after 2020-06-30,16 to under 20,1520,0.8,3.46,65.2,32.4
+after 2020-06-30,20 to under 25,1116,0.65,5.419,57.8,41.1
+after 2020-06-30,25 and above,337,0.5,7.577,49.0,49.9

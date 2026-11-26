@@ -33,6 +33,45 @@ import pandas as pd
 
 TRADING_DAYS = 252
 
+# VIX size multiplier — the owner's ladder (formula decisions, 2026-11-26).
+# (upper edge, multiplier): India VIX below the edge takes that multiplier;
+# 25 and above takes the last. These are the owner's numbers, not measured
+# ones; the test of them is research/vix_sizing_study/. Nothing reads this
+# unless `cfg.vix_sizing_enabled` is switched on.
+VIX_SIZE_BANDS = ((12.0, 1.15), (16.0, 1.00), (20.0, 0.80), (25.0, 0.65))
+VIX_SIZE_TOP = 0.50
+
+
+def vix_size_multiplier(vix) -> Optional[float]:
+    """The size multiplier for an India VIX reading. None when the reading is
+    missing or not a positive number: unknown, never assumed calm."""
+    try:
+        value = float(vix)
+    except (TypeError, ValueError):
+        return None
+    if not (value > 0) or value != value or value == float("inf"):
+        return None
+    for edge, multiplier in VIX_SIZE_BANDS:
+        if value < edge:
+            return multiplier
+    return VIX_SIZE_TOP
+
+
+def vix_band_label(vix) -> str:
+    """The band a reading falls in, as the screens and the study name it."""
+    try:
+        value = float(vix)
+    except (TypeError, ValueError):
+        return "unknown"
+    if not (value > 0) or value != value or value == float("inf"):
+        return "unknown"
+    lower = 0.0
+    for edge, _ in VIX_SIZE_BANDS:
+        if value < edge:
+            return f"under {edge:g}" if lower == 0.0 else f"{lower:g} to under {edge:g}"
+        lower = edge
+    return f"{lower:g} and above"
+
 
 def annual_vol(close: pd.Series, days: int = 63) -> float:
     """Realised annualised volatility from daily returns. 0 when too short."""
