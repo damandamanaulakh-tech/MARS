@@ -4866,7 +4866,7 @@
     "workflow": "PARTIAL_LOCAL_TESTED_PUBLISHED_DEPLOYMENT_HOLD",
     "assignee": "Claude",
     "fix_commit": "",
-    "test_result": "Item 1: 10 tests; full local suite on 7d8c113 3,819 passed, 0 skipped. Item 2: 15 tests. Item 3: 10 tests. Item 4: 23 tests; full-suite total recorded with its commit. CI pending. Not merged, not deployed.",
+    "test_result": "Items 1-4: 10 + 14 + 10 + 23 new tests. Full local suite on 4b08082: 3,866 passed, 0 failed, 0 skipped. CI on PR234 pending. Not merged, not deployed.",
     "deployment_revision": "",
     "source_sheet": "Owner request",
     "source_row": 0

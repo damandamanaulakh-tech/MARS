@@ -72,8 +72,8 @@ unchanged and still decide.
 - Scan page: a WATCH chip beside the score. The page computes the label; the
   stored picks are not modified by a page view (test-pinned).
 
-Tests: `web/tests/test_watch_label_2026_11_26.py` (15). All 1,560 web tests
-pass with items 1 and 2.
+Tests: `web/tests/test_watch_label_2026_11_26.py` (14). All web tests pass
+with items 1 and 2.
 
 Behaviour to know: the dashboard watchlist used to list every scored name
 not held, whatever its score. A name scored below 55 no longer appears there.
@@ -150,3 +150,10 @@ Tests: `trading/tests/test_market_gap_2026_11_26.py` (13) and
 Limitation: the reading is as fresh as the last Momentum scan and the stored
 daily bars; it appears on the live dashboard only after the first Momentum
 pass on the deployed revision.
+
+## Full-suite total with items 1-4
+
+Full local suite on commit `4b08082` from a clean state directory:
+**3,866 passed, 0 failed, 0 errors, 0 skipped** (junit report read back) —
+3,809 after the intraday batch plus 10 + 14 + 10 + 23 new tests. CI on the
+pull request is recorded separately once it completes.
