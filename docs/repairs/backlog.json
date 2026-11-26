@@ -4852,7 +4852,7 @@
     "source_severity": "OWNER_POLICY",
     "source_status": "OWNER_APPROVED_2026_11_26",
     "updated_state": "PARTIAL_LOCAL_TESTED_PUBLISHED_DEPLOYMENT_HOLD",
-    "review_note": "Item 1 (fund summary: booked, released today, balancing lines) and item 2 (WATCH label from 55 on the dashboard watchlist and Scan page) implemented and tested. Remaining items not started. Display only.",
+    "review_note": "Items 1-3 implemented and tested: fund summary (booked, released today, balancing lines); WATCH label from 55; stock page card with the five segments, stops, targets and valuation target. Remaining: rank column, two volume gates, pre-rise signal, market-versus-stocks card. Display only.",
     "draft_state": "",
     "proposed_fix": "Read-only panels and columns built from values the engine already computes; no gate, size, stop, target or cash change.",
     "effort": "M",
@@ -4866,7 +4866,7 @@
     "workflow": "PARTIAL_LOCAL_TESTED_PUBLISHED_DEPLOYMENT_HOLD",
     "assignee": "Claude",
     "fix_commit": "",
-    "test_result": "Item 1: 10 new tests; full local suite on 7d8c113 3,819 passed, 0 skipped. Item 2: 15 new tests; all 1,560 web tests pass. CI pending. Not merged, not deployed.",
+    "test_result": "Item 1: 10 tests; full local suite on 7d8c113 3,819 passed, 0 skipped. Item 2: 15 tests; all web tests passed. Item 3: 10 tests. CI pending. Not merged, not deployed.",
     "deployment_revision": "",
     "source_sheet": "Owner request",
     "source_row": 0

@@ -77,3 +77,39 @@ pass with items 1 and 2.
 
 Behaviour to know: the dashboard watchlist used to list every scored name
 not held, whatever its score. A name scored below 55 no longer appears there.
+
+## Item 3 — the stock page shows the five segments, stops and targets
+
+Owner request: "when u click the selected stock, it should show target
+prices, and category of 5 momentum, intra etc". Every stock link already
+opens `/chart/{ticker}`; that page now carries a card above the chart
+(`web/stock_card.py`, `web/templates/chart.html`).
+
+- One row per segment: its buy mark (the segment's own settings, owner edits
+  included), its share of capital, the score, a CLEARED / WATCH / BELOW /
+  NOT SCORED reading, and the stop and target a new buy at the last stored
+  close would be given — computed by the engine's own `trading.targets`
+  functions (a test compares them directly), with the source named
+  (segment stop or 2 × ATR; k × ATR or the fixed target).
+- Scores are never fetched. Momentum uses its stored momentum-pass score, or
+  is computed on the page from stored bars (momentum and quality are pure
+  price maths). The other four score on outside feeds, so they show a score
+  only when the last stored scan pass was that segment's; otherwise the row
+  says NOT SCORED. A test fails the card if it calls the composite scorer,
+  the daily loader or the news reader.
+- Intraday shows its rule, not a price: it is priced off 5-minute bars at
+  the moment of entry and squared off at 15:25.
+- A held stock shows its own segment, quantity, entry, stored stop and
+  target, result at the last stored close, progress to target and days held.
+- Valuation target: the stored record a new non-intraday buy would take as
+  its target under the existing valuation-exit rule, or the plain reason none
+  would be used.
+- No stored history: the rules are still shown, prices are not, and the card
+  says nothing is guessed. A fault in the card hides the card, never the page.
+
+Tests: `web/tests/test_stock_card_2026_11_26.py` (10). Rendered in a browser
+with a sample book at 1280 px (table fits) and 390 px (table scrolls inside
+its own box; the page does not).
+
+Limitation: stops and targets are worked from the last STORED close, not a
+live quote, and the page says so; the real ones are set at the fill price.
