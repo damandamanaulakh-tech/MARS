@@ -69,8 +69,21 @@ survivor panel.
   path names the multiplier; the committed result and plan.
 - `web/tests/test_vix_sizing_page_2026_11_26.py` (3): the Den line off and
   on; the result read from the run file; the Settings switch through a save.
-- Full local suite: running at this commit; the total is recorded in the next
-  commit.
+- One existing test was repaired, not weakened. On the switch commit
+  `ab6fc59` the full suite gave 3,982 passed, 1 failed:
+  `test_the_den_states_both_gates_from_the_live_settings` read
+  "Momentum 1.2x". Cause, reproduced in order: an earlier test leaves the
+  shared settings in Swing, the new VIX Settings test then saved the algo
+  form as it was shown and stored Swing's 1.2 as a Momentum per-segment
+  override, and the Den test ran next. **Not an app fault** — the rotation's
+  own restore and the 5-minute side pass were both checked. Fixed in
+  `8f74b78` with a `clean_settings()` context manager shared by the two
+  Settings-reading test files; the Den test now also asserts that an owner
+  per-segment edit is what that line prints. CI on `ab6fc59` failed on that
+  one test and nothing else.
+- Full local suite on commit `8f74b78` from a clean state directory:
+  **3,983 passed, 0 failed, 0 errors, 0 skipped** (655 s; junit report read
+  back).
 
 ## Recommendation and open items
 

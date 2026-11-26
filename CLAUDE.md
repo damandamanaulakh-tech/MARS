@@ -56,7 +56,7 @@ Atlas, not in any repo — repo moves never touch money or memory.
   open sources; index-vs-stock gap ("bubble") = a dashboard measure (10.1 points over 60 days on
   25 Nov). Then: "go with defaults" (16 questions) + "VIX, few other are not in default, add that
   too" = build the test-first items behind their own switches, show each result before switching on.
-- **THIS BRANCH = draft PR #234 (not merged; code head 2e5198d + docs), four repairs:**
+- **THIS BRANCH = draft PR #234 (not merged; code head ab6fc59, tests 8f74b78), five repairs:**
   * **INTRA-005 / RUN-20261125-01 intraday pipeline** — docs/repairs/releases/
     2026-11-26-intraday-pipeline.md. Bars fetched right before scoring; zero-weight outside inputs
     not fetched; ~100 most-traded names every pass; quiet 5-minute `engine.scan(side_pass=True)`
@@ -91,9 +91,26 @@ Atlas, not in any repo — repo moves never touch money or memory.
     `db.note_link_failure` drops the client on a pymongo ConnectionFailure (save, policy read,
     statistics read); `is_connected()` rebuilds it once per 60 s and the heal pass saves the book;
     a refused operation (quota) is NOT a link failure; new red "Database CANNOT BE REACHED" banner.
-  Full local suite on 2e5198d: 3,951 passed, 0 skipped (~11 minutes when run ALONE from a clean
-  `/tmp/sourceborn_paper`; never run two test jobs at once — they share that folder; do not edit
-  repo files while it runs). CI clean on the six commits to 3395e06; CI queue runs ~40 min behind.
+  * **VIX-001 VIX size multiplier — BUILT, SWITCH DEFAULT OFF, MEASURED NOT SUPPORTED** —
+    releases/2026-11-26-vix-size-switch.md. The owner's ladder x1.15 / 1 / 0.80 / 0.65 / 0.50
+    (<12 / 12-16 / 16-20 / 20-25 / >=25) in `sizing.vix_size_multiplier` +
+    `apply_vix_multiplier` (never below the minimum ticket, never above the 5% cap, unknown VIX
+    = size unchanged and said so), ONE call site: the scan's score-sized branch, after the
+    measured-Kelly cap; Ocean ticket and every owner path untouched (syntax-tree pinned); BUY
+    journal `sizing.vix`; Den line; Settings switch `vix_sizing_enabled`. **PRE-REGISTERED TEST
+    (PLAN.md committed first, scripts/vix_sizing_study.py, research/vix_sizing_study/): NOT
+    SUPPORTED.** 11,055 Momentum picks Jul 2015-Jun 2026: per rupee +3.423% with the ladder vs
+    +3.431% plain (train +0.145 pts, test -0.071); band means under 12 +5.74 / 12-16 +2.46 /
+    16-20 +2.71 / 20-25 +4.22 / **25+ +7.07** — the band the ladder HALVES was the best; the
+    worst six months (Jul-Dec 2024) sat at VIX 12.8-15.6 = multiplier 1.00 throughout; average
+    multiplier 0.9155 (deploys 8.5% less, earns 8.7% less), negative in 8 of 12 years.
+    Recommendation: leave it off. Seventh entry-side signal to fail.
+  Full local suite on 8f74b78: 3,983 passed, 0 failed, 0 errors, 0 skipped (~11 minutes when run
+  ALONE from a clean `/tmp/sourceborn_paper`; never run two test jobs at once — they share that
+  folder; do not edit repo files while it runs). CI clean on the eight commits to 9248374; on
+  ab6fc59 CI failed ONE test (a Den line reading a settings value an earlier test left behind —
+  not an app fault), fixed in 8f74b78 with a shared `clean_settings()` fixture; CI queue runs
+  ~40 min behind.
 - **PARKED, NOT IN ANY BRANCH: XR-060** (owner: tables 1-3 "due with other" batch). The fix is
   in `trading/danger.py`: `import numpy as np`, add
   `def _verdict(result): return bool(result) if isinstance(result, (bool, np.bool_)) else None`
@@ -101,9 +118,9 @@ Atlas, not in any repo — repo moves never touch money or memory.
   `is True`. 8 of 10 price tripwires return a NumPy bool the checker never counts. A local stash and
   a scratchpad patch hold it but both die with the container — rebuild from these lines.
 - PENDING, each shown before shipping: (1) display batch — DONE (six items + VOL-001), awaiting
-  the owner's look at the renders; (3) test-first behind switches — VIX sizing, volume
-  gate 2 outside Intraday, spread fills, valuation P/E cap (1.25 x the sector index P/E), candle
-  priority; (4) data — quarterly shareholding for the whole scan list, Brent / gold / US 10y /
+  the owner's look at the renders; (3) test-first behind switches — VIX sizing BUILT
+  (measured, not supported, default OFF — owner's call); still open: volume gate 2 outside
+  Intraday, spread fills, valuation P/E cap (1.25 x the sector index P/E), candle priority; (4) data — quarterly shareholding for the whole scan list, Brent / gold / US 10y /
   dollar index / copper, event calendar, UK-parent stake-sale rule, the DATA_NEEDED fixes. Open
   questions put to the owner: 5-minute stop checks for intraday positions only; Settings rows for
   the five intraday values; different "narrow rally" cut-offs. Owner owes: the restart above, the

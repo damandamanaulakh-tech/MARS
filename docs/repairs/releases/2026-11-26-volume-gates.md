@@ -107,10 +107,12 @@ available. **Gate 2 has not been tested against returns in any segment.**
   only failure in the first full run with the gates (3,925 passed, 1 failed).
 - Full local suite on commit `2e5198d` (the gates, that fixture and the
   pre-rise label) from a clean state directory: **3,951 passed, 0 failed, 0
-  errors, 0 skipped** (695 s; junit report read back).
+  errors, 0 skipped** (695 s; junit report read back). The branch head
+  `8f74b78`, which adds the VIX switch, gives **3,983 passed, 0 failed, 0
+  errors, 0 skipped** (655 s).
 - CI on the gates commit `aa1454b`, before the fixture update: 3,925 passed,
-  1 failed — the same single test. CI on `2e5198d` is recorded on the pull
-  request once it completes.
+  1 failed — the same single test. CI on `2e5198d` completed with nothing
+  failed.
 
 ## Limitations and open items
 

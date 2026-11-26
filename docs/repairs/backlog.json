@@ -4894,7 +4894,7 @@
     "workflow": "FIX_LOCAL_TESTED_PUBLISHED_DEPLOYMENT_HOLD_RUNTIME_PENDING",
     "assignee": "Claude",
     "fix_commit": "",
-    "test_result": "41 new tests (trading 25, web 16) pass; 39 of them fail on the previous branch commit 9f7439c. One existing fixture updated to supply a volume reading. Full local suite on 2e5198d: 3,951 passed, 0 failed, 0 skipped. CI on aa1454b (before the fixture update): 3,925 passed, 1 failed, the same test; CI on 2e5198d pending. Not merged, not deployed.",
+    "test_result": "41 new tests (trading 25, web 16) pass; 39 of them fail on the previous branch commit 9f7439c. One existing fixture updated to supply a volume reading. CI on aa1454b (before the fixture update): 3,925 passed, 1 failed, the same test; CI on 2e5198d completed with nothing failed. Full local suite on 8f74b78: 3,983 passed, 0 failed, 0 errors, 0 skipped. Not merged, not deployed.",
     "deployment_revision": "",
     "source_sheet": "Owner request",
     "source_row": 0
@@ -4922,7 +4922,7 @@
     "workflow": "SWITCH_BUILT_DEFAULT_OFF_TEST_NOT_SUPPORTED_PUBLISHED_DEPLOYMENT_HOLD",
     "assignee": "Claude",
     "fix_commit": "",
-    "test_result": "31 new tests (trading 28, web 3) pass. Full local suite total in the release record. Not merged, not deployed.",
+    "test_result": "31 new tests (trading 28, web 3) pass. One existing Den test was repaired, not weakened: on ab6fc59 it read a settings value an earlier test had left behind (3,982 passed, 1 failed, locally and in CI); fixed in 8f74b78 with a shared clean_settings() fixture. Full local suite on 8f74b78 from a clean state directory: 3,983 passed, 0 failed, 0 errors, 0 skipped. Not merged, not deployed.",
     "deployment_revision": "",
     "source_sheet": "Owner request",
     "source_row": 0
