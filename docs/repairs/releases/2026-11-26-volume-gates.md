@@ -105,7 +105,12 @@ available. **Gate 2 has not been tested against returns in any segment.**
   the timing check to isolate the entry deadline and supplied flat-volume
   bars; it now supplies a passing volume reading the same way. It was the
   only failure in the first full run with the gates (3,925 passed, 1 failed).
-- Full local suite total: FULLSUITE_PLACEHOLDER
+- Full local suite on commit `2e5198d` (the gates, that fixture and the
+  pre-rise label) from a clean state directory: **3,951 passed, 0 failed, 0
+  errors, 0 skipped** (695 s; junit report read back).
+- CI on the gates commit `aa1454b`, before the fixture update: 3,925 passed,
+  1 failed — the same single test. CI on `2e5198d` is recorded on the pull
+  request once it completes.
 
 ## Limitations and open items
 

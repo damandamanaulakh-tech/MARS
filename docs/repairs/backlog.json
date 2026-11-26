@@ -4866,7 +4866,7 @@
     "workflow": "FIX_LOCAL_TESTED_PUBLISHED_DEPLOYMENT_HOLD_RUNTIME_PENDING",
     "assignee": "Claude",
     "fix_commit": "",
-    "test_result": "Items 1-5: 64 new tests; pre-rise label: 25 new tests (trading 16, web 9). Full local suite total in the release record. CI on PR234 pending for the later commits. Not merged, not deployed.",
+    "test_result": "Items 1-5: 64 new tests; pre-rise label: 25 new tests (trading 16, web 9). Full local suite on 2e5198d: 3,951 passed, 0 failed, 0 skipped. CI completed with nothing failed on 8026daf, c5cec05, 7d8c113, c6760b4, e8b47fe and 3395e06; CI on the later commits pending. Not merged, not deployed.",
     "deployment_revision": "",
     "source_sheet": "Owner request",
     "source_row": 0
@@ -4894,7 +4894,7 @@
     "workflow": "FIX_LOCAL_TESTED_PUBLISHED_DEPLOYMENT_HOLD_RUNTIME_PENDING",
     "assignee": "Claude",
     "fix_commit": "",
-    "test_result": "41 new tests (trading 25, web 16) pass; 39 of them fail on the previous branch commit 9f7439c. Full local suite total recorded in the release record. Not merged, not deployed.",
+    "test_result": "41 new tests (trading 25, web 16) pass; 39 of them fail on the previous branch commit 9f7439c. One existing fixture updated to supply a volume reading. Full local suite on 2e5198d: 3,951 passed, 0 failed, 0 skipped. CI on aa1454b (before the fixture update): 3,925 passed, 1 failed, the same test; CI on 2e5198d pending. Not merged, not deployed.",
     "deployment_revision": "",
     "source_sheet": "Owner request",
     "source_row": 0

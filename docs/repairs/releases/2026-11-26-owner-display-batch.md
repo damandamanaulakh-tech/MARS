@@ -229,3 +229,8 @@ Tests: `trading/tests/test_pre_rise_2026_11_26.py` (16) and
 `web/tests/test_pre_rise_pages_2026_11_26.py` (9). The module is new, so
 these files cannot be collected on the previous commit.
 
+## Full-suite total with all six items
+
+Full local suite on commit `2e5198d` from a clean state directory:
+**3,951 passed, 0 failed, 0 errors, 0 skipped** (junit report read back).
+That commit also carries the two volume gates (VOL-001).

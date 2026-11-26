@@ -56,7 +56,7 @@ Atlas, not in any repo — repo moves never touch money or memory.
   open sources; index-vs-stock gap ("bubble") = a dashboard measure (10.1 points over 60 days on
   25 Nov). Then: "go with defaults" (16 questions) + "VIX, few other are not in default, add that
   too" = build the test-first items behind their own switches, show each result before switching on.
-- **THIS BRANCH = draft PR #234 (not merged; head 0c1d554 + docs), three repairs:**
+- **THIS BRANCH = draft PR #234 (not merged; code head 2e5198d + docs), four repairs:**
   * **INTRA-005 / RUN-20261125-01 intraday pipeline** — docs/repairs/releases/
     2026-11-26-intraday-pipeline.md. Bars fetched right before scoring; zero-weight outside inputs
     not fetched; ~100 most-traded names every pass; quiet 5-minute `engine.scan(side_pass=True)`
@@ -71,22 +71,37 @@ Atlas, not in any repo — repo moves never touch money or memory.
     `Portfolio.market_gap`, written by the Momentum pass; 60 sessions on 25 Nov: Nifty +7.17%,
     median stock -2.95%, gap 10.12 points, 22% ahead; "narrow" cut-offs 5 points / 40% are ASSUMED);
     (5) 20-session rank on /scan (`multi_formula.rank_mom20`, display only).
-    STILL TO BUILD: two volume gates (gate 2 blocks Intraday only, own switch, counted in the
-    5-minute summary) and the pre-rise signal (T12W_0005 + T12W_0057 within 5 sessions, untested).
+    (6) PRE-RISE LABEL (`trading/pre_rise.py`): T12W_0057 with T12W_0005 on the same day or in
+    the 5 sessions before it, shown for 5 sessions, read by the daily trigger pass into each
+    `trigger_watch` row; on /triggers, the stock trigger page, the /chart card, a /scan chip (stored
+    pass, bars <= 7 days old) and the Den. **MEASURED BEFORE BUILDING, NO EDGE**
+    (scripts/pre_rise_study.py, research/pre_rise_study/): 373 fires in 469,947 stock-days, +10%
+    label hit 29.49% v chance 32.11% = lift 0.919 (0.996 to Jun 2020, 0.799 after). The record is
+    loaded from the committed run and printed beside the label. Sixth entry-side signal to fail.
+  * **VOL-001 two volume gates (NOT display only)** — releases/2026-11-26-volume-gates.md.
+    Gate 1 = the existing 5-bar / 20-bar trend inside `timing_ok` (marks Intraday 1.5, Short 1.3,
+    Swing 1.2, Positional 1.2, Momentum 0 = off): unchanged by default, own reading + switch
+    `volume_gate1_enabled`. Gate 2 = `timing.passes_volume_spike`: latest bar / mean of the 20
+    bars BEFORE it >= 1.5; refuses a buy only in `volume_gate2_block_modes` = ("intraday",), in
+    the scan's pick loop after score + timing (skip reason `volume_spike`); a reading elsewhere;
+    switch `volume_gate2_enabled`. Stored: `scan_matrix["volume_gates"]`, row `vol` {tk,tr,sk,sr},
+    `last_pass["volume_gates"]`. NOT tested against returns. Real daily bars 25 Nov (253
+    stocks): Gate 1 >= 1.3x 43 pass, Gate 2 44 pass. Extending Gate 2 beyond Intraday = test first.
   * **OPS-09 / RUN-20261126-02 database reconnect** — releases/2026-11-26-database-reconnect.md.
     `db.note_link_failure` drops the client on a pymongo ConnectionFailure (save, policy read,
     statistics read); `is_connected()` rebuilds it once per 60 s and the heal pass saves the book;
     a refused operation (quota) is NOT a link failure; new red "Database CANNOT BE REACHED" banner.
-  Full local suite on 35a39db: 3,885 passed, 0 skipped (~11 minutes when run ALONE from a clean
-  `/tmp/sourceborn_paper`; never run two test jobs at once — they share that folder).
+  Full local suite on 2e5198d: 3,951 passed, 0 skipped (~11 minutes when run ALONE from a clean
+  `/tmp/sourceborn_paper`; never run two test jobs at once — they share that folder; do not edit
+  repo files while it runs). CI clean on the six commits to 3395e06; CI queue runs ~40 min behind.
 - **PARKED, NOT IN ANY BRANCH: XR-060** (owner: tables 1-3 "due with other" batch). The fix is
   in `trading/danger.py`: `import numpy as np`, add
   `def _verdict(result): return bool(result) if isinstance(result, (bool, np.bool_)) else None`
   and read `result = _verdict(fn(x))` / `_verdict(fn(ext_x, ext, {}, {}))` where the code tests
   `is True`. 8 of 10 price tripwires return a NumPy bool the checker never counts. A local stash and
   a scratchpad patch hold it but both die with the container — rebuild from these lines.
-- PENDING, each shown before shipping: (1) display batch — the two volume gates and the pre-rise
-  signal (the other five are built, above); (3) test-first behind switches — VIX sizing, volume
+- PENDING, each shown before shipping: (1) display batch — DONE (six items + VOL-001), awaiting
+  the owner's look at the renders; (3) test-first behind switches — VIX sizing, volume
   gate 2 outside Intraday, spread fills, valuation P/E cap (1.25 x the sector index P/E), candle
   priority; (4) data — quarterly shareholding for the whole scan list, Brent / gold / US 10y /
   dollar index / copper, event calendar, UK-parent stake-sale rule, the DATA_NEEDED fixes. Open
