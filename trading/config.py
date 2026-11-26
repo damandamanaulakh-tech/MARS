@@ -183,6 +183,17 @@ class Config:
     kelly_fraction: float = 0.29              # owner's m, 2026-09-10
     kelly_ic: float = 0.05                    # ASSUMED information coefficient
     kelly_max_pct: float = 0.05               # hard ceiling: 5% of equity/name
+    # VIX size multiplier (owner formula decision 2026-11-26): the size of a
+    # new AUTOMATIC score-sized buy x1.15 / 1.00 / 0.80 / 0.65 / 0.50 by India
+    # VIX band (under 12 / 12-16 / 16-20 / 20-25 / 25 and above) —
+    # sizing.VIX_SIZE_BANDS. Never below the minimum ticket, never above the
+    # 5% cap or the measured-Kelly cap; not applied to Ocean's fixed ticket or
+    # to the owner's own BUY paths; an unknown VIX leaves the size alone.
+    # DEFAULT OFF: the pre-registered test (research/vix_sizing_study/) did
+    # NOT support it — buys at VIX 25 and above were the best band, and the
+    # worst six months of the record came with VIX at 12.8-15.6. The owner
+    # owns the switch; the measurement owns the default.
+    vix_sizing_enabled: bool = False
     # Measured Kelly from the book's OWN closed trades (AshStocks design,
     # adopted on the owner's order 2026-09-10). It never RAISES a size — it
     # is a ceiling that can only cut, so a bad estimate shrinks the book and

@@ -57,6 +57,35 @@ def vix_size_multiplier(vix) -> Optional[float]:
     return VIX_SIZE_TOP
 
 
+def apply_vix_multiplier(wanted: float, vix, *, slab: float = 0.0,
+                         cap: Optional[float] = None) -> tuple[float, dict]:
+    """Scale the size a buy wants by the VIX band (owner defaults, 26 Nov
+    2026): never below the minimum ticket `slab` — or below `wanted` itself
+    when that is already smaller, and a size of zero stays zero — and never
+    above `cap`. An unknown VIX leaves the size alone and says so.
+
+    Returns (size, record). The record is what the BUY journal stores."""
+    wanted = float(wanted or 0.0)
+    multiplier = vix_size_multiplier(vix)
+    record = {"vix": (round(float(vix), 2) if multiplier is not None else None),
+              "band": vix_band_label(vix), "multiplier": multiplier,
+              "wanted": round(wanted, 0), "applied": False}
+    if multiplier is None:
+        return wanted, {**record, "size": round(wanted, 0),
+                        "note": "India VIX unavailable: size left unchanged"}
+    if wanted <= 0 or multiplier == 1.0:
+        return wanted, {**record, "size": round(wanted, 0)}
+    size = wanted * multiplier
+    floor = min(wanted, float(slab or 0.0))
+    limited = ""
+    if size < floor:
+        size, limited = floor, "minimum ticket"
+    if cap is not None and float(cap) > 0 and size > float(cap):
+        size, limited = max(min(float(cap), size), 0.0), "size cap"
+    return size, {**record, "size": round(size, 0), "applied": size != wanted,
+                  **({"limited_by": limited} if limited else {})}
+
+
 def vix_band_label(vix) -> str:
     """The band a reading falls in, as the screens and the study name it."""
     try:

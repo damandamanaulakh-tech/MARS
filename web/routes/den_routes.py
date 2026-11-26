@@ -459,6 +459,33 @@ def _volume_gate_rules(cfg) -> dict:
     }
 
 
+def _vix_sizing_block(cfg) -> dict:
+    """The VIX size multiplier as the code holds it, and its test result
+    read from the committed run (never retyped)."""
+    from trading import sizing as SZ
+    bands, lower = [], None
+    for edge, mult in SZ.VIX_SIZE_BANDS:
+        bands.append({"label": (f"under {edge:g}" if lower is None else f"{lower:g} to under {edge:g}"),
+                      "multiplier": mult})
+        lower = edge
+    bands.append({"label": f"{lower:g} and above", "multiplier": SZ.VIX_SIZE_TOP})
+    out = {"on": bool(getattr(cfg, "vix_sizing_enabled", False)), "bands": bands, "test": None}
+    try:
+        import json as _json
+        from pathlib import Path as _Path
+        run = _json.loads((_Path(__file__).resolve().parents[2] / "research" / "vix_sizing_study"
+                           / "run_2026-11-26" / "vix_sizing.json").read_text())
+        whole = run["halves"]["whole period"]
+        out["test"] = {"supported": bool(run["reading_rule"]["supported"]),
+                       "buys": whole["buys"], "plain": whole["mean_outcome_pct"],
+                       "with": whole["per_rupee_with_multiplier_pct"],
+                       "by_band": [{"label": b["band"], "mean": b["mean_outcome_pct"], "buys": b["buys"]}
+                                   for b in run["bands"]["whole period"]]}
+    except Exception:                                          # noqa: BLE001
+        out["test"] = None
+    return out
+
+
 def _sizing_block(cfg) -> dict:
     """The slab formula from trading/sizing.py, plus an ILLUSTRATION ladder
     computed with the same pure functions at a stated 20% annual vol. The
@@ -496,6 +523,7 @@ def _sizing_block(cfg) -> dict:
         "position_size_value": float(getattr(cfg, "position_size_value", 0.0)),
         "sigma_pct": _pct(sigma, 0), "ladder": ladder,
         "max_positions": int(getattr(cfg, "max_positions", 0)),
+        "vix": _vix_sizing_block(cfg),
     }
 
 

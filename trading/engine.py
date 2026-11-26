@@ -1557,6 +1557,27 @@ class TradingEngine:
                             "capped": bool(want > cap_rs)}
                         if want > cap_rs:
                             notional_arg = cap_rs
+                    # VIX size multiplier (owner decision 2026-11-26; default
+                    # OFF — its pre-registered test did not support it). On:
+                    # the size this buy wants is scaled by the India VIX band,
+                    # never below the minimum ticket and never above the 5%
+                    # cap or the measured-Kelly cap. Ocean's fixed ticket
+                    # (above) and the owner's own BUY paths are not scaled.
+                    if bool(getattr(cfg, "vix_sizing_enabled", False)):
+                        from .sizing import apply_vix_multiplier
+                        want = (notional_arg if notional_arg is not None
+                                else float(cfg.position_notional()))
+                        ceiling = float(getattr(cfg, "kelly_max_pct", 0.0) or 0.0) * float(current_eq)
+                        if cap_rs is not None:
+                            ceiling = min(ceiling, float(cap_rs)) if ceiling > 0 else float(cap_rs)
+                        scaled, vix_diag = apply_vix_multiplier(
+                            want, getattr(regime, "vix", None) if regime is not None else None,
+                            slab=float(getattr(cfg, "position_slab_value", 0.0) or 0.0),
+                            cap=ceiling if ceiling > 0 else None)
+                        size_diag = dict(size_diag)
+                        size_diag["vix"] = vix_diag
+                        if vix_diag.get("applied"):
+                            notional_arg = scaled
                 # Owner order 2026-11-21: all six segments, including Ocean,
                 # spend only their own share of deployable capital.
                 initial_stop = self._stop_for(pick, fill, cfg=cfg)

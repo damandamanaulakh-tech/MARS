@@ -194,6 +194,14 @@
         </table>
         </div>
         {% if not eng.sizing.ladder %}<div class="text-xs text-amber-700 mt-2">DATA_NEEDED — the z divisor could not be read from sizing.edge_estimate, so no ladder is drawn rather than a guessed one.</div>{% endif %}
+        {% set vx = eng.sizing.vix %}
+        {% if vx %}<div class="text-xs mt-3 pt-3 border-t border-line" data-den-vix-sizing><!-- den_vix_sizing_marker -->
+          <strong>VIX size multiplier</strong> (owner decision 26 Nov 2026): {% if vx.on %}<span class="text-amber-700 font-semibold">ON</span>{% else %}<strong>OFF</strong>{% endif %} —
+          {% for b in vx.bands %}<span class="whitespace-nowrap">India VIX {{ b.label }} ×{{ '%.2f' % b.multiplier }}</span>{% if not loop.last %} · {% endif %}{% endfor %}.
+          Applies to automatic score-sized buys only (not Ocean, not your own BUY); never below the minimum ticket, never above the cap; an unknown VIX leaves the size alone.
+          {% if vx.test %}<div class="text-ink-soft mt-1">Tested before building, on {{ vx.test.buys | inr }} Momentum picks: <strong>{{ 'supported' if vx.test.supported else 'not supported' }}</strong>. Per rupee deployed {{ '%+.2f' % vx.test.with }}% with it against {{ '%+.2f' % vx.test.plain }}% without. Mean outcome of a buy by band: {% for b in vx.test.by_band %}<span class="whitespace-nowrap">{{ b.label }} {{ '%+.2f' % b.mean }}%</span>{% if not loop.last %} · {% endif %}{% endfor %}.</div>
+          {% else %}<div class="text-amber-700 mt-1">Test result not found in the repository.</div>{% endif %}
+        </div>{% endif %}
         <div class="text-[10px] text-ink-faint mt-2">Ladder = the same pure functions at an ILLUSTRATION σ of {{ eng.sizing.sigma_pct }}% annual vol on the starting capital; a real name uses its own realised vol, and the measured-Kelly cap and every can_open gate still apply after it. Not market data.</div>
       </div>
     </div>
