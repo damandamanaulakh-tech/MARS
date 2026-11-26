@@ -4852,7 +4852,7 @@
     "source_severity": "OWNER_POLICY",
     "source_status": "OWNER_APPROVED_2026_11_26",
     "updated_state": "PARTIAL_LOCAL_TESTED_PUBLISHED_DEPLOYMENT_HOLD",
-    "review_note": "Items 1-4 implemented and tested: fund summary (booked, released today, balancing lines); WATCH label from 55; stock page card with segments, stops, targets and valuation target; Market vs stocks gap card stored by the Momentum scan. Remaining: rank column, two volume gates, pre-rise signal. Display only.",
+    "review_note": "Items 1-5 implemented and tested: fund summary; WATCH label from 55; stock page card; Market vs stocks gap card; 20-session rank column with its measured record. Remaining: two volume gates, pre-rise signal. Display only.",
     "draft_state": "",
     "proposed_fix": "Read-only panels and columns built from values the engine already computes; no gate, size, stop, target or cash change.",
     "effort": "M",
@@ -4866,7 +4866,7 @@
     "workflow": "PARTIAL_LOCAL_TESTED_PUBLISHED_DEPLOYMENT_HOLD",
     "assignee": "Claude",
     "fix_commit": "",
-    "test_result": "Items 1-4: 10 + 14 + 10 + 23 new tests. Full local suite on 4b08082: 3,866 passed, 0 failed, 0 skipped. CI on PR234 pending. Not merged, not deployed.",
+    "test_result": "Items 1-4: full local suite on 4b08082 3,866 passed, 0 skipped. Item 5: 7 new tests; full-suite total recorded with its commit. CI on PR234 pending. Not merged, not deployed.",
     "deployment_revision": "",
     "source_sheet": "Owner request",
     "source_row": 0

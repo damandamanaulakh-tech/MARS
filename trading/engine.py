@@ -804,6 +804,15 @@ class TradingEngine:
                 "risk_history": history.get(t),
             })
         ranked.sort(key=lambda r: -r["score"])
+        # Owner decision 2026-11-26: the 20-session rank is a COLUMN on the
+        # Scan page, written onto the view each row already carries. Nothing
+        # below reads it; a failure costs the column, never the scan.
+        if not side_pass:
+            try:
+                from .multi_formula import rank_mom20
+                rank_mom20(ranked)
+            except Exception:
+                log.exception("20-session rank failed")
         stage["scored"] = time.monotonic()
         if cfg.mode == "intraday" and "fetch_done" in stage:
             # RUN-20261125-01 acceptance: record the stage timing. `scored

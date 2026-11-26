@@ -257,6 +257,7 @@
     <div><span class="font-semibold text-ink">AM07</span> — the score that buys. Holdout 4.17% vs ASH08 3.87% and the 20-day rule 3.51% (top 30/month under the live −5%/+20% bracket).</div>
     <div><span class="font-semibold text-ink">ASH08 (68)</span> — its “quality” leg is really data coverage, so the 68 floor means “6-month return above +0.385%”. It passes 97% of our candidates; no threshold beat chance on the training half.</div>
     <div><span class="font-semibold text-ink">AshSt (70)</span> — measured <span class="font-semibold">identical</span> to AM07 (Spearman +1.000), so this column is our own score against their higher floor, not a second opinion.</div>
+    <div data-rank20-record="rank20_record_marker"><span class="font-semibold text-ink">20d #</span> — each stock's rank by 20-session return among the stocks this pass could rank; ★ marks the top 10. A column, not a buy rule: buying the 20-session top 10 measured <span class="font-semibold">−0.77 (train) and −0.45 (test)</span> against our own picks — a stock up about 17% in 20 sessions hit the −5% stop 68.4% of the time, against 63.4% for one that had eased back.</div>
     <div class="pt-1">Measured over 23,507 observations, chosen on 2014–2020 and read on 2020–2026 — <span class="font-mono">research/ash_formula_study/</span>.</div>
   </div>
 </div>
@@ -766,6 +767,9 @@
             {% endif %}
             {% endfor %}
           {% else %}<span class="text-ink-faint" title="Not enough history for the outside formulas to judge this name. Not a fail.">—</span>{% endif %}
+          {#- Owner decision 2026-11-26: the 20-session rank, a column and not a buy rule -#}
+          {% set rk = mf.rank20 if mf else none %}
+          {% if rk %}<div class="mt-0.5 tabular-nums {% if rk.top %}text-ink font-semibold{% else %}text-ink-faint{% endif %}" data-rank20="{{ rk.rank }}" title="20-session return{% if mf.mom20 is not none %} {{ '%+.1f' % (mf.mom20 * 100) }}%{% endif %}: rank {{ rk.rank }} of the {{ rk.of }} stocks this pass could rank. Shown, never bought on: as a buy rule the 20-session top 10 measured −0.77 (train) and −0.45 (test) against our own picks.">{% if rk.top %}★ {% endif %}20d #{{ rk.rank }}<span class="text-ink-faint font-normal"> of {{ rk.of }}</span></div>{% endif %}
         </td>
         <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap">₹{{ p.last_close | inr(2) }}</td>
         <td class="px-3 lg:px-6 py-3 uppercase text-xs tracking-widest whitespace-nowrap {% if p.timing_pass %}text-emerald-700{% else %}text-ink-faint{% endif %}">

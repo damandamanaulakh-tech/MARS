@@ -157,3 +157,24 @@ Full local suite on commit `4b08082` from a clean state directory:
 **3,866 passed, 0 failed, 0 errors, 0 skipped** (junit report read back) —
 3,809 after the intraday batch plus 10 + 14 + 10 + 23 new tests. CI on the
 pull request is recorded separately once it completes.
+
+## Item 5 — 20-session rank column
+
+Owner decision: "20-session top-10 rank - Live Rank Rule"; approved default:
+a column, not a buy rule.
+
+- `multi_formula.rank_mom20`: each scanned stock's place by 20-session
+  return (highest = 1) among the stocks the pass could rank, with the top 10
+  marked. A stock with no 20-session return is unranked, never ranked last.
+- The scan writes it onto the formula view each row already stores, so the
+  saved book and both pages carry it with no new field. The 5-minute side
+  pass does not compute it.
+- Scan page: "★ 20d #1 of 812" under the three-formula chips, and a line in
+  the formulas card stating the measured record of BUYING on it: −0.77
+  (train) and −0.45 (test) against our own picks
+  (`research/ash_formula_study/`). A formula is not shown without its record.
+- No rule reads it: a syntax-tree test over the engine and eight rule
+  modules, and the owner's switchable three-formula filter ignores it.
+
+Tests: `trading/tests/test_rank20_column_2026_11_26.py` (5) and
+`web/tests/test_rank20_scan_page_2026_11_26.py` (2).
