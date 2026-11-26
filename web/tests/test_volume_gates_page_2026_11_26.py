@@ -5,6 +5,7 @@ the Den, and its own switch in Settings.
 """
 from __future__ import annotations
 
+import contextlib
 import copy
 import re
 from datetime import date
@@ -25,6 +26,33 @@ from web.routes import scan_routes as sr
 
 def _text(html):
     return " ".join(re.sub(r"<[^>]+>", " ", html).split())
+
+
+@contextlib.contextmanager
+def clean_settings():
+    """The shared settings in a KNOWN state for the test, and put back exactly
+    afterwards. Other tests leave the shared object in whatever segment and
+    with whatever per-segment edits they last used; a test that reads or
+    saves the Settings form must neither depend on that nor add to it."""
+    from web.routes.settings_routes import PRESET_OWNED_FIELDS
+    cfg = state.cfg()
+    names = list(PRESET_OWNED_FIELDS) + ["mode", "volume_gate1_enabled", "volume_gate2_enabled",
+                                         "volume_gate2_block_modes", "vix_sizing_enabled"]
+    saved = {name: copy.deepcopy(getattr(cfg, name)) for name in names}
+    saved_overrides = copy.deepcopy(getattr(cfg, "preset_overrides", None))
+    try:
+        cfg.preset_overrides = {}
+        cfg.mode = "nifty200_momentum"
+        cfg.apply_mode_preset()
+        cfg.volume_gate1_enabled, cfg.volume_gate2_enabled = True, True
+        cfg.volume_gate2_block_modes = ("intraday",)
+        cfg.vix_sizing_enabled = False
+        yield cfg
+    finally:
+        cfg = state.cfg()
+        cfg.preset_overrides = saved_overrides
+        for name, value in saved.items():
+            setattr(cfg, name, value)
 
 
 def _client():
@@ -286,9 +314,7 @@ def test_bars_without_volume_print_no_volume_line(tmp_path):
 
 def test_the_den_states_both_gates_from_the_live_settings():
     client = _client()
-    cfg = state.cfg()
-    saved = (cfg.volume_gate1_enabled, cfg.volume_gate2_enabled)
-    try:
+    with clean_settings() as cfg:
         page = client.get("/den")
         assert page.status_code == 200 and "den_volume_gates_marker" in page.text
         line = _text(page.text.split("den_volume_gates_marker", 1)[1].split("</li>", 1)[0])
@@ -297,12 +323,14 @@ def test_the_den_states_both_gates_from_the_live_settings():
         assert "latest bar ÷ average of the 20 bars before it ≥ 1.5×" in line
         assert "refuses a buy in Intraday only, a reading in the other segments" in line
         assert "Gate 2 has not been tested against returns." in line
+        # the owner's own per-segment edit is what the line prints, not the preset
+        cfg.preset_overrides = {"swing": {"volume_confirm_ratio": 1.4}}
+        line = _text(client.get("/den").text.split("den_volume_gates_marker", 1)[1].split("</li>", 1)[0])
+        assert "Swing 1.4×" in line and "Short 1.3×" in line
         cfg.volume_gate1_enabled, cfg.volume_gate2_enabled = False, False
         line = _text(client.get("/den").text.split("den_volume_gates_marker", 1)[1].split("</li>", 1)[0])
         assert "switched OFF — measured and shown, not required" in line
         assert "a reading in every segment" in line
-    finally:
-        cfg.volume_gate1_enabled, cfg.volume_gate2_enabled = saved
 
 
 def _algo_form(client):
@@ -315,19 +343,17 @@ def _algo_form(client):
 
 def test_each_gate_has_its_own_switch_and_a_save_keeps_them_on():
     client = _client()
-    before = (state.cfg().volume_gate1_enabled, state.cfg().volume_gate2_enabled)
-    try:
+    with clean_settings():
         fields = _algo_form(client)
         # a bool must render as 1 / 0 — "True" in a number box posts empty = OFF
         assert (fields["volume_gate1_enabled"], fields["volume_gate2_enabled"]) == ("1", "1")
         assert client.post("/settings", data=fields, follow_redirects=False).status_code == 303
         assert (state.cfg().volume_gate1_enabled, state.cfg().volume_gate2_enabled) == (True, True)
+        # saving the form as shown writes no per-segment edit of its own
+        assert not (state.cfg().preset_overrides or {}).get("nifty200_momentum")
         fields["volume_gate2_enabled"] = "0"
         assert client.post("/settings", data=fields, follow_redirects=False).status_code == 303
         assert state.cfg().volume_gate2_enabled is False and state.cfg().volume_gate1_enabled is True
         from trading import timing as T
         intraday = state.engine().mode_cfg("intraday")
         assert T.gate2_blocks(intraday) is False          # the switch reaches the scan's own test
-    finally:
-        cfg = state.cfg()
-        cfg.volume_gate1_enabled, cfg.volume_gate2_enabled = before

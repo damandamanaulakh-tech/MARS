@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from web import auth, state
 from web.main import app
 from web.routes import den_routes
+from web.tests.test_volume_gates_page_2026_11_26 import clean_settings
 
 
 def _text(html):
@@ -24,11 +25,8 @@ def _client():
 
 
 def test_the_den_states_the_ladder_that_it_is_off_and_the_test_result():
-    cfg = state.cfg()
-    before = cfg.vix_sizing_enabled
-    cfg.vix_sizing_enabled = False
-    try:
-        client = _client()
+    client = _client()
+    with clean_settings() as cfg:
         page = client.get("/den")
         assert page.status_code == 200 and "den_vix_sizing_marker" in page.text
         line = _text(page.text.split("den_vix_sizing_marker", 1)[1].split("ILLUSTRATION", 1)[0])
@@ -42,8 +40,6 @@ def test_the_den_states_the_ladder_that_it_is_off_and_the_test_result():
         cfg.vix_sizing_enabled = True
         line = _text(client.get("/den").text.split("den_vix_sizing_marker", 1)[1].split("ILLUSTRATION", 1)[0])
         assert "VIX size multiplier (owner decision 26 Nov 2026): ON" in line
-    finally:
-        cfg.vix_sizing_enabled = before
 
 
 def test_the_result_is_read_from_the_committed_run_never_retyped(monkeypatch):
@@ -66,9 +62,7 @@ def _algo_form(client):
 
 def test_the_switch_is_off_in_settings_and_a_save_keeps_it_off_until_set():
     client = _client()
-    before = state.cfg().vix_sizing_enabled
-    state.cfg().vix_sizing_enabled = False
-    try:
+    with clean_settings():
         fields = _algo_form(client)
         assert fields["vix_sizing_enabled"] == "0"
         assert client.post("/settings", data=fields, follow_redirects=False).status_code == 303
@@ -77,5 +71,3 @@ def test_the_switch_is_off_in_settings_and_a_save_keeps_it_off_until_set():
         assert client.post("/settings", data=fields, follow_redirects=False).status_code == 303
         assert state.cfg().vix_sizing_enabled is True
         assert state.engine().mode_cfg("swing").vix_sizing_enabled is True     # reaches the scan's own settings
-    finally:
-        state.cfg().vix_sizing_enabled = before
