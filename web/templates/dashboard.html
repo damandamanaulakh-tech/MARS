@@ -10,8 +10,17 @@
      every save was lost. Never again. -->
 <div data-db-write-error="1" class="bg-red-600 text-white px-4 lg:px-6 py-4 mb-6">
   <div class="font-bold text-base lg:text-lg">⛔ Database is REFUSING WRITES — the book is NOT being saved</div>
-  <div class="text-sm text-red-100 mt-1">New buys are paused. Protective exits and save retries remain active. Changes since the last confirmed portfolio save may exist only in memory or local fallback files; preserve them before a restart. Save error: <span class="font-mono">{{ db_status.write_error }}</span></div>
+  <div class="text-sm text-red-100 mt-1">New buys are paused. Protective exits and save retries remain active. Changes since the last confirmed portfolio save may exist only in memory or local fallback files; preserve them before a restart. Save error{% if db_status.write_error_at %} (recorded {{ db_status.write_error_at | ist }}){% endif %}: <span class="font-mono">{{ db_status.write_error }}</span></div>
   <div class="text-sm text-red-100 mt-1">Last confirmed save this process: {{ db_status.portfolio_save_confirmed_at or 'not yet confirmed' }} UTC. Buying resumes only after a successful portfolio save. Fix the reported storage problem; the app retries every minute when its book is available.</div>
+</div>
+{% elif db_status and db_status.url_set and not db_status.connected %}
+{#- RUN-20261126-02: the database is configured but cannot be reached (for
+    example after its plan was changed and the cluster moved). The app drops
+    the dead connection and tries a fresh one every minute by itself. -#}
+<div data-db-unreachable="1" class="bg-red-600 text-white px-4 lg:px-6 py-4 mb-6">
+  <div class="font-bold text-base lg:text-lg">⛔ Database CANNOT BE REACHED — the book is NOT being saved</div>
+  <div class="text-sm text-red-100 mt-1">New buys are paused. Protective exits remain active. The app drops the dead connection and tries a fresh one every minute by itself — no restart is needed, and a restart would discard changes made since the last confirmed save.{% if db_status.write_error %} Latest error{% if db_status.write_error_at %} (recorded {{ db_status.write_error_at | ist }}){% endif %}: <span class="font-mono">{{ db_status.write_error }}</span>{% endif %}</div>
+  <div class="text-sm text-red-100 mt-1">Last confirmed save this process: {{ db_status.portfolio_save_confirmed_at or 'not yet confirmed' }} UTC. If this stays for more than a few minutes, check in the database console that the cluster is running and that this server is allowed to connect.</div>
 </div>
 {% elif db_status and db_status.degraded %}
 <div data-db-save-pending="1" class="bg-amber-100 text-amber-950 px-4 py-4 mb-6">New buys are paused until the portfolio save is confirmed. Protective exits and save retries remain active. Status: {{ db_status.entry_block_reason }}.</div>

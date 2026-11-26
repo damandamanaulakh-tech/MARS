@@ -178,3 +178,8 @@ a column, not a buy rule.
 
 Tests: `trading/tests/test_rank20_column_2026_11_26.py` (5) and
 `web/tests/test_rank20_scan_page_2026_11_26.py` (2).
+
+## Full-suite total with items 1-5
+
+Full local suite on commit `8fb48ed` from a clean state directory:
+**3,873 passed, 0 failed, 0 errors, 0 skipped** (junit report read back).

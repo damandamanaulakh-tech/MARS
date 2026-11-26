@@ -131,6 +131,50 @@ def is_connected() -> bool:
     return _CONNECTED
 
 
+def _is_link_error(exc: BaseException) -> bool:
+    """The CLIENT cannot reach a usable server (no server selected, network
+    timeout, no primary) — as opposed to a server that answered and refused
+    the operation (over quota, not authorised), which is a healthy link."""
+    try:
+        from pymongo.errors import ConnectionFailure
+    except ImportError:
+        return False
+    return isinstance(exc, ConnectionFailure)
+
+
+def note_link_failure(exc: BaseException, where: str = "") -> bool:
+    """Drop a client that can no longer reach its cluster, so the next
+    `ensure_connected()` builds a NEW one. True when the link was dropped.
+
+    RUN-20261126-02 (26 Nov, live): the Atlas cluster's tier was changed at
+    about 18:35 IST. A tier change moves the cluster to new hosts; the SRV
+    name follows, but a driver client that is already running keeps the OLD
+    hosts and never finds a server again. `_CONNECTED` was only ever set at
+    connect time, so this app kept saying "connected", every read and save
+    timed out, nothing reconnected, and the dashboard went on printing the
+    earlier storage-quota message for hours. Only a restart could have fixed
+    it — and a restart discards whatever the book holds in memory.
+
+    Now a link failure marks the connection down. `is_connected()` retries
+    with a fresh client at most once per cooldown; on success the existing
+    heal pass saves the in-memory book. A refused operation is NOT a link
+    failure and leaves the connection alone."""
+    global _CLIENT, _DB, _CONNECTED
+    if not _is_link_error(exc):
+        return False
+    stale, _CLIENT, _DB, _CONNECTED = _CLIENT, None, None, False
+    portfolio_write_failed(
+        f"database unreachable ({type(exc).__name__}) — reconnecting with a fresh connection")
+    log.warning("Mongo link lost at %s (%s) — client dropped, reconnect pending",
+                where or "an operation", type(exc).__name__)
+    try:
+        if stale is not None:
+            stale.close()
+    except Exception:                                          # noqa: BLE001
+        pass
+    return True
+
+
 def status() -> dict:
     return {
         "connected": _CONNECTED,
@@ -197,6 +241,9 @@ def storage_stats(top: int = 12) -> Optional[dict]:
         return out
     except Exception as e:
         log.warning("Mongo storage_stats failed: %s", e)
+        # the health thread asks every minute: it is the app's heartbeat on
+        # the link, so a dead client is noticed even when nothing is saving
+        note_link_failure(e, "storage statistics")
         return None
 
 
@@ -274,7 +321,11 @@ def closed_history_policy() -> dict:
     if not _CONNECTED or _DB is None:
         raise RuntimeError('closed_history_policy_unavailable')
     from trading.history_retention import approved_ids
-    row = _DB.settings.find_one({'_id': 'closed_history_retention'}) or {}
+    try:
+        row = _DB.settings.find_one({'_id': 'closed_history_retention'}) or {}
+    except Exception as exc:
+        note_link_failure(exc, "closed-history policy read")
+        raise
     policy = row.get('policy') or {}
     approved_ids(policy)
     return policy
@@ -365,6 +416,7 @@ def save_portfolio(doc: dict, doc_id: str = "default") -> bool:
         if doc_id == "default":
             portfolio_write_failed(f"{type(e).__name__}: {str(e)[:200]}")
         log.warning("Mongo save_portfolio failed: %s", e)
+        note_link_failure(e, "portfolio save")
         return False
 
 

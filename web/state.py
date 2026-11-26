@@ -221,6 +221,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
     def _save_with_mirror(self: Portfolio) -> bool:
         from trading.history_retention import retain
         connected = db.is_connected()
+        stamp_before = db.LAST_WRITE_ERROR_AT
         if (db.recovered_pending() and db.boot_was_degraded()
                 and not getattr(self, '_durable_book_loaded', False)):
             original_save(self)
@@ -229,10 +230,17 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             policy = db.closed_history_policy() if connected else self.closed_history_policy
             self.closed_history_policy = policy or self.closed_history_policy
             self.trades = retain(self.trades, self.closed_history_policy)
-        except Exception:
+        except Exception as exc:
             # Preserve the local book, but do not overwrite the durable policy
             # or resurrect removed history when its policy cannot be read.
             original_save(self)
+            # Say what is failing NOW. On 26 Nov this path returned without a
+            # word, so the dashboard kept an hours-old storage-quota message
+            # while the real fault was a database the app could not reach.
+            if connected and db.LAST_WRITE_ERROR_AT == stamp_before:
+                db.portfolio_write_failed(
+                    "portfolio save stopped before the write: "
+                    + type(exc).__name__ + " reading the saved-history policy")
             return False
 
         from trading import forward_validation as fv
