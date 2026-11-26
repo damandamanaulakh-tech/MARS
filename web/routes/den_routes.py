@@ -290,14 +290,21 @@ _BLIND: Optional[dict] = None
 
 
 def _danger_blind() -> dict:
-    """Which danger tripwires the layer can actually COUNT (audit
-    2026-10-15, the upload review's XR-060). `danger.evaluate_stock` counts a
-    fire only when the tripwire returns the Python object True; a tripwire
-    that returns a NumPy bool can never be counted, whatever the market does.
-    Measured here by running each OHLCV tripwire once on a fixed synthetic
-    history and reading the TYPE of what it returns — so the line on the
-    page disappears by itself the day the one-line fix lands. Cached per
-    process (the functions do not change while it runs)."""
+    """Which danger tripwires the layer can actually COUNT.
+
+    History: XR-060 (upload review, measured here 2026-10-15). The layer
+    counted a fire only when a tripwire returned the Python object True, so
+    the eight that return a NumPy bool could never be counted. REPAIRED
+    2026-11-27: `danger._verdict` reads an answer by value, so both boolean
+    kinds count and this probe should report nothing blind.
+
+    It still runs, because the question it answers is permanent: can the
+    layer read what each tripwire returns? A tripwire is blind when it gives
+    an answer the reader cannot use — today that means anything that is
+    neither boolean kind nor an abstention. Measured by running each OHLCV
+    tripwire once on a fixed synthetic history and passing its answer
+    through the production reader, never by guessing from the type. Cached
+    per process (the functions do not change while it runs)."""
     global _BLIND
     if _BLIND is not None:
         return _BLIND
@@ -318,12 +325,14 @@ def _danger_blind() -> dict:
                 r = fn(x)
             except Exception:
                 r = None
-            if isinstance(r, np.bool_):
-                out["blind"].append(tid)
-            elif isinstance(r, bool):
+            if r is None:
+                # Abstained on this synthetic history. Says nothing about
+                # whether the layer could read a real answer.
+                out["unknown"].append(tid)
+            elif danger._verdict(r) is not None:
                 out["countable"].append(tid)
             else:
-                out["unknown"].append(tid)
+                out["blind"].append(tid)
     except Exception:
         log.exception("den: danger blind check failed")
     _BLIND = out
