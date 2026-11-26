@@ -4894,7 +4894,7 @@
     "workflow": "LOCAL_TESTED_PUBLISHED_DEPLOYMENT_HOLD",
     "assignee": "Claude",
     "fix_commit": "",
-    "test_result": "12 new tests pass; 11 of them fail on baseline dc50354; 81 related save-guard, quota, startup and health tests pass. Full-suite total recorded with the commit.",
+    "test_result": "12 new tests pass; 11 of them fail on baseline dc50354. Full local suite on 35a39db: 3,885 passed, 0 failed, 0 skipped. CI on PR234 pending. Not merged, not deployed; live process still on the old code.",
     "deployment_revision": "",
     "source_sheet": "Owner request",
     "source_row": 0

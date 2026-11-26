@@ -73,6 +73,10 @@ read notices a dead link; the dashboard banner. On baseline `dc50354` the
 same file gives 11 failed, 1 passed. The 81 save-guard, quota, startup
 recovery and health tests pass with it.
 
+Full local suite on commit `35a39db` from a clean state directory: **3,885
+passed, 0 failed, 0 errors, 0 skipped** (junit report read back). CI on the
+pull request is recorded separately once it completes.
+
 ## Live recovery (owner action; not performed from this session)
 
 The running process has the old code, so it cannot reconnect. It must be
