@@ -709,8 +709,27 @@ def fund_summary(p, cfg, prices: dict, live_count: int) -> dict:
     price elsewhere; `live_count` says how many names were live so the
     block can label itself honestly instead of wearing "live" over an
     entry mark.
+
+    Closed trades (owner order 2026-11-26: "its not adding the margin
+    released in the total, it should add the amount, and must match with
+    each total"). Per segment, from the closed trades the live book lists:
+      booked         = sum of net P&L (after every cost of both legs);
+      released_today = entry cost (qty x entry price) of the positions
+                       closed today IST — the money that went back to the
+                       segment's free room today;
+      closed         = how many.
+    `reconcile` makes the totals add up, exactly, from two facts that are
+    always true: equity = cash + used(now), and equity - capital = total
+    result. The total result is split into unrealised (open positions) and
+    realised (everything else: closed trades and every charge paid). The
+    realised figure is DERIVED, so the line always balances; the listed
+    closed trades are shown beside it and any gap is named, never hidden —
+    older trades are archived out of the live list and entry charges on
+    open positions are already paid.
     """
     from trading import category_budget as cb
+    from trading.measured_kelly import trade_category
+    from .clock import ist_today_iso, to_ist
     positions = list(getattr(p, "positions", {}).values())
     n = len(positions)
     capital = float(getattr(cfg, "starting_capital", 0.0) or 0.0)
@@ -720,6 +739,30 @@ def fund_summary(p, cfg, prices: dict, live_count: int) -> dict:
     deployable = cb.deployable(cfg, equity)
     budgets_on = cb.enabled(cfg)
     min_open = max(cb.min_open(cfg), 1.0)
+
+    today = ist_today_iso()
+    closed_by: dict = {}
+    for tr in list(getattr(p, "trades", []) or []):
+        try:
+            net = float(getattr(tr, "net_pnl", 0.0) or 0.0)
+            cost = float(getattr(tr, "qty", 0) or 0) * float(getattr(tr, "entry_price", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            continue
+        slot = closed_by.setdefault(trade_category(tr), {
+            "booked": 0.0, "closed": 0, "released_today": 0.0,
+            "booked_today": 0.0, "closed_today": 0})
+        slot["booked"] += net
+        slot["closed"] += 1
+        try:
+            same_day = to_ist(getattr(tr, "exit_date", None), "%Y-%m-%d") == today
+        except Exception:
+            same_day = False
+        if same_day:
+            slot["released_today"] += cost
+            slot["booked_today"] += net
+            slot["closed_today"] += 1
+    _no_closes = {"booked": 0.0, "closed": 0, "released_today": 0.0,
+                  "booked_today": 0.0, "closed_today": 0}
 
     def _row(cat: str, label: str, limit, share, note: str = "") -> dict:
         mine = [x for x in positions if cb.category_of(x) == cat]
@@ -737,6 +780,7 @@ def fund_summary(p, cfg, prices: dict, live_count: int) -> dict:
             "open": len(mine),
             "over_limit": (max(0.0, allocated - limit) if limit is not None else None),
             "full": (limit is not None and (limit - allocated) < min_open),
+            **closed_by.get(cat, _no_closes),
         }
 
     rows = []
@@ -748,6 +792,15 @@ def fund_summary(p, cfg, prices: dict, live_count: int) -> dict:
     for cat in sorted({cb.category_of(x) for x in positions} - known):
         rows.append(_row(cat, cat.replace("_", " ").title(), None, None,
                          note="no budget applies to this category"))
+    # Closed trades the six segments (and any unclassified open category
+    # above) do not account for: older trades whose record names no segment.
+    shown = {r["category"] for r in rows}
+    unplaced = {"booked": 0.0, "closed": 0, "released_today": 0.0,
+                "booked_today": 0.0, "closed_today": 0}
+    for cat, slot in closed_by.items():
+        if cat not in shown:
+            for k in unplaced:
+                unplaced[k] += slot[k]
 
     allocated = sum(r["allocated"] for r in rows)
     now_val = sum(r["now"] for r in rows)
@@ -760,8 +813,40 @@ def fund_summary(p, cfg, prices: dict, live_count: int) -> dict:
         marks = "entry marks — connect Upstox for live P&L"
     else:
         marks = f"{live_count} of {n} names live, the rest at entry marks"
+    # The capital the book was actually funded with (Settings changes move
+    # cash and this base together); an old book with no stored base reads
+    # the configured capital, the same fallback the engine uses.
+    base = float(getattr(p, "capital_base", 0.0) or 0.0) or capital
+    cash = float(p.cash)
+    listed_booked = sum(s["booked"] for s in closed_by.values())
+    listed_closed = sum(s["closed"] for s in closed_by.values())
+    total_result = equity - base
+    realised = total_result - pnl            # derived: always balances
+    reconcile = {
+        "capital": base,
+        "realised": realised,
+        "unrealised": pnl,
+        "equity": equity,
+        "cash": cash,
+        "used_now": now_val,
+        "total_result": total_result,
+        "total_result_pct": ((total_result / base * 100) if base else None),
+        "listed_booked": listed_booked,
+        "listed_closed": listed_closed,
+        # realised that the listed closed trades do not explain: archived
+        # older trades and charges already paid on positions still open
+        "other": realised - listed_booked,
+        "released_today": sum(s["released_today"] for s in closed_by.values()),
+        "booked_today": sum(s["booked_today"] for s in closed_by.values()),
+        "closed_today": sum(s["closed_today"] for s in closed_by.values()),
+        "unplaced": unplaced,
+        # equity is DEFINED as cash + positions at these marks; shown so the
+        # owner can see both sides land on the same rupee
+        "balances": abs((base + realised + pnl) - (cash + now_val)) < 0.5,
+    }
     return {
-        "capital": capital, "equity": equity, "cash": float(p.cash),
+        "capital": capital, "equity": equity, "cash": cash,
+        "reconcile": reconcile,
         "allocated": allocated, "now": now_val, "pnl": pnl,
         "pnl_vs_cost": ((pnl / allocated * 100) if allocated else None),
         "pnl_vs_capital": ((pnl / capital * 100) if capital else None),

@@ -4842,5 +4842,33 @@
     "deployment_revision": "",
     "source_sheet": "Owner request",
     "source_row": 0
+  },
+  {
+    "id": "DISP-001",
+    "priority": "P2",
+    "area": "Owner display batch",
+    "finding": "Owner formula decisions of 26 November ask for display additions: closed-trade amounts and matching totals in the fund summary, a watch label from 55, a 20-session rank column, two separately shown volume gates, one pre-rise signal, a market-versus-stocks gap card and a stock page with targets and segment verdicts.",
+    "impact": "The fund block could not be reconciled by the owner; several decided measures have no screen.",
+    "source_severity": "OWNER_POLICY",
+    "source_status": "OWNER_APPROVED_2026_11_26",
+    "updated_state": "PARTIAL_LOCAL_TESTED_PUBLISHED_DEPLOYMENT_HOLD",
+    "review_note": "Item 1 (fund summary: booked, released today, balancing lines) implemented and tested. Remaining items not started. Display only.",
+    "draft_state": "",
+    "proposed_fix": "Read-only panels and columns built from values the engine already computes; no gate, size, stop, target or cash change.",
+    "effort": "M",
+    "source_evidence": "Owner message of 26 November returning the formula table with decisions; defaults approved in the following message.",
+    "source_origin": "Owner display request",
+    "owner_decision": "Keep the Rs 5 crore liquidity rule; add the released amount so each total matches; watch floor 55; rank column; two volume gates; pre-rise as one signal; gap measure; stock page with targets and segments. Show every change before shipping; nothing else on the app changes.",
+    "owner_note": "",
+    "current_evidence": "docs/repairs/releases/2026-11-26-owner-display-batch.md",
+    "related_id": "INTRA-005; ALLOC-001",
+    "acceptance": "Each item renders with a mixed real-shaped book at desktop and phone width, never fetches or trades from a page view, states what it does not know, has zero-skip tests, and is observed on the deployed app after an authorised release.",
+    "workflow": "PARTIAL_LOCAL_TESTED_PUBLISHED_DEPLOYMENT_HOLD",
+    "assignee": "Claude",
+    "fix_commit": "",
+    "test_result": "Item 1: 10 new tests pass; full-suite total recorded with the commit.",
+    "deployment_revision": "",
+    "source_sheet": "Owner request",
+    "source_row": 0
   }
 ]
