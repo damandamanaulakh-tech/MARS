@@ -119,6 +119,39 @@ Atlas, not in any repo — repo moves never touch money or memory.
   fix); on ab6fc59 CI failed ONE test (a Den line reading a settings value an earlier test left behind —
   not an app fault), fixed in 8f74b78 with a shared `clean_settings()` fixture; CI queue runs
   ~40 min behind.
+- **CORRECTION 27 Nov, VERIFIED IN CODE — THE VALUATION RANGE IS ON THE MONEY PATH.** The
+  October notes further down ("item 19 stays OUT", "display only; engine never reads
+  trading.valuation") are HISTORY, superseded by the owner's card of 2026-10-21 ("Wire A3" +
+  "Exit as tested"): `trading/valuation_exit.py` is live, `cfg.valuation_exit_enabled = True`
+  BY DEFAULT, `engine.py:2753/2801` imports it, and an exit can fire **VAL_TARGET_DOWN**.
+  `valuation_exit.target_from_record` reads `rec["base_target"]`, which is
+  `web/valuation_exit_feed.py:251` <- `rng["base"]` <- `pipeline.evaluate` <-
+  `scenarios.justified_range`. The boundary test still holds and was MOVED, not broken:
+  `trading/tests/test_valuation_boundary_2026_10_14.py` pins `ALLOWED =
+  "trading.valuation_exit"` as the ONE import the money path may make, and asserts engine.py
+  makes it. So **the owner's "valuation P/E band capped at the current market" is a MONEY-PATH
+  change, not a display tweak**: a lower base both disqualifies names from the A1 gate
+  (`base > fill x 1.05`) and lowers the target of those that still qualify, and the item-19
+  study that earned the rule measured the UNCAPPED base. Any cap ships with its default
+  meaning "no cap" and may only be switched on after its own pre-registered test. The
+  scheduler precompute passes NO overrides (`web/scheduler.py:1355`), so a Den DRAFT cannot
+  reach the engine - but a non-neutral MODULE DEFAULT would.
+- **P/E DATA EXISTS — the other finding of the 2026-11-27 survey (4 readers + 3 refuters).**
+  NSE's own published per-index P/E and P/B are ALREADY fetched daily and stored:
+  `trading/macro_feeds.py:753` `https://www.nseindia.com/api/allIndices` (TOKENLESS, 200 with
+  follow_redirects - the HTML home page 403s, the JSON API does not), parsed at :793, stored
+  in Mongo `macro_daily` as `nse_pe:<INDEX>` / `nse_pb:<INDEX>` (23 indices), refreshed 09:20
+  + 15:35 by `scheduler._market_feeds_refresh`, read by `web/valuation_market_view.py`
+  (NSE_STALE_DAYS 10). Live 26 Nov close: NIFTY 50 21.08, IT 20.29, Pharma 46.80, Oil & Gas
+  9.97, Metal 13.86. HISTORY for a pre-registered test: `ind_close_all_<DDMMYYYY>.csv`
+  (nsearchives / niftyindices Daily_Snapshot) carries a P/E column per index back to ~2013 for
+  the majors. **TRAP: a missing date returns HTTP 200 with a 79,518-byte HTML page - validate
+  that the body starts "Index Name".** Before 2015 the Nifty 50 row is named "CNX Nifty" /
+  "S&P CNX Nifty". LIMITS: Chemicals index history starts 2025-11-10 and Cement 2026-05-11;
+  `data/industry_to_index.csv` maps NONE for Capital Goods (63 names) and Healthcare (48), so
+  those 111 names have no cap source at all; deriving a sector P/E from our own statements was
+  measured and REJECTED (only 97 of 177 members covered, median 20.5% off the published
+  figure). Committed fixture: `trading/tests/fixtures/nse_allIndices_2026-10-19.json`.
 - **PARKED, NOT IN ANY BRANCH: XR-060** (owner: tables 1-3 "due with other" batch). The fix is
   in `trading/danger.py`: `import numpy as np`, add
   `def _verdict(result): return bool(result) if isinstance(result, (bool, np.bool_)) else None`
@@ -128,7 +161,7 @@ Atlas, not in any repo — repo moves never touch money or memory.
 - PENDING, each shown before shipping: (1) display batch — DONE (six items + VOL-001), awaiting
   the owner's look at the renders; (3) test-first behind switches — VIX sizing BUILT
   (measured, not supported, default OFF — owner's call) and volume gate 2 outside Intraday
-  MEASURED, not supported (nothing built, config unchanged); still open: spread fills, valuation P/E cap (1.25 x the sector index P/E), candle priority; (4) data — quarterly shareholding for the whole scan list, Brent / gold / US 10y /
+  MEASURED, not supported (nothing built, config unchanged); still open: spread fills, valuation P/E cap (1.25 x the sector index P/E — MONEY PATH, see the correction below), candle priority; (4) data — quarterly shareholding for the whole scan list, Brent / gold / US 10y /
   dollar index / copper, event calendar, UK-parent stake-sale rule, the DATA_NEEDED fixes. Open
   questions put to the owner: 5-minute stop checks for intraday positions only; Settings rows for
   the five intraday values; different "narrow rally" cut-offs. Owner owes: the restart above, the
