@@ -89,6 +89,11 @@
       <span class="whitespace-nowrap">Gate 2 · spike (latest day ÷ the 20 before it) {% if vg.spike_ratio is not none %}<b>{{ '%.2f' % vg.spike_ratio }}×</b>, needs {{ vg.spike_need }}× <span class="{% if vg.spike_ok %}text-emerald-700{% else %}text-amber-700{% endif %}">{{ '✓' if vg.spike_ok else '✗' }}</span>{% else %}—{% endif %}</span>
       — a reading only in these four segments. Intraday reads both gates on 5-minute bars at its own scan (Gate 2 refuses a buy there); not shown here.</div>
     {% endif %}
+    {% if card.pre_rise %}
+    <div data-stock-card-pre-rise="{{ 'on' if card.pre_rise.on else 'off' }}"><span class="font-semibold text-ink">Pre-rise (compression + volume ignition):</span>
+      {% if card.pre_rise.on %}<span class="px-1.5 py-0.5 text-[10px] font-bold bg-violet-100 text-violet-800">PRE-RISE</span>{% endif %}
+      {{ card.pre_rise.text }}. {{ card.pre_rise.record }} A label only; nothing is bought on it.</div>
+    {% endif %}
     {% for n in card.notes %}<div>{{ n }}</div>{% endfor %}
     <div>CLEARED = score at or above the segment's buy mark · WATCH = 55 up to it · BELOW = under 55 · NOT SCORED = no stored score for that segment. Stops and targets are what the app's own rules would set on a buy at the last stored close; the real ones are set at the actual fill price, and other checks (cash, segment share, liquidity, market state) still decide whether anything is bought.</div>
   </div>

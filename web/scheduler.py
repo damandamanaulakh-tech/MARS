@@ -3857,6 +3857,15 @@ def run_trigger_layer(where: str = "manual") -> dict:
             from trading.selection_sequence import stage_for
             stage = stage_for(view["family_counts"], gates_passed,
                               held=t in p.positions)
+            # Owner decision 2026-11-26: compression + volume ignition read
+            # as ONE label. Display only; a failure costs the label, never
+            # the trigger pass.
+            try:
+                from trading import pre_rise as _pre_rise
+                pre = _pre_rise.reading(df)
+            except Exception:
+                log.exception("pre-rise reading failed for %s", t)
+                pre = None
             rows[t] = {
                 "asof": view["asof"],
                 "family_counts": view["family_counts"],
@@ -3866,6 +3875,7 @@ def run_trigger_layer(where: str = "manual") -> dict:
                 "fired": [f["id"] for f in view["fired"]],
                 "watch": view["watch"],
                 "stage": stage,
+                "pre_rise": pre,
             }
             if view["watch"]:
                 watchlist.append(t)

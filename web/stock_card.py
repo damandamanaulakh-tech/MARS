@@ -228,6 +228,18 @@ def build(ticker: str, df, portfolio, cfg, mode_cfg: Callable, today=None) -> di
     # segment. Intraday reads 5-minute bars at its own scan, not these.
     out["volume_gates"] = _volume_gates(df, mode_cfg) if out["has_data"] else None
 
+    # ---- pre-rise (owner decision 2026-11-26): compression + volume
+    # ignition as one label, with its measured record. Display only.
+    out["pre_rise"] = None
+    if out["has_data"]:
+        try:
+            from trading import pre_rise as PR
+            got = PR.reading(df)
+            out["pre_rise"] = {"on": bool(got and got.get("on")), "text": PR.describe(got),
+                               "record": PR.record_text()}
+        except Exception:                                      # noqa: BLE001
+            out["pre_rise"] = None
+
     # ---- the book
     pos = getattr(portfolio, "positions", {}).get(ticker)
     if pos is not None:

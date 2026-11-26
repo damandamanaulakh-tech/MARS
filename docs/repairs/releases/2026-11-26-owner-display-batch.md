@@ -1,6 +1,6 @@
 # DISP-001 — owner display batch (26 November decisions)
 
-Status: **in progress on the PR234 branch; NOT merged, NOT deployed.** The
+Status: **all six items implemented and locally tested on the PR234 branch; NOT merged, NOT deployed.** The
 deployment hold in [the intraday record](2026-11-26-intraday-pipeline.md)
 applies to this batch too. Display only: nothing here changes a score, gate,
 size, stop, target, cash balance or saved record.
@@ -188,3 +188,44 @@ Tests: `trading/tests/test_rank20_column_2026_11_26.py` (5) and
 
 Full local suite on commit `8fb48ed` from a clean state directory:
 **3,873 passed, 0 failed, 0 errors, 0 skipped** (junit report read back).
+
+## Item 6 — pre-rise label (compression + volume ignition as one signal)
+
+Owner decision: "pre-rise = compression (T12W_0005) + volume ignition
+(T12W_0057) as ONE signal"; approved default: the ignition within 5 trading
+sessions of the compression.
+
+**Measured before it was built** (`scripts/pre_rise_study.py`,
+[summary](../../../research/pre_rise_study/summary.md)): 191 stocks x 12
+years, every trading day, the BT01-BT08 labels and hit rule, split at
+2020-06-30. The pair fired 373 times in 469,947 stock-days (332 separate
+stock-months). A +10% label followed 29.49% of the time against 32.11% for
+any day: lift 0.919 (0.996 to June 2020, 0.799 after). On the strict +15%
+labels: 1.001 (1.099, then 0.853). It is not better than chance. The study's
+own check: the compression half measured alone reproduces the committed
+2026-08-09 lift exactly (1.063 / 1.146).
+
+- `trading/pre_rise.py` (pure, display only): both halves come from the
+  production trigger functions — no second copy of either formula. The label
+  is on from the day an ignition bar has a compression bar on the same day or
+  in the 5 sessions before it, and stays for 5 sessions (a display choice,
+  stated on the screen; the study judges the day it fires). Too little
+  history or a broken trigger reads "unknown", never "no signal".
+- The measured record is loaded from the committed run file, so no screen can
+  print a different figure; without the file the screens say "not measured".
+- The daily trigger pass stores the reading with each stock's row
+  (`trigger_watch`). A failed reading costs the label, never the pass.
+- Screens: a Pre-rise column and a rule-plus-record note on the trigger
+  table; the reading in plain words on the stock's trigger page and on the
+  stock page card; a chip beside the stock on the Scan page, read from the
+  stored pass and shown only while its bars are at most 7 days old; one line
+  in the Den.
+- No rule reads it: a syntax-tree test over the engine and eleven rule
+  modules, and the module itself imports nothing but the trigger functions.
+- On the real daily bars to 25 November (253 stocks): the label is on for 1
+  stock; compression in the last 10 sessions for 3; ignition for 68.
+
+Tests: `trading/tests/test_pre_rise_2026_11_26.py` (16) and
+`web/tests/test_pre_rise_pages_2026_11_26.py` (9). The module is new, so
+these files cannot be collected on the previous commit.
+

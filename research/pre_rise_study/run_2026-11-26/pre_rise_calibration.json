@@ -1,0 +1,207 @@
+{
+  "panel": 191,
+  "stock_days": 469947,
+  "within_sessions": 5,
+  "split": "2020-06-30",
+  "equality_checks": 6000,
+  "cells": {
+    "signal|main_10pct|all": {
+      "days": 469947,
+      "fires": 373,
+      "episodes": 332,
+      "fire_pct": 0.079,
+      "hit_pct": 29.49,
+      "chance_pct": 32.11,
+      "lift": 0.919,
+      "mean_fwd20_pct": 1.88,
+      "all_mean_fwd20_pct": 1.59
+    },
+    "signal|main_10pct|train": {
+      "days": 193585,
+      "fires": 238,
+      "episodes": 208,
+      "fire_pct": 0.123,
+      "hit_pct": 31.51,
+      "chance_pct": 31.63,
+      "lift": 0.996,
+      "mean_fwd20_pct": 2.13,
+      "all_mean_fwd20_pct": 1.03
+    },
+    "signal|main_10pct|test": {
+      "days": 276362,
+      "fires": 135,
+      "episodes": 124,
+      "fire_pct": 0.049,
+      "hit_pct": 25.93,
+      "chance_pct": 32.44,
+      "lift": 0.799,
+      "mean_fwd20_pct": 1.45,
+      "all_mean_fwd20_pct": 1.99
+    },
+    "signal|strict_15pct|all": {
+      "days": 469947,
+      "fires": 373,
+      "episodes": 332,
+      "fire_pct": 0.079,
+      "hit_pct": 17.16,
+      "chance_pct": 17.15,
+      "lift": 1.001,
+      "mean_fwd20_pct": 1.88,
+      "all_mean_fwd20_pct": 1.59
+    },
+    "signal|strict_15pct|train": {
+      "days": 193585,
+      "fires": 238,
+      "episodes": 208,
+      "fire_pct": 0.123,
+      "hit_pct": 18.49,
+      "chance_pct": 16.83,
+      "lift": 1.099,
+      "mean_fwd20_pct": 2.13,
+      "all_mean_fwd20_pct": 1.03
+    },
+    "signal|strict_15pct|test": {
+      "days": 276362,
+      "fires": 135,
+      "episodes": 124,
+      "fire_pct": 0.049,
+      "hit_pct": 14.81,
+      "chance_pct": 17.38,
+      "lift": 0.853,
+      "mean_fwd20_pct": 1.45,
+      "all_mean_fwd20_pct": 1.99
+    },
+    "comp|main_10pct|all": {
+      "days": 469947,
+      "fires": 3288,
+      "episodes": 1233,
+      "fire_pct": 0.7,
+      "hit_pct": 34.12,
+      "chance_pct": 32.11,
+      "lift": 1.063,
+      "mean_fwd20_pct": 1.95,
+      "all_mean_fwd20_pct": 1.59
+    },
+    "comp|main_10pct|train": {
+      "days": 193585,
+      "fires": 1897,
+      "episodes": 714,
+      "fire_pct": 0.98,
+      "hit_pct": 34.21,
+      "chance_pct": 31.63,
+      "lift": 1.082,
+      "mean_fwd20_pct": 1.61,
+      "all_mean_fwd20_pct": 1.03
+    },
+    "comp|main_10pct|test": {
+      "days": 276362,
+      "fires": 1391,
+      "episodes": 519,
+      "fire_pct": 0.503,
+      "hit_pct": 34.0,
+      "chance_pct": 32.44,
+      "lift": 1.048,
+      "mean_fwd20_pct": 2.42,
+      "all_mean_fwd20_pct": 1.99
+    },
+    "comp|strict_15pct|all": {
+      "days": 469947,
+      "fires": 3288,
+      "episodes": 1233,
+      "fire_pct": 0.7,
+      "hit_pct": 19.65,
+      "chance_pct": 17.15,
+      "lift": 1.146,
+      "mean_fwd20_pct": 1.95,
+      "all_mean_fwd20_pct": 1.59
+    },
+    "comp|strict_15pct|train": {
+      "days": 193585,
+      "fires": 1897,
+      "episodes": 714,
+      "fire_pct": 0.98,
+      "hit_pct": 18.87,
+      "chance_pct": 16.83,
+      "lift": 1.122,
+      "mean_fwd20_pct": 1.61,
+      "all_mean_fwd20_pct": 1.03
+    },
+    "comp|strict_15pct|test": {
+      "days": 276362,
+      "fires": 1391,
+      "episodes": 519,
+      "fire_pct": 0.503,
+      "hit_pct": 20.7,
+      "chance_pct": 17.38,
+      "lift": 1.192,
+      "mean_fwd20_pct": 2.42,
+      "all_mean_fwd20_pct": 1.99
+    },
+    "ign|main_10pct|all": {
+      "days": 469947,
+      "fires": 12628,
+      "episodes": 10088,
+      "fire_pct": 2.687,
+      "hit_pct": 32.1,
+      "chance_pct": 32.11,
+      "lift": 1.0,
+      "mean_fwd20_pct": 1.69,
+      "all_mean_fwd20_pct": 1.59
+    },
+    "ign|main_10pct|train": {
+      "days": 193585,
+      "fires": 5445,
+      "episodes": 4241,
+      "fire_pct": 2.813,
+      "hit_pct": 31.33,
+      "chance_pct": 31.63,
+      "lift": 0.991,
+      "mean_fwd20_pct": 1.46,
+      "all_mean_fwd20_pct": 1.03
+    },
+    "ign|main_10pct|test": {
+      "days": 276362,
+      "fires": 7183,
+      "episodes": 5847,
+      "fire_pct": 2.599,
+      "hit_pct": 32.69,
+      "chance_pct": 32.44,
+      "lift": 1.008,
+      "mean_fwd20_pct": 1.86,
+      "all_mean_fwd20_pct": 1.99
+    },
+    "ign|strict_15pct|all": {
+      "days": 469947,
+      "fires": 12628,
+      "episodes": 10088,
+      "fire_pct": 2.687,
+      "hit_pct": 17.41,
+      "chance_pct": 17.15,
+      "lift": 1.015,
+      "mean_fwd20_pct": 1.69,
+      "all_mean_fwd20_pct": 1.59
+    },
+    "ign|strict_15pct|train": {
+      "days": 193585,
+      "fires": 5445,
+      "episodes": 4241,
+      "fire_pct": 2.813,
+      "hit_pct": 16.86,
+      "chance_pct": 16.83,
+      "lift": 1.002,
+      "mean_fwd20_pct": 1.46,
+      "all_mean_fwd20_pct": 1.03
+    },
+    "ign|strict_15pct|test": {
+      "days": 276362,
+      "fires": 7183,
+      "episodes": 5847,
+      "fire_pct": 2.599,
+      "hit_pct": 17.83,
+      "chance_pct": 17.38,
+      "lift": 1.026,
+      "mean_fwd20_pct": 1.86,
+      "all_mean_fwd20_pct": 1.99
+    }
+  }
+}

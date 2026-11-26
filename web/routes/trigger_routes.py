@@ -37,6 +37,16 @@ def _universe_names() -> list[str]:
         return []
 
 
+def _pre_rise_note() -> dict:
+    """The rule and its measured record, for both trigger pages."""
+    try:
+        from trading import pre_rise as _pre_rise
+        return {"rule": _pre_rise.RULE_TEXT, "record": _pre_rise.record_text()}
+    except Exception:
+        log.exception("pre-rise note failed")
+        return {"rule": "", "record": ""}
+
+
 @router.get("/triggers", response_class=HTMLResponse)
 def triggers_page(request: Request):
     user = auth.current_user(request)
@@ -90,6 +100,7 @@ def triggers_page(request: Request):
             "n_external_pending": len(EXTERNAL_PENDING),
             "gate_rows": GATE_ROWS,
             "score_note": SCORE_NOTE,
+            "pre_rise": _pre_rise_note(),
             "universe": _universe_names(),
             "detail": None,
         },
@@ -226,9 +237,19 @@ def trigger_detail(request: Request, ticker: str):
                 chain["row"] = crow
         except Exception:
             log.exception("chain context failed")
+        # Owner decision 2026-11-26: the pre-rise label, from the same stored
+        # bars. Display only.
+        pre = {"reading": None, "text": ""}
+        try:
+            from trading import pre_rise as _pre_rise
+            pre["reading"] = _pre_rise.reading(df)
+            pre["text"] = _pre_rise.describe(pre["reading"])
+        except Exception:
+            log.exception("pre-rise reading failed")
+            pre["text"] = "could not be computed"
         detail = {"ticker": ticker, "view": view, "by_family": by_family,
                   "bars": len(df), "news": news_detail,
-                  "sebi": sebi, "chain": chain,
+                  "sebi": sebi, "chain": chain, "pre_rise": pre,
                   "stage": stage, "stage_meta": STAGE_META[stage["stage"]]}
     return templates.TemplateResponse(
         request, "triggers.html",
@@ -246,6 +267,7 @@ def trigger_detail(request: Request, ticker: str):
             "n_external_pending": len(EXTERNAL_PENDING),
             "gate_rows": GATE_ROWS,
             "score_note": SCORE_NOTE,
+            "pre_rise": _pre_rise_note(),
             "universe": _universe_names(),
             "detail": detail,
             "detail_ticker": ticker,

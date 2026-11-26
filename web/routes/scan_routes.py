@@ -188,6 +188,7 @@ def scan_view(request: Request, error: str | None = None):
             "picks": picks,
             "watch": watch,
             "volume_view": _volume_gates_view(p.scan_matrix or {}, cfg),
+            "pre_rise_on": _pre_rise_on(p),
             "slots": slots,
             "buy_desk": buy_desk,
             **_universe_badge(cfg, p),
@@ -322,6 +323,30 @@ def _volume_cell(vol, part: str, summary: dict) -> tuple[str, str]:
     if vol.get(part + "k"):
         return "hit", label
     return ("blocked" if gate.get("blocks") else "weak"), label
+
+
+PRE_RISE_MAX_AGE_DAYS = 7     # a stored reading older than this is not shown as current
+
+
+def _pre_rise_on(p, today=None) -> dict:
+    """{ticker: stored pre-rise reading} for the stocks whose label is on in
+    the last stored trigger pass. A page view computes nothing; a reading on
+    bars older than a week is left out rather than shown as current."""
+    from datetime import date as _date, datetime as _datetime
+    out: dict = {}
+    today = today or _datetime.utcnow().date()
+    rows = ((getattr(p, "trigger_watch", None) or {}).get("rows") or {})
+    for ticker, row in rows.items():
+        reading = row.get("pre_rise") if isinstance(row, dict) else None
+        if not (isinstance(reading, dict) and reading.get("on")):
+            continue
+        try:
+            age = (today - _date.fromisoformat(str(reading.get("asof"))[:10])).days
+        except Exception:                                      # noqa: BLE001
+            continue
+        if 0 <= age <= PRE_RISE_MAX_AGE_DAYS:
+            out[ticker] = reading
+    return out
 
 
 def _volume_gates_view(matrix: dict, cfg) -> dict | None:

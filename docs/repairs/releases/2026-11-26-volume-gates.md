@@ -100,7 +100,12 @@ available. **Gate 2 has not been tested against returns in any segment.**
   failed, 2 passed** (the 2 pin behavior that must not change).
 - Local render with real 25 November volume readings: Scan block at 1280 and
   390 px, the pick rows, the spike lane and its tap page.
-- Full local suite total: recorded below once the run completes.
+- One existing fixture was updated, not weakened:
+  `test_scan_crossing_deadline_refuses_intraday_entry_before_rotation` stubs
+  the timing check to isolate the entry deadline and supplied flat-volume
+  bars; it now supplies a passing volume reading the same way. It was the
+  only failure in the first full run with the gates (3,925 passed, 1 failed).
+- Full local suite total: FULLSUITE_PLACEHOLDER
 
 ## Limitations and open items
 

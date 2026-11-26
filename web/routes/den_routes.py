@@ -421,6 +421,15 @@ def _category_rows(cfg) -> list[dict]:
     return rows
 
 
+def _pre_rise_note() -> dict:
+    """The pre-rise label's rule and measured record (owner decision 2026-11-26)."""
+    try:
+        from trading import pre_rise as PR
+        return {"rule": PR.RULE_TEXT, "record": PR.record_text()}
+    except Exception:                                          # noqa: BLE001
+        return {"rule": "", "record": ""}
+
+
 def _volume_gate_rules(cfg) -> dict:
     """The two volume gates as the code applies them, per segment (owner
     decision 2026-11-26). Read from the live settings and presets."""
@@ -784,6 +793,7 @@ def _triggers(p) -> dict:
         "watch_rows": len(tw.get("rows") or {}),
         "watchlist": len(tw.get("watchlist") or []),
         "watch_ts": tw.get("ts") or tw.get("asof"),
+        "pre_rise": _pre_rise_note(),
     }
 
 

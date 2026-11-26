@@ -81,6 +81,9 @@
           {% for s in trg.ladder %}
           <div><span class="font-mono">{{ s.icon }}</span> <strong>{{ s.label }}</strong> — {{ s.means }}{% if s.lead %} <span class="text-ink-faint">· {{ s.lead }}</span>{% endif %}</div>
           {% endfor %}
+          {% if trg.pre_rise and trg.pre_rise.rule %}
+          <div class="pt-2 mt-2 border-t border-line" data-den-pre-rise><!-- den_pre_rise_marker --><strong>Pre-rise label</strong> (owner decision 26 Nov 2026) — {{ trg.pre_rise.rule }} <span class="text-ink-faint">{{ trg.pre_rise.record }}</span></div>
+          {% endif %}
         </div>
       </div>
     </div>

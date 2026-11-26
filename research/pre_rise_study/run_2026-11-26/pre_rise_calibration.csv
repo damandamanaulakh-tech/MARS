@@ -1,0 +1,19 @@
+signal,labels,half,days,fires,episodes,fire_pct,hit_pct,chance_pct,lift,mean_fwd20_pct,all_mean_fwd20_pct
+pre_rise (0057 with 0005 within 5 sessions),main_10pct,all,469947,373,332,0.079,29.49,32.11,0.919,1.88,1.59
+pre_rise (0057 with 0005 within 5 sessions),main_10pct,train,193585,238,208,0.123,31.51,31.63,0.996,2.13,1.03
+pre_rise (0057 with 0005 within 5 sessions),main_10pct,test,276362,135,124,0.049,25.93,32.44,0.799,1.45,1.99
+pre_rise (0057 with 0005 within 5 sessions),strict_15pct,all,469947,373,332,0.079,17.16,17.15,1.001,1.88,1.59
+pre_rise (0057 with 0005 within 5 sessions),strict_15pct,train,193585,238,208,0.123,18.49,16.83,1.099,2.13,1.03
+pre_rise (0057 with 0005 within 5 sessions),strict_15pct,test,276362,135,124,0.049,14.81,17.38,0.853,1.45,1.99
+T12W_0005 alone,main_10pct,all,469947,3288,1233,0.7,34.12,32.11,1.063,1.95,1.59
+T12W_0005 alone,main_10pct,train,193585,1897,714,0.98,34.21,31.63,1.082,1.61,1.03
+T12W_0005 alone,main_10pct,test,276362,1391,519,0.503,34.0,32.44,1.048,2.42,1.99
+T12W_0005 alone,strict_15pct,all,469947,3288,1233,0.7,19.65,17.15,1.146,1.95,1.59
+T12W_0005 alone,strict_15pct,train,193585,1897,714,0.98,18.87,16.83,1.122,1.61,1.03
+T12W_0005 alone,strict_15pct,test,276362,1391,519,0.503,20.7,17.38,1.192,2.42,1.99
+T12W_0057 alone,main_10pct,all,469947,12628,10088,2.687,32.1,32.11,1.0,1.69,1.59
+T12W_0057 alone,main_10pct,train,193585,5445,4241,2.813,31.33,31.63,0.991,1.46,1.03
+T12W_0057 alone,main_10pct,test,276362,7183,5847,2.599,32.69,32.44,1.008,1.86,1.99
+T12W_0057 alone,strict_15pct,all,469947,12628,10088,2.687,17.41,17.15,1.015,1.69,1.59
+T12W_0057 alone,strict_15pct,train,193585,5445,4241,2.813,16.86,16.83,1.002,1.46,1.03
+T12W_0057 alone,strict_15pct,test,276362,7183,5847,2.599,17.83,17.38,1.026,1.86,1.99
