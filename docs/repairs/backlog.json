@@ -4880,7 +4880,7 @@
     "source_severity": "OWNER_POLICY",
     "source_status": "OWNER_APPROVED_2026_11_26",
     "updated_state": "FIX_LOCAL_TESTED_PUBLISHED_DEPLOYMENT_HOLD_RUNTIME_PENDING",
-    "review_note": "Gate 1 (trend) keeps blocking exactly as before and gains its own reading and switch. Gate 2 (spike) is new: it refuses a buy in Intraday only, after score and timing, and is a reading in the other four segments. Readings on the Scan page, piano lanes with tap pages, per-pick readings, the stock page, the Den and two Settings switches; the 5-minute pass summary counts what Gate 2 stopped. Gate 2 is not tested against returns in any segment.",
+    "review_note": "Gate 1 (trend) keeps blocking exactly as before and gains its own reading and switch. Gate 2 (spike) is new: it refuses a buy in Intraday only, after score and timing, and is a reading in the other four segments. Readings on the Scan page, piano lanes with tap pages, per-pick readings, the stock page, the Den and two Settings switches; the 5-minute pass summary counts what Gate 2 stopped. Gate 2 is not tested against returns in Intraday, where it is live (no 5-minute history is stored). Extending it to Momentum WAS measured on 2026-11-27 (research/volume_gate2_study/, plan committed first) and is NOT SUPPORTED: on 11,055 Momentum picks of the 191x12y panel a passed buy returns +1.659% against +2.385% for a refused one in the first half and +4.555% against +3.958% in the second — the sign flips — while refusing 76% of buys. volume_gate2_block_modes stays (\"intraday\",).",
     "draft_state": "",
     "proposed_fix": "Separate readings from trading/timing.py; Gate 2 refusal applied in the scan's pick loop only for the segments in volume_gate2_block_modes; no size, stop, target, exit, score or owner-order path reads either gate.",
     "effort": "M",
@@ -4894,7 +4894,7 @@
     "workflow": "FIX_LOCAL_TESTED_PUBLISHED_DEPLOYMENT_HOLD_RUNTIME_PENDING",
     "assignee": "Claude",
     "fix_commit": "",
-    "test_result": "41 new tests (trading 25, web 16) pass; 39 of them fail on the previous branch commit 9f7439c. One existing fixture updated to supply a volume reading. CI on aa1454b (before the fixture update): 3,925 passed, 1 failed, the same test; CI on 2e5198d completed with nothing failed. Full local suite on 8f74b78: 3,983 passed, 0 failed, 0 errors, 0 skipped. Not merged, not deployed.",
+    "test_result": "41 new tests (trading 25, web 16) pass; 39 of them fail on the previous branch commit 9f7439c. One existing fixture updated to supply a volume reading. CI on aa1454b (before the fixture update): 3,925 passed, 1 failed, the same test; CI on 2e5198d completed with nothing failed. Full local suite on 8f74b78: 3,983 passed, 0 failed, 0 errors, 0 skipped. Pre-registered extension test (scripts/volume_gate2_study.py, run_2026-11-27 with its identity sidecar): supported false; the vectorised ratio was proved equal to the production passes_volume_spike on 382 real (ticker, date) pairs before use. No code or config changed by that run. Not merged, not deployed.",
     "deployment_revision": "",
     "source_sheet": "Owner request",
     "source_row": 0

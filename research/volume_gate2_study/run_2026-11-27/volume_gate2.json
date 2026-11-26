@@ -1,0 +1,448 @@
+{
+  "counts": {
+    "observations": 23507,
+    "picks_resolved": 11055,
+    "picks_unresolved_left_out": 178,
+    "dropped_no_ratio": 0,
+    "used": 11055,
+    "production_checks": 382,
+    "mark": 1.5,
+    "lookback": 20
+  },
+  "split": "2020-06-30",
+  "halves": {
+    "whole period": {
+      "all_picks": {
+        "buys": 11055,
+        "mean_outcome_pct": 3.431,
+        "stopped_pct": 65.6,
+        "target_pct": 32.9
+      },
+      "gate_passes": {
+        "buys": 2671,
+        "mean_outcome_pct": 3.547,
+        "stopped_pct": 65.1,
+        "target_pct": 33.2
+      },
+      "gate_refuses": {
+        "buys": 8384,
+        "mean_outcome_pct": 3.395,
+        "stopped_pct": 65.7,
+        "target_pct": 32.8
+      },
+      "pass_rate_pct": 24.2,
+      "kept_minus_refused_points": 0.152,
+      "kept_minus_all_points": 0.116
+    },
+    "to 2020-06-30": {
+      "all_picks": {
+        "buys": 3930,
+        "mean_outcome_pct": 2.213,
+        "stopped_pct": 70.3,
+        "target_pct": 27.9
+      },
+      "gate_passes": {
+        "buys": 930,
+        "mean_outcome_pct": 1.659,
+        "stopped_pct": 72.8,
+        "target_pct": 25.6
+      },
+      "gate_refuses": {
+        "buys": 3000,
+        "mean_outcome_pct": 2.385,
+        "stopped_pct": 69.5,
+        "target_pct": 28.6
+      },
+      "pass_rate_pct": 23.7,
+      "kept_minus_refused_points": -0.726,
+      "kept_minus_all_points": -0.554
+    },
+    "after 2020-06-30": {
+      "all_picks": {
+        "buys": 7125,
+        "mean_outcome_pct": 4.104,
+        "stopped_pct": 63.0,
+        "target_pct": 35.7
+      },
+      "gate_passes": {
+        "buys": 1741,
+        "mean_outcome_pct": 4.555,
+        "stopped_pct": 60.9,
+        "target_pct": 37.3
+      },
+      "gate_refuses": {
+        "buys": 5384,
+        "mean_outcome_pct": 3.958,
+        "stopped_pct": 63.6,
+        "target_pct": 35.2
+      },
+      "pass_rate_pct": 24.4,
+      "kept_minus_refused_points": 0.597,
+      "kept_minus_all_points": 0.451
+    }
+  },
+  "buckets": {
+    "whole period": [
+      {
+        "bucket": "under 0.75",
+        "buys": 3472,
+        "mean_outcome_pct": 3.585,
+        "stopped_pct": 65.2,
+        "target_pct": 33.8
+      },
+      {
+        "bucket": "0.75 to 1",
+        "buys": 2247,
+        "mean_outcome_pct": 3.119,
+        "stopped_pct": 66.6,
+        "target_pct": 31.7
+      },
+      {
+        "bucket": "1 to 1.25",
+        "buys": 1621,
+        "mean_outcome_pct": 3.412,
+        "stopped_pct": 65.5,
+        "target_pct": 32.8
+      },
+      {
+        "bucket": "1.25 to 1.5",
+        "buys": 1044,
+        "mean_outcome_pct": 3.329,
+        "stopped_pct": 65.9,
+        "target_pct": 32.2
+      },
+      {
+        "bucket": "1.5 to 2",
+        "buys": 1182,
+        "mean_outcome_pct": 3.307,
+        "stopped_pct": 65.8,
+        "target_pct": 32.1
+      },
+      {
+        "bucket": "2 to 3",
+        "buys": 856,
+        "mean_outcome_pct": 3.873,
+        "stopped_pct": 63.8,
+        "target_pct": 34.5
+      },
+      {
+        "bucket": "3 and above",
+        "buys": 633,
+        "mean_outcome_pct": 3.554,
+        "stopped_pct": 65.4,
+        "target_pct": 33.8
+      }
+    ],
+    "to 2020-06-30": [
+      {
+        "bucket": "under 0.75",
+        "buys": 1244,
+        "mean_outcome_pct": 2.879,
+        "stopped_pct": 67.9,
+        "target_pct": 30.8
+      },
+      {
+        "bucket": "0.75 to 1",
+        "buys": 780,
+        "mean_outcome_pct": 1.899,
+        "stopped_pct": 70.8,
+        "target_pct": 26.4
+      },
+      {
+        "bucket": "1 to 1.25",
+        "buys": 587,
+        "mean_outcome_pct": 2.329,
+        "stopped_pct": 70.0,
+        "target_pct": 28.8
+      },
+      {
+        "bucket": "1.25 to 1.5",
+        "buys": 389,
+        "mean_outcome_pct": 1.861,
+        "stopped_pct": 71.5,
+        "target_pct": 26.0
+      },
+      {
+        "bucket": "1.5 to 2",
+        "buys": 414,
+        "mean_outcome_pct": 2.248,
+        "stopped_pct": 70.3,
+        "target_pct": 27.8
+      },
+      {
+        "bucket": "2 to 3",
+        "buys": 306,
+        "mean_outcome_pct": 1.522,
+        "stopped_pct": 73.2,
+        "target_pct": 24.8
+      },
+      {
+        "bucket": "3 and above",
+        "buys": 210,
+        "mean_outcome_pct": 0.7,
+        "stopped_pct": 77.1,
+        "target_pct": 22.4
+      }
+    ],
+    "after 2020-06-30": [
+      {
+        "bucket": "under 0.75",
+        "buys": 2228,
+        "mean_outcome_pct": 3.979,
+        "stopped_pct": 63.7,
+        "target_pct": 35.5
+      },
+      {
+        "bucket": "0.75 to 1",
+        "buys": 1467,
+        "mean_outcome_pct": 3.767,
+        "stopped_pct": 64.3,
+        "target_pct": 34.5
+      },
+      {
+        "bucket": "1 to 1.25",
+        "buys": 1034,
+        "mean_outcome_pct": 4.027,
+        "stopped_pct": 63.0,
+        "target_pct": 35.0
+      },
+      {
+        "bucket": "1.25 to 1.5",
+        "buys": 655,
+        "mean_outcome_pct": 4.201,
+        "stopped_pct": 62.6,
+        "target_pct": 35.9
+      },
+      {
+        "bucket": "1.5 to 2",
+        "buys": 768,
+        "mean_outcome_pct": 3.878,
+        "stopped_pct": 63.4,
+        "target_pct": 34.4
+      },
+      {
+        "bucket": "2 to 3",
+        "buys": 550,
+        "mean_outcome_pct": 5.181,
+        "stopped_pct": 58.5,
+        "target_pct": 39.8
+      },
+      {
+        "bucket": "3 and above",
+        "buys": 423,
+        "mean_outcome_pct": 4.97,
+        "stopped_pct": 59.6,
+        "target_pct": 39.5
+      }
+    ]
+  },
+  "marks": {
+    "whole period": [
+      {
+        "mark": 1.2,
+        "pass_rate_pct": 36.0,
+        "buys": 3976,
+        "mean_outcome_pct": 3.402,
+        "stopped_pct": 65.7,
+        "target_pct": 32.6
+      },
+      {
+        "mark": 1.3,
+        "pass_rate_pct": 31.2,
+        "buys": 3447,
+        "mean_outcome_pct": 3.44,
+        "stopped_pct": 65.5,
+        "target_pct": 32.8
+      },
+      {
+        "mark": 1.5,
+        "pass_rate_pct": 24.2,
+        "buys": 2671,
+        "mean_outcome_pct": 3.547,
+        "stopped_pct": 65.1,
+        "target_pct": 33.2
+      },
+      {
+        "mark": 2.0,
+        "pass_rate_pct": 13.5,
+        "buys": 1489,
+        "mean_outcome_pct": 3.737,
+        "stopped_pct": 64.5,
+        "target_pct": 34.2
+      }
+    ],
+    "to 2020-06-30": [
+      {
+        "mark": 1.2,
+        "pass_rate_pct": 36.3,
+        "buys": 1425,
+        "mean_outcome_pct": 1.703,
+        "stopped_pct": 72.5,
+        "target_pct": 25.7
+      },
+      {
+        "mark": 1.3,
+        "pass_rate_pct": 31.1,
+        "buys": 1223,
+        "mean_outcome_pct": 1.626,
+        "stopped_pct": 72.9,
+        "target_pct": 25.5
+      },
+      {
+        "mark": 1.5,
+        "pass_rate_pct": 23.7,
+        "buys": 930,
+        "mean_outcome_pct": 1.659,
+        "stopped_pct": 72.8,
+        "target_pct": 25.6
+      },
+      {
+        "mark": 2.0,
+        "pass_rate_pct": 13.1,
+        "buys": 516,
+        "mean_outcome_pct": 1.187,
+        "stopped_pct": 74.8,
+        "target_pct": 23.8
+      }
+    ],
+    "after 2020-06-30": [
+      {
+        "mark": 1.2,
+        "pass_rate_pct": 35.8,
+        "buys": 2551,
+        "mean_outcome_pct": 4.351,
+        "stopped_pct": 61.9,
+        "target_pct": 36.5
+      },
+      {
+        "mark": 1.3,
+        "pass_rate_pct": 31.2,
+        "buys": 2224,
+        "mean_outcome_pct": 4.437,
+        "stopped_pct": 61.4,
+        "target_pct": 36.8
+      },
+      {
+        "mark": 1.5,
+        "pass_rate_pct": 24.4,
+        "buys": 1741,
+        "mean_outcome_pct": 4.555,
+        "stopped_pct": 60.9,
+        "target_pct": 37.3
+      },
+      {
+        "mark": 2.0,
+        "pass_rate_pct": 13.7,
+        "buys": 973,
+        "mean_outcome_pct": 5.089,
+        "stopped_pct": 59.0,
+        "target_pct": 39.7
+      }
+    ]
+  },
+  "years": [
+    {
+      "year": 2015,
+      "buys": 308,
+      "pass_rate_pct": 28.6,
+      "all_mean_pct": -2.944,
+      "kept_mean_pct": -2.443,
+      "kept_minus_all_points": 0.501
+    },
+    {
+      "year": 2016,
+      "buys": 660,
+      "pass_rate_pct": 28.2,
+      "all_mean_pct": 4.46,
+      "kept_mean_pct": 2.878,
+      "kept_minus_all_points": -1.582
+    },
+    {
+      "year": 2017,
+      "buys": 1276,
+      "pass_rate_pct": 22.2,
+      "all_mean_pct": 5.038,
+      "kept_mean_pct": 4.73,
+      "kept_minus_all_points": -0.308
+    },
+    {
+      "year": 2018,
+      "buys": 729,
+      "pass_rate_pct": 25.4,
+      "all_mean_pct": -0.084,
+      "kept_mean_pct": -0.033,
+      "kept_minus_all_points": 0.051
+    },
+    {
+      "year": 2019,
+      "buys": 721,
+      "pass_rate_pct": 16.9,
+      "all_mean_pct": 1.003,
+      "kept_mean_pct": 0.782,
+      "kept_minus_all_points": -0.221
+    },
+    {
+      "year": 2020,
+      "buys": 745,
+      "pass_rate_pct": 27.9,
+      "all_mean_pct": 5.979,
+      "kept_mean_pct": 6.064,
+      "kept_minus_all_points": 0.085
+    },
+    {
+      "year": 2021,
+      "buys": 1707,
+      "pass_rate_pct": 20.6,
+      "all_mean_pct": 4.893,
+      "kept_mean_pct": 4.143,
+      "kept_minus_all_points": -0.75
+    },
+    {
+      "year": 2022,
+      "buys": 846,
+      "pass_rate_pct": 22.7,
+      "all_mean_pct": 0.964,
+      "kept_mean_pct": 1.834,
+      "kept_minus_all_points": 0.87
+    },
+    {
+      "year": 2023,
+      "buys": 1448,
+      "pass_rate_pct": 28.2,
+      "all_mean_pct": 8.954,
+      "kept_mean_pct": 9.285,
+      "kept_minus_all_points": 0.331
+    },
+    {
+      "year": 2024,
+      "buys": 1624,
+      "pass_rate_pct": 24.7,
+      "all_mean_pct": 0.934,
+      "kept_mean_pct": 1.568,
+      "kept_minus_all_points": 0.634
+    },
+    {
+      "year": 2025,
+      "buys": 706,
+      "pass_rate_pct": 22.2,
+      "all_mean_pct": 1.954,
+      "kept_mean_pct": 3.068,
+      "kept_minus_all_points": 1.114
+    },
+    {
+      "year": 2026,
+      "buys": 285,
+      "pass_rate_pct": 31.2,
+      "all_mean_pct": -2.368,
+      "kept_mean_pct": -2.753,
+      "kept_minus_all_points": -0.385
+    }
+  ],
+  "reading_rule": {
+    "kept_beats_refused_first_half": false,
+    "kept_beats_refused_second_half": true,
+    "kept_beats_all_first_half": false,
+    "kept_beats_all_second_half": true,
+    "supported": false
+  }
+}

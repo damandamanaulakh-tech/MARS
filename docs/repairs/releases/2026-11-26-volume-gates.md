@@ -122,5 +122,21 @@ available. **Gate 2 has not been tested against returns in any segment.**
   high and Gate 1 at 1.5×. Gate 2 makes it stricter still; the 5-minute
   summary counts what it stops so the cost is visible.
 - The 1.5 and the 20 are the owner's numbers, not measured ones.
-- Extending Gate 2 to Short, Swing, Positional or Momentum is not built; it
-  is a test-first item.
+- Extending Gate 2 to Short, Swing, Positional or Momentum is not built.
+  **It was measured on 2026-11-27 and NOT SUPPORTED** — plan committed
+  first, `research/volume_gate2_study/` (PLAN.md, summary.md,
+  run_2026-11-27 with its identity sidecar), `scripts/volume_gate2_study.py`.
+  On the 11,055 Momentum picks of the committed 191 x 12-year panel (the
+  same population as the VIX test), a buy the gate passes returns **+1.659%
+  against +2.385% for one it refuses in the first half** (to 2020-06-30) and
+  +4.555% against +3.958% in the second: the sign flips, so the whole-period
+  +0.152 points comes from the second half alone. The ratio buckets have
+  opposite shapes in the two halves (the biggest spikes are the WORST bucket
+  before 2020 at +0.700%, among the best after at +4.970%), and the gate
+  helps in 6 of 12 calendar years. At the owner's 1.5 mark it would refuse
+  **76% of Momentum buys**. The marks 1.2 / 1.3 / 1.5 / 2.0 are in the run
+  file but deliberately not used to pick a better one — 2.0 shows the same
+  flip, wider. `volume_gate2_block_modes` stays `("intraday",)` as shipped;
+  the owner decides. The vectorised ratio was proved equal to the production
+  `passes_volume_spike` on 382 real (ticker, date) pairs before use.
+  Intraday itself still cannot be measured: no 5-minute history is stored.

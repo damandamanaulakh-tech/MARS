@@ -86,7 +86,15 @@ Atlas, not in any repo — repo moves never touch money or memory.
     the scan's pick loop after score + timing (skip reason `volume_spike`); a reading elsewhere;
     switch `volume_gate2_enabled`. Stored: `scan_matrix["volume_gates"]`, row `vol` {tk,tr,sk,sr},
     `last_pass["volume_gates"]`. NOT tested against returns. Real daily bars 25 Nov (253
-    stocks): Gate 1 >= 1.3x 43 pass, Gate 2 44 pass. Extending Gate 2 beyond Intraday = test first.
+    stocks): Gate 1 >= 1.3x 43 pass, Gate 2 44 pass. **EXTENDING GATE 2 TO MOMENTUM:
+    MEASURED 27 Nov, NOT SUPPORTED** (research/volume_gate2_study/, plan committed first;
+    11,055 Momentum picks of the 191x12y panel, the VIX test's population): a passed buy
+    +1.659% v a refused one +2.385% in the FIRST half, +4.555% v +3.958% in the second = the
+    sign FLIPS, so the whole-period +0.152 pts is the second half alone; the biggest-spike
+    bucket is the WORST before 2020 (+0.700%) and among the best after (+4.970%); helps in 6
+    of 12 years; refuses 76% of Momentum buys. Marks 1.2/1.3/1.5/2.0 recorded but NOT used to
+    pick one (2.0 flips wider). `volume_gate2_block_modes` stays ("intraday",). Intraday
+    itself is unmeasurable: no 5-minute history is stored. EIGHTH entry-side signal to fail.
   * **OPS-09 / RUN-20261126-02 database reconnect** — releases/2026-11-26-database-reconnect.md.
     `db.note_link_failure` drops the client on a pymongo ConnectionFailure (save, policy read,
     statistics read); `is_connected()` rebuilds it once per 60 s and the heal pass saves the book;
@@ -119,8 +127,8 @@ Atlas, not in any repo — repo moves never touch money or memory.
   a scratchpad patch hold it but both die with the container — rebuild from these lines.
 - PENDING, each shown before shipping: (1) display batch — DONE (six items + VOL-001), awaiting
   the owner's look at the renders; (3) test-first behind switches — VIX sizing BUILT
-  (measured, not supported, default OFF — owner's call); still open: volume gate 2 outside
-  Intraday, spread fills, valuation P/E cap (1.25 x the sector index P/E), candle priority; (4) data — quarterly shareholding for the whole scan list, Brent / gold / US 10y /
+  (measured, not supported, default OFF — owner's call) and volume gate 2 outside Intraday
+  MEASURED, not supported (nothing built, config unchanged); still open: spread fills, valuation P/E cap (1.25 x the sector index P/E), candle priority; (4) data — quarterly shareholding for the whole scan list, Brent / gold / US 10y /
   dollar index / copper, event calendar, UK-parent stake-sale rule, the DATA_NEEDED fixes. Open
   questions put to the owner: 5-minute stop checks for intraday positions only; Settings rows for
   the five intraday values; different "narrow rally" cut-offs. Owner owes: the restart above, the
