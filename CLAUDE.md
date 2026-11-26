@@ -21,10 +21,24 @@ Atlas, not in any repo — repo moves never touch money or memory.
 - Live set since 25 Nov: SIX segment shares 30/10/24/24/10/2 (Momentum / Intraday / Short / Swing /
   Positional / Ocean). Candle gate retired for every category since 16 Nov (advice only). Measured
   Kelly still blocks Momentum.
-- **LIVE HOLD (26 Nov 13:43 UTC, /healthz): Atlas over quota 513 of 512 MB, writes BLOCKED, last
-  confirmed book save 26 Nov 08:53:56 UTC, `entry_block_reason: portfolio_save_failed`.** A merge is
-  a restart and would reload that copy. Merge NOTHING until an acknowledged save and the owner's word.
-  `journal_archive` 216 MB, +~25 MB/day, 94% scan decisions (RUN-20261126-01). Advised: Atlas Flex.
+- **LIVE HOLD (26 Nov 15:36 UTC, /healthz): the running process CANNOT REACH its database**
+  (RUN-20261126-02): `connected: true` (stale flag), `mongo: null`, `history_tickers: 0`, the
+  statistics refresh takes 12.1 s (4 reads x 3 s server-selection timeout), `write_error_at` frozen at
+  13:04:53 UTC, last confirmed book save 26 Nov 08:53:56 UTC (14:23:56 IST),
+  `entry_block_reason: portfolio_save_failed`. The red banner's "513 MB of 512 MB" text is the LAST
+  recorded error, not the current fault. Owner 20:39 IST: "Render & Mongo is paid with full access".
+  INFERENCE (not verified in Atlas): the plan change ~18:35 IST moved the cluster to new hosts; the
+  live build never rebuilds its client while `_CONNECTED` is true, so only a restart recovers it.
+  **RECOVERY = a Render RESTART of the same build (owner action), NOT a merge** — the PR stays on
+  hold until an acknowledged save and the owner's word. A restart reloads the 14:23:56 IST copy:
+  sells after that are undone; buys were paused from the first refused save
+  (`engine._check_entry_persistence`), but any made in the 14:30 pass before that refusal are lost
+  too. Before restarting: Reports -> Positions and Trades download from memory (Trades leaves out the
+  archived older rows; the Journal download reads the archive first and is expected to fail; the
+  Positions file carries no stop / target / segment). If Atlas shows no `sourceborn.portfolio` on
+  the cluster `MONGO_URL` points at, do NOT restart. After the restart: compare the two files with
+  the book and list what needs correcting (owner SELL is market-hours gated).
+  `journal_archive` 216 MB, +~25 MB/day, 94% scan decisions (RUN-20261126-01).
 - OWNER RULES THIS SESSION: "Show me every time, what u r changing before ship" · "make sure nothing
   else live on app, all backend must be intact as it is" · the master Excel is NOT in the repo
   ("do not touch repo"); it lives in the session scratchpad and was sent to the owner (v6, 113 sheets).
@@ -42,27 +56,48 @@ Atlas, not in any repo — repo moves never touch money or memory.
   open sources; index-vs-stock gap ("bubble") = a dashboard measure (10.1 points over 60 days on
   25 Nov). Then: "go with defaults" (16 questions) + "VIX, few other are not in default, add that
   too" = build the test-first items behind their own switches, show each result before switching on.
-- **THIS BRANCH (not merged): INTRA-005 / RUN-20261125-01 intraday pipeline** — record:
-  docs/repairs/releases/2026-11-26-intraday-pipeline.md. Bars fetched right before scoring;
-  zero-weight outside inputs not fetched; ~100 most-traded names every pass; quiet 5-minute
-  `engine.scan(side_pass=True)` from `scheduler._intraday_side_pass`; last auto buy 14:45, max 10
-  intraday positions, no same-day re-buy after a stop.
+- **THIS BRANCH = draft PR #234 (not merged; head 0c1d554 + docs), three repairs:**
+  * **INTRA-005 / RUN-20261125-01 intraday pipeline** — docs/repairs/releases/
+    2026-11-26-intraday-pipeline.md. Bars fetched right before scoring; zero-weight outside inputs
+    not fetched; ~100 most-traded names every pass; quiet 5-minute `engine.scan(side_pass=True)`
+    from `scheduler._intraday_side_pass` (does not overwrite the screens, run Ocean or rotation, or
+    write a row per stock; reuses the daily panel / flows / regime for 30 min); last auto buy 14:45,
+    max 10 intraday positions, no same-day re-buy after a stop.
+  * **DISP-001 owner display batch, items 1-5 BUILT** — releases/2026-11-26-owner-display-batch.md.
+    (1) fund summary: Released today / Booked P&L per segment + "Does it add up?" (capital + booked
+    + open P&L = equity = cash + used); (2) WATCH label from `cfg.watch_floor` 55 (display only);
+    (3) /chart/{ticker} stock card (`web/stock_card.py`): five segments, buy mark, score, verdict,
+    stop + target a new buy would get; (4) "Market vs stocks" card (`trading/market_gap.py`,
+    `Portfolio.market_gap`, written by the Momentum pass; 60 sessions on 25 Nov: Nifty +7.17%,
+    median stock -2.95%, gap 10.12 points, 22% ahead; "narrow" cut-offs 5 points / 40% are ASSUMED);
+    (5) 20-session rank on /scan (`multi_formula.rank_mom20`, display only).
+    STILL TO BUILD: two volume gates (gate 2 blocks Intraday only, own switch, counted in the
+    5-minute summary) and the pre-rise signal (T12W_0005 + T12W_0057 within 5 sessions, untested).
+  * **OPS-09 / RUN-20261126-02 database reconnect** — releases/2026-11-26-database-reconnect.md.
+    `db.note_link_failure` drops the client on a pymongo ConnectionFailure (save, policy read,
+    statistics read); `is_connected()` rebuilds it once per 60 s and the heal pass saves the book;
+    a refused operation (quota) is NOT a link failure; new red "Database CANNOT BE REACHED" banner.
+  Full local suite on 35a39db: 3,885 passed, 0 skipped (~11 minutes when run ALONE from a clean
+  `/tmp/sourceborn_paper`; never run two test jobs at once — they share that folder).
 - **PARKED, NOT IN ANY BRANCH: XR-060** (owner: tables 1-3 "due with other" batch). The fix is
   in `trading/danger.py`: `import numpy as np`, add
   `def _verdict(result): return bool(result) if isinstance(result, (bool, np.bool_)) else None`
   and read `result = _verdict(fn(x))` / `_verdict(fn(ext_x, ext, {}, {}))` where the code tests
   `is True`. 8 of 10 price tripwires return a NumPy bool the checker never counts. A local stash and
   a scratchpad patch hold it but both die with the container — rebuild from these lines.
-- PENDING, each shown before shipping: (1) display batch — watch label, rank column, fund summary
-  released/booked + reconciliation, two volume gates, pre-rise signal, market-vs-stocks gap card,
-  stock-click card on /chart/{ticker}; (3) test-first behind switches — VIX sizing, volume gate 2
-  outside Intraday, spread fills, valuation P/E cap, candle priority; (4) data — quarterly
-  shareholding for the whole scan list, Brent / gold / US 10y / dollar index / copper, event
-  calendar, UK-parent stake-sale rule, the DATA_NEEDED fixes. Owner owes: Atlas upgrade, the next
-  file batch (per-company valuation formulas), tables 1-3.
-- HARNESS: prove a test fails on old code with `git worktree add <scratch>/oldtree HEAD` (never
-  `git stash` — it holds parked work); `pip install freezegun==1.5.5` after a container restart;
-  the full suite takes about an hour here; Workflow agents hit the shared usage cap three times
+- PENDING, each shown before shipping: (1) display batch — the two volume gates and the pre-rise
+  signal (the other five are built, above); (3) test-first behind switches — VIX sizing, volume
+  gate 2 outside Intraday, spread fills, valuation P/E cap (1.25 x the sector index P/E), candle
+  priority; (4) data — quarterly shareholding for the whole scan list, Brent / gold / US 10y /
+  dollar index / copper, event calendar, UK-parent stake-sale rule, the DATA_NEEDED fixes. Open
+  questions put to the owner: 5-minute stop checks for intraday positions only; Settings rows for
+  the five intraday values; different "narrow rally" cut-offs. Owner owes: the restart above, the
+  next file batch (per-company valuation formulas), tables 1-3.
+- HARNESS: prove a test fails on old code with `git worktree add <scratch>/oldtree <main sha>`
+  (never `git stash` — it holds parked work); `pip install freezegun==1.5.5` after a container
+  restart; the full suite takes ~11 minutes run alone; a source pin must use `ast` or strip
+  comments AND docstrings; local renders: scratchpad tools/serve_sample.py + tools/shot.js
+  (Playwright, `serviceWorkers: 'block'`); Workflow agents hit the shared usage cap three times
   this session — do the work directly.
 
 ## What it is

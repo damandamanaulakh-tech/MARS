@@ -80,12 +80,36 @@ pull request is recorded separately once it completes.
 ## Live recovery (owner action; not performed from this session)
 
 The running process has the old code, so it cannot reconnect. It must be
-restarted, by a Render restart or by a deploy. Either one reloads the book
-from the last confirmed save (26 Nov 08:53:56 UTC = 14:23 IST): changes after
-that exist only in the running process. Before restarting, the Reports page
-of the running app can still export positions, trades and journal from
-memory. Whether the database holds the saved book after the plan change must
-be confirmed in the Atlas console first; this session cannot see it.
+restarted. **The recovery is a Render restart of the same build, not a merge
+of this pull request:** the pull request stays on its deployment hold until a
+save is acknowledged and the owner approves.
+
+Read from the baseline code (`dc50354`), not observed live:
+
+- A restart reloads the book from the last confirmed save (26 Nov 08:53:56
+  UTC = 14:23:56 IST). Changes after that exist only in the running process.
+- Protective exits kept running after the saves began to fail, so sells after
+  14:23:56 IST would be undone by a restart (the positions return as open).
+- New buys are refused while a save failure is recorded
+  (`engine._check_entry_persistence`). Buys made between the last confirmed
+  save and the first refused save — possible in the 14:30 pass — would also be
+  lost. Whether any exist cannot be seen from outside.
+- Before restarting, the Reports page of the running app can still export
+  **Positions** and **Trades** from memory. The Trades export leaves out the
+  archived older rows (`db.list_trades` returns nothing on a failed read). The
+  **Journal** export reads the archive from the database first and is
+  expected to fail while the database is unreachable. The Positions export
+  carries no stop, target or segment.
+- Owner SELL is refused outside market hours, so a correction through the
+  Positions page waits for the next session.
+
+Whether the database holds the saved book after the plan change, on the
+cluster the `MONGO_URL` setting points at, must be confirmed in the Atlas
+console first; this session cannot see it. If it does not, the app must not
+be restarted: the running process would be the only copy.
+
+Last observation: `/healthz` 26 Nov 15:36 UTC — unchanged (`connected: true`,
+`mongo: null`, `write_error_at` 13:04:53, last confirmed save 08:53:56).
 
 ## Open
 
