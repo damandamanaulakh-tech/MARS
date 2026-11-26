@@ -244,6 +244,11 @@ class Portfolio:
     risk_day_equity: float = 0.0              # equity the -2% halt measures from
     risk_day_killed: bool = False             # switch tripped today? (survives restart)
     danger_alerts_start: Optional[str] = None  # danger layer mode-C start date (owner order 2026-08-11)
+    # XR-060 follow-up: which tickers the danger layer has already acted on
+    # today. It used to be read back out of the decision journal, which is
+    # byte-capped, so on a book of ~56 names one pass overflowed the cap and
+    # four positions lost their guard and were half-sold again every pass.
+    danger_acted: dict = field(default_factory=dict)   # {"day": iso, "tickers": [...]}
     # Owner order 2026-07-30: the starting_capital this book's cash has been
     # synced to. Changing Starting Capital in Settings now really adds/removes
     # cash (journaled CAPITAL_ADJUST) instead of doing nothing to a live book.
@@ -394,6 +399,7 @@ class Portfolio:
                 "risk_day_equity": self.risk_day_equity,       # ...and the equity it measures from
                 "risk_day_killed": self.risk_day_killed,       # tripped-today flag
                 "danger_alerts_start": self.danger_alerts_start,  # danger layer C->B clock
+                "danger_acted": self.danger_acted,
                 "capital_base": self.capital_base,   # capital the cash is synced to
                 "dd_peak_equity": self.dd_peak_equity,  # drawdown-governor peak
                 "dd_cut_level": self.dd_cut_level,      # ladder level already cut
@@ -466,6 +472,7 @@ class Portfolio:
             p.risk_day_equity = float(data.get("risk_day_equity", 0.0) or 0.0)
             p.risk_day_killed = bool(data.get("risk_day_killed", False))
             p.danger_alerts_start = data.get("danger_alerts_start")
+            p.danger_acted = data.get("danger_acted") or {}
             # Legacy books predate capital_base. Owner order 2026-08-30
             # ("remove the 25 Lacs thing from the entire history"): the
             # fallback is the CURRENT configured capital, so a file with no

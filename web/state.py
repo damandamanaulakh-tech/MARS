@@ -107,6 +107,7 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.register_market = dict(doc.get("register_market", {}) or {})
     p.damage_store = dict(doc.get("damage_store", {}) or {})
     p.danger_alerts_start = doc.get("danger_alerts_start")
+    p.danger_acted = doc.get("danger_acted") or {}
     p.last_save = doc.get("last_save")
     p._durable_book_loaded = True
 
@@ -318,6 +319,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "register_market": self.register_market,
             "damage_store": self.damage_store,
             "danger_alerts_start": self.danger_alerts_start,
+            "danger_acted": self.danger_acted,
             "last_save": self.last_save,
         }
         saved = db.save_portfolio(doc) is True

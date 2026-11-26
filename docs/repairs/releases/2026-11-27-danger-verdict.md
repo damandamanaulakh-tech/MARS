@@ -67,9 +67,43 @@ two feed the owner's own gates, the selection-sequence ladder and the
 (`trading/triggers` is barred from the engine by the standing boundary
 test). This half can be reverted on its own.
 
+**Two more defects found in the adversarial review of this change, both
+reproduced, both repaired here.** Each was latent while the layer was blind;
+counting its fires is what made them live.
+
+1. **The once-per-ticker-per-day guard did not hold on a real book.** It was
+   read back out of `decision_journal[-300:]`, but that journal is
+   BYTE-capped (`paper.JOURNAL_BYTES_CAP`, 2 MiB) and trimmed inside the save
+   the danger pass itself calls. One pass on a 56-position book writes about
+   112 rows — a `DANGER_*` row and a `SELL_PARTIAL` row per acted name — of
+   which only ~103 survive, so **four names lost their own guard every pass
+   and were half-sold again**. Measured over one day's thirteen passes: 56
+   intended half-sales became **104**, and the worst position was cut from
+   1,000 shares to **250**. The record now lives on the book
+   (`Portfolio.danger_acted`, persisted to JSON and Mongo both ways, rolling
+   over by date), where the cap cannot evict it. Re-measured after the fix:
+   56 of 56, every position halved once.
+2. **Thin history could act.** `evaluate_stock` called the tripwire functions
+   directly with no minimum-history gate, relying on them to return None —
+   which they do not. Every danger tripwire needs **70 bars**, and
+   `engine._danger_pass` admits a position at **60**. Measured: at 30, 60, 65
+   and 69 bars the repaired layer fired four tripwires and would have
+   half-sold. It now honours each tripwire's own `_MIN_BARS` and records the
+   skip as `unavailable`, which is what this module's docstring always
+   promised. Re-measured: nothing fires below 70 bars, four fire at 70.
+
+**An entry-side change, which an earlier draft of this record wrongly denied.**
+`engines/ocean.py` rail R4 is a BUY veto fed by `danger.evaluate_stock`
+(`engine.py:4229`). With the tripwires counted it vetoes Ocean candidates it
+previously waved through — reproduced in review on a real-shaped candidate
+35.2% below its 200-DMA. Ocean has produced zero entries in twelve years of
+the committed panel, so the practical effect is nil, but the claim "entries
+are not changed" was false and is withdrawn.
+
 Not changed: the tripwire formulas, their calibrated verdicts, the VERIFIED
-list, `TIGHTEN_PCT`, the leash floor, the half-exit rule, the once-per-ticker
--per-day guard, the alert-only window, scores, entries, sizing or targets.
+list, `TIGHTEN_PCT`, the leash floor, the half-exit rule, the alert-only
+window, scores, momentum/intraday/short/swing/positional entries, sizing or
+targets.
 
 ## What it changes for the money
 
@@ -116,14 +150,34 @@ the range is visible rather than implied.
 
 ## Validation
 
-- `trading/tests/test_danger_verdict_2026_11_27.py` (24): the shock is
+- `trading/tests/test_danger_guard_2026_11_27.py` (4): one action per ticker
+  per day on a 56-position book across three passes; the guard does not
+  depend on the byte-capped journal (the fixture is asserted to overflow it);
+  the record survives a restart; a new day re-arms. **All four fail before
+  the guard repair.**
+- `trading/tests/test_cluster_count_2026_11_27.py` (4): the cluster count
+  equals what its members really say; the members are shown to answer with
+  NumPy so it is not a corner case; an abstaining, array-returning or
+  integer-returning member is not counted; a member below its own minimum
+  history is skipped. The first fails before the repair.
+- `trading/tests/test_danger_verdict_2026_11_27.py` (28): the shock is
   counted; the NumPy majority is proven to be the common case and the
   name-collision trap pinned; both boolean kinds read by value; ten
   non-boolean values each abstain; an abstaining tripwire never becomes a
   fire; a quiet stock fires nothing; a NumPy fire is recorded as `passed`
   rather than `unavailable`; the two panel tripwires keep their `bool()`
-  wrap; a syntax-tree pin that no trigger verdict is compared by identity
-  again (comment- and docstring-proof).
+  real `bool` (asserted on the VALUE, not on their source text); thin
+  history at 30, 60 and 69 bars fires nothing and is recorded `unavailable`;
+  and a syntax-tree pin that every tripwire answer is read through
+  `_verdict` — name-independent, and verified to FAIL when the wrap is
+  removed.
+
+  **Three of these were weak in the first cut and the review caught them**:
+  the abstention test compared the layer with the functions it calls (true by
+  construction, and it ran at 30 bars where the layer really did half-sell);
+  the panel-pair test asserted on source text a comment would satisfy; and
+  the source pin named a variable the repair had already renamed, so it
+  guarded nothing.
 - `web/tests/test_danger_blind_cleared_2026_11_27.py` (5): nothing reads as
   blind and all ten price tripwires count; a tripwire returning something
   that is not a verdict IS still reported blind (so the probe is not

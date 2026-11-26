@@ -3081,11 +3081,25 @@ class TradingEngine:
                             f"{len(danger.VERIFIED) - len(danger.PANEL_FED)} "
                             "OHLCV tripwires still ran."),
                 })
-        seen_today = {
-            e.get("ticker") for e in self.portfolio.decision_journal[-300:]
-            if str(e.get("action", "")).startswith("DANGER_")
-            and str(e.get("ts", "")).startswith(today_iso)
-        }
+        # XR-060 FOLLOW-UP, found in adversarial review of the verdict repair
+        # and reproduced: this guard used to be read back out of
+        # `decision_journal[-300:]`. The in-RAM journal is BYTE-capped
+        # (paper.JOURNAL_BYTES_CAP, 2 MiB) and trimmed inside the save this
+        # pass itself calls, and one pass on a 56-position book writes about
+        # 112 rows (a DANGER_* row and a SELL_PARTIAL row per acted name) of
+        # which only ~103 survive. So four names lost their own guard every
+        # pass and were half-sold again, and again: 56 intended half-sales
+        # became 104 over one day's thirteen passes, and the worst position
+        # was cut from 1,000 shares to 250.
+        #
+        # The record now lives on the book itself, which is persisted to JSON
+        # and Mongo both ways (the risk_day lesson) and is not subject to the
+        # journal's cap. It rolls over by date, so nothing accumulates.
+        acted = self.portfolio.danger_acted or {}
+        if acted.get("day") != today_iso:
+            acted = {"day": today_iso, "tickers": []}
+        self.portfolio.danger_acted = acted
+        seen_today = set(acted.get("tickers") or ())
         for ticker in list(self.portfolio.positions.keys()):
             if ticker in seen_today:
                 continue
@@ -3178,6 +3192,10 @@ class TradingEngine:
                                     danger.describe(reading, auto, leash_pct=leash), now)
                 entry["action"] = "DANGER_EXIT_HALF"
             self.portfolio.decision_journal.append(entry)
+            # Record the action where the journal's byte cap cannot evict it.
+            if ticker not in seen_today:
+                seen_today.add(ticker)
+                acted.setdefault("tickers", []).append(ticker)
         self.portfolio.save()
 
     def _rotation_exits(self, picks: list, now: datetime,

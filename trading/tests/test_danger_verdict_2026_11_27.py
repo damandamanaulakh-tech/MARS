@@ -19,6 +19,7 @@ import pandas as pd
 import pytest
 
 from trading import danger as D
+from trading import triggers as TR
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -76,12 +77,29 @@ def test_anything_that_is_not_a_boolean_is_unknown_never_a_fire(junk):
     assert D._verdict(junk) is None
 
 
-def test_a_tripwire_that_abstains_never_becomes_a_fire():
-    short = _frame(bars=30)                      # too few bars for most rules
-    fired = D.evaluate_stock(short)
-    x = D._Ctx(short)
-    for tid in fired:
-        assert bool(D._FNS[tid](x)) is True, tid
+@pytest.mark.parametrize("bars", [30, 60, 69])
+def test_thin_history_fires_nothing_however_sharp_the_fall(bars):
+    """Every danger tripwire needs 70 bars (triggers._MIN_BARS) and the engine
+    admits a position at 60. The old version of this test compared the layer
+    with the same functions it calls, which is true by construction; it ran at
+    30 bars where the layer really did return three fires and an EXIT_HALF."""
+    assert D.evaluate_stock(_frame(bars=bars)) == []
+
+
+def test_the_minimum_history_is_each_tripwires_own_and_fires_right_above_it():
+    need = max(TR._MIN_BARS.get(t, TR._MIN_BARS_DEFAULT) for t in D._FNS)
+    assert D.evaluate_stock(_frame(bars=need - 1)) == []
+    assert D.evaluate_stock(_frame(bars=need)), "must fire once it has the bars"
+
+
+def test_a_tripwire_held_back_for_thin_history_is_recorded_as_unavailable(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(D.de, "record",
+                        lambda key, *a, **k: seen.__setitem__(key, (k.get("state"), k.get("reason"))))
+    D.evaluate_stock(_frame(bars=30))
+    for tid in D._FNS:
+        state, reason = seen["danger:" + tid]
+        assert state == "unavailable" and "bars" in str(reason), (tid, state, reason)
 
 
 def test_a_quiet_stock_fires_nothing():
@@ -104,27 +122,52 @@ def test_a_numpy_fire_is_recorded_as_passed_not_unavailable(monkeypatch):
 
 # ------------------------------------------------------------- the panel pair
 
-def test_the_two_panel_tripwires_still_read_the_same():
-    """0094 / 0095 already wrapped in bool(); the repair must not move them."""
-    import inspect
+def test_the_two_panel_tripwires_still_return_a_real_bool():
+    """0094 / 0095 already wrapped in bool(); the repair must not move them.
+
+    Asserted on the VALUE they return, not on their source text — a comment
+    saying "return bool(" would have satisfied the old check.
+    """
+    import types
+    df = _frame()
+    x = D._Ctx(df)
+    ext = types.SimpleNamespace(peer_break_20d_low=9, peers=10, index_close=None,
+                                target_frame=None, context={})
     for tid, fn in D._EXT_FNS.items():
-        assert "return bool(" in inspect.getsource(fn), tid
+        r = fn(x, ext, {}, {})
+        assert r is None or type(r) is bool, (tid, type(r))
 
 
 # ---------------------------------------------------------------- source pin
 
-def test_no_trigger_verdict_is_compared_by_identity_any_more():
-    """Comment- and docstring-proof: walk the syntax tree, not the text."""
+def test_every_tripwire_answer_is_read_through_the_verdict_reader():
+    """The real invariant, pinned name-independently.
+
+    Not "no `is True` anywhere" — comparing an ALREADY COERCED verdict by
+    identity is correct and the repair does it. What must never happen is a
+    RAW tripwire answer reaching a comparison. So: every call to a tripwire
+    function inside evaluate_stock must be the argument of `_verdict(...)`.
+
+    The first version of this pin looked for the variable name `result`, which
+    the repair had already renamed to `verdict` — so it guarded nothing. Found
+    in the adversarial review of this very change.
+    """
     tree = ast.parse((ROOT / "trading" / "danger.py").read_text())
-    bad = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Compare):
-            continue
-        names = {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
-        if "result" not in names:
-            continue
-        for op, cmp in zip(node.ops, node.comparators):
-            if isinstance(op, (ast.Is, ast.IsNot)) and isinstance(cmp, ast.Constant) \
-                    and cmp.value in (True, False):
-                bad.append(ast.unparse(node))
-    assert not bad, bad
+    fn_def = next(n for n in ast.walk(tree)
+                  if isinstance(n, ast.FunctionDef) and n.name == "evaluate_stock")
+
+    wrapped = set()
+    for node in ast.walk(fn_def):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) \
+                and node.func.id == "_verdict":
+            wrapped.update(id(a) for a in node.args)
+
+    raw = [ast.unparse(node) for node in ast.walk(fn_def)
+           if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+           and node.func.id == "fn" and id(node) not in wrapped]
+    assert not raw, f"tripwire answers read without _verdict: {raw}"
+
+    # and the loop really does call the tripwires through a name called `fn`,
+    # so the check above cannot pass by looking for something that is not there
+    assert any(isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "fn"
+               for n in ast.walk(fn_def)), "evaluate_stock no longer calls fn(...)"

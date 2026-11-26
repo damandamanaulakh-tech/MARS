@@ -50,7 +50,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from trading.triggers import _Ctx, TRIGGERS
+from trading.triggers import _Ctx, TRIGGERS, _MIN_BARS, _MIN_BARS_DEFAULT
 from trading import decision_evidence as de
 
 log = logging.getLogger(__name__)
@@ -166,6 +166,19 @@ def evaluate_stock(df: pd.DataFrame, ext=None) -> list[str]:
         return []
     fired = []
     for tid, fn in _FNS.items():
+        # XR-060 follow-up: honour each tripwire's own minimum history, the
+        # way triggers.evaluate does (triggers.py, _MIN_BARS). This module
+        # called the functions directly and relied on them to return None on
+        # thin data, which they do not: every danger tripwire needs 70 bars,
+        # and engine._danger_pass admits a position with 60. Before the
+        # verdict repair that gap was inert because the answers were thrown
+        # away; counting them made it live, so a name with 60-69 stored bars
+        # would have been half-sold on four answers the registry itself marks
+        # not computable. This is what the docstring above always promised.
+        need = _MIN_BARS.get(tid, _MIN_BARS_DEFAULT)
+        if x.n < need:
+            observed(tid, None, f"Needs {need} bars, has {x.n}")
+            continue
         try:
             verdict = _verdict(fn(x))
             observed(tid, verdict)
