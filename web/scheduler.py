@@ -1,14 +1,17 @@
 """Daily auto-scan scheduler (APScheduler).
 
 Two job tracks:
-  1. Intraday tick — every 5 min, 9:15-15:25 IST (only when mode=intraday)
+  1. Intraday tick — every 5 min of the session. Since 2026-11-26 it runs
+     whatever the app's own mode is, as a quiet Intraday-only pass
+     (`_intraday_side_pass`; switch: cfg.intraday_always_scan).
   2. Daily multi-mode scan — once at 09:20 IST: runs scan in intraday,
      short, swing, and positional in sequence. Opens whatever passes the
      gates in each mode. Target 60-70% weekly capital deployment.
 
 The daily track is ON by default (paper-only). Set DAILY_SCHEDULER=0 in
 Render env to switch it off. The legacy INTRADAY_SCHEDULER=1 toggle is
-still honoured, and the intraday track stays opt-in.
+still honoured: with it AND mode=intraday the tick runs the old full
+refresh + scan instead of the quiet pass.
 
 TRUTH-PASS 2026-08-29: this header used to say "Disabled by default. Set
 DAILY_SCHEDULER=1 to switch on", contradicting both the code below and
@@ -64,7 +67,9 @@ def start_if_enabled() -> None:
     """Called from FastAPI startup. Idempotent.
 
     Daily auto-trading is ON by default (paper-only). Set DAILY_SCHEDULER=0
-    in Render env to disable. Intraday tick remains opt-in.
+    in Render env to disable. The 5-minute Intraday tick is registered on the
+    same daily track (owner order 2026-11-26); cfg.intraday_always_scan = False
+    makes it a no-op outside the legacy INTRADAY_SCHEDULER=1 + mode=intraday case.
     """
     global _SCHED
     intraday = os.environ.get("INTRADAY_SCHEDULER") == "1"
@@ -98,11 +103,15 @@ def start_if_enabled() -> None:
     _SCHED.add_job(_portfolio_save_retry, "interval", seconds=60,
                    id="portfolio_save_retry", max_instances=1, coalesce=True)
 
-    if intraday:
+    if intraday or daily:
+        # Owner order 2026-11-26: the Intraday segment is scanned every five
+        # minutes of the session whatever the app's own mode. The job is on
+        # the always-on daily track now; `cfg.intraday_always_scan` is the
+        # switch, and `_intraday_tick` keeps the legacy toggle's behaviour.
         _SCHED.add_job(
             _intraday_tick, "cron",
             day_of_week="mon-fri", hour="9-15", minute="*/5",
-            id="intraday_tick",
+            id="intraday_tick", max_instances=1, replace_existing=True,
         )
     if daily or intraday:
         # 15:25 IST intraday square-off. Registered on the ALWAYS-ON daily
@@ -826,10 +835,18 @@ def _filings_job() -> None:
 
 
 def _intraday_tick() -> None:
-    """Run scan + refresh if mode is intraday. Logs anything material."""
+    """Every 5 minutes of the session: the Intraday pass.
+
+    Legacy track, unchanged: the app's own mode is Intraday AND the
+    INTRADAY_SCHEDULER=1 toggle is set -> refresh + a full scan.
+    Otherwise (owner order 2026-11-26, RUN-20261125-01: "scan every 5
+    minutes all session, whatever the mode"): the quiet side pass below."""
     from . import state  # local import to avoid circular at module load
     cfg = state.cfg()
-    if cfg.mode != "intraday":
+    if not (cfg.mode == "intraday" and os.environ.get("INTRADAY_SCHEDULER") == "1"):
+        if getattr(cfg, "intraday_always_scan", False):
+            outcome = _intraday_side_pass()
+            log.info("[intraday 5-min] %s", outcome)
         return
     eng = state.engine()
     log.info("[%s] Intraday tick — scanning + refreshing",
@@ -842,6 +859,65 @@ def _intraday_tick() -> None:
     except Exception as e:
         log.exception("Intraday tick failed: %s", e)
     _check_pending_orders("intraday-tick")
+
+
+def _intraday_side_pass() -> str:
+    """One quiet Intraday selection pass; returns what happened in a word.
+
+    Before 25 Nov's fix the Intraday segment was scored twice a day, inside
+    the 09:20 and 14:30 rotations, and both times its 5-minute bars had
+    expired before scoring. This pass gives the segment its own clock.
+
+    It NEVER waits and never competes:
+      * outside 09:15-15:30 IST, before the day's first 5-minute bar has
+        closed (09:20), or past the last-buy time (14:45) -> nothing;
+      * while a 09:20 / 14:30 rotation runs (it has its own Intraday pass),
+        or any other book work holds the mode lock -> this tick is skipped,
+        the next one is five minutes away;
+      * while the book cannot be saved -> skipped (no buy could be kept, and
+        a pass would only add records to a full database).
+    It runs `engine.scan(side_pass=True)`: Intraday entries only; the Scan
+    page, Ocean, rotation selling and every other segment are untouched.
+    Exits keep their own clocks (30-minute pass, 15:25 square-off, the
+    one-minute deadline recovery) — this pass adds no exit check."""
+    from datetime import datetime as _dt
+    from trading import intraday_recovery as ir
+    from trading.calendars import is_market_open
+    from trading.modes import ModeBusy, holding_mode_lock
+    from . import state
+    if not is_market_open():
+        return "skipped: market closed"
+    if not ir.first_bar_complete(_dt.utcnow()):
+        return "skipped: no completed 5-minute bar yet"
+    cfg = state.cfg()
+    if not ir.auto_entry_allowed("intraday", _dt.utcnow(), cfg):
+        return "skipped: past the last intraday buy time"
+    if _ROTATION_LOCK.locked():
+        return "skipped: a category rotation is running"
+    if _degraded_halt("intraday 5-min"):
+        return "skipped: portfolio save not confirmed"
+    try:
+        with holding_mode_lock(timeout=0):
+            eng = state.engine()
+            original_mode = getattr(cfg, "mode", "swing")
+            try:
+                if original_mode != "intraday":
+                    cfg.mode = "intraday"
+                    cfg.apply_mode_preset()
+                res = eng.scan(side_pass=True)
+            finally:
+                if cfg.mode != original_mode:
+                    cfg.mode = original_mode
+                    cfg.apply_mode_preset()
+    except ModeBusy:
+        return "skipped: other book work is running"
+    except Exception as e:
+        log.exception("Intraday 5-minute pass failed: %s", e)
+        return f"failed: {type(e).__name__}"
+    if res.opened:
+        _push_phone_alerts("intraday 5-min")
+    return (f"scored {len(res.ranked)}, cleared {len(res.picks)}, "
+            f"opened {len(res.opened)}")
 
 
 def _intraday_recovery_pass(on_startup: bool = False) -> None:

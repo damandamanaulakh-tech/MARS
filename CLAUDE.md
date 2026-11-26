@@ -13,6 +13,58 @@ user archives/deletes it whole after the Render re-point; code + all
 lives only there. App state (book/journal/history) lives in Mongo
 Atlas, not in any repo — repo moves never touch money or memory.
 
+## 2026-11-26 — CURRENT STATE (read this block first; everything below is history to 2026-10-21)
+- Repo is `damandamanaulakh-tech/MARS`. **`docs/repairs/` is the canonical backlog, goal order and
+  release ledger** (AGENTS.md + docs/repairs/WORKFLOW.md are binding: reproduce, bounded fix, tests,
+  records in the same PR, `python scripts/check_repair_records.py --sync`, full zero-skip suite).
+  Another agent (Codex) ships in the same repo (PR229-233). Nothing below this block is deployment proof.
+- Live set since 25 Nov: SIX segment shares 30/10/24/24/10/2 (Momentum / Intraday / Short / Swing /
+  Positional / Ocean). Candle gate retired for every category since 16 Nov (advice only). Measured
+  Kelly still blocks Momentum.
+- **LIVE HOLD (26 Nov 13:43 UTC, /healthz): Atlas over quota 513 of 512 MB, writes BLOCKED, last
+  confirmed book save 26 Nov 08:53:56 UTC, `entry_block_reason: portfolio_save_failed`.** A merge is
+  a restart and would reload that copy. Merge NOTHING until an acknowledged save and the owner's word.
+  `journal_archive` 216 MB, +~25 MB/day, 94% scan decisions (RUN-20261126-01). Advised: Atlas Flex.
+- OWNER RULES THIS SESSION: "Show me every time, what u r changing before ship" · "make sure nothing
+  else live on app, all backend must be intact as it is" · the master Excel is NOT in the repo
+  ("do not touch repo"); it lives in the session scratchpad and was sent to the owner (v6, 113 sheets).
+- DELIVERED: 56-slide full review deck (artifact LWCtURftSqo1UYkiL74XF6); master Excel v6; four
+  pending tables (faults 143 / their 46 points / sequence 24 / formulas).
+- **OWNER'S FORMULA DECISIONS 26 Nov** (their table 4): keep the MARS base score (0.65 momentum +
+  0.35 quality, buy 62); WATCH label from 55; 20-session top-10 rank = a live rank column (display,
+  not a buy rule); VIX size multiplier x1.15 / 1 / 0.8 / 0.65 / 0.5 (<12 / 12-16 / 16-20 / 20-25 /
+  >=25); TWO volume gates shown separately (5-vs-20-day trend; hard 1.5x spike, blocking Intraday
+  only); liquidity Rs 5 Cr stays but the fund summary must add the cash RELEASED on closes and
+  reconcile to the total; measured bid-ask spread to replace flat slippage when logged in; pre-rise =
+  compression (T12W_0005) + volume ignition (T12W_0057) as ONE signal; sector resilience 30/25/30/15
+  kept; valuation P/E band capped at the current market (test first); candle = Intraday only /
+  advice; clicking a stock must show targets + its segment verdicts; DATA_NEEDED to be fixed from
+  open sources; index-vs-stock gap ("bubble") = a dashboard measure (10.1 points over 60 days on
+  25 Nov). Then: "go with defaults" (16 questions) + "VIX, few other are not in default, add that
+  too" = build the test-first items behind their own switches, show each result before switching on.
+- **THIS BRANCH (not merged): INTRA-005 / RUN-20261125-01 intraday pipeline** — record:
+  docs/repairs/releases/2026-11-26-intraday-pipeline.md. Bars fetched right before scoring;
+  zero-weight outside inputs not fetched; ~100 most-traded names every pass; quiet 5-minute
+  `engine.scan(side_pass=True)` from `scheduler._intraday_side_pass`; last auto buy 14:45, max 10
+  intraday positions, no same-day re-buy after a stop.
+- **PARKED, NOT IN ANY BRANCH: XR-060** (owner: tables 1-3 "due with other" batch). The fix is
+  in `trading/danger.py`: `import numpy as np`, add
+  `def _verdict(result): return bool(result) if isinstance(result, (bool, np.bool_)) else None`
+  and read `result = _verdict(fn(x))` / `_verdict(fn(ext_x, ext, {}, {}))` where the code tests
+  `is True`. 8 of 10 price tripwires return a NumPy bool the checker never counts. A local stash and
+  a scratchpad patch hold it but both die with the container — rebuild from these lines.
+- PENDING, each shown before shipping: (1) display batch — watch label, rank column, fund summary
+  released/booked + reconciliation, two volume gates, pre-rise signal, market-vs-stocks gap card,
+  stock-click card on /chart/{ticker}; (3) test-first behind switches — VIX sizing, volume gate 2
+  outside Intraday, spread fills, valuation P/E cap, candle priority; (4) data — quarterly
+  shareholding for the whole scan list, Brent / gold / US 10y / dollar index / copper, event
+  calendar, UK-parent stake-sale rule, the DATA_NEEDED fixes. Owner owes: Atlas upgrade, the next
+  file batch (per-company valuation formulas), tables 1-3.
+- HARNESS: prove a test fails on old code with `git worktree add <scratch>/oldtree HEAD` (never
+  `git stash` — it holds parked work); `pip install freezegun==1.5.5` after a container restart;
+  the full suite takes about an hour here; Workflow agents hit the shared usage cap three times
+  this session — do the work directly.
+
 ## What it is
 Live **paper-only** trading engine (₹5 crore paper capital since 2026-09-10), FastAPI + Mongo
 Atlas on Render starter (512MB always-on). Hard PAPER_ONLY lock in

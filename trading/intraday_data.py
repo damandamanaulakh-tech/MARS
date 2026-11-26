@@ -86,9 +86,15 @@ def fetch(tickers, cfg, client=None, now=None, *, budget_seconds=FETCH_BUDGET_SE
     # cannot enter this result or mutate a portfolio.
     pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix='intraday-data')
     pending = {pool.submit(_one, client, mapping[t], now): t for t in selected if t in mapping}
+    # RUN-20261125-01: a request that ANSWERED (even with nothing usable) keeps
+    # the reason it was given. Before, one other request timing out relabelled
+    # every answered-but-empty name "deadline", so the scan page reported 82
+    # deadlines that were not all deadlines.
+    answered = set()
     try:
         for future in as_completed(pending, timeout=max(0, budget_seconds)):
             t = pending[future]
+            answered.add(t)
             try:
                 frame = future.result()
                 clean, d = bars.validate(frame, now, min_bars=needed)
@@ -101,7 +107,7 @@ def fetch(tickers, cfg, client=None, now=None, *, budget_seconds=FETCH_BUDGET_SE
                 details[t]['error_type'] = type(exc).__name__
     except TimeoutError:
         for future, t in pending.items():
-            if details[t]['reason'] == 'missing_data':
+            if t not in answered and details[t]['reason'] == 'missing_data':
                 details[t]['reason'] = 'intraday_fetch_deadline'
             future.cancel()
     finally:

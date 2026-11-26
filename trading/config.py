@@ -437,6 +437,30 @@ class Config:
     # and losses slow. This makes the -5% stop far more sensitive than the
     # twice-a-day check it replaces; UNTESTED live, the window judges it.
     intraday_refresh_minutes: int = 30
+    # OWNER ORDER 2026-11-26 ("fix the intraday pipeline ... ask me as much as
+    # u need" -> "go with defaults"). Five intraday rules, each the default
+    # the owner approved from the question list of that day:
+    #  * intraday_universe_size — the intraday pass reads the N most-traded
+    #    names of the scan list (median rupee turnover, last 20 daily bars)
+    #    and reads ALL of them every pass. Before, ~1,130 names shared 119
+    #    fetch slots, so a stock was seen about once in ten passes. 0 = the
+    #    whole scan list in rotation (the old behaviour).
+    #  * intraday_always_scan — the 5-minute pass runs all session whatever
+    #    category the app is set to. False = only while the app's mode is
+    #    Intraday (the old behaviour).
+    #  * intraday_last_entry_time — no NEW intraday buy at or after this IST
+    #    time; positions still square off at the preset's 15:25. "" = new
+    #    buys allowed until square-off (the old behaviour).
+    #  * intraday_max_positions — most intraday positions open at once.
+    #    0 = no cap beyond the segment's cash share (the old behaviour).
+    #  * intraday_rebuy_after_stop — False = a stock stopped out intraday is
+    #    not bought again intraday the same day. True = the old behaviour.
+    # None of these is a measured number; they are the owner's choices.
+    intraday_universe_size: int = 100
+    intraday_always_scan: bool = True
+    intraday_last_entry_time: str = "14:45"
+    intraday_max_positions: int = 10
+    intraday_rebuy_after_stop: bool = False
     # OWNER ORDER 2026-09-10: "for b there is simple trigger point when cash
     # is below 5%, rest all the time rotaiton will be done as per a - adding &
     # rotating from watch list". Below this share of equity in cash, rotation

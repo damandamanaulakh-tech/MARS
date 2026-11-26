@@ -4814,5 +4814,33 @@
     "deployment_revision": "672b094d80a37f83c6c9238a564d735d7269a795",
     "source_sheet": "Owner policy",
     "source_row": 0
+  },
+  {
+    "id": "INTRA-005",
+    "priority": "P1",
+    "area": "Intraday selection pipeline",
+    "finding": "Intraday scans scored zero stocks: 5-minute bars were fetched before about 19 minutes of market and book work and had expired before scoring; the scorer fetched three outside inputs it weights at zero; about 1,130 names shared 119 fetch slots; answered-empty requests were labelled deadlines; the segment was scored only inside the 09:20 and 14:30 rotations.",
+    "impact": "The Intraday segment (10% share) could not rank, pick or buy on 25 November; coverage reasons on the Scan page overstated deadlines.",
+    "source_severity": "HIGH",
+    "source_status": "Runtime incident RUN-20261125-01 confirmed 25 November 2026; causes reproduced in isolated tests 26 November",
+    "updated_state": "LOCAL_TESTED_PUBLISHED_DEPLOYMENT_HOLD",
+    "review_note": "Fetch moved to immediately before scoring; zero-weight inputs not fetched; turnover-ranked intraday list read every pass while Ocean, sector heat and flags keep the whole list; honest fetch reasons; owner entry rules; quiet 5-minute side pass that leaves shared screens, Ocean, rotation selling and bulk journal records alone. Not merged or deployed: live storage refuses writes, so a restart is held. Runtime acceptance remains open.",
+    "draft_state": "",
+    "proposed_fix": "Prepare intraday signal inputs as one step immediately before scoring; keep completed-bar, session and 360-second freshness rules; bounded turnover-ranked list; side pass on the always-on schedule with skip-never-wait locking, mode restore in finally, and compact journal records.",
+    "effort": "M",
+    "source_evidence": "docs/repairs/evidence/2026-11-25-no-new-positions.md; baseline main dc503543f089e46641a8c625435a95894b009699",
+    "source_origin": "Owner request 26 November: fix the intraday pipeline, ask as much as needed, show every change before shipping",
+    "owner_decision": "Defaults approved 26 November (\"go with defaults\"): about 100 most-traded stocks read every pass; scan every 5 minutes all session whatever the mode; last automatic new buy 14:45 IST; at most 10 intraday positions; no same-day re-buy after a stop.",
+    "owner_note": "Owner also required: nothing else live on the app, all backend intact; show changes before shipping. No score floor, weight, stop, target, size, segment share or freshness rule changed.",
+    "current_evidence": "docs/repairs/releases/2026-11-26-intraday-pipeline.md",
+    "related_id": "RUN-20261125-01; RUN-20261126-01; INTRA-001; INTRA-004; ALLOC-001; XR-071",
+    "acceptance": "Bars fetched after slow pre-scoring work are scored while fresh; stale, unfinished and wrong-session bars still never score; the list is bounded and held names take no slot; an answered request keeps its reason; automatic intraday buys stop at the owner's time while owner orders keep 15:25; cap of 10 holds inside one pass; no same-day re-buy after a stop; the 5-minute pass restores the owner's mode, never waits behind other work, does nothing while saving is unconfirmed, and leaves the last category pass, Ocean, rotation selling and other segments unchanged; ordinary passes still record every stock; full zero-skip suite and CI; then a normal session on the deployed revision shows scored intraday stocks without any induced trade.",
+    "workflow": "LOCAL_TESTED_PUBLISHED_DEPLOYMENT_HOLD",
+    "assignee": "Claude",
+    "fix_commit": "",
+    "test_result": "59 new focused tests pass (39 trading, 20 web); the same files give 49 failed / 10 passed on baseline dc503543f089e46641a8c625435a95894b009699. Full suite and CI totals pending at first commit; recorded in a follow-up. Not merged, not deployed, no runtime observation.",
+    "deployment_revision": "",
+    "source_sheet": "Owner request",
+    "source_row": 0
   }
 ]

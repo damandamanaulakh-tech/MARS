@@ -51,8 +51,8 @@ def compute(ticker, frame, benchmark, history, cfg, now=None):
         'relative_strength': 'measured' if aligned_bench else 'unavailable_neutral_50',
         'sector_alignment': 'unverified_legacy_peer_component; see separate verified market_context; neutral fallback is not measured strength',
         'vol_adj_upside': 'annualized_75_bars_per_session' if vol > 0 else 'unavailable_neutral_50',
-        'earnings_growth': 'zero_weight', 'short_interest': 'zero_weight',
-        'analyst_revision': 'zero_weight'}
+        'earnings_growth': 'zero_weight_not_fetched', 'short_interest': 'zero_weight',
+        'analyst_revision': 'zero_weight_not_fetched'}
     diag['context_interval'] = {
         'fii_tide': 'daily_flow_context', 'hot_sector_bonus': 'daily_context',
         'news_and_policy': 'dated_external_context; not intraday bars'}
