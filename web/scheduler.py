@@ -2391,6 +2391,10 @@ def _monthly_constituents_snapshot() -> None:
 FUNDAMENTALS_BUDGET_S_DEFAULT = 600.0
 FUNDAMENTALS_DONE_KEY = "fundamentals_done"        # {"month", "symbols": [...]}
 FUNDAMENTALS_LEFT_KEY = "fundamentals_remaining"   # int; > 0 = block due tomorrow
+#: NEW-02: names fetched between two writes of the progress ledger. Small
+#: enough that a restart costs at most this many re-fetches, large enough
+#: that the ledger write is not the dominant cost (~50 names ~= 32 s).
+FUNDAMENTALS_BATCH = 50
 
 
 def fundamentals_time_budget_s() -> "float | None":
@@ -2460,10 +2464,71 @@ def _monthly_fundamentals_refresh() -> None:
             log.info("[fri 16:30] fundamentals refresh %s: nothing left", month)
             return
         budget = fundamentals_time_budget_s()
-        res = dr.fetch_fundamentals_budgeted(todo, time_budget_s=budget)
-        rows, n_ok = res["rows"], res["n_ok"]
-        attempted = list(res["attempted"])
-        left = len(res["remaining"])
+        # NEW-02 (2026-11-27): fetch and record in batches. Before this the
+        # whole run was one call and the ledger was written ONCE, strictly
+        # after the unbounded save — so anything that ended the process during
+        # that save (a deploy, a restart, a kill) wrote neither the done list
+        # nor the remaining count. The next run read an empty `done`, rebuilt
+        # `todo` as the whole sorted list and re-fetched the same leading names
+        # for another 600 s, so the month could never converge and names late
+        # in the alphabet were never refreshed. Worse, FUNDAMENTALS_LEFT_KEY
+        # was in that same refused write, so weekly_block_due never saw a
+        # positive balance and PR #164's "resume tomorrow" path could not fire
+        # for an interrupted run — only for one that had finished anyway.
+        #
+        # `done` means ATTEMPTED, not succeeded, exactly as before: a symbol
+        # Yahoo answers nothing for still counts, which is what lets the month
+        # finish. The one case that must NOT advance it is a run where Yahoo
+        # returned nothing AT ALL — so attempted names are buffered and only
+        # flushed into the ledger by a batch that actually produced rows.
+        import time as _time
+        t0 = _time.monotonic()
+        rows_total = n_ok = stored = 0
+        attempted, pending = [], []
+        stopped = None
+        while todo:
+            if budget:
+                spent = _time.monotonic() - t0
+                if spent >= budget:
+                    stopped = "time_budget"
+                    break
+                batch_budget = budget - spent
+            else:
+                batch_budget = None
+            batch, todo = todo[:FUNDAMENTALS_BATCH], todo[FUNDAMENTALS_BATCH:]
+            res = dr.fetch_fundamentals_budgeted(batch, time_budget_s=batch_budget)
+            todo = list(res["remaining"]) + todo       # never reached: resume here
+            got = list(res["attempted"])
+            attempted += got
+            pending += got
+            n_ok += res["n_ok"]
+            if res["rows"]:
+                rows_total += len(res["rows"])
+                stored += db.save_fundamentals_rows(res["rows"])
+                # Write progress the moment it exists, before anything else
+                # can end the process. `pending` carries the names attempted
+                # since the last flush, including earlier batches Yahoo
+                # answered nothing for.
+                done |= set(pending)
+                pending = []
+                db.save_settings({FUNDAMENTALS_DONE_KEY: {"month": month,
+                                                          "symbols": sorted(done)},
+                                  FUNDAMENTALS_LEFT_KEY: len(todo)},
+                                 doc_id="data_refresh")
+            if res["stopped"]:
+                stopped = res["stopped"]
+                break
+            if not got:
+                # The fetcher attempted nothing and handed the batch back.
+                # Without this the loop would re-offer the same names until the
+                # budget expired, doing no work for up to 600 s.
+                stopped = stopped or "no_progress"
+                todo = list(batch) + todo
+                break
+        left = len(todo)
+        n_ok = min(n_ok, len(attempted))
+        res = {"elapsed_s": round(_time.monotonic() - t0, 1), "stopped": stopped}
+        rows, n = rows_total, stored
         if not rows:
             # Nothing came back: keep the progress already made, count none
             # of these as done, and do not re-run tomorrow for it.
@@ -2475,8 +2540,11 @@ def _monthly_fundamentals_refresh() -> None:
                              f"{len(syms)} already done this month) — will "
                              "retry at the next weekly slot.")
             return
-        n = db.save_fundamentals_rows(rows)
-        done |= set(attempted)
+        # The run produced rows, so every name attempted counts as attempted —
+        # including any trailing batch Yahoo answered nothing for. Without this
+        # flush the month could be stamped complete with a short done list.
+        done |= set(pending)
+        pending = []
         if left:
             db.save_settings({FUNDAMENTALS_DONE_KEY: {"month": month,
                                                       "symbols": sorted(done)},
@@ -2492,7 +2560,10 @@ def _monthly_fundamentals_refresh() -> None:
         budget_txt = f"{int(budget)} s" if budget else "no"
         _refresh_journal("DATA_REFRESH_FUNDAMENTALS",
                          f"Monthly fundamentals refresh for {month}: "
-                         f"{n} datapoints stored, {n_ok}/{len(attempted)} "
+                         f"{n} datapoints stored"
+                         + (f" of {rows} fetched (the store refused "
+                            f"{rows - n})" if n != rows else "")
+                         + f", {n_ok}/{len(attempted)} "
                          f"symbols answered in {res['elapsed_s']}s"
                          + (f". STOPPED on the {budget_txt} time budget with "
                             f"{left} name(s) left ({len(done)}/{len(syms)} "

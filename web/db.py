@@ -1089,18 +1089,55 @@ def load_sebi_orders(ticker: str = "") -> list:
 def save_fundamentals_rows(rows: list) -> int:
     """Upsert fundamentals rows (Node 3 monthly refresh). rows =
     [{'symbol','field','as_of','value'}] — the committed CSV's own schema.
-    Keyed by symbol|field|as_of so a re-fetch updates in place."""
+    Keyed by symbol|field|as_of so a re-fetch updates in place.
+
+    NEW-01 (2026-11-27): this used to send ONE replace_one per row in a plain
+    loop, with no batching and no bound, after the fetch's own time budget had
+    already expired. A first-of-the-month run fetches ~929 symbols at ~60 rows
+    each = ~55,700 separate round trips to the cluster, with the weekly
+    universe rebuild and the OHLCV pull queued behind it. It now mirrors
+    save_macro_rows in this same file — unordered bulk_write of
+    ReplaceOne(upsert) in chunks of 500, 112 round trips for the same rows —
+    and, like that helper, returns only what the store ACKNOWLEDGED, so the
+    journal can no longer report refused writes as stored.
+    """
     if not _CONNECTED or _DB is None or not rows:
         return 0
+    from pymongo import ReplaceOne
+    from pymongo.errors import BulkWriteError
+    chunk_rows = 500
+
+    def _acked(res) -> int:
+        if res is None or not getattr(res, "acknowledged", True):
+            return 0
+        try:
+            return int(res.upserted_count or 0) + int(res.matched_count or 0)
+        except Exception:                                # noqa: BLE001
+            return 0
+
+    ops = []
+    for r in rows:
+        sym, field, as_of = (str(r.get("symbol") or ""), str(r.get("field") or ""),
+                             str(r.get("as_of") or ""))
+        if not sym or not field or not as_of:
+            continue
+        key = f"{sym}|{field}|{as_of}"
+        ops.append(ReplaceOne({"_id": key}, {**r, "_id": key}, upsert=True))
     n = 0
-    try:
-        for r in rows:
-            key = f"{r['symbol']}|{r['field']}|{r['as_of']}"
-            _DB.fundamentals.replace_one(
-                {"_id": key}, {**r, "_id": key}, upsert=True)
-            n += 1
-    except Exception as e:
-        log.warning("Mongo save_fundamentals_rows failed: %s", e)
+    for i in range(0, len(ops), chunk_rows):
+        chunk = ops[i:i + chunk_rows]
+        try:
+            n += _acked(_DB.fundamentals.bulk_write(chunk, ordered=False))
+        except BulkWriteError as e:
+            det = e.details or {}
+            got = int(det.get("nUpserted", 0) or 0) + int(det.get("nMatched", 0) or 0)
+            n += got
+            log.warning("Mongo save_fundamentals_rows: %d of %d row(s) in a chunk "
+                        "refused (%s)", len(chunk) - got, len(chunk),
+                        ((det.get("writeErrors") or [{}])[0] or {}).get("errmsg", ""))
+        except Exception as e:                           # noqa: BLE001
+            log.warning("Mongo save_fundamentals_rows failed after %d row(s): %s", n, e)
+            return n
     return n
 
 

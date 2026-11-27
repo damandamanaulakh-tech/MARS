@@ -164,7 +164,12 @@ def test_a_partial_run_keeps_progress_and_the_next_run_finishes_the_month(monkey
         scheduler._monthly_fundamentals_refresh()
 
         led = store["data_refresh"]
-        assert seen[0][0] == syms and seen[0][1] == 600.0
+        # NEW-02 (2026-11-27): names are fetched in batches of
+        # FUNDAMENTALS_BATCH so progress can be written after each one, and
+        # each batch gets the budget that is LEFT, not the whole 600 s.
+        # This list is shorter than one batch, so it still arrives whole.
+        assert seen[0][0] == syms
+        assert 599.0 <= seen[0][1] <= 600.0, seen[0][1]
         assert led[scheduler.FUNDAMENTALS_DONE_KEY] == {
             "month": month, "symbols": sorted(syms[:2])}
         assert led[scheduler.FUNDAMENTALS_LEFT_KEY] == len(syms) - 2
