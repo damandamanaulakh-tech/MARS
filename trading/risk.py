@@ -46,6 +46,89 @@ def min_trade_value(cfg: Config, target: float | None = None) -> float:
     return max(0.0, floor)
 
 
+def blocked_regardless_of_cash(
+    cfg: Config,
+    risk: RiskState,
+    open_positions: dict,
+    ticker: str,
+    fill_price: float,
+    notional_override: Optional[float] = None,
+    current_equity: float = 0.0,
+    freeing: tuple = (),
+) -> Optional[str]:
+    """Would this pick be refused however much cash were freed for it?
+
+    XR-052 (2026-11-27). Rotation sells a near-target winner to fund a fresh
+    pick, and it decides BEFORE `can_open` ever runs — the two-pass order the
+    2026-10-02 S-4 repair deliberately created, because the freed cash has to
+    exist when `can_open` counts it. So on some days the winner was sold, a
+    round trip of costs and slippage was booked, the last stretch to target was
+    given up, and the pick was then refused for a reason cash cannot fix.
+    Reproduced three ways: a kill-switch day (the day the book has already lost
+    2%, and the day the engine would sell a winner for nothing), a full sector,
+    and a ticket under the minimum.
+
+    DO NOT fix that by reordering: `trading/tests/test_rotation_exec.py`
+    deliberately pins rotation BEFORE `can_open`, and moving it would break the
+    feature. This is the other half — a read-only test of the gates that no
+    amount of freed cash changes, so rotation can stand down instead.
+
+    `freeing` are the tickers rotation is willing to sell. The sector gates are
+    judged with those excluded, because selling a same-sector holding DOES free
+    a sector slot — so without this the helper would stand rotation down in the
+    one case where it genuinely helps.
+
+    Deliberately NOT tested here, each with its reason:
+      * `max_positions_reached` — the rotation sale itself frees the slot it
+        needs. Measured: 6 held against a ceiling of 6, and after the sale
+        5 < 6 passes.
+      * `portfolio_heat_cap` — arithmetically unreachable under live settings.
+        `max_portfolio_heat_pct` is 0.25 while the widest stop any entry can
+        carry is ATR_STOP_CAP 0.15, and deployed capital is bounded by the
+        deploy cap. The worst case that could be built — eight wide-stop
+        holdings plus a winner whose stop has trailed above entry, so selling
+        it frees no heat budget — reached 12.6% of a 25% cap.
+      * `category_budget_full` — `_rotation_exits` already does its own share
+        arithmetic (`cb.room` / `cb.limit` / `cb.min_open`), so it is
+        pre-empted there.
+      * cash, headroom, quantity, costs and the minimum round-up — those are
+        exactly what rotation exists to fix.
+
+    Returns the reason, or None when the pick could open given enough cash.
+    """
+    if risk.kill_switch:
+        return "kill_switch_active"
+    if notional_override is not None and notional_override <= 0:
+        return "no_estimated_edge"
+    if not fill_price or fill_price <= 0:
+        return "invalid_fill_price"
+
+    per_stock_cap = (float(notional_override) if notional_override is not None
+                     else cfg.position_notional())
+    if per_stock_cap < fill_price:
+        # One whole share costs more than the whole ticket this pick may use.
+        return "qty_zero"
+
+    base_capital = (current_equity if current_equity and current_equity > 0
+                    else cfg.starting_capital)
+    dropped = set(freeing or ())
+    staying = {t: p for t, p in (open_positions or {}).items() if t not in dropped}
+
+    target_sector = cfg.sector_map.get(ticker, "Unknown")
+    if target_sector != "Unknown":
+        same_sector = sum(1 for p in staying.values()
+                          if cfg.sector_map.get(p.ticker, "Unknown") == target_sector)
+        if same_sector >= cfg.max_sector_positions:
+            return "sector_cap_reached"
+        frac = getattr(cfg, "max_sector_exposure_pct", None)
+        if frac is not None:
+            notional = sum(p.qty * p.entry_price for p in staying.values()
+                           if cfg.sector_map.get(p.ticker, "Unknown") == target_sector)
+            if base_capital * frac - notional < fill_price:
+                return "sector_exposure_cap"
+    return None
+
+
 def can_open(
     risk: RiskState,
     cash: float,

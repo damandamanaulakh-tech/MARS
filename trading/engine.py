@@ -47,7 +47,7 @@ from . import intraday_bars as ib, intraday_data as idata, intraday_scoring as i
 from . import context_inputs as ci
 from .calendars import is_market_open, market_state
 from .candles import candle_assessment
-from .risk import RiskState, can_open
+from .risk import RiskState, blocked_regardless_of_cash, can_open
 from .scoring import (
     MOMENTUM_MODE, compute_hot_sectors, compute_score, reasoning_text,
     score_for_mode, set_scoring_context, weights_for,
@@ -570,35 +570,31 @@ class TradingEngine:
                 "regime", lambda: fetch_regime(fii_5d_net_override=fii_5d))
         except Exception as e:
             log.warning("Regime classification failed: %s", e)
-            # AUDIT FIX C7 (2026-08-09): regime=None used to FAIL OPEN — the
-            # `regime is None or everest_active` gate re-enabled full-size
-            # buying with the correction brake silently gone, exactly when a
-            # broken feed is most likely (a panic). The last KNOWN regime is
-            # sticky instead: if we were in correction/panic yesterday, the
-            # brake stays on until the feed answers again; journaled once/day.
-            last_known = (self.portfolio.last_regime or "").lower()
-            if last_known in ("correction", "panic"):
-                today_key = datetime.utcnow().date().isoformat()
-                already = any(
-                    e2.get("action") == "REGIME_FEED_DOWN"
-                    and str(e2.get("ts", "")).startswith(today_key)
-                    for e2 in self.portfolio.decision_journal[-100:])
-                if not already:
-                    self.portfolio.decision_journal.append({
-                        "ts": datetime.utcnow().isoformat(),
-                        "action": "REGIME_FEED_DOWN",
-                        "why": (f"Regime feed failed and the last known regime "
-                                f"was {last_known.upper()} — the correction "
-                                "brake STAYS ON until the feed answers."),
-                    })
-                regime_feed_down_brake = True
-            else:
-                regime_feed_down_brake = False
+            regime_feed_down_brake = self._sticky_regime_brake("failed")
         else:
             regime_feed_down_brake = False
+        # XR-050 (2026-11-27). The C7 brake above lives in the `except`, but
+        # fetch_regime catches its OWN fetch failure and RETURNS a permissive
+        # neutral reading rather than raising — so on the COMMON failure
+        # control took the `else` and the brake was switched off. A reading
+        # that says it is not trustworthy is now treated exactly as no reading
+        # at all: the same sticky brake, no write to last_regime, and the cash
+        # reserve taken from the last regime we actually measured.
+        #
+        # OWNER'S CHOICE 2026-11-27, from an options card: "Keep yesterday's
+        # reading until the feed answers" — declining "always take the
+        # defensive side", which would have paused buying on a brief glitch.
+        # With nothing stored at all (a fresh book) this carries on as before.
+        regime_trusted = regime is not None and getattr(regime, "feed_ok", True)
+        if regime is not None and not regime_trusted:
+            if self._sticky_regime_brake("untrusted"):
+                regime_feed_down_brake = True
 
         # v5: detect regime switch + persist + notify
-        if regime is not None and regime.regime != self.portfolio.last_regime:
+        # XR-050: an UNTRUSTED reading must not be written here. One dead-feed
+        # day used to overwrite a stored "panic" with "neutral", and the brake
+        # then could not arm on the next dead-feed day either.
+        if regime_trusted and regime.regime != self.portfolio.last_regime:
             entry = {
                 "ts": datetime.utcnow().isoformat(),
                 "prev": self.portfolio.last_regime,
@@ -687,11 +683,18 @@ class TradingEngine:
 
         # P2/B2: dynamic cash reserve — 0% in bull/neutral (deploy fully) but
         # correction/panic force protective cash back in.
-        if regime is not None:
+        # XR-050: on an untrusted reading this took the fallback's "neutral"
+        # and set the reserve to 0% — losing Rs 1 crore of protective cash in
+        # a correction and Rs 2 crore in a panic, on exactly the days a feed
+        # is most likely to be down. It now reads the last regime that was
+        # actually measured; with nothing stored it leaves the reserve alone.
+        reserve_regime = (regime.regime if regime_trusted
+                          else (self.portfolio.last_regime or None))
+        if reserve_regime:
             try:
                 from .risk_v2 import dynamic_cash_reserve_pct
                 cfg.cash_reserve_pct = dynamic_cash_reserve_pct(
-                    regime.regime, floor=0.0,
+                    reserve_regime, floor=0.0,
                 )
             except Exception:
                 pass
@@ -884,14 +887,16 @@ class TradingEngine:
         # and in correction once the VIX-crush re-entry signal fires.
         # AUDIT FIX C7: with the feed down, the last known correction/panic
         # keeps the brake on (regime_feed_down_brake) instead of failing open.
-        everest_ok = (regime.everest_active if regime is not None
+        # XR-050: `regime is not None` let the fallback's everest_active=True
+        # lift the entry block a true PANIC reading would have applied.
+        everest_ok = (regime.everest_active if regime_trusted
                       else not regime_feed_down_brake)
         # OWNER ORDER 2026-08-09 ("take risk on 200 DMA" -> brake fully
         # off): with correction_brake_enabled False, the CORRECTION regime
         # alone no longer blocks entries. PANIC still does, and a dead
         # regime feed still brakes (C7) — this override needs a live
         # reading that says "correction", never a guess.
-        brake_off = (regime is not None and regime.regime == "correction"
+        brake_off = (regime_trusted and regime.regime == "correction"
                      and not getattr(cfg, "correction_brake_enabled", True))
         if brake_off and not everest_ok:
             _context_line({
@@ -3259,6 +3264,58 @@ class TradingEngine:
         if not held:
             return []
 
+        # XR-052 (owner's choice 2026-11-27, from an options card: "only sell
+        # when the new buy can actually go through"). The entry decision runs
+        # in two passes and rotation sits between them, so until now it could
+        # sell a near-target winner for a pick that the final buy check then
+        # refused for a reason cash cannot fix. Reproduced three ways: a
+        # kill-switch day — the day the book has already lost 2%, and the day
+        # the engine would sell a winner for nothing — a full sector, and a
+        # ticket under the minimum.
+        #
+        # The order is NOT changed: trading/tests/test_rotation_exec.py pins
+        # rotation BEFORE can_open deliberately, because the freed cash has to
+        # exist when can_open counts it. Instead every pick is read against the
+        # gates no amount of cash can fix, with the rotation candidates treated
+        # as already sold — selling a same-sector holding really does free a
+        # sector slot, and without that this would stand down in the one case
+        # where it genuinely helps.
+        blocked_anyway: dict = {}
+        if fresh:
+            candidates = tuple(
+                t for t, p in held.items()
+                if not bool(getattr(p, "owner_pick", False)))
+            keep = []
+            for pk in fresh:
+                try:
+                    reason = blocked_regardless_of_cash(
+                        cfg, self.risk, held, pk["ticker"],
+                        float(pk.get("close") or pk.get("price") or 0.0) or 1.0,
+                        notional_override=None,
+                        current_equity=self.portfolio.cash + sum(
+                            float(p.qty) * float(p.entry_price)
+                            for p in held.values()),
+                        freeing=candidates)
+                except Exception:
+                    reason = None            # never let a read stop a rotation
+                if reason:
+                    blocked_anyway[pk["ticker"]] = reason
+                else:
+                    keep.append(pk)
+            if not keep:
+                self._journal_once_a_day("ROTATION_STOOD_DOWN", now, {
+                    "blocked": blocked_anyway,
+                    "why": ("Cash is short for this scan's picks, but every "
+                            "one of them would be refused even with the cash "
+                            "freed (" + ", ".join(
+                                sorted(set(blocked_anyway.values())))
+                            + ") — so no holding was sold. Before this, a "
+                            "near-target winner could be sold for a buy that "
+                            "could never happen."),
+                })
+                return []
+            fresh = keep
+
         # FIX 1 of 2 (owner order 2026-09-16). Rotation is a SALE, and the
         # owner's 2026-09-10 order was "yes all block" outside 09:15-15:30 IST.
         # refresh() honoured that via marking_only; this branch never did — it
@@ -4439,6 +4496,41 @@ class TradingEngine:
             self.apply_corporate_actions()
         except Exception:                           # noqa: BLE001
             log.exception("corporate-action adjuster failed before %s", where)
+
+    def _sticky_regime_brake(self, how: str) -> bool:
+        """AUDIT FIX C7, extended by XR-050: the last KNOWN regime is sticky.
+
+        A regime reading we cannot trust used to FAIL OPEN — the
+        `regime is None or everest_active` gate re-enabled full-size buying
+        with the correction brake silently gone, exactly when a broken feed is
+        most likely (a panic). If the last regime we actually measured was
+        correction or panic, the brake stays on until the feed answers again.
+        Journaled once a day. Nothing stored = nothing to be sticky about, so
+        the day proceeds as before (the owner's own choice, 2026-11-27).
+
+        `how` says which route got here: "failed" (fetch_regime raised) or
+        "untrusted" (it returned a reading with no evidence behind it). Both
+        are the same fault to the book; naming them keeps the journal honest.
+        """
+        last_known = (self.portfolio.last_regime or "").lower()
+        if last_known not in ("correction", "panic"):
+            return False
+        today_key = datetime.utcnow().date().isoformat()
+        already = any(
+            e2.get("action") == "REGIME_FEED_DOWN"
+            and str(e2.get("ts", "")).startswith(today_key)
+            for e2 in self.portfolio.decision_journal[-100:])
+        if not already:
+            self.portfolio.decision_journal.append({
+                "ts": datetime.utcnow().isoformat(),
+                "action": "REGIME_FEED_DOWN",
+                "route": how,
+                "why": (f"The market-state feed {how} and the last known "
+                        f"regime was {last_known.upper()} — the correction "
+                        "brake STAYS ON, and the cash reserve stays at that "
+                        "regime's level, until the feed answers."),
+            })
+        return True
 
     def _roll_risk_day(self, current_equity: float, now: datetime) -> None:
         """Re-baseline the daily loss halt once per trading day.
