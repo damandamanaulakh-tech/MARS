@@ -1099,6 +1099,12 @@ class TradingEngine:
         ifr_snapshot = None
         try:
             from .ifr import check_damage_cluster
+            # XR-041, the third door to the same place: this `except` used to
+            # leave ifr_snapshot None, which _throttled_qty reads as
+            # multiplier 1.0 — so a crash in the damage check LIFTED a
+            # throttle that was already running, exactly like the thin-panel
+            # branch did. A crash is not evidence that the crowd-fear window
+            # has closed, so the saved dates decide instead.
             ifr_snapshot = check_damage_cluster(
                 history, now=now,
                 last_fire_date=self.portfolio.last_ifr_fire_date,
@@ -1132,7 +1138,19 @@ class TradingEngine:
                     "why": ifr_snapshot.reason,
                 })
         except Exception:
-            pass
+            log.exception("IFR damage check failed; falling back to the saved "
+                          "fire dates so an open throttle is not lifted")
+            if ifr_snapshot is None:
+                try:
+                    from .ifr import held_throttle_snapshot
+                    ifr_snapshot = held_throttle_snapshot(
+                        now,
+                        last_fire_date=self.portfolio.last_ifr_fire_date,
+                        ratio_last_fire_date=self.portfolio.last_ifr_ratio_fire_date,
+                        reason="damage check crashed",
+                    )
+                except Exception:
+                    ifr_snapshot = None
 
         # v5: Update drawdown governor with current equity
         prev_dd_level = self.drawdown_gov.active_level

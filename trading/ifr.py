@@ -190,6 +190,53 @@ def compute_tail_damage_ratio(down: pd.Series, up: pd.Series) -> pd.Series:
     return aligned["down"] / (aligned["down"] + aligned["up"] + 0.001)
 
 
+def _window_active(prev_iso, now) -> tuple[bool, "str | None"]:
+    """Is a saved fire date still inside its ACTIVE_DAYS_AFTER_FIRE window?
+
+    XR-041 made this a module-level helper so the thin-panel path and the
+    normal path cannot disagree about what "still active" means. An
+    unparseable date is NOT active, and the date is handed back unchanged
+    either way — the engine writes it straight back.
+    """
+    if not prev_iso:
+        return False, prev_iso
+    try:
+        prev = datetime.fromisoformat(prev_iso).date()
+    except (ValueError, TypeError):
+        return False, prev_iso
+    return (now.date() - prev).days <= ACTIVE_DAYS_AFTER_FIRE, prev_iso
+
+
+def held_throttle_snapshot(now, last_fire_date=None, ratio_last_fire_date=None,
+                           reason: str = "reading unavailable") -> "IFRSnapshot":
+    """The throttle a saved fire date still implies, with no panel at all.
+
+    XR-041: used by the engine when check_damage_cluster itself raises. A
+    crash is not evidence that the window has closed, and the engine's own
+    `except` previously left the snapshot None, which reads as multiplier
+    1.0 — lifting a throttle that was running. No new call is made here: the
+    saved dates alone decide, and they are handed back unchanged.
+    """
+    held, held_last = _window_active(last_fire_date, now)
+    held_ratio, held_ratio_last = _window_active(ratio_last_fire_date, now)
+    active = held or held_ratio
+    which = tuple(x for x, on in (("cluster", held), ("ratio", held_ratio)) if on)
+    why = reason
+    if active:
+        why += (f" — a {ACTIVE_DAYS_AFTER_FIRE}-day window after the last fire "
+                f"({', '.join(which)}) is still open, so the throttle "
+                f"CONTINUES at {THROTTLE_MULTIPLIER * 100:.0f}%.")
+    return IFRSnapshot(
+        fired_today=False, active=active,
+        sizing_multiplier=THROTTLE_MULTIPLIER if active else 1.0,
+        tail_down3_5d_today=0.0, threshold_value=0.0,
+        fires_in_window=0, last_fire_date=held_last,
+        reason=why, ratio_today=0.0, ratio_threshold=0.0,
+        ratio_fired_today=False, ratio_last_fire_date=held_ratio_last,
+        ratio_active=held_ratio, which_fired=which,
+    )
+
+
 def check_damage_cluster(history: Dict[str, pd.DataFrame],
                           now: Optional[datetime] = None,
                           last_fire_date: Optional[str] = None,
@@ -217,18 +264,44 @@ def check_damage_cluster(history: Dict[str, pd.DataFrame],
     market_series = (pd.Series(dtype=float) if thin
                      else compute_market_tail_down3_5d(history))
     if market_series.empty or len(market_series) < CLUSTER_WINDOW + 30:
-        # Not enough data to make a call — assume normal (no throttle).
+        # XR-041 (2026-11-27). Not enough data to make a NEW call — but a
+        # throttle that is already running must not be lifted by a data
+        # outage. Before this the branch returned active=False and
+        # sizing_multiplier=1.0 before the window logic below was ever
+        # reached, so a cluster that fired two days ago inside its own
+        # documented 22-day window silently stopped halving new buys for as
+        # long as the panel stayed thin. The saved dates were never lost
+        # (they are returned and written back unchanged), so the window
+        # resumed once the panel recovered — the loss was confined to the
+        # passes during the outage, and that is exactly when it matters.
+        #
+        # The 2026-10-02 F-5 work CREATED this branch (it introduced the
+        # frozen reference panel and MIN_REFERENCE_NAMES) and also capped its
+        # cost (engine._throttled_qty floors a throttled ticket at the slab).
+        # Honouring a saved fire date inside its own window is restoring what
+        # this module's own docstring already promises, not a new rule.
+        held, held_last = _window_active(last_fire_date, now)
+        held_ratio, held_ratio_last = _window_active(ratio_last_fire_date, now)
+        held_active = held or held_ratio
+        held_which = tuple(x for x, on in (("cluster", held), ("ratio", held_ratio)) if on)
+        why = (f"insufficient reference panel ({len(history)} of the "
+               f"{len(frozen['tickers'])} reference names loaded, need "
+               f"{MIN_REFERENCE_NAMES})" if thin
+               else "insufficient history")
+        if held_active:
+            why += (f" — but a {ACTIVE_DAYS_AFTER_FIRE}-day window after the "
+                    f"last fire ({', '.join(held_which)}) is still open, so "
+                    f"the throttle CONTINUES at "
+                    f"{THROTTLE_MULTIPLIER * 100:.0f}%.")
         return IFRSnapshot(
-            fired_today=False, active=False, sizing_multiplier=1.0,
+            fired_today=False, active=held_active,
+            sizing_multiplier=THROTTLE_MULTIPLIER if held_active else 1.0,
             tail_down3_5d_today=0.0, threshold_value=0.0,
-            fires_in_window=0, last_fire_date=last_fire_date,
-            reason=(f"insufficient reference panel ({len(history)} of the "
-                    f"{len(frozen['tickers'])} reference names loaded, need "
-                    f"{MIN_REFERENCE_NAMES})" if thin
-                    else "insufficient history"),
+            fires_in_window=0, last_fire_date=held_last,
+            reason=why,
             ratio_today=0.0, ratio_threshold=0.0,
-            ratio_fired_today=False, ratio_last_fire_date=ratio_last_fire_date,
-            ratio_active=False, which_fired=(),
+            ratio_fired_today=False, ratio_last_fire_date=held_ratio_last,
+            ratio_active=held_ratio, which_fired=held_which,
         )
 
     # ---- Signal 1: DAMAGE_CLUSTER ----
@@ -254,13 +327,7 @@ def check_damage_cluster(history: Dict[str, pd.DataFrame],
     def _is_active(fired: bool, prev_iso: Optional[str]) -> tuple[bool, Optional[str]]:
         if fired:
             return True, today_iso
-        if prev_iso:
-            try:
-                prev = datetime.fromisoformat(prev_iso).date()
-                return (now.date() - prev).days <= ACTIVE_DAYS_AFTER_FIRE, prev_iso
-            except ValueError:
-                return False, prev_iso
-        return False, prev_iso
+        return _window_active(prev_iso, now)
 
     cluster_active, new_last_fire = _is_active(cluster_fired_today, last_fire_date)
     ratio_active,   new_ratio_fire = _is_active(ratio_fired_today,   ratio_last_fire_date)

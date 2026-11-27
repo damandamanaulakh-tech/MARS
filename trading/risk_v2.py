@@ -188,6 +188,18 @@ class LiquidityRules:
     # ordered it fixed ("fix both faults"); liquidity is measured in rupees
     # here, exactly as it is there. A guard test keeps the old field out.
     min_rupee_volume_5d_cr: float = 5.0              # min ₹5 Cr daily rupee turnover (avg over 5d)
+    # XR-027 (owner's choice 2026-11-27: "all 5 days must be real"). How many
+    # of the last five bars must carry a FINITE POSITIVE close x volume for
+    # the turnover test to mean anything. Before this the mean of an all-NaN
+    # window was NaN, `NaN < 5.0` was False, and the refusal was skipped: a
+    # stock whose recent volume was missing PASSED the one gate that exists to
+    # keep the book out of names nobody trades. Worse, pandas .mean() skips
+    # NaN, so a PARTIALLY blank window read HIGHER than the truth — one
+    # measured name whose real 5-day average was Rs 4.08 Cr (correctly
+    # refused) read Rs 20.00 Cr and was accepted. The owner was offered 3 of 5
+    # and chose all 5. The weekly universe ranker already demands 10 of 20
+    # (trading/universe_select.median_turnover), so the two now agree in kind.
+    min_real_volume_days: int = 5
     max_spread_pct: float = 0.001                    # 0.1% bid-ask (Upstox-derived; soft when no live quote)
     min_market_cap_cr: float = 5_000.0               # min ₹5,000 Cr free-float mcap
     require_no_circuit: bool = True                  # skip if at upper/lower circuit today
@@ -219,13 +231,35 @@ def passes_liquidity(
         return False, "insufficient_history"
 
     # Rupee volume (price * vol, avg of 5 days, in Crores) — the ONE liquidity
-    # measure (see LiquidityRules for why the share count was removed)
-    rupee_vol = (close.iloc[-5:] * volume.iloc[-5:]).dropna().mean()
-    rupee_vol_cr = float(rupee_vol) / 1e7
+    # measure (see LiquidityRules for why the share count was removed).
+    #
+    # XR-027: build the pairs explicitly and keep only the ones that are
+    # really there. A missing volume is UNKNOWN, never a pass — the
+    # convention this repo already follows in universe_select.median_turnover
+    # ("never 0.0, which would read as known to be illiquid") and in
+    # timing.passes_volume_spike ("unknown, never a pass"). An infinite value
+    # is refused for the same reason: it is not a reading.
+    pairs = []
+    for c, v in zip(close.iloc[-5:].tolist(), volume.iloc[-5:].tolist()):
+        try:
+            c_f, v_f = float(c), float(v)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(c_f) and math.isfinite(v_f) and c_f > 0 and v_f > 0:
+            pairs.append(c_f * v_f)
+    need_days = int(getattr(rules, "min_real_volume_days", 5) or 0)
+    de.record("volume_days", len(pairs), need_days,
+              passed=len(pairs) >= need_days,
+              state=None if len(pairs) >= need_days else "unavailable",
+              reason="last 5 bars with a real close x volume")
+    if len(pairs) < need_days:
+        return False, (f"volume_missing {len(pairs)}/5 real day(s) "
+                       f"< {need_days} required")
+    rupee_vol_cr = (sum(pairs) / len(pairs)) / 1e7
     de.record("turnover", rupee_vol_cr, rules.min_rupee_volume_5d_cr,
               passed=rupee_vol_cr >= rules.min_rupee_volume_5d_cr,
               state=None if math.isfinite(rupee_vol_cr) else "unavailable", reason="5-bar average INR crore")
-    if rupee_vol_cr < rules.min_rupee_volume_5d_cr:
+    if not math.isfinite(rupee_vol_cr) or rupee_vol_cr < rules.min_rupee_volume_5d_cr:
         return False, f"rupee_vol {rupee_vol_cr:.2f}Cr < {rules.min_rupee_volume_5d_cr}Cr"
 
     # Market cap hard floor (only when provided)
