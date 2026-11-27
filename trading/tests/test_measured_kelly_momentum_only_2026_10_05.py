@@ -132,7 +132,12 @@ def test_losing_swing_exits_no_longer_block_the_momentum_scan(tmp_path, monkeypa
 
 
 def test_losing_momentum_exits_still_block_the_momentum_scan(tmp_path, monkeypatch):
+    """V1.3's subject is the SCOPE of the check — momentum exits gate the
+    momentum pass. The veto is the mechanism it observes that through, and it
+    became opt-in on the owner's 2026-11-27 "cap only, never block" decision,
+    so it is switched on here. The scoping under test is unchanged."""
     e = _fresh(tmp_path, monkeypatch, _no_edge(MOM))
+    e.cfg.measured_kelly_block_enabled = True
     e.scan()
     assert "UPP.NS" not in e.portfolio.positions
     reasons = {s["ticker"]: s["reason"] for s in e.portfolio.last_scan_skipped}

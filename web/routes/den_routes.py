@@ -553,6 +553,9 @@ def _measured_kelly_block(cfg, p) -> dict:
         log.exception("den: measured kelly reading failed")
     return {
         "enabled": bool(getattr(cfg, "measured_kelly_enabled", False)),
+        # Owner 2026-11-27: a no-edge reading caps size; it refuses an
+        # entry only while this is on.
+        "vetoes": bool(getattr(cfg, "measured_kelly_block_enabled", False)),
         "modes": list(modes) or ["(all categories pooled)"],
         "prior_trades": MK.PRIOR_TRADES, "prior_win_rate": MK.PRIOR_WIN_RATE,
         "clip_pct": MK.live_clip_pct(),

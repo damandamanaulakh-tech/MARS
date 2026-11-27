@@ -19,6 +19,7 @@ from trading import category_budget as cb
 # Journal actions written INSIDE a category pass that explain a refusal.
 BLOCK_ACTIONS = (
     "BREADTH_BLOCKED", "CATEGORY_BUDGET_FULL", "MEASURED_KELLY_BLOCKED",
+    "MEASURED_KELLY_NO_EDGE",
     "CONSECUTIVE_LOSS_HALT", "KILL_SWITCH_SCAN", "OCEAN_BLOCKED",
     "SCAN_COVERAGE_SHORT", "MULTI_FORMULA_BLOCKED",
     "ROTATION_NOTHING_TO_FUND", "CORRECTION_BRAKE_OFF",
@@ -50,6 +51,7 @@ BLOCK_WORDS = {
     "BREADTH_BLOCKED": "breadth band",
     "CATEGORY_BUDGET_FULL": "share full",
     "MEASURED_KELLY_BLOCKED": "Kelly check: no edge",
+    "MEASURED_KELLY_NO_EDGE": "Kelly check: no edge, sizes capped at the minimum",
     "CONSECUTIVE_LOSS_HALT": "daily loss halt",
     "KILL_SWITCH_SCAN": "kill switch",
     "OCEAN_BLOCKED": "Ocean rail",
@@ -213,8 +215,15 @@ def card(portfolio, cfg, today_iso: str) -> dict:
         book.append(f"Losing exits counted today: {lc} (the daily loss halt stops entries at "
                     f"max(2, 10% of open + lost))")
     for e in reversed(list(getattr(portfolio, "decision_journal", None) or [])[-400:]):
-        if e.get("action") == "MEASURED_KELLY_BLOCKED" and str(e.get("ts", ""))[:10] == today_iso:
-            book.append(f"Kelly check blocked momentum: {str(e.get('why', ''))[:160]}")
+        act = e.get("action")
+        if act in ("MEASURED_KELLY_BLOCKED", "MEASURED_KELLY_NO_EDGE") and str(e.get("ts", ""))[:10] == today_iso:
+            # Say which policy ran: a refusal and a size cap are different
+            # facts and must never read the same (owner 2026-11-27).
+            lead = ("Kelly check blocked momentum"
+                    if act == "MEASURED_KELLY_BLOCKED"
+                    else "Kelly check found no edge — momentum entries capped "
+                         "at the minimum ticket, not refused")
+            book.append(f"{lead}: {str(e.get('why', ''))[:200]}")
             break
     note = ""
     if latest and latest.get("status") != "complete":

@@ -984,6 +984,7 @@ def equity_month_series(history, now_ist=None) -> dict:
 # Journal actions that explain a quiet book (owner order 2026-10-12, item 32).
 WHY_NOT_ACTIONS = (
     "CATEGORY_BUDGET_FULL", "BREADTH_BLOCKED", "MEASURED_KELLY_BLOCKED",
+    "MEASURED_KELLY_NO_EDGE",
     "SCAN_FAILED", "SCAN_COVERAGE_SHORT", "CORRECTION_BRAKE_OFF",
     "ROTATION_NOTHING_TO_FUND", "KILL_SWITCH_SCAN",
 )

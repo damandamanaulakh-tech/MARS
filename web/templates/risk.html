@@ -108,7 +108,7 @@
 
 {% if mk_on %}
 <div class="bg-white border border-line p-4 lg:p-6 mb-6
-            {% if mk and mk.block_new_entries %}border-l-4 border-l-red-600{% elif mk and mk.status == 'ACTIVE' %}border-l-4 border-l-emerald-500{% else %}border-l-4 border-l-slate-300{% endif %}"
+            {% if mk and mk.block_new_entries and mk_vetoes %}border-l-4 border-l-red-600{% elif mk and mk.block_new_entries %}border-l-4 border-l-amber-500{% elif mk and mk.status == 'ACTIVE' %}border-l-4 border-l-emerald-500{% else %}border-l-4 border-l-slate-300{% endif %}"
      data-measured-kelly="measured_kelly_marker">
   <div class="text-xs tracking-widest text-ink-faint uppercase mb-2">MEASURED KELLY (from your own closed trades{% if mk_modes %} — {{ mk_modes|join(', ')|replace('nifty200_momentum', 'momentum') }} only{% endif %})</div>
   {% if not mk %}
@@ -116,7 +116,8 @@
   <div class="mt-2 text-sm text-ink-faint">The reading could not be computed on this page. The scan skips the check when it cannot compute it (it never blocks on a failure).</div>
   {% else %}
   <div class="font-black text-xl lg:text-2xl tracking-tight">
-    {% if mk.block_new_entries %}<span class="text-red-700">NO MEASURED EDGE — NEW SCAN ENTRIES BLOCKED</span>
+    {% if mk.block_new_entries and mk_vetoes %}<span class="text-red-700">NO MEASURED EDGE — NEW SCAN ENTRIES BLOCKED</span>
+    {% elif mk.block_new_entries %}<span class="text-amber-700">NO MEASURED EDGE — NEW SCAN ENTRIES CAPPED AT ₹{{ mk_cap|inr }}, NOT BLOCKED</span>
     {% elif mk.status == 'ACTIVE' %}<span class="text-emerald-700">EDGE MEASURED — SIZE CAP ₹{{ mk_cap|inr }} PER NEW TRADE</span>
     {% else %}<span class="text-ink-soft">MEASURED EDGE UNKNOWN — EXISTING SIZING APPLIES</span>{% endif %}
   </div>
@@ -145,6 +146,7 @@
     Counts strategy exits only (stop, target, trail, max-hold, decay, rotation, danger) — never your own sells, square-offs, the kill switch or the drawdown ladder.
     {% if mk_modes %}Since 2026-10-05 ("make it momentum only") it reads momentum exits only and gates momentum buys only; the other four categories and Ocean are neither counted nor blocked by it. A trade closed before that date carries no category tag, so it is placed by its own entry record (momentum / owner buy / Ocean); one that cannot be placed is left out.{% endif %}
     The cap never goes below the ₹{{ cfg.position_slab_value|inr }} slab and never raises a size. Your own BUY button and the Buy Desk are not blocked by it.
+    {% if not mk_vetoes %}<strong>Owner decision 2026-11-27 — "cap only, never block":</strong> a reading with no measured edge now caps every new scan entry at the minimum ticket instead of refusing it, so the book can go on recording exits. Switch "Measured Kelly Veto On" back to 1 in Settings to restore the refusal.{% endif %}
   </div>
 </div>
 {% endif %}

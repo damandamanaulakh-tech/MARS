@@ -1249,8 +1249,10 @@ class TradingEngine:
         # Budget week every pick is refused).
         # AUDIT F-9 (owner: "F9- write it", 2026-10-02): the measured-Kelly
         # check runs. One reading per scan, from the book's OWN closed trades
-        # (trading/measured_kelly.py). NO_POSITIVE_EDGE blocks every new scan
-        # entry; ACTIVE caps each new entry's size; NO_SAMPLE does nothing.
+        # (trading/measured_kelly.py). ACTIVE caps each new entry's size;
+        # NO_SAMPLE does nothing. NO_POSITIVE_EDGE caps every new entry at the
+        # minimum ticket (owner 2026-11-27, "cap only, never block") and only
+        # refuses the entry while cfg.measured_kelly_block_enabled is on.
         mk = self._measured_kelly(now) if picks else None
         cleared: list = []
         for pick in picks:
@@ -1276,10 +1278,17 @@ class TradingEngine:
                 # 2026-10-05 ("make it momentum only"): the reading is this
                 # category's own record, so an Ocean pick (its own category, its
                 # own exits) is not judged by it.
+                mk_vetoes = bool(getattr(cfg, "measured_kelly_block_enabled", False))
+                # The observation stays FAILED on a no-edge reading whatever
+                # the policy does with it — the reason says what was done.
                 de.put(d, "measured_kelly", de.clean(vars(mk)) if mk is not None else None, "positive measured edge when sufficient sample",
                        state="skipped" if pick.get("ocean") else "unavailable" if mk is None else None,
-                       passed=not (mk is not None and mk.block_new_entries), reason="Ocean exempt" if pick.get("ocean") else "")
-                if (mk is not None and mk.block_new_entries
+                       passed=not (mk is not None and mk.block_new_entries),
+                       reason="Ocean exempt" if pick.get("ocean")
+                       else "" if mk is None or not mk.block_new_entries
+                       else "No measured edge — entry refused (veto on)" if mk_vetoes
+                       else "No measured edge — size capped at the minimum ticket, entry not refused (owner 2026-11-27)")
+                if (mk is not None and mk.block_new_entries and mk_vetoes
                         and not pick.get("ocean")):
                     authority = self._active_strategy_batch()
                     if authority and authority["override"]["authorized"]:
@@ -4025,11 +4034,21 @@ class TradingEngine:
             log.exception("measured Kelly failed — check skipped: %s", e)
             return None
         if r.block_new_entries:
-            self._journal_once_a_day("MEASURED_KELLY_BLOCKED", now, {
-                "category": r.category, "other_category": r.other_category,
-                "usable": r.usable, "excluded": r.excluded,
-                "win_rate": r.raw_win_rate, "payoff": r.payoff_ratio,
-                "kelly": r.raw_kelly, "why": r.note})
+            # A line named BLOCKED on a day nothing was blocked is the
+            # lying-screen class, so the action names the policy that ran.
+            vetoes = bool(getattr(cfg, "measured_kelly_block_enabled", False))
+            self._journal_once_a_day(
+                "MEASURED_KELLY_BLOCKED" if vetoes else "MEASURED_KELLY_NO_EDGE",
+                now, {
+                    "category": r.category, "other_category": r.other_category,
+                    "usable": r.usable, "excluded": r.excluded,
+                    "win_rate": r.raw_win_rate, "payoff": r.payoff_ratio,
+                    "kelly": r.raw_kelly,
+                    "policy": "block" if vetoes else "cap_only",
+                    "why": r.note + ("" if vetoes else
+                                     " Entries are NOT refused: each new scan "
+                                     "entry is capped at the minimum ticket "
+                                     "until the record shows an edge.")})
         return r
 
     @staticmethod
@@ -4042,13 +4061,23 @@ class TradingEngine:
         smaller than the slab. Under fixed sizing the floor is the dust guard
         (min_position_value) instead.
         """
-        if mk is None or mk.status != "ACTIVE" or not mk.fraction:
+        if mk is None:
             return None
-        cap = float(mk.fraction) * float(equity)
         if str(getattr(cfg, "sizing_mode", "")) == "slab":
             floor = float(getattr(cfg, "position_slab_value", 0) or 0)
         else:
             floor = float(getattr(cfg, "min_position_value", 0) or 0)
+        if mk.block_new_entries:
+            # OWNER 2026-11-27 "cap only, never block". A no-edge reading
+            # carries fraction 0.0, and a cap of zero would still be a veto
+            # wearing a cap's clothes, so the honest smallest bet is the
+            # owner's own stated minimum ticket. With the veto switched on the
+            # gate refuses the pick before sizing, so the value is unused.
+            return None if bool(getattr(
+                cfg, "measured_kelly_block_enabled", False)) else floor
+        if mk.status != "ACTIVE" or not mk.fraction:
+            return None
+        cap = float(mk.fraction) * float(equity)
         return max(cap, floor)
 
     def _journal_budget_full(self, skipped: list, now: datetime) -> None:
