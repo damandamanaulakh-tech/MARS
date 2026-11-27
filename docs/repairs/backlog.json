@@ -5010,5 +5010,33 @@
     "deployment_revision": "",
     "source_sheet": "Owner",
     "source_row": 0
+  },
+  {
+    "id": "OWN-DATA-01",
+    "priority": "P2",
+    "area": "Data feed",
+    "finding": "The owner believed heavy data files had been removed. Nothing was: all 21 are committed and git status on data/ is clean. The real problem is STALENESS - delivery, F&O participant OI and F&O open interest stop on 7-11 August 2026 - plus one switch: on 24 September the 52 MB delivery file stopped being READ in production (PROD_SOURCES) to survive the 512 MB box.",
+    "impact": "NONE on the money path. The delivery file feeds T12W_0060, which is calibrated REJECTED (lift 0.992 over 59,195 windows, firing on 22% of all days), plus register and display items; participant OI feeds register FII-04/05 and the two OI tripwires, also display. Fresh data on a rejected trigger is still a rejected trigger - the gain is that the next measurement is of this year.",
+    "source_severity": "MEDIUM",
+    "source_status": "OWNER REQUEST 2026-11-27",
+    "updated_state": "FIX_LOCAL_TESTED_DEPLOYMENT_HOLD_RUNTIME_PENDING",
+    "review_note": "THE CORRECTION THAT MADE THIS CHEAP: every note in this repo (fetch_kit's README and CLAUDE.md in several places) said nsearchives.nseindia.com blocks this host and the owner's Colab was the only refresh path. Verified FALSE on 2026-11-27 with real requests by two independent readers and then by hand: delivery 200/403,413 bytes real CSV, participant OI 200 real, F&O bhavcopy 200/1.19 MB real zip, across seven dates including a Saturday that correctly 404'd. ~0.5 s a day, so the 74-day gap is a minute or two of fetching. Columns were read from the live files and are mapped BY NAME (a reorder test proves it). No committed CSV is rewritten: fresh rows go to Mongo and are layered on at read time, because data/ is 177 MB and Render clones all of it on every deploy. Participant OI needed no merge - extend_pwoi_df and save_pwoi_rows already existed and nothing had ever written to them.",
+    "draft_state": "",
+    "proposed_fix": "",
+    "effort": "M",
+    "source_evidence": "trading/external_panels.py:968 PROD_SOURCES; data/ last dates 2026-08-07/08-11",
+    "source_origin": "Owner request, 2026-11-27",
+    "owner_decision": "27 November: \"render have enough storage to expand so no worry / Data is needed\". Taken as the go-ahead for both the refresh and the two things the 512 MB box had forced off: reading the delivery file in production (+93 MB measured, against a 749 MB peak measured live) and the Den's stale 380 MB screen ceiling (raised to 900; the guard stays).",
+    "owner_note": null,
+    "current_evidence": "docs/repairs/releases/2026-11-27-nse-archives.md",
+    "related_id": "OPS-03",
+    "acceptance": "The weekly block catches delivery and participant OI up from NSE's archive, resuming from the last stored day; no committed CSV is rewritten; a 200 with an HTML body is never stored as data; delivery is read in production again.",
+    "workflow": "REPRODUCED_FIXED_TESTED_RECORDED",
+    "assignee": "",
+    "fix_commit": "",
+    "test_result": "24 new tests in web/tests/test_nse_archives_2026_11_27.py, ALL 24 verified to fail on the pre-repair code; the live shapes are fixtures so nothing touches the network. STILL THE OWNER'S TO SUPPLY: shareholding detail (register H-02..H-06, X-07 - the one with real value still behind DATA_NEEDED), the Total Return Index (needs a POST), insider dealings and bulk/block deals (NSE caps those at 70 rows a month, so they can never be complete).",
+    "deployment_revision": "",
+    "source_sheet": "Owner",
+    "source_row": 0
   }
 ]

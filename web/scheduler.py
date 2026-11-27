@@ -2598,6 +2598,105 @@ def _monthly_fundamentals_refresh() -> None:
                          f"Monthly fundamentals refresh crashed: {e}")
 
 
+#: OWNER 2026-11-27: "Data is needed". The last dates in the committed files,
+#: so a first run knows where to start. Pinned by a test against the files
+#: themselves, because a constant that must match a file is a drift risk.
+DELIVERY_COMMITTED_THROUGH = "2026-08-07"
+PWOI_COMMITTED_THROUGH = "2026-08-07"
+#: Days fetched per run. ~0.5 s each, and the step has its own wall-clock cap
+#: (OPS-03), so this is about leaving room for the six feeds behind it rather
+#: than about the archive being slow. The ledger resumes, so a gap of any size
+#: closes over consecutive runs.
+NSE_ARCHIVE_DAYS_PER_RUN = 40
+
+
+def _archive_days_to_fetch(last_iso: str, today=None, cap: int = 0) -> list:
+    """The trading days after `last_iso`, up to `cap`, oldest first."""
+    from datetime import date as _date, timedelta as _td
+
+    from trading.calendars import is_trading_day
+    try:
+        y, m, d = (int(x) for x in str(last_iso)[:10].split("-"))
+        cursor = _date(y, m, d)
+    except (TypeError, ValueError):
+        return []
+    end = today or _date.today()
+    out = []
+    while cursor < end and (not cap or len(out) < cap):
+        cursor += _td(days=1)
+        if cursor >= end:
+            break
+        if is_trading_day(cursor):
+            out.append(cursor)
+    return out
+
+
+def _weekly_nse_archives_refresh() -> None:
+    """Catch the delivery and participant-OI panels up from NSE's archive.
+
+    OWNER 2026-11-27 ("Data is needed", and "render have enough storage to
+    expand so no worry"). Both files were frozen at 2026-08-07 because every
+    note in this repo said nsearchives.nseindia.com blocks this host and the
+    owner's own Colab notebook was the only path. Checked with real requests on
+    2026-11-27 across seven dates, including a Saturday that correctly returned
+    404: it answers. ~0.5 s a day, so the gap is a minute or two of fetching.
+
+    Nothing rewrites a committed CSV — fresh rows go to Mongo and are layered
+    on at read time, the pattern FII and the index tail already use. The
+    repository therefore does not grow, which matters because Render clones all
+    of it on every deploy.
+    """
+    from . import db, state
+    from trading import data_refresh as dr
+    if not db.is_connected():
+        _refresh_journal("DATA_REFRESH_ARCHIVES_SKIPPED",
+                         "NSE archive catch-up skipped: the database is not "
+                         "reachable, and these rows are stored there rather "
+                         "than in the repository.")
+        return
+    p = state.portfolio()
+    del p                                      # only the journal is needed
+
+    stored_dlv = db.latest_delivery_day() or DELIVERY_COMMITTED_THROUGH
+    stored_pwoi = db.latest_pwoi_day() or PWOI_COMMITTED_THROUGH
+    dlv_days = _archive_days_to_fetch(stored_dlv, cap=NSE_ARCHIVE_DAYS_PER_RUN)
+    pwoi_days = _archive_days_to_fetch(stored_pwoi, cap=NSE_ARCHIVE_DAYS_PER_RUN)
+
+    docs, absent = [], 0
+    for day in dlv_days:
+        doc = dr.fetch_delivery_day(day)
+        if doc:
+            docs.append(doc)
+        else:
+            absent += 1
+    saved_dlv = db.save_delivery_days(docs) if docs else 0
+
+    rows, pwoi_absent = [], 0
+    for day in pwoi_days:
+        got = dr.fetch_participant_oi_day(day)
+        if got:
+            rows.extend(got)
+        else:
+            pwoi_absent += 1
+    saved_pwoi = db.save_pwoi_rows(rows) if rows else 0
+
+    left_dlv = len(_archive_days_to_fetch(
+        (docs[-1]["date"] if docs else stored_dlv)))
+    _refresh_journal("DATA_REFRESH_ARCHIVES",
+                     f"NSE archive catch-up: delivery {len(docs)} day(s) "
+                     f"fetched and {saved_dlv} stored"
+                     + (f" ({absent} not published)" if absent else "")
+                     + f", from {stored_dlv}; participant OI {len(rows)} row(s) "
+                     f"stored"
+                     + (f" ({pwoi_absent} not published)" if pwoi_absent else "")
+                     + f", from {stored_pwoi}."
+                     + (f" {left_dlv} delivery day(s) still outstanding — the "
+                        "next weekly block resumes from there."
+                        if left_dlv else " Delivery is up to date."))
+    log.info("[fri 16:30] nse archives: delivery %d/%d stored, pwoi %d rows, "
+             "%d delivery day(s) left", saved_dlv, len(docs), saved_pwoi, left_dlv)
+
+
 def _weekly_sebi_refresh() -> None:
     """Owner order 2026-08-25 ("wire the SEBI enforcement orders feed
     too"): weekly pull of SEBI's live enforcement-orders listing, matched
@@ -3396,6 +3495,10 @@ def _weekly_history_topup() -> None:
         ("constituents snapshot", _monthly_constituents_snapshot),
         ("fundamentals refresh", _monthly_fundamentals_refresh),
         ("SEBI orders", _weekly_sebi_refresh),
+        # OWNER 2026-11-27 ("Data is needed"): delivery + participant OI from
+        # NSE's archive, which answers this host after all. Store-only, so it
+        # needs nothing the pull provides and sits with the other short feeds.
+        ("NSE archives", _weekly_nse_archives_refresh),
         # MOVED IN FRONT OF THE PULL 2026-09-11 (owner: "why system still
         # stucking at 49"). It used to sit AFTER the ~hour-long OHLCV pull,
         # the exact position that cost five other feeds a week each and that

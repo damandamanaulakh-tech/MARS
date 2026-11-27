@@ -840,6 +840,17 @@ def _bootstrap() -> None:
     except Exception:
         log.exception("data_refresh reader attach failed")
 
+    # OWNER 2026-11-27 ("Data is needed"): the delivery panel's stored tail,
+    # same injected-reader pattern. The committed 50 MB file stays the fixed
+    # base and the days fetched since are layered on top at read time, so the
+    # repository — cloned on every Render deploy — does not grow.
+    try:
+        from trading import external_panels as _ep
+        _ep.set_delivery_reader(
+            lambda: db.load_delivery_days(_ep.DELIVERY_BASE_THROUGH))
+    except Exception:
+        log.exception("delivery reader attach failed")
+
     # VALFIX 2026-10-21: the valuation chain's macro feeds (10-year yield,
     # RBI repo, RBI USD/INR) read their stored rows through this reader.
     try:

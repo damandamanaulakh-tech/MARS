@@ -609,6 +609,164 @@ def map_market_dii(payload) -> list[dict]:
     return sorted(out, key=lambda r: r["date"])
 
 
+# ---------------------------------------------------- NSE archives (delivery, PWOI)
+#
+# OWNER 2026-11-27: "Data is needed". Two of the app's three stalest files —
+# the delivery bhavcopy (frozen 2026-08-07) and participant-wise open interest
+# (2026-08-07) — turned out to be fetchable from this app after all.
+#
+# THE CORRECTION THAT MADE THIS POSSIBLE: every note in this repo said
+# nsearchives.nseindia.com blocks the cloud IP and that a Colab notebook on the
+# owner's own machine was the only refresh path. Checked with real requests on
+# 2026-11-27 across seven dates, including a Saturday that correctly returned
+# 404 so it is not a fluke: it answers. One day's delivery file is ~400 KB and
+# arrives in under half a second, so the ~75 trading days since August are
+# a minute or two of fetching, not a manual export.
+#
+# The guards are the ones this repo learned the hard way:
+#   * a non-trading day can come back HTTP 200 with an HTML page inside it, so
+#     the BODY is validated, never the status code alone;
+#   * columns are mapped BY NAME against the committed file's own schema, and a
+#     day missing any expected column is refused rather than stored skewed;
+#   * nothing rewrites a committed CSV. Fresh rows go to Mongo and are layered
+#     on top at read time — the pattern FII and the index tail already use —
+#     so the repository does not grow and every Render deploy stays the same
+#     size. (data/ is already 177 MB and is cloned on every single deploy.)
+_NSE_ARCHIVE = "https://nsearchives.nseindia.com"
+_DELIVERY_SERIES = ("EQ", "BE", "BZ")      # the series the panel has always kept
+
+#: SYMBOL/SERIES/DATE1/.../TTL_TRD_QNTY/.../DELIV_QTY/DELIV_PER, read from the
+#: live file on 2026-11-27. The committed panel keeps only these five.
+_DELIVERY_COLS = {"SYMBOL": "symbol", "SERIES": "series", "DATE1": "date",
+                  "TTL_TRD_QNTY": "ttl_trd_qnty", "DELIV_QTY": "deliv_qty",
+                  "DELIV_PER": "deliv_per"}
+
+#: The live participant-OI header, in the live file's own words, mapped to the
+#: committed panel's column names. Read from the file, not inferred.
+_PWOI_COLS = {
+    "Client Type": "client_type",
+    "Future Index Long": "fut_idx_long", "Future Index Short": "fut_idx_short",
+    "Future Stock Long": "fut_stk_long", "Future Stock Short": "fut_stk_short",
+    "Option Index Call Long": "opt_idx_call_long",
+    "Option Index Put Long": "opt_idx_put_long",
+    "Option Index Call Short": "opt_idx_call_short",
+    "Option Index Put Short": "opt_idx_put_short",
+    "Option Stock Call Long": "opt_stk_call_long",
+    "Option Stock Put Long": "opt_stk_put_long",
+    "Option Stock Call Short": "opt_stk_call_short",
+    "Option Stock Put Short": "opt_stk_put_short",
+    "Total Long Contracts": "total_long",
+    "Total Short Contracts": "total_short",
+}
+
+
+def _archive_get(url: str, timeout: float = 20.0) -> Optional[str]:
+    """GET an nsearchives file. None on any failure — never raises."""
+    try:
+        r = httpx.get(url, timeout=timeout, follow_redirects=True,
+                      headers={"User-Agent": "Mozilla/5.0"})
+    except Exception as e:                                     # noqa: BLE001
+        log.info("nse archive fetch failed (%s): %s", url.rsplit("/", 1)[-1], e)
+        return None
+    if r.status_code != 200 or not r.content:
+        return None
+    return r.text
+
+
+def _ddmmyyyy(day) -> str:
+    return day.strftime("%d%m%Y")
+
+
+def fetch_delivery_day(day) -> Optional[dict]:
+    """One trading day of delivery data, as {date, rows: {SYMBOL: [ttl, dlv]}}.
+
+    None when the day is absent or the body is not the real file. Stored as ONE
+    document per day (~2,800 symbols, well inside Mongo's limit) rather than a
+    document per symbol-day, which would be ~150,000 documents for the gap.
+    """
+    text = _archive_get(f"{_NSE_ARCHIVE}/products/content/"
+                        f"sec_bhavdata_full_{_ddmmyyyy(day)}.csv")
+    if not text:
+        return None
+    lines = text.splitlines()
+    if not lines or not lines[0].lstrip().upper().startswith("SYMBOL"):
+        # A missing date answers 200 with an HTML page. The status code alone
+        # has never been enough here.
+        return None
+    head = [c.strip().upper() for c in lines[0].split(",")]
+    try:
+        ix = {want: head.index(want) for want in
+              ("SYMBOL", "SERIES", "TTL_TRD_QNTY", "DELIV_QTY")}
+    except ValueError:
+        log.warning("delivery file for %s is missing a column we need: %s",
+                    day, head)
+        return None
+    rows: dict = {}
+    for line in lines[1:]:
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) <= max(ix.values()):
+            continue
+        if parts[ix["SERIES"]].upper() not in _DELIVERY_SERIES:
+            continue
+        try:
+            ttl = float(parts[ix["TTL_TRD_QNTY"]])
+            dlv = float(parts[ix["DELIV_QTY"]])
+        except (TypeError, ValueError):
+            # DELIV_QTY is "-" on series that do not report delivery.
+            continue
+        sym = parts[ix["SYMBOL"]].upper()
+        if sym:
+            rows[sym] = [ttl, dlv]
+    if not rows:
+        return None
+    return {"date": day.isoformat(), "rows": rows}
+
+
+def fetch_participant_oi_day(day) -> list:
+    """One day of participant-wise open interest, in the committed schema.
+
+    [] when the day is absent. Columns are matched BY NAME against the live
+    header; a day that does not carry every column we store is refused rather
+    than written with values under the wrong names.
+    """
+    text = _archive_get(f"{_NSE_ARCHIVE}/content/nsccl/"
+                        f"fao_participant_oi_{_ddmmyyyy(day)}.csv")
+    if not text:
+        return []
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    header_at = next((i for i, ln in enumerate(lines)
+                      if "client type" in ln.lower()), None)
+    if header_at is None:
+        return []
+    head = [c.strip() for c in lines[header_at].split(",")]
+    try:
+        ix = {live: head.index(live) for live in _PWOI_COLS}
+    except ValueError:
+        log.warning("participant-OI file for %s is missing a column: %s",
+                    day, head)
+        return []
+    out = []
+    for line in lines[header_at + 1:]:
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) <= max(ix.values()):
+            continue
+        row = {"date": day.isoformat()}
+        ok = True
+        for live, col in _PWOI_COLS.items():
+            raw = parts[ix[live]]
+            if col == "client_type":
+                row[col] = raw
+                continue
+            try:
+                row[col] = int(float(raw.replace(",", "")))
+            except (TypeError, ValueError):
+                ok = False
+                break
+        if ok and row.get("client_type"):
+            out.append(row)
+    return out
+
+
 def extend_pwoi_df(df):
     """Append stored Upstox FII rows past the committed PWOI panel's last
     date. Same degrade-to-before contract as extend_index_df — no store or

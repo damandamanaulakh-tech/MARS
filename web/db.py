@@ -1006,6 +1006,85 @@ def market_info_shape(kind: str) -> Optional[dict]:
     return {"day": doc.get("day"), "shape": _shape(doc.get("payload"))}
 
 
+def save_delivery_days(docs: list) -> int:
+    """Upsert whole DAYS of delivery data (owner 2026-11-27: "Data is needed").
+
+    One document per trading day — {_id: "2026-11-26", rows: {SYMBOL: [traded,
+    delivered]}} — not one per symbol-day, which for the ~75 days missing since
+    August would be ~150,000 documents for the same information. A day holds
+    ~2,800 symbols and is comfortably inside Mongo's document limit.
+
+    The committed data/delivery_daily_2019_2026.csv.gz is NEVER rewritten: it
+    stays the fixed base and these rows are layered on top at read time, the
+    pattern FII and the index tail already use. That keeps the repository the
+    same size, which matters because Render clones all of it on every deploy.
+    """
+    if not _CONNECTED or _DB is None or not docs:
+        return 0
+    from pymongo import ReplaceOne
+    from pymongo.errors import BulkWriteError
+    ops = []
+    for d in docs:
+        day = str(d.get("date") or "")
+        if not day or not d.get("rows"):
+            continue
+        ops.append(ReplaceOne({"_id": day}, {**d, "_id": day}, upsert=True))
+    if not ops:
+        return 0
+    try:
+        with bounded("delivery day store"):
+            res = _DB.delivery_daily.bulk_write(ops, ordered=False)
+        if not getattr(res, "acknowledged", True):
+            return 0
+        return int(res.upserted_count or 0) + int(res.matched_count or 0)
+    except BulkWriteError as e:
+        det = e.details or {}
+        return int(det.get("nUpserted", 0) or 0) + int(det.get("nMatched", 0) or 0)
+    except Exception as e:                                   # noqa: BLE001
+        log.warning("Mongo save_delivery_days failed: %s", e)
+        return 0
+
+
+def load_delivery_days(since: str = "") -> list:
+    """Stored delivery days after `since` (an ISO date), oldest first."""
+    if not _CONNECTED or _DB is None:
+        return []
+    try:
+        where = {"_id": {"$gt": str(since)}} if since else {}
+        with bounded("delivery day read"):
+            return list(_DB.delivery_daily.find(where).sort("_id", 1))
+    except Exception as e:                                   # noqa: BLE001
+        log.warning("Mongo load_delivery_days failed: %s", e)
+        return []
+
+
+def latest_delivery_day() -> Optional[str]:
+    """The newest stored delivery day, so a refresh resumes from it."""
+    if not _CONNECTED or _DB is None:
+        return None
+    try:
+        with bounded("delivery day tail"):
+            row = _DB.delivery_daily.find_one(sort=[("_id", -1)],
+                                              projection={"_id": 1})
+        return str(row["_id"]) if row else None
+    except Exception as e:                                   # noqa: BLE001
+        log.warning("Mongo latest_delivery_day failed: %s", e)
+        return None
+
+
+def latest_pwoi_day() -> Optional[str]:
+    if not _CONNECTED or _DB is None:
+        return None
+    try:
+        with bounded("pwoi tail"):
+            row = _DB.pwoi_daily.find_one(sort=[("date", -1)],
+                                          projection={"date": 1})
+        return str(row["date"]) if row else None
+    except Exception as e:                                   # noqa: BLE001
+        log.warning("Mongo latest_pwoi_day failed: %s", e)
+        return None
+
+
 def save_pwoi_rows(rows: list) -> int:
     """Upsert PWOI-shaped FII rows from the Upstox market/fii feed. Keyed
     date|client_type so re-fetches overwrite, never duplicate."""

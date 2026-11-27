@@ -357,7 +357,15 @@ def test_the_production_defaults_and_render_yaml(monkeypatch):
     monkeypatch.delenv("SB_DEN_CHAIN_BUDGET_S", raising=False)
     monkeypatch.delenv("SB_DEN_CHAIN_RSS_CEILING_MB", raising=False)
     assert cv.time_budget_s() == 20.0
-    assert cv.rss_ceiling_mb() == 380.0
+    # Raised from 380 to 900 on 2026-11-27, on the owner's word and on
+    # measurements: 380 was tuned for a 512 MB box that no longer exists (a
+    # live process was measured at a 749 MB peak), and the only thing it was
+    # still costing was two working screens — the process sits above 380 MB for
+    # most of a trading day, so these sections said "not computed - memory" all
+    # day with plenty to spare. The guard itself stays, and must: a ceiling of
+    # 0 would mean no guard at all.
+    assert cv.rss_ceiling_mb() == 900.0
+    assert cv.rss_ceiling_mb() > 0, "the memory guard must not be switched off"
     y = (ROOT / "render.yaml").read_text(encoding="utf-8")
     assert "SB_DEN_CHAIN_BUDGET_S" not in y and "SB_DEN_CHAIN_RSS_CEILING_MB" not in y
 
