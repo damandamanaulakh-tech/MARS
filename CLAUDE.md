@@ -81,6 +81,88 @@ Atlas, not in any repo — repo moves never touch money or memory.
   test · four of my own new tests this session were vacuous or tautological on the first cut; assert
   the behaviour, not a name in the source · Workflow agents worked well (4 + 3 readers, no cap
   stops) and found the three wrong tracker rows and both false beliefs above.
+- **OWNER'S 20-ITEM REVIEW TABLE (their "2- tell me status of each … 2-3 options … i will choose
+  and close"). DELIVERED as artifact EFm7ouFFgjYdby5rjWcowj ("MARS Pending Items"), v2.**
+  Their table is **20 rows** (4, 6, 8, 9, 10, 11, 13, 15, 16, 17, 21, 24, 27, 30B, 31, 34, 37, 39,
+  41, 43) — I first miscounted it as 21. Each row carries a code-verified status, the full formula
+  where one exists, and 2-3 options with one marked. **THEN I HAD MY OWN PAGE ADVERSARIALLY
+  ATTACKED (36 agents: one refuter per row told to disprove me, a second independent reader on
+  every dispute, one completeness critic). 15 of 20 statements carried an error; only rows 8, 16,
+  21, 34, 41 survived — and those five had accuracy checked, NOT completeness.** This is now the
+  standing method for any status table the owner decides from: publish nothing they will act on
+  without a refute pass. The corrections that matter (all verified by hand afterwards, do NOT
+  re-derive):
+  * **Row 27 — I pointed the owner the WRONG WAY on a money-path question.** See the intraday
+    correction in the VOL-001 bullet above: 5-minute history exists and the replay already
+    measured intraday as LOSING at all three cost scenarios. I had said "unmeasurable, record 30
+    sessions first". The live question is whether to cut intraday's 10% share.
+  * **Row 6 — the owner's EVENT RE-RUN LOOP IS BUILT**, not missing: `valuation_context.decompose`
+    (`ASSUMED["rerun_residual_pct"] = 10.0`) splits sector part vs stock-specific residual, runs
+    unconditionally in `context()`, and `_den_valuation.html` prints RE-RUN / stands per name (the
+    screen calls it "your event loop"). Only the change log + resilience screen are absent.
+  * **Row 11 — promoter NAMES are in the repo twice**: the shareholding JSONs' four free-text note
+    fields name them outright (130 of 193 files; TCS "a subsidiary of Tata Sons Private Limited
+    which holds 71.74%", ABCAPITAL "Birla Group Holdings", ADANIENT the three brothers at 63.99%),
+    and `data/insider_pit.csv` has **20,415 of 54,150 rows** tagged promoter/promoter-group with
+    `acqName`. A parent map ALSO already exists and is read by the SOTP route:
+    `data/holdco_stakes.csv` → `valuation/scenarios.py:1072 _holdco_sotp` / `pipeline.py:393` —
+    but it covers BAJAJHLDNG only (2 rows). Extend it; never claim it cannot be derived.
+  * **Row 39 — `/resources` already prints source · status · data as of · last attempt · last
+    success · "Next step" naming the actor**, owner-gated, sidebar-linked "News & Data Sources",
+    26 passing tests. The gap is only that the other ~95 DATA_NEEDED notices do not reuse it.
+  * **Row 43 — the international chip already prints `as of` + `fetched` + STALE per series**
+    (`dashboard.html:335-337`, 12 pinning tests), and /resources carries last attempt/success.
+    My recommended option was already built.
+  * **Row 9 — `.gitignore:21 *.xlsx` ignores a workbook ANYWHERE but `data/`** (only `:26
+    !data/*.xlsx` escapes). A `git add` of a task book under `docs/` **silently does nothing**;
+    the three tracked workbooks survive only because ignore rules skip already-tracked files. The
+    repo's own AUDIT FIX C6 comment records this class for CSVs and never extended it to xlsx.
+  * **Row 17 — FIVE rotation segments, SIX cash shares.** `_DAILY_MODE_ORDER` has 5 (pinned by
+    `test_docs_truth_d_2026_08_09.py:69`, published as `segments_total` on /healthz); Ocean runs
+    INSIDE the momentum pass (`engine.py:991`) and its 2% is enforced via can_open's `category`.
+    The six-share object is `category_budget.SHARE_FIELDS`, whose own `OWNER_SEGMENTS` excludes
+    Ocean. Also: a segment reads full once room < max(slab, fill), so ~Rs 1.5 L of a share can sit
+    unusable — raising a share delivers less than the arithmetic.
+  * **Row 30B — the top-50 `momentum_shortlist["top"]` feeds ONLY `_watch_scope`** (the
+    trigger/news layer, `scheduler.py:4209` is the one non-test reader), i.e. row 30B and row 16
+    are the SAME pipe from opposite ends. Buy Desk reads `rows` and caps at `MAX_NAMES = 60`; the
+    dashboard reads `last_scan_picks`. And `rows` holds only names at/above the floor — the
+    everything store is `scan_matrix["rows"]`.
+  * **Row 31 — every lane number I had was stale.** VOL-001 added two volume lanes: a composite
+    segment's piano is **51** lanes (34/51 = 67%, 1,205 x 51 = 61,455 cells); a MOMENTUM pass
+    scores only `{momentum, quality}` so its piano is **43** lanes (structures 79%, 51,815 cells).
+    49 is the pre-2026-11-26 number. The 34 structures (17/14/3) is correct.
+  * **Row 37 — not four UTC-date sites but 83** outside tests (render.yaml sets no TZ, so the
+    container is UTC). The consequential one I missed: `web/stock_card.py:147` → `:254`
+    `held["days"]` counts days-held off a UTC date and its only caller passes no `today`, so
+    /chart reads one day younger than /positions before 05:30 IST — the very fault
+    `positions.py:_today_ist()` fixed one screen over. Same shape: `market_panels.py:304/419`.
+  * **Row 13 — smaller than I said.** The per-stock rupee number IS printed (`lens.html:124`
+    "v1 size" from the real `position_notional_for`), and the page states "29% of full Kelly"
+    correctly twice; only the one tile's literal `½-Kelly` (U+00BD, not ASCII) is stale.
+  * **Row 15 — THREE always-include sets, not two**: `carry = held | ((watchlist | owner_list) -
+    funds)`. A watched name under Rs 5 Cr/day is still scanned. Blocklist beats every carry rule;
+    fund units are subtracted from the watchlist/owner carry but NOT from `held`. **App bug found:
+    `scan.html:283` labels the whole carry set "held names carried in regardless of rank", so a
+    watchlist or owner-list name renders to the owner as one they own** (the key is legacy
+    `held_added`). `watchlist_kept/_carried` and `owner_list_kept/_carried` are STORED, shown
+    nowhere.
+  * **Row 24 — part exit and quantity change DO exist, engine-driven**: `engine._exit_half`
+    (danger EXIT_HALF, writes a real ClosedTrade, journals SELL_PARTIAL), `corporate_actions.py:478`
+    and `pyramid.py:51` set `pos.qty`. And there is a NINTH positions POST route I missed —
+    `/trades/correct` (`positions.py:520`) rewrites a held position's entry price and moves cash.
+    The true gap is owner-initiated, from a position row. NOTE the contention: the valuation layer
+    writes `pos.target_price` unless `custom_levels` is set, so an owner edit must claim that field.
+  * **Row 4 — A1 was stated with 3 of its ~8 conditions** (also: parseable asof, `range_status ==
+    "OK"`, base > 0, NOT `drafted`, fill > 0, plus enabled / non-intraday / `VE.ready()`).
+    `range_status` is materially restrictive — TCS, INFY and HDFCBANK all read INSUFFICIENT — and
+    the study measured a valuation target on **33.0% of entries**, not most. The owner's "P/E band
+    capped at the current market" is therefore the COSTLIEST option on the page while reading as
+    the cheapest.
+  * **Row 10 — four mix runners already exist** (`exit_variant_study.py:78/162` seven
+    four-parameter mixes in one invocation, `profit_protection_2026_11_16/study.py:404` five arms
+    via CLI, `stop_cooldown_study.py:68` six mixes, plus grid sweeps); scripts/ holds ~20 studies,
+    not seven. Only a general owner-supplied-list → sheet-per-mix writer is missing.
 
 ## 2026-11-26 — CURRENT STATE (history; read the 11-27 block above first)
 - Repo is `damandamanaulakh-tech/MARS`. **`docs/repairs/` is the canonical backlog, goal order and
@@ -162,8 +244,26 @@ Atlas, not in any repo — repo moves never touch money or memory.
     sign FLIPS, so the whole-period +0.152 pts is the second half alone; the biggest-spike
     bucket is the WORST before 2020 (+0.700%) and among the best after (+4.970%); helps in 6
     of 12 years; refuses 76% of Momentum buys. Marks 1.2/1.3/1.5/2.0 recorded but NOT used to
-    pick one (2.0 flips wider). `volume_gate2_block_modes` stays ("intraday",). Intraday
-    itself is unmeasurable: no 5-minute history is stored. EIGHTH entry-side signal to fail.
+    pick one (2.0 flips wider). `volume_gate2_block_modes` stays ("intraday",). EIGHTH
+    entry-side signal to fail. **CORRECTION 2026-11-27 — "Intraday is unmeasurable, no
+    5-minute history is stored" WAS FALSE and is retired (the third false belief found this
+    day).** ~208,400 five-minute bars ARE committed: research/combined_2026_11_17/
+    raw_responses.json.gz (90,069 candles, 21 tickers) + research/profit_protection_2026_11_16/
+    raw_responses.json.gz (118,335 bars, 15 symbols); three research fetchers request
+    "minutes/5". And `research/combined_2026_11_17/replay.py` is a REAL-ENGINE intraday
+    replay (patches ONLY external providers, raises if any network call occurs, withholds
+    future bars) over 51 sessions, with committed metrics.csv + 521-row trades.csv.
+    **IT MEASURED INTRADAY AS LOSING AT EVERY COST SCENARIO: 5 bps/side 152 trades
+    −Rs 1,18,660.95 (−780.66/trade, 38.8% wins) · 15 bps 155 trades −Rs 3,07,472.87
+    (−1,983.70, 32.9%) · 30 bps 157 trades −Rs 5,64,975.37 (−3,598.57, 22.9%)** — a
+    monotonic cost gradient, not noise. Same replay: shared book −Rs 7,34,453.57 and
+    nifty200_momentum −Rs 5,72,848.53 (11 trades, 9.1% wins) at 5 bps, so part of it is the
+    51-session period, not the segment. Intraday is NOT dormant — 10% of deployable
+    (`budget_share_intraday`) and the second pass of both rotations. LIMITS: 51 sessions,
+    21/15 names, and NO production path stores 5-minute bars (`web/db.py` has no intraday
+    save; `trading/intraday_data.py` tags frames `interval='5m'` in memory only), so the
+    owner's REQUIRES_15Y_BACKTEST bar is unreachable for intraday until storage is built.
+    Do NOT tell the owner intraday cannot be measured; it has been, and it lost.
   * **OPS-09 / RUN-20261126-02 database reconnect** — releases/2026-11-26-database-reconnect.md.
     `db.note_link_failure` drops the client on a pymongo ConnectionFailure (save, policy read,
     statistics read); `is_connected()` rebuilds it once per 60 s and the heal pass saves the book;
@@ -327,8 +427,16 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   HDFCBANK, ICICIBANK, DRREDDY, TATAMOTORS) and TATATECH is not in it at
   all (N200 only; the October monthly refresh stalled). Stage 08 must lock
   currency + units; Yahoo gives period ends not publication dates (45-day
-  lag ASSUMED until NSE result dates are fetched). Fundamentals start 2021
-  → any valuation-stage test covers 5 years, not 12 (said to the owner).
+  lag ASSUMED until NSE result dates are fetched). **"Fundamentals start 2021
+  → 5 years of test window" IS WRONG — corrected 2026-11-27 (fourth false belief
+  retired this day).** MEASURED in the zip snapshot.py reads: of its 200
+  income-statement files only **5** carry any 2021 period end; 121 start 2022,
+  70 in 2023, 2 in 2024, 2 in 2025 (the 2021 five are VBL, SIEMENS, NESTLEIND,
+  AMBUJACEM, ABB). fundamentals_n200 as_of years: 2021 **13 rows** vs 67 /
+  1,850 / 1,968 / 4,302 / 3,177 for 2022-26. The real binding constraint is the
+  POINT-IN-TIME one already in docs/VALUATION_EXIT_2026-10-21.md:46-48 — **no
+  point-in-time valuation exists before 2023-05-15**, so the honest window is
+  **~3 years, not 5**. Quote the 2023-05-15 cutoff, never "starts 2021".
 - ITEM 14 RUN (live public candles to 10-09): AM07 ≥62 passes SUNPHARMA,
   ICICIBANK, SBIN, SAIL, LODHA, HAL; ASH08 gives TATATECH 100.0 on a name
   down 13% in a month (6-month return only, saturates) = the flaw the study
