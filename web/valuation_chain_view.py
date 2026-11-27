@@ -135,7 +135,19 @@ _ROW_CACHE: dict = {}
 DEFAULT_TIME_BUDGET_S = 20.0
 #: ASSUMED from the measured box: idle after a scan 330-370 MiB, a scan
 #: rotation 400-495, the 09:20 trigger layer 500-525 = the OOM kills.
-DEFAULT_RSS_CEILING_MB = 380.0
+#:
+#: RAISED 2026-11-27, on the owner's word ("render have enough storage to
+#: expand so no worry") and on measurements, not on the paragraph above. That
+#: 380 was tuned for a 512 MB box that no longer exists: a live process was
+#: measured at a 749 MB peak, which no 512 MB plan allows, and no OOM kill has
+#: been observed since 19 October. The cost of leaving it at 380 was not
+#: safety, it was two working screens: the process sits above 380 MB for most
+#: of a trading day on the bigger box, so the Den's valuation sections refused
+#: to compute any row and said "not computed - memory" all day with plenty to
+#: spare. 900 keeps a real guard (the measured trigger-layer peak plus the
+#: delivery panel's +93 MB still sits well under it) while letting the screens
+#: work. Display only either way: no gate, stop or size reads this.
+DEFAULT_RSS_CEILING_MB = 900.0
 
 #: The snapshot source of a name with FULL statements (the committed zip);
 #: anything else (the summary-only fundamentals file, or nothing) prints

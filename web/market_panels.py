@@ -689,6 +689,74 @@ def gates_in_force(cfg) -> dict:
     }
 
 
+def market_gap_panel(p, today_iso: str = None) -> dict:
+    """The stored index-versus-typical-stock reading for the dashboard card
+    (owner order 2026-11-26). {} when none is stored, so the card hides.
+    Reads the book only — the Momentum scan writes the reading."""
+    from datetime import date
+    from trading import market_gap as mg
+    from .clock import ist_today_iso
+    stored = getattr(p, "market_gap", None)
+    if not isinstance(stored, dict) or not isinstance(stored.get("windows"), dict):
+        return {}
+    rows = []
+    for window in mg.WINDOWS:
+        w = stored["windows"].get(str(window))
+        if not isinstance(w, dict):
+            continue
+        try:
+            rows.append({
+                "sessions": window,
+                "index_pct": float(w["index_pct"]), "median_pct": float(w["median_pct"]),
+                "gap_points": float(w["gap_points"]),
+                "beat_pct": float(w["beat_share"]) * 100.0,
+                "up_pct": float(w["up_share"]) * 100.0,
+                "sample": int(w["sample"]), "state": str(w.get("state") or ""),
+            })
+        except (KeyError, TypeError, ValueError):
+            continue
+    if not rows:
+        return {}
+    asof = str(stored.get("asof") or "")
+    age = None
+    try:
+        age = (date.fromisoformat(today_iso or ist_today_iso()) - date.fromisoformat(asof)).days
+    except ValueError:
+        pass
+    headline = rows[-1]                       # the longest window the scan could read
+    words = {
+        "narrow": "The index is up but the typical stock is not keeping up — a narrow rally.",
+        "broad": "The typical stock is keeping pace with the index — a broad move.",
+        "falling": "The index itself is down over this window.",
+    }.get(headline["state"], "")
+    return {"rows": rows, "asof": asof, "age_days": age,
+            "stale": age is None or age > 5,
+            "headline": headline, "words": words,
+            "narrow_gap": mg.NARROW_GAP_POINTS,
+            "narrow_beat_pct": mg.NARROW_BEAT_SHARE * 100.0}
+
+
+def watch_label(score, buy_floor, watch_floor) -> str:
+    """Where a scored stock stands against its segment's marks (owner order
+    2026-11-26, "Watch Floor - 55 and above"). Display only.
+
+      "cleared" — at or above the buy mark: the score no longer holds it
+                  back (other gates may; the page prints those beside it);
+      "watch"   — from the watch floor up to the buy mark;
+      ""        — below the watch floor, or a score/mark that is not a
+                  number. Never a guess: a missing score is not a watch.
+    """
+    try:
+        s, buy, watch = float(score), float(buy_floor), float(watch_floor)
+    except (TypeError, ValueError):
+        return ""
+    if s != s or buy != buy or watch != watch:        # NaN
+        return ""
+    if s >= buy:
+        return "cleared"
+    return "watch" if s >= watch else ""
+
+
 def fund_summary(p, cfg, prices: dict, live_count: int) -> dict:
     """Capital · allocated · reserved · used · cash · P&L, per segment and
     in total (owner order 2026-10-12, item 30b).
@@ -709,8 +777,27 @@ def fund_summary(p, cfg, prices: dict, live_count: int) -> dict:
     price elsewhere; `live_count` says how many names were live so the
     block can label itself honestly instead of wearing "live" over an
     entry mark.
+
+    Closed trades (owner order 2026-11-26: "its not adding the margin
+    released in the total, it should add the amount, and must match with
+    each total"). Per segment, from the closed trades the live book lists:
+      booked         = sum of net P&L (after every cost of both legs);
+      released_today = entry cost (qty x entry price) of the positions
+                       closed today IST — the money that went back to the
+                       segment's free room today;
+      closed         = how many.
+    `reconcile` makes the totals add up, exactly, from two facts that are
+    always true: equity = cash + used(now), and equity - capital = total
+    result. The total result is split into unrealised (open positions) and
+    realised (everything else: closed trades and every charge paid). The
+    realised figure is DERIVED, so the line always balances; the listed
+    closed trades are shown beside it and any gap is named, never hidden —
+    older trades are archived out of the live list and entry charges on
+    open positions are already paid.
     """
     from trading import category_budget as cb
+    from trading.measured_kelly import trade_category
+    from .clock import ist_today_iso, to_ist
     positions = list(getattr(p, "positions", {}).values())
     n = len(positions)
     capital = float(getattr(cfg, "starting_capital", 0.0) or 0.0)
@@ -720,6 +807,30 @@ def fund_summary(p, cfg, prices: dict, live_count: int) -> dict:
     deployable = cb.deployable(cfg, equity)
     budgets_on = cb.enabled(cfg)
     min_open = max(cb.min_open(cfg), 1.0)
+
+    today = ist_today_iso()
+    closed_by: dict = {}
+    for tr in list(getattr(p, "trades", []) or []):
+        try:
+            net = float(getattr(tr, "net_pnl", 0.0) or 0.0)
+            cost = float(getattr(tr, "qty", 0) or 0) * float(getattr(tr, "entry_price", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            continue
+        slot = closed_by.setdefault(trade_category(tr), {
+            "booked": 0.0, "closed": 0, "released_today": 0.0,
+            "booked_today": 0.0, "closed_today": 0})
+        slot["booked"] += net
+        slot["closed"] += 1
+        try:
+            same_day = to_ist(getattr(tr, "exit_date", None), "%Y-%m-%d") == today
+        except Exception:
+            same_day = False
+        if same_day:
+            slot["released_today"] += cost
+            slot["booked_today"] += net
+            slot["closed_today"] += 1
+    _no_closes = {"booked": 0.0, "closed": 0, "released_today": 0.0,
+                  "booked_today": 0.0, "closed_today": 0}
 
     def _row(cat: str, label: str, limit, share, note: str = "") -> dict:
         mine = [x for x in positions if cb.category_of(x) == cat]
@@ -737,6 +848,7 @@ def fund_summary(p, cfg, prices: dict, live_count: int) -> dict:
             "open": len(mine),
             "over_limit": (max(0.0, allocated - limit) if limit is not None else None),
             "full": (limit is not None and (limit - allocated) < min_open),
+            **closed_by.get(cat, _no_closes),
         }
 
     rows = []
@@ -748,6 +860,15 @@ def fund_summary(p, cfg, prices: dict, live_count: int) -> dict:
     for cat in sorted({cb.category_of(x) for x in positions} - known):
         rows.append(_row(cat, cat.replace("_", " ").title(), None, None,
                          note="no budget applies to this category"))
+    # Closed trades the six segments (and any unclassified open category
+    # above) do not account for: older trades whose record names no segment.
+    shown = {r["category"] for r in rows}
+    unplaced = {"booked": 0.0, "closed": 0, "released_today": 0.0,
+                "booked_today": 0.0, "closed_today": 0}
+    for cat, slot in closed_by.items():
+        if cat not in shown:
+            for k in unplaced:
+                unplaced[k] += slot[k]
 
     allocated = sum(r["allocated"] for r in rows)
     now_val = sum(r["now"] for r in rows)
@@ -760,8 +881,40 @@ def fund_summary(p, cfg, prices: dict, live_count: int) -> dict:
         marks = "entry marks — connect Upstox for live P&L"
     else:
         marks = f"{live_count} of {n} names live, the rest at entry marks"
+    # The capital the book was actually funded with (Settings changes move
+    # cash and this base together); an old book with no stored base reads
+    # the configured capital, the same fallback the engine uses.
+    base = float(getattr(p, "capital_base", 0.0) or 0.0) or capital
+    cash = float(p.cash)
+    listed_booked = sum(s["booked"] for s in closed_by.values())
+    listed_closed = sum(s["closed"] for s in closed_by.values())
+    total_result = equity - base
+    realised = total_result - pnl            # derived: always balances
+    reconcile = {
+        "capital": base,
+        "realised": realised,
+        "unrealised": pnl,
+        "equity": equity,
+        "cash": cash,
+        "used_now": now_val,
+        "total_result": total_result,
+        "total_result_pct": ((total_result / base * 100) if base else None),
+        "listed_booked": listed_booked,
+        "listed_closed": listed_closed,
+        # realised that the listed closed trades do not explain: archived
+        # older trades and charges already paid on positions still open
+        "other": realised - listed_booked,
+        "released_today": sum(s["released_today"] for s in closed_by.values()),
+        "booked_today": sum(s["booked_today"] for s in closed_by.values()),
+        "closed_today": sum(s["closed_today"] for s in closed_by.values()),
+        "unplaced": unplaced,
+        # equity is DEFINED as cash + positions at these marks; shown so the
+        # owner can see both sides land on the same rupee
+        "balances": abs((base + realised + pnl) - (cash + now_val)) < 0.5,
+    }
     return {
-        "capital": capital, "equity": equity, "cash": float(p.cash),
+        "capital": capital, "equity": equity, "cash": cash,
+        "reconcile": reconcile,
         "allocated": allocated, "now": now_val, "pnl": pnl,
         "pnl_vs_cost": ((pnl / allocated * 100) if allocated else None),
         "pnl_vs_capital": ((pnl / capital * 100) if capital else None),

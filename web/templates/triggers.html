@@ -146,6 +146,14 @@
   <div class="text-xs text-amber-700 mt-1">
     Computed now from stored history to <strong>{{ detail.view.asof or '?' }}</strong> ({{ detail.bars }} bars) — not a live quote.
   </div>
+  {% if detail.pre_rise %}
+  <div class="mt-2 text-sm" data-pre-rise-detail><!-- pre_rise_detail_marker -->
+    <span class="text-[10px] tracking-widest text-ink-faint uppercase mr-2">Pre-rise</span>
+    {% if detail.pre_rise.reading and detail.pre_rise.reading.on %}<span class="px-2 py-0.5 font-bold text-xs bg-violet-100 text-violet-800">PRE-RISE</span>{% endif %}
+    <span class="text-xs">{{ detail.pre_rise.text }}</span>
+    {% if pre_rise %}<div class="text-xs text-ink-faint mt-0.5">{{ pre_rise.rule }} {{ pre_rise.record }}</div>{% endif %}
+  </div>
+  {% endif %}
   {% if detail.stage %}
   <div class="mt-2 text-sm"><!-- sequence_stage_marker -->
     <span class="text-[10px] tracking-widest text-ink-faint uppercase mr-2">Sequence stage</span>
@@ -276,12 +284,20 @@
   </table>
 </div>
 
+{% if pre_rise and pre_rise.rule %}
+<div class="bg-white border border-line mb-4 px-4 py-3 text-xs" data-pre-rise-note><!-- pre_rise_marker -->
+  <span class="px-1.5 py-0.5 font-bold bg-violet-100 text-violet-800 mr-1">PRE-RISE</span>
+  <span>{{ pre_rise.rule }}</span>
+  <div class="mt-1 text-ink-soft" data-pre-rise-record>{{ pre_rise.record }}</div>
+</div>
+{% endif %}
 <div class="bg-white border border-line overflow-x-auto mb-8">
   <table class="w-full text-sm whitespace-nowrap">
     <thead>
       <tr class="border-b border-line text-[10px] tracking-widest text-ink-faint uppercase text-left">
         <th class="px-3 py-3">Stock</th>
         <th class="px-3 py-3" title="Your selection sequence: quiet → compressing → accumulating → reclaim → entry window → post-entry watch">Stage</th>
+        <th class="px-3 py-3" title="{{ pre_rise.rule if pre_rise else '' }}">Pre-rise</th>
         <th class="px-3 py-3 text-right" title="Compression / Base Before Move">Compr</th>
         <th class="px-3 py-3 text-right" title="Stealth Accumulation / Absorption">Accum</th>
         <th class="px-3 py-3 text-right" title="Distribution / Pre-Fall">Distr</th>
@@ -303,6 +319,12 @@
           {% set sm = stage_meta[r.stage.stage] %}
           <span class="px-1.5 py-0.5 font-bold {% if r.stage.stage == 'POST_ENTRY_WATCH' %}bg-sky-100 text-sky-800{% elif r.stage.stage == 'ENTRY_WINDOW' %}bg-emerald-100 text-emerald-800{% elif r.stage.stage == 'QUIET' %}bg-slate-100 text-slate-500{% else %}bg-amber-100 text-amber-800{% endif %}" title="{{ sm.means }}">{{ sm.icon }} {{ sm.label }}</span>
           {% if r.stage.warn %}<span class="ml-1 px-1.5 py-0.5 bg-red-100 text-red-800 font-bold" title="{{ r.stage.warn_why }}">⚠</span>{% endif %}
+        </td>
+        <td class="px-3 py-2 text-[10px] whitespace-nowrap" data-pre-rise-cell>
+          {% set pr = r.pre_rise %}
+          {% if pr and pr.on %}<span class="px-1.5 py-0.5 font-bold bg-violet-100 text-violet-800" data-pre-rise="on" title="volume ignition {{ pr.ignition_ago }} session(s) ago, compression within the 5 sessions before it; bars to {{ pr.asof }}">PRE-RISE{% if pr.signal_ago %} · {{ pr.signal_ago }}d{% endif %}</span>
+          {% elif pr %}<span class="text-ink-faint">{% if pr.compression_ago is not none %}compr{% endif %}{% if pr.compression_ago is not none and pr.ignition_ago is not none %} + {% endif %}{% if pr.ignition_ago is not none %}ignition{% endif %}{% if pr.compression_ago is none and pr.ignition_ago is none %}—{% endif %}</span>
+          {% else %}<span class="text-ink-faint" title="not stored for this row (older pass, or too little history)">n/a</span>{% endif %}
         </td>
         <td class="px-3 py-2 text-right tabular-nums">{{ r.family_counts.get('Compression / Base Before Move', 0) }}</td>
         <td class="px-3 py-2 text-right tabular-nums">{{ r.family_counts.get('Stealth Accumulation / Absorption', 0) }}</td>

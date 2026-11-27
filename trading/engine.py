@@ -14,6 +14,7 @@ from __future__ import annotations
 import copy
 import logging
 import math
+import time
 from contextlib import contextmanager
 from functools import wraps
 from dataclasses import dataclass
@@ -46,12 +47,12 @@ from . import intraday_bars as ib, intraday_data as idata, intraday_scoring as i
 from . import context_inputs as ci
 from .calendars import is_market_open, market_state
 from .candles import candle_assessment
-from .risk import RiskState, can_open
+from .risk import RiskState, blocked_regardless_of_cash, can_open
 from .scoring import (
     MOMENTUM_MODE, compute_hot_sectors, compute_score, reasoning_text,
     score_for_mode, set_scoring_context, weights_for,
 )
-from .timing import timing_ok
+from .timing import gate2_blocks, timing_ok, volume_gates
 
 
 @dataclass
@@ -339,61 +340,198 @@ class TradingEngine:
             pass
         return universe, history_period
 
-    def scan(self, history_period: str = "6mo") -> ScanResult:
+    def _intraday_universe(self, universe: list, history: dict) -> tuple:
+        """The names the intraday pass reads, and how many it chose from.
+
+        OWNER ORDER 2026-11-26 (question 11, default approved): "a fixed list
+        of about 100 most-traded stocks, all read every pass". The scan list
+        (~850-1,200 names) shared 119 five-minute fetch slots, so each stock
+        was seen about once in ten passes and its bars were rarely fresh.
+
+        Rule: rank the scan list by MEDIAN rupee turnover (close x volume)
+        over the last 20 stored daily bars — the same rupee measure the
+        liquidity gate and the weekly rebuild use — and keep the top
+        `cfg.intraday_universe_size`. Names already held are left out (they
+        cannot be bought again; their exits run in refresh()). A list that
+        already fits is returned unchanged. A name with no daily history
+        cannot be ranked: it only fills a slot the ranked names leave empty,
+        in scan-list order, so a missing daily file never empties the pass.
+        The list is never longer than the fetch cap allows with the
+        benchmark. 0 = the whole list (old rule). Returns (names, pool_size).
+        """
+        cfg = self.cfg
+        pool = list(universe)
+        try:
+            size = int(getattr(cfg, "intraday_universe_size", 0) or 0)
+        except (TypeError, ValueError):
+            size = 0
+        if size <= 0:
+            return pool, len(pool)
+        from .data import MAX_NETWORK_FALLBACK
+        size = min(size, max(1, int(MAX_NETWORK_FALLBACK) - 1))
+        if len(pool) <= size:
+            return pool, len(pool)
+        held = set(self.portfolio.positions.keys())
+        ranked, unranked = [], []
+        for t in pool:
+            if t in held:
+                continue
+            value = 0.0
+            df = (history or {}).get(t)
+            try:
+                if df is not None and not df.empty:
+                    turn = (df["Close"].astype(float) * df["Volume"].astype(float)).tail(20).dropna()
+                    if not turn.empty:
+                        value = float(turn.median())
+            except (KeyError, TypeError, ValueError):
+                value = 0.0
+            if value > 0:
+                ranked.append((-value, t))
+            else:
+                unranked.append(t)
+        ranked.sort()
+        names = [t for _, t in ranked[:size]]
+        names += unranked[:max(0, size - len(names))]
+        return names, len(pool)
+
+    def scan(self, history_period: str = "6mo", *, side_pass: bool = False) -> ScanResult:
+        """One selection pass for the category in `cfg.mode`.
+
+        `side_pass=True` is the 5-minute Intraday pass the scheduler runs
+        while the app's own mode is another category (owner order
+        2026-11-26: "scan every 5 minutes all session, whatever the mode").
+        It is the SAME selection and the SAME gates, and it may open Intraday
+        positions. What it leaves alone, so every other screen and segment
+        behaves exactly as before:
+          * the Scan page / dashboard record of the last category pass
+            (last_scan*, scan_matrix, scan_history, shadow book);
+          * Ocean entries and rotation selling — those keep their 09:20 and
+            14:30 slots and are not multiplied by 66 passes a day;
+          * the journal: one INTRADAY_PASS summary line plus a full decision
+            record for every stock that cleared its score and was bought or
+            refused — not one "not selected" record per stock per pass
+            (RUN-20261126-01: scan decisions are already 94% of a journal
+            that filled the database)."""
+        if side_pass and self.cfg.mode != "intraday":
+            raise ValueError("side_pass is the intraday 5-minute pass only")
         self.square_off_intraday()  # overdue exits precede slow history/scoring
         cfg = self.cfg
+
+        def _context_line(entry: dict) -> None:
+            # Market-context lines that EVERY pass repeats while their
+            # condition holds (festival window, VIX re-entry, brake off, IFR
+            # fired today). The 09:20 and 14:30 rotations write them as
+            # before. A 5-minute side pass must not add up to 66 copies a
+            # day — CORRECTION_VIX_REENTRY is also pushed to the phone.
+            if not side_pass:
+                self.portfolio.decision_journal.append(entry)
+
+        def _daily_reading(name: str, load):
+            # FII/DII flows and the market regime are built from DAILY data:
+            # one figure a day. An ordinary pass reads them fresh, as always.
+            # The side pass reuses a reading for SIDE_DAILY_REUSE_S instead
+            # of asking NSE and the index feed again every five minutes
+            # (each live flow read alone can wait 20 s on a blocked feed).
+            return self._side_reuse(name, load) if side_pass else load()
+
         universe, history_period = self.scan_universe(history_period)
-        history = fetch_daily(universe, period=history_period)
-        # 2026-09-11: fetch_daily is store-first and BOUNDS its network
-        # fallback, so a scan can legitimately cover fewer names than it
-        # asked for while the store fills. Say so in the journal rather than
-        # letting a 1,200-name universe read as fully scanned when 170 names
-        # were seen — the lying-screen fault class. Captured before the
-        # benchmark fetch below overwrites the stats.
-        from .data import LAST_FETCH_STATS as _fs
-        cover = dict(_fs)
-        bench = fetch_daily([cfg.benchmark], period=history_period).get(cfg.benchmark)
+        # Daily bars do not change inside a session, so the 5-minute side
+        # pass loads the daily panel once and reuses it (_side_daily_panel).
+        # Loading ~850 names of 6-month history — and retrying up to 120
+        # slow downloads for names the store holds stale — every five
+        # minutes would hold the mode lock the 30-minute exit pass needs.
+        daily = self._side_daily_panel(universe, history_period) if side_pass else None
+        if daily is not None:
+            history, cover, bench = daily
+        else:
+            history = fetch_daily(universe, period=history_period)
+            # 2026-09-11: fetch_daily is store-first and BOUNDS its network
+            # fallback, so a scan can legitimately cover fewer names than it
+            # asked for while the store fills. Say so in the journal rather
+            # than letting a 1,200-name universe read as fully scanned when
+            # 170 names were seen — the lying-screen fault class. Captured
+            # before the benchmark fetch below overwrites the stats.
+            from .data import LAST_FETCH_STATS as _fs
+            cover = dict(_fs)
+            bench = fetch_daily([cfg.benchmark], period=history_period).get(cfg.benchmark)
+            if side_pass:
+                self._side_daily_keep(universe, history_period, history, cover, bench)
+        # Owner order 2026-11-26: the index-versus-typical-stock gap, read
+        # once a pass by the Momentum scan (two years of bars for the whole
+        # list are in hand here). Display only — nothing below reads it.
+        if cfg.mode == MOMENTUM_MODE and not side_pass:
+            self._store_market_gap(history, bench)
         # Daily panels retain their daily purpose: liquidity, breadth, regime,
         # damage and risk sizing. Intraday signals have a separate validated path.
-        signal_history, signal_bench = history, bench
-        intraday_details = {}
+        # RUN-20261125-01 (owner order 2026-11-26): the signal inputs — the
+        # 5-minute bars for the intraday pass, and each stock's decision
+        # record built from them — are prepared by ONE step. Daily categories
+        # run it here, exactly where it always ran. The intraday pass runs it
+        # immediately before scoring instead (below): on 25 Nov the bars were
+        # fetched here, about 19 minutes of market/book work followed, and
+        # every bar was past its 6-minute validity when scoring began — 0 of
+        # 1,133 stocks scored, twice. Nothing between here and the scoring
+        # loop reads these inputs, so only the moment of the fetch changes.
+        # The whole scan list keeps feeding the market-wide readings (sector
+        # heat, Ocean's search, structural flags) exactly as before; only the
+        # names that are FETCHED AND SCORED on 5-minute bars are narrowed.
+        scan_pool = list(universe)
+        stage = {"started": time.monotonic()}
         if cfg.mode == "intraday":
-            from .data import MAX_NETWORK_FALLBACK
-            offset = (self.portfolio.intraday_data_status or {}).get("next_offset", 0)
-            signal_history, intraday_details = idata.fetch(
-                [cfg.benchmark] + list(universe), cfg, self.broker, datetime.utcnow(),
-                offset=offset, priority=[cfg.benchmark])
-            signal_bench = signal_history.get(cfg.benchmark)
-            signal_history = {t: f for t, f in signal_history.items() if t != cfg.benchmark}
-            self.portfolio.intraday_data_status = {
-                "at": intraday_details.get(cfg.benchmark, {}).get("asof", de.stamp()),
-                "interval": "5m", "asked": len(universe),
-                "ready": sum(t in signal_history for t in universe),
-                "next_offset": (offset + max(0, MAX_NETWORK_FALLBACK - 1)) % max(1, len(universe)),
-                "request_cap": MAX_NETWORK_FALLBACK, "deadline_seconds": idata.FETCH_BUDGET_SECONDS,
-                "windows": ib.window_description(cfg),
-                "benchmark": intraday_details.get(cfg.benchmark),
-                "rows": {t: intraday_details[t] for t in universe}}
-        decisions = {t: de.new(t, cfg.mode, "scan", datetime.utcnow(), signal_history.get(t))
-                     for t in universe}
-        for decision in decisions.values():
-            self._strategy_batch_decision(decision, "scan")
-        context_inputs = ci.prepare(universe, cfg, datetime.utcnow(), client=self.broker)
-        for t, d in decisions.items():
-            d["market_context"] = ci.observation(context_inputs, t, signal_history.get(t), signal_bench, cfg, datetime.utcnow())
-            h = signal_history.get(t)
-            info = intraday_details.get(t)
-            de.put(d, "history", len(h) if h is not None else None,
-                   "completed current-session 5m bars with full lookback" if info else "usable daily history",
-                   state="passed" if h is not None and not h.empty else "unavailable",
-                   reason=info["reason"] if info else "Actual scan path uses daily bars")
-            d["benchmark"] = {"ticker": cfg.benchmark, **(intraday_details.get(cfg.benchmark) or de.bar_context(signal_bench))}
-            if info:
-                d["bar"] = de.clean(info)
-                d["daily_context"] = de.bar_context(history.get(t))
-                d["windows"] = ib.window_description(cfg)
-                de.put(d, "intraday_data", info, "completed, aligned, current session, contiguous required window",
-                       state="passed" if info["status"] == "ready" else "unavailable", reason=info["reason"])
+            universe, intraday_pool = self._intraday_universe(universe, history)
+        else:
+            intraday_pool = None
+
+        def _prepare_signal_inputs():
+            signal_history, signal_bench = history, bench
+            intraday_details = {}
+            if cfg.mode == "intraday":
+                from .data import MAX_NETWORK_FALLBACK
+                offset = (self.portfolio.intraday_data_status or {}).get("next_offset", 0)
+                stage["fetch_started"] = time.monotonic()
+                signal_history, intraday_details = idata.fetch(
+                    [cfg.benchmark] + list(universe), cfg, self.broker, datetime.utcnow(),
+                    offset=offset, priority=[cfg.benchmark])
+                stage["fetch_done"] = time.monotonic()
+                signal_bench = signal_history.get(cfg.benchmark)
+                signal_history = {t: f for t, f in signal_history.items() if t != cfg.benchmark}
+                self.portfolio.intraday_data_status = {
+                    "at": intraday_details.get(cfg.benchmark, {}).get("asof", de.stamp()),
+                    "interval": "5m", "asked": len(universe),
+                    "pool": intraday_pool,
+                    "list_rule": (f"top {len(universe)} of {intraday_pool} by median rupee turnover, last 20 daily bars"
+                                  if intraday_pool and intraday_pool > len(universe) else "whole scan list"),
+                    "ready": sum(t in signal_history for t in universe),
+                    "next_offset": (offset + max(0, MAX_NETWORK_FALLBACK - 1)) % max(1, len(universe)),
+                    "request_cap": MAX_NETWORK_FALLBACK, "deadline_seconds": idata.FETCH_BUDGET_SECONDS,
+                    "windows": ib.window_description(cfg),
+                    "benchmark": intraday_details.get(cfg.benchmark),
+                    "rows": {t: intraday_details[t] for t in universe}}
+            decisions = {t: de.new(t, cfg.mode, "scan", datetime.utcnow(), signal_history.get(t))
+                         for t in universe}
+            for decision in decisions.values():
+                self._strategy_batch_decision(decision, "scan")
+            context_inputs = ci.prepare(universe, cfg, datetime.utcnow(), client=self.broker)
+            for t, d in decisions.items():
+                d["market_context"] = ci.observation(context_inputs, t, signal_history.get(t), signal_bench, cfg, datetime.utcnow())
+                h = signal_history.get(t)
+                info = intraday_details.get(t)
+                de.put(d, "history", len(h) if h is not None else None,
+                       "completed current-session 5m bars with full lookback" if info else "usable daily history",
+                       state="passed" if h is not None and not h.empty else "unavailable",
+                       reason=info["reason"] if info else "Actual scan path uses daily bars")
+                d["benchmark"] = {"ticker": cfg.benchmark, **(intraday_details.get(cfg.benchmark) or de.bar_context(signal_bench))}
+                if info:
+                    d["bar"] = de.clean(info)
+                    d["daily_context"] = de.bar_context(history.get(t))
+                    d["windows"] = ib.window_description(cfg)
+                    de.put(d, "intraday_data", info, "completed, aligned, current session, contiguous required window",
+                           state="passed" if info["status"] == "ready" else "unavailable", reason=info["reason"])
+            return signal_history, signal_bench, intraday_details, decisions, context_inputs
+
+        if cfg.mode != "intraday":
+            (signal_history, signal_bench, intraday_details,
+             decisions, context_inputs) = _prepare_signal_inputs()
         if cover.get("asked") and cover.get("covered", 0) < cover["asked"]:
             self._journal_once_a_day("SCAN_COVERAGE_SHORT", datetime.utcnow(), {
                 "asked": cover["asked"], "covered": cover["covered"],
@@ -425,41 +563,38 @@ class TradingEngine:
             fii_5d = None
             try:
                 from .signals.flows import get_flows, fii_net_last_n_days
-                fii_5d = fii_net_last_n_days(get_flows(), n=5)
+                fii_5d = fii_net_last_n_days(_daily_reading("flows", get_flows), n=5)
             except Exception as e:
                 log.debug("FII flow fetch failed: %s", e)
-            regime = fetch_regime(fii_5d_net_override=fii_5d)
+            regime = _daily_reading(
+                "regime", lambda: fetch_regime(fii_5d_net_override=fii_5d))
         except Exception as e:
             log.warning("Regime classification failed: %s", e)
-            # AUDIT FIX C7 (2026-08-09): regime=None used to FAIL OPEN — the
-            # `regime is None or everest_active` gate re-enabled full-size
-            # buying with the correction brake silently gone, exactly when a
-            # broken feed is most likely (a panic). The last KNOWN regime is
-            # sticky instead: if we were in correction/panic yesterday, the
-            # brake stays on until the feed answers again; journaled once/day.
-            last_known = (self.portfolio.last_regime or "").lower()
-            if last_known in ("correction", "panic"):
-                today_key = datetime.utcnow().date().isoformat()
-                already = any(
-                    e2.get("action") == "REGIME_FEED_DOWN"
-                    and str(e2.get("ts", "")).startswith(today_key)
-                    for e2 in self.portfolio.decision_journal[-100:])
-                if not already:
-                    self.portfolio.decision_journal.append({
-                        "ts": datetime.utcnow().isoformat(),
-                        "action": "REGIME_FEED_DOWN",
-                        "why": (f"Regime feed failed and the last known regime "
-                                f"was {last_known.upper()} — the correction "
-                                "brake STAYS ON until the feed answers."),
-                    })
-                regime_feed_down_brake = True
-            else:
-                regime_feed_down_brake = False
+            regime_feed_down_brake = self._sticky_regime_brake("failed")
         else:
             regime_feed_down_brake = False
+        # XR-050 (2026-11-27). The C7 brake above lives in the `except`, but
+        # fetch_regime catches its OWN fetch failure and RETURNS a permissive
+        # neutral reading rather than raising — so on the COMMON failure
+        # control took the `else` and the brake was switched off. A reading
+        # that says it is not trustworthy is now treated exactly as no reading
+        # at all: the same sticky brake, no write to last_regime, and the cash
+        # reserve taken from the last regime we actually measured.
+        #
+        # OWNER'S CHOICE 2026-11-27, from an options card: "Keep yesterday's
+        # reading until the feed answers" — declining "always take the
+        # defensive side", which would have paused buying on a brief glitch.
+        # With nothing stored at all (a fresh book) this carries on as before.
+        regime_trusted = regime is not None and getattr(regime, "feed_ok", True)
+        if regime is not None and not regime_trusted:
+            if self._sticky_regime_brake("untrusted"):
+                regime_feed_down_brake = True
 
         # v5: detect regime switch + persist + notify
-        if regime is not None and regime.regime != self.portfolio.last_regime:
+        # XR-050: an UNTRUSTED reading must not be written here. One dead-feed
+        # day used to overwrite a stored "panic" with "neutral", and the brake
+        # then could not arm on the next dead-feed day either.
+        if regime_trusted and regime.regime != self.portfolio.last_regime:
             entry = {
                 "ts": datetime.utcnow().isoformat(),
                 "prev": self.portfolio.last_regime,
@@ -537,7 +672,7 @@ class TradingEngine:
             from .calendars import festival_context
             fest = festival_context(days=5)
             if fest:
-                self.portfolio.decision_journal.append({
+                _context_line({
                     "ts": now.isoformat(),
                     "action": "CONTEXT",
                     "festival": fest,
@@ -548,11 +683,18 @@ class TradingEngine:
 
         # P2/B2: dynamic cash reserve — 0% in bull/neutral (deploy fully) but
         # correction/panic force protective cash back in.
-        if regime is not None:
+        # XR-050: on an untrusted reading this took the fallback's "neutral"
+        # and set the reserve to 0% — losing Rs 1 crore of protective cash in
+        # a correction and Rs 2 crore in a panic, on exactly the days a feed
+        # is most likely to be down. It now reads the last regime that was
+        # actually measured; with nothing stored it leaves the reserve alone.
+        reserve_regime = (regime.regime if regime_trusted
+                          else (self.portfolio.last_regime or None))
+        if reserve_regime:
             try:
                 from .risk_v2 import dynamic_cash_reserve_pct
                 cfg.cash_reserve_pct = dynamic_cash_reserve_pct(
-                    regime.regime, floor=0.0,
+                    reserve_regime, floor=0.0,
                 )
             except Exception:
                 pass
@@ -571,7 +713,7 @@ class TradingEngine:
             from .signals.flows import (
                 get_flows, fii_flow_score, fii_net_last_n_days,
             )
-            flows = get_flows()   # live NSE -> committed CSV, staleness-guarded
+            flows = _daily_reading("flows", get_flows)   # live NSE -> committed CSV, staleness-guarded
             fii_5d = fii_net_last_n_days(flows, n=5)
             # pass how many days the sum really covers — the live endpoint
             # returns ONE day, so an un-normalised 5-day threshold would read a
@@ -582,13 +724,18 @@ class TradingEngine:
 
         try:
             hot_sectors = compute_hot_sectors(
-                {t: history[t] for t in universe if t in history},
+                {t: history[t] for t in scan_pool if t in history},
                 cfg.sector_map, cfg,
             )
         except Exception:
             hot_sectors = set()
 
         set_scoring_context(fii_score=fii_score, hot_sectors=hot_sectors)
+
+        if cfg.mode == "intraday":
+            # Fetch the 5-minute bars NOW, with scoring as the very next step.
+            (signal_history, signal_bench, intraday_details,
+             decisions, context_inputs) = _prepare_signal_inputs()
 
         ranked: List[dict] = []
         for t in universe:
@@ -632,6 +779,14 @@ class TradingEngine:
             decisions[t]["weights"] = de.clean({"momentum": 1-b, "quality": b} if n200_scorer is not None else evidence_weights(cfg.mode))
             with de.capture(decisions[t]):
                 timing_pass, timing_diag = timing_ok(signal_history[t], cfg)
+            # Owner decision 2026-11-26: the two volume gates as separate
+            # readings on the bars this pass scores on. A reading only; what
+            # each one may refuse is decided in the pick loop below.
+            try:
+                vol_gates = volume_gates(signal_history[t], cfg)
+            except Exception:
+                log.exception("volume gates failed for %s", t)
+                vol_gates = None
             # OWNER ORDER 2026-09-11 ("go with these formula" / "ash08 68"):
             # every scanned name carries the ASH08 and AshStocks verdicts
             # beside our own. Computed HERE, where the history is already in
@@ -651,6 +806,7 @@ class TradingEngine:
                 "components": components,
                 "timing_pass": timing_pass,
                 "timing_diag": timing_diag,
+                "volume_gates": vol_gates,
                 "reasoning": reasoning,
                 "multi": multi,
                 "last_close": float(signal_history[t]["Close"].iloc[-1]),
@@ -660,6 +816,25 @@ class TradingEngine:
                 "risk_history": history.get(t),
             })
         ranked.sort(key=lambda r: -r["score"])
+        # Owner decision 2026-11-26: the 20-session rank is a COLUMN on the
+        # Scan page, written onto the view each row already carries. Nothing
+        # below reads it; a failure costs the column, never the scan.
+        if not side_pass:
+            try:
+                from .multi_formula import rank_mom20
+                rank_mom20(ranked)
+            except Exception:
+                log.exception("20-session rank failed")
+        stage["scored"] = time.monotonic()
+        if cfg.mode == "intraday" and "fetch_done" in stage:
+            # RUN-20261125-01 acceptance: record the stage timing. `scored
+            # after` is the number that was ~19 minutes on 25 Nov; the bars
+            # are valid for 6.
+            self.portfolio.intraday_data_status["timing"] = {
+                "before_fetch_s": round(stage["fetch_started"] - stage["started"], 1),
+                "fetch_s": round(stage["fetch_done"] - stage["fetch_started"], 1),
+                "scored_after_fetch_s": round(stage["scored"] - stage["fetch_done"], 1),
+                "scored": len(ranked)}
 
         # Engine selection: which picks are eligible for entry today?
         everest_picks: List[dict] = []
@@ -698,7 +873,7 @@ class TradingEngine:
             except Exception as e:
                 log.warning("VIX-crush check failed: %s", e)
             if vix_reentry:
-                self.portfolio.decision_journal.append({
+                _context_line({
                     "ts": now.isoformat(), "action": "CORRECTION_VIX_REENTRY",
                     "episode_start": str(getattr(episode_start, "date",
                                                  lambda: episode_start)()),
@@ -712,17 +887,19 @@ class TradingEngine:
         # and in correction once the VIX-crush re-entry signal fires.
         # AUDIT FIX C7: with the feed down, the last known correction/panic
         # keeps the brake on (regime_feed_down_brake) instead of failing open.
-        everest_ok = (regime.everest_active if regime is not None
+        # XR-050: `regime is not None` let the fallback's everest_active=True
+        # lift the entry block a true PANIC reading would have applied.
+        everest_ok = (regime.everest_active if regime_trusted
                       else not regime_feed_down_brake)
         # OWNER ORDER 2026-08-09 ("take risk on 200 DMA" -> brake fully
         # off): with correction_brake_enabled False, the CORRECTION regime
         # alone no longer blocks entries. PANIC still does, and a dead
         # regime feed still brakes (C7) — this override needs a live
         # reading that says "correction", never a guess.
-        brake_off = (regime is not None and regime.regime == "correction"
+        brake_off = (regime_trusted and regime.regime == "correction"
                      and not getattr(cfg, "correction_brake_enabled", True))
         if brake_off and not everest_ok:
-            self.portfolio.decision_journal.append({
+            _context_line({
                 "ts": now.isoformat(), "action": "CORRECTION_BRAKE_OFF",
                 "why": ("Correction regime (Nifty < 200DMA) but the owner "
                         "has switched the brake off (2026-08-09 order) — "
@@ -748,6 +925,11 @@ class TradingEngine:
         # Collected here, reported below: `skipped` and `now` are not bound
         # until the entry section further down this method.
         multi_blocked: List[dict] = []
+        # Volume Gate 2 (the spike) refuses a buy only in the segments the
+        # owner named — Intraday. Names it stops are reported below with the
+        # other refusals and counted in the pass summary.
+        spike_blocks = gate2_blocks(cfg)
+        volume_blocked: List[str] = []
         for d in decisions.values():
             de.put(d, "regime", {"reading": regime.regime if regime else None,
                 "last_known": self.portfolio.last_regime, "vix_reentry": vix_reentry,
@@ -761,6 +943,18 @@ class TradingEngine:
             for r in ranked:
                 if not (r["score"] >= cfg.min_score_to_enter and r["timing_pass"]):
                     continue
+                if spike_blocks:
+                    spike = (r.get("volume_gates") or {}).get("gate2") or {}
+                    spike_ok = spike.get("ok")
+                    de.put(r["decision"], "volume_spike", spike.get("ratio"), spike.get("need"),
+                           passed=bool(spike_ok),
+                           state="unavailable" if spike_ok is None else None,
+                           reason=("Latest bar's volume against the mean of the "
+                                   f"{int(getattr(cfg, 'volume_gate2_lookback', 20))} bars before it; "
+                                   "required in this segment"))
+                    if not spike_ok:
+                        volume_blocked.append(r["ticker"])
+                        continue
                 abs_ok = _abs_mom_ok(r["ticker"])
                 daily = history.get(r["ticker"])
                 close = daily["Close"].dropna() if daily is not None else None
@@ -794,7 +988,7 @@ class TradingEngine:
         # Ocean (owner approval 2026-08-26: "Approve as specced") — runs in
         # PARALLEL with Everest in every regime. Its four crash-guard rails
         # replace the momentum gates for dip entries; see _ocean_picks().
-        ocean_picks = self._ocean_picks(regime, history, universe, now)
+        ocean_picks = [] if side_pass else self._ocean_picks(regime, history, scan_pool, now)
         for pick in ocean_picks:
             d = pick.setdefault("decision", de.new(pick["ticker"], cfg.mode, "ocean", now, history.get(pick["ticker"])))
             self._strategy_batch_decision(d, "ocean")
@@ -891,6 +1085,8 @@ class TradingEngine:
         # The owner's three-formula filter, if they have switched it on: say
         # on the page AND in the journal which names it removed, and why. A
         # gate that silently shrinks the buy list is the lying-screen class.
+        for ticker in volume_blocked:
+            skipped.append({"ticker": ticker, "reason": "volume_spike"})
         for b in multi_blocked:
             skipped.append({"ticker": b["ticker"], "reason": b["reason"]})
             self._journal_once_a_day(
@@ -908,6 +1104,12 @@ class TradingEngine:
         ifr_snapshot = None
         try:
             from .ifr import check_damage_cluster
+            # XR-041, the third door to the same place: this `except` used to
+            # leave ifr_snapshot None, which _throttled_qty reads as
+            # multiplier 1.0 — so a crash in the damage check LIFTED a
+            # throttle that was already running, exactly like the thin-panel
+            # branch did. A crash is not evidence that the crowd-fear window
+            # has closed, so the saved dates decide instead.
             ifr_snapshot = check_damage_cluster(
                 history, now=now,
                 last_fire_date=self.portfolio.last_ifr_fire_date,
@@ -916,7 +1118,7 @@ class TradingEngine:
             self.portfolio.last_ifr_fire_date = ifr_snapshot.last_fire_date
             self.portfolio.last_ifr_ratio_fire_date = ifr_snapshot.ratio_last_fire_date
             if ifr_snapshot.fired_today:
-                self.portfolio.decision_journal.append({
+                _context_line({
                     "ts": now.isoformat(),
                     "action": "IFR_SIGNAL_FIRED",
                     "which": list(ifr_snapshot.which_fired),
@@ -941,7 +1143,19 @@ class TradingEngine:
                     "why": ifr_snapshot.reason,
                 })
         except Exception:
-            pass
+            log.exception("IFR damage check failed; falling back to the saved "
+                          "fire dates so an open throttle is not lifted")
+            if ifr_snapshot is None:
+                try:
+                    from .ifr import held_throttle_snapshot
+                    ifr_snapshot = held_throttle_snapshot(
+                        now,
+                        last_fire_date=self.portfolio.last_ifr_fire_date,
+                        ratio_last_fire_date=self.portfolio.last_ifr_ratio_fire_date,
+                        reason="damage check crashed",
+                    )
+                except Exception:
+                    ifr_snapshot = None
 
         # v5: Update drawdown governor with current equity
         prev_dd_level = self.drawdown_gov.active_level
@@ -1010,7 +1224,8 @@ class TradingEngine:
         # prices nobody could have traded at.
         if not self._trading_allowed(now):
             state = self._market_state(now)
-            self.portfolio.last_scan = now.isoformat()
+            if not side_pass:
+                self.portfolio.last_scan = now.isoformat()
             self._journal_once_a_day("MARKET_CLOSED_NO_ENTRY", now, {
                 "market_state": state,
                 "picks_held_back": [pk["ticker"] for pk in picks],
@@ -1048,9 +1263,9 @@ class TradingEngine:
                 d = pick["decision"]
                 de.put(d, "market_session", self._market_state(now), "open", passed=True)
                 entry_clock = datetime.utcnow()
-                de.put(d, "intraday_deadline", de.stamp(entry_clock), "15:25 IST", passed=ir.entry_allowed(cfg.mode, entry_clock),
+                de.put(d, "intraday_deadline", de.stamp(entry_clock), ir.auto_entry_limit_text(cfg), passed=ir.auto_entry_allowed(cfg.mode, entry_clock, cfg),
                        state="skipped" if cfg.mode != "intraday" else None)
-                if not ir.entry_allowed(cfg.mode, entry_clock):
+                if not ir.auto_entry_allowed(cfg.mode, entry_clock, cfg):
                     skipped.append({"ticker": pick["ticker"], "reason": "intraday_entry_deadline"})
                     continue
                 de.put(d, "portfolio_marks", {k: v for k, v in self.portfolio.mark_snapshot.items() if k != "positions"}, "complete observed valuation", passed=marks_ready)
@@ -1147,6 +1362,10 @@ class TradingEngine:
                 de.put(d, "already_held", pick["ticker"] in self.portfolio.positions, False, passed=pick["ticker"] not in self.portfolio.positions)
                 if pick["ticker"] in self.portfolio.positions:
                     skipped.append({"ticker": pick["ticker"], "reason": "already_held"})
+                    continue
+                why = self._intraday_entry_rule(pick, d, now)
+                if why:
+                    skipped.append({"ticker": pick["ticker"], "reason": why})
                     continue
                 # v5: liquidity hard floor
                 if cfg.mode == "intraday":
@@ -1254,7 +1473,7 @@ class TradingEngine:
         # OWNER ORDER 2026-09-04: rotation executes. Runs BEFORE the opening
         # pass so the cash it frees is there when can_open counts it, and
         # AFTER the gates (S-4) so it only ever funds a pick that will buy.
-        if not ir.entry_allowed(cfg.mode, datetime.utcnow()):
+        if not ir.auto_entry_allowed(cfg.mode, datetime.utcnow(), cfg):
             skipped.extend({"ticker": pk["ticker"], "reason": "intraday_entry_deadline"}
                            for pk in cleared)
             cleared = []
@@ -1271,7 +1490,7 @@ class TradingEngine:
                 skipped.extend({"ticker": pk["ticker"], "reason": str(exc)} for pk in cleared)
                 cleared = []
         try:
-            rotated_out = self._rotation_exits(
+            rotated_out = [] if side_pass else self._rotation_exits(
                 cleared, now, entries_blocked=entries_blocked, history=history)
         except Exception as e:
             log.exception("rotation exits failed — picks proceed on cash as-is: %s", e)
@@ -1281,8 +1500,14 @@ class TradingEngine:
 
         for pick in cleared:
             with de.capture(pick["decision"]):
-                if not ir.entry_allowed(cfg.mode, datetime.utcnow()):
+                if not ir.auto_entry_allowed(cfg.mode, datetime.utcnow(), cfg):
                     skipped.append({"ticker": pick["ticker"], "reason": "intraday_entry_deadline"})
+                    continue
+                # The cap is re-read here with the LIVE count: the gate pass
+                # above saw the book before this pass opened anything.
+                why = self._intraday_entry_rule(pick, None, datetime.utcnow())
+                if why:
+                    skipped.append({"ticker": pick["ticker"], "reason": why})
                     continue
                 entry_quotes = live_fill_px
                 if self._active_strategy_batch() is not None:
@@ -1355,6 +1580,27 @@ class TradingEngine:
                             "capped": bool(want > cap_rs)}
                         if want > cap_rs:
                             notional_arg = cap_rs
+                    # VIX size multiplier (owner decision 2026-11-26; default
+                    # OFF — its pre-registered test did not support it). On:
+                    # the size this buy wants is scaled by the India VIX band,
+                    # never below the minimum ticket and never above the 5%
+                    # cap or the measured-Kelly cap. Ocean's fixed ticket
+                    # (above) and the owner's own BUY paths are not scaled.
+                    if bool(getattr(cfg, "vix_sizing_enabled", False)):
+                        from .sizing import apply_vix_multiplier
+                        want = (notional_arg if notional_arg is not None
+                                else float(cfg.position_notional()))
+                        ceiling = float(getattr(cfg, "kelly_max_pct", 0.0) or 0.0) * float(current_eq)
+                        if cap_rs is not None:
+                            ceiling = min(ceiling, float(cap_rs)) if ceiling > 0 else float(cap_rs)
+                        scaled, vix_diag = apply_vix_multiplier(
+                            want, getattr(regime, "vix", None) if regime is not None else None,
+                            slab=float(getattr(cfg, "position_slab_value", 0.0) or 0.0),
+                            cap=ceiling if ceiling > 0 else None)
+                        size_diag = dict(size_diag)
+                        size_diag["vix"] = vix_diag
+                        if vix_diag.get("applied"):
+                            notional_arg = scaled
                 # Owner order 2026-11-21: all six segments, including Ocean,
                 # spend only their own share of deployable capital.
                 initial_stop = self._stop_for(pick, fill, cfg=cfg)
@@ -1424,9 +1670,9 @@ class TradingEngine:
                                     "category": self._loss_halt_category(pick, cfg)})
                     continue
                 entry_now = datetime.utcnow()
-                de.record("entry_deadline_final", de.stamp(entry_now), "15:25 IST", passed=ir.entry_allowed(cfg.mode, entry_now),
+                de.record("entry_deadline_final", de.stamp(entry_now), ir.auto_entry_limit_text(cfg), passed=ir.auto_entry_allowed(cfg.mode, entry_now, cfg),
                           state="skipped" if cfg.mode != "intraday" else None)
-                if not ir.entry_allowed(cfg.mode, entry_now):
+                if not ir.auto_entry_allowed(cfg.mode, entry_now, cfg):
                     skipped.append({"ticker": pick["ticker"], "reason": "intraday_entry_deadline"})
                     continue
                 if cfg.mode == "intraday":
@@ -1447,6 +1693,13 @@ class TradingEngine:
                 opened.append(pick["ticker"])
         self._journal_budget_full(skipped, now)
         self._journal_loss_halt(skipped, now)
+
+        if side_pass:
+            self._finish_side_pass(decisions, ranked, everest_picks, opened, skipped, now)
+            self.square_off_intraday()  # a long pass may have crossed 15:25
+            self._record_equity(marks, datetime.utcnow())
+            self.portfolio.save()
+            return ScanResult(ts=now, ranked=ranked, picks=picks, opened=opened, skipped=skipped)
 
         self.portfolio.last_scan = now.isoformat()
         if self._trading_allowed(now):
@@ -1491,6 +1744,7 @@ class TradingEngine:
                 "candle": _candle_label(r["ticker"]),
                 "structures": _all_structures(r["ticker"]),
                 "multi": r.get("multi"),
+                "volume_gates": r.get("volume_gates"),
                 "opened": r["ticker"] in opened,
             }
             for r in ranked[:50]
@@ -1522,6 +1776,7 @@ class TradingEngine:
             "mode": getattr(cfg, "mode", "?"),
             "score_floor": float(cfg.min_score_to_enter),
             "universe_size": len(universe),
+            "volume_gates": self._volume_gate_summary(ranked, skipped, cfg),
             "rows": {
                 r["ticker"]: {
                     "decision_id": (self.portfolio.positions[r["ticker"]].trade_evidence.get("entry", {}).get("id") if r["ticker"] in opened else r["decision"]["id"]),
@@ -1529,6 +1784,7 @@ class TradingEngine:
                           for k, v in (r.get("components") or {}).items()},
                     "score": round(float(r["score"]), 1),
                     "timing": bool(r["timing_pass"]),
+                    "vol": self._volume_gate_cell(r.get("volume_gates")),
                     "abs_mom": bool(_abs_mom_ok(r["ticker"])),
                     "candle": _candle_label(r["ticker"]),
                     "structures": _all_structures(r["ticker"]),
@@ -1555,7 +1811,7 @@ class TradingEngine:
         try:
             from .flags import compute_flags
             self.portfolio.scan_matrix["flags"] = compute_flags(
-                {t: history[t] for t in universe if t in history},
+                {t: history[t] for t in scan_pool if t in history},
                 list(self.portfolio.positions.keys()), cfg.sector_map)
         except Exception:
             pass
@@ -1604,6 +1860,146 @@ class TradingEngine:
         self.portfolio.save()
 
         return ScanResult(ts=now, ranked=ranked, picks=picks, opened=opened, skipped=skipped)
+
+    # How long the side pass may reuse one loaded daily panel. Thirty minutes
+    # is the exit pass's own cadence: about 11 loads a session instead of 66,
+    # and a panel loaded before the morning top-up finished is replaced soon.
+    SIDE_DAILY_REUSE_S = 1800.0
+
+    def _side_reuse(self, name: str, load):
+        """`load()`'s value for `name`, reused for SIDE_DAILY_REUSE_S. A load
+        that raises is not kept: the caller's own failure handling runs."""
+        kept = self.__dict__.setdefault("_side_kept", {})
+        hit = kept.get(name)
+        if hit is not None and time.monotonic() - hit[0] <= self.SIDE_DAILY_REUSE_S:
+            return hit[1]
+        value = load()
+        kept[name] = (time.monotonic(), value)
+        return value
+
+    def _side_daily_key(self, universe, history_period) -> tuple:
+        return (self._ist(datetime.utcnow()).date().isoformat(), history_period,
+                self.cfg.benchmark, frozenset(universe))
+
+    def _side_daily_panel(self, universe, history_period):
+        """(history, cover, bench) kept by an earlier side pass today for
+        this exact list, or None when there is none or it is too old. The
+        scan only READS the daily panel, so handing the same frames to the
+        next pass is safe."""
+        kept = getattr(self, "_side_daily", None)
+        if not kept or kept["key"] != self._side_daily_key(universe, history_period):
+            return None
+        if time.monotonic() - kept["loaded"] > self.SIDE_DAILY_REUSE_S:
+            return None
+        return kept["history"], dict(kept["cover"]), kept["bench"]
+
+    def _side_daily_keep(self, universe, history_period, history, cover, bench) -> None:
+        self._side_daily = {"key": self._side_daily_key(universe, history_period),
+                            "loaded": time.monotonic(), "history": history,
+                            "cover": dict(cover), "bench": bench}
+
+    @staticmethod
+    def _volume_gate_cell(gates) -> Optional[dict]:
+        """One stock's two volume readings in the compact form the scan
+        record keeps: t = trend (Gate 1), s = spike (Gate 2); *k = passed
+        (None = could not be read), *r = the ratio."""
+        if not isinstance(gates, dict):
+            return None
+        g1, g2 = gates.get("gate1") or {}, gates.get("gate2") or {}
+        return {"tk": g1.get("ok"), "tr": g1.get("ratio"),
+                "sk": g2.get("ok"), "sr": g2.get("ratio")}
+
+    @staticmethod
+    def _volume_gate_summary(ranked, skipped, cfg) -> dict:
+        """How many scored stocks pass each volume gate in this pass, the
+        mark each needs here, and whether it can refuse a buy here. `stopped`
+        = stocks that cleared score and timing and were refused by the spike
+        gate alone (zero wherever the gate is only a reading)."""
+        rows = [r.get("volume_gates") for r in ranked if isinstance(r.get("volume_gates"), dict)]
+        out: dict = {"of": len(ranked)}
+        for key in ("gate1", "gate2"):
+            cells = [g.get(key) or {} for g in rows]
+            known = [c for c in cells if c.get("ok") is not None]
+            first = cells[0] if cells else {}
+            out[key] = {"need": first.get("need"), "blocks": bool(first.get("blocks")),
+                        "known": len(known), "passed": sum(1 for c in known if c.get("ok"))}
+            if key == "gate1":
+                out[key]["applies"] = bool(first.get("applies"))
+        if not rows:
+            # nothing scored: still say what this segment's rule is
+            out["gate1"].update(need=float(cfg.volume_confirm_ratio),
+                                applies=float(cfg.volume_confirm_ratio) > 0,
+                                blocks=float(cfg.volume_confirm_ratio) > 0
+                                and bool(getattr(cfg, "volume_gate1_enabled", True)))
+            out["gate2"].update(need=float(getattr(cfg, "volume_gate2_ratio", 1.5)),
+                                blocks=gate2_blocks(cfg))
+        out["gate2"]["stopped"] = sum(1 for row in skipped if row.get("reason") == "volume_spike")
+        return out
+
+    def _finish_side_pass(self, decisions, ranked, cleared_score, opened, skipped, now) -> None:
+        """Record a 5-minute Intraday pass without touching the shared
+        screens. One INTRADAY_PASS line always; a full SCAN_DECISION record
+        only for a stock that cleared its score and was then bought or
+        refused. Every other stock is counted by reason in the summary.
+
+        Storage (RUN-20261126-01): the full record is ~2 KB a stock. A
+        hundred stocks x 66 passes a day would add ~13 MB a day to a journal
+        that already filled the database; this writes ~66 short lines a day
+        plus the decisions that mattered. A stock refused for the SAME reason
+        pass after pass is recorded once a day, not every five minutes."""
+        skip_reasons = {r["ticker"]: r["reason"] for r in skipped if r.get("ticker")}
+        material = set(opened) | {pk["ticker"] for pk in cleared_score} | set(skip_reasons)
+        day = self._ist(now).date().isoformat()
+        seen = getattr(self, "_side_pass_seen", None)
+        if not seen or seen.get("day") != day:
+            seen = self._side_pass_seen = {"day": day, "rows": {}}
+        reasons: Dict[str, int] = {}
+        for d in decisions.values():
+            ticker = d["ticker"]
+            failures = [k for k, v in d["gates"].items() if v["state"] == "failed"]
+            unavailable = [k for k, v in d["gates"].items() if v["state"] == "unavailable"]
+            reason = skip_reasons.get(ticker) or (
+                failures[0] if failures else unavailable[0] if unavailable else "not selected")
+            pos = self.portfolio.positions.get(ticker)
+            bought_here = ticker in opened and pos is not None and (
+                pos.trade_evidence.get("entry") or {}).get("id") == d["id"]
+            if bought_here:
+                de.journal_decision(self.portfolio, pos.trade_evidence["entry"],
+                                    "bought", "Entry executed")
+                continue
+            reasons[reason] = reasons.get(reason, 0) + 1
+            if ticker in material and seen["rows"].get(ticker) != reason:
+                seen["rows"][ticker] = reason
+                outcome = ("blocked" if ticker in skip_reasons or failures
+                           else "unavailable" if unavailable else "not_selected")
+                de.journal_decision(self.portfolio, d, outcome, reason)
+        status = self.portfolio.intraday_data_status or {}
+        top = sorted(reasons.items(), key=lambda kv: -kv[1])[:8]
+        summary = {
+            "at": now.isoformat(),
+            "asked": status.get("asked"), "ready": status.get("ready"),
+            "scored": len(ranked), "cleared_score": len(cleared_score),
+            "opened": list(opened),
+            "not_bought": [{"reason": k, "stocks": n} for k, n in top],
+            "timing": status.get("timing"),
+            "volume_gates": self._volume_gate_summary(ranked, skipped, self.cfg),
+        }
+        status["last_pass"] = summary
+        self.portfolio.intraday_data_status = status
+        bought = ", ".join(opened) if opened else "none"
+        why = (f"5-minute Intraday pass: {summary['ready']} of {summary['asked']} stocks had "
+               f"usable 5-minute bars, {len(ranked)} scored, {len(cleared_score)} cleared the "
+               f"score, bought: {bought}.")
+        if top:
+            why += " Not bought — " + "; ".join(
+                f"{k.replace('_', ' ')}: {n}" for k, n in top[:4]) + "."
+        spike = (summary.get("volume_gates") or {}).get("gate2") or {}
+        if spike.get("blocks"):
+            why += (f" Volume spike gate ({spike.get('need'):g}x): "
+                    f"{spike.get('stopped', 0)} stock(s) that cleared score and timing were stopped by it.")
+        self.portfolio.decision_journal.append({
+            "ts": now.isoformat(), "action": "INTRADAY_PASS", "mode": "intraday",
+            "why": why, **{k: v for k, v in summary.items() if k != "at"}})
 
     def square_off_intraday(self, prices: dict | None = None) -> list[str]:
         """Retry due intraday deadlines, only on valid in-session quotes.
@@ -2708,11 +3104,25 @@ class TradingEngine:
                             f"{len(danger.VERIFIED) - len(danger.PANEL_FED)} "
                             "OHLCV tripwires still ran."),
                 })
-        seen_today = {
-            e.get("ticker") for e in self.portfolio.decision_journal[-300:]
-            if str(e.get("action", "")).startswith("DANGER_")
-            and str(e.get("ts", "")).startswith(today_iso)
-        }
+        # XR-060 FOLLOW-UP, found in adversarial review of the verdict repair
+        # and reproduced: this guard used to be read back out of
+        # `decision_journal[-300:]`. The in-RAM journal is BYTE-capped
+        # (paper.JOURNAL_BYTES_CAP, 2 MiB) and trimmed inside the save this
+        # pass itself calls, and one pass on a 56-position book writes about
+        # 112 rows (a DANGER_* row and a SELL_PARTIAL row per acted name) of
+        # which only ~103 survive. So four names lost their own guard every
+        # pass and were half-sold again, and again: 56 intended half-sales
+        # became 104 over one day's thirteen passes, and the worst position
+        # was cut from 1,000 shares to 250.
+        #
+        # The record now lives on the book itself, which is persisted to JSON
+        # and Mongo both ways (the risk_day lesson) and is not subject to the
+        # journal's cap. It rolls over by date, so nothing accumulates.
+        acted = self.portfolio.danger_acted or {}
+        if acted.get("day") != today_iso:
+            acted = {"day": today_iso, "tickers": []}
+        self.portfolio.danger_acted = acted
+        seen_today = set(acted.get("tickers") or ())
         for ticker in list(self.portfolio.positions.keys()):
             if ticker in seen_today:
                 continue
@@ -2805,6 +3215,10 @@ class TradingEngine:
                                     danger.describe(reading, auto, leash_pct=leash), now)
                 entry["action"] = "DANGER_EXIT_HALF"
             self.portfolio.decision_journal.append(entry)
+            # Record the action where the journal's byte cap cannot evict it.
+            if ticker not in seen_today:
+                seen_today.add(ticker)
+                acted.setdefault("tickers", []).append(ticker)
         self.portfolio.save()
 
     def _rotation_exits(self, picks: list, now: datetime,
@@ -2840,7 +3254,7 @@ class TradingEngine:
             self._strategy_batch_guard(cfg)
         except ValueError:
             return []
-        if not ir.entry_allowed(cfg.mode, datetime.utcnow()):
+        if not ir.auto_entry_allowed(cfg.mode, datetime.utcnow(), cfg):
             return []
         if not bool(getattr(cfg, "rotation_auto_enabled", True)):
             return []
@@ -2849,6 +3263,58 @@ class TradingEngine:
                  if pk.get("ticker") and pk["ticker"] not in held]
         if not held:
             return []
+
+        # XR-052 (owner's choice 2026-11-27, from an options card: "only sell
+        # when the new buy can actually go through"). The entry decision runs
+        # in two passes and rotation sits between them, so until now it could
+        # sell a near-target winner for a pick that the final buy check then
+        # refused for a reason cash cannot fix. Reproduced three ways: a
+        # kill-switch day — the day the book has already lost 2%, and the day
+        # the engine would sell a winner for nothing — a full sector, and a
+        # ticket under the minimum.
+        #
+        # The order is NOT changed: trading/tests/test_rotation_exec.py pins
+        # rotation BEFORE can_open deliberately, because the freed cash has to
+        # exist when can_open counts it. Instead every pick is read against the
+        # gates no amount of cash can fix, with the rotation candidates treated
+        # as already sold — selling a same-sector holding really does free a
+        # sector slot, and without that this would stand down in the one case
+        # where it genuinely helps.
+        blocked_anyway: dict = {}
+        if fresh:
+            candidates = tuple(
+                t for t, p in held.items()
+                if not bool(getattr(p, "owner_pick", False)))
+            keep = []
+            for pk in fresh:
+                try:
+                    reason = blocked_regardless_of_cash(
+                        cfg, self.risk, held, pk["ticker"],
+                        float(pk.get("close") or pk.get("price") or 0.0) or 1.0,
+                        notional_override=None,
+                        current_equity=self.portfolio.cash + sum(
+                            float(p.qty) * float(p.entry_price)
+                            for p in held.values()),
+                        freeing=candidates)
+                except Exception:
+                    reason = None            # never let a read stop a rotation
+                if reason:
+                    blocked_anyway[pk["ticker"]] = reason
+                else:
+                    keep.append(pk)
+            if not keep:
+                self._journal_once_a_day("ROTATION_STOOD_DOWN", now, {
+                    "blocked": blocked_anyway,
+                    "why": ("Cash is short for this scan's picks, but every "
+                            "one of them would be refused even with the cash "
+                            "freed (" + ", ".join(
+                                sorted(set(blocked_anyway.values())))
+                            + ") — so no holding was sold. Before this, a "
+                            "near-target winner could be sold for a buy that "
+                            "could never happen."),
+                })
+                return []
+            fresh = keep
 
         # FIX 1 of 2 (owner order 2026-09-16). Rotation is a SALE, and the
         # owner's 2026-09-10 order was "yes all block" outside 09:15-15:30 IST.
@@ -3089,7 +3555,7 @@ class TradingEngine:
                 self._strategy_batch_guard(cfg)
             except ValueError:
                 break  # expired new-entry authority must not fund another buy
-            if not ir.entry_allowed(cfg.mode, datetime.utcnow()):
+            if not ir.auto_entry_allowed(cfg.mode, datetime.utcnow(), cfg):
                 break
             cash_ok = freed >= shortfall
             share_ok = (not same_category_only
@@ -3402,6 +3868,25 @@ class TradingEngine:
             log.warning("breadth gate failed (fail-open): %s", e)
         return False
 
+    def _store_market_gap(self, history: dict, bench) -> None:
+        """Keep the day's index-versus-median-stock reading for the dashboard
+        (trading/market_gap.py). Written only on a real reading — a thin or
+        failed one never replaces a good one. Display only; never raises."""
+        try:
+            from .market_gap import reading
+            try:
+                from .universes import fund_unit_tickers
+                funds = fund_unit_tickers()
+            except Exception:
+                funds = frozenset()
+            got = reading(history, bench, exclude=funds)
+            if got:
+                got["computed"] = datetime.utcnow().isoformat()
+                got["benchmark"] = self.cfg.benchmark
+                self.portfolio.market_gap = got
+        except Exception:
+            log.exception("market gap reading failed — the previous one stands")
+
     def _cache_breadth_today(self, history: dict, now: datetime):
         """Compute the scan bucket's breadth and cache it on
         portfolio.breadth_today for the passes that cannot see a 200DMA (they
@@ -3615,6 +4100,55 @@ class TradingEngine:
         if pick.get("ocean"):
             return "ocean"
         return getattr(cfg, "mode", "") or MOMENTUM_MODE
+
+    def _intraday_stopped_today(self, now: datetime) -> set:
+        """Tickers closed on a STOP today while held as intraday positions."""
+        today = self._ist(now).date()
+        out = set()
+        for tr in self.portfolio.trades:
+            if getattr(tr, "mode", "") != "intraday":
+                continue
+            if str(getattr(tr, "reason", "")) not in ("STOP_LOSS", "TRAILING_STOP"):
+                continue
+            try:
+                if self._ist(tr.exit_date).date() == today:
+                    out.add(tr.ticker)
+            except (AttributeError, TypeError, ValueError):
+                continue
+        return out
+
+    def _intraday_entry_rule(self, pick: dict, d, now: datetime) -> Optional[str]:
+        """The owner's two intraday entry rules (order 2026-11-26, defaults
+        approved): at most `intraday_max_positions` intraday positions open
+        at once, and no intraday re-buy of a stock stopped out intraday the
+        same day (unless `intraday_rebuy_after_stop`). Returns the refusal
+        reason or None. Applies to the intraday scan only; Ocean picks, the
+        other categories and the owner's own orders are untouched. `d` is
+        the decision record to write the two gates on (None = do not write).
+        """
+        cfg = self.cfg
+        if cfg.mode != "intraday" or pick.get("ocean"):
+            return None
+        try:
+            cap = int(getattr(cfg, "intraday_max_positions", 0) or 0)
+        except (TypeError, ValueError):
+            cap = 0
+        open_now = self._open_in_category("intraday")
+        cap_ok = cap <= 0 or open_now < cap
+        rebuy_ok = bool(getattr(cfg, "intraday_rebuy_after_stop", True))
+        stopped = (not rebuy_ok) and pick["ticker"] in self._intraday_stopped_today(now)
+        if d is not None:
+            de.put(d, "intraday_position_cap", open_now, cap if cap > 0 else None,
+                   passed=cap_ok, state="skipped" if cap <= 0 else None,
+                   reason="open intraday positions against the owner's cap")
+            de.put(d, "intraday_rebuy_after_stop", stopped, False, passed=not stopped,
+                   state="skipped" if rebuy_ok else None,
+                   reason="stopped out intraday today" if stopped else "not stopped out intraday today")
+        if not cap_ok:
+            return "intraday_position_cap"
+        if stopped:
+            return "intraday_rebuy_after_stop"
+        return None
 
     def _open_in_category(self, category: str) -> int:
         from . import category_budget as cb
@@ -3962,6 +4496,41 @@ class TradingEngine:
             self.apply_corporate_actions()
         except Exception:                           # noqa: BLE001
             log.exception("corporate-action adjuster failed before %s", where)
+
+    def _sticky_regime_brake(self, how: str) -> bool:
+        """AUDIT FIX C7, extended by XR-050: the last KNOWN regime is sticky.
+
+        A regime reading we cannot trust used to FAIL OPEN — the
+        `regime is None or everest_active` gate re-enabled full-size buying
+        with the correction brake silently gone, exactly when a broken feed is
+        most likely (a panic). If the last regime we actually measured was
+        correction or panic, the brake stays on until the feed answers again.
+        Journaled once a day. Nothing stored = nothing to be sticky about, so
+        the day proceeds as before (the owner's own choice, 2026-11-27).
+
+        `how` says which route got here: "failed" (fetch_regime raised) or
+        "untrusted" (it returned a reading with no evidence behind it). Both
+        are the same fault to the book; naming them keeps the journal honest.
+        """
+        last_known = (self.portfolio.last_regime or "").lower()
+        if last_known not in ("correction", "panic"):
+            return False
+        today_key = datetime.utcnow().date().isoformat()
+        already = any(
+            e2.get("action") == "REGIME_FEED_DOWN"
+            and str(e2.get("ts", "")).startswith(today_key)
+            for e2 in self.portfolio.decision_journal[-100:])
+        if not already:
+            self.portfolio.decision_journal.append({
+                "ts": datetime.utcnow().isoformat(),
+                "action": "REGIME_FEED_DOWN",
+                "route": how,
+                "why": (f"The market-state feed {how} and the last known "
+                        f"regime was {last_known.upper()} — the correction "
+                        "brake STAYS ON, and the cash reserve stays at that "
+                        "regime's level, until the feed answers."),
+            })
+        return True
 
     def _roll_risk_day(self, current_equity: float, now: datetime) -> None:
         """Re-baseline the daily loss halt once per trading day.

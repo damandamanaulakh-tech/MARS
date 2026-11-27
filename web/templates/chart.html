@@ -16,6 +16,90 @@
   <a href="/scan" class="px-4 py-2 border border-line text-sm font-semibold tracking-wide whitespace-nowrap hover:bg-ink/[0.03]">← BACK TO SCAN</a>
 </div>
 
+{% if card %}
+<div class="bg-white border border-line mb-6" data-stock-card="stock_card_marker">
+  <div class="px-4 lg:px-6 py-3 border-b border-line flex flex-wrap items-baseline justify-between gap-2">
+    <div class="font-bold">Segments, stops and targets</div>
+    <div class="text-xs text-ink-faint">{% if card.has_data %}last stored close ₹{{ card.last_close | inr(2) }} on {{ card.asof }}{% if card.atr %} · daily ATR(14) ₹{{ card.atr | inr(2) }} ({{ '%.2f' % card.atr_pct }}% of price){% endif %}{% else %}no stored daily history{% endif %} · display only, never a buy signal</div>
+  </div>
+
+  {% if card.held %}
+  {% set h = card.held %}
+  <div class="px-4 lg:px-6 py-3 border-b border-line text-sm" data-stock-card-held="1">
+    <span class="font-semibold">In your book — {{ h.segment }}{% if h.owner_pick %} (your own buy){% endif %}:</span>
+    <span class="whitespace-nowrap">{{ h.qty }} shares at ₹{{ h.entry | inr(2) }}</span>
+    · <span class="whitespace-nowrap text-red-700">stop {% if h.stop %}₹{{ h.stop | inr(2) }}{% else %}— (segment rule){% endif %}</span>
+    · <span class="whitespace-nowrap text-emerald-700">target {% if h.target %}₹{{ h.target | inr(2) }}{% else %}— (segment rule){% endif %}</span>
+    {% if h.pnl_pct is defined %}· <span class="whitespace-nowrap {% if h.pnl_pct >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}">{{ '%+.2f' % h.pnl_pct }}% at the last stored close</span>{% endif %}
+    {% if h.to_target_pct is defined %}· <span class="whitespace-nowrap">{{ '%.0f' % h.to_target_pct }}% of the way to target</span>{% endif %}
+    {% if h.days is not none %}· <span class="whitespace-nowrap">held {{ h.days }} day{{ '' if h.days == 1 else 's' }}</span>{% endif %}
+  </div>
+  {% endif %}
+
+  {% if card.last_scan %}
+  {% set ls = card.last_scan %}
+  <div class="px-4 lg:px-6 py-2 border-b border-line text-xs text-ink-soft" data-stock-card-scan="1">
+    Last stored scan pass ({{ ls.segment }}{% if ls.at %}, {{ ls.at | ist }}{% endif %}): score {% if ls.score is not none %}{{ '%.1f' % ls.score }}{% else %}—{% endif %}{% if ls.floor is not none %} against a buy mark of {{ ls.floor | round(0) | int }}{% endif %}{% if ls.outcome %} · {{ 'bought' if ls.outcome == 'opened' else 'not bought: ' ~ (ls.outcome | replace('_', ' ')) }}{% endif %}.
+  </div>
+  {% endif %}
+
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm" data-stock-card-segments="1">
+    <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
+      <tr>
+        <th class="text-left px-4 py-2">Segment</th>
+        <th class="text-right px-2 py-2 leading-tight">Buy<br>mark</th>
+        <th class="text-right px-2 py-2">Score</th>
+        <th class="text-left px-2 py-2">Reads</th>
+        <th class="text-right px-2 py-2 leading-tight" title="what a new buy at the last stored close would be given">Stop<br>if bought now</th>
+        <th class="text-right px-2 py-2 leading-tight" title="what a new buy at the last stored close would be given">Target<br>if bought now</th>
+        <th class="text-right px-4 py-2 leading-tight">Longest<br>hold</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in card.segments %}
+      <tr class="border-b border-line/60 last:border-0 align-top" data-stock-card-segment="{{ r.mode }}">
+        <td class="px-4 py-2 font-semibold whitespace-nowrap">{{ r.label }}{% if r.share is not none %} <span class="text-[10px] font-normal text-ink-faint">{{ (r.share * 100) | round(0) | int }}% of capital</span>{% endif %}</td>
+        <td class="px-2 py-2 text-right tabular-nums">{{ r.buy_mark | round(0) | int }}</td>
+        <td class="px-2 py-2 text-right tabular-nums" title="{{ r.score_source }}">{% if r.score is not none %}{{ '%.1f' % r.score }}{% else %}<span class="text-ink-faint">—</span>{% endif %}</td>
+        <td class="px-2 py-2"><span data-stock-card-verdict="{{ r.verdict }}" class="px-1.5 py-0.5 text-[10px] font-semibold tracking-wide border whitespace-nowrap {% if r.tone == 'good' %}bg-emerald-50 text-emerald-800 border-emerald-200{% elif r.tone == 'warn' %}bg-amber-50 text-amber-800 border-amber-200{% else %}bg-white text-ink-faint border-line{% endif %}">{{ r.verdict_label }}</span>
+          <div class="text-[10px] text-ink-faint mt-0.5 max-w-[16rem]">{{ r.score_source }}</div></td>
+        {% if r.rule %}
+        <td class="px-2 py-2 text-xs text-ink-soft" colspan="2">{{ r.rule }}</td>
+        {% else %}
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap text-red-700">{% if r.stop_price is not none %}₹{{ r.stop_price | inr(2) }}<div class="text-[10px] text-ink-faint">{{ '%.1f' % r.stop_pct }}% · {{ r.stop_source }}</div>{% else %}<span class="text-ink-faint">—</span>{% endif %}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap text-emerald-700">{% if r.target_price is not none %}₹{{ r.target_price | inr(2) }}<div class="text-[10px] text-ink-faint">+{{ '%.1f' % r.target_pct }}% · {{ r.target_source }}</div>{% else %}<span class="text-ink-faint">—</span>{% endif %}</td>
+        {% endif %}
+        <td class="px-4 py-2 text-right tabular-nums whitespace-nowrap">{% if r.mode == 'intraday' %}same day{% else %}{{ r.max_hold_days }} days{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  <div class="px-4 lg:px-6 py-3 border-t border-line text-xs text-ink-soft space-y-1">
+    {% if card.valuation %}
+    <div data-stock-card-valuation="1">{% if card.valuation.target is not none %}<span class="font-semibold text-ink">Valuation target ₹{{ card.valuation.target | inr(2) }}</span> ({{ '%+.1f' % card.valuation.upside_pct }}% from the last stored close{% if card.valuation.asof %}, record dated {{ card.valuation.asof }}{% endif %}) — a new buy in any segment except Intraday takes this as its target instead of the ATR target above.{% else %}Valuation target: none would be used — {{ card.valuation.text }}. A new buy takes the ATR target above.{% endif %}</div>
+    {% endif %}
+    {% if card.volume_gates %}
+    {% set vg = card.volume_gates %}
+    <div data-stock-card-volume="1"><span class="font-semibold text-ink">Volume, on the stored daily bars:</span>
+      <span class="whitespace-nowrap">Gate 1 · trend (last 5 days ÷ last 20) {% if vg.trend_ratio is not none %}<b>{{ '%.2f' % vg.trend_ratio }}×</b>{% else %}—{% endif %}</span>
+      {% if vg.trend_ratio is not none %}— {% for g in vg.segments %}<span class="whitespace-nowrap">{{ g.label }} {% if not g.applies %}off{% else %}needs {{ g.need }}× <span class="{% if g.ok %}text-emerald-700{% else %}text-rose-700{% endif %}">{{ '✓' if g.ok else '✗' }}</span>{% endif %}</span>{% if not loop.last %} · {% endif %}{% endfor %}{% endif %}.
+      <span class="whitespace-nowrap">Gate 2 · spike (latest day ÷ the 20 before it) {% if vg.spike_ratio is not none %}<b>{{ '%.2f' % vg.spike_ratio }}×</b>, needs {{ vg.spike_need }}× <span class="{% if vg.spike_ok %}text-emerald-700{% else %}text-amber-700{% endif %}">{{ '✓' if vg.spike_ok else '✗' }}</span>{% else %}—{% endif %}</span>
+      — a reading only in these four segments. Intraday reads both gates on 5-minute bars at its own scan (Gate 2 refuses a buy there); not shown here.</div>
+    {% endif %}
+    {% if card.pre_rise %}
+    <div data-stock-card-pre-rise="{{ 'on' if card.pre_rise.on else 'off' }}"><span class="font-semibold text-ink">Pre-rise (compression + volume ignition):</span>
+      {% if card.pre_rise.on %}<span class="px-1.5 py-0.5 text-[10px] font-bold bg-violet-100 text-violet-800">PRE-RISE</span>{% endif %}
+      {{ card.pre_rise.text }}. {{ card.pre_rise.record }} A label only; nothing is bought on it.</div>
+    {% endif %}
+    {% for n in card.notes %}<div>{{ n }}</div>{% endfor %}
+    <div>CLEARED = score at or above the segment's buy mark · WATCH = 55 up to it · BELOW = under 55 · NOT SCORED = no stored score for that segment. Stops and targets are what the app's own rules would set on a buy at the last stored close; the real ones are set at the actual fill price, and other checks (cash, segment share, liquidity, market state) still decide whether anything is bought.</div>
+  </div>
+</div>
+{% endif %}
+
 {% if svg %}
 <div class="bg-white border border-line mb-6">
   {% if levels %}

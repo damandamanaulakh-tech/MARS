@@ -187,12 +187,12 @@ def _code(path: Path) -> str:
 def test_the_adjuster_runs_before_every_exit_pass():
     src = _code(ROOT / "web" / "scheduler.py")
     # 09:20 job: before the top-up and the rotation
-    m = re.search(r"def _daily_multi_mode_scan\(\).*?def _daily_universe_topup", src, re.S)
+    m = re.search(r"def _daily_multi_mode_scan\(.*?\).*?def _daily_universe_topup", src, re.S)
     body = m.group(0)
     assert body.index('apply_corporate_actions_job("09:20")') < body.index('_topup_once_today("09:20")')
     assert body.index('apply_corporate_actions_job("09:20")') < body.index("_run_category_rotation(")
     # boot catch-up: before the scan
-    m = re.search(r"def _catchup_run\(\):.*?_daily_multi_mode_scan\(\)", src, re.S)
+    m = re.search(r"def _catchup_run\(\):.*?_daily_multi_mode_scan\(", src, re.S)
     assert 'apply_corporate_actions_job("catchup")' in m.group(0)
     # in-session pass: before engine.refresh()
     m = re.search(r"def _session_refresh\(\).*?_mark_exit_pass\(\)", src, re.S)

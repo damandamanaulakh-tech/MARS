@@ -157,14 +157,25 @@ def test_regime_feed_failure_keeps_the_correction_brake(monkeypatch, tmp_path):
     monkeypatch.setattr("trading.engine.fetch_daily", lambda *a, **k: {})
     monkeypatch.setattr("trading.engine.routed_fetch_quotes",
                         lambda *a, **k: {})
-    import trading.regime as regime_mod
-    monkeypatch.setattr(regime_mod, "fetch_regime",
-                        lambda **k: (_ for _ in ()).throw(RuntimeError("feed down")))
+    # XR-050 (2026-11-27): THIS TEST WAS A FAULT MASK and is the reason the
+    # item survived three audits. It used to monkeypatch fetch_regime ITSELF to
+    # raise — a path production never takes, because fetch_regime catches its
+    # own fetch failure and RETURNS a permissive neutral reading. So the tested
+    # branch was the `except`, while the real failure took the `else` and
+    # switched the brake OFF. The test passed on the broken code.
+    #
+    # It now fails the FETCH, which is what really happens, and asserts the
+    # same thing. The raising path keeps its own coverage in
+    # trading/tests/test_regime_feed_trust_2026_11_27.py.
+    monkeypatch.setattr("trading.data.fetch_daily", lambda *a, **k: (_ for _ in ()).throw(
+        RuntimeError("yfinance: connection reset by peer")))
     res = eng.scan()
     assert res.opened == []
     assert any(e.get("action") == "REGIME_FEED_DOWN"
                for e in p.decision_journal), \
         "a dead regime feed no longer announces itself"
+    assert p.last_regime == "correction", \
+        "a reading with no evidence behind it must not overwrite the real one"
 
 
 # -------------------------------------------- C8: truncated history must raise

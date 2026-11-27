@@ -14,12 +14,15 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from .. import auth, state
-from ..candle_chart import (CHART_BARS, load_ohlcv, per_bar_structures,
-                            render_svg)
+from ..candle_chart import (CHART_BARS, _PATTERN_TAIL, load_ohlcv,
+                            per_bar_structures, render_svg)
 from ..templating import templates
 
 log = logging.getLogger(__name__)
 router = APIRouter()
+
+# Stored sessions read for the segment card (momentum needs 252 + a margin).
+CARD_BARS = 420
 
 
 @router.get("/chart/{ticker}", response_class=HTMLResponse)
@@ -30,7 +33,10 @@ def chart_page(request: Request, ticker: str):
     if not ticker.endswith((".NS", ".BO")):
         ticker += ".NS"
 
-    df = load_ohlcv(ticker)
+    # One stored read. The chart keeps the same bars it always drew; the
+    # segment card needs about a year more (momentum reads 252 sessions).
+    full = load_ohlcv(ticker, tail=CARD_BARS)
+    df = full.tail(_PATTERN_TAIL) if full is not None else None
     svg, recent, levels, last_bar = "", [], [], None
     if df is not None and not df.empty:
         hits = per_bar_structures(df, bars=CHART_BARS)
@@ -59,12 +65,23 @@ def chart_page(request: Request, ticker: str):
                           for nm, fam in hits[i]],
             })
 
+    # Owner order 2026-11-26: the stock page shows target prices and the
+    # five segments. Display only; a fault hides the card, never the page.
+    card = None
+    try:
+        from .. import stock_card
+        card = stock_card.build(ticker, full, state.portfolio(), state.cfg(),
+                                state.engine().mode_cfg)
+    except Exception:
+        log.exception("stock card failed for %s", ticker)
+
     return templates.TemplateResponse(
         request, "chart.html",
         {
             "user": auth.current_user(request),
             "active": "scan",
             "ticker": ticker,
+            "card": card,
             "svg": svg,
             "recent": recent,
             "levels": levels,

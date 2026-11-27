@@ -290,14 +290,21 @@ _BLIND: Optional[dict] = None
 
 
 def _danger_blind() -> dict:
-    """Which danger tripwires the layer can actually COUNT (audit
-    2026-10-15, the upload review's XR-060). `danger.evaluate_stock` counts a
-    fire only when the tripwire returns the Python object True; a tripwire
-    that returns a NumPy bool can never be counted, whatever the market does.
-    Measured here by running each OHLCV tripwire once on a fixed synthetic
-    history and reading the TYPE of what it returns — so the line on the
-    page disappears by itself the day the one-line fix lands. Cached per
-    process (the functions do not change while it runs)."""
+    """Which danger tripwires the layer can actually COUNT.
+
+    History: XR-060 (upload review, measured here 2026-10-15). The layer
+    counted a fire only when a tripwire returned the Python object True, so
+    the eight that return a NumPy bool could never be counted. REPAIRED
+    2026-11-27: `danger._verdict` reads an answer by value, so both boolean
+    kinds count and this probe should report nothing blind.
+
+    It still runs, because the question it answers is permanent: can the
+    layer read what each tripwire returns? A tripwire is blind when it gives
+    an answer the reader cannot use — today that means anything that is
+    neither boolean kind nor an abstention. Measured by running each OHLCV
+    tripwire once on a fixed synthetic history and passing its answer
+    through the production reader, never by guessing from the type. Cached
+    per process (the functions do not change while it runs)."""
     global _BLIND
     if _BLIND is not None:
         return _BLIND
@@ -318,12 +325,14 @@ def _danger_blind() -> dict:
                 r = fn(x)
             except Exception:
                 r = None
-            if isinstance(r, np.bool_):
-                out["blind"].append(tid)
-            elif isinstance(r, bool):
+            if r is None:
+                # Abstained on this synthetic history. Says nothing about
+                # whether the layer could read a real answer.
+                out["unknown"].append(tid)
+            elif danger._verdict(r) is not None:
                 out["countable"].append(tid)
             else:
-                out["unknown"].append(tid)
+                out["blind"].append(tid)
     except Exception:
         log.exception("den: danger blind check failed")
     _BLIND = out
@@ -421,6 +430,71 @@ def _category_rows(cfg) -> list[dict]:
     return rows
 
 
+def _pre_rise_note() -> dict:
+    """The pre-rise label's rule and measured record (owner decision 2026-11-26)."""
+    try:
+        from trading import pre_rise as PR
+        return {"rule": PR.RULE_TEXT, "record": PR.record_text()}
+    except Exception:                                          # noqa: BLE001
+        return {"rule": "", "record": ""}
+
+
+def _volume_gate_rules(cfg) -> dict:
+    """The two volume gates as the code applies them, per segment (owner
+    decision 2026-11-26). Read from the live settings and presets."""
+    from trading import category_budget as cb
+    from trading import modes as M
+    gate1 = []
+    for mode in cb.OWNER_SEGMENTS:
+        preset = M.PRESETS.get(mode)
+        if preset is None:
+            continue
+        over = (getattr(cfg, "preset_overrides", None) or {}).get(mode) or {}
+        try:
+            need = float(over.get("volume_confirm_ratio", preset.volume_confirm_ratio))
+        except (TypeError, ValueError):
+            need = float(preset.volume_confirm_ratio)
+        gate1.append({"label": cb.LABELS.get(mode, mode), "need": need})
+    gate2_on = bool(getattr(cfg, "volume_gate2_enabled", True))
+    return {
+        "gate1": gate1, "gate1_on": bool(getattr(cfg, "volume_gate1_enabled", True)),
+        "short": int(cfg.volume_short_days), "long": int(cfg.volume_long_days),
+        "gate2_need": float(getattr(cfg, "volume_gate2_ratio", 1.5)),
+        "gate2_lookback": int(getattr(cfg, "volume_gate2_lookback", 20)),
+        "gate2_on": gate2_on,
+        "gate2_refuses_in": ([cb.LABELS.get(m, str(m))
+                              for m in (getattr(cfg, "volume_gate2_block_modes", ()) or ())]
+                             if gate2_on else []),
+    }
+
+
+def _vix_sizing_block(cfg) -> dict:
+    """The VIX size multiplier as the code holds it, and its test result
+    read from the committed run (never retyped)."""
+    from trading import sizing as SZ
+    bands, lower = [], None
+    for edge, mult in SZ.VIX_SIZE_BANDS:
+        bands.append({"label": (f"under {edge:g}" if lower is None else f"{lower:g} to under {edge:g}"),
+                      "multiplier": mult})
+        lower = edge
+    bands.append({"label": f"{lower:g} and above", "multiplier": SZ.VIX_SIZE_TOP})
+    out = {"on": bool(getattr(cfg, "vix_sizing_enabled", False)), "bands": bands, "test": None}
+    try:
+        import json as _json
+        from pathlib import Path as _Path
+        run = _json.loads((_Path(__file__).resolve().parents[2] / "research" / "vix_sizing_study"
+                           / "run_2026-11-26" / "vix_sizing.json").read_text())
+        whole = run["halves"]["whole period"]
+        out["test"] = {"supported": bool(run["reading_rule"]["supported"]),
+                       "buys": whole["buys"], "plain": whole["mean_outcome_pct"],
+                       "with": whole["per_rupee_with_multiplier_pct"],
+                       "by_band": [{"label": b["band"], "mean": b["mean_outcome_pct"], "buys": b["buys"]}
+                                   for b in run["bands"]["whole period"]]}
+    except Exception:                                          # noqa: BLE001
+        out["test"] = None
+    return out
+
+
 def _sizing_block(cfg) -> dict:
     """The slab formula from trading/sizing.py, plus an ILLUSTRATION ladder
     computed with the same pure functions at a stated 20% annual vol. The
@@ -458,6 +532,7 @@ def _sizing_block(cfg) -> dict:
         "position_size_value": float(getattr(cfg, "position_size_value", 0.0)),
         "sigma_pct": _pct(sigma, 0), "ladder": ladder,
         "max_positions": int(getattr(cfg, "max_positions", 0)),
+        "vix": _vix_sizing_block(cfg),
     }
 
 
@@ -649,6 +724,7 @@ def _engines(cfg, p) -> dict:
         "momentum": mf,
         "momentum_doc": mf["doc"],
         "market_hours": _market_hours(),
+        "volume_gates": _volume_gate_rules(cfg),
         "abs_mom_rule": ("own 6-month return > 0 (engine.scan _abs_mom_ok: "
                          "last close above the close 126 bars earlier) — "
                          "momentum pass only"),
@@ -754,6 +830,7 @@ def _triggers(p) -> dict:
         "watch_rows": len(tw.get("rows") or {}),
         "watchlist": len(tw.get("watchlist") or []),
         "watch_ts": tw.get("ts") or tw.get("asof"),
+        "pre_rise": _pre_rise_note(),
     }
 
 

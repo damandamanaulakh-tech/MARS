@@ -232,6 +232,12 @@ def test_scan_crossing_deadline_refuses_intraday_entry_before_rotation(tmp_path,
         return real_history(*a, **k)
     monkeypatch.setattr("trading.engine.fetch_daily", slow_history)
     monkeypatch.setattr("trading.engine.timing_ok", lambda *a, **k: (True, {}))
+    # VOL-001 (2026-11-26): Intraday also needs a volume spike on the latest
+    # bar. This fixture's bars are flat and the test is about the deadline,
+    # so the volume reading passes here exactly as the timing check above does.
+    monkeypatch.setattr("trading.engine.volume_gates", lambda *a, **k: {
+        "gate1": {"ok": True, "ratio": 2.0, "need": 1.5, "applies": True, "blocks": True},
+        "gate2": {"ok": True, "ratio": 2.0, "need": 1.5, "blocks": True}})
     monkeypatch.setattr("trading.engine.compute_score", lambda *a, **k: (90., {}))
     from trading.tests.test_completed_intraday_2026_11_12 import bar_frame, supply_intraday
     from datetime import timezone

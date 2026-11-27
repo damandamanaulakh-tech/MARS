@@ -255,7 +255,10 @@ def test_weekly_topup_scope_includes_the_full_universe_file():
     import inspect
 
     from web import scheduler
-    src = inspect.getsource(scheduler._weekly_history_topup)
+    # OPS-03 (2026-11-27) moved the pull into `_do_weekly_pull` so it runs
+    # under the same wall-clock cap as every other weekly step; the SCOPE it
+    # pulls is unchanged and still pinned here.
+    src = inspect.getsource(scheduler._do_weekly_pull)
     assert "load_full_universe" in src
 
 

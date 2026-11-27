@@ -9,7 +9,10 @@
   <p class="text-ink-soft">Regular NSE session: 09:15–15:30 IST. Provider timestamps mark the start; a bar is usable after its end. Latest completed bar must belong to this session and be no older than one interval plus 60 seconds after its close. Missing, future, unfinished and broken lookback data cannot substitute daily candles.</p>
   <p class="text-ink-soft">Rolling windows (5-minute bars): momentum {{ intraday_data.windows.momentum }}, relative strength {{ intraday_data.windows.relative_strength }}, breakout {{ intraday_data.windows.breakout }}, volume {{ intraday_data.windows.volume_short }}/{{ intraday_data.windows.volume_long }}. Daily liquidity, risk and market context retain their daily intervals.</p>
   <p>Benchmark: {{ intraday_data.benchmark.status | default('unavailable') }} · {{ intraday_data.benchmark.reason | default('missing data') | replace('_',' ') }}.</p>
-  <p class="text-ink-soft">Each check has a {{ intraday_data.request_cap | default(120) }}-name request cap and {{ intraday_data.deadline_seconds | default(90) }}-second deadline. The next scan advances through the remaining names; every unfetched name is listed below. Five-minute strategy returns have not yet been validated by the daily-history studies.</p>
+  <p class="text-ink-soft">Each check has a {{ intraday_data.request_cap | default(120) }}-name request cap and {{ intraday_data.deadline_seconds | default(90) }}-second deadline. {% if intraday_data.list_rule and intraday_data.list_rule != 'whole scan list' %}Stocks read on every pass: {{ intraday_data.list_rule }}; held stocks keep their own exit checks.{% else %}The next scan advances through the remaining names; every unfetched name is listed below.{% endif %} Five-minute strategy returns have not yet been validated by the daily-history studies.</p>
+  {% if intraday_data.timing %}<p class="text-ink-soft" data-intraday-timing>Timing of that check: bars fetched in {{ intraday_data.timing.fetch_s }} s and scored {{ intraday_data.timing.scored_after_fetch_s }} s later ({{ intraday_data.timing.scored }} stocks scored). A bar is valid for 6 minutes after it closes.</p>{% endif %}
+  {% set lp = intraday_data.last_pass %}
+  {% if lp %}<p data-intraday-last-pass><b>Last 5-minute pass, {{ lp.at | ist }}:</b> {{ lp.ready }} of {{ lp.asked }} stocks had usable bars · {{ lp.scored }} scored · {{ lp.cleared_score }} cleared the score · bought: {% if lp.opened %}{{ lp.opened | join(', ') }}{% else %}none{% endif %}.{% if lp.not_bought %} Not bought — {% for row in lp.not_bought %}{{ row.reason | replace('_',' ') }}: {{ row.stocks }}{% if not loop.last %} · {% endif %}{% endfor %}.{% endif %}{% set sg = lp.volume_gates.gate2 if lp.volume_gates else none %}{% if sg and sg.blocks %} <span data-intraday-spike-gate>Volume spike gate ({{ sg.need }}×): {{ sg.stopped }} stock(s) that cleared score and timing were stopped by it.</span>{% endif %} This pass runs every 5 minutes from 09:15 until the last-buy time and does not change the picks table below.</p>{% endif %}
   <details class="mt-2"><summary>Every requested stock — availability and reason</summary>
   <div class="overflow-x-auto"><table class="w-full text-xs"><thead><tr><th class="text-left p-2">Stock</th><th class="text-left p-2">Status / reason</th><th class="text-left p-2">Source</th><th class="text-left p-2">Last bar end / session</th><th class="text-left p-2">Missing / rejected</th></tr></thead><tbody>
   {% for ticker, row in intraday_data.rows.items() %}<tr class="border-t" data-intraday-status="{{ row.status }}"><td class="p-2">{{ ticker }}</td><td class="p-2">{{ row.status }} · {{ row.reason | replace('_',' ') }}</td><td class="p-2">{{ row.source }}</td><td class="p-2">{{ row.last_bar_end | default('unavailable') }} / {{ row.session | default('unavailable') }}</td><td class="p-2">{{ row.missing_bars_in_window | default('unknown') }} / {{ row.rejected }}</td></tr>{% endfor %}
@@ -254,6 +257,7 @@
     <div><span class="font-semibold text-ink">AM07</span> — the score that buys. Holdout 4.17% vs ASH08 3.87% and the 20-day rule 3.51% (top 30/month under the live −5%/+20% bracket).</div>
     <div><span class="font-semibold text-ink">ASH08 (68)</span> — its “quality” leg is really data coverage, so the 68 floor means “6-month return above +0.385%”. It passes 97% of our candidates; no threshold beat chance on the training half.</div>
     <div><span class="font-semibold text-ink">AshSt (70)</span> — measured <span class="font-semibold">identical</span> to AM07 (Spearman +1.000), so this column is our own score against their higher floor, not a second opinion.</div>
+    <div data-rank20-record="rank20_record_marker"><span class="font-semibold text-ink">20d #</span> — each stock's rank by 20-session return among the stocks this pass could rank; ★ marks the top 10. A column, not a buy rule: buying the 20-session top 10 measured <span class="font-semibold">−0.77 (train) and −0.45 (test)</span> against our own picks — a stock up about 17% in 20 sessions hit the −5% stop 68.4% of the time, against 63.4% for one that had eased back.</div>
     <div class="pt-1">Measured over 23,507 observations, chosen on 2014–2020 and read on 2020–2026 — <span class="font-mono">research/ash_formula_study/</span>.</div>
   </div>
 </div>
@@ -413,6 +417,34 @@
       <span class="text-ink-faint">6m</span>
     </span>
     {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if volume_view %}
+{% set vv = volume_view %}{% set g1 = vv.gate1 %}{% set g2 = vv.gate2 %}
+<div class="bg-white border border-line mb-6 px-4 lg:px-6 py-4 text-sm" data-volume-gates><!-- volume_gates_marker -->
+  <div class="font-bold">Volume gates — last {{ vv.segment }} pass{% if vv.ts %}, {{ vv.ts | ist }}{% endif %}</div>
+  <div class="text-xs text-ink-faint mb-3">Two separate readings on the {{ vv.bars }} bars that pass scored ({{ vv.of }} stock{{ '' if vv.of == 1 else 's' }}). Each has its own lane in the piano below and its own switch in Settings.</div>
+  <div class="grid gap-4 md:grid-cols-2">
+    <div data-volume-gate="1">
+      <div class="font-semibold">Gate 1 · volume trend</div>
+      <div class="text-ink-soft">Average volume of the last {{ vv.short }} bars ÷ average of the last {{ vv.long }}.</div>
+      {% if g1.applies %}
+      <div>Needs <b>{{ g1.need }}×</b> in {{ vv.segment }}. <b>{{ g1.passed }} of {{ g1.known }}</b> stocks pass{% if vv.of is number and g1.known is number and vv.of > g1.known %} ({{ vv.of - g1.known }} could not be read){% endif %}.</div>
+      <div class="text-ink-soft">{% if g1.blocks %}Part of the timing check: a stock below the mark is not bought.{% else %}Switched off in Settings: measured and shown, not required.{% endif %}</div>
+      {% else %}
+      <div>Off in {{ vv.segment }}: this segment's timing check is off.</div>
+      {% endif %}
+    </div>
+    <div data-volume-gate="2">
+      <div class="font-semibold">Gate 2 · volume spike</div>
+      <div class="text-ink-soft">Volume of the latest bar ÷ average of the {{ vv.lookback }} bars before it.</div>
+      <div>Needs <b>{{ g2.need }}×</b>. <b>{{ g2.passed }} of {{ g2.known }}</b> stocks pass{% if vv.of is number and g2.known is number and vv.of > g2.known %} ({{ vv.of - g2.known }} could not be read){% endif %}.</div>
+      <div class="text-ink-soft">{% if g2.blocks %}It refuses a buy in this segment: <b>{{ g2.stopped }}</b> stock{{ '' if g2.stopped == 1 else 's' }} that cleared score and timing {{ 'was' if g2.stopped == 1 else 'were' }} stopped by it in this pass.{% else %}In {{ vv.segment }} it is a reading only; it stopped nothing.{% endif %}
+        {% if vv.refuses_in %}It refuses a buy in: {{ vv.refuses_in | join(', ') }}.{% else %}It refuses a buy in no segment (switched off).{% endif %}
+        Not tested against returns in any segment.</div>
+    </div>
   </div>
 </div>
 {% endif %}
@@ -751,8 +783,8 @@
       <tr class="border-b border-line last:border-0 {% if slots and loop.index > slots.divider_row %}opacity-50{% endif %}">
         <td class="px-3 lg:px-6 py-3 text-ink-faint whitespace-nowrap">{{ loop.index }}</td>
         <td class="px-3 lg:px-6 py-3 font-semibold whitespace-nowrap">{{ p.ticker }}{% if p.decision_id %}<a class="block text-xs font-normal underline" href="/decisions/{{ p.decision_id }}">Why selected or blocked</a>{% endif %}
-          <a href="/chart/{{ p.ticker }}" title="candle chart" class="ml-1 no-underline">📈</a></td>
-        <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap {% if p.score is not none and p.score is number and p.score >= 75 %}font-bold{% endif %}">{% if p.score is not none and p.score is number %}{{ p.score | round(2) }}{% else %}—{% endif %}</td>
+          <a href="/chart/{{ p.ticker }}" title="candle chart" class="ml-1 no-underline">📈</a>{% set pr = (pre_rise_on or {}).get(p.ticker) %}{% if pr %} <a href="/triggers/{{ p.ticker }}" class="ml-1 px-1.5 py-0.5 text-[10px] font-bold bg-violet-100 text-violet-800 no-underline" data-pre-rise-chip title="Pre-rise label from the last trigger pass (bars to {{ pr.asof }}): volume ignition with compression in the 5 sessions before it. Measured no better than chance; a label only, nothing is bought on it.">PRE-RISE</a>{% endif %}</td>
+        <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap {% if p.score is not none and p.score is number and p.score >= 75 %}font-bold{% endif %}">{% if p.score is not none and p.score is number %}{{ p.score | round(2) }}{% else %}—{% endif %}{% if watch and watch.labels.get(p.ticker) == 'watch' %} <span class="ml-1 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide bg-amber-50 text-amber-800 border border-amber-200" data-watch-label="watch" title="score from the watch floor {{ watch.floor | round(0) | int }} up to the {{ watch.segment }} buy mark {{ watch.buy_floor | round(0) | int }} — shown, never bought on the score alone">WATCH</span>{% endif %}</td>
         <td class="px-3 lg:px-6 py-3 whitespace-nowrap text-xs"><!-- multi_formula_cell_marker -->
           {% set mf = p.multi %}
           {% if mf and mf.rows %}
@@ -763,10 +795,21 @@
             {% endif %}
             {% endfor %}
           {% else %}<span class="text-ink-faint" title="Not enough history for the outside formulas to judge this name. Not a fail.">—</span>{% endif %}
+          {#- Owner decision 2026-11-26: the 20-session rank, a column and not a buy rule -#}
+          {% set rk = mf.rank20 if mf else none %}
+          {% if rk %}<div class="mt-0.5 tabular-nums {% if rk.top %}text-ink font-semibold{% else %}text-ink-faint{% endif %}" data-rank20="{{ rk.rank }}" title="20-session return{% if mf.mom20 is not none %} {{ '%+.1f' % (mf.mom20 * 100) }}%{% endif %}: rank {{ rk.rank }} of the {{ rk.of }} stocks this pass could rank. Shown, never bought on: as a buy rule the 20-session top 10 measured −0.77 (train) and −0.45 (test) against our own picks.">{% if rk.top %}★ {% endif %}20d #{{ rk.rank }}<span class="text-ink-faint font-normal"> of {{ rk.of }}</span></div>{% endif %}
         </td>
         <td class="px-3 lg:px-6 py-3 tabular-nums whitespace-nowrap">₹{{ p.last_close | inr(2) }}</td>
-        <td class="px-3 lg:px-6 py-3 uppercase text-xs tracking-widest whitespace-nowrap {% if p.timing_pass %}text-emerald-700{% else %}text-ink-faint{% endif %}">
-          {% if p.timing_pass %}YES{% else %}no{% endif %}
+        <td class="px-3 lg:px-6 py-3 text-xs whitespace-nowrap">
+          <span class="uppercase tracking-widest {% if p.timing_pass %}text-emerald-700{% else %}text-ink-faint{% endif %}">{% if p.timing_pass %}YES{% else %}no{% endif %}</span>
+          {#- Owner decision 2026-11-26: the two volume gates, each with its own reading -#}
+          {% set vg = p.volume_gates %}
+          {% if vg %}{% set g1 = vg.gate1 %}{% set g2 = vg.gate2 %}
+          <div class="mt-0.5 tabular-nums text-ink-faint" data-volume-readings>
+            <span title="Volume Gate 1 — trend: average of the last 5 bars ÷ average of the last 20.{% if g1.applies %} Needs {{ g1.need }}× in this segment{% if g1.blocks %}; part of the timing check{% else %}; switched off, shown only{% endif %}.{% else %} Off in this segment.{% endif %}">Trend {% if not g1.applies %}off{% elif g1.ok is none %}—{% else %}{{ '%.2f' % g1.ratio }}× <span class="{% if g1.ok %}text-emerald-700{% else %}text-rose-700{% endif %}">{{ '✓' if g1.ok else '✗' }}</span>{% endif %}</span>
+            <span> · </span>
+            <span title="Volume Gate 2 — spike: the latest bar ÷ average of the 20 bars before it, needs {{ g2.need }}×. {% if g2.blocks %}Refuses a buy in this segment.{% else %}A reading only in this segment.{% endif %} Not tested against returns.">Spike {% if g2.ok is none %}—{% else %}{{ '%.2f' % g2.ratio }}× <span class="{% if g2.ok %}text-emerald-700{% elif g2.blocks %}text-rose-700{% else %}text-amber-700{% endif %}">{{ '✓' if g2.ok else '✗' }}</span>{% endif %}</span>
+          </div>{% endif %}
         </td>
         <td class="px-3 lg:px-6 py-3 whitespace-nowrap text-xs"><!-- institutional_cell_marker -->
           {% set h = (holdings or {}).get(p.ticker) %}

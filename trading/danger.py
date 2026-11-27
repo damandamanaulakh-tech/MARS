@@ -47,9 +47,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 
-from trading.triggers import _Ctx, TRIGGERS
+from trading.triggers import _Ctx, TRIGGERS, _MIN_BARS, _MIN_BARS_DEFAULT
 from trading import decision_evidence as de
 
 log = logging.getLogger(__name__)
@@ -127,6 +128,23 @@ class DangerReading:
     action: str                         # ALERT | TIGHTEN | EXIT_HALF | NONE
 
 
+def _verdict(result):
+    """A tripwire's answer, read by VALUE rather than by identity (XR-060).
+
+    Eight of the ten price tripwires return `numpy.bool`, which is never
+    `True` by identity, so `result is True` threw their fires away. Under
+    NumPy 2 that type is named "bool" and prints as "True", which is why the
+    fault survived every reading of this file.
+
+    Only the two boolean kinds are a verdict. Anything else -- an int, a
+    float, a string, an array -- is unknown and abstains, because a stop must
+    never tighten on a value nobody meant as an answer.
+    """
+    if isinstance(result, (bool, np.bool_)):
+        return bool(result)
+    return None
+
+
 def evaluate_stock(df: pd.DataFrame, ext=None) -> list[str]:
     """Which VERIFIED danger triggers fire on this stock's daily history.
 
@@ -136,8 +154,9 @@ def evaluate_stock(df: pd.DataFrame, ext=None) -> list[str]:
     OHLCV ones rather than inventing a reading.
     """
     def observed(tid, result, reason=""):
-        de.record("danger:" + tid, result, True,
-                  state="passed" if result is True else "failed" if result is False else "unavailable",
+        verdict = _verdict(result)
+        de.record("danger:" + tid, verdict, True,
+                  state="passed" if verdict is True else "failed" if verdict is False else "unavailable",
                   role="exit_trigger", reason=reason or (VERIFIED.get(tid) or {}).get("name", tid))
     try:
         x = _Ctx(df)
@@ -147,10 +166,23 @@ def evaluate_stock(df: pd.DataFrame, ext=None) -> list[str]:
         return []
     fired = []
     for tid, fn in _FNS.items():
+        # XR-060 follow-up: honour each tripwire's own minimum history, the
+        # way triggers.evaluate does (triggers.py, _MIN_BARS). This module
+        # called the functions directly and relied on them to return None on
+        # thin data, which they do not: every danger tripwire needs 70 bars,
+        # and engine._danger_pass admits a position with 60. Before the
+        # verdict repair that gap was inert because the answers were thrown
+        # away; counting them made it live, so a name with 60-69 stored bars
+        # would have been half-sold on four answers the registry itself marks
+        # not computable. This is what the docstring above always promised.
+        need = _MIN_BARS.get(tid, _MIN_BARS_DEFAULT)
+        if x.n < need:
+            observed(tid, None, f"Needs {need} bars, has {x.n}")
+            continue
         try:
-            result = fn(x)
-            observed(tid, result)
-            if result is True:
+            verdict = _verdict(fn(x))
+            observed(tid, verdict)
+            if verdict:
                 fired.append(tid)
         except Exception:                                   # noqa: BLE001
             observed(tid, None, "Trigger evaluation raised")
@@ -163,10 +195,22 @@ def evaluate_stock(df: pd.DataFrame, ext=None) -> list[str]:
             # OHLCV-only checks above retain their existing policy.
             target = getattr(ext, 'target_frame', None)
             ext_x = _Ctx(target) if target is not None else x
-            result = fn(ext_x, ext, {}, {})
+            # The same minimum-history gate as the price loop above, against
+            # the frame these two actually score (ext.target_frame, which is
+            # not always `x`). Found by the XR-060 review: the gate the repair
+            # introduced was applied to the ten price tripwires and not to
+            # these two, so a name with 60-69 stored bars could still have its
+            # stop tightened on a reading the registry marks not computable.
+            # Owner's choice 2026-11-27: 70 bars, the same bar as the other
+            # ten, so the danger layer has ONE minimum rather than two.
+            need = _MIN_BARS.get(tid, _MIN_BARS_DEFAULT)
+            if ext_x.n < need:
+                observed(tid, None, f"Needs {need} bars, has {ext_x.n}")
+                continue
+            verdict = _verdict(fn(ext_x, ext, {}, {}))
             evidence = getattr(ext, 'context', {})
-            observed(tid, result, str(evidence.get('peer_reason' if tid == 'T12W_0094' else 'index_reason', '')))
-            if result is True:
+            observed(tid, verdict, str(evidence.get('peer_reason' if tid == 'T12W_0094' else 'index_reason', '')))
+            if verdict:
                 fired.append(tid)
         except Exception:                                   # noqa: BLE001
             observed(tid, None, "External trigger evaluation raised")

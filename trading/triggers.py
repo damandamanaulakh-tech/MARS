@@ -463,7 +463,11 @@ def _cluster_fired(x, fam: list) -> int:
     for t in fam:
         if x.n < _MIN_BARS.get(t, _MIN_BARS_DEFAULT):
             continue
-        if _FNS[t](x) is True:
+        # XR-060: read the member's answer by VALUE. Most trigger functions
+        # return numpy.bool, which is never `True` by identity, so the old
+        # test silently dropped them and this cluster under-counted.
+        r = _FNS[t](x)
+        if isinstance(r, (bool, np.bool_)) and r:
             n += 1
     return n
 

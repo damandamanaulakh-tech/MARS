@@ -182,6 +182,17 @@ def weights_for(mode: Optional[str]) -> Dict[str, float]:
     return AM07_WEIGHTS
 
 
+#: The three score inputs that reach outside the app for a reading.
+OUTSIDE_INPUTS = ("catalyst", "earnings_growth", "analyst_revision")
+
+
+def unfetched_inputs(mode: Optional[str]) -> Tuple[str, ...]:
+    """Outside inputs this category does NOT fetch because their weight is 0.
+    Shown beside the score so a neutral 50 there never reads as a measured 50."""
+    w = weights_for(mode)
+    return tuple(k for k in OUTSIDE_INPUTS if float(w.get(k, 0.0) or 0.0) == 0.0)
+
+
 def compute_score(
     ticker: str,
     history: pd.DataFrame,
@@ -195,19 +206,35 @@ def compute_score(
     close = history["Close"]
     volume = history["Volume"]
     bench_close = benchmark["Close"] if benchmark is not None and not benchmark.empty else None
+    weights = weights_for(mode if mode is not None else getattr(cfg, "mode", None))
+
+    # RUN-20261125-01 (owner order 2026-11-26, "fix the intraday pipeline"):
+    # an input whose weight is ZERO in this category cannot move the total
+    # (0 x anything = 0), yet three of them reach outside the app (Yahoo for
+    # earnings and analysts, the news reader for the catalyst). Measured on
+    # the intraday scorer: about 0.9 s of a 1.0 s score per stock was spent
+    # on earnings + analyst calls that carry weight 0.00 there — while a
+    # five-minute bar is only valid for six minutes. Such an input is now
+    # NOT fetched and reads the neutral 50; the total is unchanged to the
+    # last decimal. Inputs with any weight above zero are fetched as before.
+    def _unused(key: str) -> bool:
+        return float(weights.get(key, 0.0) or 0.0) == 0.0
 
     # v4: catalyst wired to live news sentiment (Claude API), with graceful
     # fallback to neutral 50 when ANTHROPIC_API_KEY is missing or in backtest.
-    try:
-        from .signals.news import fetch_sentiment
-        catalyst_score = fetch_sentiment(ticker).score
-    except Exception:
+    if _unused("catalyst"):
         catalyst_score = 50.0
+    else:
+        try:
+            from .signals.news import fetch_sentiment
+            catalyst_score = fetch_sentiment(ticker).score
+        except Exception:
+            catalyst_score = 50.0
 
     components: Dict[str, float] = {
         "momentum_1m":       score_momentum_1m(close, cfg),
         "volume_expansion":  score_volume_expansion(volume, cfg, close),
-        "earnings_growth":   score_earnings_growth(ticker),
+        "earnings_growth":   50.0 if _unused("earnings_growth") else score_earnings_growth(ticker),
         "catalyst":          catalyst_score,
         "relative_strength": score_relative_strength(close, bench_close, cfg),
         "vol_adj_upside":    score_vol_adj_upside(close, cfg),
@@ -217,7 +244,7 @@ def compute_score(
         # stale panel return the old neutral 50, so the failure mode of this
         # fix is exactly the world before it.
         "short_interest":    _short_interest_score(ticker, close),
-        "analyst_revision":  _analyst_revision_score(ticker),
+        "analyst_revision":  50.0 if _unused("analyst_revision") else _analyst_revision_score(ticker),
         "breakout_quality":  score_breakout_quality(close, cfg),
         "sector_alignment":  score_sector_alignment(ticker, universe_history, cfg),
     }
@@ -260,7 +287,6 @@ def compute_score(
     except Exception:
         pass
 
-    weights = weights_for(mode if mode is not None else getattr(cfg, "mode", None))
     total = sum(components[k] * weights[k] for k in weights)
     return total, components
 

@@ -157,6 +157,42 @@ def evaluate(close: pd.Series, am07_score: Optional[float],
     }
 
 
+# OWNER DECISION 2026-11-26 (formula table: "20-session top-10 rank - Live
+# Rank Rule"; default approved: a column, not a buy rule). Each scanned stock
+# is ranked by its 20-session return, highest first; the top RANK_TOP carry a
+# mark. DISPLAY ONLY — the measured record of using it to BUY is
+# VERDICTS["ashstocks_live"] and is printed beside the column.
+RANK_TOP = 10
+
+
+def rank_mom20(rows: list, top: int = RANK_TOP) -> int:
+    """Write the 20-session rank onto each scanned row's view.
+
+    `rows` are the scan's ranked rows; each row's `multi` view already holds
+    `mom20` (its 20-session return). Rows with one get
+    `multi["rank20"] = {"rank", "of", "top"}`; rows without (too little
+    history, or no view) get None — never a rank of last place. Ties share
+    the order the scan gave them. Returns how many were ranked."""
+    ranked = []
+    for row in rows or []:
+        view = row.get("multi") if isinstance(row, dict) else None
+        if not isinstance(view, dict):
+            continue
+        view["rank20"] = None
+        value = view.get("mom20")
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            continue
+        if value == value:                      # not NaN
+            ranked.append((value, view))
+    ranked.sort(key=lambda pair: -pair[0])
+    total = len(ranked)
+    for place, (_, view) in enumerate(ranked, 1):
+        view["rank20"] = {"rank": place, "of": total, "top": place <= int(top)}
+    return total
+
+
 def gate_blocks(view: Optional[dict]) -> Optional[str]:
     """OWNER-SWITCHED filter: does the three-formula panel block this entry?
 

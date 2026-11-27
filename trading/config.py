@@ -183,6 +183,17 @@ class Config:
     kelly_fraction: float = 0.29              # owner's m, 2026-09-10
     kelly_ic: float = 0.05                    # ASSUMED information coefficient
     kelly_max_pct: float = 0.05               # hard ceiling: 5% of equity/name
+    # VIX size multiplier (owner formula decision 2026-11-26): the size of a
+    # new AUTOMATIC score-sized buy x1.15 / 1.00 / 0.80 / 0.65 / 0.50 by India
+    # VIX band (under 12 / 12-16 / 16-20 / 20-25 / 25 and above) —
+    # sizing.VIX_SIZE_BANDS. Never below the minimum ticket, never above the
+    # 5% cap or the measured-Kelly cap; not applied to Ocean's fixed ticket or
+    # to the owner's own BUY paths; an unknown VIX leaves the size alone.
+    # DEFAULT OFF: the pre-registered test (research/vix_sizing_study/) did
+    # NOT support it — buys at VIX 25 and above were the best band, and the
+    # worst six months of the record came with VIX at 12.8-15.6. The owner
+    # owns the switch; the measurement owns the default.
+    vix_sizing_enabled: bool = False
     # Measured Kelly from the book's OWN closed trades (AshStocks design,
     # adopted on the owner's order 2026-09-10). It never RAISES a size — it
     # is a ceiling that can only cut, so a bad estimate shrinks the book and
@@ -437,6 +448,35 @@ class Config:
     # and losses slow. This makes the -5% stop far more sensitive than the
     # twice-a-day check it replaces; UNTESTED live, the window judges it.
     intraday_refresh_minutes: int = 30
+    # OWNER ORDER 2026-11-26 ("fix the intraday pipeline ... ask me as much as
+    # u need" -> "go with defaults"). Five intraday rules, each the default
+    # the owner approved from the question list of that day:
+    #  * intraday_universe_size — the intraday pass reads the N most-traded
+    #    names of the scan list (median rupee turnover, last 20 daily bars)
+    #    and reads ALL of them every pass. Before, ~1,130 names shared 119
+    #    fetch slots, so a stock was seen about once in ten passes. 0 = the
+    #    whole scan list in rotation (the old behaviour).
+    #  * intraday_always_scan — the 5-minute pass runs all session whatever
+    #    category the app is set to. False = only while the app's mode is
+    #    Intraday (the old behaviour).
+    #  * intraday_last_entry_time — no NEW intraday buy at or after this IST
+    #    time; positions still square off at the preset's 15:25. "" = new
+    #    buys allowed until square-off (the old behaviour).
+    #  * intraday_max_positions — most intraday positions open at once.
+    #    0 = no cap beyond the segment's cash share (the old behaviour).
+    #  * intraday_rebuy_after_stop — False = a stock stopped out intraday is
+    #    not bought again intraday the same day. True = the old behaviour.
+    # None of these is a measured number; they are the owner's choices.
+    intraday_universe_size: int = 100
+    intraday_always_scan: bool = True
+    intraday_last_entry_time: str = "14:45"
+    intraday_max_positions: int = 10
+    intraday_rebuy_after_stop: bool = False
+    # OWNER ORDER 2026-11-26 (formula table: "Watch Floor - 55 and above").
+    # DISPLAY ONLY: a scored stock from this mark up to its segment's buy
+    # mark is labelled WATCH on the dashboard watchlist and the Scan page.
+    # No gate, size or exit reads it — the buy marks (62/72/70/60/68) decide.
+    watch_floor: float = 55.0
     # OWNER ORDER 2026-09-10: "for b there is simple trigger point when cash
     # is below 5%, rest all the time rotaiton will be done as per a - adding &
     # rotating from watch list". Below this share of equity in cash, rotation
@@ -467,6 +507,23 @@ class Config:
     # --- Entry overlay ---
     breakout_threshold_pct: float = 0.02      # within 2% of 20-day high
     volume_confirm_ratio: float = 1.3         # 5d vol >= 1.3x 20d vol
+
+    # --- The two volume gates (owner decision 2026-11-26: "two volume gates
+    # shown separately ... hard 1.5x spike, blocking Intraday only") ---
+    # Gate 1 = the 5-bar v 20-bar TREND above (`volume_confirm_ratio`, each
+    # segment's own mark). It has always been half of the timing check; True
+    # here = required, as before. False = measured and shown, not required.
+    volume_gate1_enabled: bool = True
+    # Gate 2 = the SPIKE: the latest bar's volume against the mean of the 20
+    # bars before it. It refuses a buy only in the segments listed in
+    # `volume_gate2_block_modes`; in every other segment it is a reading on
+    # the Scan page. The 1.5 is the owner's number; whether the gate helps
+    # returns in any segment is NOT measured (the list is extended only after
+    # a test, on the owner's word). False = a reading everywhere.
+    volume_gate2_enabled: bool = True
+    volume_gate2_ratio: float = 1.5
+    volume_gate2_lookback: int = 20
+    volume_gate2_block_modes: tuple = ("intraday",)
 
     # --- Frozen legacy delivery formula (historical comparisons only) ---
     brokerage_per_order: float = 0.0          # legacy assumption; not current Upstox pricing

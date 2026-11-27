@@ -25,7 +25,12 @@ def _src() -> str:
     times in this repo (the F1 test, the /positions hunt, the
     DAILY_SCHEDULER guard, the watchlist source-pin).
     """
-    raw = inspect.getsource(scheduler._weekly_history_topup).splitlines()
+    # OPS-03 (2026-11-27) moved the pull itself into `_do_weekly_pull` so it
+    # could run under the same wall-clock cap as every other weekly step. The
+    # block's ORDER still has to hold, so this reads the block followed by the
+    # helper — which is also the order they execute in.
+    raw = (inspect.getsource(scheduler._weekly_history_topup).splitlines()
+           + inspect.getsource(scheduler._do_weekly_pull).splitlines())
     return "\n".join(ln.split("#")[0] for ln in raw
                      if not ln.strip().startswith("#"))
 

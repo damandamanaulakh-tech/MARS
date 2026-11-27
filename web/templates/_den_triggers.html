@@ -14,7 +14,7 @@
     </div>
     {% if trg.blind %}
     <div class="px-4 py-3 border-b border-line bg-red-50 text-xs text-red-900" data-den-danger-blind><!-- den_danger_blind_marker -->
-      <strong>Known fault (upload review XR-060, not fixed):</strong> {{ trg.blind | length }} of the {{ trg.blind | length + trg.countable | length }} price tripwires ({{ trg.blind | join(', ') }}) return a NumPy true/false, and the layer only counts the Python value <span class="font-mono">True</span> — so they can never tighten a stop or trigger a half-exit. Today only {{ trg.countable | join(' and ') }}{% if trg.panel_fed %} (+ the panel-fed {{ trg.panel_fed | join(', ') }} on held names){% endif %} can. The fix is one line in <span class="font-mono">trading/danger.py</span>; it waits for your word because it moves money: stops would start tightening and half-exits firing on held names.
+      <strong>The danger layer cannot read some of its own tripwires:</strong> {{ trg.blind | length }} of the {{ trg.blind | length + trg.countable | length }} price tripwires ({{ trg.blind | join(', ') }}) answer with something the layer does not accept as a true/false, so they can never tighten a stop or trigger a half-exit. Only {{ trg.countable | join(' and ') }}{% if trg.panel_fed %} (+ the panel-fed {{ trg.panel_fed | join(', ') }} on held names){% endif %} can. This is measured here on every page load, so it clears by itself once the layer can read them again. (The original case, XR-060 — eight tripwires answering with a NumPy true/false that was compared by identity — was repaired on 27 November 2026.)
     </div>
     {% endif %}
     <div class="overflow-x-auto">
@@ -81,6 +81,9 @@
           {% for s in trg.ladder %}
           <div><span class="font-mono">{{ s.icon }}</span> <strong>{{ s.label }}</strong> — {{ s.means }}{% if s.lead %} <span class="text-ink-faint">· {{ s.lead }}</span>{% endif %}</div>
           {% endfor %}
+          {% if trg.pre_rise and trg.pre_rise.rule %}
+          <div class="pt-2 mt-2 border-t border-line" data-den-pre-rise><!-- den_pre_rise_marker --><strong>Pre-rise label</strong> (owner decision 26 Nov 2026) — {{ trg.pre_rise.rule }} <span class="text-ink-faint">{{ trg.pre_rise.record }}</span></div>
+          {% endif %}
         </div>
       </div>
     </div>

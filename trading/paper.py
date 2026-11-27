@@ -231,6 +231,7 @@ class Portfolio:
     universe_batch: dict = field(default_factory=dict)  # 📦 this week's liquidity batch: what came in/out (owner ask 2026-09-04)
     universe_ledger: List[dict] = field(default_factory=list)  # 📒 per-name moves {ts, ticker, move, turnover, rank, reason} — owner 2026-10-11 item 15; capped UNIVERSE_LEDGER_CAP
     breadth_store: dict = field(default_factory=dict)  # F3: full-store breadth reading {pct, sample, asof} the A3 gate prefers over the noisy bucket sample
+    market_gap: dict = field(default_factory=dict)  # index vs the median stock (trading/market_gap.py), written by the momentum pass; display only
     breadth_today: dict = field(default_factory=dict)  # the day's scan-bucket breadth, computed once by the first pass that CAN (momentum pulls 2y; the other four pull 6mo and cannot see a 200DMA) and reused by the rest — one market reading per day, not one per mode
     option_chain: dict = field(default_factory=dict)   # Node 8: daily chain snapshot {asof, rows, history} (display/triggers only; needs the daily login)
     register_market: dict = field(default_factory=dict)  # Node 10: nightly full-store register market view {asof, sample, rows} (/register reads, never computes)
@@ -243,6 +244,11 @@ class Portfolio:
     risk_day_equity: float = 0.0              # equity the -2% halt measures from
     risk_day_killed: bool = False             # switch tripped today? (survives restart)
     danger_alerts_start: Optional[str] = None  # danger layer mode-C start date (owner order 2026-08-11)
+    # XR-060 follow-up: which tickers the danger layer has already acted on
+    # today. It used to be read back out of the decision journal, which is
+    # byte-capped, so on a book of ~56 names one pass overflowed the cap and
+    # four positions lost their guard and were half-sold again every pass.
+    danger_acted: dict = field(default_factory=dict)   # {"day": iso, "tickers": [...]}
     # Owner order 2026-07-30: the starting_capital this book's cash has been
     # synced to. Changing Starting Capital in Settings now really adds/removes
     # cash (journaled CAPITAL_ADJUST) instead of doing nothing to a live book.
@@ -339,6 +345,70 @@ class Portfolio:
         os.makedirs(self.cfg.state_dir, exist_ok=True)
         return os.path.join(self.cfg.state_dir, "portfolio.json")
 
+    def snapshot(self) -> dict:
+        """The whole book as one plain dict — exactly what save() writes.
+
+        XR-070 pulled this out of save() so a book can be filed away
+        without being saved as the live one. It does NOT trim the journal
+        or the capped histories; save() still does that first, so a
+        snapshot taken on its own is the book as it stands.
+        """
+        with self._lock:
+            return {
+            "cash": self.cash,
+            "positions": {k: v.to_dict() for k, v in self.positions.items()},
+            "trades": [t.to_dict() for t in self.trades],
+            "equity_history": self.equity_history,
+            "last_scan": self.last_scan,
+            "last_scan_live": self.last_scan_live,
+            "last_scan_picks": self.last_scan_picks,
+            "last_scan_skipped": self.last_scan_skipped,
+            "intraday_data_status": self.intraday_data_status,
+            "cost_dp_days": self.cost_dp_days,
+            "closed_history_policy": self.closed_history_policy,
+
+            "validation_state": self.validation_state,
+            "validation_pending": self.validation_pending,
+            "last_scan_opened": self.last_scan_opened,
+            "last_regime": self.last_regime,
+            "last_ifr_fire_date": self.last_ifr_fire_date,
+            "last_ifr_ratio_fire_date": self.last_ifr_ratio_fire_date,
+            "regime_history": self.regime_history[-200:],  # cap
+            "scan_history": self.scan_history[-500:],      # cap
+            "decision_journal": self.decision_journal,     # recent tail (full trail in Mongo journal_archive)
+            "virtual_book": self.virtual_book,             # F8 shadow book of unbought YES picks
+            "scan_matrix": self.scan_matrix,               # 🎹 one scan's hit-map, fixed size
+            "momentum_shortlist": self.momentum_shortlist,  # momentum pass record (S-11/S-13)
+            "rotation_report": self.rotation_report,       # why-no-buy record (owner 2026-10-21)
+            "strategy_batch": self.strategy_batch,
+            "trigger_watch": self.trigger_watch,           # ⚡ trigger-layer daily result
+            "news_watch": self.news_watch,                 # 📰 news verdict per stock
+            "universe_batch": self.universe_batch,         # 📦 weekly batch details
+            "universe_ledger": self.universe_ledger[-UNIVERSE_LEDGER_CAP:],  # 📒 per-name moves
+            "breadth_store": self.breadth_store,           # F3 full-store breadth
+            "breadth_today": self.breadth_today,           # the day's shared bucket reading
+            "market_gap": self.market_gap,                 # index vs median stock (display)
+            "option_chain": self.option_chain,             # Node 8 chain snapshot
+            "register_market": self.register_market,       # Node 10 precompute
+            "damage_store": self.damage_store,             # Node 9 canonical damage
+            "pending_orders": self.pending_orders[-200:],  # owner limit orders, capped
+            "filings": self.filings[:100],                 # matched announcements, capped
+            "risk_day": self.risk_day,                     # daily kill-switch baseline date
+            "risk_day_equity": self.risk_day_equity,       # ...and the equity it measures from
+            "risk_day_killed": self.risk_day_killed,       # tripped-today flag
+            "danger_alerts_start": self.danger_alerts_start,  # danger layer C->B clock
+            "danger_acted": self.danger_acted,
+            "capital_base": self.capital_base,   # capital the cash is synced to
+            "dd_peak_equity": self.dd_peak_equity,  # drawdown-governor peak
+            "dd_cut_level": self.dd_cut_level,      # ladder level already cut
+            "dd_cut_pending": self.dd_cut_pending,
+            "mark_snapshot": self.mark_snapshot,
+            "loss_day": self.loss_day,               # 2-loss halt state
+            "loss_count": self.loss_count,
+            "loss_by_category": self.loss_by_category,  # per-category losers today
+            "last_save": datetime.utcnow().isoformat(),
+            }
+
     def save(self) -> bool:
         with self._lock:
             # Bound RAM: keep only the recent tail. Overflow is archived to the
@@ -350,58 +420,7 @@ class Portfolio:
             self.scan_history = self.scan_history[-SCAN_HISTORY_RAM_CAP:]
             self.regime_history = self.regime_history[-REGIME_HISTORY_RAM_CAP:]
             self.equity_history = self.equity_history[-EQUITY_HISTORY_RAM_CAP:]
-            data = {
-                "cash": self.cash,
-                "positions": {k: v.to_dict() for k, v in self.positions.items()},
-                "trades": [t.to_dict() for t in self.trades],
-                "equity_history": self.equity_history,
-                "last_scan": self.last_scan,
-                "last_scan_live": self.last_scan_live,
-                "last_scan_picks": self.last_scan_picks,
-                "last_scan_skipped": self.last_scan_skipped,
-                "intraday_data_status": self.intraday_data_status,
-                "cost_dp_days": self.cost_dp_days,
-                "closed_history_policy": self.closed_history_policy,
-
-                "validation_state": self.validation_state,
-                "validation_pending": self.validation_pending,
-                "last_scan_opened": self.last_scan_opened,
-                "last_regime": self.last_regime,
-                "last_ifr_fire_date": self.last_ifr_fire_date,
-                "last_ifr_ratio_fire_date": self.last_ifr_ratio_fire_date,
-                "regime_history": self.regime_history[-200:],  # cap
-                "scan_history": self.scan_history[-500:],      # cap
-                "decision_journal": self.decision_journal,     # recent tail (full trail in Mongo journal_archive)
-                "virtual_book": self.virtual_book,             # F8 shadow book of unbought YES picks
-                "scan_matrix": self.scan_matrix,               # 🎹 one scan's hit-map, fixed size
-                "momentum_shortlist": self.momentum_shortlist,  # momentum pass record (S-11/S-13)
-                "rotation_report": self.rotation_report,       # why-no-buy record (owner 2026-10-21)
-                "strategy_batch": self.strategy_batch,
-                "trigger_watch": self.trigger_watch,           # ⚡ trigger-layer daily result
-                "news_watch": self.news_watch,                 # 📰 news verdict per stock
-                "universe_batch": self.universe_batch,         # 📦 weekly batch details
-                "universe_ledger": self.universe_ledger[-UNIVERSE_LEDGER_CAP:],  # 📒 per-name moves
-                "breadth_store": self.breadth_store,           # F3 full-store breadth
-                "breadth_today": self.breadth_today,           # the day's shared bucket reading
-                "option_chain": self.option_chain,             # Node 8 chain snapshot
-                "register_market": self.register_market,       # Node 10 precompute
-                "damage_store": self.damage_store,             # Node 9 canonical damage
-                "pending_orders": self.pending_orders[-200:],  # owner limit orders, capped
-                "filings": self.filings[:100],                 # matched announcements, capped
-                "risk_day": self.risk_day,                     # daily kill-switch baseline date
-                "risk_day_equity": self.risk_day_equity,       # ...and the equity it measures from
-                "risk_day_killed": self.risk_day_killed,       # tripped-today flag
-                "danger_alerts_start": self.danger_alerts_start,  # danger layer C->B clock
-                "capital_base": self.capital_base,   # capital the cash is synced to
-                "dd_peak_equity": self.dd_peak_equity,  # drawdown-governor peak
-                "dd_cut_level": self.dd_cut_level,      # ladder level already cut
-                "dd_cut_pending": self.dd_cut_pending,
-                "mark_snapshot": self.mark_snapshot,
-                "loss_day": self.loss_day,               # 2-loss halt state
-                "loss_count": self.loss_count,
-                "loss_by_category": self.loss_by_category,  # per-category losers today
-                "last_save": datetime.utcnow().isoformat(),
-            }
+            data = self.snapshot()
             with open(self._state_path(), "w") as f:
                 json.dump(data, f, indent=2)
             self.last_save = data["last_save"]
@@ -454,6 +473,7 @@ class Portfolio:
             p.universe_ledger = list(data.get("universe_ledger", []) or [])
             p.breadth_store = dict(data.get("breadth_store", {}))
             p.breadth_today = dict(data.get("breadth_today", {}) or {})
+            p.market_gap = dict(data.get("market_gap", {}) or {})
             p.option_chain = dict(data.get("option_chain", {}))
             p.register_market = dict(data.get("register_market", {}))
             p.damage_store = dict(data.get("damage_store", {}) or {})
@@ -463,6 +483,7 @@ class Portfolio:
             p.risk_day_equity = float(data.get("risk_day_equity", 0.0) or 0.0)
             p.risk_day_killed = bool(data.get("risk_day_killed", False))
             p.danger_alerts_start = data.get("danger_alerts_start")
+            p.danger_acted = data.get("danger_acted") or {}
             # Legacy books predate capital_base. Owner order 2026-08-30
             # ("remove the 25 Lacs thing from the entire history"): the
             # fallback is the CURRENT configured capital, so a file with no

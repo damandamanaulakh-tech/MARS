@@ -193,11 +193,43 @@ def _load_index_close() -> Optional[pd.Series]:
     return s
 
 
+#: OWNER 2026-11-27 ("Data is needed"). The committed delivery file ends
+#: 2026-08-07. Fresh days are fetched into Mongo by the weekly block and
+#: layered on top HERE, so the 50 MB committed file is never rewritten and the
+#: repository (cloned on every Render deploy) does not grow. Injected at boot
+#: the same way data_refresh's PWOI reader is, so trading/ never imports web.db.
+#: The last date inside the committed file. Only days AFTER it are read
+#: back from the store, so the overlay never re-reads what the file holds.
+#: Pinned by a test against the file itself.
+DELIVERY_BASE_THROUGH = "2026-08-07"
+_delivery_reader = None
+
+
+def set_delivery_reader(fn) -> None:
+    global _delivery_reader
+    _delivery_reader = fn
+    # The delivery series is built inside a PanelSet, which is cached by
+    # (tail, sources) — drop those so a newly attached reader is actually read
+    # rather than answered from a panel built before the store existed.
+    _panelset_cache.clear()
+
+
+def _stored_delivery_days() -> list:
+    if _delivery_reader is None:
+        return []
+    try:
+        return list(_delivery_reader() or [])
+    except Exception as e:                                   # noqa: BLE001
+        log.warning("stored delivery days unavailable: %s", e)
+        return []
+
+
 def _load_delivery(symbols: set[str]) -> dict[str, pd.Series]:
     """delivery_qty / traded_qty per date, for this batch of symbols only.
 
     ONE streamed pass over the 3.5M-row file (chunked so peak RAM stays
-    small), keeping only EQ/BE/BZ rows for the symbols asked for.
+    small), keeping only EQ/BE/BZ rows for the symbols asked for, then any
+    stored days newer than the file layered on top.
     """
     if not symbols:
         return {}
@@ -213,21 +245,51 @@ def _load_delivery(symbols: set[str]) -> dict[str, pd.Series]:
                         (g["date"].to_numpy(), g["ttl_trd_qnty"].to_numpy(),
                          g["deliv_qty"].to_numpy()))
     except OSError as e:
+        # Do not return here: the stored days below can still serve. The
+        # committed file is in the repository so this should never happen, but
+        # "the base is missing" is not a reason to throw away the fresh half.
         log.warning("external_panels: delivery file unreadable: %s", e)
-        return {}
-    out: dict[str, pd.Series] = {}
-    for sym, parts in frames.items():
-        if not parts:
+        frames = {}
+    # Stored days are read once for the whole batch, not once per symbol.
+    extra: dict[str, list[tuple]] = {}
+    for doc in _stored_delivery_days():
+        day = str(doc.get("date") or doc.get("_id") or "")
+        rows = doc.get("rows") or {}
+        if not day or not rows:
             continue
-        dates = np.concatenate([p[0] for p in parts])
-        ttl = pd.to_numeric(np.concatenate([p[1] for p in parts]),
-                            errors="coerce")
-        dlv = pd.to_numeric(np.concatenate([p[2] for p in parts]),
-                            errors="coerce")
+        for sym in symbols:
+            pair = rows.get(sym)
+            if not pair or len(pair) < 2:
+                continue
+            try:
+                ttl_v, dlv_v = float(pair[0]), float(pair[1])
+            except (TypeError, ValueError):
+                continue
+            extra.setdefault(sym, []).append((day, ttl_v, dlv_v))
+
+    out: dict[str, pd.Series] = {}
+    for sym in set(frames) | set(extra):
+        parts = frames.get(sym) or []
+        dates_l, ttl_l, dlv_l = [], [], []
+        for p in parts:
+            dates_l.append(p[0]); ttl_l.append(p[1]); dlv_l.append(p[2])
+        add = extra.get(sym) or []
+        if add:
+            dates_l.append(np.array([a[0] for a in add], dtype=object))
+            ttl_l.append(np.array([a[1] for a in add]))
+            dlv_l.append(np.array([a[2] for a in add]))
+        if not dates_l:
+            continue
+        dates = np.concatenate(dates_l)
+        ttl = pd.to_numeric(np.concatenate(ttl_l), errors="coerce")
+        dlv = pd.to_numeric(np.concatenate(dlv_l), errors="coerce")
         with np.errstate(invalid="ignore", divide="ignore"):
             ratio = np.where(ttl > 0, dlv / ttl, np.nan)
         s = pd.Series(ratio, index=pd.to_datetime(dates, errors="coerce"))
-        s = s[s.index.notna()].dropna().sort_index()
+        s = s[s.index.notna()].dropna()
+        # A stored day that also exists in the committed file is the same day
+        # twice; keep one reading per date, the stored one last.
+        s = s[~s.index.duplicated(keep="last")].sort_index()
         if len(s) >= 30:
             out[sym] = s
     return out
@@ -910,8 +972,24 @@ def attach_chain(sx: StockExternals, summary: Optional[dict],
 #: DATA_NEEDED, never a quiet False (test_missing_names_the_panels...). The
 #: research scripts (calibration, sector-heat study) still pass tail=0 and the
 #: full source set explicitly, so nothing measured is affected.
-PROD_SOURCES: tuple[str, ...] = tuple(
-    s for s in PanelSet.ALL_SOURCES if s != "delivery")
+#:
+#: TURNED BACK ON 2026-11-27, on the owner's word ("render have enough storage
+#: to expand so no worry") and on two measurements, not on the comment above:
+#:   * the load costs +93 MB at the peak and +46 MB resident, in 3.2 s, at the
+#:     production scope of 80 names (and +96 MB at 120 — the cost is the file,
+#:     not the number of stocks, so it does not grow with the universe);
+#:   * the live box was measured at a 749 MB peak, which no 512 MB plan allows,
+#:     so the ceiling that forced this off in September is gone.
+#: The stale half is fixed too: scheduler._weekly_nse_archives_refresh now
+#: catches the file up from NSE's archive, which answers this host after all —
+#: the "Colab is the only refresh path" line above was true in September and is
+#: not any more.
+#:
+#: WHAT IT BUYS, honestly: the delivery ratio behind T12W_0060, which is
+#: calibrated REJECTED, plus register and display items. Fresh data on a
+#: rejected trigger is still a rejected trigger; the gain is that the next time
+#: anyone measures it, they will be measuring this year.
+PROD_SOURCES: tuple[str, ...] = PanelSet.ALL_SOURCES
 
 
 def prepare(tickers: list[str],

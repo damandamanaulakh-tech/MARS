@@ -108,6 +108,20 @@ def scan_view(request: Request, error: str | None = None):
     scan_mode = scan_mode if scan_mode in OWNER_SEGMENTS else MOMENTUM
     picks = p.last_scan_picks or []
     piano = _build_piano(p.scan_matrix or {})
+    # Owner order 2026-11-26 ("Watch Floor - 55 and above"): the label is
+    # computed here for the page and never written onto the stored picks.
+    watch = None
+    try:
+        from .. import market_panels as _mp
+        _m = p.scan_matrix if isinstance(p.scan_matrix, dict) else {}
+        _buy = float(_m.get("score_floor", cfg.min_score_to_enter))
+        _watch = float(getattr(cfg, "watch_floor", 55.0) or 0.0)
+        watch = {"floor": _watch, "buy_floor": _buy,
+                 "segment": LABELS.get(scan_mode, "this segment"),
+                 "labels": {r.get("ticker"): _mp.watch_label(r.get("score"), _buy, _watch)
+                            for r in picks if isinstance(r, dict)}}
+    except Exception:
+        log.exception("watch labels failed")
     # The owner's funnel arithmetic (their design 2026-08-13: "in real life
     # capital amount is fixed once i use 60-70% then cant use as using
     # here") — how many of these picks today's cash can actually fund, by
@@ -172,6 +186,9 @@ def scan_view(request: Request, error: str | None = None):
             "segments": {segment: LABELS[segment] for segment in OWNER_SEGMENTS},
             "scan_mode": scan_mode,
             "picks": picks,
+            "watch": watch,
+            "volume_view": _volume_gates_view(p.scan_matrix or {}, cfg),
+            "pre_rise_on": _pre_rise_on(p),
             "slots": slots,
             "buy_desk": buy_desk,
             **_universe_badge(cfg, p),
@@ -288,6 +305,73 @@ def _outcome_cell(oc: str, t: str) -> tuple[str, str]:
     return "waiting", f"{t} · scored, not selected"
 
 
+def _volume_cell(vol, part: str, summary: dict) -> tuple[str, str]:
+    """(cell class, label) for one stock's volume reading. `part` = "t" (the
+    trend, Gate 1) or "s" (the spike, Gate 2). Green = at or above the mark.
+    A miss is red only where the gate could refuse a buy in that pass, amber
+    where it is a reading; grey = off in this segment or could not be read."""
+    gate = (summary or {}).get("gate1" if part == "t" else "gate2") or {}
+    if part == "t" and gate.get("applies") is False:
+        return "waiting", "off in this segment"
+    if not isinstance(vol, dict) or vol.get(part + "k") is None:
+        return "waiting", "could not be read"
+    ratio = vol.get(part + "r")
+    label = f"{ratio:.2f}×" if isinstance(ratio, (int, float)) else "—"
+    need = gate.get("need")
+    if isinstance(need, (int, float)):
+        label += f" (needs {need:g}×)"
+    if vol.get(part + "k"):
+        return "hit", label
+    return ("blocked" if gate.get("blocks") else "weak"), label
+
+
+PRE_RISE_MAX_AGE_DAYS = 7     # a stored reading older than this is not shown as current
+
+
+def _pre_rise_on(p, today=None) -> dict:
+    """{ticker: stored pre-rise reading} for the stocks whose label is on in
+    the last stored trigger pass. A page view computes nothing; a reading on
+    bars older than a week is left out rather than shown as current."""
+    from datetime import date as _date, datetime as _datetime
+    out: dict = {}
+    today = today or _datetime.utcnow().date()
+    rows = ((getattr(p, "trigger_watch", None) or {}).get("rows") or {})
+    for ticker, row in rows.items():
+        reading = row.get("pre_rise") if isinstance(row, dict) else None
+        if not (isinstance(reading, dict) and reading.get("on")):
+            continue
+        try:
+            age = (today - _date.fromisoformat(str(reading.get("asof"))[:10])).days
+        except Exception:                                      # noqa: BLE001
+            continue
+        if 0 <= age <= PRE_RISE_MAX_AGE_DAYS:
+            out[ticker] = reading
+    return out
+
+
+def _volume_gates_view(matrix: dict, cfg) -> dict | None:
+    """The two volume gates of the last stored pass, for the Scan page. None
+    when that pass recorded no readings (a record stored before the gates)."""
+    summary = matrix.get("volume_gates") if isinstance(matrix, dict) else None
+    if not isinstance(summary, dict):
+        return None
+    from trading.category_budget import LABELS
+    mode = str(matrix.get("mode") or "")
+    refuses_in = []
+    if bool(getattr(cfg, "volume_gate2_enabled", True)):
+        refuses_in = [LABELS.get(m, str(m)) for m in (getattr(cfg, "volume_gate2_block_modes", ()) or ())]
+    return {"segment": LABELS.get(mode, mode or "this segment"),
+            "bars": "5-minute" if mode == "intraday" else "daily",
+            "ts": matrix.get("ts"), "of": summary.get("of"),
+            "gate1": summary.get("gate1") or {}, "gate2": summary.get("gate2") or {},
+            "gate1_switch": bool(getattr(cfg, "volume_gate1_enabled", True)),
+            "gate2_switch": bool(getattr(cfg, "volume_gate2_enabled", True)),
+            "refuses_in": refuses_in,
+            "short": int(getattr(cfg, "volume_short_days", 5)),
+            "long": int(getattr(cfg, "volume_long_days", 20)),
+            "lookback": int(getattr(cfg, "volume_gate2_lookback", 20))}
+
+
 def _build_piano(matrix: dict) -> dict | None:
     rows = matrix.get("rows") or {}
     if not rows:
@@ -327,6 +411,18 @@ def _build_piano(matrix: dict) -> dict | None:
         {"t": t, "cls": "hit" if rows[t].get("timing") else "blocked",
          "tip": f"{t} · timing {'pass' if rows[t].get('timing') else 'fail'}"}
         for t in tickers], key="timing")
+    # Owner decision 2026-11-26: the two volume gates as their own lanes. A
+    # scan record stored before this (no readings) gets no lane — never a row
+    # of blanks.
+    if any(isinstance(rows[t].get("vol"), dict) for t in tickers):
+        summary = matrix.get("volume_gates") if isinstance(matrix.get("volume_gates"), dict) else {}
+        for name, key, part in (("volume trend (gate 1)", "vol_trend", "t"),
+                                ("volume spike (gate 2)", "vol_spike", "s")):
+            cells = []
+            for t in tickers:
+                cls, label = _volume_cell(rows[t].get("vol"), part, summary)
+                cells.append({"t": t, "cls": cls, "tip": f"{t} · {name}: {label}"})
+            _add(name, cells, key=key)
     _add("absolute momentum (6m > 0)", [
         {"t": t, "cls": "hit" if rows[t].get("abs_mom") else "blocked",
          "tip": f"{t} · 6m return {'positive' if rows[t].get('abs_mom') else 'negative'}"}
@@ -463,6 +559,30 @@ _PARAM_DEFS: dict[str, dict] = {
                  "breakout, not overextended. A great stock on a bad day waits."),
         "rule": "Pass/fail per mode.",
         "knob": "trading/modes.py PRESETS (breakout_threshold_pct etc.)"},
+    "vol_trend": {
+        "title": "Volume Gate 1 — volume trend",
+        "what": ("Is the stock trading more than usual lately? The average "
+                 "volume of the last 5 bars divided by the average of the last "
+                 "20. A bar is a 5-minute bar in Intraday and a day in the "
+                 "other segments. This has always been one half of the timing "
+                 "check; it is shown here on its own."),
+        "rule": ("Needs each segment's own mark: Intraday 1.5×, Short 1.3×, "
+                 "Swing 1.2×, Positional 1.2×. Off in Momentum. A stock below "
+                 "the mark fails timing and is not bought, unless Volume "
+                 "Gate 1 is switched off in Settings."),
+        "knob": "trading/timing.py passes_volume_confirm · mark: trading/modes.py PRESETS volume_confirm_ratio · switch: volume_gate1_enabled"},
+    "vol_spike": {
+        "title": "Volume Gate 2 — volume spike",
+        "what": ("Did the latest bar itself trade heavily? The latest bar's "
+                 "volume divided by the average of the 20 bars before it. "
+                 "Owner decision 26 November 2026. Whether this gate improves "
+                 "returns has not been tested in any segment."),
+        "rule": ("1.5× or more. It refuses a buy only in Intraday (a stock "
+                 "that cleared its score and timing but has no spike is not "
+                 "bought). In Short, Swing, Positional and Momentum it is a "
+                 "reading only. Amber = below the mark where it is only a "
+                 "reading; red = below the mark where it refuses."),
+        "knob": "trading/timing.py passes_volume_spike · trading/config.py volume_gate2_ratio, volume_gate2_block_modes · switch: volume_gate2_enabled"},
     "abs_mom": {
         "title": "Absolute momentum (own 6m > 0)",
         "what": ("The stock's OWN 6-month return must be positive — never buy "
@@ -544,7 +664,7 @@ def parameter_page(request: Request, key: str):
     known_factors = set()
     for r in rows.values():
         known_factors.update((r.get("c") or {}).keys())
-    specials = {"score", "timing", "abs_mom", "candle", "outcome"}
+    specials = {"score", "timing", "vol_trend", "vol_spike", "abs_mom", "candle", "outcome"}
     if key not in specials and key not in known_factors and key not in _PARAM_DEFS:
         return RedirectResponse("/scan", status_code=303)
 
@@ -570,6 +690,10 @@ def parameter_page(request: Request, key: str):
             elif key == "timing":
                 cls = "hit" if r.get("timing") else "blocked"
                 label = "pass" if r.get("timing") else "fail"
+            elif key in ("vol_trend", "vol_spike"):
+                cls, label = _volume_cell(
+                    r.get("vol"), "t" if key == "vol_trend" else "s",
+                    matrix.get("volume_gates") if isinstance(matrix.get("volume_gates"), dict) else {})
             elif key == "abs_mom":
                 cls = "hit" if r.get("abs_mom") else "blocked"
                 label = "6m +" if r.get("abs_mom") else "6m −"

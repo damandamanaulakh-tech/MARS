@@ -152,7 +152,7 @@ def test_0920_releases_before_and_after_the_trigger_layer(monkeypatch):
     monkeypatch.setattr(scheduler, "_weekly_index_refresh", lambda: None)
     monkeypatch.setattr(scheduler, "_sector_index_refresh", lambda: None)
     monkeypatch.setattr(scheduler, "_run_category_rotation",
-                        lambda eng, cfg, where: order.append("rotation") or [])
+                        lambda eng, cfg, where, **k: order.append("rotation") or [])
     monkeypatch.setattr(scheduler, "_check_pending_orders", lambda *a: None)
     monkeypatch.setattr(scheduler, "_push_phone_alerts", lambda *a, **k: None)
     monkeypatch.setattr(scheduler, "run_trigger_layer",

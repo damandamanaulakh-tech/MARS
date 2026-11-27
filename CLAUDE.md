@@ -13,6 +13,335 @@ user archives/deletes it whole after the Render re-point; code + all
 lives only there. App state (book/journal/history) lives in Mongo
 Atlas, not in any repo — repo moves never touch money or memory.
 
+## 2026-11-27 — CURRENT STATE (READ THIS BLOCK FIRST; the 11-26 block below is history)
+- **PR #234, DRAFT, NOT MERGED. Head `1a83ce3`, ten commits. Full local suite 4,161 passed, 0 failed,
+  0 errors, 0 skipped (897 s from a clean `/tmp/sourceborn_paper`).** CI green through `043eb00`.
+  Nothing in it is deployment proof. The owner's merge rule stands.
+- **THE OWNER'S TWELVE HIGH-SEVERITY ITEMS ARE ALL BUILT** (they pasted the table and said "Go for
+  pending from this ask me u need"). One release record each in `docs/repairs/releases/`:
+  XR-060 (+ its history-gate leftover), XR-070, NEW-01/02, NEW-03, XR-027, XR-041, OPS-03, XR-050,
+  XR-052; OPS-04 and OPS-01 CLOSED as no longer current. Plus two owner asks of the same day:
+  the scan-resume tick (OWN-RESUME-01) and the data catch-up (OWN-DATA-01).
+- **THREE TRACKER ROWS WERE WRONG and are corrected in `backlog.json` — do not re-derive them:**
+  XR-070 never overwrote the book (its note was true); the real fault was that a conflict refused
+  EVERY save for the life of the process and lost the live book at the next restart. XR-041 had
+  THREE doors, not the one named. XR-052 named five gates, of which the position ceiling cannot bite
+  (the sale frees the slot) and portfolio heat is arithmetically unreachable (cap 0.25 vs a widest
+  stop of 0.15; worst case buildable 12.6%).
+- **TWO STANDING BELIEFS IN THIS FILE WERE FALSE. Both verified by real requests on 2026-11-27:**
+  (1) **nsearchives.nseindia.com ANSWERS this host** — delivery 200/403,413 bytes real CSV,
+  participant OI 200, F&O bhavcopy 200/1.19 MB, across seven dates including a Saturday that
+  correctly 404'd. The "Colab is the only refresh path" lines everywhere below are STALE.
+  (2) **Segment-level scan resume already existed** since 2026-10-21 (`web/rotation_progress.py`,
+  19 tests): progress saved after every segment, the save must be acknowledged, a restart re-runs
+  only the segments that did not finish, and a segment is all-or-nothing so a dead one's buys never
+  reached the book. I told the owner otherwise and corrected it within the minute. The gap was only
+  that NOTHING called it on a timer.
+- **LIVE FACTS, measured from /healthz on 2026-11-27, not inferred:** the box no longer sleeps
+  (three probes 0.18-0.67 s on a process up since ~01:38 IST) and tolerated a **749 MiB peak**, so
+  the 512 MB ceiling is gone — the owner upgraded Render ("render have enough storage to expand so
+  no worry"); Atlas is **M10 paid**, `write_error null`, last save confirmed 02:05 IST, cluster
+  **518 MB** (sourceborn 321.7, ashstock 171.5) of which **journal_archive 236 MB / 120,696 rows and
+  growing — now a bill, not a wall, and the reason the statistics read takes 9.1 s**.
+  **STILL BROKEN ON THE LIVE BUILD: `scan_universe.last_rebuild` 2026-09-30 (58 days) and
+  `history_tickers` 2233 against a universe file of 2678 — 445 of the owner's own names have never
+  had a price fetched.** That is OPS-03, fixed on this branch and NOT yet deployed. **FIRST LIVE
+  PROOF to look for after a merge: last_rebuild moving off 2026-09-30.**
+- **OWNER DECISIONS 27 Nov (all from options cards; honour them, do not re-ask):** XR-070 "keep the
+  newer one, file the other" · XR-060 panel pair "70 bars, same as the other ten" · XR-050 "keep
+  yesterday's reading until the feed answers" · XR-027 "all 5 days must be real" · XR-052 "only sell
+  when the new buy can actually go through" · NEW-03 "bound the book-save and scan paths, not the
+  whole client" · OPS-01 "nothing now — add per-job memory logging instead" (NOT YET BUILT) ·
+  "render have enough storage to expand so no worry" + "Data is needed".
+- **WHAT THIS BRANCH CHANGED ON THE MONEY PATH** (each with a release record):
+  danger verdicts counted by value and both loops gated at 70 bars · a restart that meets two books
+  keeps the newer and archives both · six locked-path database calls bounded at 20 s
+  (`db.bounded`, `LOCKED_PATH_TIMEOUT_S`) · missing/non-finite volume refuses the Rs 5 Cr gate
+  (`LiquidityRules.min_real_volume_days = 5`) · a thin IFR panel, a short series or a crash keeps an
+  open throttle (`ifr._window_active`, `held_throttle_snapshot`) · an untrusted regime reading is
+  treated as no reading (`RegimeReading.feed_ok`, `engine._sticky_regime_brake`) · rotation stands
+  down when no pick can open (`risk.blocked_regardless_of_cash`) · every weekly step has a
+  wall-clock cap (`weekly_step_timeout_s`, `DATA_REFRESH_STEP_TIMEOUT`) · the rotation resumes every
+  5 minutes in session (`_rotation_resume_tick`, `rotation_report["resume"]`, `daily_owed`) ·
+  delivery is read in production again and the Den's screen ceiling is 900 MB, not 380.
+- **OPEN, each recorded and none started:** the daily scan has **no overall fetch budget**, so a
+  network drop can hold it in up to ~60 minutes of 30-second timeouts while holding the mode lock
+  the exit pass needs — this is the owner's own "it goes offline itself"; the **14:30 rotation is
+  the one job with no catch-up**; **XR-060B** (the trailing leash floor narrows from 12% to 5% once
+  a winner's stop rises above entry); **per-job memory logging** (the owner's OPS-01 choice);
+  rotation can still sell TWO winners to fund one pick (the owner declined the one-sale cap).
+  OWNER OWES: the **shareholding zip** (register H-02..H-06, X-07 — the only remaining item with
+  real value behind DATA_NEEDED), the Total Return Index (needs a POST), insider dealings and
+  bulk/block deals (NSE caps those at 70 rows a month), and their tables 1-3.
+- **HARNESS, learned today:** run the FULL suite before pushing a change to a shared money-path
+  function — I pushed the XR-060 panel gate on targeted tests plus the web suite and CI caught a
+  66-bar fixture I had broken · never edit repo files while a suite runs (one result had to be
+  discarded) · a test stub must move with a signature: adding `lock_wait` broke six of them, and
+  extracting a function lost two of its local imports (`db`, `date`) — caught only by an existing
+  test · four of my own new tests this session were vacuous or tautological on the first cut; assert
+  the behaviour, not a name in the source · Workflow agents worked well (4 + 3 readers, no cap
+  stops) and found the three wrong tracker rows and both false beliefs above.
+- **OWNER'S 20-ITEM REVIEW TABLE (their "2- tell me status of each … 2-3 options … i will choose
+  and close"). DELIVERED as artifact EFm7ouFFgjYdby5rjWcowj ("MARS Pending Items"), v2.**
+  Their table is **20 rows** (4, 6, 8, 9, 10, 11, 13, 15, 16, 17, 21, 24, 27, 30B, 31, 34, 37, 39,
+  41, 43) — I first miscounted it as 21. Each row carries a code-verified status, the full formula
+  where one exists, and 2-3 options with one marked. **THEN I HAD MY OWN PAGE ADVERSARIALLY
+  ATTACKED (36 agents: one refuter per row told to disprove me, a second independent reader on
+  every dispute, one completeness critic). 15 of 20 statements carried an error; only rows 8, 16,
+  21, 34, 41 survived — and those five had accuracy checked, NOT completeness.** This is now the
+  standing method for any status table the owner decides from: publish nothing they will act on
+  without a refute pass. The corrections that matter (all verified by hand afterwards, do NOT
+  re-derive):
+  * **Row 27 — I pointed the owner the WRONG WAY on a money-path question.** See the intraday
+    correction in the VOL-001 bullet above: 5-minute history exists and the replay already
+    measured intraday as LOSING at all three cost scenarios. I had said "unmeasurable, record 30
+    sessions first". The live question is whether to cut intraday's 10% share.
+  * **Row 6 — the owner's EVENT RE-RUN LOOP IS BUILT**, not missing: `valuation_context.decompose`
+    (`ASSUMED["rerun_residual_pct"] = 10.0`) splits sector part vs stock-specific residual, runs
+    unconditionally in `context()`, and `_den_valuation.html` prints RE-RUN / stands per name (the
+    screen calls it "your event loop"). Only the change log + resilience screen are absent.
+  * **Row 11 — promoter NAMES are in the repo twice**: the shareholding JSONs' four free-text note
+    fields name them outright (130 of 193 files; TCS "a subsidiary of Tata Sons Private Limited
+    which holds 71.74%", ABCAPITAL "Birla Group Holdings", ADANIENT the three brothers at 63.99%),
+    and `data/insider_pit.csv` has **20,415 of 54,150 rows** tagged promoter/promoter-group with
+    `acqName`. A parent map ALSO already exists and is read by the SOTP route:
+    `data/holdco_stakes.csv` → `valuation/scenarios.py:1072 _holdco_sotp` / `pipeline.py:393` —
+    but it covers BAJAJHLDNG only (2 rows). Extend it; never claim it cannot be derived.
+  * **Row 39 — `/resources` already prints source · status · data as of · last attempt · last
+    success · "Next step" naming the actor**, owner-gated, sidebar-linked "News & Data Sources",
+    26 passing tests. The gap is only that the other ~95 DATA_NEEDED notices do not reuse it.
+  * **Row 43 — the international chip already prints `as of` + `fetched` + STALE per series**
+    (`dashboard.html:335-337`, 12 pinning tests), and /resources carries last attempt/success.
+    My recommended option was already built.
+  * **Row 9 — `.gitignore:21 *.xlsx` ignores a workbook ANYWHERE but `data/`** (only `:26
+    !data/*.xlsx` escapes). A `git add` of a task book under `docs/` **silently does nothing**;
+    the three tracked workbooks survive only because ignore rules skip already-tracked files. The
+    repo's own AUDIT FIX C6 comment records this class for CSVs and never extended it to xlsx.
+  * **Row 17 — FIVE rotation segments, SIX cash shares.** `_DAILY_MODE_ORDER` has 5 (pinned by
+    `test_docs_truth_d_2026_08_09.py:69`, published as `segments_total` on /healthz); Ocean runs
+    INSIDE the momentum pass (`engine.py:991`) and its 2% is enforced via can_open's `category`.
+    The six-share object is `category_budget.SHARE_FIELDS`, whose own `OWNER_SEGMENTS` excludes
+    Ocean. Also: a segment reads full once room < max(slab, fill), so ~Rs 1.5 L of a share can sit
+    unusable — raising a share delivers less than the arithmetic.
+  * **Row 30B — the top-50 `momentum_shortlist["top"]` feeds ONLY `_watch_scope`** (the
+    trigger/news layer, `scheduler.py:4209` is the one non-test reader), i.e. row 30B and row 16
+    are the SAME pipe from opposite ends. Buy Desk reads `rows` and caps at `MAX_NAMES = 60`; the
+    dashboard reads `last_scan_picks`. And `rows` holds only names at/above the floor — the
+    everything store is `scan_matrix["rows"]`.
+  * **Row 31 — every lane number I had was stale.** VOL-001 added two volume lanes: a composite
+    segment's piano is **51** lanes (34/51 = 67%, 1,205 x 51 = 61,455 cells); a MOMENTUM pass
+    scores only `{momentum, quality}` so its piano is **43** lanes (structures 79%, 51,815 cells).
+    49 is the pre-2026-11-26 number. The 34 structures (17/14/3) is correct.
+  * **Row 37 — not four UTC-date sites but 83** outside tests (render.yaml sets no TZ, so the
+    container is UTC). The consequential one I missed: `web/stock_card.py:147` → `:254`
+    `held["days"]` counts days-held off a UTC date and its only caller passes no `today`, so
+    /chart reads one day younger than /positions before 05:30 IST — the very fault
+    `positions.py:_today_ist()` fixed one screen over. Same shape: `market_panels.py:304/419`.
+  * **Row 13 — smaller than I said.** The per-stock rupee number IS printed (`lens.html:124`
+    "v1 size" from the real `position_notional_for`), and the page states "29% of full Kelly"
+    correctly twice; only the one tile's literal `½-Kelly` (U+00BD, not ASCII) is stale.
+  * **Row 15 — THREE always-include sets, not two**: `carry = held | ((watchlist | owner_list) -
+    funds)`. A watched name under Rs 5 Cr/day is still scanned. Blocklist beats every carry rule;
+    fund units are subtracted from the watchlist/owner carry but NOT from `held`. **App bug found:
+    `scan.html:283` labels the whole carry set "held names carried in regardless of rank", so a
+    watchlist or owner-list name renders to the owner as one they own** (the key is legacy
+    `held_added`). `watchlist_kept/_carried` and `owner_list_kept/_carried` are STORED, shown
+    nowhere.
+  * **Row 24 — part exit and quantity change DO exist, engine-driven**: `engine._exit_half`
+    (danger EXIT_HALF, writes a real ClosedTrade, journals SELL_PARTIAL), `corporate_actions.py:478`
+    and `pyramid.py:51` set `pos.qty`. And there is a NINTH positions POST route I missed —
+    `/trades/correct` (`positions.py:520`) rewrites a held position's entry price and moves cash.
+    The true gap is owner-initiated, from a position row. NOTE the contention: the valuation layer
+    writes `pos.target_price` unless `custom_levels` is set, so an owner edit must claim that field.
+  * **Row 4 — A1 was stated with 3 of its ~8 conditions** (also: parseable asof, `range_status ==
+    "OK"`, base > 0, NOT `drafted`, fill > 0, plus enabled / non-intraday / `VE.ready()`).
+    `range_status` is materially restrictive — TCS, INFY and HDFCBANK all read INSUFFICIENT — and
+    the study measured a valuation target on **33.0% of entries**, not most. The owner's "P/E band
+    capped at the current market" is therefore the COSTLIEST option on the page while reading as
+    the cheapest.
+  * **Row 10 — four mix runners already exist** (`exit_variant_study.py:78/162` seven
+    four-parameter mixes in one invocation, `profit_protection_2026_11_16/study.py:404` five arms
+    via CLI, `stop_cooldown_study.py:68` six mixes, plus grid sweeps); scripts/ holds ~20 studies,
+    not seven. Only a general owner-supplied-list → sheet-per-mix writer is missing.
+
+## 2026-11-26 — CURRENT STATE (history; read the 11-27 block above first)
+- Repo is `damandamanaulakh-tech/MARS`. **`docs/repairs/` is the canonical backlog, goal order and
+  release ledger** (AGENTS.md + docs/repairs/WORKFLOW.md are binding: reproduce, bounded fix, tests,
+  records in the same PR, `python scripts/check_repair_records.py --sync`, full zero-skip suite).
+  Another agent (Codex) ships in the same repo (PR229-233). Nothing below this block is deployment proof.
+- Live set since 25 Nov: SIX segment shares 30/10/24/24/10/2 (Momentum / Intraday / Short / Swing /
+  Positional / Ocean). Candle gate retired for every category since 16 Nov (advice only). Measured
+  Kelly still blocks Momentum.
+- **LIVE HOLD (26 Nov 15:36 UTC, /healthz): the running process CANNOT REACH its database**
+  (RUN-20261126-02): `connected: true` (stale flag), `mongo: null`, `history_tickers: 0`, the
+  statistics refresh takes 12.1 s (4 reads x 3 s server-selection timeout), `write_error_at` frozen at
+  13:04:53 UTC, last confirmed book save 26 Nov 08:53:56 UTC (14:23:56 IST),
+  `entry_block_reason: portfolio_save_failed`. The red banner's "513 MB of 512 MB" text is the LAST
+  recorded error, not the current fault. Owner 20:39 IST: "Render & Mongo is paid with full access".
+  INFERENCE (not verified in Atlas): the plan change ~18:35 IST moved the cluster to new hosts; the
+  live build never rebuilds its client while `_CONNECTED` is true, so only a restart recovers it.
+  **RECOVERY = a Render RESTART of the same build (owner action), NOT a merge** — the PR stays on
+  hold until an acknowledged save and the owner's word. A restart reloads the 14:23:56 IST copy:
+  sells after that are undone; buys were paused from the first refused save
+  (`engine._check_entry_persistence`), but any made in the 14:30 pass before that refusal are lost
+  too. Before restarting: Reports -> Positions and Trades download from memory (Trades leaves out the
+  archived older rows; the Journal download reads the archive first and is expected to fail; the
+  Positions file carries no stop / target / segment). If Atlas shows no `sourceborn.portfolio` on
+  the cluster `MONGO_URL` points at, do NOT restart. After the restart: compare the two files with
+  the book and list what needs correcting (owner SELL is market-hours gated).
+  `journal_archive` 216 MB, +~25 MB/day, 94% scan decisions (RUN-20261126-01).
+- OWNER RULES THIS SESSION: "Show me every time, what u r changing before ship" · "make sure nothing
+  else live on app, all backend must be intact as it is" · the master Excel is NOT in the repo
+  ("do not touch repo"); it lives in the session scratchpad and was sent to the owner (v6, 113 sheets).
+- DELIVERED: 56-slide full review deck (artifact LWCtURftSqo1UYkiL74XF6); master Excel v6; four
+  pending tables (faults 143 / their 46 points / sequence 24 / formulas).
+- **OWNER'S FORMULA DECISIONS 26 Nov** (their table 4): keep the MARS base score (0.65 momentum +
+  0.35 quality, buy 62); WATCH label from 55; 20-session top-10 rank = a live rank column (display,
+  not a buy rule); VIX size multiplier x1.15 / 1 / 0.8 / 0.65 / 0.5 (<12 / 12-16 / 16-20 / 20-25 /
+  >=25); TWO volume gates shown separately (5-vs-20-day trend; hard 1.5x spike, blocking Intraday
+  only); liquidity Rs 5 Cr stays but the fund summary must add the cash RELEASED on closes and
+  reconcile to the total; measured bid-ask spread to replace flat slippage when logged in; pre-rise =
+  compression (T12W_0005) + volume ignition (T12W_0057) as ONE signal; sector resilience 30/25/30/15
+  kept; valuation P/E band capped at the current market (test first); candle = Intraday only /
+  advice; clicking a stock must show targets + its segment verdicts; DATA_NEEDED to be fixed from
+  open sources; index-vs-stock gap ("bubble") = a dashboard measure (10.1 points over 60 days on
+  25 Nov). Then: "go with defaults" (16 questions) + "VIX, few other are not in default, add that
+  too" = build the test-first items behind their own switches, show each result before switching on.
+- **THIS BRANCH = draft PR #234 (not merged; code head ab6fc59, tests 8f74b78), five repairs:**
+  * **INTRA-005 / RUN-20261125-01 intraday pipeline** — docs/repairs/releases/
+    2026-11-26-intraday-pipeline.md. Bars fetched right before scoring; zero-weight outside inputs
+    not fetched; ~100 most-traded names every pass; quiet 5-minute `engine.scan(side_pass=True)`
+    from `scheduler._intraday_side_pass` (does not overwrite the screens, run Ocean or rotation, or
+    write a row per stock; reuses the daily panel / flows / regime for 30 min); last auto buy 14:45,
+    max 10 intraday positions, no same-day re-buy after a stop.
+  * **DISP-001 owner display batch, items 1-5 BUILT** — releases/2026-11-26-owner-display-batch.md.
+    (1) fund summary: Released today / Booked P&L per segment + "Does it add up?" (capital + booked
+    + open P&L = equity = cash + used); (2) WATCH label from `cfg.watch_floor` 55 (display only);
+    (3) /chart/{ticker} stock card (`web/stock_card.py`): five segments, buy mark, score, verdict,
+    stop + target a new buy would get; (4) "Market vs stocks" card (`trading/market_gap.py`,
+    `Portfolio.market_gap`, written by the Momentum pass; 60 sessions on 25 Nov: Nifty +7.17%,
+    median stock -2.95%, gap 10.12 points, 22% ahead; "narrow" cut-offs 5 points / 40% are ASSUMED);
+    (5) 20-session rank on /scan (`multi_formula.rank_mom20`, display only).
+    (6) PRE-RISE LABEL (`trading/pre_rise.py`): T12W_0057 with T12W_0005 on the same day or in
+    the 5 sessions before it, shown for 5 sessions, read by the daily trigger pass into each
+    `trigger_watch` row; on /triggers, the stock trigger page, the /chart card, a /scan chip (stored
+    pass, bars <= 7 days old) and the Den. **MEASURED BEFORE BUILDING, NO EDGE**
+    (scripts/pre_rise_study.py, research/pre_rise_study/): 373 fires in 469,947 stock-days, +10%
+    label hit 29.49% v chance 32.11% = lift 0.919 (0.996 to Jun 2020, 0.799 after). The record is
+    loaded from the committed run and printed beside the label. Sixth entry-side signal to fail.
+  * **VOL-001 two volume gates (NOT display only)** — releases/2026-11-26-volume-gates.md.
+    Gate 1 = the existing 5-bar / 20-bar trend inside `timing_ok` (marks Intraday 1.5, Short 1.3,
+    Swing 1.2, Positional 1.2, Momentum 0 = off): unchanged by default, own reading + switch
+    `volume_gate1_enabled`. Gate 2 = `timing.passes_volume_spike`: latest bar / mean of the 20
+    bars BEFORE it >= 1.5; refuses a buy only in `volume_gate2_block_modes` = ("intraday",), in
+    the scan's pick loop after score + timing (skip reason `volume_spike`); a reading elsewhere;
+    switch `volume_gate2_enabled`. Stored: `scan_matrix["volume_gates"]`, row `vol` {tk,tr,sk,sr},
+    `last_pass["volume_gates"]`. NOT tested against returns. Real daily bars 25 Nov (253
+    stocks): Gate 1 >= 1.3x 43 pass, Gate 2 44 pass. **EXTENDING GATE 2 TO MOMENTUM:
+    MEASURED 27 Nov, NOT SUPPORTED** (research/volume_gate2_study/, plan committed first;
+    11,055 Momentum picks of the 191x12y panel, the VIX test's population): a passed buy
+    +1.659% v a refused one +2.385% in the FIRST half, +4.555% v +3.958% in the second = the
+    sign FLIPS, so the whole-period +0.152 pts is the second half alone; the biggest-spike
+    bucket is the WORST before 2020 (+0.700%) and among the best after (+4.970%); helps in 6
+    of 12 years; refuses 76% of Momentum buys. Marks 1.2/1.3/1.5/2.0 recorded but NOT used to
+    pick one (2.0 flips wider). `volume_gate2_block_modes` stays ("intraday",). EIGHTH
+    entry-side signal to fail. **CORRECTION 2026-11-27 — "Intraday is unmeasurable, no
+    5-minute history is stored" WAS FALSE and is retired (the third false belief found this
+    day).** ~208,400 five-minute bars ARE committed: research/combined_2026_11_17/
+    raw_responses.json.gz (90,069 candles, 21 tickers) + research/profit_protection_2026_11_16/
+    raw_responses.json.gz (118,335 bars, 15 symbols); three research fetchers request
+    "minutes/5". And `research/combined_2026_11_17/replay.py` is a REAL-ENGINE intraday
+    replay (patches ONLY external providers, raises if any network call occurs, withholds
+    future bars) over 51 sessions, with committed metrics.csv + 521-row trades.csv.
+    **IT MEASURED INTRADAY AS LOSING AT EVERY COST SCENARIO: 5 bps/side 152 trades
+    −Rs 1,18,660.95 (−780.66/trade, 38.8% wins) · 15 bps 155 trades −Rs 3,07,472.87
+    (−1,983.70, 32.9%) · 30 bps 157 trades −Rs 5,64,975.37 (−3,598.57, 22.9%)** — a
+    monotonic cost gradient, not noise. Same replay: shared book −Rs 7,34,453.57 and
+    nifty200_momentum −Rs 5,72,848.53 (11 trades, 9.1% wins) at 5 bps, so part of it is the
+    51-session period, not the segment. Intraday is NOT dormant — 10% of deployable
+    (`budget_share_intraday`) and the second pass of both rotations. LIMITS: 51 sessions,
+    21/15 names, and NO production path stores 5-minute bars (`web/db.py` has no intraday
+    save; `trading/intraday_data.py` tags frames `interval='5m'` in memory only), so the
+    owner's REQUIRES_15Y_BACKTEST bar is unreachable for intraday until storage is built.
+    Do NOT tell the owner intraday cannot be measured; it has been, and it lost.
+  * **OPS-09 / RUN-20261126-02 database reconnect** — releases/2026-11-26-database-reconnect.md.
+    `db.note_link_failure` drops the client on a pymongo ConnectionFailure (save, policy read,
+    statistics read); `is_connected()` rebuilds it once per 60 s and the heal pass saves the book;
+    a refused operation (quota) is NOT a link failure; new red "Database CANNOT BE REACHED" banner.
+  * **VIX-001 VIX size multiplier — BUILT, SWITCH DEFAULT OFF, MEASURED NOT SUPPORTED** —
+    releases/2026-11-26-vix-size-switch.md. The owner's ladder x1.15 / 1 / 0.80 / 0.65 / 0.50
+    (<12 / 12-16 / 16-20 / 20-25 / >=25) in `sizing.vix_size_multiplier` +
+    `apply_vix_multiplier` (never below the minimum ticket, never above the 5% cap, unknown VIX
+    = size unchanged and said so), ONE call site: the scan's score-sized branch, after the
+    measured-Kelly cap; Ocean ticket and every owner path untouched (syntax-tree pinned); BUY
+    journal `sizing.vix`; Den line; Settings switch `vix_sizing_enabled`. **PRE-REGISTERED TEST
+    (PLAN.md committed first, scripts/vix_sizing_study.py, research/vix_sizing_study/): NOT
+    SUPPORTED.** 11,055 Momentum picks Jul 2015-Jun 2026: per rupee +3.423% with the ladder vs
+    +3.431% plain (train +0.145 pts, test -0.071); band means under 12 +5.74 / 12-16 +2.46 /
+    16-20 +2.71 / 20-25 +4.22 / **25+ +7.07** — the band the ladder HALVES was the best; the
+    worst six months (Jul-Dec 2024) sat at VIX 12.8-15.6 = multiplier 1.00 throughout; average
+    multiplier 0.9155 (deploys 8.5% less, earns 8.7% less), negative in 8 of 12 years.
+    Recommendation: leave it off. Seventh entry-side signal to fail.
+  Full local suite on 8f74b78: 3,983 passed, 0 failed, 0 errors, 0 skipped (~11 minutes when run
+  ALONE from a clean `/tmp/sourceborn_paper`; never run two test jobs at once — they share that
+  folder; do not edit repo files while it runs). CI clean on the eight commits to 9248374 and on 8f74b78 (the head's test
+  fix); on ab6fc59 CI failed ONE test (a Den line reading a settings value an earlier test left behind —
+  not an app fault), fixed in 8f74b78 with a shared `clean_settings()` fixture; CI queue runs
+  ~40 min behind.
+- **CORRECTION 27 Nov, VERIFIED IN CODE — THE VALUATION RANGE IS ON THE MONEY PATH.** The
+  October notes further down ("item 19 stays OUT", "display only; engine never reads
+  trading.valuation") are HISTORY, superseded by the owner's card of 2026-10-21 ("Wire A3" +
+  "Exit as tested"): `trading/valuation_exit.py` is live, `cfg.valuation_exit_enabled = True`
+  BY DEFAULT, `engine.py:2753/2801` imports it, and an exit can fire **VAL_TARGET_DOWN**.
+  `valuation_exit.target_from_record` reads `rec["base_target"]`, which is
+  `web/valuation_exit_feed.py:251` <- `rng["base"]` <- `pipeline.evaluate` <-
+  `scenarios.justified_range`. The boundary test still holds and was MOVED, not broken:
+  `trading/tests/test_valuation_boundary_2026_10_14.py` pins `ALLOWED =
+  "trading.valuation_exit"` as the ONE import the money path may make, and asserts engine.py
+  makes it. So **the owner's "valuation P/E band capped at the current market" is a MONEY-PATH
+  change, not a display tweak**: a lower base both disqualifies names from the A1 gate
+  (`base > fill x 1.05`) and lowers the target of those that still qualify, and the item-19
+  study that earned the rule measured the UNCAPPED base. Any cap ships with its default
+  meaning "no cap" and may only be switched on after its own pre-registered test. The
+  scheduler precompute passes NO overrides (`web/scheduler.py:1355`), so a Den DRAFT cannot
+  reach the engine - but a non-neutral MODULE DEFAULT would.
+- **P/E DATA EXISTS — the other finding of the 2026-11-27 survey (4 readers + 3 refuters).**
+  NSE's own published per-index P/E and P/B are ALREADY fetched daily and stored:
+  `trading/macro_feeds.py:753` `https://www.nseindia.com/api/allIndices` (TOKENLESS, 200 with
+  follow_redirects - the HTML home page 403s, the JSON API does not), parsed at :793, stored
+  in Mongo `macro_daily` as `nse_pe:<INDEX>` / `nse_pb:<INDEX>` (23 indices), refreshed 09:20
+  + 15:35 by `scheduler._market_feeds_refresh`, read by `web/valuation_market_view.py`
+  (NSE_STALE_DAYS 10). Live 26 Nov close: NIFTY 50 21.08, IT 20.29, Pharma 46.80, Oil & Gas
+  9.97, Metal 13.86. HISTORY for a pre-registered test: `ind_close_all_<DDMMYYYY>.csv`
+  (nsearchives / niftyindices Daily_Snapshot) carries a P/E column per index back to ~2013 for
+  the majors. **TRAP: a missing date returns HTTP 200 with a 79,518-byte HTML page - validate
+  that the body starts "Index Name".** Before 2015 the Nifty 50 row is named "CNX Nifty" /
+  "S&P CNX Nifty". LIMITS: Chemicals index history starts 2025-11-10 and Cement 2026-05-11;
+  `data/industry_to_index.csv` maps NONE for Capital Goods (63 names) and Healthcare (48), so
+  those 111 names have no cap source at all; deriving a sector P/E from our own statements was
+  measured and REJECTED (only 97 of 177 members covered, median 20.5% off the published
+  figure). Committed fixture: `trading/tests/fixtures/nse_allIndices_2026-10-19.json`.
+- **PARKED, NOT IN ANY BRANCH: XR-060** (owner: tables 1-3 "due with other" batch). The fix is
+  in `trading/danger.py`: `import numpy as np`, add
+  `def _verdict(result): return bool(result) if isinstance(result, (bool, np.bool_)) else None`
+  and read `result = _verdict(fn(x))` / `_verdict(fn(ext_x, ext, {}, {}))` where the code tests
+  `is True`. 8 of 10 price tripwires return a NumPy bool the checker never counts. A local stash and
+  a scratchpad patch hold it but both die with the container — rebuild from these lines.
+- PENDING, each shown before shipping: (1) display batch — DONE (six items + VOL-001), awaiting
+  the owner's look at the renders; (3) test-first behind switches — VIX sizing BUILT
+  (measured, not supported, default OFF — owner's call) and volume gate 2 outside Intraday
+  MEASURED, not supported (nothing built, config unchanged); still open: spread fills, valuation P/E cap (1.25 x the sector index P/E — MONEY PATH, see the correction below), candle priority; (4) data — quarterly shareholding for the whole scan list, Brent / gold / US 10y /
+  dollar index / copper, event calendar, UK-parent stake-sale rule, the DATA_NEEDED fixes. Open
+  questions put to the owner: 5-minute stop checks for intraday positions only; Settings rows for
+  the five intraday values; different "narrow rally" cut-offs. Owner owes: the restart above, the
+  next file batch (per-company valuation formulas), tables 1-3.
+- HARNESS: prove a test fails on old code with `git worktree add <scratch>/oldtree <main sha>`
+  (never `git stash` — it holds parked work); `pip install freezegun==1.5.5` after a container
+  restart; the full suite takes ~11 minutes run alone; a source pin must use `ast` or strip
+  comments AND docstrings; local renders: scratchpad tools/serve_sample.py + tools/shot.js
+  (Playwright, `serviceWorkers: 'block'`); Workflow agents hit the shared usage cap three times
+  this session — do the work directly.
+
 ## What it is
 Live **paper-only** trading engine (₹5 crore paper capital since 2026-09-10), FastAPI + Mongo
 Atlas on Render starter (512MB always-on). Hard PAPER_ONLY lock in
@@ -98,8 +427,16 @@ claude/repo-audit-overview-epyrvc; merge only after 17:30 IST on a day the
   HDFCBANK, ICICIBANK, DRREDDY, TATAMOTORS) and TATATECH is not in it at
   all (N200 only; the October monthly refresh stalled). Stage 08 must lock
   currency + units; Yahoo gives period ends not publication dates (45-day
-  lag ASSUMED until NSE result dates are fetched). Fundamentals start 2021
-  → any valuation-stage test covers 5 years, not 12 (said to the owner).
+  lag ASSUMED until NSE result dates are fetched). **"Fundamentals start 2021
+  → 5 years of test window" IS WRONG — corrected 2026-11-27 (fourth false belief
+  retired this day).** MEASURED in the zip snapshot.py reads: of its 200
+  income-statement files only **5** carry any 2021 period end; 121 start 2022,
+  70 in 2023, 2 in 2024, 2 in 2025 (the 2021 five are VBL, SIEMENS, NESTLEIND,
+  AMBUJACEM, ABB). fundamentals_n200 as_of years: 2021 **13 rows** vs 67 /
+  1,850 / 1,968 / 4,302 / 3,177 for 2022-26. The real binding constraint is the
+  POINT-IN-TIME one already in docs/VALUATION_EXIT_2026-10-21.md:46-48 — **no
+  point-in-time valuation exists before 2023-05-15**, so the honest window is
+  **~3 years, not 5**. Quote the 2023-05-15 cutoff, never "starts 2021".
 - ITEM 14 RUN (live public candles to 10-09): AM07 ≥62 passes SUNPHARMA,
   ICICIBANK, SBIN, SAIL, LODHA, HAL; ASH08 gives TATATECH 100.0 on a name
   down 13% in a month (6-month return only, saturates) = the flaw the study

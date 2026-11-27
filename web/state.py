@@ -102,10 +102,12 @@ def _hydrate_portfolio_from_mongo(p: Portfolio, doc: dict) -> None:
     p.universe_ledger = list(doc.get("universe_ledger", []) or [])
     p.breadth_store = dict(doc.get("breadth_store", {}) or {})
     p.breadth_today = dict(doc.get("breadth_today", {}) or {})
+    p.market_gap = dict(doc.get("market_gap", {}) or {})
     p.option_chain = dict(doc.get("option_chain", {}) or {})
     p.register_market = dict(doc.get("register_market", {}) or {})
     p.damage_store = dict(doc.get("damage_store", {}) or {})
     p.danger_alerts_start = doc.get("danger_alerts_start")
+    p.danger_acted = doc.get("danger_acted") or {}
     p.last_save = doc.get("last_save")
     p._durable_book_loaded = True
 
@@ -220,6 +222,7 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
     def _save_with_mirror(self: Portfolio) -> bool:
         from trading.history_retention import retain
         connected = db.is_connected()
+        stamp_before = db.LAST_WRITE_ERROR_AT
         if (db.recovered_pending() and db.boot_was_degraded()
                 and not getattr(self, '_durable_book_loaded', False)):
             original_save(self)
@@ -228,10 +231,17 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             policy = db.closed_history_policy() if connected else self.closed_history_policy
             self.closed_history_policy = policy or self.closed_history_policy
             self.trades = retain(self.trades, self.closed_history_policy)
-        except Exception:
+        except Exception as exc:
             # Preserve the local book, but do not overwrite the durable policy
             # or resurrect removed history when its policy cannot be read.
             original_save(self)
+            # Say what is failing NOW. On 26 Nov this path returned without a
+            # word, so the dashboard kept an hours-old storage-quota message
+            # while the real fault was a database the app could not reach.
+            if connected and db.LAST_WRITE_ERROR_AT == stamp_before:
+                db.portfolio_write_failed(
+                    "portfolio save stopped before the write: "
+                    + type(exc).__name__ + " reading the saved-history policy")
             return False
 
         from trading import forward_validation as fv
@@ -304,10 +314,12 @@ def _patch_portfolio_save_to_mirror_mongo() -> None:
             "universe_ledger": self.universe_ledger[-1500:],
             "breadth_store": self.breadth_store,
             "breadth_today": self.breadth_today,
+            "market_gap": self.market_gap,
             "option_chain": self.option_chain,
             "register_market": self.register_market,
             "damage_store": self.damage_store,
             "danger_alerts_start": self.danger_alerts_start,
+            "danger_acted": self.danger_acted,
             "last_save": self.last_save,
         }
         saved = db.save_portfolio(doc) is True
@@ -432,22 +444,113 @@ def _heal_book_after_reconnect(p: Portfolio) -> None:
                         "has been restored from Mongo (local book was empty)."),
             })
         elif persisted:
-            if not any(row.get('action') == 'MONGO_RECOVERED_CONFLICT'
-                       for row in p.decision_journal[-100:]):
-                p.decision_journal.append({
-                "ts": _dt.utcnow().isoformat(),
-                "action": "MONGO_RECOVERED_CONFLICT",
-                "why": ("Mongo is back but this session already traded on a "
-                        "fresh book started during the outage. NOTHING was "
-                        "overwritten — owner must reconcile before saving."),
-                })
-            db.portfolio_write_failed('recovery book conflict; reconciliation required')
-            return
+            if not _resolve_book_conflict(p, persisted):
+                if not any(row.get('action') == 'MONGO_RECOVERED_CONFLICT'
+                           for row in p.decision_journal[-100:]):
+                    p.decision_journal.append({
+                    "ts": _dt.utcnow().isoformat(),
+                    "action": "MONGO_RECOVERED_CONFLICT",
+                    "why": ("Mongo is back but this session already traded on a "
+                            "fresh book started during the outage, and the two "
+                            "books could not be told apart or filed away. "
+                            "NOTHING was overwritten — owner must reconcile "
+                            "before saving."),
+                    })
+                db.portfolio_write_failed('recovery book conflict; reconciliation required')
+                return
     if p.save() is True:
         # Spill has its own independent retries; do not repeat hydration after
         # the recovered current book is acknowledged.
         db.claim_recovery()
     replay_journal_spill(p)
+
+
+def _book_activity_ts(journal) -> Optional[datetime]:
+    """The newest timestamp a book's own journal carries.
+
+    Every action this app takes journals a `ts`, so the newest one is when
+    that book last did something. Rows whose stamp cannot be read are
+    skipped rather than guessed at.
+    """
+    newest = None
+    for row in (journal or ()):
+        raw = row.get('ts') if isinstance(row, dict) else None
+        if not isinstance(raw, str):
+            continue
+        try:
+            when = datetime.fromisoformat(raw)
+        except ValueError:
+            continue
+        if newest is None or when > newest:
+            newest = when
+    return newest
+
+
+def _resolve_book_conflict(p: Portfolio, persisted: dict) -> bool:
+    """XR-070. Two books, one of them real — keep the newer, file both.
+
+    OWNER DECISION 2026-11-27, from an options card: "Keep the newer one, file
+    the other". Before this, a conflict refused every save for the life of the
+    process: nothing was overwritten (the journal line was true), but the book
+    the session was actually trading on never reached the database and died at
+    the next restart, and buying stayed blocked the whole time. That is what
+    the 26 Nov rollback felt like from the owner's side.
+
+    So: file BOTH books away verbatim, then keep whichever journalled an action
+    last and continue on it. One whole book is kept — the two are never merged,
+    because merging would have to invent a cash figure that two books both
+    spent, and would resurrect a sell as an open position.
+
+    Returns False — leaving the old refuse-and-journal path in charge — when
+    either book's age cannot be read (nothing to choose on) or either archive
+    write fails (never discard a book that could not be filed). A tie keeps the
+    durable copy: on equal evidence the database is the one that survives a
+    restart.
+    """
+    local_ts = _book_activity_ts(p.decision_journal)
+    stored_ts = _book_activity_ts(persisted.get('decision_journal'))
+    if local_ts is None or stored_ts is None:
+        return False
+    try:
+        local_doc = p.snapshot()
+    except Exception:
+        log.exception('Book conflict: the running book could not be read for the archive')
+        return False
+    stored_id = db.archive_portfolio_snapshot(persisted, 'conflict-database')
+    local_id = db.archive_portfolio_snapshot(local_doc, 'conflict-session')
+    if not stored_id or not local_id:
+        return False
+    keep_stored = stored_ts >= local_ts
+    n_local, n_stored = len(p.positions or {}), len(persisted.get('positions') or {})
+    if keep_stored:
+        _hydrate_portfolio_from_mongo(p, persisted)   # sets _durable_book_loaded
+    else:
+        # The durable book has now been read, filed and judged: this book is
+        # the reconciled one, so the save guard must let it through. Without
+        # this the session book would be refused for ever — the very fault
+        # XR-070 is about.
+        p._durable_book_loaded = True
+    note = (f"Two books met at a restart. Kept the "
+            f"{'database' if keep_stored else 'running session'} copy "
+            f"({(n_stored if keep_stored else n_local)} positions, last action "
+            f"{(stored_ts if keep_stored else local_ts).isoformat()}); filed the other "
+            f"({(n_local if keep_stored else n_stored)} positions, last action "
+            f"{(local_ts if keep_stored else stored_ts).isoformat()}) away unchanged.")
+    p.decision_journal.append({
+        "ts": datetime.utcnow().isoformat(),
+        "action": "MONGO_RECOVERED_CONFLICT_RESOLVED",
+        "why": note,
+        "kept": "database" if keep_stored else "session",
+        "database_archive_id": stored_id,
+        "session_archive_id": local_id,
+        "database_positions": n_stored,
+        "session_positions": n_local,
+        "database_last_action": stored_ts.isoformat(),
+        "session_last_action": local_ts.isoformat(),
+    })
+    db.note_book_conflict(note + f" Both copies are in portfolio_archive as "
+                                 f"{stored_id} and {local_id}.")
+    return True
 
 
 def _coerce_override(cfg, key: str, value):
@@ -736,6 +839,17 @@ def _bootstrap() -> None:
         _dr.set_pwoi_reader(db.load_pwoi_rows)
     except Exception:
         log.exception("data_refresh reader attach failed")
+
+    # OWNER 2026-11-27 ("Data is needed"): the delivery panel's stored tail,
+    # same injected-reader pattern. The committed 50 MB file stays the fixed
+    # base and the days fetched since are layered on top at read time, so the
+    # repository — cloned on every Render deploy — does not grow.
+    try:
+        from trading import external_panels as _ep
+        _ep.set_delivery_reader(
+            lambda: db.load_delivery_days(_ep.DELIVERY_BASE_THROUGH))
+    except Exception:
+        log.exception("delivery reader attach failed")
 
     # VALFIX 2026-10-21: the valuation chain's macro feeds (10-year yield,
     # RBI repo, RBI USD/INR) read their stored rows through this reader.

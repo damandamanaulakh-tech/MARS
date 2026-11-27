@@ -53,6 +53,23 @@ class RegimeReading:
     sizing_multiplier_ocean: float
     reasoning: str
 
+    # XR-050 (2026-11-27). Is this reading worth acting on?
+    #
+    # fetch_regime catches its OWN fetch failure and RETURNS a permissive
+    # neutral reading — everest on, 0% cash reserve — instead of raising. So
+    # the C7 sticky brake, which lives in engine.scan's `except`, never ran on
+    # the common failure: control took the `else` and the brake was switched
+    # OFF. On a dead-feed day the book therefore lost the protective cash it
+    # is meant to hold on exactly the worst days (20% in a correction, 40% in
+    # a panic), and in a true panic the entry block was lifted too. Worse, the
+    # permissive reading was WRITTEN to portfolio.last_regime, so one dead-feed
+    # day overwrote a stored "panic" and the brake could not arm on the next
+    # one either.
+    #
+    # False means "the inputs this verdict needs were not there". The engine
+    # then treats it exactly as it treats no reading at all.
+    feed_ok: bool = True
+
     def to_dict(self) -> dict:
         d = self.__dict__.copy()
         d["timestamp"] = self.timestamp.isoformat()
@@ -126,6 +143,13 @@ def fetch_regime(fii_5d_net_override: Optional[float] = None) -> RegimeReading:
     if global_risk_off:
         why = f"{why} | ⚠ lead-lag risk-off: {leadlag_why}"
 
+    # XR-050: there is a SECOND route to a permissive reading that raises
+    # nothing at all. trading/data.fetch_daily returns its dict whatever
+    # happens, so an empty answer reaches classify() with every input None and
+    # falls through to its own terminal "NEUTRAL (insufficient data)". That is
+    # a verdict with no evidence behind it, and it must not read as a calm
+    # market either.
+    feed_ok = nifty_close is not None and "insufficient data" not in (why or "")
     return RegimeReading(
         timestamp=datetime.utcnow(),
         nifty_close=nifty_close,
@@ -139,6 +163,7 @@ def fetch_regime(fii_5d_net_override: Optional[float] = None) -> RegimeReading:
         sizing_multiplier_everest=mult_e,
         sizing_multiplier_ocean=mult_o,
         reasoning=why,
+        feed_ok=feed_ok,
     )
 
 
@@ -277,6 +302,7 @@ def _neutral_fallback(reason: str) -> RegimeReading:
         everest_active=True, ocean_active=False,
         sizing_multiplier_everest=1.0, sizing_multiplier_ocean=0.0,
         reasoning=f"NEUTRAL (fallback): {reason}",
+        feed_ok=False,
     )
 
 

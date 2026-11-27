@@ -222,7 +222,11 @@ def test_context_failures_do_not_gate_trading(monkeypatch):
 
 def danger_fixture(monkeypatch):
     from trading import market_context as mc, sector_identity as si, external_panels as ep, data, data_refresh
-    dates=mc.daily_grid(NOW,65).tz_convert('Asia/Kolkata').tz_localize(None).normalize()
+    # 95 sessions, not 65: XR-060's follow-up (owner's choice 2026-11-27) gave
+    # the two panel-fed tripwires the same 70-bar minimum as the other ten, so
+    # a 65-bar fixture would make them abstain and these tests would pass
+    # vacuously on a name the danger layer is no longer allowed to judge.
+    dates=mc.daily_grid(NOW,95).tz_convert('Asia/Kolkata').tz_localize(None).normalize()
     def frame(end):
         values=np.full(len(dates),100.);values[-1]=end
         f=pd.DataFrame({'Open':values,'High':values+1,'Low':values-1,'Close':values,'Volume':1000.},index=dates)

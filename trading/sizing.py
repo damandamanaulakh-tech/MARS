@@ -33,6 +33,74 @@ import pandas as pd
 
 TRADING_DAYS = 252
 
+# VIX size multiplier — the owner's ladder (formula decisions, 2026-11-26).
+# (upper edge, multiplier): India VIX below the edge takes that multiplier;
+# 25 and above takes the last. These are the owner's numbers, not measured
+# ones; the test of them is research/vix_sizing_study/. Nothing reads this
+# unless `cfg.vix_sizing_enabled` is switched on.
+VIX_SIZE_BANDS = ((12.0, 1.15), (16.0, 1.00), (20.0, 0.80), (25.0, 0.65))
+VIX_SIZE_TOP = 0.50
+
+
+def vix_size_multiplier(vix) -> Optional[float]:
+    """The size multiplier for an India VIX reading. None when the reading is
+    missing or not a positive number: unknown, never assumed calm."""
+    try:
+        value = float(vix)
+    except (TypeError, ValueError):
+        return None
+    if not (value > 0) or value != value or value == float("inf"):
+        return None
+    for edge, multiplier in VIX_SIZE_BANDS:
+        if value < edge:
+            return multiplier
+    return VIX_SIZE_TOP
+
+
+def apply_vix_multiplier(wanted: float, vix, *, slab: float = 0.0,
+                         cap: Optional[float] = None) -> tuple[float, dict]:
+    """Scale the size a buy wants by the VIX band (owner defaults, 26 Nov
+    2026): never below the minimum ticket `slab` — or below `wanted` itself
+    when that is already smaller, and a size of zero stays zero — and never
+    above `cap`. An unknown VIX leaves the size alone and says so.
+
+    Returns (size, record). The record is what the BUY journal stores."""
+    wanted = float(wanted or 0.0)
+    multiplier = vix_size_multiplier(vix)
+    record = {"vix": (round(float(vix), 2) if multiplier is not None else None),
+              "band": vix_band_label(vix), "multiplier": multiplier,
+              "wanted": round(wanted, 0), "applied": False}
+    if multiplier is None:
+        return wanted, {**record, "size": round(wanted, 0),
+                        "note": "India VIX unavailable: size left unchanged"}
+    if wanted <= 0 or multiplier == 1.0:
+        return wanted, {**record, "size": round(wanted, 0)}
+    size = wanted * multiplier
+    floor = min(wanted, float(slab or 0.0))
+    limited = ""
+    if size < floor:
+        size, limited = floor, "minimum ticket"
+    if cap is not None and float(cap) > 0 and size > float(cap):
+        size, limited = max(min(float(cap), size), 0.0), "size cap"
+    return size, {**record, "size": round(size, 0), "applied": size != wanted,
+                  **({"limited_by": limited} if limited else {})}
+
+
+def vix_band_label(vix) -> str:
+    """The band a reading falls in, as the screens and the study name it."""
+    try:
+        value = float(vix)
+    except (TypeError, ValueError):
+        return "unknown"
+    if not (value > 0) or value != value or value == float("inf"):
+        return "unknown"
+    lower = 0.0
+    for edge, _ in VIX_SIZE_BANDS:
+        if value < edge:
+            return f"under {edge:g}" if lower == 0.0 else f"{lower:g} to under {edge:g}"
+        lower = edge
+    return f"{lower:g} and above"
+
 
 def annual_vol(close: pd.Series, days: int = 63) -> float:
     """Realised annualised volatility from daily returns. 0 when too short."""

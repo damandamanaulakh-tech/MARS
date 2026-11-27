@@ -10,11 +10,32 @@
      every save was lost. Never again. -->
 <div data-db-write-error="1" class="bg-red-600 text-white px-4 lg:px-6 py-4 mb-6">
   <div class="font-bold text-base lg:text-lg">⛔ Database is REFUSING WRITES — the book is NOT being saved</div>
-  <div class="text-sm text-red-100 mt-1">New buys are paused. Protective exits and save retries remain active. Changes since the last confirmed portfolio save may exist only in memory or local fallback files; preserve them before a restart. Save error: <span class="font-mono">{{ db_status.write_error }}</span></div>
+  <div class="text-sm text-red-100 mt-1">New buys are paused. Protective exits and save retries remain active. Changes since the last confirmed portfolio save may exist only in memory or local fallback files; preserve them before a restart. Save error{% if db_status.write_error_at %} (recorded {{ db_status.write_error_at | ist }}){% endif %}: <span class="font-mono">{{ db_status.write_error }}</span></div>
   <div class="text-sm text-red-100 mt-1">Last confirmed save this process: {{ db_status.portfolio_save_confirmed_at or 'not yet confirmed' }} UTC. Buying resumes only after a successful portfolio save. Fix the reported storage problem; the app retries every minute when its book is available.</div>
+</div>
+{% elif db_status and db_status.url_set and not db_status.connected %}
+{#- RUN-20261126-02: the database is configured but cannot be reached (for
+    example after its plan was changed and the cluster moved). The app drops
+    the dead connection and tries a fresh one every minute by itself. -#}
+<div data-db-unreachable="1" class="bg-red-600 text-white px-4 lg:px-6 py-4 mb-6">
+  <div class="font-bold text-base lg:text-lg">⛔ Database CANNOT BE REACHED — the book is NOT being saved</div>
+  <div class="text-sm text-red-100 mt-1">New buys are paused. Protective exits remain active. The app drops the dead connection and tries a fresh one every minute by itself — no restart is needed, and a restart would discard changes made since the last confirmed save.{% if db_status.write_error %} Latest error{% if db_status.write_error_at %} (recorded {{ db_status.write_error_at | ist }}){% endif %}: <span class="font-mono">{{ db_status.write_error }}</span>{% endif %}</div>
+  <div class="text-sm text-red-100 mt-1">Last confirmed save this process: {{ db_status.portfolio_save_confirmed_at or 'not yet confirmed' }} UTC. If this stays for more than a few minutes, check in the database console that the cluster is running and that this server is allowed to connect.</div>
 </div>
 {% elif db_status and db_status.degraded %}
 <div data-db-save-pending="1" class="bg-amber-100 text-amber-950 px-4 py-4 mb-6">New buys are paused until the portfolio save is confirmed. Protective exits and save retries remain active. Status: {{ db_status.entry_block_reason }}.</div>
+{% endif %}
+
+{% if db_status and db_status.book_conflict %}
+{#- XR-070 (owner decision 2026-11-27, "keep the newer one, file the other").
+    A restart met two different books and the app kept one of them. The
+    journal holds the durable record and both copies are archived; this line
+    exists so the owner LEARNS it happened without downloading a CSV. -#}
+<div data-book-conflict="1" class="bg-amber-100 text-amber-950 px-4 py-4 mb-6">
+  <div class="font-bold">⚠️ Your book was reconciled after a restart</div>
+  <div class="text-sm mt-1">{{ db_status.book_conflict }}{% if db_status.book_conflict_at %} (recorded {{ db_status.book_conflict_at | ist }}){% endif %}</div>
+  <div class="text-sm mt-1">Nothing was thrown away — both copies are filed in the database under the ids above, and the full record is in the journal on <a class="underline" href="/reports">Reports</a>. Check Positions against what you expect before the next trading session.</div>
+</div>
 {% endif %}
 
 {% if upstox_notice %}
@@ -143,37 +164,65 @@
   <table class="w-full text-sm" data-fund-segments="1">
     <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-b border-line">
       <tr>
-        <th class="text-left px-4 lg:px-6 py-2 whitespace-nowrap">Segment</th>
-        <th class="text-right px-2 py-2 whitespace-nowrap" title="the category's share of the deployable capital (equity minus the regime reserve) — the number risk.can_open refuses on">Share</th>
-        <th class="text-right px-2 py-2 whitespace-nowrap" title="entry cost of this segment's open positions">Allocated</th>
-        <th class="text-right px-2 py-2 whitespace-nowrap" title="this segment's positions at the page's marks">Used (now)</th>
-        <th class="text-right px-2 py-2 whitespace-nowrap" title="share minus allocated — what this segment may still spend">Free</th>
-        <th class="text-right px-2 py-2 whitespace-nowrap">Open</th>
-        <th class="text-right px-2 py-2 whitespace-nowrap">P&amp;L ₹</th>
-        <th class="text-right px-2 py-2 whitespace-nowrap">vs used</th>
-        <th class="text-right px-4 lg:px-6 py-2 whitespace-nowrap">vs share</th>
+        <th class="text-left px-4 py-2 whitespace-nowrap">Segment</th>
+        <th class="text-right px-1.5 py-2 whitespace-nowrap" title="the category's share of the deployable capital (equity minus the regime reserve) — the number risk.can_open refuses on">Share</th>
+        <th class="text-right px-1.5 py-2 whitespace-nowrap" title="entry cost of this segment's open positions">Allocated</th>
+        <th class="text-right px-1.5 py-2 leading-tight" title="this segment's positions at the page's marks">Used<br>(now)</th>
+        <th class="text-right px-1.5 py-2 whitespace-nowrap" title="share minus allocated — what this segment may still spend">Free</th>
+        <th class="text-right px-1.5 py-2 whitespace-nowrap">Open</th>
+        <th class="text-right px-1.5 py-2 leading-tight" title="entry cost of this segment's positions closed today (IST) — money that came back to its free room today">Released<br>today</th>
+        <th class="text-right px-1.5 py-2 leading-tight" title="net result of this segment's closed trades listed in the book, after every cost of both legs">Booked<br>P&amp;L</th>
+        <th class="text-right px-1.5 py-2 leading-tight" title="open positions at this page's marks, against their entry cost">Open<br>P&amp;L ₹</th>
+        <th class="text-right px-4 py-2 leading-tight" title="open P&amp;L as a percentage of the money in use, and of the segment's share">Open P&amp;L %<br>used · share</th>
       </tr>
     </thead>
     <tbody>
       {% for r in fund.rows %}
       {% set up = r.pnl >= 0 %}
       <tr class="border-b border-line/60 last:border-0" data-fund-segment="{{ r.category }}">
-        <td class="px-4 lg:px-6 py-2 font-semibold whitespace-nowrap">{{ r.label }}
+        <td class="px-4 py-2 font-semibold whitespace-nowrap">{{ r.label }}
           {% if r.note %}<span class="text-[10px] font-normal text-ink-faint">· {{ r.note }}</span>{% endif %}
           {% if r.full %}<span class="text-[10px] font-normal text-amber-700">· share full</span>{% endif %}{% if r.over_limit %}<div class="text-[10px] font-normal text-amber-800">₹{{ r.over_limit|inr }} over limit · holdings retained</div>{% endif %}</td>
-        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">{% if r.limit is not none %}₹{{ r.limit | inr }}{% if r.share is not none %} <span class="text-[10px] text-ink-faint">({{ (r.share * 100) | round(0) | int }}%)</span>{% endif %}{% else %}<span class="text-ink-faint" title="no budget applies">—</span>{% endif %}</td>
-        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">₹{{ r.allocated | inr }}</td>
-        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">₹{{ r.now | inr }}</td>
-        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">{% if r.free is not none %}₹{{ r.free | inr }}{% else %}<span class="text-ink-faint">—</span>{% endif %}</td>
-        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">{{ r.open }}</td>
-        <td class="px-2 py-2 text-right tabular-nums font-semibold whitespace-nowrap {% if r.open %}{% if up %}text-emerald-700{% else %}text-red-700{% endif %}{% else %}text-ink-faint{% endif %}">{% if r.open %}{{ '+' if r.pnl >= 0 }}₹{{ r.pnl | inr }}{% else %}—{% endif %}</td>
-        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap {% if r.pnl_vs_cost is not none %}{% if up %}text-emerald-700{% else %}text-red-700{% endif %}{% else %}text-ink-faint{% endif %}">{% if r.pnl_vs_cost is not none %}{{ '%+.2f' % r.pnl_vs_cost }}%{% else %}—{% endif %}</td>
-        <td class="px-4 lg:px-6 py-2 text-right tabular-nums whitespace-nowrap {% if r.pnl_vs_share is not none %}{% if up %}text-emerald-700{% else %}text-red-700{% endif %}{% else %}text-ink-faint{% endif %}">{% if r.pnl_vs_share is not none %}{{ '%+.2f' % r.pnl_vs_share }}%{% else %}—{% endif %}</td>
+        <td class="px-1.5 py-2 text-right tabular-nums whitespace-nowrap">{% if r.limit is not none %}<span title="₹{{ r.limit | inr }}">₹{{ r.limit | inr_lakh }}</span>{% if r.share is not none %} <span class="text-[10px] text-ink-faint">({{ (r.share * 100) | round(0) | int }}%)</span>{% endif %}{% else %}<span class="text-ink-faint" title="no budget applies">—</span>{% endif %}</td>
+        <td class="px-1.5 py-2 text-right tabular-nums whitespace-nowrap">₹{{ r.allocated | inr }}</td>
+        <td class="px-1.5 py-2 text-right tabular-nums whitespace-nowrap">₹{{ r.now | inr }}</td>
+        <td class="px-1.5 py-2 text-right tabular-nums whitespace-nowrap">{% if r.free is not none %}₹{{ r.free | inr }}{% else %}<span class="text-ink-faint">—</span>{% endif %}</td>
+        <td class="px-1.5 py-2 text-right tabular-nums whitespace-nowrap">{{ r.open }}</td>
+        <td class="px-1.5 py-2 text-right tabular-nums whitespace-nowrap" data-fund-released="{{ r.category }}">{% if r.closed_today %}₹{{ r.released_today | inr }} <span class="text-[10px] text-ink-faint">({{ r.closed_today }})</span>{% else %}<span class="text-ink-faint">—</span>{% endif %}</td>
+        <td class="px-1.5 py-2 text-right tabular-nums whitespace-nowrap {% if r.closed %}{% if r.booked >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}{% else %}text-ink-faint{% endif %}" data-fund-booked="{{ r.category }}">{% if r.closed %}{{ '+' if r.booked >= 0 else '−' }}₹{{ r.booked | abs | inr }} <span class="text-[10px] text-ink-faint">({{ r.closed }})</span>{% else %}—{% endif %}</td>
+        <td class="px-1.5 py-2 text-right tabular-nums font-semibold whitespace-nowrap {% if r.open %}{% if up %}text-emerald-700{% else %}text-red-700{% endif %}{% else %}text-ink-faint{% endif %}">{% if r.open %}{{ '+' if r.pnl >= 0 else '−' }}₹{{ r.pnl | abs | inr }}{% else %}—{% endif %}</td>
+        <td class="px-4 py-2 text-right tabular-nums whitespace-nowrap {% if r.pnl_vs_cost is not none %}{% if up %}text-emerald-700{% else %}text-red-700{% endif %}{% else %}text-ink-faint{% endif %}" data-fund-pct="{{ r.category }}">{% if r.pnl_vs_cost is not none %}{{ '%+.2f' % r.pnl_vs_cost }}%{% else %}—{% endif %} <span class="text-[10px] text-ink-faint">· {% if r.pnl_vs_share is not none %}{{ '%+.2f' % r.pnl_vs_share }}%{% else %}—{% endif %}</span></td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
   </div>
+  {#- Owner order 2026-11-26: "its not adding the margin released in the total,
+      it should add the amount, and must match with each total". Two lines that
+      land on the same rupee, built from market_panels.fund_summary.reconcile. -#}
+  {% set rc = fund.reconcile %}
+  {% if rc %}
+  {% macro signed(v) %}<span class="whitespace-nowrap">{{ '+' if v >= 0 else '−' }}₹{{ v | abs | inr }}</span>{% endmacro %}
+  {% macro term(v, label) %}<span class="whitespace-nowrap">{{ '+' if v >= 0 else '−' }} {{ label }} ₹{{ v | abs | inr }}</span>{% endmacro %}
+  <div class="px-4 lg:px-6 py-3 border-t border-line text-sm" data-fund-reconcile="fund_reconcile_marker">
+    <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-1">Does it add up? {% if rc.balances %}<span class="text-emerald-700">yes — both lines end on the same rupee</span>{% else %}<span class="text-red-700">NO — the two lines differ, tell support</span>{% endif %}</div>
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-x-8 gap-y-1 tabular-nums">
+      <div data-fund-reconcile-line="result"><span class="whitespace-nowrap">Capital ₹{{ rc.capital | inr }}</span>
+        {{ term(rc.realised, 'booked') }}
+        {{ term(rc.unrealised, 'open P&amp;L' | safe) }}
+        <span class="whitespace-nowrap">= <b>₹{{ rc.equity | inr }}</b></span></div>
+      <div data-fund-reconcile-line="where"><span class="whitespace-nowrap">Cash ₹{{ rc.cash | inr }}</span> <span class="whitespace-nowrap">+ used (now) ₹{{ rc.used_now | inr }}</span> <span class="whitespace-nowrap">= <b>₹{{ rc.equity | inr }}</b></span></div>
+    </div>
+    <div class="text-[11px] text-ink-faint mt-1">
+      Booked = every closed trade and every charge paid since the book was funded.
+      Closed trades listed in the book: {{ rc.listed_closed }}, net {{ signed(rc.listed_booked) }}{% if rc.other | abs >= 1 %};
+      the other {{ signed(rc.other) }} is older trades no longer listed here and charges already paid on positions still open{% endif %}.
+      {% if rc.unplaced.closed %}{{ rc.unplaced.closed }} listed trade(s), net {{ signed(rc.unplaced.booked) }}, carry no segment and sit in no row above. {% endif %}
+      Today: {% if rc.closed_today %}<span class="whitespace-nowrap">₹{{ rc.released_today | inr }}</span> released by {{ rc.closed_today }} close(s), booked {{ signed(rc.booked_today) }}{% else %}no position closed{% endif %}.
+      Result since funding: {{ signed(rc.total_result) }}{% if rc.total_result_pct is not none %} ({{ '%+.2f' % rc.total_result_pct }}%){% endif %}.
+    </div>
+  </div>
+  {% endif %}
   {#- The Total row, the shares footnote and the "why not today" block (item 32)
       were removed on the owner's screenshot markup of 2026-10-12 ("that green
       marked doesn't make sense, remove that"). The book totals stay in the strip
@@ -222,6 +271,53 @@
     </div>
   </div>
   {% endfor %}
+</div>
+{% endif %}
+{#- Owner order 2026-11-26: "market goes quite high but not much movement in
+    stocks, this bubble I want to define". The Momentum scan stores the reading
+    (trading/market_gap.py); this card only prints it. Display only. -#}
+{% if market_gap %}
+<div class="bg-white border border-line mb-6" data-market-gap="market_gap_marker">
+  <div class="px-4 lg:px-6 py-3 border-b border-line flex flex-wrap items-baseline justify-between gap-2">
+    <div class="font-bold">Market vs stocks</div>
+    <div class="text-xs {% if market_gap.stale %}text-amber-700{% else %}text-ink-faint{% endif %}">daily closes to {{ market_gap.asof }}{% if market_gap.stale %} — {% if market_gap.age_days is not none %}{{ market_gap.age_days }} days old{% else %}date unreadable{% endif %}, read with care{% endif %} · describes what happened, not a forecast</div>
+  </div>
+  <div class="px-4 lg:px-6 py-3 text-sm">
+    {% set h = market_gap.headline %}
+    <div class="font-semibold {% if h.state == 'narrow' %}text-amber-800{% endif %}" data-market-gap-state="{{ h.state }}">
+      Over {{ h.sessions }} sessions the Nifty is <span class="whitespace-nowrap">{{ '%+.1f' % h.index_pct }}%</span> and the typical stock is <span class="whitespace-nowrap">{{ '%+.1f' % h.median_pct }}%</span>:
+      a gap of <span class="whitespace-nowrap">{{ '%+.1f' % h.gap_points }} points</span>. <span class="whitespace-nowrap">{{ '%.0f' % h.beat_pct }}% of stocks</span> are ahead of the index.
+      {{ market_gap.words }}
+    </div>
+  </div>
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="text-[10px] tracking-widest text-ink-faint uppercase border-y border-line">
+      <tr><th class="text-left px-4 lg:px-6 py-2">Window</th><th class="text-right px-2 py-2">Nifty</th>
+          <th class="text-right px-2 py-2 leading-tight">Typical<br>stock</th><th class="text-right px-2 py-2">Gap</th>
+          <th class="text-right px-2 py-2 leading-tight">Stocks ahead<br>of the index</th><th class="text-right px-2 py-2 leading-tight">Stocks<br>up</th>
+          <th class="text-right px-4 lg:px-6 py-2 leading-tight">Stocks<br>counted</th></tr>
+    </thead>
+    <tbody>
+      {% for r in market_gap.rows %}
+      <tr class="border-b border-line/60 last:border-0" data-market-gap-window="{{ r.sessions }}">
+        <td class="px-4 lg:px-6 py-2 whitespace-nowrap">{{ r.sessions }} sessions</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap {% if r.index_pct >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}">{{ '%+.1f' % r.index_pct }}%</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap {% if r.median_pct >= 0 %}text-emerald-700{% else %}text-red-700{% endif %}">{{ '%+.1f' % r.median_pct }}%</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap font-semibold">{{ '%+.1f' % r.gap_points }} pts</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">{{ '%.0f' % r.beat_pct }}%</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">{{ '%.0f' % r.up_pct }}%</td>
+        <td class="px-4 lg:px-6 py-2 text-right tabular-nums whitespace-nowrap">{{ r.sample }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="px-4 lg:px-6 py-2 border-t border-line text-[11px] text-ink-faint">
+    Typical stock = the median return of the company shares in the scan list (funds left out; a stock counts only with a full window of closes).
+    "Narrow rally" = the index up, a gap of {{ market_gap.narrow_gap | round(0) | int }} points or more and fewer than {{ market_gap.narrow_beat_pct | round(0) | int }}% of stocks ahead of it — these two cut-offs are assumptions taken from the 25 November example, not a tested signal.
+    No buy, sell or size rule reads this card.
+  </div>
 </div>
 {% endif %}
 <!-- Stored global observations; the market feed refreshes them independently. -->
@@ -411,7 +507,7 @@
   <div class="border border-line bg-white">
     <div class="px-4 lg:px-6 py-4 border-b border-line flex flex-wrap items-center justify-between gap-2">
       <div class="font-bold">👀 Watchlist</div>
-      <div class="text-xs text-ink-faint">Top scored, not yet held</div>
+      <div class="text-xs text-ink-faint" data-watch-rule="watch_rule_marker">Not held, score {{ watch.floor | round(0) | int }} and above · WATCH = {{ watch.floor | round(0) | int }} up to the {{ watch.segment }} buy mark {{ watch.buy_floor | round(0) | int }} · CLEARED = at or above it{% if watch.below %} · {{ watch.below }} more scored below {{ watch.floor | round(0) | int }} or carry no score{% endif %}</div>
     </div>
     {% if watchlist %}
     <div class="overflow-x-auto">
@@ -426,9 +522,10 @@
         <tr class="border-b border-line last:border-0">
           <td class="px-3 py-2.5 font-semibold whitespace-nowrap">{{ t.ticker | replace('.NS','') }}
             <a href="/chart/{{ t.ticker }}" title="candle chart" class="ml-1 no-underline">📈</a></td>
-          <td class="px-2 py-2.5 tabular-nums text-right">{{ t.score }}</td>
+          <td class="px-2 py-2.5 tabular-nums text-right whitespace-nowrap" data-watch-label="{{ t.label }}">{{ t.score }}
+            {% if t.label == 'cleared' %}<span class="ml-1 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide bg-emerald-50 text-emerald-800 border border-emerald-200" title="score at or above the buy mark; any other reason it was not bought is in the next column">CLEARED</span>{% else %}<span class="ml-1 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide bg-amber-50 text-amber-800 border border-amber-200" title="score between the watch floor and the buy mark — shown, never bought on the score alone">WATCH</span>{% endif %}</td>
           <td class="px-2 py-2.5 tabular-nums text-right whitespace-nowrap">{% if t.last_close %}₹{{ t.last_close | inr(2) }}{% else %}—{% endif %}</td>
-          <td class="px-2 py-2.5 text-right text-xs {% if t.blocked.startswith('⛔') %}text-red-600{% else %}text-amber-700{% endif %}">{{ t.blocked or '—' }}</td>
+          <td class="px-2 py-2.5 text-right text-xs {% if t.blocked.startswith('⛔') %}text-red-600{% else %}text-amber-700{% endif %}">{{ t.blocked or ('below the buy mark' if t.label == 'watch' else '—') }}</td>
           {% if user and user.role == 'owner' %}
           <td class="px-3 py-2.5 text-right">
             <form method="post" action="/scan/buy"
@@ -444,7 +541,7 @@
     </table>
     </div>
     {% else %}
-    <div class="px-4 lg:px-6 py-8 text-center text-ink-faint text-sm">Empty — every scored pick is already in the book, or no scan yet.</div>
+    <div class="px-4 lg:px-6 py-8 text-center text-ink-faint text-sm">Empty — every scored pick at {{ watch.floor | round(0) | int }} or above is already in the book, or no scan yet.</div>
     {% endif %}
   </div>
 </div>

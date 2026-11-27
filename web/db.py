@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, Optional
 
@@ -131,6 +132,50 @@ def is_connected() -> bool:
     return _CONNECTED
 
 
+def _is_link_error(exc: BaseException) -> bool:
+    """The CLIENT cannot reach a usable server (no server selected, network
+    timeout, no primary) — as opposed to a server that answered and refused
+    the operation (over quota, not authorised), which is a healthy link."""
+    try:
+        from pymongo.errors import ConnectionFailure
+    except ImportError:
+        return False
+    return isinstance(exc, ConnectionFailure)
+
+
+def note_link_failure(exc: BaseException, where: str = "") -> bool:
+    """Drop a client that can no longer reach its cluster, so the next
+    `ensure_connected()` builds a NEW one. True when the link was dropped.
+
+    RUN-20261126-02 (26 Nov, live): the Atlas cluster's tier was changed at
+    about 18:35 IST. A tier change moves the cluster to new hosts; the SRV
+    name follows, but a driver client that is already running keeps the OLD
+    hosts and never finds a server again. `_CONNECTED` was only ever set at
+    connect time, so this app kept saying "connected", every read and save
+    timed out, nothing reconnected, and the dashboard went on printing the
+    earlier storage-quota message for hours. Only a restart could have fixed
+    it — and a restart discards whatever the book holds in memory.
+
+    Now a link failure marks the connection down. `is_connected()` retries
+    with a fresh client at most once per cooldown; on success the existing
+    heal pass saves the in-memory book. A refused operation is NOT a link
+    failure and leaves the connection alone."""
+    global _CLIENT, _DB, _CONNECTED
+    if not _is_link_error(exc):
+        return False
+    stale, _CLIENT, _DB, _CONNECTED = _CLIENT, None, None, False
+    portfolio_write_failed(
+        f"database unreachable ({type(exc).__name__}) — reconnecting with a fresh connection")
+    log.warning("Mongo link lost at %s (%s) — client dropped, reconnect pending",
+                where or "an operation", type(exc).__name__)
+    try:
+        if stale is not None:
+            stale.close()
+    except Exception:                                          # noqa: BLE001
+        pass
+    return True
+
+
 def status() -> dict:
     return {
         "connected": _CONNECTED,
@@ -144,6 +189,8 @@ def status() -> dict:
         "write_error_at": LAST_WRITE_ERROR_AT,
         "portfolio_save_confirmed_at": LAST_PORTFOLIO_SAVE_AT,
         "entry_block_reason": portfolio_entry_block_reason(reconnect=False),
+        "book_conflict": LAST_BOOK_CONFLICT,
+        "book_conflict_at": LAST_BOOK_CONFLICT_AT,
     }
 
 
@@ -197,6 +244,9 @@ def storage_stats(top: int = 12) -> Optional[dict]:
         return out
     except Exception as e:
         log.warning("Mongo storage_stats failed: %s", e)
+        # the health thread asks every minute: it is the app's heartbeat on
+        # the link, so a dead client is noticed even when nothing is saving
+        note_link_failure(e, "storage statistics")
         return None
 
 
@@ -246,6 +296,56 @@ LAST_WRITE_ERROR: Optional[str] = None
 LAST_WRITE_ERROR_AT: Optional[str] = None
 LAST_PORTFOLIO_SAVE_AT: Optional[str] = None
 
+#: XR-070. Set when a restart found two different books and the healer kept
+#: one of them. The journal carries the durable record and the archive holds
+#: both copies; this is only so the owner SEES it on the dashboard instead of
+#: having to download a CSV to learn their book was reconciled.
+LAST_BOOK_CONFLICT: Optional[str] = None
+LAST_BOOK_CONFLICT_AT: Optional[str] = None
+
+
+#: NEW-03 (2026-11-27). MongoClient is built with serverSelectionTimeoutMS and
+#: connectTimeoutMS only, which bound FINDING a server and OPENING a socket.
+#: Nothing bounded a read or a write: pymongo computes socket_timeout None, so a
+#: server that accepted a request and then stopped answering was waited on for
+#: ever. That is not theoretical — it is the state the cluster was in on 26 Nov
+#: when its plan changed. The damage is that the exit pass saves the book while
+#: holding BOTH the mode lock and the book lock, so one stalled request leaves
+#: every stop and every target unchecked until the process restarts, while the
+#: scheduler logs "rotation running - its own exit pass covers this slot". The
+#: owner's own SELL button blocks on the same book lock.
+#:
+#: OWNER DECISION 2026-11-27, from an options card: bound the BOOK-SAVE AND SCAN
+#: paths only, not the whole client. So the calls that run while a lock is held
+#: get a per-operation limit and the heavy unlocked reads (the /healthz
+#: statistics pass, the journal CSV export) keep their old behaviour, because a
+#: limit there could pause buying on a merely slow day for no safety gain.
+#:
+#: 20 s is wide on purpose: the slowest single call measured against the live
+#: cluster is on the order of half a second (the 13.04 s statistics figure is
+#: ~25-30 round trips, not one). A pymongo NetworkTimeout IS a ConnectionFailure,
+#: so a breach lands in _is_link_error -> note_link_failure, which drops the
+#: client; is_connected() rebuilds it within 60 s and the heal pass saves the
+#: book. The recovery machinery already exists; until now there was no failure
+#: for it to act on, only a wait.
+LOCKED_PATH_TIMEOUT_S = 20.0
+
+
+@contextmanager
+def bounded(label: str = ""):
+    """Bound a database call that runs while the engine holds a lock.
+
+    Exceptions are NOT swallowed: each call site already has a handler that
+    records the failure, and a timeout must be reported, never hidden.
+    """
+    try:
+        from pymongo import timeout as _pymongo_timeout
+    except ImportError:                                  # pragma: no cover
+        yield
+        return
+    with _pymongo_timeout(LOCKED_PATH_TIMEOUT_S):
+        yield
+
 
 def portfolio_write_failed(reason: str) -> None:
     """A ping, auxiliary write or restart never acknowledges the current book."""
@@ -274,7 +374,12 @@ def closed_history_policy() -> dict:
     if not _CONNECTED or _DB is None:
         raise RuntimeError('closed_history_policy_unavailable')
     from trading.history_retention import approved_ids
-    row = _DB.settings.find_one({'_id': 'closed_history_retention'}) or {}
+    try:
+        with bounded('closed-history policy read'):
+            row = _DB.settings.find_one({'_id': 'closed_history_retention'}) or {}
+    except Exception as exc:
+        note_link_failure(exc, "closed-history policy read")
+        raise
     policy = row.get('policy') or {}
     approved_ids(policy)
     return policy
@@ -353,7 +458,8 @@ def save_portfolio(doc: dict, doc_id: str = "default") -> bool:
         if policy:
             doc = {**doc, 'closed_history_policy': policy,
                    'trades': retain(doc.get('trades', []), policy)}
-        result = _DB.portfolio.replace_one({"_id": doc_id}, {**doc, "_id": doc_id}, upsert=True)
+        with bounded('portfolio save'):
+            result = _DB.portfolio.replace_one({"_id": doc_id}, {**doc, "_id": doc_id}, upsert=True)
         if result.acknowledged is not True:
             raise RuntimeError("portfolio write not acknowledged")
         if doc_id == "default":
@@ -365,6 +471,7 @@ def save_portfolio(doc: dict, doc_id: str = "default") -> bool:
         if doc_id == "default":
             portfolio_write_failed(f"{type(e).__name__}: {str(e)[:200]}")
         log.warning("Mongo save_portfolio failed: %s", e)
+        note_link_failure(e, "portfolio save")
         return False
 
 
@@ -383,6 +490,43 @@ def load_portfolio(doc_id: str = "default", *, strict: bool = False) -> Optional
         if strict:
             raise
         return None
+
+
+def archive_portfolio_snapshot(doc: dict, label: str) -> Optional[str]:
+    """File a whole book away, VERBATIM, and return the id it was stored under.
+
+    XR-070. The healer needs this before it may choose between two books, so
+    the one it does not keep is never gone. Deliberately NOT routed through
+    `save_portfolio(doc, doc_id=...)`: that reads the closed-history policy
+    first (which can raise and abort the archive) and re-applies the trade
+    retention, so the copy filed away could come out trimmed. An archive that
+    edits what it archives is not an archive.
+
+    Returns None on any failure, and never raises — the caller treats None as
+    "could not file this book" and refuses to discard anything.
+    """
+    if not _CONNECTED or _DB is None:
+        return None
+    snap_id = f"{label}-{datetime.utcnow().strftime('%Y%m%dT%H%M%S.%f')}"
+    try:
+        with bounded('portfolio archive'):
+            result = _DB.portfolio_archive.replace_one(
+                {"_id": snap_id}, {**doc, "_id": snap_id,
+                                   "archived_at": datetime.utcnow().isoformat(),
+                                   "archive_label": label}, upsert=True)
+        if result.acknowledged is not True:
+            return None
+        return snap_id
+    except Exception as e:
+        log.warning("Mongo archive_portfolio_snapshot failed: %s", e)
+        note_link_failure(e, "portfolio archive")
+        return None
+
+
+def note_book_conflict(note: str) -> None:
+    global LAST_BOOK_CONFLICT, LAST_BOOK_CONFLICT_AT
+    LAST_BOOK_CONFLICT = note[:400]
+    LAST_BOOK_CONFLICT_AT = datetime.utcnow().isoformat()
 
 
 # ---------- closed-trade archive ----------
@@ -419,7 +563,8 @@ def archive_trades(trade_docs: list) -> bool:
                          {"$setOnInsert": {**dict(d), "_id": _trade_key(d)}},
                          upsert=True)
                for d in trade_docs]
-        _DB.trades.bulk_write(ops, ordered=False)
+        with bounded('closed-trade archive'):
+            _DB.trades.bulk_write(ops, ordered=False)
         return True
     except Exception as e:
         log.warning("Mongo archive_trades failed: %s", e)
@@ -861,6 +1006,85 @@ def market_info_shape(kind: str) -> Optional[dict]:
     return {"day": doc.get("day"), "shape": _shape(doc.get("payload"))}
 
 
+def save_delivery_days(docs: list) -> int:
+    """Upsert whole DAYS of delivery data (owner 2026-11-27: "Data is needed").
+
+    One document per trading day — {_id: "2026-11-26", rows: {SYMBOL: [traded,
+    delivered]}} — not one per symbol-day, which for the ~75 days missing since
+    August would be ~150,000 documents for the same information. A day holds
+    ~2,800 symbols and is comfortably inside Mongo's document limit.
+
+    The committed data/delivery_daily_2019_2026.csv.gz is NEVER rewritten: it
+    stays the fixed base and these rows are layered on top at read time, the
+    pattern FII and the index tail already use. That keeps the repository the
+    same size, which matters because Render clones all of it on every deploy.
+    """
+    if not _CONNECTED or _DB is None or not docs:
+        return 0
+    from pymongo import ReplaceOne
+    from pymongo.errors import BulkWriteError
+    ops = []
+    for d in docs:
+        day = str(d.get("date") or "")
+        if not day or not d.get("rows"):
+            continue
+        ops.append(ReplaceOne({"_id": day}, {**d, "_id": day}, upsert=True))
+    if not ops:
+        return 0
+    try:
+        with bounded("delivery day store"):
+            res = _DB.delivery_daily.bulk_write(ops, ordered=False)
+        if not getattr(res, "acknowledged", True):
+            return 0
+        return int(res.upserted_count or 0) + int(res.matched_count or 0)
+    except BulkWriteError as e:
+        det = e.details or {}
+        return int(det.get("nUpserted", 0) or 0) + int(det.get("nMatched", 0) or 0)
+    except Exception as e:                                   # noqa: BLE001
+        log.warning("Mongo save_delivery_days failed: %s", e)
+        return 0
+
+
+def load_delivery_days(since: str = "") -> list:
+    """Stored delivery days after `since` (an ISO date), oldest first."""
+    if not _CONNECTED or _DB is None:
+        return []
+    try:
+        where = {"_id": {"$gt": str(since)}} if since else {}
+        with bounded("delivery day read"):
+            return list(_DB.delivery_daily.find(where).sort("_id", 1))
+    except Exception as e:                                   # noqa: BLE001
+        log.warning("Mongo load_delivery_days failed: %s", e)
+        return []
+
+
+def latest_delivery_day() -> Optional[str]:
+    """The newest stored delivery day, so a refresh resumes from it."""
+    if not _CONNECTED or _DB is None:
+        return None
+    try:
+        with bounded("delivery day tail"):
+            row = _DB.delivery_daily.find_one(sort=[("_id", -1)],
+                                              projection={"_id": 1})
+        return str(row["_id"]) if row else None
+    except Exception as e:                                   # noqa: BLE001
+        log.warning("Mongo latest_delivery_day failed: %s", e)
+        return None
+
+
+def latest_pwoi_day() -> Optional[str]:
+    if not _CONNECTED or _DB is None:
+        return None
+    try:
+        with bounded("pwoi tail"):
+            row = _DB.pwoi_daily.find_one(sort=[("date", -1)],
+                                          projection={"date": 1})
+        return str(row["date"]) if row else None
+    except Exception as e:                                   # noqa: BLE001
+        log.warning("Mongo latest_pwoi_day failed: %s", e)
+        return None
+
+
 def save_pwoi_rows(rows: list) -> int:
     """Upsert PWOI-shaped FII rows from the Upstox market/fii feed. Keyed
     date|client_type so re-fetches overwrite, never duplicate."""
@@ -993,18 +1217,55 @@ def load_sebi_orders(ticker: str = "") -> list:
 def save_fundamentals_rows(rows: list) -> int:
     """Upsert fundamentals rows (Node 3 monthly refresh). rows =
     [{'symbol','field','as_of','value'}] — the committed CSV's own schema.
-    Keyed by symbol|field|as_of so a re-fetch updates in place."""
+    Keyed by symbol|field|as_of so a re-fetch updates in place.
+
+    NEW-01 (2026-11-27): this used to send ONE replace_one per row in a plain
+    loop, with no batching and no bound, after the fetch's own time budget had
+    already expired. A first-of-the-month run fetches ~929 symbols at ~60 rows
+    each = ~55,700 separate round trips to the cluster, with the weekly
+    universe rebuild and the OHLCV pull queued behind it. It now mirrors
+    save_macro_rows in this same file — unordered bulk_write of
+    ReplaceOne(upsert) in chunks of 500, 112 round trips for the same rows —
+    and, like that helper, returns only what the store ACKNOWLEDGED, so the
+    journal can no longer report refused writes as stored.
+    """
     if not _CONNECTED or _DB is None or not rows:
         return 0
+    from pymongo import ReplaceOne
+    from pymongo.errors import BulkWriteError
+    chunk_rows = 500
+
+    def _acked(res) -> int:
+        if res is None or not getattr(res, "acknowledged", True):
+            return 0
+        try:
+            return int(res.upserted_count or 0) + int(res.matched_count or 0)
+        except Exception:                                # noqa: BLE001
+            return 0
+
+    ops = []
+    for r in rows:
+        sym, field, as_of = (str(r.get("symbol") or ""), str(r.get("field") or ""),
+                             str(r.get("as_of") or ""))
+        if not sym or not field or not as_of:
+            continue
+        key = f"{sym}|{field}|{as_of}"
+        ops.append(ReplaceOne({"_id": key}, {**r, "_id": key}, upsert=True))
     n = 0
-    try:
-        for r in rows:
-            key = f"{r['symbol']}|{r['field']}|{r['as_of']}"
-            _DB.fundamentals.replace_one(
-                {"_id": key}, {**r, "_id": key}, upsert=True)
-            n += 1
-    except Exception as e:
-        log.warning("Mongo save_fundamentals_rows failed: %s", e)
+    for i in range(0, len(ops), chunk_rows):
+        chunk = ops[i:i + chunk_rows]
+        try:
+            n += _acked(_DB.fundamentals.bulk_write(chunk, ordered=False))
+        except BulkWriteError as e:
+            det = e.details or {}
+            got = int(det.get("nUpserted", 0) or 0) + int(det.get("nMatched", 0) or 0)
+            n += got
+            log.warning("Mongo save_fundamentals_rows: %d of %d row(s) in a chunk "
+                        "refused (%s)", len(chunk) - got, len(chunk),
+                        ((det.get("writeErrors") or [{}])[0] or {}).get("errmsg", ""))
+        except Exception as e:                           # noqa: BLE001
+            log.warning("Mongo save_fundamentals_rows failed after %d row(s): %s", n, e)
+            return n
     return n
 
 
@@ -1068,7 +1329,9 @@ def history_docs(tickers, rows: int = 0) -> dict:
         # AUDIT M-9 (2026-10-02): filter on `_id`, which Mongo always
         # indexes, not on the unindexed `ticker` field (a collection scan).
         # Every writer stores _id == ticker (history_store builds the doc).
-        for doc in _DB.ohlcv.find({"_id": {"$in": names}}, proj):
+        with bounded('scan history read'):
+            docs = list(_DB.ohlcv.find({"_id": {"$in": names}}, proj))
+        for doc in docs:
             t = doc.get("ticker") or doc.get("_id")
             if t:
                 out[t] = doc
@@ -1102,7 +1365,8 @@ def archive_journal(entries: list) -> bool:
         return False
     try:
         from .journal_storage import append
-        return append(_DB.journal_archive, entries)
+        with bounded('journal archive append'):
+            return append(_DB.journal_archive, entries)
     except Exception as e:
         log.warning("Mongo archive_journal failed: %s", e)
         return False

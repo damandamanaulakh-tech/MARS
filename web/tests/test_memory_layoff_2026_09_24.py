@@ -4,9 +4,15 @@ hitting 512 + / need to layoff unwanted".
 MEASURED before anything was cut (see PROD_SOURCES in external_panels):
 boot 114 MB · one 1,200-name scan +72 MB · trigger panels +41 MB resident ·
 the DELIVERY stream **+153 MB peak**, daily AND on every /triggers page tap,
-feeding a REJECTED trigger on data frozen at 2026-08-07. That stream is the
+feeding a REJECTED trigger on data frozen at 2026-08-07. That stream was the
 layoff. The two 512s (Render RAM, Atlas storage) and the size of the list
 the scan really reads now sit on /healthz so nobody has to guess again.
+
+REVERSED 2026-11-27: the owner moved to a bigger instance ("render have enough
+storage to expand so no worry"), a live process was measured at a 749 MB peak,
+and the file is no longer stale — it catches itself up from NSE's archive. The
+measurements that justified the cut are kept above because they were true of
+that box; the test below now pins the current state and says why.
 
 Every source pin here strips comment lines first — the fault class that has
 tripped this repo five times.
@@ -31,18 +37,38 @@ def _operative(src: str) -> str:
 # 1. the layoff: delivery out of every production path
 # ---------------------------------------------------------------------------
 
-def test_prod_sources_exclude_the_delivery_stream():
+def test_the_delivery_stream_is_read_again():
+    """REVERSED 2026-11-27 on the owner's word, and on measurements.
+
+    The September layoff was right for the box it was made on: the stream cost
+    +153 MB peak on a 512 MB instance, daily and on every /triggers tap, to
+    feed a REJECTED trigger on data frozen at 2026-08-07. Both halves of that
+    have changed. The owner said "render have enough storage to expand so no
+    worry", a live process has since been measured at a 749 MB peak (which no
+    512 MB plan allows), the load was re-measured at +93 MB peak / +46 MB
+    resident in 3.2 s at the production scope of 80 names, and the stale half
+    is fixed too — scheduler._weekly_nse_archives_refresh now catches the file
+    up from NSE's archive, which answers this host after all.
+
+    What it buys is still honest: T12W_0060 remains calibrated REJECTED, so
+    this is register and display material, not an edge.
+    """
     from trading import external_panels as XP
-    assert "delivery" not in XP.PROD_SOURCES
-    # and nothing else was dropped by accident
-    assert set(XP.PROD_SOURCES) == set(XP.PanelSet.ALL_SOURCES) - {"delivery"}
+    assert "delivery" in XP.PROD_SOURCES
+    # and nothing was dropped by accident either
+    assert set(XP.PROD_SOURCES) == set(XP.PanelSet.ALL_SOURCES)
 
 
 def test_prepare_honours_sources_and_reads_data_needed_not_false():
     """An unloaded source must read DATA_NEEDED (None), never a quiet False —
-    the rule every external trigger already relies on."""
+    the rule every external trigger already relies on.
+
+    Production loads every source again (above), so the rule is exercised with
+    an explicitly narrowed set. The invariant is what matters here, not which
+    source happens to be off in production this month.
+    """
     from trading import external_panels as XP
-    ed = XP.prepare(["TCS.NS"], sources=XP.PROD_SOURCES)
+    ed = XP.prepare(["TCS.NS"], sources=("panel", "index"))
     x = ed.for_ticker("TCS.NS")
     assert x.delivery_ratio is None
     assert "delivery" in x.missing()

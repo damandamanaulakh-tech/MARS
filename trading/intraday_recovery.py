@@ -66,6 +66,54 @@ def entry_allowed(mode, now):
     return utc(now) < session_deadline(now)
 
 
+def last_entry_cutoff(now, cfg):
+    """The instant after which no NEW automatic intraday buy is made (UTC),
+    or None when the owner's setting is blank or unreadable.
+
+    OWNER ORDER 2026-11-26 (question 13, default approved): "last time for a
+    new buy 14:45 (positions close at 15:25)". Never later than square-off.
+    """
+    raw = str(getattr(cfg, "intraday_last_entry_time", "") or "").strip()
+    if not raw:
+        return None
+    try:
+        hour, minute = (int(x) for x in raw.split(":"))
+        clock = time(hour, minute)
+    except (TypeError, ValueError):
+        return None
+    day = utc(now).astimezone(IST).date()
+    cut = datetime.combine(day, clock, IST).astimezone(timezone.utc)
+    return min(cut, session_deadline(now))
+
+
+def auto_entry_allowed(mode, now, cfg):
+    """May the AUTOMATIC scan open a new position now? The owner's own buy
+    paths keep `entry_allowed` (square-off time only)."""
+    if not entry_allowed(mode, now):
+        return False
+    if mode != "intraday" or os.environ.get("SB_IGNORE_MARKET_HOURS") == "1":
+        return True
+    cut = last_entry_cutoff(now, cfg)
+    return cut is None or utc(now) < cut
+
+
+def first_bar_complete(now, minutes=5):
+    """Has today's first `minutes`-minute bar closed? The session opens at
+    09:15 IST, so nothing can be scored on completed bars before 09:20."""
+    if os.environ.get("SB_IGNORE_MARKET_HOURS") == "1":
+        return True
+    from datetime import timedelta
+    from .calendars import MARKET_OPEN_IST
+    instant = utc(now).astimezone(IST)
+    opened = datetime.combine(instant.date(), time(*MARKET_OPEN_IST), IST)
+    return instant >= opened + timedelta(minutes=minutes)
+
+
+def auto_entry_limit_text(cfg) -> str:
+    raw = str(getattr(cfg, "intraday_last_entry_time", "") or "").strip()
+    return f"{raw} IST (new buys) ; 15:25 IST square-off" if raw else "15:25 IST"
+
+
 def in_session(now):
     from .calendars import is_market_open, MARKET_OPEN_IST, MARKET_CLOSE_IST
     if os.environ.get("SB_IGNORE_MARKET_HOURS") == "1":

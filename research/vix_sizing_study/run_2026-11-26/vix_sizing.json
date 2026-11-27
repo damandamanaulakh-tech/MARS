@@ -1,0 +1,314 @@
+{
+  "counts": {
+    "observations": 23507,
+    "picks_resolved": 11055,
+    "picks_unresolved_left_out": 178,
+    "dropped_no_vix": 0,
+    "used": 11055
+  },
+  "split": "2020-06-30",
+  "halves": {
+    "whole period": {
+      "buys": 11055,
+      "mean_outcome_pct": 3.431,
+      "per_rupee_with_multiplier_pct": 3.423,
+      "per_rupee_difference_points": -0.009,
+      "sum_outcome": 379.352,
+      "sum_with_multiplier": 346.411,
+      "average_multiplier": 0.9155,
+      "worst_month_plain": -6.4,
+      "worst_month_mult": -6.4,
+      "worst_month_mult_per_unit": -6.991,
+      "worst_6m_plain": -23.152,
+      "worst_6m_mult": -23.152,
+      "worst_6m_mult_per_unit": -25.289
+    },
+    "to 2020-06-30": {
+      "buys": 3930,
+      "mean_outcome_pct": 2.213,
+      "per_rupee_with_multiplier_pct": 2.358,
+      "per_rupee_difference_points": 0.145,
+      "sum_outcome": 86.974,
+      "sum_with_multiplier": 86.903,
+      "average_multiplier": 0.9377,
+      "worst_month_plain": -4.1,
+      "worst_month_mult": -3.0,
+      "worst_month_mult_per_unit": -3.199,
+      "worst_6m_plain": -9.069,
+      "worst_6m_mult": -8.107,
+      "worst_6m_mult_per_unit": -8.646
+    },
+    "after 2020-06-30": {
+      "buys": 7125,
+      "mean_outcome_pct": 4.104,
+      "per_rupee_with_multiplier_pct": 4.032,
+      "per_rupee_difference_points": -0.071,
+      "sum_outcome": 292.379,
+      "sum_with_multiplier": 259.508,
+      "average_multiplier": 0.9032,
+      "worst_month_plain": -6.4,
+      "worst_month_mult": -6.4,
+      "worst_month_mult_per_unit": -7.086,
+      "worst_6m_plain": -23.152,
+      "worst_6m_mult": -23.152,
+      "worst_6m_mult_per_unit": -25.632
+    }
+  },
+  "bands": {
+    "whole period": [
+      {
+        "band": "under 12",
+        "buys": 1797,
+        "multiplier": 1.15,
+        "mean_outcome_pct": 5.736,
+        "stopped_pct": 56.0,
+        "target_pct": 41.9
+      },
+      {
+        "band": "12 to under 16",
+        "buys": 4837,
+        "multiplier": 1.0,
+        "mean_outcome_pct": 2.459,
+        "stopped_pct": 69.6,
+        "target_pct": 29.3
+      },
+      {
+        "band": "16 to under 20",
+        "buys": 2693,
+        "multiplier": 0.8,
+        "mean_outcome_pct": 2.708,
+        "stopped_pct": 68.4,
+        "target_pct": 29.5
+      },
+      {
+        "band": "20 to under 25",
+        "buys": 1325,
+        "multiplier": 0.65,
+        "mean_outcome_pct": 4.22,
+        "stopped_pct": 62.6,
+        "target_pct": 36.4
+      },
+      {
+        "band": "25 and above",
+        "buys": 403,
+        "multiplier": 0.5,
+        "mean_outcome_pct": 7.069,
+        "stopped_pct": 50.9,
+        "target_pct": 47.9
+      }
+    ],
+    "to 2020-06-30": [
+      {
+        "band": "under 12",
+        "buys": 639,
+        "multiplier": 1.15,
+        "mean_outcome_pct": 4.045,
+        "stopped_pct": 62.1,
+        "target_pct": 34.6
+      },
+      {
+        "band": "12 to under 16",
+        "buys": 1843,
+        "multiplier": 1.0,
+        "mean_outcome_pct": 2.3,
+        "stopped_pct": 70.0,
+        "target_pct": 28.5
+      },
+      {
+        "band": "16 to under 20",
+        "buys": 1173,
+        "multiplier": 0.8,
+        "mean_outcome_pct": 1.734,
+        "stopped_pct": 72.5,
+        "target_pct": 25.7
+      },
+      {
+        "band": "20 to under 25",
+        "buys": 209,
+        "multiplier": 0.65,
+        "mean_outcome_pct": -2.182,
+        "stopped_pct": 88.5,
+        "target_pct": 11.0
+      },
+      {
+        "band": "25 and above",
+        "buys": 66,
+        "multiplier": 0.5,
+        "mean_outcome_pct": 4.477,
+        "stopped_pct": 60.6,
+        "target_pct": 37.9
+      }
+    ],
+    "after 2020-06-30": [
+      {
+        "band": "under 12",
+        "buys": 1158,
+        "multiplier": 1.15,
+        "mean_outcome_pct": 6.669,
+        "stopped_pct": 52.7,
+        "target_pct": 45.9
+      },
+      {
+        "band": "12 to under 16",
+        "buys": 2994,
+        "multiplier": 1.0,
+        "mean_outcome_pct": 2.557,
+        "stopped_pct": 69.3,
+        "target_pct": 29.8
+      },
+      {
+        "band": "16 to under 20",
+        "buys": 1520,
+        "multiplier": 0.8,
+        "mean_outcome_pct": 3.46,
+        "stopped_pct": 65.2,
+        "target_pct": 32.4
+      },
+      {
+        "band": "20 to under 25",
+        "buys": 1116,
+        "multiplier": 0.65,
+        "mean_outcome_pct": 5.419,
+        "stopped_pct": 57.8,
+        "target_pct": 41.1
+      },
+      {
+        "band": "25 and above",
+        "buys": 337,
+        "multiplier": 0.5,
+        "mean_outcome_pct": 7.577,
+        "stopped_pct": 49.0,
+        "target_pct": 49.9
+      }
+    ]
+  },
+  "years": [
+    {
+      "year": 2015,
+      "buys": 308,
+      "mean_outcome_pct": -2.944,
+      "per_rupee_with_multiplier_pct": -3.054,
+      "per_rupee_difference_points": -0.11,
+      "sum_outcome": -9.069,
+      "sum_with_multiplier": -8.107,
+      "average_multiplier": 0.8619
+    },
+    {
+      "year": 2016,
+      "buys": 660,
+      "mean_outcome_pct": 4.46,
+      "per_rupee_with_multiplier_pct": 4.468,
+      "per_rupee_difference_points": 0.008,
+      "sum_outcome": 29.437,
+      "sum_with_multiplier": 25.843,
+      "average_multiplier": 0.8763
+    },
+    {
+      "year": 2017,
+      "buys": 1276,
+      "mean_outcome_pct": 5.038,
+      "per_rupee_with_multiplier_pct": 4.902,
+      "per_rupee_difference_points": -0.135,
+      "sum_outcome": 64.281,
+      "sum_with_multiplier": 65.984,
+      "average_multiplier": 1.0548
+    },
+    {
+      "year": 2018,
+      "buys": 729,
+      "mean_outcome_pct": -0.084,
+      "per_rupee_with_multiplier_pct": -0.12,
+      "per_rupee_difference_points": -0.036,
+      "sum_outcome": -0.612,
+      "sum_with_multiplier": -0.84,
+      "average_multiplier": 0.9575
+    },
+    {
+      "year": 2019,
+      "buys": 721,
+      "mean_outcome_pct": 1.003,
+      "per_rupee_with_multiplier_pct": 1.207,
+      "per_rupee_difference_points": 0.204,
+      "sum_outcome": 7.232,
+      "sum_with_multiplier": 7.73,
+      "average_multiplier": 0.8886
+    },
+    {
+      "year": 2020,
+      "buys": 745,
+      "mean_outcome_pct": 5.979,
+      "per_rupee_with_multiplier_pct": 6.0,
+      "per_rupee_difference_points": 0.02,
+      "sum_outcome": 44.546,
+      "sum_with_multiplier": 31.169,
+      "average_multiplier": 0.6973
+    },
+    {
+      "year": 2021,
+      "buys": 1707,
+      "mean_outcome_pct": 4.893,
+      "per_rupee_with_multiplier_pct": 4.62,
+      "per_rupee_difference_points": -0.273,
+      "sum_outcome": 83.529,
+      "sum_with_multiplier": 60.805,
+      "average_multiplier": 0.771
+    },
+    {
+      "year": 2022,
+      "buys": 846,
+      "mean_outcome_pct": 0.964,
+      "per_rupee_with_multiplier_pct": 0.788,
+      "per_rupee_difference_points": -0.176,
+      "sum_outcome": 8.153,
+      "sum_with_multiplier": 5.292,
+      "average_multiplier": 0.7936
+    },
+    {
+      "year": 2023,
+      "buys": 1448,
+      "mean_outcome_pct": 8.954,
+      "per_rupee_with_multiplier_pct": 9.013,
+      "per_rupee_difference_points": 0.059,
+      "sum_outcome": 129.651,
+      "sum_with_multiplier": 139.452,
+      "average_multiplier": 1.0685
+    },
+    {
+      "year": 2024,
+      "buys": 1624,
+      "mean_outcome_pct": 0.934,
+      "per_rupee_with_multiplier_pct": 0.78,
+      "per_rupee_difference_points": -0.153,
+      "sum_outcome": 15.162,
+      "sum_with_multiplier": 12.047,
+      "average_multiplier": 0.9507
+    },
+    {
+      "year": 2025,
+      "buys": 706,
+      "mean_outcome_pct": 1.954,
+      "per_rupee_with_multiplier_pct": 1.945,
+      "per_rupee_difference_points": -0.009,
+      "sum_outcome": 13.792,
+      "sum_with_multiplier": 14.356,
+      "average_multiplier": 1.0458
+    },
+    {
+      "year": 2026,
+      "buys": 285,
+      "mean_outcome_pct": -2.368,
+      "per_rupee_with_multiplier_pct": -2.86,
+      "per_rupee_difference_points": -0.492,
+      "sum_outcome": -6.75,
+      "sum_with_multiplier": -7.32,
+      "average_multiplier": 0.8979
+    }
+  ],
+  "reading_rule": {
+    "per_rupee_at_least_plain_first_half": true,
+    "per_rupee_at_least_plain_second_half": false,
+    "worst_6m_less_negative_first_half": true,
+    "worst_6m_less_negative_second_half": false,
+    "supported": false
+  }
+}

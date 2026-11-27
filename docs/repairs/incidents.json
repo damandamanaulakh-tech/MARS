@@ -105,11 +105,15 @@
   {
     "id": "RUN-20261125-01",
     "finding": "Intraday scan fetched 37 valid stock frames but slow pre-scoring work aged all 37 beyond freshness; 1010 more capped and 82 marked deadline, yielding zero ranked/picks/buys",
-    "workflow": "CONFIRMED_RUNTIME_NOT_FIXED",
+    "workflow": "FIX_LOCAL_TESTED_PUBLISHED_DEPLOYMENT_HOLD_RUNTIME_PENDING",
     "evidence": "docs/repairs/evidence/2026-11-25-no-new-positions.md",
     "runtime_observation": "25 November: 10:49 IST scan reconciles 1010 capped + 82 deadline-labelled + 37 stale = 1129; 11:14 IST scan reconciles 1014 capped + 82 deadline-labelled + 1 unmapped + 36 stale = 1133. Every initially ready score record verified against raw BSON checksum; zero ranked/picks/buys. Save guard clear. Render confirms overlapping rotation was skipped 23 November14:30 IST; exact stalled preparation stage unknown. Later normal exits leave21open/92closed; no diagnostic trades induced. Actual service uses Render Free, limit 0.15 CPU; near-limit usage observed during scans. Shutdown at11:53IST and restart at12:00IST observed; exact platform reason unknown. Startup save block cleared at12:01:12IST. Allocation release does not resolve these separate issues.",
     "acceptance": "Keep completed-bar, session and freshness requirements; score fresh bounded batches and retain incomplete fetch work. Test slow providers, empty responses, restarts and late scoring. Verify new normal per-segment runs without forcing trades. Record scheduler stage timing and bounded preparation/retry; decide always-running hosting separately without silently adding a charge.",
-    "reconciliation": "Additional incident; prior original findings and incident records retained."
+    "reconciliation": "Additional incident; prior original findings and incident records retained.",
+    "current_evidence": "docs/repairs/releases/2026-11-26-intraday-pipeline.md",
+    "related_findings": "INTRA-005; RUN-20261126-01",
+    "owner_decision": "26 November: fix the intraday pipeline; defaults approved — about 100 most-traded stocks every pass, 5-minute scan all session whatever the mode, last automatic buy 14:45 IST, at most 10 intraday positions, no same-day re-buy after a stop. Show changes before shipping; nothing else on the app changes.",
+    "latest_verification": "26 November: causes reproduced and repaired in isolated tests (see current_evidence). Not merged, not deployed: live health at 13:43 UTC still reports writes blocked over the storage quota and the last confirmed portfolio save at 08:53:56 UTC, so a restart is held. No runtime observation of the repair exists yet."
   },
   {
     "id": "RUN-20261125-02",
@@ -130,5 +134,14 @@
     "runtime_observation": "Read-only aggregate: 79,249 rows / 148.08 MiB; SCAN_DECISION: 70,114 rows / 138.81 MiB = 93.74%. A measured 15-minute window has 3,231 scan decisions / 6.10 MiB. Two recent catch-up markers classify startup triggers. Writers were active; counts changed, so this is not an atomic backup. No raw payload export, decoded-hash verification or DB mutation. Later health reported a 421 MiB / 512 MiB shared-cluster estimate.",
     "acceptance": "Prepare complete resumable export and reference-aware dry-run retention with independent restore proof. Review repeated startup/off-hours work against completed-input identity; preserve next-session recovery, protective exits and gate/trade evidence. Measure actual retained storage and shared headroom; no blanket trade/journal deletion or unsupported growth forecast.",
     "reconciliation": "Additional incident linked to OPS-05; prior storage recovery, history cleanup, all original findings and existing incidents remain retained."
+  },
+  {
+    "id": "RUN-20261126-02",
+    "finding": "After the database cluster's plan changed, the running app could no longer reach it, never reconnected, and kept showing an earlier storage-quota message.",
+    "workflow": "FIX_LOCAL_TESTED_PUBLISHED_DEPLOYMENT_HOLD_RUNTIME_PENDING",
+    "evidence": "docs/repairs/releases/2026-11-26-database-reconnect.md",
+    "runtime_observation": "26 November: write_error_at frozen at 13:04:53 UTC through 15:11 UTC while connected=true; storage statistics null and stored-history count 0 from 13:43 UTC; statistics refresh 12.12 s = four 3 s server-selection timeouts; last confirmed portfolio save 08:53:56 UTC. Owner screenshot 20:39 IST shows the stale 513 MB banner and states the database plan is paid. The plan change at about 13:05 UTC is inferred, not verified in the Atlas console. No production state was changed from this session.",
+    "acceptance": "A lost link drops the client and a fresh one is built within the cooldown without a restart; the in-memory book is saved on reconnect; a refused operation does not drop the link; the screen shows the current failure and when it was recorded; then an automatic reconnect and acknowledged save observed on a deployed revision without inducing it on the production book.",
+    "reconciliation": "Additional incident linked to OPS-09, XR-071 and RUN-20261126-01; prior records retained."
   }
 ]

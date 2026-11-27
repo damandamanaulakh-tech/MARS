@@ -369,12 +369,22 @@ def test_failed_startup_read_cannot_overwrite_durable_book_during_later_retries(
     scheduler._portfolio_save_retry()
 
     if local_activity:
-        assert scheduler._degraded_halt('local-conflict') is True
-        assert storage.doc == durable
-        assert db.LAST_PORTFOLIO_SAVE_AT is None
-        assert restored.cash == 1234.
-        assert set(restored.positions) == {'LOCAL.NS'}
-        assert db.recovered_pending() is True
+        # XR-070, owner decision 2026-11-27 ("keep the newer one, file the
+        # other"): this conflict used to halt for ever, so the local book never
+        # reached the database and died at the next restart. Both books here
+        # carry the same journal, so they are the same age, and a tie keeps the
+        # durable copy — the one that survives a restart. The local book is not
+        # discarded: it is filed in portfolio_archive first. The full rule lives
+        # in web/tests/test_book_conflict_2026_11_27.py.
+        assert scheduler._degraded_halt('local-conflict-resolved') is False
+        assert restored.cash == durable['cash']
+        assert set(restored.positions) == {'SAVED.NS'}
+        assert db.recovered_pending() is False
+        assert db.LAST_PORTFOLIO_SAVE_AT is not None
+        filed = [d for d in storage.archive.values()] if hasattr(storage, 'archive') else []
+        assert any(set(d['positions']) == {'LOCAL.NS'} for d in filed), filed
+        assert any(r.get('action') == 'MONGO_RECOVERED_CONFLICT_RESOLVED'
+                   for r in restored.decision_journal)
     else:
         assert scheduler._degraded_halt('strict-read-recovered') is False
         assert financial(storage.doc) == financial(durable)
