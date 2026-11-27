@@ -13,7 +13,76 @@ user archives/deletes it whole after the Render re-point; code + all
 lives only there. App state (book/journal/history) lives in Mongo
 Atlas, not in any repo — repo moves never touch money or memory.
 
-## 2026-11-26 — CURRENT STATE (read this block first; everything below is history to 2026-10-21)
+## 2026-11-27 — CURRENT STATE (READ THIS BLOCK FIRST; the 11-26 block below is history)
+- **PR #234, DRAFT, NOT MERGED. Head `1a83ce3`, ten commits. Full local suite 4,161 passed, 0 failed,
+  0 errors, 0 skipped (897 s from a clean `/tmp/sourceborn_paper`).** CI green through `043eb00`.
+  Nothing in it is deployment proof. The owner's merge rule stands.
+- **THE OWNER'S TWELVE HIGH-SEVERITY ITEMS ARE ALL BUILT** (they pasted the table and said "Go for
+  pending from this ask me u need"). One release record each in `docs/repairs/releases/`:
+  XR-060 (+ its history-gate leftover), XR-070, NEW-01/02, NEW-03, XR-027, XR-041, OPS-03, XR-050,
+  XR-052; OPS-04 and OPS-01 CLOSED as no longer current. Plus two owner asks of the same day:
+  the scan-resume tick (OWN-RESUME-01) and the data catch-up (OWN-DATA-01).
+- **THREE TRACKER ROWS WERE WRONG and are corrected in `backlog.json` — do not re-derive them:**
+  XR-070 never overwrote the book (its note was true); the real fault was that a conflict refused
+  EVERY save for the life of the process and lost the live book at the next restart. XR-041 had
+  THREE doors, not the one named. XR-052 named five gates, of which the position ceiling cannot bite
+  (the sale frees the slot) and portfolio heat is arithmetically unreachable (cap 0.25 vs a widest
+  stop of 0.15; worst case buildable 12.6%).
+- **TWO STANDING BELIEFS IN THIS FILE WERE FALSE. Both verified by real requests on 2026-11-27:**
+  (1) **nsearchives.nseindia.com ANSWERS this host** — delivery 200/403,413 bytes real CSV,
+  participant OI 200, F&O bhavcopy 200/1.19 MB, across seven dates including a Saturday that
+  correctly 404'd. The "Colab is the only refresh path" lines everywhere below are STALE.
+  (2) **Segment-level scan resume already existed** since 2026-10-21 (`web/rotation_progress.py`,
+  19 tests): progress saved after every segment, the save must be acknowledged, a restart re-runs
+  only the segments that did not finish, and a segment is all-or-nothing so a dead one's buys never
+  reached the book. I told the owner otherwise and corrected it within the minute. The gap was only
+  that NOTHING called it on a timer.
+- **LIVE FACTS, measured from /healthz on 2026-11-27, not inferred:** the box no longer sleeps
+  (three probes 0.18-0.67 s on a process up since ~01:38 IST) and tolerated a **749 MiB peak**, so
+  the 512 MB ceiling is gone — the owner upgraded Render ("render have enough storage to expand so
+  no worry"); Atlas is **M10 paid**, `write_error null`, last save confirmed 02:05 IST, cluster
+  **518 MB** (sourceborn 321.7, ashstock 171.5) of which **journal_archive 236 MB / 120,696 rows and
+  growing — now a bill, not a wall, and the reason the statistics read takes 9.1 s**.
+  **STILL BROKEN ON THE LIVE BUILD: `scan_universe.last_rebuild` 2026-09-30 (58 days) and
+  `history_tickers` 2233 against a universe file of 2678 — 445 of the owner's own names have never
+  had a price fetched.** That is OPS-03, fixed on this branch and NOT yet deployed. **FIRST LIVE
+  PROOF to look for after a merge: last_rebuild moving off 2026-09-30.**
+- **OWNER DECISIONS 27 Nov (all from options cards; honour them, do not re-ask):** XR-070 "keep the
+  newer one, file the other" · XR-060 panel pair "70 bars, same as the other ten" · XR-050 "keep
+  yesterday's reading until the feed answers" · XR-027 "all 5 days must be real" · XR-052 "only sell
+  when the new buy can actually go through" · NEW-03 "bound the book-save and scan paths, not the
+  whole client" · OPS-01 "nothing now — add per-job memory logging instead" (NOT YET BUILT) ·
+  "render have enough storage to expand so no worry" + "Data is needed".
+- **WHAT THIS BRANCH CHANGED ON THE MONEY PATH** (each with a release record):
+  danger verdicts counted by value and both loops gated at 70 bars · a restart that meets two books
+  keeps the newer and archives both · six locked-path database calls bounded at 20 s
+  (`db.bounded`, `LOCKED_PATH_TIMEOUT_S`) · missing/non-finite volume refuses the Rs 5 Cr gate
+  (`LiquidityRules.min_real_volume_days = 5`) · a thin IFR panel, a short series or a crash keeps an
+  open throttle (`ifr._window_active`, `held_throttle_snapshot`) · an untrusted regime reading is
+  treated as no reading (`RegimeReading.feed_ok`, `engine._sticky_regime_brake`) · rotation stands
+  down when no pick can open (`risk.blocked_regardless_of_cash`) · every weekly step has a
+  wall-clock cap (`weekly_step_timeout_s`, `DATA_REFRESH_STEP_TIMEOUT`) · the rotation resumes every
+  5 minutes in session (`_rotation_resume_tick`, `rotation_report["resume"]`, `daily_owed`) ·
+  delivery is read in production again and the Den's screen ceiling is 900 MB, not 380.
+- **OPEN, each recorded and none started:** the daily scan has **no overall fetch budget**, so a
+  network drop can hold it in up to ~60 minutes of 30-second timeouts while holding the mode lock
+  the exit pass needs — this is the owner's own "it goes offline itself"; the **14:30 rotation is
+  the one job with no catch-up**; **XR-060B** (the trailing leash floor narrows from 12% to 5% once
+  a winner's stop rises above entry); **per-job memory logging** (the owner's OPS-01 choice);
+  rotation can still sell TWO winners to fund one pick (the owner declined the one-sale cap).
+  OWNER OWES: the **shareholding zip** (register H-02..H-06, X-07 — the only remaining item with
+  real value behind DATA_NEEDED), the Total Return Index (needs a POST), insider dealings and
+  bulk/block deals (NSE caps those at 70 rows a month), and their tables 1-3.
+- **HARNESS, learned today:** run the FULL suite before pushing a change to a shared money-path
+  function — I pushed the XR-060 panel gate on targeted tests plus the web suite and CI caught a
+  66-bar fixture I had broken · never edit repo files while a suite runs (one result had to be
+  discarded) · a test stub must move with a signature: adding `lock_wait` broke six of them, and
+  extracting a function lost two of its local imports (`db`, `date`) — caught only by an existing
+  test · four of my own new tests this session were vacuous or tautological on the first cut; assert
+  the behaviour, not a name in the source · Workflow agents worked well (4 + 3 readers, no cap
+  stops) and found the three wrong tracker rows and both false beliefs above.
+
+## 2026-11-26 — CURRENT STATE (history; read the 11-27 block above first)
 - Repo is `damandamanaulakh-tech/MARS`. **`docs/repairs/` is the canonical backlog, goal order and
   release ledger** (AGENTS.md + docs/repairs/WORKFLOW.md are binding: reproduce, bounded fix, tests,
   records in the same PR, `python scripts/check_repair_records.py --sync`, full zero-skip suite).
