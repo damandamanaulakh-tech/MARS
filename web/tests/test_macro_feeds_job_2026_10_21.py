@@ -198,8 +198,10 @@ def test_the_0920_job_survives_a_crashing_macro_feed_and_still_rotates(monkeypat
         order.append("macro")
         raise RuntimeError("macro feed exploded")
     monkeypatch.setattr(scheduler, "_macro_feeds_refresh", macro)
+    # 2026-11-27: the rotation takes `lock_wait` so the resume path can stand
+    # down rather than park on the mode lock; a stub must accept it.
     monkeypatch.setattr(scheduler, "_run_category_rotation",
-                        lambda eng, cfg, where: (order.append("rotation"), [])[1])
+                        lambda eng, cfg, where, **k: (order.append("rotation"), [])[1])
     monkeypatch.setattr(scheduler, "_check_pending_orders", lambda where: None)
     monkeypatch.setattr(scheduler, "run_trigger_layer", lambda where: order.append("triggers"))
     monkeypatch.setattr(scheduler, "_push_phone_alerts", lambda where: order.append("push"))

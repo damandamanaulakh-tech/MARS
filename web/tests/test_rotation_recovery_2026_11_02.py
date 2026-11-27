@@ -161,7 +161,7 @@ def test_duplicate_catchup_triggers_launch_one_worker(rotation, monkeypatch):
     # Run the actual worker closure after replacing external preparation.
     monkeypatch.setattr("trading.universe_refresh.refreshed_today", lambda: True)
     monkeypatch.setattr(scheduler, "apply_corporate_actions_job", lambda where: None)
-    monkeypatch.setattr(scheduler, "_daily_multi_mode_scan", lambda: None)
+    monkeypatch.setattr(scheduler, "_daily_multi_mode_scan", lambda **k: None)
     worker.call_args.kwargs["target"]()
     assert not scheduler._CATCHUP_LOCK.locked()
 

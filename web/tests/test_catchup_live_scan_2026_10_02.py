@@ -24,8 +24,10 @@ def catchup(monkeypatch):
     ran.clear()
     monkeypatch.setenv("SB_DISABLE_CATCHUP", "0")
     monkeypatch.setattr("trading.calendars.is_trading_day", lambda *a: True)
+    # 2026-11-27: the daily scan takes a `lock_wait` so the resume path can
+    # stand down instead of parking on the mode lock; a stub must accept it.
     monkeypatch.setattr(scheduler, "_daily_multi_mode_scan",
-                        lambda: ran.append("scan"))
+                        lambda **k: ran.append("scan"))
     monkeypatch.setattr(scheduler, "_universe_refresh_job", lambda: None)
     monkeypatch.setattr("trading.universe_refresh.refreshed_today",
                         lambda: True)

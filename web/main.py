@@ -231,6 +231,34 @@ def healthz() -> dict:
         }
     except Exception:
         pass
+    # OWNER ASK 2026-11-27 ("if i put task it should run its in auto"):
+    # /healthz carried no scan progress at all, so neither the owner nor a
+    # session could tell from outside whether today's rotation finished — the
+    # one question behind the whole resume repair. Read-only, from the record
+    # the rotation already keeps.
+    rotation = None
+    try:
+        from .clock import ist_today_iso
+        from .rotation_progress import complete
+        from .scheduler import _DAILY_MODE_ORDER
+        report = getattr(state.portfolio(), "rotation_report", None) or {}
+        rec = report.get("daily") or {}
+        passes = rec.get("passes") or {}
+        rotation = {
+            "date": rec.get("date"),
+            "status": rec.get("status"),
+            "where": rec.get("where"),
+            "segments_done": sum(1 for m in _DAILY_MODE_ORDER
+                                 if (passes.get(m) or {}).get("completed")
+                                 and not (passes.get(m) or {}).get("error")),
+            "segments_total": len(_DAILY_MODE_ORDER),
+            "complete_today": complete(rec, _DAILY_MODE_ORDER, ist_today_iso()),
+            "owed": (report.get("daily_owed") or {}).get("date"),
+            "resume_attempts": (report.get("resume") or {}).get("attempts"),
+            "resume_last": (report.get("resume") or {}).get("last"),
+        }
+    except Exception:
+        pass
     mongo = stats.get("mongo")
     forward = None
     try:
@@ -245,6 +273,7 @@ def healthz() -> dict:
             "forward_validation": forward,
             "sector_context": sector_context.status(),
             "universe": universe, "scan_universe": scan_universe,
+            "rotation": rotation,
             "memory": memory, "mongo": mongo,
             # audit M-3: structure only (key names / types / list lengths)
             "market_info_shape": stats.get("market_info_shape"),

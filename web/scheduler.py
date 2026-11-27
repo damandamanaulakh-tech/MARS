@@ -103,6 +103,23 @@ def start_if_enabled() -> None:
     _SCHED.add_job(_portfolio_save_retry, "interval", seconds=60,
                    id="portfolio_save_retry", max_instances=1, coalesce=True)
 
+    if daily:
+        # OWNER ORDER 2026-11-27: "even in loss of network it should start as
+        # soon internet connected". Segment-level resume has existed since
+        # 2026-10-21 (web/rotation_progress.py) and is durable and tested —
+        # but NOTHING called it on a timer. It fired only at boot + 120 s and
+        # on an Upstox login, so a rotation that died at 09:25, or a network
+        # drop that healed at 10:00, waited until 14:30, a restart or a
+        # login. There was a 60-second loop healing the DATABASE and a tested
+        # resume for the SCAN, and the two were never connected. This is the
+        # wire between them.
+        _SCHED.add_job(
+            _rotation_resume_tick, "cron",
+            day_of_week="mon-fri", hour="9-15", minute="*/5",
+            id="rotation_resume_tick", max_instances=1, coalesce=True,
+            replace_existing=True,
+        )
+
     if intraday or daily:
         # Owner order 2026-11-26: the Intraday segment is scanned every five
         # minutes of the session whatever the app's own mode. The job is on
@@ -291,7 +308,7 @@ def startup_catchup_run_date(tz, delay):
     return _dt.now(tz) + delay
 
 
-def catchup_scan_if_missed(reason: str = "catchup") -> bool:
+def catchup_scan_if_missed(reason: str = "catchup", lock_wait=None) -> bool:
     """If today's multi-mode scan never completed (dead Upstox token at
     09:20, deploy restart mid-run, crash), run it now in a background
     thread. Fired at startup and on every Upstox connect. Trading days
@@ -349,7 +366,7 @@ def catchup_scan_if_missed(reason: str = "catchup") -> bool:
             # Owner order 2026-10-21: held names absorb today's split/bonus
             # BEFORE the scan's exit pass can read a halved quote (BLSE).
             apply_corporate_actions_job("catchup")
-            _daily_multi_mode_scan()
+            _daily_multi_mode_scan(lock_wait=lock_wait)
         except Exception as e:
             log.exception("[catchup:%s] preparation or rotation failed", reason)
             p.decision_journal.append({
@@ -3017,6 +3034,163 @@ def refresh_liquid_universe(where: str = "weekly") -> dict:
         return {}
 
 
+#: OPS-03 (2026-11-27). A wall-clock cap per weekly step.
+#:
+#: The 2026-08-29 isolation below protects the block from a feed that CRASHES.
+#: It does nothing about a feed that simply never answers: `fn()` was called
+#: and waited on with no bound, so one unresponsive host held the whole block
+#: and every step queued behind it never ran. Two live readings proved it was
+#: still happening on 27 Nov, 58 days after the last completion:
+#:   scan_universe.last_rebuild = "2026-09-30" (the stamp the LAST pre-pull
+#:   step writes), and history_tickers 2233 against a universe file of 2678 —
+#:   445 of the owner's own names had never had a price fetched.
+#: The block is brought back every weekday when it does not finish, so it was
+#: retrying and hanging again every single evening.
+#:
+#: A Python thread cannot be killed, so a step that overruns is ABANDONED, not
+#: stopped: the block moves on and the orphan finishes late or dies with the
+#: process. Feed writes are idempotent upserts, so a late finish is harmless.
+#: The caps are therefore generous — they exist to catch a hang, never to cut
+#: short honest work.
+WEEKLY_STEP_TIMEOUT_S = 600.0
+
+
+def weekly_step_timeout_s(label: str = "") -> float:
+    """The cap for one weekly step. Env override: SB_WEEKLY_STEP_TIMEOUT_S.
+
+    A step that carries its OWN budget gets that budget plus slack, so this
+    cap can never fire before the step's own bound does.
+    """
+    try:
+        base = float(os.environ.get("SB_WEEKLY_STEP_TIMEOUT_S",
+                                    WEEKLY_STEP_TIMEOUT_S))
+    except (TypeError, ValueError):
+        base = WEEKLY_STEP_TIMEOUT_S
+    if base <= 0:
+        return 0.0                              # 0 = unbounded, as before
+    own = 0.0
+    if "fundamentals" in label:
+        own = float(fundamentals_time_budget_s() or 0.0)
+    elif "OHLCV" in label or "top-up" in label:
+        try:
+            own = float(os.environ.get("SB_TOPUP_BUDGET_S", "2400"))
+        except (TypeError, ValueError):
+            own = 2400.0
+    return max(base, own + 300.0) if own else base
+
+
+#: OWNER ORDER 2026-11-27, the resume tick's guards.
+#:
+#: Why not every 60 seconds like the save retry: a persistent outage makes a
+#: rotation sit in network timeouts (up to 120 names at a 30 s timeout each),
+#: so re-entering it every minute would stack timeout storms instead of
+#: recovering. Five minutes, a cooldown and a per-day cap keep it to a handful
+#: of honest attempts. The counters live in portfolio.rotation_report, which is
+#: already mirrored to Mongo both ways, because a module variable would reset
+#: on exactly the restart this is meant to survive.
+RESUME_TICK_COOLDOWN_S = 600.0          # no second attempt within 10 minutes
+RESUME_MAX_ATTEMPTS_PER_DAY = 3
+RESUME_START_HOUR_MIN = (9, 20)         # never before the 09:20 slot itself
+
+
+def _resume_state(p) -> dict:
+    report = getattr(p, "rotation_report", None)
+    if not isinstance(report, dict):
+        report = {}
+        p.rotation_report = report
+    state = report.get("resume")
+    if not isinstance(state, dict):
+        state = {}
+        report["resume"] = state
+    return state
+
+
+def _rotation_resume_tick() -> None:
+    """Re-run an unfinished rotation while the market is still open.
+
+    This adds NO resume logic: `catchup_scan_if_missed` and
+    `rotation_progress` already re-run only the segments that did not finish,
+    and `engine.scan` already skips a name the book already holds, so a
+    segment that died cannot double-buy. All of this function is guards.
+    """
+    from datetime import datetime as _dt
+
+    from trading.calendars import is_market_open, is_trading_day
+
+    if not daily_enabled() or os.environ.get("SB_DISABLE_CATCHUP") == "1":
+        return
+    if not is_trading_day() or not is_market_open():
+        # Outside the session an interrupted day still reads incomplete, so
+        # without this the tick would re-run score-only scans all evening.
+        return
+    from .clock import ist_now, ist_today_iso
+    now_ist = ist_now()
+    if (now_ist.hour, now_ist.minute) < RESUME_START_HOUR_MIN:
+        # Before 09:20 there is nothing to resume, and running would pre-empt
+        # the real slot.
+        return
+    from . import state
+    from .rotation_progress import complete
+    try:
+        p = state.portfolio()
+    except Exception:
+        return
+    today = ist_today_iso()
+    report = getattr(p, "rotation_report", None) or {}
+    daily_rec = report.get("daily")
+    if complete(daily_rec, _DAILY_MODE_ORDER, today):
+        return
+    # Is a rotation actually owed today? Either one started and left a record,
+    # or the 09:20 slot fired and stopped before its first checkpoint — which
+    # is the case the owner cares about most, because a network outage stops
+    # it there and leaves no record at all.
+    started_today = bool(daily_rec) and daily_rec.get("date") == today
+    owed = (report.get("daily_owed") or {}).get("date") == today
+    if not (started_today or owed):
+        return
+    res = _resume_state(p)
+    if res.get("date") != today:
+        res.clear()
+        res["date"] = today
+    attempts = int(res.get("attempts") or 0)
+    if attempts >= RESUME_MAX_ATTEMPTS_PER_DAY:
+        return
+    last = res.get("last")
+    if last:
+        try:
+            if (_dt.utcnow() - _dt.fromisoformat(last)).total_seconds() < RESUME_TICK_COOLDOWN_S:
+                return
+        except (TypeError, ValueError):
+            pass
+    res["attempts"] = attempts + 1
+    res["last"] = _dt.utcnow().isoformat()
+    log.info("[resume] today's rotation is incomplete — attempt %d of %d",
+             res["attempts"], RESUME_MAX_ATTEMPTS_PER_DAY)
+    p.decision_journal.append({
+        "ts": _dt.utcnow().isoformat(), "action": "ROTATION_RESUME",
+        "attempt": res["attempts"],
+        "why": (f"Today's category rotation did not finish and the market is "
+                f"still open — resuming the segments that did not complete "
+                f"(attempt {res['attempts']} of "
+                f"{RESUME_MAX_ATTEMPTS_PER_DAY}). Segments that already "
+                f"finished are left alone; a name the book already holds is "
+                f"skipped."),
+    })
+    try:
+        p.save()
+    except Exception:
+        # A book that cannot be saved is already halted by _degraded_halt
+        # below; the save retry heals the link within a minute and the next
+        # tick finds a writable book. That sequence IS "as soon as the
+        # internet is back".
+        log.info("[resume] book not saved yet; the save retry will heal it")
+    from trading.modes import MODE_LOCK_WAIT_S
+    # The resume path never parks on the mode lock: if other book work holds
+    # it, standing down and trying again in five minutes is a recovery; waiting
+    # indefinitely is a new way to hang.
+    catchup_scan_if_missed("resume", lock_wait=MODE_LOCK_WAIT_S)
+
+
 def _run_weekly_step(label: str, fn, journal) -> bool:
     """Run ONE Friday sub-job so its failure cannot take out the others.
 
@@ -3026,10 +3200,42 @@ def _run_weekly_step(label: str, fn, journal) -> bool:
     OHLCV pull. Most sub-jobs already catch their own exceptions; this is
     the outer guarantee that an import error or an unexpected escape in one
     feed cannot cost the owner the other seven.
+
+    OPS-03 2026-11-27: and now a wall-clock cap, so a feed that hangs cannot
+    cost them the other seven either. See WEEKLY_STEP_TIMEOUT_S.
     """
+    cap = weekly_step_timeout_s(label)
+    outcome: dict = {}
+
+    def run():
+        try:
+            fn()
+            outcome["ok"] = True
+        except Exception as e:                  # noqa: BLE001 - isolation
+            outcome["error"] = e
+
     try:
-        fn()
-        return True
+        if cap <= 0:
+            run()
+        else:
+            worker = threading.Thread(target=run, name=f"weekly:{label}",
+                                      daemon=True)
+            worker.start()
+            worker.join(cap)
+            if worker.is_alive():
+                log.warning("weekly sub-job %s did not finish inside %.0fs — "
+                            "abandoned so the rest of the block can run",
+                            label, cap)
+                journal("DATA_REFRESH_STEP_TIMEOUT",
+                        f"Friday data block: {label} did not answer within "
+                        f"{int(cap)}s and was LEFT RUNNING so the other "
+                        f"weekly feeds and the price pull could go ahead. "
+                        f"Whatever it had already stored is kept. If this "
+                        f"repeats every week, that feed is the one to fix.")
+                return False
+        if "error" in outcome:
+            raise outcome["error"]
+        return bool(outcome.get("ok"))
     except Exception as e:                      # noqa: BLE001 - isolation
         log.exception("weekly sub-job %s failed: %s", label, e)
         journal("DATA_REFRESH_STEP_FAILED",
@@ -3041,6 +3247,65 @@ def _run_weekly_step(label: str, fn, journal) -> bool:
         # one loads (the block's peak was 326 MiB on 09-30).
         from .memory_relief import release as release_memory
         release_memory(f"weekly {label}")
+
+
+def _do_weekly_pull(eng, broker, _journal) -> int:
+    """The full-universe OHLCV top-up. Returns the names still outstanding.
+
+    Extracted from _weekly_history_topup by OPS-03 so it can run under the
+    same wall-clock cap as every other weekly step. Behaviour unchanged.
+    """
+    _left = 0
+    try:
+        from datetime import date
+        from trading.brokers.upstox_instruments import to_instrument_keys
+        from trading.history_store import top_up_history
+
+        from . import db
+        tickers = {m["ticker"] for m in db.list_history_meta() if m.get("ticker")}
+        tickers |= set(eng.portfolio.positions.keys())
+        # REVIEW FIX (PR #68): the scope used to be "already stored +
+        # held", so the store could never GROW — it sat at the original 191
+        # names, which also starved the F3 breadth reading of the wide
+        # sample it claims. The full universe file (~2,400 tradeable names)
+        # is now included: tokenless since F1, one bounded request per
+        # stale name, off-hours on Friday, merged one doc at a time so the
+        # 512 MB box never holds more than one name's frame.
+        try:
+            from trading.universes import load_full_universe
+            tickers |= set(load_full_universe())
+        except Exception:
+            log.exception("weekly top-up: universe file unreadable — "
+                          "refreshing stored+held only")
+        keys = to_instrument_keys(sorted(tickers))
+        # BOUNDED (2026-09-11): 40 minutes, then stop and finish the block.
+        # The store lacked 2,075 of the universe's names and the pull needs
+        # ~1.8s each — over an hour in one go, on a box that restarts on
+        # every deploy, so it never completed and everything sequenced after
+        # it never ran. Each run now saves what it fetched and the next run
+        # resumes; the ledger below records a real completion either way.
+        summ = top_up_history(
+            broker, keys,
+            load_doc=db.load_history_doc,
+            save_doc=db.save_history_doc,
+            today=date.today(),
+            time_budget_s=float(os.environ.get("SB_TOPUP_BUDGET_S", "2400")),
+        )
+        _left = summ.get("remaining", 0)
+        _journal("DATA_REFRESH_WEEKLY",
+                 f"Weekly OHLCV top-up: {summ['ok']} refreshed, "
+                 f"{summ['skipped_fresh']} already fresh, "
+                 f"{summ['failed']} failed of {summ['total']} "
+                 f"in {summ.get('elapsed_s', 0)}s."
+                 + (f" STOPPED on the {summ.get('stopped')} with {_left} "
+                    f"name(s) left — the next run resumes from there, and "
+                    f"the names already saved stay saved."
+                    if _left else " Complete."))
+        log.info("[fri 16:30] weekly history top-up: %s", summ)
+    except Exception as e:
+        log.exception("weekly history top-up failed: %s", e)
+        _journal("DATA_REFRESH_FAILED", f"Weekly OHLCV top-up crashed: {e}")
+    return _left
 
 
 def _weekly_history_topup() -> None:
@@ -3146,53 +3411,29 @@ def _weekly_history_topup() -> None:
     ):
         _run_weekly_step(_label, _fn, _journal)
 
-    try:
-        from trading.brokers.upstox_instruments import to_instrument_keys
-        from trading.history_store import top_up_history
-        tickers = {m["ticker"] for m in db.list_history_meta() if m.get("ticker")}
-        tickers |= set(eng.portfolio.positions.keys())
-        # REVIEW FIX (PR #68): the scope used to be "already stored +
-        # held", so the store could never GROW — it sat at the original 191
-        # names, which also starved the F3 breadth reading of the wide
-        # sample it claims. The full universe file (~2,400 tradeable names)
-        # is now included: tokenless since F1, one bounded request per
-        # stale name, off-hours on Friday, merged one doc at a time so the
-        # 512 MB box never holds more than one name's frame.
-        try:
-            from trading.universes import load_full_universe
-            tickers |= set(load_full_universe())
-        except Exception:
-            log.exception("weekly top-up: universe file unreadable — "
-                          "refreshing stored+held only")
-        keys = to_instrument_keys(sorted(tickers))
-        # BOUNDED (2026-09-11): 40 minutes, then stop and finish the block.
-        # The store lacked 2,075 of the universe's names and the pull needs
-        # ~1.8s each — over an hour in one go, on a box that restarts on
-        # every deploy, so it never completed and everything sequenced after
-        # it never ran. Each run now saves what it fetched and the next run
-        # resumes; the ledger below records a real completion either way.
-        summ = top_up_history(
-            broker, keys,
-            load_doc=db.load_history_doc,
-            save_doc=db.save_history_doc,
-            today=date.today(),
-            time_budget_s=float(os.environ.get("SB_TOPUP_BUDGET_S", "2400")),
-        )
-        _left = summ.get("remaining", 0)
-        _topup_remaining = _left
-        _journal("DATA_REFRESH_WEEKLY",
-                 f"Weekly OHLCV top-up: {summ['ok']} refreshed, "
-                 f"{summ['skipped_fresh']} already fresh, "
-                 f"{summ['failed']} failed of {summ['total']} "
-                 f"in {summ.get('elapsed_s', 0)}s."
-                 + (f" STOPPED on the {summ.get('stopped')} with {_left} "
-                    f"name(s) left — the next run resumes from there, and "
-                    f"the names already saved stay saved."
-                    if _left else " Complete."))
-        log.info("[fri 16:30] weekly history top-up: %s", summ)
-    except Exception as e:
-        log.exception("weekly history top-up failed: %s", e)
-        _journal("DATA_REFRESH_FAILED", f"Weekly OHLCV top-up crashed: {e}")
+    # OPS-03: the pull is the ONE step that was not even inside
+    # _run_weekly_step, so nothing bounded it but its own internal budget —
+    # and that budget is checked between names, not inside one. A single
+    # unresponsive request therefore held the block, and the two steps after
+    # it (breadth, the register and valuation precomputes, the post-pull
+    # rebuild) never ran. It now goes through the same cap as every other
+    # step, set to its own budget plus slack so the cap can never fire first.
+    _pulled: dict = {"remaining": 0}
+
+    def _pull() -> None:
+        _pulled["remaining"] = _do_weekly_pull(eng, broker, _journal)
+
+    pull_ok = _run_weekly_step("OHLCV top-up", _pull, _journal)
+    _topup_remaining = _pulled["remaining"]
+    if not pull_ok and not _topup_remaining:
+        # The pull was abandoned on the cap (or crashed) before it could say
+        # how many names it still owes. The block reaches its completion
+        # stamp below either way, so without this the store would be recorded
+        # as finished and the block would wait a week — losing exactly the
+        # resume behaviour PR #103 built. A remainder of 1 is NOT a measured
+        # count; it is "unfinished", which is the only honest thing we know,
+        # and it brings the block back tomorrow.
+        _topup_remaining = 1
 
     # These two READ the store, so they can only follow the top-up. They are
     # isolated from it and from each other: a failed or partial pull still
@@ -3315,7 +3556,7 @@ def _exit_pass_due(cfg) -> bool:
     return (time.monotonic() - last) >= mins * 60
 
 
-def _run_category_rotation(eng, cfg, where: str) -> list:
+def _run_category_rotation(eng, cfg, where: str, lock_wait=None) -> list:
     """Scan every category in `_DAILY_MODE_ORDER` under ONE held mode lock,
     restoring the owner's mode at the end. Shared by 09:20 and 14:30.
 
@@ -3346,7 +3587,16 @@ def _run_category_rotation(eng, cfg, where: str) -> list:
     # previous pass's category, so an owner buy that slipped in between read
     # (and restored) the wrong preset. Owner web actions wait up to 30 s and
     # then say a scan is running.
-    MODE_LOCK.acquire()
+    # OWNER ORDER 2026-11-27: the scheduled 09:20 and 14:30 slots still wait
+    # as long as it takes — they own their slot. The resume tick passes a
+    # wait, because a resume thread parked here indefinitely behind other
+    # book work is a new way to hang, not a recovery.
+    if lock_wait is None:
+        MODE_LOCK.acquire()
+    elif not MODE_LOCK.acquire(timeout=float(lock_wait)):
+        log.info("[%s] mode lock busy after %.0fs — standing down", where,
+                 float(lock_wait))
+        return [f"{where}: another scan holds the mode lock — standing down"]
     original_mode = getattr(cfg, "mode", "swing")
     try:
         if not progress.checkpoint(eng.portfolio, rot):
@@ -3609,7 +3859,7 @@ def _portfolio_save_retry() -> None:
         log.exception("Portfolio save retry failed; entries remain blocked")
 
 
-def _daily_multi_mode_scan() -> None:
+def _daily_multi_mode_scan(lock_wait=None) -> None:
     """Once a day at 09:20 IST: scan in each mode and open whatever passes.
 
     Target: 60-70% capital deployed across the week. Each scan is fully
@@ -3624,6 +3874,20 @@ def _daily_multi_mode_scan() -> None:
     if not is_trading_day():
         log.info("[09:20] NSE holiday — daily scan skipped")
         return
+    # OWNER ORDER 2026-11-27: stamp that the slot fired and a rotation is OWED
+    # before anything can stop us. On a network outage the rotation halts
+    # before its first checkpoint, so without this there is no record for
+    # today at all and the resume tick could not tell that work was due —
+    # exactly the case the owner asked about.
+    try:
+        from .clock import ist_today_iso as _today
+        report = getattr(eng.portfolio, "rotation_report", None)
+        if not isinstance(report, dict):
+            report = {}
+            eng.portfolio.rotation_report = report
+        report["daily_owed"] = {"date": _today(), "slot": "09:20"}
+    except Exception:
+        log.exception("[09:20] could not stamp the rotation as owed")
     if _degraded_halt("09:20"):
         return
     # AUDIT FIX C3: the startup/login catch-up thread and the 09:20 cron
@@ -3672,7 +3936,7 @@ def _daily_multi_mode_scan() -> None:
             _sector_index_refresh()
         except Exception:
             log.exception("sector refresh failed before daily scan")
-        summary = _run_category_rotation(eng, cfg, "09:20")
+        summary = _run_category_rotation(eng, cfg, "09:20", lock_wait=lock_wait)
     except Exception as e:
         log.exception("[09:20] daily rotation failed")
         from datetime import datetime as _dt
