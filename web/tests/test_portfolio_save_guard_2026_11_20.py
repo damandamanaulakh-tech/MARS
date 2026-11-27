@@ -19,16 +19,26 @@ NOW = datetime(2026, 11, 20, 5)
 
 
 class BookStore:
+    """The portfolio collection, and the archive beside it (XR-070).
+
+    An archived book is kept under its own id so a test can read what was
+    filed away; the live book keeps overwriting the single `doc`.
+    """
+
     def __init__(self):
         self.ack = True
         self.error = None
         self.doc = None
+        self.archive = {}
 
     def replace_one(self, where, doc, **kwargs):
         if self.error:
             raise self.error
         if self.ack is True:
-            self.doc = deepcopy(doc)
+            if str(where.get('_id', '')).startswith('conflict-'):
+                self.archive[where['_id']] = deepcopy(doc)
+            else:
+                self.doc = deepcopy(doc)
         return SimpleNamespace(acknowledged=self.ack)
 
 
@@ -37,7 +47,8 @@ def storage(monkeypatch):
     store = BookStore()
     monkeypatch.setenv('MONGO_URL', 'mongodb://isolated.invalid')
     monkeypatch.setattr(db, '_CONNECTED', True)
-    monkeypatch.setattr(db, '_DB', SimpleNamespace(portfolio=store))
+    monkeypatch.setattr(db, '_DB', SimpleNamespace(portfolio=store,
+                                                 portfolio_archive=store))
     monkeypatch.setattr(db, 'LAST_WRITE_ERROR', None)
     monkeypatch.setattr(db, 'LAST_WRITE_ERROR_AT', None)
     monkeypatch.setattr(db, 'LAST_PORTFOLIO_SAVE_AT', None, raising=False)
@@ -430,9 +441,8 @@ def test_reconnect_event_is_not_consumed_before_book_ack(engine, storage, monkey
     assert not db.recovered_pending() and not state.mongo_degraded()
 
 
-@pytest.mark.parametrize('read_state', ['missing', 'refused', 'conflict'])
-def test_recovery_retry_cannot_acknowledge_a_phantom_or_conflicting_book(engine, storage, monkeypatch, read_state):
-    from trading.paper import PaperPosition
+@pytest.mark.parametrize('read_state', ['missing', 'refused'])
+def test_recovery_retry_cannot_acknowledge_a_phantom_book(engine, storage, monkeypatch, read_state):
     p = engine.portfolio
     p._durable_book_loaded = False
     monkeypatch.setattr(db, '_BOOT_DEGRADED', True)
@@ -442,14 +452,35 @@ def test_recovery_retry_cannot_acknowledge_a_phantom_or_conflicting_book(engine,
         assert kwargs == {'strict':True}
         if read_state == 'refused':
             raise RuntimeError('read refused')
-        return None if read_state == 'missing' else deepcopy(before)
+        return None
     monkeypatch.setattr(db, 'load_portfolio', load)
-    if read_state == 'conflict':
-        p.positions['PHANTOM.NS'] = PaperPosition(ticker='PHANTOM.NS', qty=1, entry_price=100., entry_date=NOW, sector='Test', peak_price=100., entry_score=80., reasoning='isolated conflict')
     scheduler._portfolio_save_retry()
     assert db.recovered_pending() and state.mongo_degraded()
     assert storage.doc == before
     assert p.save() is False and storage.doc == before
+
+
+def test_a_conflicting_book_is_now_reconciled_rather_than_frozen(engine, storage, monkeypatch):
+    """XR-070, owner decision 2026-11-27: this case used to refuse every save
+    for the life of the process, so the book the session was trading on never
+    reached the database. It is now resolved in favour of whichever book acted
+    last, with both copies filed away first — see
+    web/tests/test_book_conflict_2026_11_27.py for the full rule."""
+    from trading.paper import PaperPosition
+    p = engine.portfolio
+    p._durable_book_loaded = False
+    monkeypatch.setattr(db, '_BOOT_DEGRADED', True)
+    monkeypatch.setattr(db, '_RECOVERED_PENDING', True)
+    stored = deepcopy(storage.doc)
+    stored['decision_journal'] = [{'ts': '2026-11-20T01:00:00', 'action': 'BUY', 'why': 'durable'}]
+    monkeypatch.setattr(db, 'load_portfolio', lambda **kwargs: deepcopy(stored))
+    p.positions['PHANTOM.NS'] = PaperPosition(ticker='PHANTOM.NS', qty=1, entry_price=100., entry_date=NOW, sector='Test', peak_price=100., entry_score=80., reasoning='isolated conflict')
+    p.decision_journal.append({'ts': '2026-11-20T09:00:00', 'action': 'BUY', 'why': 'outage session'})
+    scheduler._portfolio_save_retry()
+    assert not db.recovered_pending() and not state.mongo_degraded()
+    assert 'PHANTOM.NS' in storage.doc['positions']
+    assert any(r.get('action') == 'MONGO_RECOVERED_CONFLICT_RESOLVED'
+               for r in p.decision_journal)
 
 
 def test_first_reconnect_hydrates_before_any_retry_save(engine, storage, monkeypatch):

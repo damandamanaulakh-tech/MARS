@@ -188,6 +188,8 @@ def status() -> dict:
         "write_error_at": LAST_WRITE_ERROR_AT,
         "portfolio_save_confirmed_at": LAST_PORTFOLIO_SAVE_AT,
         "entry_block_reason": portfolio_entry_block_reason(reconnect=False),
+        "book_conflict": LAST_BOOK_CONFLICT,
+        "book_conflict_at": LAST_BOOK_CONFLICT_AT,
     }
 
 
@@ -292,6 +294,13 @@ def _cluster_sizes(scale: int) -> Optional[dict]:
 LAST_WRITE_ERROR: Optional[str] = None
 LAST_WRITE_ERROR_AT: Optional[str] = None
 LAST_PORTFOLIO_SAVE_AT: Optional[str] = None
+
+#: XR-070. Set when a restart found two different books and the healer kept
+#: one of them. The journal carries the durable record and the archive holds
+#: both copies; this is only so the owner SEES it on the dashboard instead of
+#: having to download a CSV to learn their book was reconciled.
+LAST_BOOK_CONFLICT: Optional[str] = None
+LAST_BOOK_CONFLICT_AT: Optional[str] = None
 
 
 def portfolio_write_failed(reason: str) -> None:
@@ -435,6 +444,41 @@ def load_portfolio(doc_id: str = "default", *, strict: bool = False) -> Optional
         if strict:
             raise
         return None
+
+
+def archive_portfolio_snapshot(doc: dict, label: str) -> Optional[str]:
+    """File a whole book away, VERBATIM, and return the id it was stored under.
+
+    XR-070. The healer needs this before it may choose between two books, so
+    the one it does not keep is never gone. Deliberately NOT routed through
+    `save_portfolio(doc, doc_id=...)`: that reads the closed-history policy
+    first (which can raise and abort the archive) and re-applies the trade
+    retention, so the copy filed away could come out trimmed. An archive that
+    edits what it archives is not an archive.
+
+    Returns None on any failure, and never raises — the caller treats None as
+    "could not file this book" and refuses to discard anything.
+    """
+    if not _CONNECTED or _DB is None:
+        return None
+    snap_id = f"{label}-{datetime.utcnow().strftime('%Y%m%dT%H%M%S.%f')}"
+    try:
+        result = _DB.portfolio_archive.replace_one(
+            {"_id": snap_id}, {**doc, "_id": snap_id, "archived_at": datetime.utcnow().isoformat(),
+                               "archive_label": label}, upsert=True)
+        if result.acknowledged is not True:
+            return None
+        return snap_id
+    except Exception as e:
+        log.warning("Mongo archive_portfolio_snapshot failed: %s", e)
+        note_link_failure(e, "portfolio archive")
+        return None
+
+
+def note_book_conflict(note: str) -> None:
+    global LAST_BOOK_CONFLICT, LAST_BOOK_CONFLICT_AT
+    LAST_BOOK_CONFLICT = note[:400]
+    LAST_BOOK_CONFLICT_AT = datetime.utcnow().isoformat()
 
 
 # ---------- closed-trade archive ----------

@@ -171,3 +171,78 @@ def test_every_tripwire_answer_is_read_through_the_verdict_reader():
     # so the check above cannot pass by looking for something that is not there
     assert any(isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "fn"
                for n in ast.walk(fn_def)), "evaluate_stock no longer calls fn(...)"
+
+
+# ---------------------------------------------------------------------------
+# XR-060 residual, found by the adversarial review of this very repair: the
+# minimum-history gate was applied to the ten price tripwires and NOT to the
+# two panel-fed ones (T12W_0094 sector contagion, T12W_0095 index overlay),
+# so a position with 60-69 stored bars could still have its stop tightened on
+# a reading the registry marks not computable. Owner's choice 2026-11-27:
+# 70 bars, the same bar as the other ten.
+# ---------------------------------------------------------------------------
+
+def _panel_shock(bars: int):
+    """A frame short of the 70-bar minimum, with a panel that says CONTAGION."""
+    import numpy as np
+    import pandas as pd
+    from types import SimpleNamespace
+    idx = pd.date_range('2026-06-01', periods=bars, freq='B')
+    close = np.linspace(100.0, 60.0, bars)
+    frame = pd.DataFrame({'Open': close * 1.01, 'High': close * 1.02,
+                          'Low': close * 0.94, 'Close': close,
+                          'Volume': np.full(bars, 5_000_000.0)}, index=idx)
+    ext = SimpleNamespace(target_frame=frame,
+                          context={'peer_reason': 'peers broken',
+                                   'index_reason': 'index broken'})
+    return frame, ext
+
+
+@pytest.mark.parametrize('bars', [30, 60, 69])
+def test_the_panel_pair_abstains_below_the_same_minimum_as_the_other_ten(monkeypatch, bars):
+    seen = {}
+    monkeypatch.setattr(D.de, "record",
+                        lambda key, *a, **k: seen.__setitem__(key, (k.get("state"), k.get("reason"))))
+    frame, ext = _panel_shock(bars)
+    fired = D.evaluate_stock(frame, ext)
+    for tid in D._EXT_FNS:
+        assert tid not in fired, (tid, bars, fired)
+        state, reason = seen["danger:" + tid]
+        assert state == "unavailable" and "Needs 70 bars" in str(reason), (tid, bars, state, reason)
+
+
+def test_the_gate_opens_once_the_history_is_long_enough(monkeypatch):
+    """The gate must not silence the pair for good: at 70+ bars they are CALLED.
+
+    This fixture's panel is a stub, so the call itself does not complete — what
+    is pinned here is that the history gate no longer holds them back, which is
+    the only thing this repair changed. Whether the pair then fires on a real
+    panel is covered by the external-panel tests.
+    """
+    seen = {}
+    monkeypatch.setattr(D.de, "record",
+                        lambda key, *a, **k: seen.__setitem__(key, (k.get("state"), k.get("reason"))))
+    frame, ext = _panel_shock(80)
+    D.evaluate_stock(frame, ext)
+    for tid in D._EXT_FNS:
+        state, reason = seen["danger:" + tid]
+        assert "Needs" not in str(reason), (tid, state, reason)
+
+
+def test_the_two_loops_read_the_same_minimum_source():
+    """One minimum for the whole layer — the owner's choice, pinned.
+
+    Both loops must take the bar from triggers._MIN_BARS / _MIN_BARS_DEFAULT,
+    so neither can drift to a different number without this failing.
+    """
+    src = pathlib.Path(D.__file__).read_text()
+    tree = ast.parse(src)
+    fn_def = next(n for n in ast.walk(tree)
+                  if isinstance(n, ast.FunctionDef) and n.name == "evaluate_stock")
+    reads = [n for n in ast.walk(fn_def)
+             if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+             and n.func.attr == "get" and isinstance(n.func.value, ast.Name)
+             and n.func.value.id == "_MIN_BARS"]
+    assert len(reads) == 2, f"expected both loops to read _MIN_BARS, found {len(reads)}"
+    assert all(isinstance(r.args[1], ast.Name) and r.args[1].id == "_MIN_BARS_DEFAULT"
+               for r in reads), "a loop stopped falling back to _MIN_BARS_DEFAULT"

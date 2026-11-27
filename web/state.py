@@ -444,22 +444,113 @@ def _heal_book_after_reconnect(p: Portfolio) -> None:
                         "has been restored from Mongo (local book was empty)."),
             })
         elif persisted:
-            if not any(row.get('action') == 'MONGO_RECOVERED_CONFLICT'
-                       for row in p.decision_journal[-100:]):
-                p.decision_journal.append({
-                "ts": _dt.utcnow().isoformat(),
-                "action": "MONGO_RECOVERED_CONFLICT",
-                "why": ("Mongo is back but this session already traded on a "
-                        "fresh book started during the outage. NOTHING was "
-                        "overwritten — owner must reconcile before saving."),
-                })
-            db.portfolio_write_failed('recovery book conflict; reconciliation required')
-            return
+            if not _resolve_book_conflict(p, persisted):
+                if not any(row.get('action') == 'MONGO_RECOVERED_CONFLICT'
+                           for row in p.decision_journal[-100:]):
+                    p.decision_journal.append({
+                    "ts": _dt.utcnow().isoformat(),
+                    "action": "MONGO_RECOVERED_CONFLICT",
+                    "why": ("Mongo is back but this session already traded on a "
+                            "fresh book started during the outage, and the two "
+                            "books could not be told apart or filed away. "
+                            "NOTHING was overwritten — owner must reconcile "
+                            "before saving."),
+                    })
+                db.portfolio_write_failed('recovery book conflict; reconciliation required')
+                return
     if p.save() is True:
         # Spill has its own independent retries; do not repeat hydration after
         # the recovered current book is acknowledged.
         db.claim_recovery()
     replay_journal_spill(p)
+
+
+def _book_activity_ts(journal) -> Optional[datetime]:
+    """The newest timestamp a book's own journal carries.
+
+    Every action this app takes journals a `ts`, so the newest one is when
+    that book last did something. Rows whose stamp cannot be read are
+    skipped rather than guessed at.
+    """
+    newest = None
+    for row in (journal or ()):
+        raw = row.get('ts') if isinstance(row, dict) else None
+        if not isinstance(raw, str):
+            continue
+        try:
+            when = datetime.fromisoformat(raw)
+        except ValueError:
+            continue
+        if newest is None or when > newest:
+            newest = when
+    return newest
+
+
+def _resolve_book_conflict(p: Portfolio, persisted: dict) -> bool:
+    """XR-070. Two books, one of them real — keep the newer, file both.
+
+    OWNER DECISION 2026-11-27, from an options card: "Keep the newer one, file
+    the other". Before this, a conflict refused every save for the life of the
+    process: nothing was overwritten (the journal line was true), but the book
+    the session was actually trading on never reached the database and died at
+    the next restart, and buying stayed blocked the whole time. That is what
+    the 26 Nov rollback felt like from the owner's side.
+
+    So: file BOTH books away verbatim, then keep whichever journalled an action
+    last and continue on it. One whole book is kept — the two are never merged,
+    because merging would have to invent a cash figure that two books both
+    spent, and would resurrect a sell as an open position.
+
+    Returns False — leaving the old refuse-and-journal path in charge — when
+    either book's age cannot be read (nothing to choose on) or either archive
+    write fails (never discard a book that could not be filed). A tie keeps the
+    durable copy: on equal evidence the database is the one that survives a
+    restart.
+    """
+    local_ts = _book_activity_ts(p.decision_journal)
+    stored_ts = _book_activity_ts(persisted.get('decision_journal'))
+    if local_ts is None or stored_ts is None:
+        return False
+    try:
+        local_doc = p.snapshot()
+    except Exception:
+        log.exception('Book conflict: the running book could not be read for the archive')
+        return False
+    stored_id = db.archive_portfolio_snapshot(persisted, 'conflict-database')
+    local_id = db.archive_portfolio_snapshot(local_doc, 'conflict-session')
+    if not stored_id or not local_id:
+        return False
+    keep_stored = stored_ts >= local_ts
+    n_local, n_stored = len(p.positions or {}), len(persisted.get('positions') or {})
+    if keep_stored:
+        _hydrate_portfolio_from_mongo(p, persisted)   # sets _durable_book_loaded
+    else:
+        # The durable book has now been read, filed and judged: this book is
+        # the reconciled one, so the save guard must let it through. Without
+        # this the session book would be refused for ever — the very fault
+        # XR-070 is about.
+        p._durable_book_loaded = True
+    note = (f"Two books met at a restart. Kept the "
+            f"{'database' if keep_stored else 'running session'} copy "
+            f"({(n_stored if keep_stored else n_local)} positions, last action "
+            f"{(stored_ts if keep_stored else local_ts).isoformat()}); filed the other "
+            f"({(n_local if keep_stored else n_stored)} positions, last action "
+            f"{(local_ts if keep_stored else stored_ts).isoformat()}) away unchanged.")
+    p.decision_journal.append({
+        "ts": datetime.utcnow().isoformat(),
+        "action": "MONGO_RECOVERED_CONFLICT_RESOLVED",
+        "why": note,
+        "kept": "database" if keep_stored else "session",
+        "database_archive_id": stored_id,
+        "session_archive_id": local_id,
+        "database_positions": n_stored,
+        "session_positions": n_local,
+        "database_last_action": stored_ts.isoformat(),
+        "session_last_action": local_ts.isoformat(),
+    })
+    db.note_book_conflict(note + f" Both copies are in portfolio_archive as "
+                                 f"{stored_id} and {local_id}.")
+    return True
 
 
 def _coerce_override(cfg, key: str, value):

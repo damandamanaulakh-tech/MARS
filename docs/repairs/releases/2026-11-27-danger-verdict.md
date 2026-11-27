@@ -229,3 +229,37 @@ the range is visible rather than implied.
   2026-09-16. It binds only where it is wider than the position's own stop.
 - The cluster-count half changes two display triggers. Their gates were never
   calibrated as gates, and the owner's own rule keeps them off the money path.
+
+## Follow-up, 2026-11-27 — the history gate reached only ten of the twelve
+
+An independent verification pass over this repair found one residual in it. The
+minimum-history gate that this repair introduced was applied to the ten price
+tripwires and **not** to the two panel-fed ones (`T12W_0094` sector contagion,
+`T12W_0095` index overlay), which run in a second loop against
+`ext.target_frame` rather than `x`. So a position with 60-69 stored bars could
+still have its stop tightened on a reading the registry marks not computable —
+the very thing the gate exists to prevent, on the two tripwires whose answers
+also feed Ocean's R4 buy veto.
+
+**Owner's choice, 2026-11-27, from an options card: 70 bars — the same bar as
+the other ten**, so the danger layer has ONE minimum rather than two. (The
+alternative offered was 30 bars, matching what `triggers.evaluate` uses for
+externals; it was declined.)
+
+`trading/danger.py` now computes `need` from the same `triggers._MIN_BARS` /
+`_MIN_BARS_DEFAULT` in both loops, against the frame each loop actually scores.
+
+Tests added to `trading/tests/test_danger_verdict_2026_11_27.py` (now 33 in the
+file, 46 across the four files): the pair abstains at 30, 60 and 69 bars and is
+recorded `unavailable` with the reason naming the bar; the gate opens again at
+80 bars; and a source pin asserts **both** loops read `_MIN_BARS` with the
+`_MIN_BARS_DEFAULT` fallback, so neither can drift to a different number.
+Verified by removing the new gate: 4 of the 5 new tests fail. The fifth
+(`test_the_gate_opens_once_the_history_is_long_enough`) passes with and without
+the gate by design — it guards against a future gate that is too tight, and
+says so in its own docstring rather than pretending to prove the repair.
+
+Still open and deliberately not in this change: **XR-060B** (the trailing leash
+floor narrows from 12% to 5% once a winner's stop rises above entry), and the
+record's own acceptance criterion — a journal line showing a DANGER action with
+its tripwire named, on a deployed revision.

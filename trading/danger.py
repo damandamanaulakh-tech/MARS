@@ -195,6 +195,18 @@ def evaluate_stock(df: pd.DataFrame, ext=None) -> list[str]:
             # OHLCV-only checks above retain their existing policy.
             target = getattr(ext, 'target_frame', None)
             ext_x = _Ctx(target) if target is not None else x
+            # The same minimum-history gate as the price loop above, against
+            # the frame these two actually score (ext.target_frame, which is
+            # not always `x`). Found by the XR-060 review: the gate the repair
+            # introduced was applied to the ten price tripwires and not to
+            # these two, so a name with 60-69 stored bars could still have its
+            # stop tightened on a reading the registry marks not computable.
+            # Owner's choice 2026-11-27: 70 bars, the same bar as the other
+            # ten, so the danger layer has ONE minimum rather than two.
+            need = _MIN_BARS.get(tid, _MIN_BARS_DEFAULT)
+            if ext_x.n < need:
+                observed(tid, None, f"Needs {need} bars, has {ext_x.n}")
+                continue
             verdict = _verdict(fn(ext_x, ext, {}, {}))
             evidence = getattr(ext, 'context', {})
             observed(tid, verdict, str(evidence.get('peer_reason' if tid == 'T12W_0094' else 'index_reason', '')))

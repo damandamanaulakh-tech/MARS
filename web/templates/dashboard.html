@@ -26,6 +26,18 @@
 <div data-db-save-pending="1" class="bg-amber-100 text-amber-950 px-4 py-4 mb-6">New buys are paused until the portfolio save is confirmed. Protective exits and save retries remain active. Status: {{ db_status.entry_block_reason }}.</div>
 {% endif %}
 
+{% if db_status and db_status.book_conflict %}
+{#- XR-070 (owner decision 2026-11-27, "keep the newer one, file the other").
+    A restart met two different books and the app kept one of them. The
+    journal holds the durable record and both copies are archived; this line
+    exists so the owner LEARNS it happened without downloading a CSV. -#}
+<div data-book-conflict="1" class="bg-amber-100 text-amber-950 px-4 py-4 mb-6">
+  <div class="font-bold">⚠️ Your book was reconciled after a restart</div>
+  <div class="text-sm mt-1">{{ db_status.book_conflict }}{% if db_status.book_conflict_at %} (recorded {{ db_status.book_conflict_at | ist }}){% endif %}</div>
+  <div class="text-sm mt-1">Nothing was thrown away — both copies are filed in the database under the ids above, and the full record is in the journal on <a class="underline" href="/reports">Reports</a>. Check Positions against what you expect before the next trading session.</div>
+</div>
+{% endif %}
+
 {% if upstox_notice %}
 <!-- 2026-09-24: the Upstox callback's outcome, finally shown. Before this the
      ?upstox_error=... it redirected with was read by nothing. -->
