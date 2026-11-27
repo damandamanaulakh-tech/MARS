@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, Optional
 
@@ -303,6 +304,49 @@ LAST_BOOK_CONFLICT: Optional[str] = None
 LAST_BOOK_CONFLICT_AT: Optional[str] = None
 
 
+#: NEW-03 (2026-11-27). MongoClient is built with serverSelectionTimeoutMS and
+#: connectTimeoutMS only, which bound FINDING a server and OPENING a socket.
+#: Nothing bounded a read or a write: pymongo computes socket_timeout None, so a
+#: server that accepted a request and then stopped answering was waited on for
+#: ever. That is not theoretical — it is the state the cluster was in on 26 Nov
+#: when its plan changed. The damage is that the exit pass saves the book while
+#: holding BOTH the mode lock and the book lock, so one stalled request leaves
+#: every stop and every target unchecked until the process restarts, while the
+#: scheduler logs "rotation running - its own exit pass covers this slot". The
+#: owner's own SELL button blocks on the same book lock.
+#:
+#: OWNER DECISION 2026-11-27, from an options card: bound the BOOK-SAVE AND SCAN
+#: paths only, not the whole client. So the calls that run while a lock is held
+#: get a per-operation limit and the heavy unlocked reads (the /healthz
+#: statistics pass, the journal CSV export) keep their old behaviour, because a
+#: limit there could pause buying on a merely slow day for no safety gain.
+#:
+#: 20 s is wide on purpose: the slowest single call measured against the live
+#: cluster is on the order of half a second (the 13.04 s statistics figure is
+#: ~25-30 round trips, not one). A pymongo NetworkTimeout IS a ConnectionFailure,
+#: so a breach lands in _is_link_error -> note_link_failure, which drops the
+#: client; is_connected() rebuilds it within 60 s and the heal pass saves the
+#: book. The recovery machinery already exists; until now there was no failure
+#: for it to act on, only a wait.
+LOCKED_PATH_TIMEOUT_S = 20.0
+
+
+@contextmanager
+def bounded(label: str = ""):
+    """Bound a database call that runs while the engine holds a lock.
+
+    Exceptions are NOT swallowed: each call site already has a handler that
+    records the failure, and a timeout must be reported, never hidden.
+    """
+    try:
+        from pymongo import timeout as _pymongo_timeout
+    except ImportError:                                  # pragma: no cover
+        yield
+        return
+    with _pymongo_timeout(LOCKED_PATH_TIMEOUT_S):
+        yield
+
+
 def portfolio_write_failed(reason: str) -> None:
     """A ping, auxiliary write or restart never acknowledges the current book."""
     global LAST_WRITE_ERROR, LAST_WRITE_ERROR_AT
@@ -331,7 +375,8 @@ def closed_history_policy() -> dict:
         raise RuntimeError('closed_history_policy_unavailable')
     from trading.history_retention import approved_ids
     try:
-        row = _DB.settings.find_one({'_id': 'closed_history_retention'}) or {}
+        with bounded('closed-history policy read'):
+            row = _DB.settings.find_one({'_id': 'closed_history_retention'}) or {}
     except Exception as exc:
         note_link_failure(exc, "closed-history policy read")
         raise
@@ -413,7 +458,8 @@ def save_portfolio(doc: dict, doc_id: str = "default") -> bool:
         if policy:
             doc = {**doc, 'closed_history_policy': policy,
                    'trades': retain(doc.get('trades', []), policy)}
-        result = _DB.portfolio.replace_one({"_id": doc_id}, {**doc, "_id": doc_id}, upsert=True)
+        with bounded('portfolio save'):
+            result = _DB.portfolio.replace_one({"_id": doc_id}, {**doc, "_id": doc_id}, upsert=True)
         if result.acknowledged is not True:
             raise RuntimeError("portfolio write not acknowledged")
         if doc_id == "default":
@@ -463,9 +509,11 @@ def archive_portfolio_snapshot(doc: dict, label: str) -> Optional[str]:
         return None
     snap_id = f"{label}-{datetime.utcnow().strftime('%Y%m%dT%H%M%S.%f')}"
     try:
-        result = _DB.portfolio_archive.replace_one(
-            {"_id": snap_id}, {**doc, "_id": snap_id, "archived_at": datetime.utcnow().isoformat(),
-                               "archive_label": label}, upsert=True)
+        with bounded('portfolio archive'):
+            result = _DB.portfolio_archive.replace_one(
+                {"_id": snap_id}, {**doc, "_id": snap_id,
+                                   "archived_at": datetime.utcnow().isoformat(),
+                                   "archive_label": label}, upsert=True)
         if result.acknowledged is not True:
             return None
         return snap_id
@@ -515,7 +563,8 @@ def archive_trades(trade_docs: list) -> bool:
                          {"$setOnInsert": {**dict(d), "_id": _trade_key(d)}},
                          upsert=True)
                for d in trade_docs]
-        _DB.trades.bulk_write(ops, ordered=False)
+        with bounded('closed-trade archive'):
+            _DB.trades.bulk_write(ops, ordered=False)
         return True
     except Exception as e:
         log.warning("Mongo archive_trades failed: %s", e)
@@ -1201,7 +1250,9 @@ def history_docs(tickers, rows: int = 0) -> dict:
         # AUDIT M-9 (2026-10-02): filter on `_id`, which Mongo always
         # indexes, not on the unindexed `ticker` field (a collection scan).
         # Every writer stores _id == ticker (history_store builds the doc).
-        for doc in _DB.ohlcv.find({"_id": {"$in": names}}, proj):
+        with bounded('scan history read'):
+            docs = list(_DB.ohlcv.find({"_id": {"$in": names}}, proj))
+        for doc in docs:
             t = doc.get("ticker") or doc.get("_id")
             if t:
                 out[t] = doc
@@ -1235,7 +1286,8 @@ def archive_journal(entries: list) -> bool:
         return False
     try:
         from .journal_storage import append
-        return append(_DB.journal_archive, entries)
+        with bounded('journal archive append'):
+            return append(_DB.journal_archive, entries)
     except Exception as e:
         log.warning("Mongo archive_journal failed: %s", e)
         return False

@@ -3275,7 +3275,20 @@ def _session_refresh() -> None:
             state.engine().refresh()
             _mark_exit_pass()
     except ModeBusy:
-        log.info("[session] rotation running — its own exit pass covers this slot")
+        # NEW-03: this used to assert a rotation was running and that its own
+        # exit pass covered the slot. When the holder is a stalled database
+        # call rather than a rotation, both halves are false and the log was
+        # the reason the freeze looked like nothing at all. The rotation runs
+        # an exit pass before each category (_LAST_EXIT_PASS), so when it IS
+        # the holder the slot really is covered — say which case this is
+        # instead of assuming the good one.
+        if _ROTATION_LOCK.locked():
+            log.info("[session] rotation running — its own exit pass covers this slot")
+        else:
+            log.warning("[session] EXIT PASS SKIPPED: the mode lock is held by "
+                        "something that is not a rotation after %ss — stops and "
+                        "targets were NOT checked this slot",
+                        SESSION_EXIT_LOCK_WAIT_S)
     except Exception as e:
         log.exception("session refresh failed: %s", e)
     _check_pending_orders("session")
