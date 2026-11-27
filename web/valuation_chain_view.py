@@ -2238,6 +2238,10 @@ def formulas_section(flag: Optional[str] = None, error: str = "",
             "n_editable": len(rows), "n_edited": len(eff), "n_stored": len(values),
             "no_effect_keys": sorted(k for k in values if k not in eff),
             "n_no_effect_rows": sum(1 for r in rows if r.get("no_effect")),
+            # OWNER DECISION 2026-11-27 ("move them out of the way"): Part A
+            # shows only the numbers that change a result on this render; the
+            # inert ones keep their own section so the count stays honest.
+            "n_effective_rows": sum(1 for r in rows if not r.get("no_effect")),
             "terms": terms, "routes": routes, "chain_cells": cells,
             "chain_cols": chain_cols, "live": dict(live or {}),
             "family_rules": family_rules(), "stage_rules": STAGE_RULES}

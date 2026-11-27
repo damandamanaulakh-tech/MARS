@@ -299,7 +299,7 @@ def measure(trades: Iterable[Any], fraction: float = 0.29,
             status="NO_POSITIVE_EDGE", sample_state="ALL_LOSS", **base,
             raw_win_rate=0.0, confidence=min(1.0, n / float(max(1, full_confidence))),
             fraction=0.0, max_position_pct=0.0, block_new_entries=True,
-            note=f"{len(losses)} net losses and no net wins in {n} usable exits. No measured positive edge; new entries blocked in the configured category. Payoff and Kelly ratio unavailable, not fabricated.")
+            note=f"{len(losses)} net losses and no net wins in {n} usable exits. No measured positive edge in the configured category. Payoff and Kelly ratio unavailable, not fabricated.")
 
     if not losses:
         return KellyReading(
@@ -328,7 +328,8 @@ def measure(trades: Iterable[Any], fraction: float = 0.29,
             max_position_pct=0.0, block_new_entries=True, **base,
             note=(f"Measured on {n} real exits: win rate {raw_wr*100:.0f}%, "
                   f"payoff {b:.2f}. Kelly is {f:+.3f} — the book has NO "
-                  f"measured edge after costs, so new entries are blocked."),
+                  f"measured edge after costs. What the engine does about "
+                  f"that is the owner's switch, not this measurement."),
         )
 
     return KellyReading(

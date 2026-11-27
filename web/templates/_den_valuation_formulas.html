@@ -32,12 +32,14 @@
 
     <!-- A. editable assumptions -->
     <form method="post" action="/den/valuation/assumptions" class="p-4 border-b border-line"><!-- den_formulas_form_marker -->
-      <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2">A · Assumed numbers — editable ({{ fml.n_editable }})</div>
+      <div class="text-[10px] tracking-widest text-ink-faint uppercase mb-2" data-den-formulas-live-count>A · Assumed numbers that change a result — editable ({{ fml.n_effective_rows }} of {{ fml.n_editable }})</div>
       {% for gkey, glabel in fml.groups %}
+      {% set grows = fml.rows | rejectattr('no_effect') | selectattr('group', 'equalto', gkey) | list %}
+      {% if grows %}
       <div class="mt-3">
         <div class="text-xs font-semibold mb-1">{{ glabel }}</div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1">
-          {% for r in fml.rows if r.group == gkey %}
+          {% for r in grows %}
           {% set live_edit = r.edited and not r.no_effect %}
           <label class="flex items-center justify-between gap-2 border-b border-line/60 py-1 text-xs {% if live_edit %}bg-amber-50{% endif %}" title="{{ r.source }}" {% if r.no_effect %}data-den-formulas-no-effect="{{ r.key }}"{% endif %}>
             <span class="min-w-0"><span class="{% if live_edit %}font-semibold text-amber-800{% endif %}">{{ r.label }}</span>{% if r.cell %} <span class="text-ink-faint">{{ r.cell }}</span>{% endif %}<span class="block text-ink-faint">default {{ r.default }}{% if r.edited %} · <strong class="{% if live_edit %}text-amber-800{% endif %}">draft {{ r.value }}</strong>{% endif %}</span>
@@ -48,7 +50,26 @@
           {% endfor %}
         </div>
       </div>
+      {% endif %}
       {% endfor %}
+
+      {% set dead = fml.rows | selectattr('no_effect') | list %}
+      {% if dead %}
+      <details class="mt-5 border-t border-line pt-3" data-den-formulas-inert="den_formulas_inert_marker">
+        <summary class="text-xs font-semibold cursor-pointer">{{ dead | length }} more numbers that change nothing today — still editable</summary>
+        <p class="mt-2 text-xs text-ink-soft">Owner decision 2026-11-27: these were in the list above and moved out of the way. Each one multiplies an input the app does not hold — your own sheet typed those per company — so typing a value here changes no target, range, case or verdict. Nothing has been taken away: a row returns to the list above by itself the moment its input is fed, and a value typed here is still stored.</p>
+        <div class="mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1">
+          {% for r in dead %}
+          <label class="flex items-center justify-between gap-2 border-b border-line/60 py-1 text-xs opacity-70" title="{{ r.source }}" data-den-formulas-no-effect="{{ r.key }}">
+            <span class="min-w-0"><span>{{ r.label }}</span>{% if r.cell %} <span class="text-ink-faint">{{ r.cell }}</span>{% endif %}<span class="block text-ink-faint">default {{ r.default }}{% if r.edited %} · <strong>draft {{ r.value }}</strong>{% endif %}</span>
+              <span class="block text-ink-faint italic"><!-- den_formulas_no_effect_marker -->no effect yet — {{ r.no_effect }}</span></span>
+            <input name="{{ r.key }}" value="{% if r.edited %}{{ r.value }}{% endif %}" placeholder="{{ r.default }}" inputmode="decimal" {% if not is_owner %}disabled{% endif %}
+                   class="w-24 text-right border-b border-line focus:border-ink outline-none py-0.5 text-xs tabular-nums bg-transparent">
+          </label>
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
       <div class="mt-4 flex flex-wrap gap-3 items-center">
         {% if is_owner %}
         <button type="submit" class="px-4 py-2 bg-ink text-white text-xs font-semibold tracking-wide hover:bg-black">STORE DRAFT &rarr; re-read §12</button>

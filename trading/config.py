@@ -199,9 +199,18 @@ class Config:
     # is a ceiling that can only cut, so a bad estimate shrinks the book and
     # can never blow it up. See trading/measured_kelly.py.
     # AUDIT F-9 (owner: "F9- write it", 2026-10-02): WIRED — until then this
-    # switch was on and nothing called the estimator. engine.scan reads it:
-    # no measured edge blocks new scan entries, a measured edge caps size.
+    # switch was on and nothing called the estimator. engine.scan reads it.
     measured_kelly_enabled: bool = True
+    # OWNER DECISION 2026-11-27, from an options card, after reading the live
+    # reading on their own Risk page: "Cap only, never block" — "the check
+    # shrinks position size when the edge is weak but never refuses a buy
+    # outright". The veto had switched the momentum engine OFF on a sample of
+    # NINE closed trades (win rate 11%, payoff 0.27, Kelly -1.645) while the
+    # confidence ramp needs 300 to carry full weight, so the book could not
+    # earn the record that would have cleared it. With this False a no-edge
+    # reading caps every new scan entry at the minimum ticket instead of
+    # refusing it; True restores the 2026-10-02 veto.
+    measured_kelly_block_enabled: bool = False
     # Owner order 2026-09-10: "no cap on closed trades, i have already more
     # than 100 in that". The count gate is off; what remains is the REASON
     # filter, which is not negotiable arithmetic — an OWNER_SELL or a stale

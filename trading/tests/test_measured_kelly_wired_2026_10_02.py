@@ -56,7 +56,13 @@ def _buys(e):
 
 
 def test_no_measured_edge_blocks_every_scan_entry(tmp_path, monkeypatch):
+    """SUPERSEDED DEFAULT 2026-11-27: the owner chose "cap only, never block",
+    so the veto is now opt-in (cfg.measured_kelly_block_enabled, default
+    False). The veto behaviour itself is unchanged and still pinned here —
+    the switch is set on so this keeps testing what it was written to test.
+    Cap-only is covered by test_measured_kelly_cap_only_2026_11_27.py."""
     e = _fresh(tmp_path, monkeypatch, _no_edge())
+    e.cfg.measured_kelly_block_enabled = True
     e.scan()
     assert "UPP.NS" not in e.portfolio.positions
     reasons = {s["ticker"]: s["reason"] for s in e.portfolio.last_scan_skipped}
@@ -123,9 +129,14 @@ def test_a_broken_estimator_never_stops_buying(tmp_path, monkeypatch):
 
 def test_rotation_never_sells_for_a_blocked_pick(tmp_path, monkeypatch):
     """The near-target holding must not be sold to fund a pick the check
-    refused (the S-4 rule: rotation only funds cleared picks)."""
+    refused (the S-4 rule: rotation only funds cleared picks).
+
+    The veto is opt-in since the owner's 2026-11-27 "cap only" decision, so
+    it is switched on here: with cap-only there is no refused pick to guard
+    against, and the S-4 rule this pins still has to hold when it is on."""
     e = _scan_engine(tmp_path, monkeypatch, event=None)
     e.portfolio.trades = _no_edge()
+    e.cfg.measured_kelly_block_enabled = True
     e.scan()
     assert "OLD.NS" in e.portfolio.positions
     assert not [t for t in e.portfolio.trades if t.reason == "ROTATION_EXIT"]

@@ -144,6 +144,7 @@ def risk_view(request: Request):
             "mk": mk,
             "mk_cap": mk_cap,
             "mk_on": bool(getattr(cfg, "measured_kelly_enabled", False)),
+            "mk_vetoes": bool(getattr(cfg, "measured_kelly_block_enabled", False)),
             "mk_modes": mk_modes,
             "budgets": budgets,
             "budget_total": budget_total,
